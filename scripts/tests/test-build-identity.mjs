@@ -60,6 +60,17 @@ test('live alias propagation retries mismatched identities and succeeds only on 
   assert.ok(urls.every(url=>new URL(url).pathname==='/build-info.json'&&new URL(url).searchParams.has('identity')));
 });
 
+test('Preview identity requires an explicit staging contract without weakening production checks', async () => {
+  const preview = { ...expected, deploymentRole: 'staging' };
+  assert.throws(() => validateBuildIdentity(preview, preview), /Invalid expected/);
+  assert.equal(validateBuildIdentity(preview, preview, { role: 'staging' }), preview);
+  assert.throws(() => validateBuildIdentity(expected, preview, { role: 'staging' }), /deploymentRole/);
+  const replies = [expected, { ...preview, commit: 'c'.repeat(40) }, preview];
+  assert.equal(await waitForBuildIdentity('https://preview.arkpedia.net', preview, {
+    role: 'staging', attempts: 3, delayMs: 0, read: async () => replies.shift(), wait: async () => {},
+  }), preview);
+});
+
 test('HTTP 200 with dirty/wrong identities or unavailable reads cannot approve a live release', async () => {
   for (const read of [async()=>({...expected,dirty:true}),async()=>({...expected,codeFingerprint:'c'.repeat(64)}),async()=>{throw new Error('PRIVATE-RESPONSE');}]) {
     let waits=0;

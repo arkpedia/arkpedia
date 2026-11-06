@@ -3,7 +3,23 @@ import { mkdtempSync, readFileSync, writeFileSync, unlinkSync, rmdirSync } from 
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
+import yaml from 'js-yaml';
 import { readPilotBuild, readPilotConfig, pilotBuildEnvironment } from '../deploy/cloudflare-pilot.mjs';
+
+test('ready PRs check the real production Worker before merge without publication permissions', () => {
+  const workflow = yaml.load(readFileSync('.github/workflows/check.yml', 'utf8'));
+  const job = workflow.jobs['production-build'];
+  assert.equal(job.needs, 'seen');
+  assert.equal(job['runs-on'], 'ubuntu-latest', 'premerge builds cannot take the deploy-only NAS runner');
+  assert.equal(job.if, workflow.jobs.check.if, 'same exact-tree reuse and draft rules as application checks');
+  assert.deepEqual(job.permissions, { contents: 'read' });
+  assert.equal(job.steps.find(step => step.run === 'npm run cf:build')?.env.NODE_OPTIONS, '--max-old-space-size=4096');
+  assert.ok(job.steps.some(step => step.run === 'node scripts/content/pull-data.mjs'));
+  const serialized = JSON.stringify(job);
+  assert.doesNotMatch(serialized, /secrets\.|CLOUDFLARE_API_TOKEN|wrangler deploy|migrations apply/);
+  const temp = job.steps.findIndex(step => step.name === 'Use disk-backed temporary storage');
+  assert.ok(temp >= 0 && temp < job.steps.findIndex(step => step.run === 'npm ci'));
+});
 
 function fixture(t, value) {
   const directory = mkdtempSync(join(tmpdir(), 'arkpedia-pilot-test-'));

@@ -1,10 +1,37 @@
 import test from 'node:test';
 import { verifyPreviewRecovery } from '../deploy/preview-account-recovery.mjs';
 import { protectPreviewRequest } from '../deploy/preview-security.mjs';
+import { requestPreview } from '../deploy/request-preview.mjs';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
 const config = JSON.parse(readFileSync('wrangler.preview.jsonc', 'utf8').replace(/^\/\/.*$/gm, ''));
+
+test('Preview requests resolve a short ref and dispatch only an existing full source SHA', () => {
+  const source = 'a'.repeat(40), calls = [];
+  const options = {
+    changes: () => [],
+    git: args => args[0] === 'remote' ? 'git@github.com:arkpedia/arkpedia.git' : source,
+    gh: args => { calls.push(args); return args[0] === 'api' ? JSON.stringify({ sha: source }) : ''; },
+  };
+  assert.deepEqual(requestPreview('aaaaaaa', options), { source, url: 'https://preview.arkpedia.net', workflow: 'cloudflare-preview.yml' });
+  assert.equal(calls[1].at(-1), `source=${source}`);
+  assert.throws(() => requestPreview('HEAD', { ...options, changes: () => ['lib/edited.ts'] }), /Commit/);
+  assert.throws(() => requestPreview('HEAD', { ...options, gh: () => JSON.stringify({ sha: 'b'.repeat(40) }) }), /Push/);
+  assert.throws(() => requestPreview('HEAD', { ...options, gh: () => { throw new Error('HTTP 404'); } }), /push it and check GitHub access/);
+  assert.throws(() => requestPreview('HEAD', { ...options, git: () => 'https://github.com/other/repo' }), /canonical/);
+  assert.throws(() => requestPreview('--help', options), /source commit/);
+  assert.equal(calls.length, 2, 'invalid requests never reach dispatch');
+});
+
+test('Preview publication verifies the served source through the public domain before success', () => {
+  const workflow = readFileSync('.github/workflows/cloudflare-preview.yml', 'utf8');
+  const publish = workflow.indexOf('- name: Publish the native Preview only');
+  const verify = workflow.indexOf('- name: Verify the served Preview source');
+  assert.ok(publish >= 0 && verify > publish);
+  assert.match(workflow.slice(verify), /node scripts\/deploy\/check-build-identity\.mjs preview/);
+  assert.doesNotMatch(workflow.slice(verify), /continue-on-error|CLOUDFLARE_API_TOKEN/);
+});
 test('native Preview binds its own account database, cache and queue without production services', () => {
   assert.equal(config.name, 'arkpedia');
   assert.equal(config.previews.vars.ARKPEDIA_DEPLOYMENT_ROLE, 'staging');

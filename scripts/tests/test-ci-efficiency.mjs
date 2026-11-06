@@ -140,7 +140,7 @@ test('only fresh hosted runners restore npm archives; every profile has one lock
     const ownsInstall = step => name === 'deploy' ? step.name === 'Build' && step.run?.includes('vercel@') && step.run.includes(' build ') : step.run === 'npm ci';
     const installers = jobs.filter(job => job.steps?.some(ownsInstall));
     const cached = jobs.flatMap(job => job.steps ?? []).filter(step => step.uses === 'actions/setup-node@v7' && step.with?.cache);
-    assert.equal(installers.length, name === 'check' ? 2 : 1, name);
+    assert.equal(installers.length, name === 'check' ? 3 : 1, name);
     assert.equal(cached.length, installers.length, 'only clean-install jobs configure the npm cache');
     for (const job of installers) {
       assert.equal(job.steps.filter(ownsInstall).length, 1, 'one dependency install owner per selected job');

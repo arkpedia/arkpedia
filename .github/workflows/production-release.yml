@@ -55,6 +55,8 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: node scripts/deploy/pilot-release-gate.mjs "$RELEASE_CHECK" "$RELEASE_SOURCE"
+      - name: Use disk-backed temporary storage
+        run: echo "TMPDIR=$RUNNER_TEMP" >> "$GITHUB_ENV"
       - name: Install pinned dependencies without deployment credentials
         run: npm ci
       # Game records live in arkpedia-data; this repository keeps code only. The live release's

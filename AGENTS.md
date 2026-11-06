@@ -36,6 +36,18 @@ database over newer writes. Use the checked-main release owner and verify the
 actual deployed journey. Vercel hosting and rollback were retired on 2026-10-27.
 The retired `arkpedia-cf.mocchibird.com` hostname is not a release or reader target.
 
+## Release execution
+
+Follow `docs/development/release-execution.md` for release handoffs. Freeze and validate
+one source commit before requesting CI/Preview. Use `npm run release:preview -- HEAD`
+to resolve and submit its full SHA; review only `https://preview.arkpedia.net` after
+its served identity matches. Use `gh run watch RUN_ID --exit-status` for an active
+run instead of manual sleep/status loops. Inspect a concrete failure before retrying;
+preserve passing evidence for unchanged source. After checks and Preview acceptance
+pass, merge promptly, then follow the existing automatic production owner. Once
+production passes, run `npm run release:status`, replay the affected deployed journey
+and finish. Keep unrelated investigations out of the release's critical path.
+
 <!-- BEGIN:nextjs-agent-rules -->
 
 ## This is NOT the Next.js you know

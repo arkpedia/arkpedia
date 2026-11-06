@@ -1,5 +1,9 @@
 # Checked-main releases to production
 
+For routine releases, follow [release execution](release-execution.md). Check now
+compiles the real production Worker with live data before merge, including its bundle
+budget. The existing checked-main workflow remains the sole production owner.
+
 Renamed 2026-10-29: the workflow is `production-release.yml` ("Release production"; it was
 `cloudflare-pilot-release.yml`, "Release Cloudflare pilot"), its switch is the repository variable
 `ARKPEDIA_PRODUCTION_RELEASES_ENABLED` (was `ARKPEDIA_PILOT_RELEASES_ENABLED`), and its deploy token
@@ -90,7 +94,11 @@ Health verifies public identity, five noindex pages and configured account APIs.
 Better Auth's session response uses `no-store`; Arkpedia's saved-data APIs also
 require `private`. Unbound staging tests do not prove real OAuth/D1 acceptance.
 
-## First controlled release
+## Historical initial activation
+
+These initial migration steps are historical evidence, not the routine release
+procedure. Current deployment authorization and the release execution instructions
+above govern routine releases; Vercel was subsequently retired.
 
 1. Finish the main-based hosting PR's exact CI and isolated preview acceptance.
    Preserve the original pilot version/build identity and the accounts owner's

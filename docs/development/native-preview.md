@@ -4,11 +4,16 @@ Current retirement decision: [Vercel retirement and Cloudflare recovery](vercel-
 supersedes the historical Vercel-retention instructions below.
 
 The native Cloudflare Preview reviews UI changes before checked-main production
-releases. Google/Discord sign-in, Arkpedia profiles and cloud saves remain exclusive
-to Preview; production keeps local profile pictures, game imports and browser data.
+releases. Google/Discord sign-in, Arkpedia profiles and cloud saves use separate
+Preview and production storage. The base optimizer remains Preview-only.
 Its Worker Preview is named `arkpedia` under the existing `arkpedia` Worker. Publish
 with the manual Build and publish Cloudflare Preview workflow using an immutable
 full source SHA. This does not change production traffic.
+
+Use `npm run release:preview -- HEAD` after committing and pushing the review source.
+It resolves the immutable SHA before dispatch. Publication succeeds only after the
+public Preview serves that exact clean build. Follow the handoffs in
+[release execution](release-execution.md).
 
 `wrangler.preview.jsonc` is exclusively for `wrangler preview`; never deploy it
 with `wrangler deploy`. It binds `arkpedia-preview-cache`, an automatically
@@ -79,8 +84,6 @@ removed. Live release validation uses shared provider utilities instead of
 importing the retired staging adapter. Keep unreleased source on the redesign
 branch when pruning superseded branches.
 
-On 2026-10-26, PR #794 disabled production accounts at the server boundary and
-retired the `arkpedia-cf.mocchibird.com` custom domain and edge route. The
-application Worker remains `arkpedia`, serving canonical `www.arkpedia.net`.
-Vercel remains online as a rollback target, including its `.well-known` route
-exception. Historical release-recovery origins do not represent active domains.
+The application Worker is `arkpedia`, serving canonical `www.arkpedia.net`.
+The old `arkpedia-cf.mocchibird.com` hostname and Vercel hosting/rollback role are
+retired. Historical release-recovery origins do not represent active domains.
