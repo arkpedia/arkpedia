@@ -22,7 +22,7 @@ import { ownedBaseRoster } from '../../lib/base/optimizerRoster';
 import { profileFromData, accountFromKrooster } from '../../lib/account-import/krooster';
 import { optimizeAccountBase } from '../../lib/base/accountOptimizer';
 import { calculateBase } from '../../lib/base/calculateBase';
-import { decode, evaluate, genomeFromResult, hasWorkingCollision, scoreOf, type GenomeContext } from '../../lib/base/planGenome';
+import { evaluate, genomeFromResult, hasWorkingCollision, scoreOf, type GenomeContext } from '../../lib/base/planGenome';
 import { anneal } from '../../lib/base/annealBase';
 import { rotationMix } from './staffingMip';
 import type { BaseAssignments, FactoryProducts } from '../../lib/base/baseTypes';
