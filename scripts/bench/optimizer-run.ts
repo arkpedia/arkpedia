@@ -5,6 +5,8 @@
  *
  *   npx tsx scripts/bench/optimizer-run.ts <account> <rounds> <out.json> [--without Name,Name] [--interval 12] [--seeds yes|no|only] [--lns off|move] [--start 0] [--seconds 300] [--walks seats,noseats,seats:move:0.5]
  *
+ * `--lns` sets the re-solve in both default walks; `--walks` sets it per walk and wins when both are given.
+ *
  * `account` is `fixture` (tests/fixtures/base-account.json), `sheet252` or `sheet342` (the maxed catalogue roster the
  * reference sheets staff), or a saved Krooster profile (tests/fixtures/krooster/<user>.json, or a lookup page).
  * `rounds` is the anneal's round budget per layout (`annealRounds`): the cooling runs over rounds, so the walk is a
@@ -43,7 +45,10 @@ const startArg = flag('--start');
 const secondsArg = flag('--seconds');
 // Walks as `seats|noseats[:lns][:share]`, comma separated, in order; default is the search's own pair.
 const walksArg = flag('--walks');
-const walks = walksArg?.split(',').map(w => { const [seats, lns, share] = w.split(':'); return { countSeats: seats === 'seats', ...(lns ? { lns: lns as 'off' | 'move' } : {}), ...(share ? { share: Number(share) } : {}) }; });
+const walks = walksArg?.split(',').map(w => { const [seats, lns, share] = w.split(':'); return { countSeats: seats === 'seats', ...(lns ? { lns: lns as 'off' | 'move' } : {}), ...(share ? { share: Number(share) } : {}) }; })
+  // `--lns` is the shorthand for the default pair with the re-solve on or off in both walks, the form the
+  // 2026-11-05 baselines were run with. `--walks` sets it per walk instead.
+  ?? (lns ? [{ countSeats: true, lns }, { countSeats: false, lns }] : undefined);
 
 const operators: BaseOperator[] = getAllOperators().filter(op => !/^Amiya \(/.test(op.name) && !op.isFuture).map(op => ({ name: op.name, rarity: op.rarity, faction: op.faction, class: op.class, branch: op.branch, baseSkills: op.baseSkills, ...(op.aliases?.length ? { aliases: op.aliases } : {}) }));
 const known = new Set(operators.map(o => o.name));
@@ -72,9 +77,9 @@ const seeds = seedsMode === 'no' ? [] : optimizerLayouts(undefined, true).flatMa
 }));
 const seedSeconds = (Date.now() - started) / 1000;
 const t = Date.now();
-const r = seedsMode === 'only' ? { recommendations: [], searched: 0, rejected: 0 } : optimizeAccountBase({ base, roster, snapshot: undefined, loginInterval, objective: 'balanced', externalGold: 0, compareLayouts: true, searchSeconds: secondsArg ? Number(secondsArg) : 600, ...(secondsArg ? {} : { annealRounds: rounds }), ...(lns ? { lns } : {}), ...(startArg ? { start: Number(startArg) } : {}), ...(walks ? { walks } : {}) });
+const r = seedsMode === 'only' ? { recommendations: [], searched: 0, rejected: 0 } : optimizeAccountBase({ base, roster, snapshot: undefined, loginInterval, objective: 'balanced', externalGold: 0, compareLayouts: true, searchSeconds: secondsArg ? Number(secondsArg) : 600, ...(secondsArg ? {} : { annealRounds: rounds }), ...(startArg ? { start: Number(startArg) } : {}), ...(walks ? { walks } : {}) });
 const result = {
-  account, rounds, loginInterval, without: [...without].sort(), ...(lns ? { lns } : {}), ...(startArg ? { start: Number(startArg) } : {}), ...(walks ? { walks } : {}), rosterSize: Object.keys(roster).length,
+  account, rounds, loginInterval, without: [...without].sort(), ...(startArg ? { start: Number(startArg) } : {}), ...(walks ? { walks } : {}), rosterSize: Object.keys(roster).length,
   seeds, seedSeconds,
   recommendations: r.recommendations.map(x => ({ id: x.id, label: x.label, score: x.score, lmd: x.output.lmd, exp: x.output.exp, goldMade: x.output.goldMade, products: x.products, shifts: staffing(x.plan), notes: x.plan.notes })),
   searched: r.searched, rejected: r.rejected, searchSeconds: (Date.now() - t) / 1000,

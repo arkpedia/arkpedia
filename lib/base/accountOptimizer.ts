@@ -51,8 +51,11 @@ export interface LayoutRecommendation extends LayoutOption {
 export interface AccountOptimizerResult { recommendations: LayoutRecommendation[]; searched: number; rejected: number }
 
 export type OptimizerWalk = { countSeats: boolean; lns?: 'off' | 'move'; share?: number };
-/** One walk free to seat count raisers in the Reception Room and Office, one held to the operators skilled there. */
-const DEFAULT_WALKS: readonly OptimizerWalk[] = [{ countSeats: true }, { countSeats: false }];
+/** One walk free to seat count raisers in the Reception Room and Office, one held to the operators skilled there.
+ *  Both run the room re-solve (`lns`), which measured +0.30% over the 21 rosters at the page's 5 minutes. Neither
+ *  takes a `share`: splitting the slot was measured at the same budget and lost (0.5/0.5 −0.58%, 0.7/0.3 −0.25%),
+ *  so the second walk still gets only what the first leaves. */
+const DEFAULT_WALKS: readonly OptimizerWalk[] = [{ countSeats: true, lns: 'move' }, { countSeats: false, lns: 'move' }];
 
 /** Automatic recommendations focus on 252: two Trading Posts, five Factories and two Power Plants.
  * Any valid imported layout can still be optimized on its own. */
@@ -118,9 +121,9 @@ export function productOptions(layout: LayoutOption): FactoryProducts[] {
  * spent -- every layout gets at least one. With `formations` (a second search the page runs beside this one),
  * only the first split per layout, then the leader is built again with formations. Anneal: the best one or two layouts
  * are improved by simulated annealing over the plan genome (lib/base/annealBase.ts), which also tries other
- * factory products, in two walks (with and without count-raiser seats in the Reception Room and Office). The
- * annealed plan never scores below its seed. `progress` receives the best result so far whenever it improves,
- * so a stopped search still has one to show.
+ * factory products, in two walks (with and without count-raiser seats in the Reception Room and Office), with the
+ * room re-solve on in both. The annealed plan never scores below its seed. `progress` receives the best result so
+ * far whenever it improves, so a stopped search still has one to show.
  */
 export function optimizeAccountBase(input: AccountOptimizerInput, progress?: (done: number, total: number, label: string, best?: AccountOptimizerResult) => void): AccountOptimizerResult {
   const roster = Object.fromEntries(Object.entries(input.roster).filter(([name]) => name !== input.base.trainingTarget?.operatorName));
@@ -236,6 +239,11 @@ export function optimizeAccountBase(input: AccountOptimizerInput, progress?: (do
     // whole (2015 rounds of 173 s on one 324-operator roster) and the second gets 3 s, or never starts; the
     // narrower walk the round bench says wins on 8 of 21 rosters barely runs in production. Measured 2026-11-06,
     // and the gap between the two budgets is the bench's, not the search's: see base-optimizer-research.md.
+    //
+    // Giving the second walk a share was measured at that budget over all 21 rosters, the re-solve off in both so
+    // the split was the only change: 0.5/0.5 scored −0.58% in the mean (4 up, 16 down), 0.7/0.3 −0.25% (8 up,
+    // 13 down). No split beat the single long walk, so the default keeps no share; 0.7 is less bad only because
+    // the wider walk gets more of the time back, not because the second walk pays for it.
     for (const walk of walks) {
       const { countSeats } = walk;
       // A walk with a share of its own is held to it, so a later walk still has a slot to run in; one without takes

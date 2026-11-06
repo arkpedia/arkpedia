@@ -76,9 +76,16 @@ throughout:
    round bench has winning on 8 of 21 rosters, hardly runs in the product, and the figures
    above are a 60-round bench's. They do not carry to the clock: the same comparison run at
    both budgets reorders the rosters almost completely (`base-optimizer-research.md`).
-   Reach for `walks` to measure it, and give a walk that has to run a `share` of its own.
 
-   `walks` also sets each walk's `lns` (the re-solve of `annealBase.ts`, off by default).
+   Giving the second walk a share of its own was measured at that budget over all 21 rosters,
+   the re-solve off in both walks so the split was the only change: half the slot to each
+   scored −0.58% in the mean (4 up, 16 down, 1 unchanged), and 0.7/0.3 scored −0.25% (8 up,
+   13 down). No split beat the single long walk, and 0.7 is less bad only because
+   the wider walk gets more of the time back. `DEFAULT_WALKS` therefore keeps no share: the
+   second walk still takes what the first leaves. Reach for `walks` to measure another.
+
+   `walks` also sets each walk's `lns`; the re-solve of `annealBase.ts` is on in both walks by
+   default (2026-11-06, +0.30% at this budget; see `base-optimizer-research.md`).
 
 Beside this search the page runs a second one in another Worker, when Fiammetta is owned
 and the device has four or more cores: `optimizeAccountBase({ formations: true })` builds one

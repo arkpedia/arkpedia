@@ -103,7 +103,8 @@ the generated setups show which rooms it gets wrong.
 Suggestion 4, built as `annealBase.ts`'s `resolve`: a move frees two or three of one crew's rooms and
 staffs them again together, ranking every disjoint combination of their team blocks by the sum of each
 team's value in the crew with those rooms empty, then scoring the best four whole. No solver: the
-enumeration is small enough to run in the optimizer Worker. It is behind `lns`, **off by default**.
+enumeration is small enough to run in the optimizer Worker. It is behind `lns`, **on by default**
+since 2026-11-06, when the owner accepted the 5-minute result below.
 
 **What it is worth, at the budget the page actually searches for** (5 minutes, 21 Krooster profiles):
 13 rosters' plans came out identical, 5 rose and 3 fell, mean **+0.30%**. The rises are real:
@@ -120,7 +121,7 @@ the −2.29% a bare change of random seed costs on mayank_mj.
   on rounds alone, including the two-walk portfolio of 2026-11-05, is unverified in production.
 - **The second walk barely runs in production.** The first walk takes its layout's slot whole (170 s
   of 173 s, 2015 rounds) and the second gets 3 s or never starts, though the round bench has it
-  winning on 8 of 21 rosters. Worth fixing on its own.
+  winning on 8 of 21 rosters. Giving it a share was tried and lost; see the next section.
 - **The 5-minute search has a seed noise of about ±1%**, tail −2.3%. No change, including no change
   at all, clears "every roster stays or rises" against that; a per-roster result inside the band is
   not evidence either way.
@@ -134,3 +135,24 @@ unchanged) — not enough for the code, so it was removed.
 **Why the slack is still mostly unclaimed.** The column generation says 2.57% on average is there;
 this takes 0.30%. Nothing here addresses the finding above it: a rotation, not a staffing, is what
 the mix exploits, and the move re-staffs rooms within one crew's snapshot.
+
+## Giving the second walk a real slot (2026-11-06)
+
+The portfolio runs as one walk on the clock: the first takes the layout's whole slot and the second
+gets what its patience leaves, usually nothing. Giving the second a share of its own was the obvious
+repair, so both splits were measured over all 21 Krooster profiles at the 5 minutes the page searches
+for, with the re-solve off in both walks so the split was the only change:
+
+| Wider / narrower | Mean | Up | Down | Same | Worst | Best |
+| --- | --- | --- | --- | --- | --- | --- |
+| 0.5 / 0.5 | **−0.58%** | 4 | 16 | 1 | entropy −3.04% | flover +1.21% |
+| 0.7 / 0.3 | **−0.25%** | 8 | 13 | 0 | entropy −1.90% | flover +1.26% |
+
+No split beats the single long walk. The even split loses on 16 of 21 rosters and its worst case is
+3.0% down; giving the wider walk 70% of the slot cuts the loss to 0.25%, which is what the time buys,
+not what the second walk adds. The 60-round portfolio's edge does not survive the clock: gita and
+blackgatoacer, two rosters the narrower walk won at 60 rounds (+1,164 and +884), lose 0.42% and 1.36%
+when it gets half the slot, and 1.31% and 1.56% at 0.7.
+
+`DEFAULT_WALKS` keeps no share: the second walk still takes the first's remainder. The re-solve is on
+in both walks (the section above).
