@@ -4,7 +4,7 @@ Live-results artwork opens the shared full-screen still/animated viewer from the
 
 A cold region with no consent-matched aggregate retries a D1 overload once after its 10-second resource window. The same conditional lease stays held during the wait so other readers do not start additional scans. Other errors remain failures, and consent-mismatched totals are never used as fallback.
 
-Production rankings share anonymous aggregates through the existing private page-cache R2 bucket. Conditional leases coalesce cold reads across isolates and regions. Aggregate results refresh after 30 seconds; replay upload batches do not invalidate every request. Every read still checks current community account revisions, so sharing withdrawals bypass both fresh and stale cached totals immediately. During temporary D1 overload, only a consent-matched result built within two minutes may be used. Shared keys are bounded to the four region cohorts; single-stage reads stay local. The cache stores no account identities or replay contents. Lease and result writes are conditional on the same object's ETag, with bounded backoff for [R2's per-key write limit](https://developers.cloudflare.com/r2/platform/limits/).
+Production ranking snapshots share anonymous aggregates through the existing private page-cache R2 bucket and refresh daily. A one-row removal epoch invalidates withdrawn contributions immediately. Conditional leases coalesce rebuilds across isolates; see the daily snapshot lifecycle below. The cache stores no account identities or replay contents, and retains bounded backoff for [R2’s per-key write limit](https://developers.cloudflare.com/r2/platform/limits/).
 
 These features are approved for production publication as of 2026-11-05. `/community/statistics`, `/polls` and
 `/polls/favourite-skins` are public. Drip Awards retains its subtitle:
@@ -40,10 +40,29 @@ Summaries hold at most 64 known character IDs. Automatic/passive skill triggers 
 not inferred. Archive deletion cascades to its summary. Migration 0017 adds covering indexes for
 cohort and counter reads. Queries deduplicate compact keys before reading units and
 union deployments per public stage before resolving operator names, avoiding an
-expensive per-unit catalogue join at production volume. Production coalesces identical
-reads for up to 30 seconds within an isolate. Every request first checks anonymous
-account revision/deletion and replay change counters, so withdrawals invalidate
-results immediately. Failed reads are not retained.
+expensive per-unit catalogue join at production volume. Production serves four shared daily ranking snapshots (All regions, Global, JP, KR)
+from the existing private R2 page-cache bucket under `community-rankings/v2/`.
+The production Worker's cron runs at **04:17 UTC daily**, sequentially refreshing
+these cohorts through its own service binding. A day/cohort-scoped HMAC authenticates
+that internal refresh; public clients cannot force expensive aggregation. Preview
+has no cron or production database access and keeps its approved fixed QA snapshot.
+
+Migration 0018 adds a one-row consent/removal epoch, maintained by triggers. Each
+public read checks that single row, rather than scanning account revisions. Normal
+imports and uploads wait for the next daily refresh. Opt-outs, account deletion,
+contributed game-account replacement, and replay deletion invalidate old snapshots
+immediately. A rebuild rechecks the epoch before publishing its result. A new epoch
+supersedes an old in-flight R2 lease; an expired owner cannot overwrite newer totals.
+
+Conditional R2 writes coalesce refreshes across isolates. A fresh snapshot lasts
+24 hours. If the daily job is delayed, a consent-matched snapshot younger than
+48 hours can serve immediately while one background refresh replaces it. Failed
+refreshes never replace a good snapshot; failures of the forced scheduled refresh
+are reported, and an unchanged safe prior result remains available within the
+48-hour limit. Missing or consent-invalid snapshots require one bounded rebuild;
+no stale consent fallback is allowed. Stage-specific requests retain a bounded
+30-second in-isolate cache rather than creating unbounded R2 keys. The page shows
+its capture time and starts its read without the former 250 ms delay.
 
 Operator Usage includes uploaded auto-deploy data only. Clears from stages that
 cannot save auto-deploys are excluded. Stage clears sum `completeTimes` counters
@@ -104,8 +123,11 @@ control, artwork and podium primitives provide both themes and reduced-motion su
 
 Apply additive migrations only to the matching isolated database. Preview account
 sessions, private saves and ratings stay in `arkpedia-preview-accounts`; production
-uses `arkpedia-prod-accounts`. Production reads current opted-in database aggregates;
-the fixed snapshot and its capture-time help remain staging-only. The user's
+uses `arkpedia-prod-accounts`. Production reads shared daily aggregates of opted-in contributions;
+the approved fixed QA snapshot remains staging-only. Migration 0018 is additive;
+apply it to production after verifying its recovery bookmark and before deploying
+the daily reader. Existing private account/save/replay rows are untouched. Code
+rollback ignores the new epoch table and uses the old v1 cache namespace. The user's
 2026-11-05 production release request authorizes additive migrations 0015–0017, followed
 by a complete bounded backfill and the checked-main production release owner. Capture the database recovery bookmark
 privately before applying the additive migrations. Code recovery must preserve newer

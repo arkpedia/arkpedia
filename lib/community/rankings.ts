@@ -6,7 +6,7 @@ export interface StageClear {stageId:string;clears:number;slug:string;code:strin
 interface RosterRanking { operator:string; owned:number; builds:number; e2:number; m9:number; m3?:number[]; unraised:number; maxed:number }
 interface RosterAggregate extends Omit<RosterRanking,'m3'> {m3_0:number;m3_1:number;m3_2:number}
 interface ReplayRanking { charId:string; skill:number|null; squads:number; deployed:number; deployments:number; activations:number; benched:number }
-export interface CommunityRankings { contributors:number; roster:RosterRanking[]|null; replayContributors:number; replays:number; battles:ReplayRanking[]|null; clearContributors?:number; clearRecords?:number; clearedStages?:number; stageClears?:StageClear[]|null; stageCoverage?:{operator:string;stages:number}[]|null; source?:'production-snapshot';capturedAt?:string }
+export interface CommunityRankings { contributors:number; roster:RosterRanking[]|null; replayContributors:number; replays:number; battles:ReplayRanking[]|null; clearContributors?:number; clearRecords?:number; clearedStages?:number; stageClears?:StageClear[]|null; stageCoverage?:{operator:string;stages:number}[]|null; source?:'production-snapshot'|'daily-snapshot';capturedAt?:string }
 
 /** Fixed aggregate projections only. Private replay payloads and identities never leave D1. */
 export async function communityRankings(db:D1Database,server:string,stage:string):Promise<CommunityRankings>{

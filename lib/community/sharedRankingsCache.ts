@@ -6,20 +6,23 @@ export interface RankingBucket {
   put(key:string,value:string,options?:{onlyIf:{etagMatches?:string;etagDoesNotMatch?:string}}):Promise<{etag:string}|null>;
 }
 interface Kept {stamp:string;builtAt:number;expires:number;result:CommunityRankings}
-interface Envelope {kept?:Kept;lease?:{expires:number;nonce:string}}
-const FRESH=30_000,MAX_AGE=120_000,LEASE=30_000;
+interface Envelope {kept?:Kept;lease?:{expires:number;nonce:string;stamp:string}}
+export const RANKING_SNAPSHOT_DAY=86400_000;
+const FRESH=RANKING_SNAPSHOT_DAY,MAX_AGE=2*RANKING_SNAPSHOT_DAY,LEASE=120_000;
 export function reportRankingFailure(error:unknown){
   console.error('community_rankings_failed',{name:error instanceof Error?error.name:'UnknownError',message:error instanceof Error?error.message:String(error)});
 }
 
 /** Public aggregates only, shared across isolates/colos in the existing private
  * page-cache bucket. A conditional R2 lease prevents simultaneous D1 scans.
+ * Daily cron refreshes the four region snapshots. A missed refresh can use a
+ * consent-matched prior snapshot while one background refresh replaces it.
  * The caller checks current consent before every read; a different stamp can
  * never use an old result, including during overload or a refresh. */
 export async function sharedRankingResult(bucket:RankingBucket,key:string,stamp:string,load:()=>Promise<CommunityRankings>,{
-  now=Date.now,wait=(ms:number)=>new Promise<void>(resolve=>setTimeout(resolve,ms)),
-}:{now?:()=>number;wait?:(ms:number)=>Promise<void>}={}):Promise<CommunityRankings>{
-  const objectKey=`community-rankings/v1/${key}`,deadline=now()+35_000;
+  now=Date.now,wait=(ms:number)=>new Promise<void>(resolve=>setTimeout(resolve,ms)),forceRefresh=false,background,
+}:{now?:()=>number;wait?:(ms:number)=>Promise<void>;forceRefresh?:boolean;background?:(work:Promise<unknown>)=>void}={}):Promise<CommunityRankings>{
+  const objectKey=`community-rankings/v2/${key}`,deadline=now()+35_000;
   const write=async(value:Envelope,onlyIf:{etagMatches?:string;etagDoesNotMatch?:string})=>{
     for(let attempt=0;;attempt++){
       try{return await bucket.put(objectKey,JSON.stringify(value),{onlyIf});}
@@ -35,39 +38,44 @@ export async function sharedRankingResult(bucket:RankingBucket,key:string,stamp:
   while(now()<deadline){
     const object=await bucket.get(objectKey),envelope:Envelope=object?JSON.parse(await object.text()):{},kept=envelope.kept;
     const valid=kept?.stamp===stamp&&now()-kept.builtAt<MAX_AGE?kept:null;
-    if(valid&&valid.expires>now())return valid.result;
-    if((envelope.lease?.expires??0)>now()){
-      if(valid)return valid.result;
+    if(valid&&valid.expires>now()&&!forceRefresh)return valid.result;
+    if(envelope.lease?.stamp===stamp&&envelope.lease.expires>now()){
+      if(valid&&!forceRefresh)return valid.result;
       await wait(150);continue;
     }
     // Lease and result share one object, making ownership checks and result
     // writes atomic rather than checking one object before writing another.
-    const lease=await write({...envelope,lease:{expires:now()+LEASE,nonce:crypto.randomUUID()}},object?{etagMatches:object.etag}:{etagDoesNotMatch:'*'});
+    const lease=await write({...envelope,lease:{expires:now()+LEASE,nonce:crypto.randomUUID(),stamp}},object?{etagMatches:object.etag}:{etagDoesNotMatch:'*'});
     if(!lease){await wait(50);continue;}
-    let settled=false;
-    try{
-      let result:CommunityRankings;
-      try{result=await load();}
-      catch(error){
-        // A new region has no safe prior result. Keep its single lease while
-        // D1's overloaded window clears, then retry once instead of a 503.
-        if(valid||!/D1.*overloaded/i.test(String(error)))throw error;
-        await wait(10_100);result=await load();
+    const refresh=async()=>{
+      let settled=false;
+      try{
+        let result:CommunityRankings;
+        try{result=await load();}
+        catch(error){
+          // A new region has no safe prior result. Keep its single lease while
+          // D1's overloaded window clears, then retry once instead of a 503.
+          if(valid||!/D1.*overloaded/i.test(String(error)))throw error;
+          await wait(10_100);result=await load();
+        }
+        const builtAt=now();
+        // An expired owner cannot overwrite the result of a newer refresh.
+        await write({kept:{stamp,builtAt,expires:builtAt+FRESH,result}},{etagMatches:lease.etag});settled=true;
+        return result;
+      }catch(error){
+        if(!valid||now()-valid.builtAt>=MAX_AGE)throw error;
+        reportRankingFailure(error);
+        // A brief overload may keep a recent aggregate, never withdrawn consent.
+        await write({kept:{...valid,expires:Math.min(now()+300_000,valid.builtAt+MAX_AGE)}},{etagMatches:lease.etag});settled=true;
+        if(forceRefresh)throw error;
+        return valid.result;
+      }finally{
+        // Release conditionally: an old owner must not release another lease.
+        if(!settled)await write({kept},{etagMatches:lease.etag});
       }
-      const builtAt=now();
-      // An expired owner cannot overwrite the result of a newer refresh.
-      await write({kept:{stamp,builtAt,expires:builtAt+FRESH,result}},{etagMatches:lease.etag});settled=true;
-      return result;
-    }catch(error){
-      if(!valid||now()-valid.builtAt>=MAX_AGE)throw error;
-      reportRankingFailure(error);
-      // A brief overload may keep a recent aggregate, never withdrawn consent.
-      await write({kept:{...valid,expires:Math.min(now()+10_000,valid.builtAt+MAX_AGE)}},{etagMatches:lease.etag});settled=true;
-      return valid.result;
-    }finally{
-      // Release conditionally: an old owner must not release another lease.
-      if(!settled)await write({kept},{etagMatches:lease.etag});
-    }
+    };
+    if(valid&&background&&!forceRefresh){background(refresh().catch(reportRankingFailure));return valid.result;}
+    return refresh();
   }
   throw new Error('Community ranking refresh is busy. Please retry shortly.');
 }

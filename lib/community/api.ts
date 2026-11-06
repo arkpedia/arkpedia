@@ -1,6 +1,8 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import type { D1Database } from '@cloudflare/workers-types';
 import { fromNodeHeaders } from 'better-auth/node';
+import { getCloudflareContext } from '@opennextjs/cloudflare';
+import { verifyStatisticsRefreshToken } from '@/scripts/deploy/statistics-schedule.mjs';
 import { accountAuth, accountsEnv, type AccountsEnv } from '@/lib/cloud-account/server';
 import { isServerId } from '@/lib/account-import/yostar';
 import { communityRankings } from './rankings';
@@ -63,8 +65,13 @@ export function createCommunityHandler(kind:'sharing'|'stats'|'supports'|'availa
       if(kind==='rankings'){
         const server=req.query.server??'all',stage=req.query.stage??'';
         if((server!=='all'&&!isServerId(server))||typeof stage!=='string'||(stage&&!STAGE_ID.test(stage)))return res.status(400).json({error:'Choose a valid region and stage ID.'});
+        const token=req.headers['x-arkpedia-statistics-refresh'];
+        const forceRefresh=token!==undefined;
+        if(forceRefresh&&(env.ARKPEDIA_DEPLOYMENT_ROLE!=='production'||!!stage||!await verifyStatisticsRefreshToken(env.BETTER_AUTH_SECRET,server,token,time)))return res.status(403).json({error:'Statistics refresh is not authorized.'});
         const snapshot=await deploymentPreviewStatistics(env.ARKPEDIA_DEPLOYMENT_ROLE,server,stage);
-        return res.json(snapshot??await (env.ARKPEDIA_DEPLOYMENT_ROLE==='production'?cachedCommunityRankings(db,server,stage,env.NEXT_INC_CACHE_R2_BUCKET):communityRankings(db,server,stage)));
+        if(env.ARKPEDIA_DEPLOYMENT_ROLE==='production'&&!stage&&!env.NEXT_INC_CACHE_R2_BUCKET)throw Error('Statistics snapshot storage is unavailable.');
+        const background=(work:Promise<unknown>)=>{try{getCloudflareContext().ctx.waitUntil(work);}catch{void work.catch(reportRankingFailure);}};
+        return res.json(snapshot??await (env.ARKPEDIA_DEPLOYMENT_ROLE==='production'?cachedCommunityRankings(db,server,stage,env.NEXT_INC_CACHE_R2_BUCKET,{forceRefresh,background}):communityRankings(db,server,stage)));
       }
       if(kind==='stats')return await stats(req,res,db);
       if(kind==='supports')return await supports(req,res,db,time);

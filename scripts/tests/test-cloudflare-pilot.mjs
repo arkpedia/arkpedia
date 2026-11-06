@@ -34,10 +34,12 @@ test('pilot configuration retains the existing account, cache and queue resource
   assert.equal(config.name, 'arkpedia');
   assert.equal(config.vars.ARKPEDIA_DEPLOYMENT_ROLE, 'production');
   assert.equal(config.vars.ARKPEDIA_CONTENT_CHANNEL, 'live');
+  assert.deepEqual(config.triggers, { crons: ['17 4 * * *'] });
 });
 
 for (const [name, change] of Object.entries({
   'new route': config => { config.routes = [{ pattern: 'arkpedia.net/*' }]; },
+  'changed statistics schedule': config => { config.triggers.crons = ['* * * * *']; },
   'environment override': config => { config.env = { production: {} }; },
   'different Worker': config => { config.name = 'arkpedia-staging'; },
   'different account': config => { config.account_id = 'another-account'; },

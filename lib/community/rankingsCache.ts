@@ -5,19 +5,24 @@ import {sharedRankingResult,type RankingBucket} from './sharedRankingsCache';
 interface Entry { stamp:string; expires:number; result:Promise<CommunityRankings> }
 const caches=new WeakMap<D1Database,Map<string,Entry>>();
 
-/** Share concurrent live reads in an isolate without retaining withdrawn consent.
- * Every request checks anonymous change counters first; a changed account revision,
- * deletion bypasses the cached aggregate immediately. Replay uploads refresh
- * within 30 seconds instead of invalidating every in-flight upload batch. */
-export async function cachedCommunityRankings(db:D1Database,server:string,stage:string,bucket?:RankingBucket):Promise<CommunityRankings>{
-  const stamp=JSON.stringify(await db.prepare(`SELECT
-    (SELECT count(*) FROM community_account) accounts,
-    (SELECT coalesce(sum(revision),0) FROM community_account) revisions,
-    (SELECT max(updatedAt) FROM community_account) accountUpdate`).first());
+export async function rankingConsentStamp(db:D1Database):Promise<string>{
+  const row=await db.prepare('SELECT revision FROM community_statistics_epoch WHERE id=1').first<{revision:number}>();
+  if(!row||!Number.isSafeInteger(row.revision))throw Error('Community statistics consent state is unavailable.');
+  return String(row.revision);
+}
+
+/** One cheap consent-epoch read per visit, never an account/replay scan on a warm
+ * daily snapshot. Routine imports do not invalidate it; withdrawals/deletions do. */
+export async function cachedCommunityRankings(db:D1Database,server:string,stage:string,bucket?:RankingBucket,options:{forceRefresh?:boolean;background?:(work:Promise<unknown>)=>void}={}):Promise<CommunityRankings>{
+  const stamp=await rankingConsentStamp(db);
   const key=JSON.stringify([server,stage]);
   // Four bounded region cohorts use the shared cache. Individual-stage reads
   // are small and do not create an unbounded set of persistent objects.
-  if(bucket&&!stage)return sharedRankingResult(bucket,encodeURIComponent(key),stamp,()=>communityRankings(db,server,stage));
+  if(bucket&&!stage)return sharedRankingResult(bucket,encodeURIComponent(key),stamp,async()=>{
+    const result=await communityRankings(db,server,stage);
+    if(await rankingConsentStamp(db)!==stamp)throw Error('Community statistics consent changed during refresh.');
+    return {...result,source:'daily-snapshot',capturedAt:new Date().toISOString()};
+  },options);
   let cache=caches.get(db);if(!cache){cache=new Map();caches.set(db,cache);}
   const now=Date.now(),entry=cache.get(key);
   if(entry?.stamp===stamp&&entry.expires>now)return entry.result;

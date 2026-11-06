@@ -10,6 +10,8 @@ import { communitySnapshot, parseCommunitySnapshot, type CommunityChoices, type 
 import { createCommunityHandler } from '../../lib/community/api';
 import skinsData from '../../data/skins.json';
 import { previewStatistics } from '../../lib/community/preview-statistics';
+import { statisticsRefreshToken } from '../deploy/statistics-schedule.mjs';
+import type { RankingBucket } from '../../lib/community/sharedRankingsCache';
 
 const clock=Date.parse('2026-11-02T12:00:00Z');
 const all:CommunityChoices={stats:true,shareTag:true,openRequests:true};
@@ -472,8 +474,27 @@ test('community rankings include existing replay consent, current runs, stage co
   }finally{h.sqlite.close();}
 });
 
+test('statistics epoch reacts to removal, not normal imported upgrades or private-only accounts',async()=>{
+  const h=harness();
+  try{
+    h.user('epoch');await h.publish('epoch','8100',statsOnly);
+    const revision=()=>h.sqlite.prepare('SELECT revision FROM community_statistics_epoch WHERE id=1').get().revision;
+    const before=revision();
+    const replay=JSON.stringify({journal:{squad:[],logs:[]}});
+    h.sqlite.prepare('INSERT INTO auto_deploy(userId,namespace,stageId,fingerprint,hash,payload,bytes) VALUES(?,?,?,?,?,?,?)').run('epoch','en:8100','main_00-01','[1,1,1,0,2]','epoch-run',replay,replay.length);
+    assert.equal(revision(),before);
+    h.sqlite.prepare('DELETE FROM auto_deploy WHERE userId=?').run('epoch');
+    assert.equal(revision(),before+1,'deleting contributed replay data invalidates the snapshot');
+    h.sqlite.prepare('UPDATE community_account SET gameKey=? WHERE userId=?').run('replacement-game-account','epoch');
+    assert.equal(revision(),before+2,'switching the contributed game account invalidates its previous totals');
+  }finally{h.sqlite.close();}
+});
+
 test('production ranking reads share work and immediately drop withdrawn contributions',async()=>{
   const h=harness();Object.assign(h.env,{ARKPEDIA_DEPLOYMENT_ROLE:'production'});
+  let version=0;const objects=new Map<string,{etag:string;body:string}>();
+  const bucket:RankingBucket={async get(key){const value=objects.get(key);return value?{etag:value.etag,text:async()=>value.body}:null;},async put(key,body,options){const old=objects.get(key),condition=options?.onlyIf;if(condition?.etagMatches&&condition.etagMatches!==old?.etag||condition?.etagDoesNotMatch==='*'&&old)return null;const value={etag:String(++version),body};objects.set(key,value);return {etag:value.etag};}};
+  Object.assign(h.env,{NEXT_INC_CACHE_R2_BUCKET:bucket});
   try{
     for(let i=0;i<10;i++){h.user('cached'+i);await h.publish('cached'+i,String(8000+i),statsOnly);}
     const prepare=h.db.prepare.bind(h.db);let queries=0;
@@ -486,10 +507,26 @@ test('production ranking reads share work and immediately drop withdrawn contrib
     const replay=JSON.stringify({journal:{squad:[],logs:[]}});
     h.sqlite.prepare('INSERT INTO auto_deploy(userId,namespace,stageId,fingerprint,hash,payload,bytes) VALUES(?,?,?,?,?,?,?)').run('cached0','en:8000','main_00-01','[1,1,1,0,2]','cache-upload',replay,replay.length);
     queries=0;assert.equal((await h.call('rankings',null,'GET',undefined,{server:'all'})).result.replays,0);
-    assert.equal(queries,1,'upload batches do not continuously invalidate the 30-second aggregate cache');
+    assert.equal(queries,1,'upload batches do not invalidate the shared daily snapshot');
+    assert.equal((await h.call('rankings',null,'GET',undefined,{server:'all'})).result.source,'daily-snapshot');
+    const epoch=()=>h.sqlite.prepare('SELECT revision FROM community_statistics_epoch WHERE id=1').get().revision;
+    const before=epoch();
+    assert.equal((await h.call('sharing','cached0','PUT',{action:'refresh',revision:1,choices:statsOnly,snapshot:{...snapshot('8000'),operators:[{...snapshot().operators[0],level:90}]}})).status,200);
+    assert.equal(h.sqlite.prepare('SELECT level FROM community_operator WHERE userId=?').get('cached0').level,90);
+    assert.equal(epoch(),before,'an ordinary import does not invalidate daily totals');
+    h.user('cached-new');await h.publish('cached-new','8999',statsOnly);
+    assert.equal((await h.call('rankings',null,'GET',undefined,{server:'all'})).result.contributors,10,'new contributions wait for the daily refresh');
+    assert.equal((await h.call('rankings',null,'GET',undefined,{server:'all'},{'x-arkpedia-statistics-refresh':'untrusted'})).status,403);
+    const token=await statisticsRefreshToken(h.env.BETTER_AUTH_SECRET,'all',clock);
+    assert.equal((await h.call('rankings',null,'GET',undefined,{server:'all'},{'x-arkpedia-statistics-refresh':token})).result.contributors,11,'the authenticated daily job rebuilds even a warm snapshot');
     await h.call('sharing','cached0','DELETE',{});
     const withdrawn=(await h.call('rankings',null,'GET',undefined,{server:'all'})).result;
-    assert.equal(withdrawn.contributors,9);assert.equal(withdrawn.roster,null);
+    assert.equal(withdrawn.contributors,10);assert.ok(withdrawn.roster);
+    h.sqlite.prepare('DELETE FROM "user" WHERE id=?').run('cached-new');
+    const deleted=(await h.call('rankings',null,'GET',undefined,{server:'all'})).result;
+    assert.equal(deleted.contributors,9);assert.equal(deleted.roster,null,'account deletion invalidates the daily snapshot and threshold immediately');
+    const beforeArchive=epoch();h.sqlite.prepare('DELETE FROM auto_deploy WHERE userId=?').run('cached0');
+    assert.equal(epoch(),beforeArchive,'a non-contributor archive does not invalidate totals');
   }finally{h.sqlite.close();}
 });
 

@@ -14,7 +14,7 @@ export function readPilotConfig(file = 'wrangler.jsonc') {
   const parsed = ts.parseConfigFileTextToJson(file, readFileSync(file, 'utf8'));
   if (parsed.error) throw new Error('Invalid pilot JSONC');
   const config = parsed.config;
-  const fields = new Set(['$schema', 'name', 'account_id', 'preview_urls', 'main', 'compatibility_date', 'compatibility_flags', 'assets', 'observability', 'd1_databases', 'vars', 'r2_buckets', 'services', 'durable_objects', 'migrations', 'ratelimits']);
+  const fields = new Set(['$schema', 'name', 'account_id', 'preview_urls', 'main', 'compatibility_date', 'compatibility_flags', 'assets', 'observability', 'd1_databases', 'vars', 'r2_buckets', 'services', 'durable_objects', 'migrations', 'ratelimits', 'triggers']);
   if (Object.keys(config).some(key => !fields.has(key))) throw new Error('Unexpected pilot configuration field; routes and environment overrides require separate review');
   if (config.name !== 'arkpedia' || config.account_id !== ACCOUNT || config.preview_urls !== true || config.main !== 'scripts/deploy/production-worker.mjs') throw new Error('Not the existing migration pilot');
   if (!exact(config.assets, { directory: '.open-next/assets', binding: 'ASSETS' })) throw new Error('Pilot static assets differ');
@@ -29,6 +29,7 @@ export function readPilotConfig(file = 'wrangler.jsonc') {
     || !exact(config.migrations, [{ tag: 'v1', new_sqlite_classes: ['DOQueueHandler'] }])) throw new Error('Pilot queue and migration history must be preserved');
   if (!exact(config.vars, { ARKPEDIA_AUTH_URL: AUTH_ORIGIN, ARKPEDIA_CONTENT_CHANNEL: 'live', ARKPEDIA_DEPLOYMENT_ROLE: 'production', ARKPEDIA_ACCOUNTS_ENABLED: '1' })) throw new Error('Pilot must use its existing account origin with main-compatible live data');
   if (config.compatibility_date !== '2026-10-19' || !exact(config.compatibility_flags, ['nodejs_compat', 'global_fetch_strictly_public'])) throw new Error('Pilot runtime compatibility changed');
+  if (!exact(config.triggers, { crons: ['17 4 * * *'] })) throw new Error('Production statistics must retain its single daily schedule');
   return config;
 }
 
