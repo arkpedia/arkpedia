@@ -33,7 +33,7 @@ const ROOT = path.resolve(import.meta.dirname, '../..');
 const OUT = path.join(ROOT, 'lib/base/base-skill-effects.json');
 interface BuffStep { buffId: string; cond: { phase: string | number; level: number } }
 interface BuildingData { buffs: Record<string, Buff>; chars: Record<string, { buffChar: { buffData: BuffStep[] | Record<string, BuffStep> }[] }> }
-interface OperatorRecord { name: string; aliases?: string[]; faction?: string | null; class?: string | null; branch?: string | null; baseSkills?: { name: string | null; buffId?: string; description: string | null }[] | null }
+interface OperatorRecord { name: string; aliases?: string[]; faction?: string | null; class?: string | null; branch?: string | null; baseSkills?: { name: string | null; buffId?: string; description: string | null; phase?: number; level?: number }[] | null }
 
 const args = process.argv.slice(2);
 const flag = (name: string) => { const i = args.indexOf(name); return i >= 0 ? args[i + 1] : undefined; };
@@ -47,10 +47,16 @@ async function main() {
   const forms = await loadOperatorForms(ROOT, records, { fetch: args.includes('--fetch'), terms: flag('--terms') });
   const recordText = new Map<string, string>();
   const recordKeys = new Map<string, Set<string>>();
+  // The promotion steps (phase:level) each "Operator|Skill" key has. An override must not collapse them.
+  const keySteps = new Map<string, Set<string>>();
   for (const op of records) for (const sk of op.baseSkills ?? []) {
     if (!sk.buffId) continue;
     if (sk.description && !recordText.has(sk.buffId)) recordText.set(sk.buffId, sk.description);
-    for (const name of [op.name, ...(op.aliases ?? [])]) (recordKeys.get(sk.buffId) ?? recordKeys.set(sk.buffId, new Set()).get(sk.buffId)!).add(`${name}|${cleanSkillName(sk.name)}`);
+    for (const name of [op.name, ...(op.aliases ?? [])]) {
+      const key = `${name}|${cleanSkillName(sk.name)}`;
+      (recordKeys.get(sk.buffId) ?? recordKeys.set(sk.buffId, new Set()).get(sk.buffId)!).add(key);
+      (keySteps.get(key) ?? keySteps.set(key, new Set()).get(key)!).add(`${sk.phase ?? 0}:${sk.level ?? 1}`);
+    }
   }
 
   const errors: string[] = [];
@@ -67,6 +73,15 @@ async function main() {
     for (const id of ids) (overrideBy.get(id) ?? overrideBy.set(id, []).get(id)!).push({ key, override });
   }
   for (const key of GENERIC_IS_RIGHT) if (!buffIdsOfKey(key).length) errors.push(`GENERIC_IS_RIGHT "${key}" names no record skill`);
+  // An OVERRIDES/GENERIC_IS_RIGHT key of "Operator|Skill" covers every buff id that skill name has for that
+  // operator. Where those ids are one upgrade chain (the same skill at Elite 0 and Elite 2, or level-gated
+  // within a tier), one entry would give every step the same numbers and the promotion-level values would be
+  // wrong at one end. Such a key must name the buff id: each step has its own numbers in the game's table.
+  for (const key of [...Object.keys(OVERRIDES), ...GENERIC_IS_RIGHT]) {
+    if (/\[\d+\]$/.test(key)) continue;
+    const steps = keySteps.get(key);
+    if (steps && steps.size > 1) errors.push(`"${key}" names one skill with steps at ${[...steps].sort().join(', ')}; use the buff id so each promotion step keeps its own numbers`);
+  }
   const genericRight = new Set(GENERIC_IS_RIGHT.flatMap((key) => buffIdsOfKey(key)));
   const resolveKey = (key: string, from: string) => { const ids = buffIdsOfKey(key); if (ids.length !== 1) errors.push(`${from}: suppressedBy "${key}" resolves to ${ids.length} buff ids`); return ids[0] ?? key; };
 

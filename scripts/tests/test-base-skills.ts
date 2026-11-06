@@ -7,6 +7,7 @@ import { createHash } from 'node:crypto';
 import type { BaseSkill } from '../../lib/operators/operatorTypes';
 import { getAllOperators } from '../../lib/operators/operators';
 import { activeBaseSkills } from '../../lib/base/activeBaseSkills';
+import { skillEffectEntry } from '../../lib/base/baseSkillEffects';
 import { resolveTrainingTarget, canTrainMastery, type TrainingTarget } from '../../lib/base/trainingRoom';
 import { calculateBase } from '../../lib/base/calculateBase';
 import { presetLevels, presetSpots } from '../../lib/base/baseConfig';
@@ -75,6 +76,44 @@ test('all 429 game operators and 921 source steps match IDs, unlocks, facilities
       }
     }
   }
+});
+test('promotion selects the skill step, and the table numbers travel with it', () => {
+  // The exhaustive test above pins the buff id each operator gets at E0/E1/E2. This pins that the parameters
+  // come with that step rather than from another step of the same chain: E0 and E2 share a slot and sometimes a
+  // name, so a table or override keyed by name alone would give one end the other's numbers.
+  const at = (name: string, facility: string, elite: 'Base' | 'Elite 1' | 'Elite 2') =>
+    activeBaseSkills(ops.get(name)!, facility, elite).map(skill => ({ buffId: skill.buffId, effects: skillEffectEntry(skill)?.effects ?? [] }));
+  const effect = (name: string, facility: string, elite: 'Base' | 'Elite 1' | 'Elite 2', kind: string) =>
+    (at(name, facility, elite).flatMap(s => s.effects) as { kind: string; value?: number; per?: { amount: number } }[]).find(e => e.kind === kind)!;
+  // Akkord keeps the name "Surging Tunes" and grows the drone rate at Elite 1.
+  assert.equal(at('Akkord', 'Power Plant', 'Base')[0].buffId, 'power_rec_spd[008]');
+  assert.equal(effect('Akkord', 'Power Plant', 'Base', 'droneRate').value, 0.1);
+  assert.equal(at('Akkord', 'Power Plant', 'Elite 1')[0].buffId, 'power_rec_spd[009]');
+  assert.equal(effect('Akkord', 'Power Plant', 'Elite 1', 'droneRate').value, 0.15);
+  assert.equal(effect('Akkord', 'Power Plant', 'Elite 2', 'droneRate').value, 0.15);
+  // April: order limit 2 at Elite 0/1, 4 at Elite 2; efficiency is +10% either way.
+  assert.equal(effect('April', 'Trading Post', 'Base', 'orderLimit').value, 2);
+  assert.equal(effect('April', 'Trading Post', 'Elite 1', 'orderLimit').value, 2);
+  assert.equal(effect('April', 'Trading Post', 'Elite 2', 'orderLimit').value, 4);
+  // Podenco: Elite 1 replaces 0.55 single-target with 0.65 and opens a second slot for 0.15 to everyone.
+  assert.deepEqual(at('Podenco', 'Dormitory', 'Base').map(s => s.buffId), ['dorm_rec_single[010]']);
+  assert.deepEqual(at('Podenco', 'Dormitory', 'Elite 1').map(s => s.buffId), ['dorm_rec_single[001]', 'dorm_rec_all[012]']);
+  assert.equal(effect('Podenco', 'Dormitory', 'Elite 1', 'recoverySingle').value, 0.65);
+  assert.equal(effect('Podenco', 'Dormitory', 'Elite 1', 'recoveryAll').value, 0.15);
+  // Alanna: 5% per robot at Elite 0/1, 10% at Elite 2, which also opens "Here to Help!".
+  assert.equal(effect('Alanna', 'Factory', 'Base', 'productivity').per!.amount, 0.05);
+  assert.equal(effect('Alanna', 'Factory', 'Elite 1', 'productivity').per!.amount, 0.05);
+  assert.deepEqual(at('Alanna', 'Factory', 'Elite 2').map(s => s.buffId), ['manu_token_prod_spd[010]', 'manu_prod_spd_double[000]']);
+  assert.equal(effect('Alanna', 'Factory', 'Elite 2', 'productivity').per!.amount, 0.1);
+  // Reed: 30% training speed at Elite 0/1, 45% at Elite 2.
+  assert.equal(effect('Reed the Flame Shadow', 'Training Room', 'Base', 'trainingSpeed').value, 0.3);
+  assert.equal(effect('Reed the Flame Shadow', 'Training Room', 'Elite 2', 'trainingSpeed').value, 0.45);
+  // Togawa Sakiko: 0.5% per 20 Passion at Elite 0/1, 1% at Elite 2.
+  assert.equal(effect('Togawa Sakiko', 'Control Center', 'Base', 'ccPreciousMetalProductivity').value, 0.005);
+  assert.equal(effect('Togawa Sakiko', 'Control Center', 'Elite 2', 'ccPreciousMetalProductivity').value, 0.01);
+  // Level-gated steps follow the operator's own level too: Durin's Sleepiness replaces Laziness at level 30.
+  assert.deepEqual(activeBaseSkills(ops.get('Durin')!, 'Dormitory', 'Base', {}, 1).map(s => s.buffId), ['dorm_rec_all&oneself[000]']);
+  assert.deepEqual(activeBaseSkills(ops.get('Durin')!, 'Dormitory', 'Base', {}, 30).map(s => s.buffId), ['dorm_rec_all&oneself[001]']);
 });
 test('R6 defense/offense includes self and dorm staff, excludes wrong subgroup and unrelated operators, deduplicates', () => {
   for (const trainer of ['Ela', 'Doc']) near(training(trainer, 'Medic', 1, [trainer, 'Tachanka', 'Frost', 'Ash', 'Amiya', 'Frost']).speed, 1.35);

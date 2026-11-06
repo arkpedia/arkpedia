@@ -9,6 +9,10 @@
  * that adds a buff id, or after changing a rule or an override in the build script; the guard in the
  * script refuses a table with an unclassified buff id or a number it could not read.
  *
+ * Promotion is not a column: the game gives every upgrade step its own buff id, and activeBaseSkills.ts
+ * picks the step the operator's slot, phase and level unlock. `unlock` is the earliest step any operator
+ * has for the id, for review, not a selection key.
+ *
  * Shapes (`shape`), the arithmetic form of the skill:
  *   flat       fixed numbers: +30% productivity, +2 order limit.
  *   counted    a base plus an amount per counted thing (`per`): per Rhine Lab operator in the base,
