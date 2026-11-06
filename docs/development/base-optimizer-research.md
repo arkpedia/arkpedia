@@ -156,3 +156,33 @@ when it gets half the slot, and 1.31% and 1.56% at 0.7.
 
 `DEFAULT_WALKS` keeps no share: the second walk still takes the first's remainder. The re-solve is on
 in both walks (the section above).
+
+## What the 5-minute search's ceiling looks like (2026-11-06)
+
+Four attempts to beat the shipped search, each measured at the budget the page uses, and what they
+say about where the remaining slack is not:
+
+- **The clock is worth about one more start.** Six variance rosters at 600 s beat their own 300 s
+  plans by **+0.34%** in the mean (4 up, 1 down, 1 flat) — exactly what a best-of-three-starts merge
+  at 300 s scores (+0.34%). Doubling the time buys a little diversity, not a different class of
+  plan: the search is near its practical ceiling, and the remaining ~0.3% is not in the schedule.
+- **A per-roster configuration selector cannot clear the bar.** A perfect pick among the default,
+  the re-solve and the two split settings would be **+0.57%** in the mean, already barely over the
+  +0.5% bar. An honest leave-one-out one-feature rule for the re-solve (count feeders) reaches
+  +0.38%: it keeps its five wins and drops its three losses, which is +0.08% over shipping the
+  re-solve for everyone, from 21 samples with no held-out roster. Not shipped.
+- **Unequal time shares are not reachable at a 12-hour login.** Holding a finished plan's three
+  staffings and products fixed and re-simulating only unequal shift lengths exhausts a crew at 12 h
+  and 8 h (scores collapse); at 6 h the best shares are roster-specific (+0.8% on one roster, −0.6%
+  on another). The equal three-shift cycle, which every one of the 21 plans chose, is at the Morale
+  edge. The column generation's 1.76% "relaxation" is mostly the relaxation's freedom — fractional
+  shares and no Morale wasted at 24 — not a rotation the game can run.
+- **A wider room re-solve loses.** Freeing 3-4 rooms and scoring 8 combinations instead of 2-3 and
+  4 costs more per move and finds worse plans at 5 minutes: over six rosters the mean was **−0.86%**,
+  with blackgatoacer −3.48% and kokonattsuu −4.81%. The extra neighbourhood does not pay for its
+  time.
+
+The one lever these leave is the one the column generation is for: **new setups**, not new rotations
+of the old ones. That needs the LP/MIP the bench runs with HiGHS, which the browser Worker does not
+have; a server-side generator (or a wasm port) is the next real step, and it has to show that an
+integer rotation of its setups beats the plan by more than the +0.5% bar before anything is built.
