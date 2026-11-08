@@ -4,4 +4,4 @@ Discover ranks tracks by Arkpedia favourites. The existing daily community-stati
 
 Participation is off by default. The account must sync personal settings and enable **Contribute to community stats** in Account settings → Community sharing. Removing a favourite, withdrawing, pausing personal sync, or deleting a save affects the next successful daily build. The published chart contains only catalogue IDs, counts and the build time.
 
-The old `/api/music/youtube-likes` endpoint remains available to older clients. The current Discover page makes no requests to it.
+The next shelf ranks the linked uploads by YouTube likes. Discover reads the cached counts from `/api/music/youtube-likes`. This chart refreshes independently of community sharing and supports the same song ordering in search and album results.

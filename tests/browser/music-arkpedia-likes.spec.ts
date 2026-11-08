@@ -134,3 +134,29 @@ test('a Monster Siren-only favourite can lead the daily chart and open its song'
   await first.click();
   await expect(first).toHaveAttribute('aria-current', 'true');
 });
+
+test('YouTube likes follows Arkpedia, with its own ranking and playback queue', async ({ page }) => {
+  await stubYouTube(page);
+  const counts = Object.fromEntries(chartIds.map((id, index) => [id, index + 1]));
+  await page.route('**/api/music/youtube-likes', route => route.fulfill({ json: { updatedAt: new Date().toISOString(), likes: counts } }));
+  await page.goto('/music/discover');
+  const arkpedia = page.getByRole('region', { name: 'Most liked on Arkpedia', exact: true });
+  const uploads = page.getByRole('region', { name: 'Most liked on YouTube', exact: true });
+  await expect(arkpedia.locator('xpath=following-sibling::section[1]')).toHaveAttribute('aria-labelledby', 'discover-youtube-likes-heading');
+  await expect(arkpedia.locator('[data-song-id]').first()).toHaveAttribute('data-song-id', chartIds[0]);
+  const tiles = uploads.locator('[data-song-id]');
+  await expect(tiles.first()).toHaveAttribute('data-song-id', chartIds.at(-1)!);
+  await uploads.getByRole('button', { name: 'Show all', exact: true }).click();
+  await expect(page).toHaveURL(/[?&]browse=youtube-likes\b/);
+  await expect(tiles).toHaveCount(chartIds.length);
+  await tiles.first().click();
+  const bar = page.getByRole('region', { name: 'Player', exact: true });
+  await bar.getByRole('link', { name: 'Queue', exact: true }).click();
+  const drawer = page.getByRole('dialog', { name: 'Playback queue' });
+  await expect(drawer.getByRole('link', { name: 'Most liked on YouTube', exact: true })).toHaveAttribute('href', '/music/discover?browse=youtube-likes');
+  await expect(drawer.locator('[data-song-id]').nth(1)).toHaveAttribute('data-song-id', chartIds.at(-2)!);
+  await page.route('**/api/music/likes', route => route.fulfill({ status: 503 }));
+  await page.goto('/music/discover?browse=youtube-likes');
+  await expect(arkpedia.getByRole('status')).toContainText('temporarily unavailable');
+  await expect(tiles).toHaveCount(chartIds.length);
+});

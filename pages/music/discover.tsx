@@ -30,7 +30,8 @@ import { createSongIndex, musicFacetMatches } from '@/lib/music/songSearch';
 import { msrTrackId } from '@/lib/music/trackId';
 import { artistKey, creditedArtists, creditsArtist } from '@/lib/music/artistCredits';
 import { characterInitials } from '@/lib/music/characterPortraits.mjs';
-import { useArkpediaLikes } from '@/lib/music/useArkpediaLikes';
+import { useLikesChart } from '@/lib/music/useLikesChart';
+import { byYouTubeLikes, mostLikedSongs } from '@/lib/music/youtubeLikes';
 import CommunityContributionFooter from '@/components/community/CommunityContributionFooter';
 import { byArkpediaLikes, mostLikedTracks } from '@/lib/music/arkpediaLikes';
 import { songTitle } from '@/lib/music/musicPolish';
@@ -160,11 +161,16 @@ export default function DiscoverPage({ songs: releaseSongs, characters, origins,
   const [query, setQuery] = useQueryState('q');
   const [browseCollection, setBrowseCollection] = useQueryState('browse');
   const [songOrder, setSongOrder] = useQueryState('sort');
-  const { data: chart, loading: likesLoading } = useArkpediaLikes();
+  const { data: chart, loading: likesLoading } = useLikesChart('Arkpedia');
+  const { data: youtubeChart, loading: youtubeLoading } = useLikesChart('YouTube');
   const rankedSongs = useMemo(() => chart ? mostLikedTracks(allSongs.filter(song =>
     includeEndfield || !('game' in song && song.game === 'endfield')), chart.likes, trackIdOf) : [], [allSongs, chart, includeEndfield]);
-  const likesExpanded = browseCollection === 'likes';
-  const visibleRankedSongs = rankedSongs.slice(0, likesExpanded ? undefined : ROW_PREVIEW_COUNT);
+  const youtubeSongs = useMemo(() => youtubeChart ? mostLikedSongs(songs, youtubeChart.likes) : [], [songs, youtubeChart]);
+  const charts = [
+    { key: 'likes', source: 'Arkpedia', data: chart, loading: likesLoading, tracks: rankedSongs, empty: 'No favourites in the daily chart yet.' },
+    { key: 'youtube-likes', source: 'YouTube', data: youtubeChart, loading: youtubeLoading, tracks: youtubeSongs, empty: 'No YouTube like counts available yet.' },
+  ];
+  const selectedChart = charts.find(item => item.key === songOrder);
 
   // Only ONE facet is ever active at a time (every setter below spreads
   // EMPTY_FACETS first), so the whole FacetState fits in a single
@@ -236,9 +242,11 @@ export default function DiscoverPage({ songs: releaseSongs, characters, origins,
       const first = dates.get(a.albumId) || '', second = dates.get(b.albumId) || '';
       return first && second ? (songOrder === 'oldest' ? first.localeCompare(second) : second.localeCompare(first)) : Number(!first) - Number(!second);
     });
-    if (facets.albumId && !hasActiveQuery && songOrder !== 'likes') return matching.sort((a, b) => (a.albumTrack ?? 0) - (b.albumTrack ?? 0));
-    return songOrder === 'likes' && chart ? byArkpediaLikes(matching, chart.likes, trackIdOf) : matching;
-  }, [matchingSongs, includeEndfield, songOrder, chart, albumArtist, dates, facets.albumId, hasActiveQuery]);
+    if (songOrder === 'likes' && chart) return byArkpediaLikes(matching, chart.likes, trackIdOf);
+    if (songOrder === 'youtube-likes' && youtubeChart) return byYouTubeLikes(matching, youtubeChart.likes, trackIdOf);
+    if (facets.albumId && !hasActiveQuery) return matching.sort((a, b) => (a.albumTrack ?? 0) - (b.albumTrack ?? 0));
+    return matching;
+  }, [matchingSongs, includeEndfield, songOrder, chart, youtubeChart, albumArtist, dates, facets.albumId, hasActiveQuery]);
   // Endfield songs the search or facet found while Endfield music is off (a search result for one).
   const hiddenEndfield = includeEndfield ? 0 : matchingSongs.filter(song => 'game' in song && song.game === 'endfield'
     && (!albumArtist || creditsArtist(song.artist, albumArtist))).length;
@@ -314,16 +322,18 @@ export default function DiscoverPage({ songs: releaseSongs, characters, origins,
     router.replace({ pathname: router.pathname, query: cleaned }, undefined, { shallow: true, scroll: false });
   }
 
-  function playSong(videoId: string) {
+  function playSong(videoId: string, shelf?: typeof charts[number]) {
+    if (shelf) {
+      void playPlaylist(shelf.tracks.map(trackIdOf), { name: 'Most liked on ' + shelf.source, href: '/music/discover?browse=' + shelf.key }, videoId);
+      return;
+    }
     const params = new URLSearchParams();
     if (facetParam) params.set('facet', facetParam);
     if (query.trim()) params.set('q', query.trim());
     if (songOrder) params.set('sort', songOrder);
     if (albumArtist) params.set('artist', albumArtist);
-    if (isBrowsing) params.set('browse', 'likes');
-    const name = isBrowsing ? 'Most liked on Arkpedia' : [activeFacetLabel, albumArtist, query.trim()].filter(Boolean).join(' · ') || 'Discover';
-    const list = isBrowsing ? rankedSongs : filteredSongs;
-    void playPlaylist(list.map(trackIdOf), { name, href: '/music/discover?' + params }, videoId);
+    const name = [activeFacetLabel, albumArtist, query.trim()].filter(Boolean).join(' · ') || 'Discover';
+    void playPlaylist(filteredSongs.map(trackIdOf), { name, href: '/music/discover?' + params }, videoId);
   }
 
   const maxOriginCount = origins[0]?.count || 1;
@@ -451,16 +461,16 @@ export default function DiscoverPage({ songs: releaseSongs, characters, origins,
                 {artistTools && <SearchInput label="Search this artist’s songs" name="artist-song-search" placeholder="Find a song…" value={query} onChange={setQuery} />}
                 {(!artistCatalogue || artistTools) && <div className="music-discover-song-order">
                   <span aria-hidden="true">Sort</span>
-                  <StyledSelect label="Order songs" value={['likes', 'oldest', 'newest'].includes(songOrder) ? songOrder : ''} onChange={setSongOrder} align="end"
+                  <StyledSelect label="Order songs" value={['likes', 'youtube-likes', 'oldest', 'newest'].includes(songOrder) ? songOrder : ''} onChange={setSongOrder} align="end"
                     options={[
                       { value: '', label: hasActiveQuery ? 'Best match' : facets.albumId ? 'Album order' : 'Default' },
                       ...(!selectedAlbum ? [{ value: 'newest', label: 'Newest first' }, { value: 'oldest', label: 'Oldest first' }] : []),
-                      { value: 'likes', label: 'Most liked on Arkpedia', disabled: !rankedSongs.length },
+                      ...charts.map(item => ({ value: item.key, label: 'Most liked on ' + item.source, disabled: !item.tracks.length })),
                     ]} />
                 </div>}
               </div>
-              {songOrder === 'likes' && !rankedSongs.length && <p className="hint" role="status">
-                {likesLoading ? 'Loading Arkpedia likes…' : chart ? 'No favourites in the daily chart yet.' : 'Arkpedia likes are temporarily unavailable. Showing default order.'}
+              {selectedChart && !selectedChart.tracks.length && <p className="hint" role="status">
+                {selectedChart.loading ? 'Loading ' + selectedChart.source + ' likes…' : selectedChart.data ? selectedChart.empty : selectedChart.source + ' likes are temporarily unavailable. Showing default order.'}
               </p>}
               <HiddenEndfieldHint count={hiddenEndfield} />
               {filteredSongs.length === 0 ? (
@@ -473,7 +483,8 @@ export default function DiscoverPage({ songs: releaseSongs, characters, origins,
                     // row per album listing, keyed by both.
                     return <SongRow key={`${s.albumId}:${id}`} marker="music-discover-song-row"
                       song={{ id, title: s.title, altTitle: s.altTitle, artist: s.artist, album: s.albumName, cover: s.coverPath }}
-                      detail={songOrder === 'likes' && chart ? likeCount(chart.likes[id] ?? 0, ' Arkpedia') : undefined}
+                      detail={selectedChart?.data && (selectedChart.source === 'Arkpedia' || selectedChart.data.likes[id] !== undefined)
+                        ? likeCount(selectedChart.data.likes[id] ?? 0, ' ' + selectedChart.source) : undefined}
                       active={playingId === id} queued={queued.has(id)} onPlay={() => playSong(id)}
                       actions={{
                         playNow: () => playSong(id),
@@ -552,38 +563,44 @@ export default function DiscoverPage({ songs: releaseSongs, characters, origins,
               </ScrollRow>
             </section>
 
-            <section className="op-section music-discover-section" aria-labelledby="discover-likes-heading">
-              <div className="music-discover-section-heading">
-                <h2 id="discover-likes-heading">Most liked on Arkpedia</h2>
-                {rankedSongs.length > ROW_PREVIEW_COUNT && showAllButton('likes', 'discover-likes')}
-              </div>
-              <div className="music-discover-likes-content" aria-busy={likesLoading}>
-                {rankedSongs.length > 0 ? <>
-                  <Collection id="discover-likes" label="Songs ordered by Arkpedia likes" expanded={likesExpanded} grid albums controls>
-                    {visibleRankedSongs.map(song => {
-                      const title = songTitle(song.title, song.altTitle);
-                      const id = trackIdOf(song);
-                      const count = chart!.likes[id];
-                      // The tile plays the song; its ⋯ queues it, as a song row's does (it could only play, 2026-10-22).
-                      return <div key={id} className="music-discover-like-tile">
-                        <button type="button" className="btn-bare music-discover-album-tile" data-song-id={id}
-                          aria-label={`Play ${title} now, ${likeCount(count, ' Arkpedia')}`}
-                          title={`${title} · ${likeCount(count, ' Arkpedia')}`} aria-current={playingId === id ? 'true' : undefined}
-                          onClick={() => playSong(id)}>
-                          <AlbumCover coverPath={song.coverPath} size={120} className="music-discover-album-tile-cover" />
-                          <span className="music-discover-album-tile-name">{title}</span>
-                        </button>
-                        <span className="music-discover-album-tile-count">{likeCount(count)}</span>
-                        <SongActionsMenu song={{ id, title }} isActive={playingId === id}
-                          onPlayNow={() => playSong(id)} onQueueNext={() => void queueSong(id, 'next')} onQueueLast={() => void queueSong(id, 'last')}
-                          noAutoplay={{ on: noAutoplay.has(id), toggle: () => toggleNoAutoplay(id) }} />
-                      </div>;
-                    })}
-                  </Collection>
-                </> : <p className="hint" role="status">{likesLoading ? 'Loading Arkpedia likes…' : chart ? 'No favourites in the daily chart yet.' : 'Arkpedia likes are temporarily unavailable.'}</p>}
-              </div>
-              <CommunityContributionFooter />
-            </section>
+            {charts.map(shelf => {
+              const id = 'discover-' + shelf.key;
+              const expanded = browseCollection === shelf.key;
+              return (
+                <section className="op-section music-discover-section" key={shelf.key} aria-labelledby={id + '-heading'}>
+                  <div className="music-discover-section-heading">
+                    <h2 id={id + '-heading'}>Most liked on {shelf.source}</h2>
+                    {shelf.tracks.length > ROW_PREVIEW_COUNT && showAllButton(shelf.key, id)}
+                  </div>
+                  <div className="music-discover-likes-content" aria-busy={shelf.loading}>
+                    {shelf.data && shelf.tracks.length > 0 ?
+                      <Collection id={id} label={'Songs ordered by ' + shelf.source + ' likes'} expanded={expanded} grid albums controls>
+                        {shelf.tracks.slice(0, expanded ? undefined : ROW_PREVIEW_COUNT).map(song => {
+                          const title = songTitle(song.title, song.altTitle);
+                          const id = trackIdOf(song);
+                          const count = shelf.data!.likes[id];
+                          // The tile plays the song; its ⋯ queues it, as a song row's does (it could only play, 2026-10-22).
+                          return <div key={id} className="music-discover-like-tile">
+                            <button type="button" className="btn-bare music-discover-album-tile" data-song-id={id}
+                              aria-label={`Play ${title} now, ${likeCount(count, ' ' + shelf.source)}`}
+                              title={`${title} · ${likeCount(count, ' ' + shelf.source)}`} aria-current={playingId === id ? 'true' : undefined}
+                              onClick={() => playSong(id, shelf)}>
+                              <AlbumCover coverPath={song.coverPath} size={120} className="music-discover-album-tile-cover" />
+                              <span className="music-discover-album-tile-name">{title}</span>
+                            </button>
+                            <span className="music-discover-album-tile-count">{likeCount(count)}</span>
+                            <SongActionsMenu song={{ id, title }} isActive={playingId === id}
+                              onPlayNow={() => playSong(id, shelf)} onQueueNext={() => void queueSong(id, 'next')} onQueueLast={() => void queueSong(id, 'last')}
+                              noAutoplay={{ on: noAutoplay.has(id), toggle: () => toggleNoAutoplay(id) }} />
+                          </div>;
+                        })}
+                      </Collection>
+                    : <p className="hint" role="status">{shelf.loading ? 'Loading ' + shelf.source + ' likes…' : shelf.data ? shelf.empty : shelf.source + ' likes are temporarily unavailable.'}</p>}
+                  </div>
+                  {shelf.source === 'Arkpedia' && <CommunityContributionFooter />}
+                </section>
+              );
+            })}
 
             {albums.length > 0 && (
               <section className="op-section music-discover-section">
