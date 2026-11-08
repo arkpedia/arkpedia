@@ -259,3 +259,15 @@ tops out around 0.2%.
 The missing half is the rest schedule. The plan's own dorms are what make its schedule valid, and
 `decode` cannot reproduce them; a solver that optimizes the dorm assignment alongside the room orders
 is the next attempt.
+
+## The joint rest solver (2026-11-08)
+
+`room-rest-solver.ts` starts from the plan's valid shifts and its own dorms, swaps one room's staffing
+for another shift's, takes the displaced workers out of work, beds whoever lost a place in the plan's
+existing dorm slots, and simulates exactly. On ashie it finds **+0.99%** (the `decode`-rest solver:
++1.04%); on gita **0.00%** (both). Keeping the plan's rest structure does not unlock the rosters where
+the decoded model found nothing: the per-room order search is already at its local optimum there.
+
+Both per-room models top out around +0.2% over the 21 (the `decode`-rest one measured +0.20% over all
+21, all non-negative), below the +0.5% bar. The remaining slack is not in the per-room orders or the
+beds around them.
