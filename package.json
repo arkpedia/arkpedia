@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
+    "postinstall": "node scripts/build/patch-opennext-queue.mjs",
     "dev": "next dev --webpack",
     "data:pull": "node scripts/content/pull-data.mjs",
     "data:pull:specs": "node scripts/content/pull-data.mjs --pinned",

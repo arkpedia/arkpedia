@@ -13,7 +13,7 @@ import { availableSkins, getSkinWindows, type SkinWindow } from '@/lib/skins/ski
 import { getAllEvents } from '@/lib/schedule/schedule';
 import type { HeadhuntingBanner } from '@/lib/gacha/headhuntingBanners';
 import { getBannersSortedByDate } from '@/lib/gacha/headhuntingBannerData';
-import { GetStaticProps } from 'next';
+import { GetStaticProps, type GetStaticPropsContext } from 'next';
 import { useEffect, useState, useMemo } from 'react';
 import AnnouncementTicker from '@/components/layout/AnnouncementTicker';
 import { useReleaseTable } from '@/lib/content/context';
@@ -166,7 +166,7 @@ export default function HomePage({
 
 // Recompute time-sensitive homepage selections during server revalidation, at the
 // request's clock -- the same `now` the page renders its first paint from.
-async function finalizeHome(props: Props): Promise<Props> {
+async function finalizeHome(props: Props, context: GetStaticPropsContext): Promise<Props> {
   const { __calendar, ...rest } = props;
   if (!Number.isFinite(props.now)) throw new Error('/ needs the request clock: it is in CLOCK_UNITS (lib/content/pageClock.ts), and finalize never runs for an export');
   const now = new Date(props.now);
@@ -178,7 +178,7 @@ async function finalizeHome(props: Props): Promise<Props> {
   });
   const serialize = (event: GameEvent) => ({ ...event, start: event.start.toISOString(), end: event.end.toISOString() });
   const upcoming = getNextUpcomingEvent(now, events);
-  const rawVideos = await getLatestVideos(await youtubeChannels(), VIDEOS_PER_CHANNEL);
+  const rawVideos = await getLatestVideos(await youtubeChannels(), VIDEOS_PER_CHANNEL, context);
   const enrichedVideos = await enrichWithLiveStatus(rawVideos, process.env.YOUTUBE_API_KEY);
   const [videoContext, archivedVideos] = await Promise.all([loadVideoDiscoveryContext(props.now), loadVideoArchive()]);
   const videos = featuredChannelVideos([...enrichedVideos, ...archivedVideos], props.now, videoContext);

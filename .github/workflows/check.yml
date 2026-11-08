@@ -280,8 +280,15 @@ jobs:
       # the site's behaviour, and a nightly release must not turn an unrelated PR red.
       - name: Pull the pinned game records for the browser specs
         run: node scripts/content/pull-data.mjs --pinned
+      - name: Prepare pinned browser build inputs
+        # Public catalogues and shipped tables must use the same revision as the
+        # pages. The earlier preparation belongs to the live-data type checks.
+        run: npm run prebuild
+        env:
+          NODE_ENV: production
+          ARKPEDIA_CONTENT_DISABLED: '1'
       - name: Build
-        # prebuild ran above, and postbuild must still enforce BOTH output budgets.
+        # Pinned inputs are prepared above; postbuild enforces BOTH output budgets.
         run: npm run --ignore-scripts build && npm run postbuild
         env:
           NEXT_TELEMETRY_DISABLED: '1'

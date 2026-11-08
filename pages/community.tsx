@@ -13,7 +13,7 @@ import { ContentImg } from '@/components/content/ContentImage';
 import { currentWebEvents, mergeWebEvents, webEventServer, WORLD_CATEGORIES, type WorldCategory, type WorldDirectory, type WorldWebEvent } from '@/lib/community/worldDirectory';
 import { SERVER_IDS } from '@/lib/account-import/yostar';
 import { useReaderClock } from '@/lib/time/readerClock';
-import { GetStaticProps } from 'next';
+import { GetStaticProps, type GetStaticPropsContext } from 'next';
 import { withContentPage } from '@/lib/content/server';
 import Link from 'next/link';
 import { enrichWithLiveStatus, YouTubeVideo } from '@/lib/music/youtube';
@@ -105,12 +105,12 @@ export default function CommunityHub({
    against the release's asset pin, not the one this deploy's revisions.json carried. The
    feeds are live, not game data, so they are fetched on every revalidation (finalize) and
    never exported into the release; the builder holds only what the release should carry. */
-async function withLiveFeeds(props: Props): Promise<Props> {
+async function withLiveFeeds(props: Props, context: GetStaticPropsContext): Promise<Props> {
   // New campaigns travel in the content release without a code deploy. This deployment's
   // record keeps the campaigns it knows visible while an older directory is still live.
   const existing = props.directory ?? (await import('@/data/world-directory.json')).default as WorldDirectory;
   const directory = { ...existing, webEvents: mergeWebEvents(await publishedWebEvents(), existing.webEvents) };
-  const rawVideos = await getLatestVideos(await youtubeChannels(), VIDEOS_PER_CHANNEL);
+  const rawVideos = await getLatestVideos(await youtubeChannels(), VIDEOS_PER_CHANNEL, context);
   const youtubeApiKey = process.env.YOUTUBE_API_KEY;
   const enriched = await enrichWithLiveStatus(rawVideos, youtubeApiKey);
 

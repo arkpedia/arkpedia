@@ -10,6 +10,17 @@ import { pythonTests, runPythonTests } from './run-python-tests.mjs';
 const workflow = name => yaml.load(fs.readFileSync(`.github/workflows/${name}.yml`, 'utf8'));
 const steps = workflow('check').jobs.check.steps;
 
+test('browser pages, catalogues and shipped tables are generated from the same pinned revision', () => {
+  const pin = steps.findIndex(step => step.name === 'Pull the pinned game records for the browser specs');
+  const prepare = steps.findIndex(step => step.name === 'Prepare pinned browser build inputs');
+  const build = steps.findIndex(step => step.name === 'Build');
+  assert.ok(pin >= 0 && prepare > pin && build > prepare);
+  assert.ok(steps.slice(prepare + 1, build).every(step => !/pull-data\.mjs/.test(step.run ?? '')), 'no later data pull can invalidate generated inputs');
+  assert.equal(steps[prepare].run, 'npm run prebuild');
+  assert.deepEqual(steps[prepare].env, { NODE_ENV: 'production', ARKPEDIA_CONTENT_DISABLED: '1' });
+  assert.ok(steps.findIndex(step => step.name === 'Typecheck') < pin, 'live-data type validation remains before the browser pin');
+});
+
 test('Python discovery includes every current suite and nested new suites, without helpers', t => {
   const files = pythonTests('scripts').map(file => file.replaceAll('\\', '/'));
   for (const file of [

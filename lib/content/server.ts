@@ -47,8 +47,9 @@ export type ContentPageBuilder<P> = (context: GetStaticPropsContext) => Promise<
 const moment = (): PageClockMoment => process.env.ARKPEDIA_EXPORT_CONTENT === '1' ? { exporting: true } : { now: Date.now() };
 
 export interface ContentPageOptions<P> {
-  /** Runs on every request's props, the release's or the builder's (never in the export). */
-  finalize?: (props: P) => Promise<P>;
+  /** Runs on every request's props, the release's or the builder's (never in the export).
+   * Context distinguishes a clean prerender from runtime ISR for build-only fallbacks. */
+  finalize?: (props: P, context: GetStaticPropsContext) => Promise<P>;
   revalidate?: number;
   tables?: ContentTableLoaders;
   /**
@@ -103,7 +104,7 @@ export function withContentPage<P extends object>(template: string, builder: Con
         if (!bundledFallbackAvailable && !options.bundledWhenUnpublished) throw new Error(`Published content is missing ${route}`);
         const fallback = await bundled(context);
         if ('props' in fallback) fallback.props = await attachTables(template, contentPageClock(template, await fallback.props, moment()), loaders);
-        if ('props' in fallback && options.finalize) fallback.props = await options.finalize(await fallback.props);
+        if ('props' in fallback && options.finalize) fallback.props = await options.finalize(await fallback.props, context);
         return { ...fallback, revalidate: revalidate() };
       }
       try {
@@ -113,7 +114,7 @@ export function withContentPage<P extends object>(template: string, builder: Con
           throw new Error('Published content page disappeared');
         }
         const currentProps = await attachTables(template, contentPageClock(template, { ...props, __contentRelease: loaded.context } as unknown as P, moment()), loaders, loaded.context.release);
-        return { props: options.finalize ? await options.finalize(currentProps) : currentProps, revalidate: revalidate() };
+        return { props: options.finalize ? await options.finalize(currentProps, context) : currentProps, revalidate: revalidate() };
       } catch (error) {
         // An ISR failure preserves Next's previous valid page. A cold request can
         // use the shipped snapshot; existing pages must not be replaced by stale data.
@@ -125,7 +126,7 @@ export function withContentPage<P extends object>(template: string, builder: Con
     const fallback = await bundled(context);
     // The content export takes this path too, so this is where a release gets its tables.
     if ('props' in fallback) fallback.props = await attachTables(template, contentPageClock(template, await fallback.props, moment()), loaders);
-    if ('props' in fallback && options.finalize && process.env.ARKPEDIA_EXPORT_CONTENT !== '1') fallback.props = await options.finalize(await fallback.props);
+    if ('props' in fallback && options.finalize && process.env.ARKPEDIA_EXPORT_CONTENT !== '1') fallback.props = await options.finalize(await fallback.props, context);
     return { ...fallback, revalidate: revalidate() };
   };
 }

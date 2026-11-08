@@ -5,6 +5,8 @@ import { readFileSync } from 'fs';
 import { parseChannelFeed, type YouTubeVideo } from './youtube';
 import { createChannelFeedReader } from './youtubeFeedCache';
 import { workerContext } from './audioLinkMemo';
+import { loadVideoArchive } from './youtubeArchiveServer';
+import type { GetStaticPropsContext } from 'next';
 
 /**
  * The Check's stand-in for the channels' live feeds: a path (relative to the working
@@ -29,7 +31,8 @@ const fetchChannelFeed = createChannelFeedReader();
 
 export async function getLatestVideos(
   channels: { id: string; label: string }[],
-  perChannelLimit: number
+  perChannelLimit: number,
+  context?: Pick<GetStaticPropsContext, 'revalidateReason'>,
 ): Promise<YouTubeVideo[]> {
   const fixturePath = process.env[FIXTURE_ENV];
   // Read outside the per-channel catch below: a fixture that is set and cannot be read is a
@@ -49,7 +52,14 @@ export async function getLatestVideos(
   }
   // ISR keeps the previous valid page on a total outage, rather than publishing
   // "No videos" over it. Warm/cold Worker instances also have the R2 fallback above.
-  if (fixture === null && channels.length && !merged.length) throw new Error('YouTube feeds unavailable; retaining the previous page');
+  if (fixture === null && channels.length && !merged.length) {
+    // A clean build has neither the previous ISR page nor the Worker's R2 feed
+    // snapshots. The upload pages already merge the verified published archive;
+    // let them build from it, without treating archived uploads as live streams.
+    // Runtime refreshes still throw, retaining the previous valid page.
+    if (context?.revalidateReason === 'build' && (await loadVideoArchive()).length > 0) return [];
+    throw new Error('YouTube feeds unavailable; retaining the previous page');
+  }
   merged.sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime());
   return merged;
 }
