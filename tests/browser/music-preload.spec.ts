@@ -67,6 +67,13 @@ test('one upcoming track is ready before the end and starts on the same element 
   const gap = await page.evaluate(() => { const w = window as unknown as { __ended: number; __started: number }; return w.__started - w.__ended; });
   expect(gap).toBeGreaterThanOrEqual(0);
   expect(gap, 'the prepared file starts without waiting for an audio request').toBeLessThan(800);
+  // Once consumed, the finished file can play again in this tab even if its
+  // network route is now unavailable.
+  await select(page, first, true);
+  await page.route(`**/api/music-audio/${second.cid}`, route => route.abort());
+  await select(page, second, true);
+  await expect(audio(page)).toHaveAttribute('src', /^blob:/);
+  expect(siren.resolves.filter(cid => cid === second.cid)).toHaveLength(1);
 });
 
 test('Play next replaces a prepared file, and only the newly selected song plays', async ({ page }) => {
@@ -130,6 +137,7 @@ test('a failed preload leaves playback alone and the next song uses ordinary str
 
 test('an unfinished direct download never delays Next, and old relay preferences cannot affect preloading', async ({ page }) => {
   await page.addInitScript(() => {
+    if (window.top !== window) return;
     localStorage.setItem('arkpediaAudioRelay', String(Date.now() + 60000));
     localStorage.setItem('musicFavorites', JSON.stringify(['msr:697616']));
   });

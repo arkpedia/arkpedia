@@ -1,3 +1,4 @@
+import { releaseSpectrumElement, selectSpectrumOutput } from './spectrumInput';
 import { createMusicAudioElement, msrAudioAddress, releaseMusicAudioFile, setMusicAudioFile } from './audioElement';
 
 /** A muted copy of the other recording follows the audible element. A warm switch
@@ -6,28 +7,30 @@ export function createPairedAudio(active: () => HTMLAudioElement, attach: (el: H
   let standby: HTMLAudioElement | null = null;
   let cid = '';
   let offset: number | null = 0; // null prepares a different edit at its beginning.
-  let requested: { run: () => void; at: number } | null = null;
   let timer: number | undefined;
   let blocked = false;
 
   function clear() {
     window.clearInterval(timer);
-    requested = null;
     if (standby) {
       standby.pause();
       standby.removeAttribute('src');
       standby.load();
       releaseMusicAudioFile(standby);
+      releaseSpectrumElement(standby);
       standby.remove();
     }
     standby = null;
     cid = '';
   }
 
+  // Media clocks can move in separate decoder updates. A difference within
+  // one follower tick is already close enough to hand off without a seek.
+  const followIntervalMs = 80;
   function aligned() {
     const a = active(), b = standby;
     return offset !== null && b && b.readyState >= 3 && !a.seeking && !b.seeking && !b.paused && !a.paused
-      && Math.abs(a.currentTime + offset - b.currentTime) <= 0.035;
+      && Math.abs(a.currentTime + offset - b.currentTime) <= followIntervalMs / 1000;
   }
 
   function follow() {
@@ -47,11 +50,6 @@ export function createPairedAudio(active: () => HTMLAudioElement, attach: (el: H
         void b.play().catch(error => { if (standby === b && error.name !== 'AbortError') blocked = true; });
       }
     }
-    if (requested && (outside || aligned() || a.paused || blocked || b.error || performance.now() - requested.at > 2500)) {
-      const { run } = requested;
-      requested = null;
-      run();
-    }
   }
 
   return {
@@ -66,16 +64,11 @@ export function createPairedAudio(active: () => HTMLAudioElement, attach: (el: H
       attach(standby);
       blocked = false;
       setMusicAudioFile(standby, next, msrAudioAddress(next), offset === null ? 0 : Math.max(0, active().currentTime + offset));
-      timer = window.setInterval(follow, 80);
+      timer = window.setInterval(follow, followIntervalMs);
     },
-    whenReady(next: string, run: () => void) {
-      if (standby && next === cid && !active().paused && !aligned() && !blocked && !standby.error) {
-        requested = { run, at: performance.now() };
-        follow();
-      } else run();
-    },
+    pause() { standby?.pause(); },
     swap(next: string, outgoing: string, continuePlaying: boolean) {
-      if (!standby || cid !== next || standby.error || standby.readyState < 1) return null;
+      if (!standby || cid !== next || standby.error) return null;
       const live = continuePlaying && Boolean(aligned());
       const incoming = standby;
       const previous = active();
@@ -85,6 +78,10 @@ export function createPairedAudio(active: () => HTMLAudioElement, attach: (el: H
       incoming.playbackRate = 1;
       incoming.volume = previous.volume;
       previous.muted = true;
+      if (!live) previous.pause();
+      // WebKit routes analysed decks through Web Audio. Muting the element alone
+      // can leave its speaker connection alive while it follows the new version.
+      selectSpectrumOutput(live ? incoming : undefined);
       incoming.muted = false;
       previous.removeAttribute('data-music-audio');
       previous.setAttribute('data-music-standby', '');
@@ -93,7 +90,6 @@ export function createPairedAudio(active: () => HTMLAudioElement, attach: (el: H
       standby = previous;
       cid = outgoing;
       if (offset !== null) offset = -offset;
-      requested = null;
       return { element: incoming, live };
     },
     clear,

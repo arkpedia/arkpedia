@@ -1,3 +1,4 @@
+import { selectSpectrumOutput } from './spectrumInput';
 import { createPairedAudio } from './pairedAudio';
 import { logAudioEvent, musicAudioElement, msrAudioAddress, msrAudioCid, releaseMusicAudioFile, setMusicAudioFile } from './audioElement';
 import { trackSource, type TrackSource } from './trackId';
@@ -115,7 +116,6 @@ export interface MsrAudioEngine extends PlaybackEngine {
   element: HTMLAudioElement;
   prepareVersion: (cid: string | null, offset?: number | null) => void;
   versionDuration: (cid: string) => number | undefined;
-  whenVersionReady: (cid: string, run: () => void) => void;
   /** What the engine believes, for the debug panel (components/music/AudioDebugPanel.tsx). */
   debug(): Record<string, string | number | boolean>;
 }
@@ -301,7 +301,9 @@ export function createMsrAudioEngine(events: MsrEngineEvents, { address = msrAud
     rescued = true;
     wantPlay = false;
     disarm();
-    if (!el.paused) el.pause();
+    selectSpectrumOutput();
+    pair.pause();
+    el.pause();
     events.onStuck();
   }
 
@@ -352,6 +354,7 @@ export function createMsrAudioEngine(events: MsrEngineEvents, { address = msrAud
       if (!wantPlay) { report(PLAYER_STATE.PAUSED); return; }
     }
     el.volume = volume;
+    selectSpectrumOutput(el);
     logAudioEvent('play()');
     el.play().then(() => logAudioEvent('play() resolved'), (error: unknown) => {
       const name = (error as { name?: string })?.name ?? 'Error';
@@ -436,6 +439,7 @@ export function createMsrAudioEngine(events: MsrEngineEvents, { address = msrAud
     });
     on('playing', () => {
       if (!current() || el.paused) return;
+      selectSpectrumOutput(el);
       // Started from outside the player (the system's own controls): watched like a Play.
       if (!wantPlay) { wantPlay = true; rescued = false; arm(); }
       if (!startedAt) startedAt = now();
@@ -452,6 +456,8 @@ export function createMsrAudioEngine(events: MsrEngineEvents, { address = msrAud
     // The end fires pause first; it is reported once, as the end.
     on('pause', () => {
       if (!current() || !el.paused || el.ended) return;
+      selectSpectrumOutput();
+      pair.pause();
       wantPlay = false;
       disarm();
       events.onState(PLAYER_STATE.PAUSED);
@@ -479,7 +485,6 @@ export function createMsrAudioEngine(events: MsrEngineEvents, { address = msrAud
     get element() { return el; },
     prepareVersion: pair.prepare,
     versionDuration: pair.duration,
-    whenVersionReady: pair.whenReady,
     loadVideoById: (video) => load(video, true),
     cueVideoById: (video) => load(video, false),
     playVideo() {
@@ -497,8 +502,11 @@ export function createMsrAudioEngine(events: MsrEngineEvents, { address = msrAud
     pauseVideo() {
       wantPlay = false;
       disarm();
-      if (loadedCid === cid && loadedCid && !el.paused) el.pause();
-      else report(PLAYER_STATE.PAUSED);
+      generation += 1;
+      selectSpectrumOutput();
+      pair.pause();
+      el.pause();
+      report(PLAYER_STATE.PAUSED);
     },
     seekTo(seconds) {
       if (wantPlay) movedAt = now();
@@ -513,6 +521,7 @@ export function createMsrAudioEngine(events: MsrEngineEvents, { address = msrAud
     },
     getVideoData: () => ({ video_id: id, title: '' }),
     stop() {
+      selectSpectrumOutput();
       pair.clear();
       generation += 1;
       wantPlay = false;

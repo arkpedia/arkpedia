@@ -18,6 +18,7 @@ import { SITE_ICON_PATH, artistLine, imageType, msrCoverPath, sessionArtwork, us
 import { versionTiming } from './versionTiming';
 import { findSongVersion } from './songVersions';
 import { musicAudioPreloader } from './audioPreload';
+import { primeSpectrumContext } from './spectrumInput';
 import { musicAudioElement, primeMusicAudio, msrAudioAddress } from './audioElement';
 import AudioDebugPanel from '@/components/music/AudioDebugPanel';
 import EndfieldNoticeDialog from '@/components/music/EndfieldNoticeDialog';
@@ -401,6 +402,7 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
     clearPlaybackNotice();
     const source = id ? routeTrack(id) : null;
     if (source?.kind !== 'msr') return;
+    primeSpectrumContext();
     if (playerReadyRef.current && playerRef.current && musicAudioElement().getAttribute('src')) return;
     primeMusicAudio(source.cid, seconds);
   };
@@ -1852,29 +1854,25 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
     const target = alternateVersion.song.id;
     const { fromStart } = alternateVersion;
     const route = routeTrack(target);
-    const run = () => {
-      const engine = playerRef.current;
-      if (!engine || videoIdRef.current !== id || engine.loaded() !== id) return;
-      const seconds = cuedAtRef.current?.videoId === id ? cuedAtRef.current.seconds : engine.getCurrentTime();
-      let at = fromStart || !Number.isFinite(seconds) ? 0 : seconds;
-      const source = routeTrack(id);
-      if (!fromStart) {
-        const timing = versionTiming(source.kind === 'msr' ? source.cid : id, route.kind === 'msr' ? route.cid : target);
-        at = Math.max(0, at + timing.offset);
-        const duration = route.kind === 'msr' ? audioRef.current?.versionDuration(route.cid) : undefined;
-        if (at >= (duration ?? timing.duration)) {
-          announce('The other version has already ended.', false, true);
-          return;
-        }
+    const engine = playerRef.current;
+    if (!engine || videoIdRef.current !== id || engine.loaded() !== id) return;
+    const seconds = cuedAtRef.current?.videoId === id ? cuedAtRef.current.seconds : engine.getCurrentTime();
+    let at = fromStart || !Number.isFinite(seconds) ? 0 : seconds;
+    const source = routeTrack(id);
+    if (!fromStart) {
+      const timing = versionTiming(source.kind === 'msr' ? source.cid : id, route.kind === 'msr' ? route.cid : target);
+      at = Math.max(0, at + timing.offset);
+      const duration = route.kind === 'msr' ? audioRef.current?.versionDuration(route.cid) : undefined;
+      if (at >= (duration ?? timing.duration)) {
+        announce('The other version has already ended.', false, true);
+        return;
       }
-      clearPlaybackNotice();
-      playNow(target, {
-        seconds: at,
-        playing: isPlayingRef.current || bufferingRef.current || playerStateRef.current === PLAYER_STATE.BUFFERING || Boolean(resumeWatchRef.current),
-      });
-    };
-    if (!fromStart && route.kind === 'msr' && audioRef.current) audioRef.current.whenVersionReady(route.cid, run);
-    else run();
+    }
+    clearPlaybackNotice();
+    playNow(target, {
+      seconds: at,
+      playing: isPlayingRef.current || bufferingRef.current || playerStateRef.current === PLAYER_STATE.BUFFERING || Boolean(resumeWatchRef.current),
+    });
   }
 
   function playNow(id: string, handoff?: { seconds: number; playing: boolean }) {

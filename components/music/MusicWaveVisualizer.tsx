@@ -3,8 +3,7 @@ import { useSiteSetting } from '@/lib/settings/useSiteSetting';
 import { useEffect, useId, useRef } from 'react';
 import type { EngineKind } from '@/lib/music/playbackEngine';
 import { useMediaQuery } from '@/lib/hooks/useMediaQuery';
-
-type CapturableAudio = HTMLAudioElement & { captureStream?: () => MediaStream };
+import { openSpectrumInput, primeSpectrumContext } from '@/lib/music/spectrumInput';
 
 const bands = 48;
 const lowHz = 62.5;
@@ -19,24 +18,16 @@ function Spectrum({ playing, engine, trackId }: SpectrumProps) {
   const trace = useRef<SVGPathElement>(null);
   const reducedMotion = useMediaQuery('(prefers-reduced-motion: reduce)');
 
-  // Analyse a copy of the existing media stream. The audio element keeps its original output.
-  // Iframes and browsers without element capture show the stationary frequency scale.
   useEffect(() => {
-    const element = document.querySelector<CapturableAudio>('audio[data-music-audio]');
+    const element = document.querySelector<HTMLAudioElement>('audio[data-music-audio]');
     const graph = svg.current;
     const path = trace.current;
-    if (!playing || engine !== 'msr' || reducedMotion || !element?.captureStream || !window.AudioContext || !graph || !path) return;
-    let stream: MediaStream;
-    let audio: AudioContext;
-    try {
-      audio = new AudioContext();
-      try { stream = element.captureStream(); }
-      catch { void audio.close().catch(() => {}); return; }
-    } catch { return; }
-
+    if (!playing || engine !== 'msr' || reducedMotion || !element || !graph || !path) return;
+    let input: ReturnType<typeof openSpectrumInput>;
+    try { input = openSpectrumInput(element); } catch { return; }
+    if (!input) return;
+    const { analyser, context: audio, active, release } = input;
     let frame = 0;
-    let source: MediaStreamAudioSourceNode | undefined;
-    const analyser = audio.createAnalyser();
     analyser.fftSize = 8192;
     analyser.minDecibels = -90;
     analyser.maxDecibels = -18;
@@ -51,7 +42,7 @@ function Spectrum({ playing, engine, trackId }: SpectrumProps) {
       frame = requestAnimationFrame(draw);
       if (now - lastFrame < 40) return;
       lastFrame = now;
-      if (audio.state !== 'running' || !stream.active) {
+      if (audio.state !== 'running' || !active()) {
         graph.removeAttribute('data-live');
         return;
       }
@@ -66,34 +57,16 @@ function Spectrum({ playing, engine, trackId }: SpectrumProps) {
       path.setAttribute('d', bars.join(''));
       graph.setAttribute('data-live', '');
     };
-    const connect = () => {
-      cancelAnimationFrame(frame);
-      graph.removeAttribute('data-live');
-      source?.disconnect();
-      if (!stream.getAudioTracks().length) return;
-      try {
-        source = audio.createMediaStreamSource(stream);
-        source.connect(analyser);
-        frame = requestAnimationFrame(draw);
-      } catch { /* Capture is unavailable for this source. Leave the scale idle. */ }
-    };
-    // Chromium may deliver the first captured track after captureStream() returns.
-    stream.addEventListener('addtrack', connect);
-    stream.addEventListener('removetrack', connect);
-    connect();
-    void audio.resume().catch(() => {});
+    frame = requestAnimationFrame(draw);
     return () => {
-      stream.removeEventListener('addtrack', connect);
-      stream.removeEventListener('removetrack', connect);
       cancelAnimationFrame(frame);
-      source?.disconnect();
-      stream.getTracks().forEach(track => track.stop());
-      void audio.close().catch(() => {});
+      release();
+      path.removeAttribute('d');
       graph.removeAttribute('data-live');
     };
   }, [engine, playing, reducedMotion, trackId]);
 
-  const status = !playing ? 'Paused' : reducedMotion ? 'Reduced motion' : 'Live spectrum unavailable';
+  const status = !playing ? 'Paused' : reducedMotion ? 'Reduced motion' : engine === 'youtube' ? 'Spectrum unavailable for YouTube playback' : 'Live spectrum unavailable';
   return (
     <>
       <span className="music-spectrum-plot">
@@ -156,7 +129,10 @@ export default function MusicWaveVisualizer({ volume, ...spectrum }: SpectrumPro
   const description = waves ? 'Original decorative waves.' : 'Bass from 62.5 to 250 Hz, mids to 4 kHz and highs to 16 kHz. Height shows signal level from −90 to −18 dB.';
   return <button type="button" className="btn-bare music-wave-visualizer" data-playing={spectrum.playing}
     aria-label={action} aria-describedby={descriptionId} title={description + ' ' + action}
-    onClick={() => setSetting('musicVisualizer', waves ? 'spectrum' : 'waves')}>
+    onClick={() => {
+      if (waves && spectrum.engine === 'msr') primeSpectrumContext();
+      setSetting('musicVisualizer', waves ? 'spectrum' : 'waves');
+    }}>
     <span id={descriptionId} className="visually-hidden">{description}</span>
     {waves ? <OriginalWaves volume={volume} /> : <Spectrum {...spectrum} />}
     <span className="music-visualizer-switch" aria-hidden="true">⇄</span>
