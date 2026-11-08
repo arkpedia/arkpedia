@@ -239,3 +239,23 @@ crew takes the beds, empty beds take dorm skills) and simulates it:
 So the LP's slack is not a preset rotation: it relaxes the per-room schedule that makes a 5-minute
 plan valid. A server-side generator would have to solve that joint schedule, not just the setups;
 this study does not justify building one.
+
+## A per-room schedule solver (2026-11-08)
+
+The schedule the integer study pointed at, built: keep the plan's crews, products and number of
+staffing changes, and solve the per-room crew order (`assign`) that decides who works each room at
+each change, and therefore who has just come off shift and rests. Coordinate descent over every
+room's full pattern set (3^steps), evaluated by the exact simulator, then four perturb-and-descend
+restarts. The plan's own genome exhausts under `decode`'s rest rule (the plant's dorms are its own),
+so the descent first has to find a valid schedule; the plan is kept when the candidate is invalid or
+worse, so the solver never returns a loss.
+
+Over the 21 rosters at 300 s: **mean +0.20%**, all non-negative (10 positive, 11 zero). Largest
+ashie +1.04, ny3h +0.80, aliafso +0.66, akushi +0.57; the strong plans are already at a per-room
+local optimum (DokterOetker +0.01, blackgatoacer +0.05). Twelve restarts instead of four leave the
+zero rosters at zero, so the descent is not under-searched: the per-room-order + `decode`-rest model
+tops out around 0.2%.
+
+The missing half is the rest schedule. The plan's own dorms are what make its schedule valid, and
+`decode` cannot reproduce them; a solver that optimizes the dorm assignment alongside the room orders
+is the next attempt.
