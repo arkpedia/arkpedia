@@ -86,12 +86,12 @@ test('an imported playlist plays in its saved order and stream-safe does not add
   await expect.poll(async () => (await youtube(page))?.videoId).toBe(ids[1]);
   await page.reload();
   // The first song has played: the Queue keeps it under Played earlier, folded.
-  await page.getByRole('button', { name: /^Played earlier/ }).click();
-  await expect(page.locator('.music-queue-row')).toHaveCount(2);
+  await page.getByRole('button', { name: /^History/ }).click();
+  await expect(page.getByRole('region', { name: 'History' }).locator('[data-song-id]').first()).toHaveAttribute('data-song-id', ids[0]);
   const safe = page.getByRole('button', { name: 'Stream-safe: hide copyrighted songs', exact: true });
   // The compact phone transport hides this optional control; exercise it where it is exposed.
   if (await safe.isVisible()) { await safe.click(); await safe.click(); }
-  await expect(page.locator('.music-queue-row')).toHaveCount(2);
+  await expect(page.getByRole('region', { name: 'History' }).locator('[data-song-id]').first()).toHaveAttribute('data-song-id', ids[0]);
   await openMusicMenu(page);
   await page.getByRole('button', { name: 'Playlists', exact: true }).click();
   await page.getByRole('dialog', { name: 'Music playlists' }).getByRole('button', { name: 'Play all songs', exact: true }).click();

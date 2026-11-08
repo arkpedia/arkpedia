@@ -1,4 +1,4 @@
-import { chooseMusicView } from './music-navigation-helpers';
+import { chooseMusicView, openPlayerActions } from './music-navigation-helpers';
 import { expect, test, type Page } from '@playwright/test';
 import { stubMonsterSiren, WAV_SECONDS } from './monster-siren-stub';
 import { DATA_SAVER_KEY, stubYouTube, youtube, type StubCall } from './youtube-stub';
@@ -87,7 +87,8 @@ test('a song on YouTube that has a Monster Siren id plays from Monster Siren by 
   await expect.poll(() => page.evaluate(() => navigator.mediaSession?.playbackState)).toBe('playing');
   // It still links to its YouTube page (Now playing), as every song on YouTube does.
   await chooseMusicView(page, /^Now playing/);
-  const source = page.getByRole('link', { name: 'Open in YouTube', exact: true });
+  await openPlayerActions(page);
+  const source = page.getByRole('dialog', { name: 'Player actions' }).getByRole('link', { name: 'Open on YouTube' });
   await expect(source).toBeVisible();
   await expect(source).toHaveAttribute('href', `https://www.youtube.com/watch?v=${song.videoId}`);
 });
@@ -191,12 +192,15 @@ test('Data saver is kept across a reload, and a song with no YouTube upload stil
   await playFromLibrary(page, msrOnly, `msr:${msrOnly.cid}`);
   await expect.poll(async () => (await audio(page))?.paused).toBe(false);
   const menu = await openMenu(page);
+  // With Data saver off, the paired recording may already have loaded.
+  const loadedBeforeSaving = [...siren.resolves];
+  expect(loadedBeforeSaving).toContain(msrOnly.cid);
   await menu.getByRole('checkbox', { name: 'Data saver', exact: true }).check();
   // No YouTube version: nothing to move to, it plays on.
   await page.waitForTimeout(500);
   expect((await audio(page))!.paused).toBe(false);
   expect(youtubeLoads((await youtube(page))?.calls ?? [])).toEqual([]);
-  await expect.poll(() => siren.resolves).toEqual([msrOnly.cid]);
+  expect(siren.resolves).toEqual(loadedBeforeSaving);
 
   await page.reload();
   await expect.poll(() => page.evaluate((key) => localStorage.getItem(key), DATA_SAVER_KEY)).toBe('true');

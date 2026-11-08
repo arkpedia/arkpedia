@@ -8,20 +8,21 @@ export async function statisticsRefreshToken(secret, server, time = Date.now()) 
 }
 
 export async function verifyStatisticsRefreshToken(secret, server, token, time = Date.now()) {
-  if (typeof token !== 'string' || !/^[a-f0-9]{64}$/.test(token) || !COHORTS.includes(server)) return false;
+  if (typeof token !== 'string' || !/^[a-f0-9]{64}$/.test(token) || !(COHORTS.includes(server) || server === 'music')) return false;
   const bytes = Uint8Array.from(token.match(/../g), byte => parseInt(byte, 16));
   return crypto.subtle.verify('HMAC', await key(secret), bytes, message(server, time));
 }
 
-/** Four bounded snapshots through this Worker's own binding, never a public refresh URL
+/** Bounded daily snapshots through this Worker's own binding, never a public refresh URL
  * or a separate credential-bearing publisher. Exceptions mark the cron invocation failed. */
 export async function refreshDailyStatistics(env) {
   if (env.ARKPEDIA_DEPLOYMENT_ROLE !== 'production' || env.ARKPEDIA_AUTH_URL !== 'https://www.arkpedia.net' || !env.WORKER_SELF_REFERENCE || !env.BETTER_AUTH_SECRET) throw Error('Statistics schedule requires the production self binding.');
   const failed = [];
-  for (const server of COHORTS) {
+  for (const server of [...COHORTS, 'music']) {
     try {
-      const response = await env.WORKER_SELF_REFERENCE.fetch(new Request(`${env.ARKPEDIA_AUTH_URL}/api/community/rankings?server=${server}`, {
-        headers: { [HEADER]: await statisticsRefreshToken(env.BETTER_AUTH_SECRET, server) }, signal: AbortSignal.timeout(120_000),
+      const path = server === 'music' ? '/api/music/likes' : '/api/community/rankings?server=' + server;
+      const response = await env.WORKER_SELF_REFERENCE.fetch(new Request(`${env.ARKPEDIA_AUTH_URL}${path}`, {
+        headers: { 'Cache-Control': 'no-cache', [HEADER]: await statisticsRefreshToken(env.BETTER_AUTH_SECRET, server) }, signal: AbortSignal.timeout(120_000),
       }));
       // Always drain the child response before proceeding to the next D1 cohort.
       await response.arrayBuffer();

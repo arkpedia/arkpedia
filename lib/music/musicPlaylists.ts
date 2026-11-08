@@ -104,3 +104,5 @@ export function mergePlaylists(existing: MusicPlaylist[], incoming: MusicPlaylis
   validatePlaylists(playlists);
   return { playlists, added: playlists.length - existing.length + favoritesUpdated };
 }
+
+export const playlistHref = (id: string) => `/music?view=library&playlist=${encodeURIComponent(id)}`;

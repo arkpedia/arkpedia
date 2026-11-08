@@ -14,7 +14,12 @@ export async function chooseMusicView(page: Page, name: string | RegExp) {
   const link = page.getByRole('navigation', { name: 'Music', exact: true }).getByRole('link', { name, exact: typeof name === 'string' });
   const href = await link.getAttribute('href');
   await link.click();
-  await page.waitForURL(url => url.pathname + url.search === href);
+  const destination = new URL(href!, page.url());
+  // A pending search can update q during the click. Assert the chosen navigation destination.
+  await expect(page).toHaveURL(url => url.pathname === destination.pathname && ['view', 'panel', 'playlist', 'scope'].every(
+    key => url.searchParams.get(key) === destination.searchParams.get(key),
+  ));
+  await expect(musicViewLink(page, name)).toHaveAttribute('aria-current', 'page');
 }
 
 /** The selected sidebar item remains in the DOM while the phone dropdown is closed. */
@@ -25,7 +30,7 @@ export function musicViewLink(page: Page, name: string | RegExp) {
 export async function openPlayerActions(page: Page) {
   const bar = page.getByRole('region', { name: 'Player', exact: true });
   const more = bar.getByRole('button', { name: 'More player actions', exact: true });
-  if (!await more.isVisible()) {
+  if (await page.evaluate(() => matchMedia('(max-width: 999px)').matches) && !await more.isVisible()) {
     await bar.getByRole('link', { name: /Open Now playing$/ }).click();
     await page.waitForURL(/view=player/);
   }

@@ -31,6 +31,16 @@ function storage(entries: Record<string, string> = {}) {
   return { entries, getItem: (k: string) => entries[k] ?? null, setItem: (k: string, v: string) => { entries[k] = v; }, removeItem: (k: string) => { delete entries[k]; } } as Storage & { entries: Record<string, string> };
 }
 
+test('visualizer preference survives personal cloud save and restore on a new browser', () => {
+  const key = 'arkpedia:settings';
+  const browser = storage({ [key]: JSON.stringify({ version: 2, values: { musicVisualizer: 'waves' } }) });
+  const saved = validateCloudData(collectCloudData(browser, false), false);
+  const other = storage();
+  restoreCloudData(saved, false, other);
+  assert.equal(JSON.parse(other.getItem(key)!).values.musicVisualizer, 'waves');
+  assert.equal(key in collectCloudData(browser, false, false), false);
+});
+
 test('archive union keeps old draws, repeated operators and isolated game accounts without duplicating overlap', () => {
   const first = archive(); first.history.rows.push({ ...first.history.rows[0] });
   const partial = archive(); partial.history.rows.push({ at: 2000, pool: 'pool1', char: 'char_1', star: 6 });

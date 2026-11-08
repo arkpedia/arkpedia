@@ -231,7 +231,7 @@ try {
         `Expected ${songs + 1} songs, got ${await page.locator('#music-library-heading').innerText()}`);
       return true;
     }, `${name} music library from release B`, 75_000);
-    // By role and name, not class: the Library's and the queue's searches are the shared SearchInput.
+    // Search the new release's Library, then confirm the chosen track in the queue popup.
     await page.getByRole('searchbox', { name: 'Search all songs' }).fill('Runtime Song B');
     await page.locator('.music-all-songs-list .music-song-row', { hasText: 'Runtime Song B' }).first().waitFor({ timeout: 10_000 });
     // Choosing the new song adds it to Your queue; browsing the release does not.
@@ -242,8 +242,8 @@ try {
     } else await newSong.getByRole('button', { name: /^Add to queue:/ }).click();
     if (name === 'mobile') await page.getByRole('button', { name: 'Music menu', exact: true }).click();
     await page.getByRole('navigation', { name: 'Music' }).getByRole('link', { name: /^Queue/ }).click();
-    await page.getByRole('searchbox', { name: 'Search the queue' }).fill('Runtime Song B');
-    await page.locator('[data-song-list] .music-queue-row', { hasText: 'Runtime Song B' }).first().waitFor({ timeout: 10_000 });
+    const drawer = page.getByRole('dialog', { name: 'Playback queue' });
+    await drawer.locator('.music-queue-row[data-song-id="RuntimeSngB"]', { hasText: 'Runtime Song B' }).waitFor({ timeout: 10_000 });
     assert.ok(catalogueRequests.some(url => url.startsWith(`http://127.0.0.1:3204/${'b'.repeat(40)}/release/public/`)), `${name} music catalogue was not read from release B: ${catalogueRequests.join(', ')}`);
     page.off('request', noteCatalogue);
     active = 'a';

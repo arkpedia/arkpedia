@@ -34,6 +34,17 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    at: '2026-11-08T08:09:00Z',
+    added: [
+      { title: 'Most liked on Arkpedia', detail: 'Discover ranks songs daily using favourites from accounts that contribute to community statistics.', href: '/music/discover' },
+      { title: 'Banner-specific headhunting guarantees', detail: 'See how Standard and Kernel Selection work after 150 and 300 pulls, alongside guides for Crossover and The Front That Was.', href: '/gacha-simulator' },
+    ],
+    changed: [
+      { title: 'A queue that follows what you play', detail: 'See upcoming tracks from your album, playlist or search, and open the queue while reading lyrics.', href: '/music' },
+      { title: 'Switch between vocals and instrumentals', detail: 'Switch at the matching passage on compatible recordings and choose a spectrum or waveform below the lyrics.', href: '/music' },
+    ],
+  },
+  {
     at: '2026-11-06T23:00:00Z',
     changed: [{ title: 'Community statistics load from daily totals', detail: 'Shared daily updates keep rankings quick to open, with the last update time shown on the page.', href: '/community/statistics' }],
   },

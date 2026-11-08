@@ -1,20 +1,20 @@
 import { useEffect, useState } from 'react';
-import { validYouTubeLikes, type YouTubeLikes } from './youtubeLikes';
+import { validArkpediaLikes, type ArkpediaLikes } from './arkpediaLikes';
 
 /** Runtime data, independent of the content release and with no credentials in the client. */
-export function useYouTubeLikes() {
-  const [data, setData] = useState<YouTubeLikes | null>(null);
+export function useArkpediaLikes() {
+  const [data, setData] = useState<ArkpediaLikes | null>(null);
   const [loading, setLoading] = useState(true);
   useEffect(() => {
     const controller = new AbortController();
     async function load() {
       try {
-        const response = await fetch('/api/music/youtube-likes', { signal: controller.signal });
+        const response = await fetch('/api/music/likes', { signal: controller.signal });
         if (!response.ok) throw new Error('Unavailable');
         const result: unknown = await response.json();
-        if (!validYouTubeLikes(result, Date.now())) throw new Error('Unavailable');
+        if (!validArkpediaLikes(result)) throw new Error('Unavailable');
         if (!controller.signal.aborted) setData(result);
-      } catch { /* Ordinary browsing still works when YouTube is unavailable. */ }
+      } catch { /* Ordinary browsing still works when the chart is unavailable. */ }
       finally { if (!controller.signal.aborted) setLoading(false); }
     }
     void load();

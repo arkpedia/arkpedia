@@ -171,6 +171,23 @@ for(const theme of ['dark','light']){
     await expect(stats.getByRole('link',{name:'Do you want to contribute?',exact:true})).toBeVisible();
     await stats.scrollIntoViewIfNeeded();await capture(page,`contribution-footer-${theme}`,info);
   });
+  test(`music honours existing community sharing without changing it (${theme})`, async ({page})=>{
+    const state=await fixture(page,theme);
+    state.choices.stats=true;
+    state.choices.shareTag=true;
+    state.choices.openRequests=true;
+    await page.addInitScript(() => localStorage.setItem('arkpedia:privacy:v1', JSON.stringify({ version: 1, analytics: false, externalMedia: false, externalMediaChosen: true, savedAt: Date.now() })));
+    await page.goto('/music/discover?browse=likes');
+    const chart=page.getByRole('region',{name:'Most liked on Arkpedia'});
+    await expect(chart.getByText('You’re currently contributing!',{exact:true})).toBeVisible();
+    await chart.getByRole('link',{name:'Turn off sharing?'}).click();
+    const dialog=page.getByRole('dialog',{name:'Account settings'});
+    await expect(dialog.getByRole('checkbox',{name:'Contribute to community stats'})).toBeChecked();
+    await expect(dialog.getByRole('checkbox',{name:'Share my friend tag and support units'})).toBeChecked();
+    expect(state.writes).toHaveLength(0);
+    await dialog.getByRole('button',{name:'About community stats',exact:true}).click();
+    await expect(page.getByRole('region',{name:'About community stats'})).toContainText('synced song favourites');
+  });
   test(`promotion legends respect operator upgrade limits (${theme})`,async({page},info)=>{
     await fixture(page,theme);
     for(const [name,maxElite] of [['Kroos',1],['Durin',0],['Friston-3',0],['Thorns',2]] as const){

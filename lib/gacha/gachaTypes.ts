@@ -22,17 +22,19 @@ export interface PulledItem extends GachaItem {
   isFeatured: boolean;
   isRateUp?: boolean; // Limited banners: the 3 "off-banner rate-up" 6-stars, distinct from the 2 true featured ones
   isBonus?: boolean; // e.g. the 300-pull limited guarantee grant
-  featuredGuaranteeEvent?: 'reset' | 'guarantee'; // Featured banner only: 'reset' if this natural pull reset the 150-counter for next time, 'guarantee' if the 150-pull hard pity is what delivered this pull
+  featuredGuaranteeEvent?: 'reset' | 'guarantee'; // A natural Focused Selection reset or a guaranteed selection result.
   crossoverFiveStarGuarantee?: boolean; // Crossover banner only: true if this pull is the guaranteed completion of the pair (the other featured 5-star, delivered right after the first one was obtained)
 }
 
 export interface BannerConfig {
   type: BannerType;
+  sixStarGuarantee?: 'selection' | 'focused' | 'limitedBonus' | 'first120' | 'every120';
   label: string;
   description: string;
   // Meaning depends on banner type (see gachaEngine.ts for exactly how
   // many of each are used per type).
   sixStarFeatured: GachaItem[];
+  celebrationFullPool?: GachaItem[]; // reopens immediately after the first unowned 6★
   fiveStarFeatured: GachaItem[];
   otherSixStarPool: GachaItem[];
   otherFiveStarPool: GachaItem[];
@@ -62,15 +64,14 @@ export interface GachaState {
   // rest of this banner session. A 6-star counts too, since it's "at
   // least" a 5-star.
   firstTenGuaranteeUsed: boolean;
+  firstSelection?: string; // Recipient of the first selection, independent of natural rate-ups.
+  secondSelectionUsed?: boolean;
   pullsSinceFeatured6Star: number; // Featured banner: pulls since the featured 6-star was last obtained
   featuredGuaranteeUsed: boolean; // Featured banner: the 150-pull guarantee is a ONE-TIME safety net per session, never recurs once fired -- confirmed correct
   limitedObtained: boolean; // Limited banner: whether the limited 6-star has been obtained at least once (natural pull or the 300-pull bonus) -- informational, does NOT gate the guarantee below
   limitedGuaranteeGranted: boolean; // Limited banner: whether the 300-pull bonus COPY has specifically been granted -- independent of limitedObtained, since a natural pull before 300 should NOT skip the bonus copy
-  // Crossover rules, as each crossover's announcement states them (ak.hypergryph.com/news/1457,
-  // 7377, 9699): the featured 6-star is guaranteed within every 120 pulls, the count starting
-  // over each time it is obtained -- it recurs, unlike Featured's one-time 150; if no rate-up
-  // 5-star came in the first 50 pulls, the next 5-star is a rate-up one; and with two rate-up
-  // 5-stars, the next 5-star after the first of them is the other, once.
+  // Original crossover runs guarantee the first copy. Newer runs restart the
+  // 120-pull counter on every copy and protect the first rate-up 5★ after 50 misses.
   pullsSinceCrossover6Star: number;
   crossoverFiveStarSeen: boolean; // a rate-up 5-star has been obtained, so the 50-pull rule no longer applies
   crossoverFiveStarObtainedName: string | null;

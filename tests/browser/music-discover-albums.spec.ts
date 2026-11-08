@@ -28,7 +28,7 @@ const tileNames = (page: Page, scope: string) => page.locator(`${scope} .music-d
 test('Browse by album: a row of covers after Recently added that does not repeat it', async ({ page }) => {
   await page.goto('/music/discover');
   const headings = await page.locator('.music-discover-section h2').allTextContents();
-  expect(headings.slice(0, 4)).toEqual(['Recently added', 'Most liked on YouTube', 'Browse by album', 'Browse by character']);
+  expect(headings.slice(0, 4)).toEqual(['Recently added', 'Most liked on Arkpedia', 'Browse by album', 'Browse by character']);
   const { albums, recentAlbums } = await pageProps(page);
   expect(albums.length, 'every album with a song is listed').toBeGreaterThan(200);
 
@@ -92,7 +92,7 @@ test('an album opens its songs, which play, queue and favourite in one press', a
   expect(album, 'an album of three to twenty songs on YouTube').toBeTruthy();
   await page.getByRole('searchbox', { name: 'Filter albums' }).fill(album.albumAltName);
   await page.locator('#discover-albums .music-discover-album-tile', { has: page.locator('.music-discover-album-tile-name', { hasText: album.albumAltName }) }).first().click();
-  await expect(page.locator('.music-discover-active-facet')).toHaveText(` · ${album.albumAltName}`);
+  await expect(page.locator('.music-album-overview').getByRole('heading', { name: album.albumAltName, exact: true })).toBeVisible();
   await expect(page).toHaveURL(new RegExp(`[?&]facet=album%3A${album.albumId}\\b`));
   const rows = page.locator('.music-discover-song-list .music-song-row');
   await expect(rows).toHaveCount(album.songCount);

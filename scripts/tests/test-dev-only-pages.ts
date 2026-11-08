@@ -115,7 +115,10 @@ test('every API route has an actual client, workflow or address consumer', () =>
     && fs.readFileSync(path.join(ROOT, CALLED_BY_WORKFLOWS[route]), 'utf8').includes(`/api/${route.slice('pages/api/'.length).replace(/\.tsx?$/, '')}`);
   const asAddress = (route: string) => route in NAMED_AS_ADDRESSES
     && fs.readFileSync(path.join(ROOT, NAMED_AS_ADDRESSES[route]), 'utf8').includes(`/api/${route.slice('pages/api/'.length).replace(/\.tsx?$/, '').split('[')[0]}`);
-  const orphans = routes.filter(route => !called.has(route) && !byWorkflow(route) && !asAddress(route));
+  // Open tabs running the previous Discover bundle still fetch this published API.
+  const previousDiscoverEndpoint = 'pages/api/music/youtube-likes.ts';
+  assert.ok(routes.includes(previousDiscoverEndpoint), 'older music players can still fetch YouTube like counts');
+  const orphans = routes.filter(route => !called.has(route) && !byWorkflow(route) && !asAddress(route) && route !== previousDiscoverEndpoint);
   assert.deepEqual(orphans, []);
   for (const route of Object.keys(CALLED_BY_WORKFLOWS)) assert.ok(byWorkflow(route), `${CALLED_BY_WORKFLOWS[route]} calls ${route}`);
   for (const route of Object.keys(NAMED_AS_ADDRESSES)) assert.ok(asAddress(route), `${NAMED_AS_ADDRESSES[route]} names ${route}`);

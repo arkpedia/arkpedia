@@ -4,14 +4,10 @@ import { COMMUNITY_MIN_SAMPLE, type CommunityStats as Stats } from '@/lib/commun
 import { type ServerId } from '@/lib/account-import/yostar';
 import StyledSelect from '@/components/ui/StyledSelect';
 import InfoPopover from '@/components/ui/InfoPopover';
-import Link from 'next/link';
-import { useCommunitySharing } from '@/lib/community/SharingProvider';
-import { useCloudSync } from '@/lib/cloud-account/SyncProvider';
+import CommunityContributionFooter from './CommunityContributionFooter';
 import styles from './Community.module.css';
 
 export default function CommunityStats({operator,skin,skills=0,skillNames=[],maxElite=2,modules=[],compact=false}:{operator?:string;skin?:string;skills?:number;skillNames?:(string|null|undefined)[];rarity?:number;maxElite?:number;modules?:{index:number;label:string}[];compact?:boolean}){
-  const sharing=useCommunitySharing(),sync=useCloudSync();
-  const contributing=!!sync.remote&&!!sharing.state?.stats;
   const [server,setServer]=useState<ServerId|'all'>('all'),[data,setData]=useState<Stats|null>(null),[error,setError]=useState(''),[retry,setRetry]=useState(0);
   useEffect(()=>{
     const controller=new AbortController();setData(null);setError('');
@@ -50,6 +46,6 @@ export default function CommunityStats({operator,skin,skills=0,skillNames=[],max
       </dl>}
       {data.owned!==null&&((operator&&(!data.builds||maxElite>=2&&skills>0&&!data.masteryOwners||modules.length>0&&!data.moduleOwners))||(skin&&!data.equipmentOwners))&&<p>— means no eligible owners with known data yet.</p>}
     </>}
-    <div className="account-shortcuts">{contributing?<><span>You’re currently contributing!</span><Link className="ghost btn-sm" href="/account?settings=community">Turn off sharing?</Link></>:<Link className="ghost btn-sm" href="/account?settings=community">Do you want to contribute?</Link>}</div>
+    <CommunityContributionFooter />
   </div>;
 }

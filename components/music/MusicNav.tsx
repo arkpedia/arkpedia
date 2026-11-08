@@ -1,3 +1,4 @@
+import { queuePanelHref } from '@/lib/music/queuePanelHref';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { useEffect, useRef, type ReactNode } from 'react';
@@ -33,6 +34,7 @@ export default function MusicNav({ current, children, open, onOpenChange }: { cu
   useEffect(() => { trigger.current = document.querySelector<HTMLButtonElement>('[aria-label="Music menu"]'); });
   useEffect(() => { if (!mobile) onOpenChange(false); }, [mobile, onOpenChange]);
   const { queue, queueIndex, videoId, autoplayVideoId, queued, shuffle, shuffleOrder, shufflePosition, favorites } = useMusicPlayer();
+  const panelOpen = router.query.panel === 'queue';
   const favouritesSelected = current === 'library' && router.query.scope === 'favorites';
   useEffect(() => { onOpenChange(false); }, [current, favouritesSelected, onOpenChange]);
   const order = shuffle && shuffleOrder ? shuffleOrder : queue.map((_, index) => index);
@@ -50,20 +52,20 @@ export default function MusicNav({ current, children, open, onOpenChange }: { cu
       <span className="music-workspace-label">Sound archive</span>
       <nav className="music-nav" aria-label="Music" onClick={event => { if ((event.target as HTMLElement).closest('a')) onOpenChange(false); }}>
         {items.map(({ view, label, count }) => (
-          <Link key={view} href={MUSIC_VIEW_HREF[view]} prefetch={false} shallow={view !== 'discover' && current !== 'discover'} scroll={false}
-            className="music-workspace-link" aria-current={view === current && !favouritesSelected ? 'page' : undefined}>
+          <Link key={view} href={view === 'queue' && current !== 'queue' ? queuePanelHref(router, !panelOpen) : MUSIC_VIEW_HREF[view]} prefetch={false} shallow={view === 'queue' || (view !== 'discover' && current !== 'discover')} scroll={false}
+            className="music-workspace-link" aria-current={(panelOpen ? view === 'queue' : view === current && !favouritesSelected) ? 'page' : undefined}>
             <TransportIcon name={view === 'discover' ? 'note' : view === 'library' ? 'library' : view === 'queue' ? 'queue' : 'nowPlaying'} />
             <span>{label}</span>
             {count !== undefined && <span className="music-workspace-count"><span className="visually-hidden">, </span>{count}<span className="visually-hidden"> chosen songs next</span></span>}
           </Link>
         ))}
         <Link href="/music?view=library&scope=favorites" prefetch={false} shallow={current !== 'discover'} scroll={false}
-          className="music-workspace-link" aria-current={favouritesSelected ? 'page' : undefined}>
+          className="music-workspace-link" aria-current={favouritesSelected && !panelOpen ? 'page' : undefined}>
           <TransportIcon name="heart" /><span>Favourites</span>
           <span className="music-workspace-count" aria-hidden="true">{favorites.size || ''}</span>
         </Link>
       </nav>
-      <div className="music-workspace-collection" onClickCapture={event => { if ((event.target as HTMLElement).closest('button.music-workspace-link')) onOpenChange(false); }}><span className="music-workspace-label">Your collection</span>{typeof children === 'function' ? children(() => { if (mobile) trigger.current?.focus({ preventScroll: true }); }) : children}</div>
+      <div className="music-workspace-collection" onClickCapture={event => { if ((event.target as HTMLElement).closest('.music-workspace-link')) onOpenChange(false); }}><span className="music-workspace-label">Your collection</span>{typeof children === 'function' ? children(() => { if (mobile) trigger.current?.focus({ preventScroll: true }); }) : children}</div>
     </aside>
   );
   return <>

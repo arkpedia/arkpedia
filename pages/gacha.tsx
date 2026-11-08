@@ -521,7 +521,7 @@ function BasicsPageCarryover() {
       <div className="gacha-tutorial-carryover">
         <div className="gacha-tutorial-carryover-shared-label">Share pity together:</div>
         <div className="gacha-tutorial-carryover-isolated-row">
-          {['Featured', 'Standard', 'Joint Operation', 'Orienteering'].map((name) => (
+          {['Featured', 'Standard', 'Joint Operation', 'Orienteering', 'The Front That Was'].map((name) => (
             <div key={name} className="gacha-tutorial-carryover-box shared">
               {name}
             </div>
@@ -607,7 +607,8 @@ function BasicsPageFirstTen() {
 function BasicsPageSixStarGuarantee() {
   return (
     <div className="gacha-tutorial-guarantee-examples">
-      <span className="gacha-tutorial-guarantee-chip">Featured: 150-pull protection</span>
+      <span className="gacha-tutorial-guarantee-chip">Standard / Kernel · 150 and 300 pulls</span>
+      <span className="gacha-tutorial-guarantee-chip">Featured · 150 pulls without the featured 6★</span>
       <span className="gacha-tutorial-guarantee-chip">Limited: 300-pull free copy</span>
       <span className="gacha-tutorial-guarantee-chip">Crossover: 120-pull guarantee</span>
     </div>
@@ -628,16 +629,16 @@ function BasicsPageDone() {
 }
 
 const BASICS_PAGES: { Visual: () => JSX.Element; text: string }[] = [
-  { Visual: BasicsPageRarities, text: 'The chance of obtaining each rarity in Arknights is the same for all banners.' },
+  { Visual: BasicsPageRarities, text: 'The simulator starts with a 2% chance for a 6★, 8% for a 5★, 50% for a 4★ and 40% for a 3★.' },
   { Visual: BasicsPageFeaturedSplits, text: 'Depending on the type of banner, the chance of the featured six stars, five stars and four stars can be different.' },
   {
     Visual: BasicsPageRampUp,
-    text: 'When you do not pull for a six star within 50 pulls, every pull after increases the chance of getting a six star by 2%. The chance of the other rarities decrease proportionately.',
+    text: 'When you do not pull for a six star within 50 pulls, each subsequent pull adds 2 percentage points to the 6★ chance. The other rarities become proportionally less likely.',
   },
   { Visual: BasicsPageReset, text: 'The counter gets reset whenever you have obtained a six star.' },
   {
     Visual: BasicsPageCarryover,
-    text: "This 'pity' counter can get carried over on certain banners: featured, standard, joint operation, and orienteering all share pity together, while kernel and kernel locating share pity separately from that group. Every other banner type is isolated. Please check on the specific banner tutorials to understand this better.",
+    text: "This 'pity' counter can get carried over on certain banners: Featured, Standard, Joint Operation, Orienteering and The Front That Was share 6★ pity, while kernel and kernel locating share pity separately from that group. Every other banner type is isolated. Please check on the specific banner tutorials to understand this better.",
   },
   { Visual: BasicsPageFirstTen, text: 'Every banner guarantees at least 1 five star or higher rarity in the first 10 pulls.' },
   {
@@ -984,7 +985,7 @@ function IsolatedPityFlowDemo({ label }: { label: string }) {
 }
 
 const CELEBRATION_PAGES: { Visual: () => JSX.Element; text: string }[] = [
-  { Visual: CelebrationPagePool, text: 'This banner contains a pool of past six stars. Only the ones you do not have in your account are obtainable.' },
+  { Visual: CelebrationPagePool, text: 'Your first 6★ is an operator you do not own from the banner’s listed pool, if one is available. If you already own everyone, the whole pool is eligible from the start.' },
   {
     Visual: CelebrationPageBlowOpen,
     text: 'After you have obtained a new six star, all other six stars that you own will become available in the pool again so do not pull beyond the first six star.',
@@ -1072,7 +1073,7 @@ function KernelPageCarryover() {
 }
 
 const KERNEL_PAGES: { Visual: () => JSX.Element; text: string }[] = [
-  { Visual: KernelPageSplit, text: '2 six stars are featured, sharing a 50% chance, 3 five stars are also featured, sharing their own 50% chance.' },
+  { Visual: KernelPageSplit, text: 'Each featured 6★ has a 25% chance when you pull a 6★. The three featured 5★ operators together account for half of all 5★ pulls.' },
   {
     Visual: KernelPageShopOperator,
     text: 'The center six star is the shop operator, buyable for 180 gold certificates. The leftmost five star is also the shop operator, buyable for 45 gold certificates.',
@@ -1109,7 +1110,7 @@ function StandardPageCarryover() {
 }
 
 const STANDARD_PAGES: { Visual: () => JSX.Element; text: string }[] = [
-  { Visual: KernelPageSplit, text: '2 six stars are featured, sharing a 50% chance, 3 five stars are also featured, sharing their own 50% chance.' },
+  { Visual: KernelPageSplit, text: 'Each featured 6★ has a 25% chance when you pull a 6★. The three featured 5★ operators together account for half of all 5★ pulls.' },
   {
     Visual: StandardPageShopOperator,
     text: 'The Elite 0 version six star is the shop operator, buyable for 180 gold certificates. The five star in the middle of the three is also the shop operator, buyable for 45 gold certificates.',
@@ -1209,11 +1210,11 @@ function FeaturedPageProtection() {
 const FEATURED_PAGES: { Visual: () => JSX.Element; text: string }[] = [
   {
     Visual: FeaturedPageSplit,
-    text: '1 six stars is featured obtaining at 50% chance, 1 or 2 five stars are also featured, taking up its own 50% chance. 4 stars may appear, taking up 50% chance.',
+    text: 'On ordinary pulls, the featured 6★ accounts for half of all 6★ results. The featured 5★ operators share half of the 5★ results. When a 4★ is featured, its rate-up applies within the 4★ pool.',
   },
   {
     Visual: FeaturedPageProtection,
-    text: 'If you do not obtain the 6 star by 150 pulls, the next 6 star you obtain will be the featured. You do not necessarily obtain the 6 star at 150 pulls.',
+    text: 'After 150 consecutive pulls without the featured 6★, your next 6★ is guaranteed to be that operator. An earlier featured 6★ restarts the count. This protection can trigger once on this banner.',
   },
   { Visual: StandardPageCarryover, text: '6-star pity ramp up can be inherited from a previous featured or standard banner, or passed into future similar banners.' },
 ];
@@ -1373,7 +1374,7 @@ const LIMITED_PAGES: { Visual: () => JSX.Element; text: string }[] = [
   },
   {
     Visual: LimitedPageRateUps,
-    text: '3 past limited operators are also given rate-ups. They take up 5x the chance of an off-banner six star in the 30% pool.',
+    text: 'When returning limited operators have a rate-up, each has five times the weight of an ordinary off-banner 6★. Check Banner details for this run’s lineup.',
   },
   {
     Visual: LimitedPageSameChance,
@@ -1393,22 +1394,69 @@ const LIMITED_PAGES: { Visual: () => JSX.Element; text: string }[] = [
   },
 ];
 
-const BANNER_TUTORIAL_PAGES: Partial<Record<BannerType, { Visual: () => JSX.Element; text: string }[]>> = {
-  orienteering: ORIENTEERING_PAGES,
-  celebration: CELEBRATION_PAGES,
-  kernel: KERNEL_PAGES,
-  standard: STANDARD_PAGES,
-  limited: LIMITED_PAGES,
-  kernelLocating: KERNEL_LOCATING_PAGES,
-  joint: JOINT_PAGES,
-  featured: FEATURED_PAGES,
-};
+function selectionStatus(banner: BannerConfig, state: GachaState) {
+  if (state.secondSelectionUsed) return 'Both used';
+  const remaining = (state.firstSelection ? 300 : 150) - state.pullCount;
+  if (remaining > 0) return `${remaining} pulls left`;
+  const other = state.firstSelection && banner.sixStarFeatured.find(op => op.name !== state.firstSelection);
+  return other ? `Next 6★: ${other.name}` : 'Next 6★: either rate-up';
+}
 
-/** The banner's own tutorial, or null when its type has none (crossover, trio). Such a
- *  banner gets the Basics alone, never a "coming soon" page: placeholders stay hidden
- *  until they have content (the 2026-09-25 decision). */
+function SelectionExample() {
+  return <div className="gacha-tutorial-guarantee-examples">
+    <span className="gacha-tutorial-guarantee-chip">150 pulls → next 6★ is A or B</span>
+    <span className="gacha-tutorial-guarantee-chip">300 pulls → next 6★ is the other</span>
+  </div>;
+}
+
+function TrioRates() {
+  return <TutorialRarityRow items={[
+    { n: 6, content: <span>Featured trio · 100%</span> },
+    { n: 5, content: <span>Featured trio · 60%</span> },
+    { n: 4, content: <span>Featured trio · 45%</span> },
+  ]} />;
+}
+
+const TRIO_PAGES = [
+  { Visual: TrioRates, text: 'Every 6★ is one of the three featured operators, with an equal chance for each. Among 5★ pulls the featured trio shares 60%. Among 4★ pulls the featured trio shares 45%. Other operators of those two rarities can also appear.' },
+  { Visual: () => <TwoSlideCarryoverDemo pairLeft="Standard" pairRight="The Front That Was" demoFromLabel="Standard" demoToLabel="The Front That Was" />,
+    text: 'The Front That Was shares ordinary 6★ pity with Standard Headhunting. All three featured 6★ operators stay in the pool after you pull one.' },
+];
+
+function crossoverGuide(banner: BannerConfig) {
+  const pages = [{
+    Visual: () => <TutorialRarityRow items={[{ n: 6, content: <span>50% featured</span> }, { n: 5, content: <span>50% featured</span> }]} />,
+    text: banner.sixStarGuarantee === 'first120'
+      ? 'The featured operator has a 50% chance on each ordinary 6★ pull. You are guaranteed your first copy within 120 pulls, once on this banner.'
+      : 'The featured operator has a 50% chance on each ordinary 6★ pull. You are guaranteed a copy within 120 pulls. Each copy you pull restarts that count.',
+  }];
+  const fiveRules = ['The featured operators share 50% of ordinary 5★ pulls.'];
+  if (banner.sixStarGuarantee === 'every120') fiveRules.push('If your first 50 pulls contain no featured 5★, the next 5★ is featured.');
+  if (banner.fiveStarFeatured.length === 2) fiveRules.push('Once you pull either featured 5★ for the first time, your next 5★ is the other. This happens once.');
+  pages.push({ Visual: () => <Stars count={5} />, text: fiveRules.join(' ') },
+    { Visual: () => <IsolatedPityFlowDemo label="Crossover" />, text: '6★ pity starts fresh on this crossover and expires when the banner ends.' });
+  return pages;
+}
+
+const BANNER_TUTORIAL_PAGES = {
+  orienteering: ORIENTEERING_PAGES, celebration: CELEBRATION_PAGES, kernel: KERNEL_PAGES,
+  standard: STANDARD_PAGES, limited: LIMITED_PAGES, kernelLocating: KERNEL_LOCATING_PAGES,
+  joint: JOINT_PAGES, featured: FEATURED_PAGES, trio: TRIO_PAGES,
+} satisfies Record<Exclude<BannerType, 'crossover'>, { Visual: () => JSX.Element; text: string }[]>;
+
 function bannerTutorialPages(banner: BannerConfig | null) {
-  return (banner && BANNER_TUTORIAL_PAGES[banner.type]) || null;
+  if (!banner) return null;
+  if (banner.type === 'crossover') return crossoverGuide(banner);
+  if (banner.type === 'kernel' && banner.label.startsWith('Celebration - Kernel')) return [
+    { Visual: CelebrationPagePool, text: 'On Celebration – Kernel, your first 6★ is an eligible Kernel operator you do not own, if one is available. Later 6★ pulls use the full eligible pool. The archive simulator does not track your owned operators for these Kernel runs.' },
+    { Visual: () => <IsolatedPityFlowDemo label="Celebration" />, text: 'This celebration has its own 6★ pity counter. It starts at zero and expires when the banner ends.' },
+  ];
+  const pages = BANNER_TUTORIAL_PAGES[banner.type];
+  if (banner.type === 'featured' && banner.sixStarGuarantee !== 'focused') return pages.filter(page => page.Visual !== FeaturedPageProtection);
+  if (banner.type === 'limited' && banner.sixStarGuarantee !== 'limitedBonus') return pages.filter(page => page.Visual !== LimitedPage300Guarantee);
+  if (banner.sixStarGuarantee !== 'selection') return pages;
+  const name = banner.type === 'kernel' ? 'Kernel Selection' : 'Standard Selection';
+  return [{ Visual: SelectionExample, text: name + ' counts every pull on this banner, including early rate-ups. After 150 total pulls, your next 6★ is one of the two rate-ups. After 300 total pulls, your next 6★ is the other one. Each guarantee triggers once. The selection count resets when this banner ends.' }, ...pages];
 }
 
 export default function GachaSimulator({ pools, banners: globalBanners, kernelLookup, releaseLookup, kernelExclusiveNames, howToObtainLookup, operatorSeriesMap, now }: Props) {
@@ -1605,10 +1653,8 @@ export default function GachaSimulator({ pools, banners: globalBanners, kernelLo
     // one they just obtained, which is exactly why continuing to pull
     // risks landing a duplicate of what you just got. So once that
     // happens, nothing is excluded at all.
-    const celebrationExcludeNames = isCelebration && selectedBanner
-      ? hasObtainedAnyCelebrationSix
-        ? []
-        : selectedBanner.six_stars.filter((n) => !missingSixStars.has(n))
+    const celebrationExcludeNames = isCelebration && selectedBanner && missingSixStars.size > 0 && !hasObtainedAnyCelebrationSix
+      ? selectedBanner.six_stars.filter((n) => !missingSixStars.has(n))
       : [];
     const withEligibility = simulatorBannerConfig(selectedBanner, pools, celebrationExcludeNames, kernelLookup, releaseLookup, new Set(kernelExclusiveNames), howToObtainLookup, operatorSeriesMap);
 
@@ -1663,6 +1709,7 @@ export default function GachaSimulator({ pools, banners: globalBanners, kernelLo
     releaseLookup,
     kernelExclusiveNames,
     howToObtainLookup,
+    operatorSeriesMap,
   ]);
 
   // A banner with its own tutorial asks whether the reader knows the basics first; one
@@ -1845,8 +1892,7 @@ export default function GachaSimulator({ pools, banners: globalBanners, kernelLo
                   <section className="op-section">
                     <h2>{banner.label} — Choose the units you&apos;re missing</h2>
                     <p className="hint" style={{ marginBottom: 12 }}>
-                      Pick every six-star from this banner you don&apos;t already have -- only your
-                      chosen ones will populate as featured and be pullable.
+                      Select the operators you’re missing. Your first 6★ will come from that selection. Leave it empty if you own them all.
                     </p>
                     <div className="gacha-owned-grid">
                       {selectedBanner?.six_stars.map((name) => {
@@ -1874,7 +1920,6 @@ export default function GachaSimulator({ pools, banners: globalBanners, kernelLo
                       type="button"
                       className="primary"
                       style={{ marginTop: 14 }}
-                      disabled={missingSixStars.size === 0}
                       onClick={confirmCelebrationSelection}
                     >
                       Confirm selection
@@ -1906,7 +1951,7 @@ export default function GachaSimulator({ pools, banners: globalBanners, kernelLo
                     </div>
                     <p className="hint" style={{ marginBottom: 12 }}>
                       Pick exactly 3 of this banner&apos;s real six-star candidates and 3 of its
-                      five-star candidates -- only your chosen ones will be pullable.
+                      five-star candidates. Only your chosen 6★ can appear. Your chosen 5★ share 60% of 5★ pulls.
                     </p>
                     <h3 style={{ marginBottom: 8 }}>Six-star candidates ({orienteeringSelected.length}/3)</h3>
                     <div className="orienteering-pick-grid">
@@ -2062,7 +2107,13 @@ export default function GachaSimulator({ pools, banners: globalBanners, kernelLo
                             : 'Missed'}
                         </span>
                       </div>
-                      {banner.type === 'featured' && (
+                      {banner.sixStarGuarantee === 'selection' && banner.sixStarFeatured.length === 2 && (
+                        <div className="gacha-pity-stat">
+                          <span className="gacha-pity-label">{banner.type === 'kernel' ? 'Kernel Selection' : 'Standard Selection'}</span>
+                          <span className="gacha-pity-value">{selectionStatus(banner, state)}</span>
+                        </div>
+                      )}
+                      {banner.sixStarGuarantee === 'focused' && (
                         <div className="gacha-pity-stat">
                           <span className="gacha-pity-label">Featured guarantee</span>
                           <span className="gacha-pity-value">
@@ -2074,7 +2125,7 @@ export default function GachaSimulator({ pools, banners: globalBanners, kernelLo
                           </span>
                         </div>
                       )}
-                      {banner.type === 'limited' && (
+                      {banner.sixStarGuarantee === 'limitedBonus' && (
                         <div className="gacha-pity-stat">
                           <span className="gacha-pity-label">Limited guarantee</span>
                           <span className="gacha-pity-value">
@@ -2086,7 +2137,8 @@ export default function GachaSimulator({ pools, banners: globalBanners, kernelLo
                         <div className="gacha-pity-stat">
                           <span className="gacha-pity-label">Crossover guarantee (120)</span>
                           <span className="gacha-pity-value">
-                            {state.pullsSinceCrossover6Star >= 120
+                            {banner.sixStarGuarantee === 'first120' && state.obtainedCounts[banner.sixStarFeatured[0]?.name] ? 'Used'
+                              : state.pullsSinceCrossover6Star >= 120
                               ? 'Active'
                               : `${120 - state.pullsSinceCrossover6Star} left`}
                           </span>

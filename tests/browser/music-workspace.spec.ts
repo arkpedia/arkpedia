@@ -9,7 +9,8 @@ for (const theme of ['dark', 'light']) {
     await stubYouTube(page);
     await page.goto('/music?view=library');
     const bar = page.getByRole('region', { name: 'Player', exact: true });
-    const first = page.locator('.music-library-row').first();
+    await page.getByRole('searchbox', { name: 'Search all songs' }).fill('Speed of Light');
+    const first = page.locator('.music-library-row[data-song-id="d3jylNWjb3k"]');
     await expect(first).toBeVisible();
     await first.locator('.music-song-row-main').click();
     await expect.poll(async () => (await youtube(page))?.state).toBe(1);
@@ -23,9 +24,8 @@ for (const theme of ['dark', 'light']) {
     await page.goBack();
     await expect(page).toHaveURL(/scope=favorites/);
     await expect(page.locator('.music-library-row')).toHaveCount(1);
-    if (info.project.name === 'mobile') await bar.getByRole('link', { name: /Open Now playing$/ }).click();
-    await bar.getByRole('link', { name: 'Lyrics', exact: true }).click();
-    await expect(page).toHaveURL(/view=player&lyrics=1/);
+    await bar.getByRole('link', { name: /Open Now playing$/ }).click();
+    await expect(page).toHaveURL(/view=player$/);
     await expect(page.locator('#music-lyrics')).toBeVisible();
     expect((await youtube(page))!).toMatchObject({ players: 1, state: 1, videoId: playing.videoId });
     expect((await youtube(page))!.calls.filter(([name]) => name === 'loadVideoById')).toHaveLength(playing.calls.filter(([name]) => name === 'loadVideoById').length);
@@ -39,14 +39,12 @@ for (const theme of ['dark', 'light']) {
     await expect(dialog.getByRole('combobox', { name: 'Saved playlist' })).toContainText('Workspace playlist');
     await page.keyboard.press('Escape');
     await expect(dialog).toHaveCount(0);
-    await expect(page.locator('.music-playlist-shortcuts button').filter({ hasText: 'Workspace playlist' })).toBeAttached();
+    await expect(page.locator('.music-playlist-shortcuts a').filter({ hasText: 'Workspace playlist' })).toBeAttached();
     if (info.project.name === 'mobile') await expect(page.getByRole('button', { name: 'Music menu', exact: true })).toBeFocused();
     if (info.project.name === 'desktop') {
       await page.setViewportSize({ width: 1280, height: 480 });
-      await page.getByRole('button', { name: 'Workspace playlist', exact: true }).click();
-      await expect(dialog).toBeVisible();
-      await expect(dialog.getByRole('combobox', { name: 'Saved playlist' })).toContainText('Workspace playlist');
-      await page.keyboard.press('Escape');
+      await page.getByRole('link', { name: 'Workspace playlist', exact: true }).click();
+      await expect(page.getByRole('heading', { name: 'Workspace playlist', exact: true }).first()).toBeVisible();
       await page.setViewportSize({ width: 1440, height: 1000 });
     }
     if (process.env.ARKPEDIA_QA_CAPTURE) {
@@ -79,6 +77,45 @@ for (const theme of ['dark', 'light']) {
     await page.screenshot({ path: `.cache/music-workspace-qa/queue-${info.project.name}-${theme}.png` });
   });
 }
+
+test('the player uses the same highlight on icon links and buttons', async ({ page }, info) => {
+  const theme = info.project.name === 'mobile' ? 'dark' : 'light';
+  await page.addInitScript(theme => localStorage.setItem('theme', theme), theme);
+  await stubYouTube(page);
+  await page.goto('/music/discover?q=speed');
+  await page.locator('.music-discover-song-row[data-song-id="d3jylNWjb3k"] .music-song-row-main').click();
+  await chooseMusicView(page, 'Now playing');
+  const bar = page.getByRole('region', { name: 'Player', exact: true });
+  const queue = bar.getByRole('link', { name: 'Queue', exact: true });
+  const repeat = bar.getByRole('button', { name: /^Repeat:/ });
+  const heart = bar.getByRole('button', { name: 'Favourite', exact: true });
+  const lyrics = bar.getByRole('link', { name: 'Lyrics', exact: true });
+  const swatch = await bar.evaluate(el => {
+    const probe = document.createElement('span');
+    probe.style.color = 'var(--teal)';
+    el.appendChild(probe);
+    const color = getComputedStyle(probe).color;
+    probe.remove();
+    return color;
+  });
+  const controls = [queue, heart, repeat];
+  if (info.project.name === 'mobile') controls.push(lyrics);
+  for (const control of controls) {
+    await control.hover();
+    await expect(control).toHaveCSS('border-top-color', swatch);
+  }
+  await heart.click();
+  await repeat.hover();
+  await expect(heart).toHaveCSS('border-top-color', swatch);
+  if (process.env.ARKPEDIA_QA_CAPTURE) {
+    await bar.screenshot({ path: `${process.env.ARKPEDIA_QA_CAPTURE}/button-highlights-${info.project.name}-${theme}.png` });
+  }
+  await repeat.focus();
+  await page.keyboard.press('Shift+Tab');
+  await page.keyboard.press('Tab');
+  await expect(repeat).toBeFocused();
+  await expect(repeat).toHaveCSS('outline-style', 'solid');
+});
 
 test('phone music dropdown is anchored, dismisses outside and with Escape, and keeps the page still', async ({ page }, info) => {
   test.skip(info.project.name !== 'mobile');

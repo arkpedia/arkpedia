@@ -177,10 +177,12 @@ async function headings(page: Page, t: Target, theme: 'dark' | 'light', p: strin
 async function pictures(page: Page, t: Target, theme: 'dark' | 'light', p: string) {
   const route = t.route;
   const least = t.pictures!;
-  // As the picture test waited: for the network to go quiet, which failed it at its 30s
-  // test timeout when a host stalled; bounded at 30s here, so a stall fails this check (as
-  // an error, part()) and the checks after it still run.
-  await page.waitForLoadState('networkidle', { timeout: 30_000 });
+  // Measure once the cards themselves have rendered. External media requests can outlive the layout.
+  if (route === '/music/discover') {
+    await expect.poll(async () => (await pictureCards(page)).length, { timeout: 30_000 }).toBeGreaterThanOrEqual(least);
+  } else {
+    await page.waitForLoadState('networkidle', { timeout: 30_000 });
+  }
   expect.soft(await themeOf(page), `${p}the page is in the ${theme} theme`).toBe(theme);
   const cards = await pictureCards(page);
   expect.soft(cards.length, `${p}${route} has at least ${least} picture card(s)`).toBeGreaterThanOrEqual(least);

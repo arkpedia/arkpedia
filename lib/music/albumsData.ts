@@ -80,6 +80,7 @@ export interface MonsterSirenSong {
   copyright: boolean; // true = copyrighted -- excluded when stream-safe mode is on
   length: string;
   lyricFilename: string | null; // just the filename -- actually READING it needs fs, see albumsDataServer.ts
+  lyricTrackId?: string; // The track that supplies an instrumental’s lyric file.
   hasLyrics: boolean; // cheap flag (just Boolean(lyricFilename)) -- lets any component show a Lyrics button and fetch the actual text on demand, without needing the text itself preloaded
 }
 
@@ -103,12 +104,11 @@ let cachedMonsterSirenOnly: MonsterSirenSong[] | null = null;
 // just not sung on this particular take.
 const INSTRUMENTAL_SUFFIX = / \(Instrumental\)$/i;
 
-function resolveLyricFilename(song: RawSong, albumSongs: RawSong[]): string | null {
-  if (song.lyricFilename) return song.lyricFilename;
-  if (!INSTRUMENTAL_SUFFIX.test(song.songName)) return null;
+function lyricSource(song: RawSong, albumSongs: RawSong[]): RawSong | undefined {
+  if (!INSTRUMENTAL_SUFFIX.test(song.songName)) return song.lyricFilename ? song : undefined;
   const vocalTitle = song.songName.replace(INSTRUMENTAL_SUFFIX, '');
-  const vocalSibling = albumSongs.find((s) => s.songName === vocalTitle && s.lyricFilename);
-  return vocalSibling?.lyricFilename || null;
+  const vocal = albumSongs.find(sibling => sibling.songName === vocalTitle && sibling.lyricFilename);
+  return song.lyricFilename && song.lyricFilename !== vocal?.lyricFilename ? song : vocal;
 }
 
 /** The game an album is from. Only the two values: an unknown one is a data error, refused
@@ -208,7 +208,8 @@ function flattenSongs(albums: readonly RawAlbum[], include: (song: RawSong) => b
     const albumSongs = album.songs || [];
     for (const song of albumSongs) {
       if (!include(song)) continue;
-      const lyricFilename = resolveLyricFilename(song, albumSongs);
+      const source = lyricSource(song, albumSongs);
+      const lyricFilename = source?.lyricFilename || null;
       songs.push({
         trackId: song.videoId || msrTrackId(song.songId),
         videoId: song.videoId || '',
@@ -229,6 +230,7 @@ function flattenSongs(albums: readonly RawAlbum[], include: (song: RawSong) => b
         copyright: hasMusicClaimRisk({ copyright: song.copyright === 'yes', credits: song.credits }),
         length: song.length || '',
         lyricFilename,
+        ...(source && INSTRUMENTAL_SUFFIX.test(song.songName) ? { lyricTrackId: source.videoId || msrTrackId(source.songId) } : {}),
         hasLyrics: Boolean(lyricFilename),
       });
     }

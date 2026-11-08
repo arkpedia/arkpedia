@@ -72,7 +72,7 @@ export function applyPendingWrites(query: Query, pending: Map<string, string>): 
  * (2026-10-13). It is now dropped when a navigation away starts, and checked against the page
  * it was scheduled on when it fires.
  */
-export function useQueryState(key: string, defaultValue = ''): [string, (v: string) => void] {
+export function useQueryState(key: string, defaultValue = '', scopeOf = pathOf): [string, (v: string) => void] {
   const router = useRouter();
   const [value, setValue] = useState(defaultValue);
   const appliedRef = useRef(false);
@@ -98,14 +98,14 @@ export function useQueryState(key: string, defaultValue = ''): [string, (v: stri
     const events = router.events;
     if (!events) return;
     const onStart = (url: string) => {
-      if (writeTimerRef.current && leavesPage(routerRef.current.asPath, url)) {
+      if (writeTimerRef.current && scopeOf(routerRef.current.asPath) !== scopeOf(url)) {
         clearTimeout(writeTimerRef.current);
         writeTimerRef.current = null;
       }
     };
     events.on('routeChangeStart', onStart);
     return () => events.off('routeChangeStart', onStart);
-  }, [router.events]);
+  }, [router.events, scopeOf]);
 
   // A link to this same page with another query (the site search's "Endfield music" row, opened
   // on Discover) lands on the page still mounted: the address is the reader's ask, so it wins,
@@ -130,11 +130,12 @@ export function useQueryState(key: string, defaultValue = ''): [string, (v: stri
     setValue(v);
     if (writeTimerRef.current) clearTimeout(writeTimerRef.current);
     const page = pathOf(routerRef.current.asPath);
+    const scope = scopeOf(routerRef.current.asPath);
     writeTimerRef.current = setTimeout(() => {
       writeTimerRef.current = null;
       const r = routerRef.current;
       // Written only on the page it was typed on.
-      if (pathOf(r.asPath) !== page) return;
+      if (scopeOf(r.asPath) !== scope) return;
       const pending = asked.get(page) ?? new Map<string, string>();
       asked.set(page, pending);
       pending.set(key, v === defaultValue ? '' : v);
@@ -147,7 +148,7 @@ export function useQueryState(key: string, defaultValue = ''): [string, (v: stri
       void Promise.resolve(r.replace({ pathname: r.pathname, query }, undefined, { shallow: true, scroll: false }))
         .then(() => { applyPendingWrites(routerRef.current.query, pending); }, () => {});
     }, 250);
-  }, [key, defaultValue]);
+  }, [key, defaultValue, scopeOf]);
 
   return [value, set];
 }

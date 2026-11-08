@@ -178,9 +178,7 @@ test('shuffle prepares its actual next row; Repeat one discards it and Repeat al
   await clickMusicControl(page, 'Shuffle');
   await clickMusicControl(page, 'Repeat: one');
   // Play next inserted third before second, so second is the end of the unshuffled queue.
-  await page.getByRole('searchbox', { name: 'Search the queue' }).fill(second.altTitle || second.title);
   await page.locator(`.music-queue-row[data-song-id="${second.videoId}"] .music-song-row-main`).click();
-  await page.getByRole('searchbox', { name: 'Search the queue' }).fill('');
   await expect.poll(() => audio(page).evaluate(el => (el as HTMLAudioElement).currentTime)).toBeGreaterThan(3);
   await expect.poll(() => upcoming(page)).toHaveLength(1);
   const wrapped = (await upcoming(page))[0];
@@ -206,7 +204,7 @@ test('Autoplay prepares the same next library song that plays after the chosen q
   const { siren, songs: [first, second] } = await setup(page);
   await select(page, first, true);
   await chooseMusicView(page, /^Queue/);
-  await page.getByRole('region', { name: 'Autoplay from library' }).getByRole('checkbox', { name: 'On', exact: true }).check();
+  await page.getByRole('region', { name: 'Autoplay from library' }).getByRole('checkbox', { name: 'Autoplay from library', exact: true }).check();
   await expect.poll(() => prepared(page)).toHaveLength(1);
   expect([...new Set(siren.resolves)]).toEqual([first.cid, second.cid]);
   await finish(page);

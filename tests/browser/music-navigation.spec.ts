@@ -90,7 +90,7 @@ test('Discover to Now playing and back, Back and Forward, and repeated trips nev
   await expect(page).toHaveURL(/view=library$/);
   await expect(libraryRows(page).first()).toBeVisible();
   await chooseMusicView(page, /^Queue/);
-  await expect(page).toHaveURL(/view=queue$/);
+  await expect(page).toHaveURL(/panel=queue$/);
   await expect(queueRows(page).first()).toBeVisible();
   time = await stillPlaying(page, id, count, time);
 
@@ -136,10 +136,10 @@ test('Library: Play now keeps the queue, Play next and Add to queue line songs u
   await libraryAction(page, songs[2], 'Play next');
   await expect(bar(page).getByRole('status')).toContainText('Playing next:');
   let time = await stillPlaying(page, songs[0], count, 0);
-  await expect(musicViewLink(page, /^Queue/)).toContainText('4');
+
 
   await chooseMusicView(page, /^Queue/);
-  await expect(page.getByRole('heading', { name: /^Next in queue/ })).toBeVisible();
+  await expect(page.getByRole('heading', { name: /^Added by you/ })).toBeVisible();
   expect((await ids(queueRows(page))).slice(0, 5)).toEqual([songs[0], songs[2], songs[3], songs[5], songs[6]]);
   // Browsing the Library added nothing else and took nothing out: each song once.
   const all = await ids(queueRows(page));
@@ -153,11 +153,11 @@ test('Library: Play now keeps the queue, Play next and Add to queue line songs u
   await expect.poll(async () => (await youtube(page))?.state).toBe(1);
   expect((await youtube(page))!.players).toBe(1);
   await chooseMusicView(page, /^Queue/);
-  expect((await ids(queueRows(page))).slice(0, 5)).toEqual([songs[8], songs[2], songs[3], songs[5], songs[6]]);
+  await expect.poll(async () => (await ids(queueRows(page))).slice(0, 5)).toEqual([songs[8], songs[2], songs[3], songs[5], songs[6]]);
   // Next plays the first of them.
   await clickMusicControl(page, 'Next track');
   await expect.poll(async () => (await youtube(page))?.videoId).toBe(songs[2]);
-  await expect(musicViewLink(page, /^Queue/)).toContainText('3');
+  await expect(page.getByRole('heading', { name: /^Added by you/ })).toContainText('3');
 });
 
 test('Queue: the song playing is marked and stays put, songs come out, and Clear queue undoes', async ({ page }) => {
@@ -254,9 +254,9 @@ test('songs queued with Play next and Add to queue stay under Next in queue afte
   await page.reload();
   await expect(libraryRows(page).first()).toBeVisible();
   await chooseMusicView(page, /^Queue/);
-  await expect(page.getByRole('heading', { name: /^Next in queue/ })).toContainText('2');
+  await expect(page.getByRole('heading', { name: /^Added by you/ })).toContainText('2');
   await expect.poll(async () => (await ids(queueRows(page))).slice(0, 3)).toEqual([songs[0], songs[4], songs[6]]);
-  await expect(musicViewLink(page, /^Queue/)).toContainText('2');
+
 });
 
 test("the player bar's heart, Shuffle and Repeat are buttons; its More holds only the rest", async ({ page }) => {
@@ -313,7 +313,7 @@ test("the player bar's heart, Shuffle and Repeat are buttons; its More holds onl
   await expect(more).toBeFocused();
   await more.click();
   await menu.getByRole('link', { name: 'Open queue', exact: true }).click();
-  await expect(page).toHaveURL(/\/music\?view=queue$/);
+  await expect(page).toHaveURL(/panel=queue$/);
   await expect(queueRows(page).first()).toBeVisible();
   expect((await youtube(page))!).toMatchObject({ state: 1, videoId: playing, players: 1 });
   // Now playing's bar shows the same states.

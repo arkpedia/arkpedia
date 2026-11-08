@@ -1,3 +1,5 @@
+import { useRouter } from 'next/router';
+import { queuePanelHref } from '@/lib/music/queuePanelHref';
 import Link from 'next/link';
 import { useEffect, useId, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
@@ -25,7 +27,8 @@ import MusicSetting from './MusicSetting';
  * Shuffle and Repeat on the right), so they were each listed twice (the maintainer, 2026-10-14:
  * "we don't need the shuffle and repeat option in that menu when it's in the player").
  */
-export default function PlayerMoreMenu({ onFullPlayer, view }: { onFullPlayer?: boolean; view?: MusicView }) {
+export default function PlayerMoreMenu({ view }: { onFullPlayer?: boolean; view?: MusicView }) {
+  const router = useRouter();
   const { videoId, title, currentTrack, noAutoplay, toggleNoAutoplay, excludeCopyrighted, setExcludeCopyrighted } = useMusicPlayer();
   const { open, setOpen, close, buttonRef, menuRef, menuStyle } = useAnchoredPopover(300);
   const [section, setSection] = useState<'player' | 'playlists'>('player');
@@ -59,7 +62,7 @@ export default function PlayerMoreMenu({ onFullPlayer, view }: { onFullPlayer?: 
             onClick={() => { toggleNoAutoplay(videoId); dismiss(); }}>
             <TransportIcon name="noAutoplay" />{videoId && noAutoplay.has(videoId) ? 'Let autoplay play it' : "Don't autoplay this song"}
           </button>
-          <Link href={view === 'queue' ? MUSIC_VIEW_HREF.player : MUSIC_VIEW_HREF.queue} shallow={onFullPlayer} scroll={false} prefetch={false} className="ghost music-player-more-link" onClick={() => close()}>
+          <Link href={view === 'queue' ? MUSIC_VIEW_HREF.player : queuePanelHref(router)} shallow scroll={false} prefetch={false} className="ghost music-player-more-link" onClick={() => close()}>
             <TransportIcon name={view === 'queue' ? 'note' : 'queue'} />{view === 'queue' ? 'Now playing' : 'Open queue'}
           </Link>
           <div className="music-settings">

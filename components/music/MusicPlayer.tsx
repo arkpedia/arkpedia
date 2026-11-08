@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { GAME_PATHS } from '@/lib/minigames/catalogue';
 import { useMusicPlayer } from '@/lib/music/musicPlayerContext';
-import { songTitle, upcomingIndices } from '@/lib/music/musicPolish';
+import { songTitle } from '@/lib/music/musicPolish';
 import { useCrossFadeTitle } from '@/lib/music/useCrossFadeTitle';
 import { MSR_LABEL } from '@/lib/music/songArt';
 import TransportIcon from './TransportIcons';
@@ -27,18 +27,13 @@ export default function MusicPlayer() {
     notice,
     title,
     videoId,
-    shuffle,
-    repeatMode,
     favorites,
     volume,
     setVolumeLevel,
-    queue,
+    upcomingTrack: nextQueueTrack,
     currentTrack: currentQueueTrack,
     nowPlayingCover,
     nowPlayingArtist,
-    queueIndex,
-    shuffleOrder,
-    shufflePosition,
     initializePlayer,
     togglePlay,
     nextTrack,
@@ -112,13 +107,6 @@ export default function MusicPlayer() {
     }
   }, [videoId, catalogTitle, onFullPlayerPage]);
 
-  // Shuffle/repeat themselves are no longer toggleable from here (that
-  // now lives on the full /music player page), but this preview still
-  // needs to reflect whichever mode is actually active, since that's
-  // controlled globally, not reset just because this widget doesn't
-  // expose the buttons anymore.
-  const order = shuffle && shuffleOrder ? shuffleOrder : queue.map((_, index) => index);
-  const nextQueueTrack = queue[upcomingIndices(order, shuffle && shuffleOrder ? shufflePosition : queueIndex, repeatMode, 1)[0]];
   const nextTitle = nextQueueTrack ? formatTrackLabel(songTitle(nextQueueTrack.title, nextQueueTrack.altTitle), nextQueueTrack.artist) : '';
 
   return (

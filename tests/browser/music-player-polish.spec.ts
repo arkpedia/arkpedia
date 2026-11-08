@@ -221,11 +221,6 @@ test('every song surface favourites in one press: the rows, the bar and the corn
   const libraryRow = page.locator('.music-all-songs-list .music-song-row').nth(2);
   await oneClick(page, rowHeart(libraryRow), (await libraryRow.getAttribute('data-song-id'))!, 'library row');
 
-  // Now playing's Up next.
-  await chooseMusicView(page, 'Now playing');
-  const upNext = page.locator('.music-up-next-list .music-song-row').first();
-  await oneClick(page, rowHeart(upNext), (await upNext.getAttribute('data-song-id'))!, 'up next row');
-
   // A saved playlist.
   await openMusicMenu(page);
   await page.getByRole('button', { name: 'Playlists', exact: true }).click();

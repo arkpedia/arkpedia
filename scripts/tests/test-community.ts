@@ -10,6 +10,7 @@ import { communitySnapshot, parseCommunitySnapshot, type CommunityChoices, type 
 import { createCommunityHandler } from '../../lib/community/api';
 import skinsData from '../../data/skins.json';
 import { previewStatistics } from '../../lib/community/preview-statistics';
+import { collectArkpediaLikes } from '../../lib/music/arkpediaLikesServer';
 import { statisticsRefreshToken } from '../deploy/statistics-schedule.mjs';
 import type { RankingBucket } from '../../lib/community/sharedRankingsCache';
 
@@ -618,4 +619,27 @@ test('independent skin ratings persist per skin, resume privately, and retain re
     h.sqlite.prepare('DELETE FROM "user" WHERE id=?').run('rater');assert.equal((await h.call('skin-poll',null,'GET',undefined,q)).result.ratings,1);
     assert.equal((await h.call('skin-poll',null)).result.ballots,0,'the new scale never invents ranked ballots');
   }finally{h.sqlite.close();}
+});
+
+test('daily music chart counts each opted-in active save once per catalogue song', async () => {
+  const { sqlite, db, user, publish, call } = harness();
+  const store = sqlite.prepare('INSERT INTO cloud_save (userId,payload,personalSync,paused,syncReviewed,updatedAt) VALUES(?,?,?,?,1,?)');
+  const tracks = ['abcdefghijk', 'msr:123'];
+  for (const [owner, enabled, personal, paused] of [
+    ['one', true, 1, 0], ['two', true, 1, 0], ['private', false, 1, 0],
+    ['disabled', true, 0, 0], ['paused', true, 1, 1], ['supportOnly', false, 1, 0],
+  ] as const) {
+    user(owner);
+    if (enabled || owner === 'supportOnly') {
+      const choices = enabled ? statsOnly : { stats: false, shareTag: true, openRequests: true };
+      assert.equal((await publish(owner, String(1000 + owner.charCodeAt(0)), choices)).status, 200);
+    }
+    const payload = { 'arkpedia:settings': { version: 2, values: { musicChartContribution: !enabled } },
+      musicFavorites: owner === 'two' ? ['msr:123'] : [...tracks, ...tracks, 'private-entry'] };
+    store.run(owner, JSON.stringify(payload), personal, paused, new Date(clock).toISOString());
+  }
+  const snapshot = () => collectArkpediaLikes(db, new Set(tracks));
+  assert.deepEqual((await snapshot()).likes, { abcdefghijk: 1, 'msr:123': 2 });
+  assert.equal((await call('sharing', 'one', 'DELETE', {revision:1})).status, 200);
+  assert.deepEqual((await snapshot()).likes, { 'msr:123': 1 });
 });

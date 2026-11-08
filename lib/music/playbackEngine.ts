@@ -1,3 +1,4 @@
+import { createPairedAudio } from './pairedAudio';
 import { logAudioEvent, musicAudioElement, msrAudioAddress, msrAudioCid, releaseMusicAudioFile, setMusicAudioFile } from './audioElement';
 import { trackSource, type TrackSource } from './trackId';
 
@@ -21,7 +22,7 @@ export const PLAYER_STATE = { UNSTARTED: -1, ENDED: 0, PLAYING: 1, PAUSED: 2, BU
 
 /** A track to load: its track id, and where to start. `cid` is the Monster Siren song the audio
  *  engine plays for it, given by createTrackEngine (a YouTube id names none of its own). */
-export type VideoArg = string | { videoId: string; startSeconds?: number; cid?: string };
+export type VideoArg = string | { videoId: string; startSeconds?: number; cid?: string; switchVersion?: boolean };
 
 /** What the player context drives: play/pause/seek/position/duration/volume, the track loaded,
  *  and loading a track to play (load) or to wait at a moment (cue). */
@@ -84,7 +85,7 @@ export function createTrackEngine(youtube: PlaybackEngine, audio: PlaybackEngine
     }
     // The audio engine is told which Monster Siren song plays for the track; YouTube gets the
     // same call it always did.
-    if (source.kind === 'msr') run(audio, { videoId: id, startSeconds, cid: source.cid });
+    if (source.kind === 'msr') run(audio, { videoId: id, startSeconds, cid: source.cid, ...(typeof video !== 'string' && video.switchVersion ? { switchVersion: true } : {}) });
     else run(youtube, typeof video === 'string' ? video : { videoId: id, startSeconds });
   };
   const current = () => (active === 'msr' ? audio : youtube);
@@ -112,6 +113,9 @@ const ADDRESS_MAX_AGE_MS = 60 * 60 * 1000;
 export interface MsrAudioEngine extends PlaybackEngine {
   stop(): void;
   element: HTMLAudioElement;
+  prepareVersion: (cid: string | null, offset?: number | null) => void;
+  versionDuration: (cid: string) => number | undefined;
+  whenVersionReady: (cid: string, run: () => void) => void;
   /** What the engine believes, for the debug panel (components/music/AudioDebugPanel.tsx). */
   debug(): Record<string, string | number | boolean>;
 }
@@ -151,7 +155,8 @@ interface AudioEngineOptions {
  * audioElement.ts), kept for the whole visit; a press that came before the engine could play has
  * already set and played its song's file there (primeMusicAudio), and load() takes it over.
  *
- * Playback uses the same element throughout. One upcoming file, or failing that its signed
+ * Ordinary track changes reuse the active element. Matched versions can exchange it with
+ * a synchronized muted element without stopping playback. One upcoming file, or failing that its signed
  * address, may be prepared by audioPreload.ts while this song plays; otherwise files load only
  * when asked to play. Its
  * address is ours (pages/api/music-audio), a redirect to
@@ -173,7 +178,8 @@ interface AudioEngineOptions {
  * song, the page hidden or not.
  */
 export function createMsrAudioEngine(events: MsrEngineEvents, { address = msrAudioAddress, now = Date.now, element }: AudioEngineOptions = {}): MsrAudioEngine {
-  const el = element ?? musicAudioElement();
+  let el = element ?? musicAudioElement();
+  const pair = createPairedAudio(() => el, listen);
 
   let id = '';
   let cid = '';
@@ -366,6 +372,24 @@ export function createMsrAudioEngine(events: MsrEngineEvents, { address = msrAud
     const song = (typeof video === 'string' ? undefined : video.cid) ?? (source?.kind === 'msr' ? source.cid : undefined);
     if (!song) return;
     generation += 1;
+    const warmed = pair.swap(song, cid, play && typeof video !== 'string' && Boolean(video.switchVersion));
+    if (warmed) {
+      el = warmed.element;
+      loadedCid = song;
+      loadedAt = now();
+      settling = false;
+      if (warmed.live) {
+        id = next.videoId;
+        cid = song;
+        retried = rescued = false;
+        pendingSeek = null;
+        start = clock = el.currentTime;
+        wantPlay = everPlayed = confirmed = true;
+        movedAt = now();
+        report(PLAYER_STATE.PLAYING);
+        return;
+      }
+    } else pair.clear();
     // Named as the player names it, whichever file plays: what it saves and resumes is the track.
     id = next.videoId;
     // A file the press set and played before the engine could (primeMusicAudio) is this song's:
@@ -399,54 +423,63 @@ export function createMsrAudioEngine(events: MsrEngineEvents, { address = msrAud
     }
   }
 
-  el.addEventListener('loadstart', () => { settling = false; });
-  el.addEventListener('loadedmetadata', () => {
-    if (pendingSeek === null || !current()) return;
-    clock = pendingSeek;
-    el.currentTime = pendingSeek;
-    pendingSeek = null;
-  });
-  el.addEventListener('playing', () => {
-    if (!current() || el.paused) return;
-    // Started from outside the player (the system's own controls): watched like a Play.
-    if (!wantPlay) { wantPlay = true; rescued = false; arm(); }
-    if (!startedAt) startedAt = now();
-    observe();
-  });
-  el.addEventListener('timeupdate', observe);
-  el.addEventListener('seeking', () => { if (current()) clock = el.currentTime; });
-  el.addEventListener('seeked', () => { if (current()) clock = el.currentTime; });
-  el.addEventListener('waiting', () => {
-    if (!current() || !wantPlay) return;
-    confirmed = false;
-    events.onState(PLAYER_STATE.BUFFERING);
-  });
-  // The end fires pause first; it is reported once, as the end.
-  el.addEventListener('pause', () => {
-    if (!current() || el.ended) return;
-    wantPlay = false;
-    disarm();
-    events.onState(PLAYER_STATE.PAUSED);
-  });
-  el.addEventListener('ended', () => {
-    if (!current()) return;
-    wantPlay = false;
-    disarm();
-    events.onState(PLAYER_STATE.ENDED);
-  });
-  el.addEventListener('error', () => {
-    if (!current() || !el.getAttribute('src')) return;
-    if (retried) { wantPlay = false; disarm(); events.onError(); return; }
-    // Most likely the signed address expired (a long pause, a seek into what was not loaded).
-    retried = true;
-    start = el.currentTime || pendingSeek || start;
-    loadedCid = '';
-    if (wantPlay) movedAt = now();
-    begin(true);
-  });
+  function listen(target: HTMLAudioElement) {
+    const on = (type: string, handler: () => void) => target.addEventListener(type, () => {
+      if (target === el) handler();
+    });
+    on('loadstart', () => { settling = false; });
+    on('loadedmetadata', () => {
+      if (pendingSeek === null || !current()) return;
+      clock = pendingSeek;
+      el.currentTime = pendingSeek;
+      pendingSeek = null;
+    });
+    on('playing', () => {
+      if (!current() || el.paused) return;
+      // Started from outside the player (the system's own controls): watched like a Play.
+      if (!wantPlay) { wantPlay = true; rescued = false; arm(); }
+      if (!startedAt) startedAt = now();
+      observe();
+    });
+    on('timeupdate', observe);
+    on('seeking', () => { if (current()) clock = el.currentTime; });
+    on('seeked', () => { if (current()) clock = el.currentTime; });
+    on('waiting', () => {
+      if (!current() || !wantPlay) return;
+      confirmed = false;
+      events.onState(PLAYER_STATE.BUFFERING);
+    });
+    // The end fires pause first; it is reported once, as the end.
+    on('pause', () => {
+      if (!current() || !el.paused || el.ended) return;
+      wantPlay = false;
+      disarm();
+      events.onState(PLAYER_STATE.PAUSED);
+    });
+    on('ended', () => {
+      if (!current()) return;
+      wantPlay = false;
+      disarm();
+      events.onState(PLAYER_STATE.ENDED);
+    });
+    on('error', () => {
+      if (!current() || !el.getAttribute('src')) return;
+      if (retried) { wantPlay = false; disarm(); events.onError(); return; }
+      // Most likely the signed address expired (a long pause, a seek into what was not loaded).
+      retried = true;
+      start = el.currentTime || pendingSeek || start;
+      loadedCid = '';
+      if (wantPlay) movedAt = now();
+      begin(true);
+    });
+  }
+  listen(el);
 
   return {
-    element: el,
+    get element() { return el; },
+    prepareVersion: pair.prepare,
+    versionDuration: pair.duration,
+    whenVersionReady: pair.whenReady,
     loadVideoById: (video) => load(video, true),
     cueVideoById: (video) => load(video, false),
     playVideo() {
@@ -480,6 +513,7 @@ export function createMsrAudioEngine(events: MsrEngineEvents, { address = msrAud
     },
     getVideoData: () => ({ video_id: id, title: '' }),
     stop() {
+      pair.clear();
       generation += 1;
       wantPlay = false;
       disarm();

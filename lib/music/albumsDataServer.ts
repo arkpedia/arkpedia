@@ -237,9 +237,11 @@ export interface SongModalLookupEntry {
    *  plays from Monster Siren. Named videoId since releases carry it by that name. */
   videoId: string;
   title: string;
+  albumId?: string;
   albumName: string;
   coverPath: string | null;
   credits: RawCredit[];
+  lyricTrackId?: string;
   hasLyrics: boolean;
 }
 
@@ -249,9 +251,11 @@ export function getAllSongModalLookup(): SongModalLookupEntry[] {
   cachedModalLookup = getAllSongDetails().map((s) => ({
     videoId: s.trackId,
     title: s.title,
+    albumId: s.albumId,
     albumName: s.albumName,
     coverPath: s.coverPath,
     credits: s.credits,
+    ...(s.lyricTrackId ? { lyricTrackId: s.lyricTrackId } : {}),
     hasLyrics: s.lyrics != null && s.lyrics.length > 0,
   }));
   return cachedModalLookup;
@@ -299,6 +303,7 @@ export interface DiscoverSong {
   game?: 'endfield';
   title: string;
   altTitle: string | null;
+  albumTrack?: number;
   albumId: string;
   albumName: string;
   coverPath: string | null;
@@ -358,12 +363,13 @@ export interface DiscoverPendingSong {
   songId: string;
   title: string;
   altTitle: string | null;
+  albumTrack?: number;
   albumId: string;
   albumName: string;
   coverPath: string | null;
   characters: string[];
   origin: string[];
-  artist: null;
+  artist: string | null;
 }
 
 export interface DiscoverPageData {
@@ -426,9 +432,11 @@ export function getDiscoverPageData(): DiscoverPageData {
 /** getDiscoverPageData for any catalogue: the pure part, which the tests call with fixtures. */
 export function discoverPageData(rawAlbums: readonly RawAlbum[]): DiscoverPageData {
   const fullSongs = songsFromAlbums(rawAlbums);
+  const positions = new Map(rawAlbums.flatMap(album => (album.songs ?? []).map((song, index) => [album.albumId + '/' + song.songId, index] as const)));
   const songs: DiscoverSong[] = fullSongs.map((s) => ({
     videoId: s.videoId,
     ...endfieldMark(s.game),
+    albumTrack: positions.get(s.albumId + '/' + s.songId) ?? 0,
     title: s.title,
     altTitle: s.altTitle,
     albumId: s.albumId,
@@ -447,6 +455,7 @@ export function discoverPageData(rawAlbums: readonly RawAlbum[]): DiscoverPageDa
     .filter((song) => !song.videoId)
     .map((song) => ({
       songId: song.songId,
+      albumTrack: positions.get(album.albumId + '/' + song.songId) ?? 0,
       title: song.songName,
       altTitle: song.songAltName || null,
       albumId: album.albumId,
@@ -454,7 +463,7 @@ export function discoverPageData(rawAlbums: readonly RawAlbum[]): DiscoverPageDa
       coverPath: albumCoverPath(album),
       characters: album.characters || [],
       origin: album.origin || [],
-      artist: null,
+      artist: song.credits?.find(credit => credit.role === 'artist')?.names.join(', ') ?? null,
     })));
 
   // Each character's most recent release date -- releaseDate lives on

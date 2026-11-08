@@ -27,6 +27,17 @@ export const MUSIC_RESUME_MAX_AGE_MS = 3 * 60 * 1000;
 
 const REPEAT_MODES = ['off', 'one', 'all'] as const;
 
+export interface MusicSource {
+  name: string;
+  href: string;
+  playlistId?: string;
+}
+
+export interface ListeningHistory {
+  tracks: string[];
+  position: number;
+}
+
 export interface MusicResumeState {
   version: 1;
   /** Date.now() when it was written. */
@@ -52,6 +63,8 @@ export interface MusicResumeState {
   playlistIds?: string[] | null;
   /** Saved playlist behind the queue, used to default the add-song picker after reload. */
   playingPlaylistId?: string | null;
+  source?: MusicSource;
+  history?: ListeningHistory;
   queueIndex: number;
   shuffle: boolean;
   /** The shuffled order of play, as songs (null with shuffle off). */
@@ -115,7 +128,13 @@ export function parseMusicResume(raw: string | null): MusicResumeState | null {
   if (!REPEAT_MODES.includes(repeat as never) || typeof volume !== 'number' || !Number.isFinite(volume) || volume < 0 || volume > 100) return null;
   if (value.playlistIds != null && !isIdList(value.playlistIds)) return null;
   if (value.playingPlaylistId != null && (typeof value.playingPlaylistId !== 'string' || !/^[a-zA-Z0-9_-]{1,100}$/.test(value.playingPlaylistId))) return null;
+  const source = value.source as Partial<MusicSource> | undefined;
+  const history = value.history as Partial<ListeningHistory> | undefined;
   return {
+    ...(source && typeof source.name === 'string' && typeof source.href === 'string' && /^\/music(?:\/discover)?(?:\?|$)/.test(source.href)
+      ? { source: { name: source.name, href: source.href, ...(typeof source.playlistId === 'string' ? { playlistId: source.playlistId } : {}) } } : {}),
+    ...(history && isIdList(history.tracks) && isCount(history.position) && history.position < history.tracks.length
+      ? { history: { tracks: history.tracks, position: history.position } } : {}),
     // Optional and only a label: a malformed list is dropped on its own, not the whole record.
     ...(isIdList(value.queued) ? { queued: value.queued } : {}),
     ...(value.queueMode === 'chosen' ? { queueMode: 'chosen' as const } : {}),

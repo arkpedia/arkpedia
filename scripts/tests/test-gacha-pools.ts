@@ -282,3 +282,86 @@ test('with the batch still recorded as Standard, as the records were until 2026-
   assert.ok(names(simulated('Standard Pool #177 (Global)', stale).otherSixStarPool).has('Goldenglow'));
   assert.ok(!names(simulated('Kernel Locating #13 (Global)', stale).sixStarFeatured).has('Goldenglow'));
 });
+
+test('rotating selection counts total pulls and awards each of the two different rate-ups once', () => {
+  for (const source of ['Standard Pool #175 (Global)', 'Kernel #63 (Global)']) {
+    const built = simulated(source);
+    assert.equal(built.sixStarGuarantee, 'selection');
+    const [first, other] = built.sixStarFeatured;
+    const start = { ...createInitialState(), pullCount: 149, obtainedCounts: { [first.name]: 3, [other.name]: 2 } };
+    const pullSix = (state: typeof start | ReturnType<typeof createInitialState>, choice = .99) =>
+      scripted(i => i % 2 ? choice : 0, () => doPulls(built, state, 1));
+    const threshold = pullSix(start);
+    assert.equal(threshold.state.firstSelection, undefined);
+    const after = pullSix(threshold.state, 0);
+    assert.equal(after.items[0].name, first.name);
+    assert.equal(after.items[0].featuredGuaranteeEvent, 'guarantee');
+    const at300 = pullSix({ ...after.state, pullCount: 299 });
+    assert.equal(at300.state.secondSelectionUsed, undefined);
+    const wait = scripted(() => .99, () => doPulls(built, at300.state, 4));
+    assert.equal(wait.state.secondSelectionUsed, undefined);
+    const second = pullSix(wait.state, 0);
+    assert.equal(second.items[0].name, other.name);
+    assert.equal(second.items.length, 1);
+    assert.equal(second.state.secondSelectionUsed, true);
+    assert.equal(pullSix(second.state).items[0].featuredGuaranteeEvent, undefined);
+  }
+});
+
+test('archived rotations, Kernel Locating and Celebration Kernel have their own rules', () => {
+  const standard = banner('Standard Pool #175 (Global)');
+  for (const [date, active] of [['2025/08/15', false], ['2025/08/29', true]] as const) {
+    assert.equal(config({ ...standard, global_date: date, globalPoolId: undefined }).sixStarGuarantee === 'selection', active);
+  }
+  assert.equal(config(banner('Kernel #38 (Global)')).sixStarGuarantee, undefined);
+  assert.equal(config(banner('Kernel Locating #13 (Global)')).sixStarGuarantee, undefined);
+  assert.equal(config(banner('Celebration - Kernel #3')).sixStarGuarantee, undefined);
+});
+
+test('The Front That Was and Kernel Locating allow off-banner five-stars at the displayed rate', () => {
+  for (const [source, expected] of [['The Front That Was #4', 0.6], ['Kernel Locating #13 (Global)', 0.5]] as const) {
+    const built = source.startsWith('Kernel') ? reachable(banner(source)).at(-1)![1] : simulated(source);
+    const pool = fiveStarWeightedPool(built);
+    const featured = names(built.fiveStarFeatured);
+    const share = pool.filter(row => featured.has(row.item.name)).reduce((sum, row) => sum + row.weight, 0);
+    assert.ok(Math.abs(share - expected) < 1e-8);
+    const pick = scripted(i => i % 2 ? .99 : .05, () => doPulls(built, createInitialState(), 1)).items[0];
+    assert.equal(pick.rarity, 5);
+    assert.equal(pick.isFeatured, false);
+  }
+});
+
+test('original crossover protection stops after the first copy and allows an off-banner 5★ after pull 50', () => {
+  const original = config({ ...banner(P3), cn_date: '2025/09/04' });
+  assert.equal(original.sixStarGuarantee, 'first120');
+  const { items } = scripted(i => i === 100 ? .05 : .999, () => doPulls(original, createInitialState(), 240));
+  assert.equal(items[50].rarity, 5);
+  assert.equal(items[50].isFeatured, false);
+  assert.deepEqual(items.flatMap((item, i) => item.rarity === 6 && item.isFeatured ? [i + 1] : []), [120]);
+});
+
+test('Celebration reopens the full roster when the first two 6★ fall in the same batch', () => {
+  const source = banner('Celebration & Hope');
+  const built = config(source, source.six_stars.slice(1));
+  const batch = scripted(i => i % 2 ? .999 : 0, () => doPulls(built, createInitialState(), 10));
+  assert.equal(batch.items[0].name, source.six_stars[0]);
+  assert.equal(batch.items[1].name, source.six_stars.at(-1));
+});
+
+test('the Limited free copy and single-featured protection respect their regional introduction', () => {
+  const limited = banner('[Celebration] Sealed With Time');
+  const featured = banner('Rage of The Many');
+  for (const [date, active] of [['2024/10/30', false], ['2024/10/31', true]] as const) {
+    const built = config({ ...limited, global_date: date });
+    const pull = scripted(() => .99, () => doPulls(built, { ...createInitialState(), pullCount: 299 }, 1));
+    assert.equal(pull.items.some(item => item.isBonus), active);
+  }
+  const before = config({ ...featured, global_date: '2023/10/23', globalPoolId: undefined });
+  const after = config({ ...featured, global_date: '2023/10/24', globalPoolId: undefined });
+  const state = { ...createInitialState(), pullsSinceFeatured6Star: 149 };
+  const pullSix = (built: BannerConfig, previous = state) => scripted(i => i % 2 ? .999 : 0, () => doPulls(built, previous, 1));
+  const threshold = pullSix(after);
+  assert.equal(threshold.items[0].isFeatured, false);
+  assert.equal(pullSix(after, threshold.state).items[0].featuredGuaranteeEvent, 'guarantee');
+  assert.equal(pullSix(before, threshold.state).items[0].isFeatured, false);
+});
