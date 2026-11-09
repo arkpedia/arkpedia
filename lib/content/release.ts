@@ -1,3 +1,4 @@
+import { validateMediaDelivery } from '../assets/mediaDelivery.mjs';
 import { pageFilePath, isContentPagePath, contentFileUrlPath } from './pagePaths.mjs';
 import { readChannelPointer } from './pointer.mjs';
 import { operatorPageAcceptsName, operatorPageRoute } from '../operators/operatorPagePaths';
@@ -132,14 +133,18 @@ export async function loadRelease(): Promise<Loaded | undefined> {
       const baseUrl = pilot ? deliveryBaseUrl(pilot, pointer, { allowLocalHttp: process.env.ARKPEDIA_CONTENT_TEST === '1' })
         : root === DEFAULT_ORIGIN ? assetUrl('arkpedia-data', pointer.revision, 'release') : `${root}/${pointer.revision}/release`;
       if (cached?.context.release === pointer.release && cached.context.baseUrl === baseUrl) return cached;
-      const bytes = await read(`${baseUrl}/manifest.json`, 5_000_000);
+      const [bytes, readyBytes] = await Promise.all([read(`${baseUrl}/manifest.json`, 5_000_000),
+        root === DEFAULT_ORIGIN && !pilot ? read(`https://assets.arkpedia.net/__ready/arkpedia-data/${pointer.revision}`, 1_000_000) : undefined]);
+      const ready = readyBytes ? JSON.parse(readyBytes.toString()) : undefined;
+      if (ready && (ready.version !== 1 || ready.repository !== 'arkpedia-data' || ready.revision !== pointer.revision)) throw Error('Invalid media delivery readiness');
+      const media = ready?.media ? validateMediaDelivery(ready.media) : undefined;
       if (digest(bytes) !== pointer.manifestSha256) throw new Error('Content manifest checksum mismatch');
       const manifest = JSON.parse(bytes.toString()) as ContentManifest;
       if (manifest.schema !== CONTENT_SCHEMA || manifest.release !== pointer.release || !manifest.pages || !manifest.files || !manifest.assets
         || !Object.values(manifest.assets).every(value => typeof value === 'string' && GIT_SHA.test(value))
         || !manifest.assets['arkpedia-image-assets'] || !manifest.assets['arkpedia-skin-assets']
         || !Object.entries(manifest.pages).every(([route, file]) => validFile(route, file))) throw new Error('Invalid content manifest');
-      cached = { manifest, context: { release: pointer.release, baseUrl, assets: manifest.assets } };
+      cached = { manifest, context: { release: pointer.release, baseUrl, assets: manifest.assets, ...(media ? { media } : {}) } };
       pageCache.clear();
       return cached;
     } catch (error) {

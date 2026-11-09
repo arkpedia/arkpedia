@@ -36,6 +36,7 @@
  * lag this check is for.
  */
 import fs from 'node:fs';
+import { mediaRevision, validateMediaDelivery } from '../../lib/assets/mediaDelivery.mjs';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { deploymentUrls } from '../content/deploy-gate.mjs';
@@ -68,7 +69,12 @@ export function probeFile({ folders, committedFiles, liveFiles }) {
 
 async function manifestFiles(fetch, repository, revision) {
   // A 404 counts only once every encoding of the address has said it (lib/assets/githubRetry.mjs).
-  const response = await fetchAsset(assetAddress(repository, revision, 'asset-manifest.json'), { signal: AbortSignal.timeout(30_000) }, { fetcher: fetch });
+  const readiness = await fetchAsset(`https://assets.arkpedia.net/__ready/${repository}/${revision}`, { signal: AbortSignal.timeout(30_000) }, { fetcher: fetch });
+  if (!readiness.ok) throw Error('Asset redirect readiness unavailable');
+  const ready = await readiness.json();
+  const maps = ready.native ? validateMediaDelivery({ [repository]: { [revision]: ready.native } }) : {};
+  const physical = mediaRevision(maps, repository, revision, 'asset-manifest.json');
+  const response = await fetchAsset(assetAddress(repository, physical, 'asset-manifest.json'), { signal: AbortSignal.timeout(30_000) }, { fetcher: fetch });
   if (!response.ok) throw new Error(`${repository}@${short(revision)} asset-manifest.json answered HTTP ${response.status}`);
   const files = (await response.json())?.files;
   if (!files || typeof files !== 'object') throw new Error(`${repository}@${short(revision)} asset-manifest.json lists no files`);

@@ -91,6 +91,7 @@ export function buildInfo({ cwd = process.cwd(), now = new Date() } = {}) {
     commit: git(['rev-parse', 'HEAD'], cwd).trim(),
     codeFingerprint: codeFingerprint('HEAD', { cwd }),
     contentSchema: SCHEMA,
+    nativeMediaDelivery: 1,
     // The content pointer the build reads (scripts/content/channel.mjs): live, or dev-live.
     contentChannel: contentPointer(),
     // The arkpedia-data commit data/ was pulled from (scripts/content/pull-data.mjs).

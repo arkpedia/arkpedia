@@ -69,6 +69,7 @@ jobs:
         if: vars.ARKPEDIA_UNIFIED_ASSETS == 'true'
         run: node scripts/content/unified-assets.mjs --apply --pins=.cache/asset-mirror-plan.json --cache="$RUNNER_TOOL_CACHE/arkpedia-public-git" --max-new-bytes="$NATIVE_NEW_BYTES" --max-total-bytes="$NATIVE_TOTAL_BYTES" --report=.cache/r2-mirror-receipts.json
         env:
+          ARKPEDIA_NATIVE_MEDIA_REUSE: ${{ vars.ARKPEDIA_NATIVE_MEDIA_REUSE }}
           ARKPEDIA_R2_ACCOUNT_ID: '1ff51c10571eaa9934bc451e1bfdb361'
           ARKPEDIA_NATIVE_R2_ACCESS_KEY_ID: ${{ secrets.ARKPEDIA_NATIVE_R2_ACCESS_KEY_ID }}
           ARKPEDIA_NATIVE_R2_SECRET_ACCESS_KEY: ${{ secrets.ARKPEDIA_NATIVE_R2_SECRET_ACCESS_KEY }}

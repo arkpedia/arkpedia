@@ -5,6 +5,8 @@ import dynamic from 'next/dynamic';
 import XButton from '@/components/ui/XButton';
 import { ContentImg } from '@/components/content/ContentImage';
 import type { ChibiModel, ChibiFacings } from '@/lib/operators/chibi';
+import { resolveChibiModel, resolveChibiFacings } from '@/lib/operators/chibi';
+import { useContentUrl } from '@/lib/content/context';
 import { CHIBI_FURNITURE, chooseChibiBreak, chooseChibiTap, chibiActivities } from '@/lib/operators/chibiRoutine';
 import ChibiWindow from './ChibiWindow';
 import ChibiSizeControl from './ChibiSizeControl';
@@ -44,12 +46,14 @@ const ignoreAnimation = () => {};
 
 /** Each roaming canvas owns its motion and controls; opening another viewer leaves it alive. */
 export default function RoamingChibiProvider({ children }: { children: ReactNode }) {
+  const resolveUrl = useContentUrl();
+  const resolvedPet = useCallback((pet: Pet): Pet => ({ ...pet, model: resolveChibiModel(pet.model, resolveUrl), models: resolveChibiFacings(pet.models, resolveUrl) }), [resolveUrl]);
   const [viewer, setViewer] = useState<ChibiViewerConfig | null>(null), [viewerOpen, setViewerOpen] = useState(false);
   const [walkers, setWalkers] = useState<Walker[]>([]);
   const [size, setSize] = useState(100);
   const nextId = useRef(0), drag = useRef<Drag | null>(null);
   const viewerRef = useRef(viewer); viewerRef.current = viewer;
-  const openViewer = useCallback((next: ChibiViewerConfig) => { setViewer(next); setViewerOpen(true); }, []);
+  const openViewer = useCallback((next: ChibiViewerConfig) => { setViewer({ ...next, models: resolveChibiFacings(next.models, resolveUrl) }); setViewerOpen(true); }, [resolveUrl]);
   const closeViewer = useCallback(() => {
     setViewerOpen(false);
     const source = viewerRef.current?.returnFocus;
@@ -57,14 +61,14 @@ export default function RoamingChibiProvider({ children }: { children: ReactNode
   }, []);
   const walkOnPage = useCallback((pet: Pet, point: Point) => {
     const id = ++nextId.current;
-    setWalkers(current => [...current, { id, pet, point, size }]);
-  }, [size]);
+    setWalkers(current => [...current, { id, pet: resolvedPet(pet), point, size }]);
+  }, [size, resolvedPet]);
   const startDrag = useCallback((event: ReactPointerEvent<HTMLCanvasElement>, pet: Pet) => {
     if (event.button !== 0 || !event.isPrimary) return;
     event.preventDefault();
     const bounds = chibiDimensions(size, window.innerWidth, window.innerHeight);
-    drag.current = { pointer: event.pointerId, origin: { x: event.clientX, y: event.clientY }, offset: { x: bounds.width / 2, y: bounds.height / 2 }, bounds: event.currentTarget.getBoundingClientRect(), detached: false, moved: false, pet };
-  }, [size]);
+    drag.current = { pointer: event.pointerId, origin: { x: event.clientX, y: event.clientY }, offset: { x: bounds.width / 2, y: bounds.height / 2 }, bounds: event.currentTarget.getBoundingClientRect(), detached: false, moved: false, pet: resolvedPet(pet) };
+  }, [size, resolvedPet]);
   useEffect(() => {
     const move = (event: PointerEvent) => {
       const active = drag.current;

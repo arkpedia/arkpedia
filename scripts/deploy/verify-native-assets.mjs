@@ -6,7 +6,8 @@ import { readFile, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { nativeKey } from '../content/native-assets.mjs';
-import { descriptor } from '../../workers/assets/contract.mjs';
+import { mediaRevision, validateMediaDelivery } from '../../lib/assets/mediaDelivery.mjs';
+import { descriptor, maxFileBytes } from '../../workers/assets/contract.mjs';
 
 const HEADERS = { Origin: 'https://www.arkpedia.net', 'Accept-Encoding': 'identity' };
 const sha = (bytes, size) => createHash('sha1').update(`blob ${size}\0`).update(bytes).digest('hex');
@@ -33,10 +34,11 @@ export async function verifyNativeAssets(plan, { origin, fetcher = fetch }) {
   assert.ok(plan.samples?.length && (plan.identities?.length || plan.canaryOnly), 'An inventory report with samples is required');
   if (plan.canaryOnly) assert.equal(origin, 'https://assets-native.arkpedia.net', 'Partial canaries must never verify a production cutover');
   const request = (url, init = {}) => fetcher(url, { ...init, redirect: 'error', headers: { ...HEADERS, ...init.headers }, signal: AbortSignal.timeout(30_000) });
+  const maps = validateMediaDelivery(plan.mediaDelivery || {});
   const verified = [];
   for (const file of plan.samples) {
-    assert.ok(descriptor(file), 'Invalid canary descriptor');
-    const path = `/${nativeKey(file.repository, file.revision, file.path).split('/').map(encodeURIComponent).join('/')}`;
+    assert.ok(descriptor(file, maxFileBytes(file.repository)), 'Invalid canary descriptor');
+    const path = `/${nativeKey(file.repository, mediaRevision(maps, file.repository, file.revision, file.path, true), file.path).split('/').map(encodeURIComponent).join('/')}`;
     const previous = await request(`https://assets.arkpedia.net${path}`);
     assert.equal(previous.status, 200, 'Existing asset must remain readable');
     const expected = await body(previous, file.bytes);

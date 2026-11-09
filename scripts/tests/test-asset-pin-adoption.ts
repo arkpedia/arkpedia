@@ -30,6 +30,11 @@ type Reply = { status?: number; body?: string | Buffer; location?: string };
 
 /** A fetch that answers from a table of URL -> reply, and remembers what it was asked. */
 function fakeFetch(routes: Record<string, Reply | ((init?: RequestInit) => Reply)>) {
+  // Completed version-one media receipts used by these redirect fixtures.
+  for (const repository of ['arkpedia-image-assets', 'arkpedia-skin-assets']) for (const revision of ['1', 'a', 'b', 'f'].map(A)) {
+    const url = `https://assets.arkpedia.net/__ready/${repository}/${revision}`;
+    routes[url] ??= { body: JSON.stringify({ version: 1, repository, revision, files: 1 }) };
+  }
   const calls: { url: string; method: string }[] = [];
   const fetch = async (url: string, init: RequestInit = {}) => {
     calls.push({ url, method: init.method ?? 'GET' });

@@ -104,3 +104,41 @@ Compare Worker requests/CPU and R2 reads over the first complete UTC day after
 cutover and comparable traffic windows. Migration-day uploads/listing/source reads
 are one-time operations and can mask early total-cost savings. Keep duplicate
 storage across retained URL-shaped media revisions in the ongoing cost estimate.
+
+## Lossless native media reuse
+
+`ARKPEDIA_NATIVE_MEDIA_REUSE=true` enables reuse in both unified publishers. The
+flag defaults off. Enable it only after a clean production build advertises
+`nativeMediaDelivery: 1`; apply mode independently checks that public capability.
+Deploy the compatible app first, verify its checked-source Preview and production
+journeys, then enable both repository flags and run the normal data publication.
+Keep the existing 5,000,000,000-byte/run and 60,000,000,000-byte total limits.
+
+A completed native receipt can carry `native: {version: 1, baseRevision,
+overrides}`. This is a sparse map from a source revision's complete directories to
+physical immutable revisions in the same repository and bucket. Receipt directory
+hashes must match exactly, every physical path/length must exist in the inventory,
+and only completed receipts are reuse authorities. Targets are flattened physical
+copies, never alias chains. SD/L2D paths group through their immutable model hash;
+all model.json, atlas, skeleton, textures, entrance and audio descendants stay
+together. Unrecognized model layouts conservatively group the entire models tree.
+Changed groups upload unchanged Git bytes; removed groups use tombstones to avoid
+exposing stale baseline files. Nothing is recompressed, transcoded or deleted.
+
+New data readiness carries the bounded `media` maps for all manifest and embedded
+media dependencies. Original Git JSON, indexes, blob identities and historical
+URLs remain unchanged. Media readiness precedes data readiness; the live pointer
+still moves only after publication. Maps total at most 64 KB per data release.
+The app fetches them alongside the manifest before adopting a release and retains
+the previous release on invalid/unavailable metadata. It serializes the small map
+with the page. Each media request still goes straight to R2/CDN, with no lookup
+Worker or per-file mapping request. Build hydration loads the same immutable maps
+for bundled fallback pages, independently pinned application art and static art
+redirects. `verify-native-assets.mjs` accepts a publisher report's `mediaDelivery`
+when verifying logical-source samples.
+
+Disabling the publisher flag stops new reuse; it does not materialize previously
+mapped source paths. Retain a compatible app reader while mapped content is live.
+To roll back to an older app, first restore and verify an already published v1
+content pointer and asset pins, then restore the app. Existing physical revisions,
+receipts, old-bucket isolation and rollback credentials remain intact.
