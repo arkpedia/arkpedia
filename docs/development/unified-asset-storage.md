@@ -24,7 +24,10 @@ must not mutate or delete objects behind the publisher.
 Both repositories share the existing atomic native-bucket lease. Full native
 inventory supplies an explicit total storage ceiling; new bodies, indexes and
 receipts are budgeted before asset writes. All uploaded bodies are checked against
-their Git identity and Content-MD5. Interrupted revisions remain unready and resume
+their Git identity and Content-MD5. Native media files may be up to 128,000,000 bytes;
+generated JSON retains the reader-compatible 64,000,000-byte limit. Git reads
+cover the media cap, and two concurrent media uploads bound in-flight file bytes
+to 256,000,000. The new/total storage budgets still apply before any asset writes. Interrupted revisions remain unready and resume
 through create-only writes. Historical backfill uses up to 64 upload tasks while
 limiting buffered file bodies to 256 MB; resumed metadata checks overlap sixteen
 reads. This avoids serial per-file HTTP overhead and unbounded large-file buffering. The content repository preserves the current tooling
