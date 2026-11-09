@@ -36,10 +36,15 @@ test('static redirects override exactly one directory, preserving independent de
   assert.deepEqual(skinRules.map((rule: { source: string }) => rule.source), ['/skin-originals/six-star-skins/:file', '/skin-variants/avif/w1280/six-star-skins/:file']);
 });
 test('release adoption loads bounded delivery metadata and retains the previous release on invalid maps', async t => {
-  const previousFetch = globalThis.fetch, previousTest = process.env.ARKPEDIA_CONTENT_TEST;
-  const previousOrigin = process.env.ARKPEDIA_CONTENT_URL;
-  process.env.ARKPEDIA_CONTENT_TEST = '1'; delete process.env.ARKPEDIA_CONTENT_URL;
-  t.after(() => { globalThis.fetch = previousFetch; if (previousTest === undefined) delete process.env.ARKPEDIA_CONTENT_TEST; else process.env.ARKPEDIA_CONTENT_TEST = previousTest; if (previousOrigin !== undefined) process.env.ARKPEDIA_CONTENT_URL = previousOrigin; });
+  const previousFetch = globalThis.fetch;
+  const keys = ['ARKPEDIA_CONTENT_TEST', 'ARKPEDIA_CONTENT_DISABLED', 'ARKPEDIA_EXPORT_CONTENT', 'ARKPEDIA_CONTENT_CHANNEL', 'ARKPEDIA_CONTENT_URL', 'ARKPEDIA_CONTENT_PILOT_ORIGIN'] as const;
+  const previous = keys.map(key => process.env[key]);
+  Object.assign(process.env, { ARKPEDIA_CONTENT_TEST: '1', ARKPEDIA_CONTENT_DISABLED: '0', ARKPEDIA_EXPORT_CONTENT: '0', ARKPEDIA_CONTENT_CHANNEL: 'live' });
+  delete process.env.ARKPEDIA_CONTENT_URL; delete process.env.ARKPEDIA_CONTENT_PILOT_ORIGIN;
+  t.after(() => {
+    globalThis.fetch = previousFetch;
+    keys.forEach((key, index) => { if (previous[index] === undefined) delete process.env[key]; else process.env[key] = previous[index]; });
+  });
   let id = 'e'.repeat(64), invalid = false;
   globalThis.fetch = async input => {
     const url = String(input);
