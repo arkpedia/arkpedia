@@ -453,8 +453,8 @@ const REGENERATED: Record<string, (props: Record<string, unknown>, clock: { from
     assert.ok(campaigns.every(event => event.name && Number.isFinite(Date.parse(event.expiresAt))), 'discovered campaign records keep verified deadlines');
     const videos = props.videos as { videoId: string }[];
     assert.ok(videos.length > 0 && videos.every((video) => video.videoId.startsWith('stub-')), 'the videos are the feeds finalize fetched');
-    assert.deepEqual((props.twitchStreams as { userLogin: string }[]).map((stream) => stream.userLogin), ['stub_streamer'], 'the Twitch streams are the ones finalize fetched');
-    assert.equal(props.hasTwitchCreds, true);
+    assert.equal(Object.hasOwn(props, 'twitchStreams'), false, 'live Twitch status is fetched on entry, never baked into regenerated content');
+    assert.equal(Object.hasOwn(props, 'hasTwitchCreds'), false, 'live feed availability comes from the Twitch API response');
     const now = props.now as number;
     assert.ok(now >= Math.floor(from / 60_000) * 60_000 && now <= to, `now (${new Date(now).toISOString()}) is the server's clock at the regeneration`);
   },

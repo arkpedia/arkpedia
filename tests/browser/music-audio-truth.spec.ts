@@ -1,3 +1,4 @@
+import { expandMusicPlayer } from './music-navigation-helpers';
 import { expect, test, type Page } from '@playwright/test';
 import { stubMonsterSiren } from './monster-siren-stub';
 import { stubYouTube } from './youtube-stub';
@@ -91,7 +92,7 @@ test('a file that never sends a byte shows loading, never Pause, then waits paus
   // The corner player on another page says the same.
   await page.evaluate(() => (window as unknown as { next: { router: { push: (url: string) => Promise<boolean> } } }).next.router.push('/operators'));
   await page.waitForURL('**/operators');
-  await page.getByRole('button', { name: 'Expand player' }).click();
+  await expandMusicPlayer(page);
   const widget = page.locator('[data-music-widget]');
   await expect(widget.getByText(STUCK)).toBeVisible();
   await expect(widget.getByRole('button', { name: 'Play', exact: true })).toBeEnabled();

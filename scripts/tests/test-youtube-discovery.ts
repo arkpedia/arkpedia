@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { featuredChannelVideos, videoTopic, FEATURED_VIDEO_WINDOW_MS } from '../../lib/music/youtubeDiscovery';
+import { discoveryVideoTopic, featuredChannelVideos, videoTopic, FEATURED_VIDEO_WINDOW_MS } from '../../lib/music/youtubeDiscovery';
 import type { YouTubeVideo } from '../../lib/music/youtube';
 
 const now = Date.parse('2026-11-06T12:00:00Z');
@@ -49,4 +49,22 @@ test('titles classify across creators, with specific formats winning over generi
     ['Arknights: a very surprising day', 'other'],
   ] as const;
   for (const [title, expected] of cases) assert.equal(videoTopic(title), expected, title);
+});
+
+test('upcoming outfits and Stronghold audio use their specific categories instead of Other', () => {
+  const cases = [
+    ['Upcoming Operators/Outfits - Monster Hunter Collab 2 | Arknights 近日実装 オペレーター', 'skins'],
+    ['Upcoming outfits announced | Arknights', 'skins'],
+    ['Arknights skins and costumes preview', 'skins'],
+    ['Stronghold Protocol: Regulation Mix | Arknights 坚守协议 BGM集', 'media'],
+    ['Closure Stronghold Protocol JP Voice Lines | Arknights 坚守协议 クロージャボイス集', 'media'],
+    ['Arknights voice-line compilation', 'media'],
+    ['Arknights BGM compilation', 'media'],
+    // The mode itself is not a music keyword: its guides and news stay separate.
+    ['Stronghold Protocol Regulation AFK Guide | Arknights', 'guides'],
+    ['Stronghold Protocol update announced | Arknights', 'news'],
+  ] as const;
+  for (const [title, expected] of cases) {
+    assert.equal(discoveryVideoTopic(video('fixture', 'RiverV Workshop', 1, { title })), expected, title);
+  }
 });

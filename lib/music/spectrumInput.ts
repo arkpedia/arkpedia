@@ -8,8 +8,22 @@ interface SpectrumInput {
 }
 
 let playerContext: AudioContext | undefined;
-let speakerSource: MediaElementAudioSourceNode | undefined;
-const elementSources = new WeakMap<HTMLAudioElement, MediaElementAudioSourceNode>();
+interface ElementOutput { source: MediaElementAudioSourceNode; gain: GainNode }
+let speakerOutput: ElementOutput | undefined;
+const elementSources = new WeakMap<HTMLAudioElement, ElementOutput>();
+const elementVolumes = new WeakMap<HTMLAudioElement, number>();
+
+/** Use one volume control after WebKit takes over the element's native output. */
+export function setMusicAudioVolume(element: HTMLAudioElement, volume: number) {
+  elementVolumes.set(element, volume);
+  const output = elementSources.get(element);
+  if (output) output.gain.gain.value = volume;
+  else element.volume = volume;
+}
+
+export function musicAudioVolume(element: HTMLAudioElement) {
+  return elementVolumes.get(element) ?? element.volume;
+}
 
 function resumePlayerContext() {
   if (playerContext && playerContext.state !== 'running') void playerContext.resume().catch(() => {});
@@ -30,21 +44,54 @@ export function primeSpectrumContext() {
   } catch { /* The native player can still play without Web Audio. */ }
 }
 
-/** A muted standby keeps decoding. Only the active deck may feed Web Audio's speakers. */
+/** Each WebKit deck uses the same graph at unity native volume. Muting/unmuting
+ * a routed media element can change its output level when that deck is reused. */
+function elementOutput(element: HTMLAudioElement): ElementOutput | undefined {
+  let output = elementSources.get(element);
+  if (output || playerContext?.state !== 'running') return output;
+  try {
+    const session = (navigator as Navigator & { audioSession?: { type: string } }).audioSession;
+    if (session?.type === 'auto') session.type = 'playback';
+    const volume = musicAudioVolume(element);
+    const source = playerContext.createMediaElementSource(element);
+    const gain = playerContext.createGain();
+    gain.gain.value = volume;
+    source.connect(gain);
+    output = { source, gain };
+    elementSources.set(element, output);
+    // The disconnected graph silences a standby; native mute/volume no longer
+    // participate in the handoff or compound the reader's preferred volume.
+    element.volume = 1;
+    element.muted = false;
+  } catch { /* Native playback remains available if the graph cannot be made. */ }
+  return output;
+}
+
+/** Only the selected deck connects to the speakers, including warm switches. */
 export function selectSpectrumOutput(element?: HTMLAudioElement) {
-  const next = element && elementSources.get(element);
-  if (next === speakerSource) return;
-  speakerSource?.disconnect(speakerSource.context.destination);
-  speakerSource = undefined;
+  const next = element && elementOutput(element);
+  if (next === speakerOutput) return;
+  speakerOutput?.gain.disconnect(speakerOutput.gain.context.destination);
+  speakerOutput = undefined;
   if (next) {
-    next.connect(next.context.destination);
-    speakerSource = next;
+    next.gain.connect(next.gain.context.destination);
+    speakerOutput = next;
   }
 }
 
+/** Silence a routed deck without changing the media element's native mute state. */
+export function muteMusicAudio(element: HTMLAudioElement) {
+  const output = elementSources.get(element);
+  if (!output) element.muted = true;
+  else if (output === speakerOutput) selectSpectrumOutput();
+}
+
 export function releaseSpectrumElement(element: HTMLAudioElement) {
-  if (elementSources.get(element) === speakerSource) selectSpectrumOutput();
+  const output = elementSources.get(element);
+  if (output === speakerOutput) selectSpectrumOutput();
+  output?.source.disconnect();
   elementSources.delete(element);
+  elementVolumes.delete(element);
 }
 
 export function openSpectrumInput(element: CapturableAudio): SpectrumInput | null {
@@ -54,32 +101,24 @@ export function openSpectrumInput(element: CapturableAudio): SpectrumInput | nul
     const context = playerContext;
     if (!context) return null;
     const analyser = context.createAnalyser();
-    let source: MediaElementAudioSourceNode | undefined;
+    let output: ElementOutput | undefined;
     const attach = () => {
-      if (context.state !== 'running' || source || element.paused || element.muted || !element.hasAttribute('data-music-audio')) return;
+      if (context.state !== 'running' || output || element.paused || !element.hasAttribute('data-music-audio')) return;
       try {
-        let output = elementSources.get(element);
-        if (!output) {
-          // Preserve media playback semantics (including the silent switch) when
-          // WebKit moves native media into Web Audio's output.
-          const session = (navigator as Navigator & { audioSession?: { type: string } }).audioSession;
-          if (session?.type === 'auto') session.type = 'playback';
-          output = context.createMediaElementSource(element);
-          elementSources.set(element, output);
-        }
+        output = elementOutput(element);
+        if (!output) return;
         selectSpectrumOutput(element);
-        output.connect(analyser);
-        source = output;
+        output.gain.connect(analyser);
       } catch { /* The browser cannot analyse this recording. */ }
     };
     element.addEventListener('playing', attach);
     context.addEventListener('statechange', attach);
     attach();
-    return { context, analyser, active: () => Boolean(source), release() {
+    return { context, analyser, active: () => Boolean(output), release() {
       element.removeEventListener('playing', attach);
       context.removeEventListener('statechange', attach);
       // The engine owns the audible connection across visualizer and page changes.
-      source?.disconnect(analyser);
+      output?.gain.disconnect(analyser);
     } };
   }
 

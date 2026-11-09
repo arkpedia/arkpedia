@@ -33,10 +33,17 @@ function collapsedMargins(el: HTMLElement): number {
   return Math.max(0, after - before);
 }
 
-/** The least height the element can have and still leave the document reaching the
- *  bottom of the reader's screen, worked out fresh against the page as it is now. */
-function holdNeeded(el: HTMLElement): number {
-  const roomBelow = document.documentElement.scrollHeight - (window.scrollY + window.innerHeight);
+/** Only fixed scrolling panes need a nested hold; flowing phone layouts use the window. */
+function scrollContainer(el: HTMLElement, selector?: string): HTMLElement | null {
+  const root = selector ? el.closest<HTMLElement>(selector) : null;
+  return root && /^(auto|scroll)$/.test(getComputedStyle(root).overflowY) ? root : null;
+}
+
+/** The least height that keeps the reader’s current scroll position reachable. */
+function holdNeeded(el: HTMLElement, selector?: string): number {
+  const root = scrollContainer(el, selector);
+  const roomBelow = root ? root.scrollHeight - root.scrollTop - root.clientHeight
+    : document.documentElement.scrollHeight - (window.scrollY + window.innerHeight);
   return el.getBoundingClientRect().height - roomBelow;
 }
 
@@ -60,9 +67,10 @@ function holdNeeded(el: HTMLElement): number {
  * race with the clamp on the event page and still moved the tab row 150px at 390.
  *
  * `resetKey` is the logical page (the event, the route): a hold never carries over to
- * another one.
+ * another one. `scrollRoot` can name a nested scrolling pane; when that pane
+ * flows in the document on phones, the ordinary window hold still applies.
  */
-export function useSwitchHold(resetKey: string) {
+export function useSwitchHold(resetKey: string, scrollRoot?: string) {
   const ref = useRef<HTMLDivElement | null>(null);
   const [hold, setHold] = useState<{ key: string; px: number } | null>(null);
   const px = hold && hold.key === resetKey ? hold.px : undefined;
@@ -70,26 +78,29 @@ export function useSwitchHold(resetKey: string) {
   const capture = useCallback(() => {
     const el = ref.current;
     if (!el) return;
-    const need = Math.ceil(holdNeeded(el) + collapsedMargins(el));
+    const need = Math.ceil(holdNeeded(el, scrollRoot) + collapsedMargins(el));
     setHold(need > 0 ? { key: resetKey, px: need } : null);
-  }, [resetKey]);
+  }, [resetKey, scrollRoot]);
 
   useEffect(() => {
     if (px === undefined) return;
     const release = () => {
       const el = ref.current;
       if (!el) return;
-      const need = Math.ceil(holdNeeded(el));
+      const need = Math.ceil(holdNeeded(el, scrollRoot));
       if (need <= contentHeight(el) + 1) setHold(null);
       else if (need < px) setHold({ key: resetKey, px: need });
     };
+    const root = ref.current && scrollContainer(ref.current, scrollRoot);
+    root?.addEventListener('scroll', release, { passive: true });
     window.addEventListener('scroll', release, { passive: true });
     window.addEventListener('resize', release);
     return () => {
+      root?.removeEventListener('scroll', release);
       window.removeEventListener('scroll', release);
       window.removeEventListener('resize', release);
     };
-  }, [px, resetKey]);
+  }, [px, resetKey, scrollRoot]);
 
   const style: CSSProperties | undefined = px ? { minHeight: px } : undefined;
   return { ref, capture, style, px };

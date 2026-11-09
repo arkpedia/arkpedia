@@ -193,12 +193,16 @@ try {
       resolve({ height: document.documentElement.scrollHeight, y: Math.round(scrollY) })))));
     assert.ok(after.height >= before.height, `${name} choosing the pending banner shortened the page from ${before.height} to ${after.height}px`);
     assert.equal(after.y, before.y, `${name} choosing the pending banner moved the reader's scroll`);
+    // Establish publication, then let one visit finish its asynchronous detail
+    // load. Repeated goto() calls can keep cancelling that request on a slow phone.
     await waitFor(async () => {
-      await page.goto('http://localhost:3193/stages/browse?s=runtime-stage');
-      // Rendered text, in any case: the stage name is also the page's h1, which the site
-      // sets in capitals (innerText follows text-transform).
-      return (await page.locator('body').innerText()).toLowerCase().includes('runtime stage b');
-    }, `${name} new stage`, 75_000);
+      const response = await fetch(`http://localhost:3193/_next/data/${buildId}/stages/browse.json`);
+      if (!response.ok) return false;
+      const data = await response.json();
+      return data.pageProps?.__contentRelease?.release === states.b.manifest.release;
+    }, `${name} stage page from release B`, 75_000);
+    await page.goto('http://localhost:3193/stages/browse?s=runtime-stage');
+    await page.getByRole('heading', { level: 1 }).filter({ hasText: /runtime stage b/i }).waitFor({ timeout: 75_000 });
     const servedNow = await page.evaluate(() => window.__NEXT_DATA__.props.pageProps.now);
     assert.ok(Math.abs(servedNow - Date.now() / 1000) < 120, `${name} runtime stage clock is stale`);
     // The Library's song count and search, and the player's queue, come from the release's

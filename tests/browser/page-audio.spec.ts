@@ -246,18 +246,17 @@ for (const theme of ['dark', 'light']) test(`background now-playing stays separa
   await page.addInitScript(theme=>localStorage.setItem('theme',theme),theme);
   await page.goto(event); await playing(page);
   const opener=shell(page).getByRole('button',{name:'Expand player'});
-  const box=(await opener.boundingBox())!; const point={x:box.x+box.width/2,y:box.y+box.height/2};
   await opener.click();
   const row=shell(page).getByRole('group',{name:'Background music'});
   await expect(row).toContainText('Background music · Playing');
   const themeTitle=await row.locator('.music-widget-title').innerText(); expect(themeTitle.length).toBeGreaterThan(0);
-  await expect(shell(page).locator('.music-widget-song')).toContainText('No song selected');
+  await expect(shell(page).locator('.music-transport-song-link')).toContainText('Nothing playing yet');
   // Let opening the personal player's engine settle: inspection must not steal audio.
   await expect.poll(async()=>(await youtube(page))?.players).toBe(1);
   await page.waitForTimeout(250);
   await playing(page); await expect(row).toContainText('Background music · Playing');
   if(process.env.ARKPEDIA_QA_CAPTURE) await page.screenshot({animations:'disabled',path:`${process.env.ARKPEDIA_QA_CAPTURE}/${info.project.name}-${theme}-background-playing.png`});
-  await page.mouse.click(point.x,point.y); await expect(opener).toBeVisible();
+  await shell(page).getByRole('button',{name:'Minimize player',exact:true}).click(); await expect(opener).toBeVisible();
   await navigate(page,'/music?view=library');
   await page.locator('.music-library-row .music-song-row-main').first().click();
   await expect.poll(async()=>(await youtube(page))?.state).toBe(1);

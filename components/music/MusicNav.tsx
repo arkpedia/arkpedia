@@ -1,4 +1,4 @@
-import { queuePanelHref } from '@/lib/music/queuePanelHref';
+import { isQueuePanelOpen, queuePanelHref } from '@/lib/music/queuePanelHref';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { useEffect, useRef, type ReactNode } from 'react';
@@ -11,13 +11,13 @@ import { queuePlaybackPositions } from '@/lib/music/musicPolish';
 
 export type MusicView = 'discover' | 'library' | 'player' | 'queue';
 
-/** The address of each part of the music section: Discover is its own page, the other three are
- *  views of /music (?view=), pushed into the history so Back and Forward step between them. */
+/** Music destinations: Discover, Library, Now playing, and the queue popup.
+ *  Queue actions preserve the current page through queuePanelHref. */
 export const MUSIC_VIEW_HREF: Record<MusicView, string> = {
   discover: '/music/discover',
   library: '/music?view=library',
   player: '/music?view=player',
-  queue: '/music?view=queue',
+  queue: '/music?view=player&panel=queue',
 };
 
 /**
@@ -34,7 +34,7 @@ export default function MusicNav({ current, children, open, onOpenChange }: { cu
   useEffect(() => { trigger.current = document.querySelector<HTMLButtonElement>('[aria-label="Music menu"]'); });
   useEffect(() => { if (!mobile) onOpenChange(false); }, [mobile, onOpenChange]);
   const { queue, queueIndex, videoId, autoplayVideoId, queued, shuffle, shuffleOrder, shufflePosition, favorites } = useMusicPlayer();
-  const panelOpen = router.query.panel === 'queue';
+  const panelOpen = isQueuePanelOpen(router);
   const favouritesSelected = current === 'library' && router.query.scope === 'favorites';
   useEffect(() => { onOpenChange(false); }, [current, favouritesSelected, onOpenChange]);
   const order = shuffle && shuffleOrder ? shuffleOrder : queue.map((_, index) => index);
@@ -52,7 +52,7 @@ export default function MusicNav({ current, children, open, onOpenChange }: { cu
       <span className="music-workspace-label">Sound archive</span>
       <nav className="music-nav" aria-label="Music" onClick={event => { if ((event.target as HTMLElement).closest('a')) onOpenChange(false); }}>
         {items.map(({ view, label, count }) => (
-          <Link key={view} href={view === 'queue' && current !== 'queue' ? queuePanelHref(router, !panelOpen) : MUSIC_VIEW_HREF[view]} prefetch={false} shallow={view === 'queue' || (view !== 'discover' && current !== 'discover')} scroll={false}
+          <Link key={view} href={view === 'queue' ? queuePanelHref(router) : MUSIC_VIEW_HREF[view]} prefetch={false} shallow={view === 'queue' || (view !== 'discover' && current !== 'discover')} scroll={false}
             className="music-workspace-link" aria-current={(panelOpen ? view === 'queue' : view === current && !favouritesSelected) ? 'page' : undefined}>
             <TransportIcon name={view === 'discover' ? 'note' : view === 'library' ? 'library' : view === 'queue' ? 'queue' : 'nowPlaying'} />
             <span>{label}</span>

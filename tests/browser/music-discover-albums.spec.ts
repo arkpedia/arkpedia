@@ -164,3 +164,27 @@ test('the album grid fits a 390px phone, three covers across, and a desktop', as
     expect(layout.widths[0], `${width}: a cover the size of Recently added's or larger`).toBeGreaterThanOrEqual(104);
   }
 });
+
+for (const theme of ['dark', 'light']) {
+  test(`opening an album survives a pending Show all URL write (${theme})`, async ({ page }) => {
+    await page.addInitScript(theme => localStorage.setItem('theme', theme), theme);
+    await page.goto('/music/discover');
+    const section = page.locator('.music-discover-section', { has: page.getByRole('heading', { name: 'Browse by album', exact: true }) });
+    const first = page.locator('#discover-albums .music-discover-album-tile').first();
+    await expect(first).toBeVisible();
+    const title = await first.locator('.music-discover-album-tile-name').textContent();
+    // A slow page-data response leaves time for the collection's 250 ms URL
+    // debounce to fire while the explicit album navigation is still in flight.
+    await page.route(/\/_next\/data\/.*\/music\/discover\.json(?:\?|$)/, async route => {
+      await new Promise(resolve => setTimeout(resolve, 800));
+      await route.continue();
+    });
+    await section.getByRole('button', { name: 'Show all', exact: true }).click();
+    await page.locator('#discover-albums .music-discover-album-tile').filter({ has: page.getByText(title!, { exact: true }) }).first().click();
+    await expect(page.locator('.music-album-overview').getByRole('heading', { name: title!, exact: true })).toBeVisible();
+    await expect(page).toHaveURL(/facet=album/);
+    await expect.poll(() => page.locator('.music-discover-song-row').count()).toBeGreaterThan(0);
+    await page.reload();
+    await expect(page.locator('.music-album-overview').getByRole('heading', { name: title!, exact: true })).toBeVisible();
+  });
+}

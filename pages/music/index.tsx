@@ -11,7 +11,6 @@ import { useContentUrl } from '@/lib/content/context';
 import type { LyricLine } from '@/lib/music/albumsDataServer';
 import { useMusicPlayer } from '@/lib/music/musicPlayerContext';
 import MusicWaveVisualizer from '@/components/music/MusicWaveVisualizer';
-import QueuePanel from '@/components/music/QueuePanel';
 import { artistKey, creditedArtists } from '@/lib/music/artistCredits';
 import { usePlayerMinimizeGesture } from '@/lib/music/usePlayerMinimizeGesture';
 import { useCrossFadeTitle } from '@/lib/music/useCrossFadeTitle';
@@ -21,13 +20,16 @@ import MusicPlaylists from '@/components/music/MusicPlaylists';
 import MusicGameSetting from '@/components/music/MusicGameSetting';
 import MusicLibrary from '@/components/music/MusicLibrary';
 import MusicLyrics from '@/components/music/MusicLyrics';
-import MusicQueue from '@/components/music/MusicQueue';
 import MusicNav, { MUSIC_VIEW_HREF } from '@/components/music/MusicNav';
 import MusicTransportBar from '@/components/music/MusicTransportBar';
 import MusicHeader from '@/components/music/MusicHeader';
 import { hiddenUnless } from '@/lib/ui/inert';
 import { isDirectImage } from '@/lib/music/songArt';
 import { fetchAsset } from '@/lib/assets/assetRetry';
+import { queuePanelHref } from '@/lib/music/queuePanelHref';
+import { useMediaQuery } from '@/lib/hooks/useMediaQuery';
+import { findSongVersion, isInstrumentalVersion } from '@/lib/music/songVersions';
+import { stripLyricCredits } from '@/lib/music/lyricCredits';
 
 interface Props {
   songLookup: SongModalLookupEntry[];
@@ -69,6 +71,7 @@ function fetchLyricsFor(url: string): Promise<LyricLine[]> {
     promise = fetchAsset(url)
       .then((res) => res.json())
       .then((lines: LyricLine[]) => {
+        lines = stripLyricCredits(lines);
         lyricsCache.set(url, lines);
         return lines;
       })
@@ -105,7 +108,7 @@ export default function MusicPage({ songLookup }: Props) {
     initializePlayer(false);
   }, [initializePlayer]);
 
-  // The view is the address (?view=library|player|queue), and the nav and the transport link
+  // The view is the address (?view=library|player), and the nav and the transport link
   // to each with a shallow push: Back and Forward step between them, a view can be reloaded or
   // shared, and the player under them never reloads. With no ?view the page opens where there is
   // something to do: Now playing when a song has played this session, else the Library. Decided
@@ -114,8 +117,12 @@ export default function MusicPage({ songLookup }: Props) {
   // played", and the URL's view applies once the router has read it.
   const [initialView] = useState<'player' | 'library'>(() => (videoId ? 'player' : 'library'));
   const viewParam = router.isReady ? router.query.view : undefined;
-  const view: 'player' | 'queue' | 'library' = viewParam === 'queue' || viewParam === 'player' || viewParam === 'library' ? viewParam : initialView;
-  const minimizeGesture = usePlayerMinimizeGesture(view === 'player', () => { void router.push(MUSIC_VIEW_HREF.library, undefined, { shallow: true, scroll: false }); });
+  const view: 'player' | 'library' = viewParam === 'queue'
+    ? router.query.scope || router.query.playlist ? 'library' : 'player'
+    : viewParam === 'player' || viewParam === 'library' ? viewParam : initialView;
+  useEffect(() => {
+    if (router.isReady && router.query.view === 'queue') void router.replace(queuePanelHref(router), undefined, { shallow: true, scroll: false });
+  }, [router]);
   const [loadedLyrics, setLoadedLyrics] = useState<{ url: string; lines: LyricLine[] } | null>(null);
 
   const detailByVideoId = useMemo(() => new Map(songLookup.map((s) => [s.videoId, s])), [songLookup]);
@@ -130,7 +137,46 @@ export default function MusicPage({ songLookup }: Props) {
   // From this page's release props, like the credits: a lyric file is published for exactly
   // the songs whose lyrics parse, which is what this flag says, so the Lyrics button never
   // offers a file the release does not have.
-  const hasLyrics = Boolean(currentDetail?.hasLyrics);
+  // Older published releases missed full-width/no-space instrumental suffixes.
+  // Reuse their already-published vocal sheet while the producer catches up.
+  const lyricDetail = useMemo(() => {
+    if (!currentDetail || currentDetail.hasLyrics || !isInstrumentalVersion(currentDetail)) return currentDetail;
+    const versioned = (detail: SongModalLookupEntry) => ({ id: detail.videoId, title: detail.title, album: detail.albumId || detail.albumName, detail });
+    const vocal = findSongVersion(versioned(currentDetail), songLookup.map(versioned))?.song.detail;
+    return vocal?.hasLyrics ? vocal : currentDetail;
+  }, [currentDetail, songLookup]);
+  const hasLyrics = Boolean(lyricDetail?.hasLyrics);
+  const mobile = useMediaQuery('(max-width: 999px)');
+  const lyricsExpanded = mobile && view === 'player' && hasLyrics && router.asPath.endsWith('#music-lyrics');
+  const lyricsAndWaveRef = useRef<HTMLDivElement>(null);
+  const collapsedScrollRef = useRef<number | null>(null);
+  const minimizeGesture = usePlayerMinimizeGesture(view === 'player' && !lyricsExpanded, () => { void router.push(MUSIC_VIEW_HREF.library, undefined, { shallow: true, scroll: false }); });
+
+  useEffect(() => {
+    if (!lyricsExpanded) {
+      if (collapsedScrollRef.current !== null && view === 'player') window.scrollTo({ top: collapsedScrollRef.current, behavior: 'instant' });
+      collapsedScrollRef.current = null;
+      return;
+    }
+    const panel = lyricsAndWaveRef.current;
+    if (!panel) return;
+    collapsedScrollRef.current = window.scrollY;
+    // Give the lyrics the viewport between the persistent site header and transport.
+    // Only the lyrics scroll within it; returning restores the reader's default view.
+    let frame = 0;
+    const align = () => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => {
+        const navHeight = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--nav-h')) || 52;
+        window.scrollTo({ top: panel.getBoundingClientRect().top + window.scrollY - navHeight, behavior: 'instant' });
+      });
+    };
+    const observer = new ResizeObserver(align);
+    observer.observe(panel);
+    window.addEventListener('resize', align);
+    align();
+    return () => { cancelAnimationFrame(frame); observer.disconnect(); window.removeEventListener('resize', align); };
+  }, [lyricsExpanded, view]);
 
   const albumName = currentDetail?.albumName || currentTrack?.album;
   const albumHref = currentDetail?.albumId ? '/music/discover?facet=' + encodeURIComponent('album:' + currentDetail.albumId)
@@ -148,15 +194,15 @@ export default function MusicPage({ songLookup }: Props) {
     return names.map((name, i) => <span key={name}>{i > 0 && ', '}{artistNames.has(artistKey(name))
       ? <Link href={{ pathname: '/music/discover', query: { facet: 'artist:' + name, from: 'player' } }}>{name}</Link> : name}</span>);
   }
-  const lyricTrackId = currentDetail?.lyricTrackId ?? videoId;
+  const lyricTrackId = lyricDetail?.lyricTrackId ?? lyricDetail?.videoId ?? videoId;
   const lyricUrl = hasLyrics ? contentUrl(lyricsPath(lyricTrackId)) : '';
   const rawLyrics = loadedLyrics?.url === lyricUrl ? loadedLyrics.lines : lyricsCache.get(lyricUrl);
   // Older releases published a copy of the vocal file under each measured instrumental’s ID.
   const recording = engineKind === 'msr' ? currentTrack?.cid ?? videoId.replace(/^msr:/, '') : videoId;
-  const ownLyrics = currentDetail?.lyricTrackId === videoId;
+  const ownLyrics = lyricDetail?.lyricTrackId === videoId;
   const lyrics = useMemo(() => {
     if (!rawLyrics) return [];
-    return ownLyrics ? rawLyrics : instrumentalLyricLines(rawLyrics, recording);
+    return instrumentalLyricLines(rawLyrics, recording, ownLyrics);
   }, [rawLyrics, ownLyrics, recording]);
   useEffect(() => {
     if (!lyricUrl) return;
@@ -190,26 +236,26 @@ export default function MusicPage({ songLookup }: Props) {
 
   return (
     <>
-      <PageMeta title={`${view === 'library' ? 'Library' : view === 'queue' ? 'Queue' : 'Now playing'} · Music`} description="The Arknights music player: Monster Siren Records albums, lyrics, playlists and a queue." path="/music" />
+      <PageMeta title={`${view === 'library' ? 'Library' : 'Now playing'} · Music`} description="The Arknights music player: Monster Siren Records albums, lyrics, playlists and a queue." path="/music" />
 
       <MusicHeader current={view} favourites={router.query.scope === 'favorites'} open={musicMenuOpen} onOpen={() => setMusicMenuOpen(value => !value)} />
-      <main className="music-player-page">
+      <main className="music-player-page" data-lyrics-expanded={lyricsExpanded || undefined}>
         <MusicNav current={view} open={musicMenuOpen} onOpenChange={setMusicMenuOpen}>{returnFocus => <><MusicPlaylists songs={songLookup} onClose={returnFocus} /><div className="music-phone-settings" onChange={() => setMusicMenuOpen(false)}><MusicGameSetting /></div></>}</MusicNav>
         <div className="music-workspace-content">
         {view === 'player' && <h2 className="section-title music-workspace-title">Now playing</h2>}
         <div className="visually-hidden" aria-live="polite">
           {nowPlayingAnnouncement}
         </div>
-        {/* The three views in one place (the Anti-Page Jump rule's swap in place): Now playing
-            always lays out and so sets the place's height, hidden and inert while Library or
-            Queue lies over it, and those two keep their own size contained, so switching changes
-            nothing above or below. Library and Queue stay mounted while hidden: their searches and
-            scroll positions survive a trip to the other and back. */}
+        {/* The music views in one place (the Anti-Page Jump rule's swap in place): Now playing
+            always lays out and sets the place's height, hidden and inert while Library lies
+            over it. Library keeps its size contained and stays mounted while hidden, so its
+            search and scroll position survive a trip to Now playing and back. */}
         {/* A view counts as opened (loads its songs) only once the router has read ?view: the
-            first render shows the default view, and must not load the Library behind a Queue. */}
+            first render shows the default view, and must not load a hidden Library. */}
         <div className={`music-view${minimizeGesture.offset ? ' music-player-pulling' : ''}`} data-music-view={view}>
-          <div ref={minimizeGesture.ref} style={minimizeGesture.offset ? { transform: `translateY(${minimizeGesture.offset}px)` } : undefined} className={`music-now-playing${hasLyrics ? ' music-lyrics-open' : ' music-overview'}${view === 'player' ? '' : ' music-now-playing-behind'}`} aria-hidden={view === 'player' ? undefined : true} {...hiddenUnless(view === 'player')}>
+          <div ref={minimizeGesture.ref} style={minimizeGesture.offset ? { transform: `translateY(${minimizeGesture.offset}px)` } : undefined} className={`music-now-playing${view === 'player' ? '' : ' music-now-playing-behind'}`} aria-hidden={view === 'player' ? undefined : true} {...hiddenUnless(view === 'player')}>
 
+            <div className="music-now-playing-details">
             <div className="music-now-playing-cover-col">
               <div className="music-now-playing-cover">
                 {nowPlayingCover && isDirectImage(nowPlayingCover) ? (
@@ -258,14 +304,15 @@ export default function MusicPage({ songLookup }: Props) {
               </button>}
             </div>
 
-            {videoId && <div className="music-lyrics-and-wave">
-              {hasLyrics && <MusicLyrics lyrics={lyrics} loading={!rawLyrics} shown={view === 'player'} playing={isPlaying && !buffering} />}
+            </div>
+
+            {videoId && <div ref={lyricsAndWaveRef} className="music-lyrics-and-wave">
+              <div className="music-lyrics-space" aria-hidden={!hasLyrics || undefined}>
+                {hasLyrics && <MusicLyrics lyrics={lyrics} loading={!rawLyrics} shown={view === 'player'} expanded={lyricsExpanded} playing={isPlaying && !buffering} />}
+              </div>
               {view === 'player' && <MusicWaveVisualizer volume={volume} playing={isPlaying && !buffering} engine={engineKind} trackId={videoId} />}
             </div>}
 
-          </div>
-          <div className={`music-view-panel${view === 'queue' ? '' : ' music-view-behind'}`} aria-hidden={view === 'queue' ? undefined : true} {...hiddenUnless(view === 'queue')}>
-            {view === 'queue' && <MusicQueue shown={router.isReady} />}
           </div>
           <div className={`music-view-panel${view === 'library' ? '' : ' music-view-behind'}`} aria-hidden={view === 'library' ? undefined : true} {...hiddenUnless(view === 'library')}>
             <MusicLibrary key={JSON.stringify([router.query.scope, router.query.playlist])} shown={router.isReady && (view === 'library' || minimizeGesture.offset > 0)} />
@@ -273,8 +320,9 @@ export default function MusicPage({ songLookup }: Props) {
         </div>
 
         </div>
-        <QueuePanel />
-        <MusicTransportBar view={view} onFullPlayer hasLyrics={hasLyrics} coverPath={currentDetail || currentTrack ? nowPlayingCover : undefined} />
+        <MusicTransportBar view={view} onFullPlayer hasLyrics={hasLyrics} lyricsExpanded={lyricsExpanded}
+          onToggleLyrics={() => { void router.replace(router.asPath.split('#')[0] + (lyricsExpanded ? '' : '#music-lyrics'), undefined, { shallow: true, scroll: false }); }}
+          coverPath={currentDetail || currentTrack ? nowPlayingCover : undefined} />
       </main>
     </>
   );

@@ -168,11 +168,10 @@ test('6: Repeat all preview and next wrap to the same first chosen song', async 
   await expect.poll(async () => (await youtube(page))?.videoId).toBe(letter.videoId);
 });
 
-test('7: volume is horizontal and contained on desktop, hidden on phones', async ({ page }) => {
+test('7: volume is horizontal and contained on desktop and phones', async ({ page }) => {
   await setup(page); await start(page);
   const slider = bar(page).getByRole('slider', { name: 'Volume', exact: true });
-  if (test.info().project.name === 'mobile') await expect(slider).toBeHidden();
-  else {
+  {
     await expect(slider).toBeVisible();
     const rect = await slider.boundingBox(), outer = await bar(page).boundingBox();
     expect(rect!.x).toBeGreaterThanOrEqual(outer!.x); expect(rect!.x + rect!.width).toBeLessThanOrEqual(outer!.x + outer!.width);

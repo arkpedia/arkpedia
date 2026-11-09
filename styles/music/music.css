@@ -1,4 +1,4 @@
-/* Music: the persistent mini player (components/music/MusicPlayer.tsx), the full
+/* Music: the persistent shared player (components/music/MusicPlayer.tsx), the full
    player page (pages/music/index.tsx) and Discover (pages/music/discover.tsx).
    Transport buttons are the site's buttons at a 40px square: prev/next the base
    button, play the .primary action, and every on/off toggle (favorite, stream-safe,
@@ -9,7 +9,7 @@
 .music-player {
   position: fixed;
   right: 16px;
-  bottom: 16px;
+  bottom: calc(16px + env(safe-area-inset-bottom, 0px));
   z-index: 100;
   display: flex;
   align-items: flex-start;
@@ -25,13 +25,23 @@
   background: var(--panel);
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
 }
-/* No padding while collapsed: the widget IS the button then, and a padding ring
-   around it is a strip of the target that does not respond. The button carries
-   its own 44px below. */
-.music-player.collapsed {
-  width: auto;
-  gap: 0;
+/* A single 44px tile occupies the same corner while open or minimized. */
+.music-player.collapsed { width: 44px; height: 44px; box-sizing: border-box; gap: 0; padding: 0; }
+.music-floating-toggle {
+  position: fixed;
+  right: 16px;
+  bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+  z-index: 101;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
   padding: 0;
+  border: 0;
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--text-dim);
 }
 /* On /music the page is the player. The widget stays mounted for its hidden audio
    frame, but draws nothing and takes no clicks. */
@@ -51,86 +61,21 @@
   height: 1px;
   overflow: hidden;
 }
-/* Expanded, the button is the player's × (MusicPlayer gives it .btn-x, which sets its
-   square, its borderless rest and its hover: ui-primitives rule 21). Collapsed, it is
-   the whole 44px shell (the teal-topped ♪ tile), below. */
 .music-collapse-toggle {
   display: flex;
-  flex-shrink: 0;
+  width: 100%;
+  height: 100%;
   align-items: center;
   justify-content: center;
   padding: 0;
-  border: 1px solid transparent;
+  border: 0;
   border-radius: var(--radius);
   background: transparent;
-  color: var(--text-dim);
+  color: var(--text);
   cursor: pointer;
 }
-/* Stretched over the shell's border and its teal top accent, so a press on the
-   visible edge is a press on the button. */
-.music-player.collapsed .music-collapse-toggle {
-  width: 44px;
-  height: 44px;
-  margin: -2px -1px -1px;
-  border-color: transparent;
-  color: var(--text);
-}
-/* Open (components/music/MusicPlayer.tsx): the /music bar's look in a card -- the song with
-   its art, one row of icon buttons, the seek bar -- and its × in the same bottom-right
-   spot as the collapsed music tab. Tooltips rise above the buttons, so the card lets them out. */
-.music-player:not(.collapsed) { overflow: visible; }
-.music-player:not(.collapsed) > .music-collapse-toggle {
-  position: absolute;
-  bottom: 0;
-  right: 0;
-  width: 44px;
-  min-width: 44px;
-  height: 44px;
-  min-height: 44px;
-}
-.music-player:not(.collapsed) .music-widget-queue {
-  position: absolute;
-  top: 10px;
-  right: 12px;
-  width: var(--control-h);
-  height: var(--control-h);
-  padding: 0;
-}
-.music-controls { padding-right: 32px; }
-
-.music-body {
-  display: flex;
-  flex: 1;
-  flex-direction: column;
-  gap: 8px;
-  min-width: 0;
-}
-/* The song: art, then title over artist, one line each; it opens Now playing. Its right edge
-   leaves room for Queue. */
-.music-widget-song {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  min-width: 0;
-  min-height: 44px;
-  margin-right: calc(var(--control-h) + 8px);
-  border-radius: var(--radius);
-  color: var(--text);
-  text-decoration: none;
-}
-.music-widget-song:hover .music-widget-title { color: var(--teal); }
-.music-widget-cover {
-  display: flex;
-  flex-shrink: 0;
-  width: 44px;
-  height: 44px;
-  overflow: hidden;
-  border: 1px solid var(--line-soft);
-  border-radius: var(--radius);
-  background: var(--panel-2);
-}
-.music-widget-cover-art { display: block; width: 100%; height: 100%; object-fit: cover; }
-.music-widget-cover-art.music-album-cover-placeholder { display: flex; align-items: center; justify-content: center; color: var(--text-faint); font-size: 15px; }
+.music-player.collapsed .music-collapse-toggle { width: 44px; height: 44px; flex-shrink: 0; margin: -2px -1px -1px; }
+.music-player:not(.collapsed):not(.music-player-offstage) { display: contents; }
 .music-widget-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .music-widget-artist { overflow: hidden; color: var(--text-dim); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
 .music-widget-background { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-width: 0; padding-block: 8px; border-block: 1px solid var(--line-soft); }
@@ -145,12 +90,6 @@
 .music-crossfade-text.fading { opacity: 0; }
 .music-widget-title { display: block; overflow: hidden; font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
 
-.music-seek-row {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  min-width: 0;
-}
 .music-seek {
   flex: 1;
   min-width: 0;
@@ -163,61 +102,7 @@
   font-size: 10px;
 }
 .music-time:last-child { text-align: right; }
-/* One row at every width: Favourite at the left, Previous, Play and Next in the middle, with space for Close at
-   the right. */
-.music-controls {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  align-items: center;
-  gap: 6px;
-  min-width: 0;
-}
-.music-widget-transport { display: flex; justify-content: center; gap: 6px; }
-/* Desktop volume sits between transport and Close; touch screens use their device volume. */
-@media (pointer: fine) {
-  .music-controls { grid-template-columns: auto minmax(0, 1fr) 72px; }
-}
-.music-controls > .music-widget-volume { width: 100%; min-width: 0; margin: 0; }
-@media (pointer: coarse), (pointer: none) {
-  .music-controls > .music-widget-volume { display: none; }
-}
-/* An icon button's name, above it on hover and keyboard focus (data-tip; aria-label names it).
-   The end buttons' tips line up with their outer edge, so none leaves the card's side. */
-.music-player [data-tip] { position: relative; }
-.music-player [data-tip]::after {
-  content: attr(data-tip);
-  position: absolute;
-  bottom: calc(100% + 6px);
-  left: 50%;
-  z-index: 3;
-  max-width: 220px;
-  overflow: hidden;
-  padding: 4px 8px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  background: var(--panel);
-  box-shadow: 0 6px 18px rgb(0 0 0 / .3);
-  color: var(--text);
-  font-family: var(--font-body);
-  font-size: 11px;
-  letter-spacing: normal;
-  text-overflow: ellipsis;
-  text-transform: none;
-  white-space: nowrap;
-  pointer-events: none;
-  transform: translateX(-50%);
-  visibility: hidden;
-}
-.music-controls > [data-tip]:first-child::after { left: 0; transform: none; }
-.music-controls > [data-tip]:last-child::after { left: auto; right: 0; transform: none; }
-.music-player [data-tip]:focus-visible::after { visibility: visible; }
-@media (hover: hover) {
-  .music-player [data-tip]:hover::after { visibility: visible; }
-}
 /* The transport buttons are square at the control height (ui-primitives rule 4). */
-.music-controls > button,
-.music-controls > .music-list-btn,
-.music-widget-transport > button,
 .music-player-bottombar-controls > button,
 .music-transport-buttons > button,
 .music-transport-buttons > .music-list-btn,
@@ -241,64 +126,36 @@
   min-width: 48px;
   margin-left: 4px;
 }
-
-@media (max-width: 640px) {
-  .music-player {
-    right: 8px;
-    bottom: calc(8px + env(safe-area-inset-bottom, 0px));
-    left: 8px;
-    width: auto;
-  }
-  .music-player.collapsed { left: auto; }
-  .music-seek,
-  .music-volume { height: 22px; }
-  /* The collapsed widget floats 44px tall, 8px off the bottom edge. Every page it
-     is on reserves that much under its content, so the last row of a page can be
-     scrolled clear of it (it covered the last row at 390). */
-  body:has([data-music-widget]) main {
-    padding-bottom: calc(var(--page-gutter) + 60px + env(safe-area-inset-bottom, 0px));
-  }
+.music-volume-control { display: inline-flex; align-items: center; gap: 6px; flex: 1; min-width: 84px; }
+.music-volume-icon { display: inline-flex; flex: none; align-items: center; justify-content: center; width: var(--control-h); min-height: var(--control-h); color: var(--text-dim); }
+.music-volume-icon:hover { color: var(--teal); }
+.music-volume-slider { position: relative; display: inline-flex; align-items: center; flex: 1; min-width: 56px; }
+.music-volume-slider > .music-volume { width: 100%; min-width: 0; height: var(--control-h); margin: 0; }
+.music-volume-percent {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  z-index: 140;
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 20px;
+  border-radius: var(--radius-frame);
+  background: color-mix(in srgb, var(--panel) 65%, transparent);
+  backdrop-filter: blur(6px);
+  color: var(--text);
+  font: 600 30px var(--font-mono);
+  white-space: nowrap;
+  pointer-events: none;
+  transform: translate(-50%, -50%);
 }
+.music-transport-volume-row { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.music-player-bottombar > .music-widget-background { grid-column: 1 / -1; }
 
-/* r11: wherever the phone bar shows (900px and under) the page's content runs to the
-   24px gutter, and the collapsed 44px tile, 8-16px off the edge, sat 20-36px over it: the
-   right edge of /pulls' goal list, the planner's materials, the top of an operator page's
-   section menu (maintainer, 2026-09-28). So collapsed, the ♪ is a tab IN the right
-   gutter, flush with the screen's edge: exactly --page-gutter wide, so it ends where the
-   page frame begins (page-bounds.spec.ts holds every page's content inside that frame),
-   and 56px tall, so its target is 24 x 56 (WCAG 2.5.8's 24px floor, the dense ×'s). Its
-   teal accent is on the side that faces the page, where the desktop tile has it on top.
-   Open, it is the player panel above as before, and over 900px the tile is unchanged.
-   tests/browser/music-tab.spec.ts fails a tab that meets any text or control. */
-@media (max-width: 900px) {
-  .music-player.collapsed {
-    right: 0;
-    left: auto;
-    bottom: calc(16px + env(safe-area-inset-bottom, 0px));
-    width: var(--page-gutter);
-    border-top-width: 1px;
-    border-top-color: var(--line);
-    border-right: 0;
-    border-left: 2px solid var(--teal);
-    border-radius: var(--radius-frame) 0 0 var(--radius-frame);
-    /* Beside the page, not over it: no drop shadow smudging the content next to it. */
-    box-shadow: none;
-  }
-  .music-player.collapsed .music-collapse-toggle {
-    width: var(--page-gutter);
-    height: 56px;
-    margin: -1px 0 -1px -2px;
-  }
-  .music-player.collapsed .music-collapse-toggle svg { width: 16px; height: 16px; }
-  /* A dialog that takes the whole screen puts its own controls in that corner (the
-     planner's windows end in a Done at the right edge), so while a modal one is open the
-     tab steps aside; the music plays on, and the tab is back when the dialog closes. The
-     phone menu is a modal dialog that stays in the page shut, so it counts only open. A
-     native <dialog> opened modal (the popups in components/account/ImportDialog) sets no
-     aria-modal, so an open one counts too. */
-  body:has([aria-modal="true"]:not(.mobile-nav-drawer:not(.open))) .music-player.collapsed,
-  body:has(dialog[open]) .music-player.collapsed { visibility: hidden; }
-}
+/* Floating controls retain the desktop tile on phones, including the safe area. */
+body:has([aria-modal="true"]:not(.mobile-nav-drawer:not(.open))) :is(.music-player.collapsed, .music-floating-toggle),
+body:has(dialog[open]) :is(.music-player.collapsed, .music-floating-toggle) { visibility: hidden; }
+body:has([data-music-widget]) main { padding-bottom: calc(var(--page-gutter) + 76px + env(safe-area-inset-bottom, 0px)); }
 
 /* --- Full player page (pages/music/index.tsx) --- */
 .music-player-page {
@@ -311,13 +168,12 @@
 .music-now-playing {
   display: grid;
   grid-template-columns: minmax(280px, 34%) minmax(0, 1fr);
-  grid-template-areas:
-    'cover  lyrics'
-    'info   lyrics';
-  grid-template-rows: auto auto;
+  grid-template-areas: 'details lyrics';
+  grid-template-rows: auto;
   gap: 10px 24px;
   align-items: start;
 }
+.music-now-playing-details { grid-area: details; display: flex; flex-direction: column; gap: 16px; min-width: 0; }
 .music-now-playing-cover-col { grid-area: cover; width: 100%; min-width: 0; }
 .music-now-playing-cover {
   position: relative;
@@ -365,8 +221,8 @@
 }
 /* Keep lines mounted so highlighting can crossfade without replacing the viewport. */
 .music-lyrics-scroll {
-  min-height: 280px;
-  height: clamp(360px, calc(100dvh - var(--music-bar-height, 160px) - 230px), 680px);
+  min-height: 0;
+  height: 100%;
   overflow-y: auto;
   scrollbar-width: none;
   padding: 24px 16px;
@@ -611,9 +467,7 @@
 .music-repeat-one-badge { margin-left: -4px; font: 600 10px var(--font-mono); letter-spacing: 0; }
 
 @media (max-width: 900px) {
-  /* Stream-safe exists for streamers, a desktop use case: dropped on phones from
-     both the mini player and this page's transport. */
-  .music-stream-safe-btn { display: none; }
+  /* The full player's phone menu carries Stream-safe; the corner has its own direct button. */
   .music-now-playing {
     grid-template-columns: 1fr;
   }
@@ -834,15 +688,15 @@
 /* A queue action's result: one line, reserved so its arrival moves nothing. */
 .music-transport-notice { display: flex; align-items: center; justify-content: center; gap: 10px; min-height: 28px; color: var(--text); font-size: 12px; }
 .music-transport-notice:empty { min-height: 0; }
-.music-player-bottombar-compact .music-transport-notice:empty { display: none; }
-.music-player-bottombar-compact .music-player-bottombar-controls { flex-wrap: nowrap; }
 .music-discover-page > .music-player-bottombar { margin-top: var(--section-gap); }
 /* 44px targets on touch screens (WCAG 2.5.5), the transport, row actions and tabs alike. */
 @media (pointer: coarse) {
   .music-player-bottombar-controls > button,
   .music-player-bottombar-controls > .music-list-btn,
   .music-transport-buttons > button,
-  .music-transport-buttons > .music-list-btn { width: 44px; height: 44px; min-height: 44px; }
+  .music-transport-buttons > .music-list-btn,
+  .music-transport-volume-row > button,
+  .music-volume-control > button { width: 44px; height: 44px; min-height: 44px; }
   /* A song row on a touch screen: its More and its icon actions are 44px (the row is 56px). */
   .music-song-row-actions > button { width: 44px; height: 44px; min-height: 44px; }
 }
@@ -865,12 +719,10 @@
 .music-setting-info-btn:hover,
 .music-setting-info-btn[aria-expanded="true"] { color: var(--teal); }
 .music-setting-info-btn[aria-expanded="true"] { border-color: var(--teal); background: var(--teal-dim); }
-.music-setting-note { display: flex; align-items: flex-start; gap: 6px; margin-right: 0; padding: 8px 6px 8px 10px; border: 1px solid var(--line-soft); border-left: 2px solid var(--teal); border-radius: var(--radius); background: var(--panel-2); }
+.music-setting-note.action-popover { z-index: 130; display: flex; align-items: flex-start; gap: 6px; }
 .music-setting-note > p { flex: 1; min-width: 0; margin: 0; color: var(--text); font-size: 12px; line-height: 1.5; }
 .music-setting-note > .btn-x { flex: none; }
-.music-setting-header { position: relative; }
 .music-setting-header > .music-setting-row { white-space: nowrap; }
-.music-setting-header > .music-setting-note { position: absolute; top: calc(100% + 6px); right: 0; z-index: 30; box-sizing: border-box; width: min(320px, calc(100vw - 2 * var(--page-gutter))); box-shadow: 0 18px 48px rgb(0 0 0 / .38); }
 .music-hidden-endfield-hint { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; }
 /* The pop-up a touch screen shows when Endfield music is turned on (components/music/MusicGameSetting.tsx). */
 .music-endfield-dialog { width: min(380px, calc(100vw - 24px)); }
@@ -890,7 +742,8 @@
 .music-transport-left { justify-content: flex-start; }
 .music-transport-playback { justify-content: center; }
 .music-transport-right { justify-content: flex-end; }
-.music-player-bottombar .music-volume { flex: 0 1 90px; min-width: 0; max-width: 90px; margin: 0; writing-mode: horizontal-tb; direction: ltr; position: static; }
+.music-transport-right > .music-volume-control { flex: 0 1 132px; }
+.music-player-bottombar .music-volume-slider > .music-volume { display: block; flex: 1; width: 100%; min-width: 0; max-width: none; margin: 0; writing-mode: horizontal-tb; direction: ltr; position: static; }
 .music-transport-song { flex: 1; }
 
 .music-autoplay { margin-top: 12px; border-top: 1px solid var(--line); padding-top: 8px; }
@@ -919,11 +772,10 @@
   .music-autoplay-controls { margin-left: auto; }
 }
 @media (max-width: 900px) {
-  .music-now-playing { grid-template-areas: 'cover' 'info' 'wave'; grid-template-rows: auto; }
+  .music-now-playing { grid-template-areas: 'details' 'lyrics'; grid-template-rows: auto; }
   .music-now-playing-cover-col { max-width: 320px; }
   .music-now-playing-actions { display: flex; }
-  .music-lyrics-scroll { height: auto; min-height: 0; max-height: 50dvh; padding: 16px 12px; }
-  .music-lyrics-scroll { min-height: 200px; }
+  .music-lyrics-scroll { padding: 16px 12px; }
   .music-player-bottombar .music-volume { display: none; }
 }
 @media (max-width: 720px) {
@@ -932,9 +784,7 @@
   .music-transport-left .music-playlist-add-btn,
   .music-transport-left .music-stream-safe-btn { display: none; }
   .music-transport-buttons { gap: 4px; }
-  .music-player-bottombar-compact .music-transport-left .music-fav-btn,
-  .music-player-bottombar-compact .music-transport-left .music-playlist-add-btn,
-  .music-player-bottombar-compact .music-transport-left .music-stream-safe-btn { display: none; }
+
 }
 /* The row under the song -- More; Previous, Play, Next; Shuffle, Repeat -- stays one row with
    Play centred: at 44px a button it fits from 390 up; under 390 the buttons take the phone's
@@ -960,8 +810,6 @@
    press stops it, unlike the player's own start-up (disabled). */
 .music-play-btn.loading:not(:disabled) { cursor: pointer; }
 
-/* The corner player's word about a song that would not start (a playback notice). */
-.music-widget-notice { margin: 0; color: var(--text); font-size: 12px; line-height: 1.4; }
 
 /* The opt-in audio debug panel (?audio-debug=1, components/music/AudioDebugPanel.tsx): fixed over
    the page's top-left corner, so it moves nothing; plain selectable text for a screenshot. */
@@ -1020,9 +868,9 @@
 @media (min-width: 1000px) {
   .music-workspace-collection > .music-workspace-label,
   .music-workspace-collection > .music-workspace-link { padding-left: 0; }
-  .music-workspace-content .music-now-playing { grid-template-areas: 'cover lyrics' 'info lyrics'; grid-template-rows: auto auto; }
+  .music-workspace-content .music-now-playing { grid-template-areas: 'details lyrics'; grid-template-rows: auto; }
   .music-now-playing-actions { display: none; }
-  .music-workspace-content #music-lyrics { height: auto; min-height: 0; max-height: clamp(260px, calc(100dvh - var(--music-bar-height, 160px) - 300px), 420px); padding: 12px 16px; overflow-y: auto; }
+  .music-workspace-content #music-lyrics { padding: 12px 16px 0; }
   .music-lyric-line { margin-bottom: 4px; font-size: clamp(18px, 1.45vw, 22px); }
   .music-lyric-seek { width: fit-content; max-width: 100%; }
   .music-workspace-rail { max-height: max(160px, calc(100dvh - var(--nav-h, 72px) - var(--music-bar-height, 120px) - 40px)); overflow-y: auto; }
@@ -1051,9 +899,8 @@
   .music-workspace-rail { position: relative; top: auto; align-items: stretch; gap: 12px; padding: 0 0 12px; border-right: 0; border-bottom: 1px solid var(--line); }
   .music-workspace-rail { display: none; }
 
-  .music-workspace-content .music-now-playing { grid-template-columns: 1fr; grid-template-areas: 'cover' 'info' 'wave'; grid-template-rows: auto; }
+  .music-workspace-content .music-now-playing { grid-template-columns: 1fr; grid-template-areas: 'details' 'lyrics'; grid-template-rows: auto; }
   .music-now-playing-actions { display: flex; }
-  .music-workspace-content .music-lyrics-scroll { height: auto; min-height: 0; max-height: 50dvh; }
   .music-workspace-content .music-now-playing-cover-col { max-width: 340px; }
 }
 @media (max-width: 720px) {
@@ -1067,12 +914,14 @@
 .music-workspace-content .music-all-songs-list { margin-inline: -9px; }
 
 .music-workspace-title { margin: 0 0 var(--heading-gap); }
-.music-player-bottombar :is(.music-transport-buttons, .music-transport-song-row) > :is(button, a):not(.music-play-btn) {
+.music-player-bottombar :is(.music-transport-buttons, .music-transport-song-row, .music-transport-volume-row, .music-volume-control) > :is(button, a):not(.music-play-btn),
+.music-floating-toggle {
   border-color: transparent;
   background: transparent;
-  &:is(:hover, :focus-visible):where(:not(:disabled)) { border-color: var(--teal); color: var(--teal); background: var(--panel-2); }
-  &:is([aria-pressed="true"], [aria-expanded="true"], [aria-current="page"]) { border-color: var(--teal); color: var(--teal); background: var(--teal-dim); }
+  &:is(:hover, :focus-visible):where(:not(:disabled)) { color: var(--teal); }
+  &:is([aria-pressed="true"], [aria-expanded="true"], [aria-current="page"]) { color: var(--teal); }
 }
+
 
 .music-playlist-shortcuts { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
 
@@ -1086,17 +935,7 @@
 @media (max-width: 999px) {
   .music-player-pulling .music-now-playing { position: relative; z-index: 2; background: var(--bg); }
   .music-player-pulling .music-view-panel:last-child { visibility: visible; }
-  .music-player-bottombar-phone-mini { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; column-gap: 4px; row-gap: 2px; }
-  .music-player-bottombar-phone-mini .music-transport-notice { grid-column: 1 / -1; }
-  .music-player-bottombar-phone-mini .music-transport-notice:empty { display: none; }
-  .music-player-bottombar-phone-mini:has(.music-list-btn.active:not([aria-current])) .music-transport-fav-phone { display: none; }
-  .music-player-bottombar-phone-mini .music-transport-song-row { flex: 1; min-width: 0; }
-  .music-player-bottombar-phone-mini .music-player-bottombar-controls { display: contents; }
-  .music-player-bottombar-phone-mini .music-transport-playback { grid-column: 2; grid-row: auto; }
-  .music-player-bottombar-phone-mini .music-player-bottombar-seek,
-  .music-player-bottombar-phone-mini .music-transport-left,
-  .music-player-bottombar-phone-mini .music-transport-right,
-  .music-player-bottombar-phone-mini .music-transport-playback > button:not(.music-play-btn) { display: none; }
+
 }
 
 @media (max-width: 999px) {
@@ -1112,17 +951,6 @@
   .music-song-list-heading:has(> .music-queue-tools:empty) { display: none; }
 }
 
-@media (max-width: 900px) {
-  .music-player:not(.collapsed) { right: 0; bottom: calc(16px + env(safe-area-inset-bottom, 0px)); }
-  .music-player:not(.collapsed) > .music-collapse-toggle {
-    right: 0;
-    bottom: 0;
-    width: 44px;
-    min-width: 44px;
-    height: 44px;
-    min-height: 44px;
-  }
-}
 
 /* The queue shares the album workspace. On small screens the transport stays below the sheet. */
 .music-album-overview { display: grid; grid-template-columns: auto 1fr; align-items: center; gap: 12px 20px; margin-block: 16px; }
@@ -1130,7 +958,8 @@
 .music-album-artists { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 4px; }
 .music-album-all-artist { grid-column: 1 / -1; justify-self: start; }
 .music-detail-reference { margin-block: 6px; overflow-wrap: anywhere; }
-.music-queue-drawer { position: fixed; z-index: 15; bottom: calc(var(--music-bar-height, 120px) + 8px); min-width: 0; display: flex; flex-direction: column; gap: 6px; padding: 12px;
+/* Queue overlays page toolbars (30), below site navigation (50+) and nested menus. */
+.music-queue-drawer { position: fixed; z-index: 40; bottom: calc(var(--music-bar-height, 120px) + 8px); min-width: 0; display: flex; flex-direction: column; gap: 6px; padding: 12px;
   max-height: calc(100dvh - var(--nav-h) - var(--music-bar-height, 120px) - 24px); overflow: hidden; }
 .music-queue-close { align-self: flex-end; }
 .music-queue-drawer > .music-queue-panel { min-height: 0; }
@@ -1139,21 +968,19 @@
 .music-queue-drawer .music-song-list-heading { flex-wrap: wrap; }
 @media (min-width: 1000px) {
   .music-queue-drawer { width: 440px; left: clamp(12px, var(--queue-anchor-x, 24px), calc(100% - 452px)); max-height: min(68dvh, calc(100dvh - var(--music-bar-height, 120px) - var(--nav-h) - 24px)); background: var(--panel-grad); box-shadow: var(--shadow-panel); }
-  .music-workspace-content .music-now-playing.music-overview { grid-template-areas: 'cover info' 'cover wave'; grid-template-rows: auto 1fr; }
-  .music-workspace-content .music-now-playing.music-lyrics-open { grid-template-areas: 'cover lyrics' 'info lyrics'; grid-template-rows: auto auto; }
 }
 @media (max-width: 999px) {
-  .music-queue-drawer { position: fixed; z-index: 15; inset: auto 0 var(--music-bar-height, 120px); max-height: calc(100dvh - var(--nav-h) - 64px - var(--music-bar-height, 120px)); background: var(--panel-grad); }
-  .music-workspace-content .music-now-playing.music-lyrics-open { grid-template-columns: minmax(64px, 22%) minmax(0, 1fr); grid-template-areas: 'cover info' 'lyrics lyrics'; }
-  .music-lyrics-open .music-now-playing-cover-col { align-self: start; }
+  .music-queue-drawer { position: fixed; inset: auto 0 var(--music-bar-height, 120px); max-height: calc(100dvh - var(--nav-h) - 64px - var(--music-bar-height, 120px)); background: var(--panel-grad); }
+  .music-now-playing-details { --music-info-height: clamp(180px, 26dvh, 220px); display: grid; grid-template-columns: minmax(64px, 22%) minmax(0, 1fr); grid-template-areas: 'cover info'; height: var(--music-info-height); gap: 16px; }
+  .music-now-playing-details .music-now-playing-cover-col { align-self: start; }
+  .music-now-playing-details .music-now-playing-song-info { height: 100%; min-height: 0; overflow-y: auto; }
 }
 
 .music-queue-drawer .music-song-desktop-actions { display: none; }
 .music-queue-drawer .music-song-mobile-actions { display: flex; }
 @media (max-width: 720px) {
   .music-workspace-content .music-saved-collection .music-song-list-heading > h2 { display: block; }
-  .music-player-bottombar-phone-mini .music-transport-playback > button.music-next-btn { display: inline-flex; }
-  .music-player-bottombar-phone-mini:has(.music-list-btn.active) .music-transport-playback > .music-prev-btn { display: inline-flex; }
+
 }
 
 .music-queue-drawer .music-song-list-heading { justify-content: space-between; }
@@ -1175,10 +1002,32 @@
 }
 
 /* Let the scrollable lyrics determine where their waveform begins, independently of the cover. */
-.music-lyrics-and-wave { grid-area: wave; min-width: 0; align-self: start; }
-.music-lyrics-open .music-lyrics-and-wave { grid-area: lyrics; }
+.music-lyrics-and-wave { grid-area: lyrics; min-width: 0; align-self: start; }
+.music-lyrics-space { height: clamp(260px, calc(100dvh - var(--music-bar-height, 160px) - 300px), 420px); }
 .music-lyrics-and-wave .music-lyric-line:last-child { margin-bottom: 0; }
 .music-workspace-content .music-lyrics-and-wave #music-lyrics { min-height: 0; padding-bottom: 0; }
 @media (max-width: 999px) {
-  .music-workspace-content .music-lyrics-and-wave #music-lyrics { max-height: clamp(160px, calc(100dvh - var(--music-bar-height, 148px) - var(--music-view-top, 144px) - 306px), 44dvh); }
+  .music-lyrics-space { height: clamp(120px, calc(100dvh - var(--music-bar-height, 210px) - var(--music-view-top, 144px) - clamp(180px, 26dvh, 220px) - 100px), 44dvh); }
+  .music-player-page[data-lyrics-expanded] .music-lyrics-and-wave { display: flex; flex-direction: column; height: calc(100dvh - var(--nav-h, 52px) - var(--music-bar-height, 210px)); }
+  .music-player-page[data-lyrics-expanded] .music-lyrics-space { flex: 1; height: auto; min-height: 0; }
+  .music-player-page[data-lyrics-expanded] .music-lyrics-scroll { scroll-margin-top: var(--nav-h, 52px); scroll-margin-bottom: 0; }
+  .music-player-page[data-lyrics-expanded] .music-wave-visualizer { flex: none; }
+}
+
+/* The shared transport reserves its measured room on every page while visible. */
+body:has(.music-player-bottombar) main { padding-bottom: calc(var(--music-bar-height, 210px) + var(--page-gutter)); }
+
+/* Keep playback controls clear of the fixed minimize tile on ordinary pages. */
+.music-player-bottombar[data-minimizable] .music-transport-volume-row { padding-right: 52px; }
+@media (min-width: 1000px) {
+  .music-player-bottombar[data-minimizable] .music-transport-right { padding-right: 52px; }
+}
+
+@media (max-width: 999px) {
+  .music-player-bottombar { padding-inline: 16px; padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px)); }
+}
+@media (max-width: 359px) and (pointer: coarse) {
+  .music-transport-volume-row { gap: 4px; }
+  .music-transport-volume-row > button,
+  .music-transport-volume-row .music-volume-control > button { width: var(--control-h); height: var(--control-h); min-height: var(--control-h); }
 }

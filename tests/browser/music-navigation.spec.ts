@@ -174,18 +174,12 @@ test('Queue: the song playing is marked and stays put, songs come out, and Clear
   await expect(current).toHaveClass(/\bcurrent\b/);
   await expect(current).toHaveAttribute('data-song-id', playing);
   await expect(current.getByRole('button', { name: /^Reorder / })).toHaveCount(0);
-  await expect(page.getByRole('heading', { name: 'Now playing', exact: true })).toBeVisible();
+  await expect(page.getByRole('dialog', { name: 'Playback queue' }).getByRole('heading', { name: 'Now playing', exact: true })).toBeVisible();
 
   const before = await ids(queueRows(page));
   const removed = before[2];
-  if (test.info().project.name === 'mobile') {
-    await queueRows(page).nth(2).getByRole('button', { name: /^More actions for / }).click();
-    await page.getByRole('dialog', { name: 'Song actions', exact: true }).getByRole('button', { name: 'Remove', exact: true }).click();
-  } else {
-    // The song playing has no Remove (left out, not shown disabled); the others name the song.
-    await expect(current.getByRole('button', { name: /^Remove from queue: / })).toHaveCount(0);
-    await queueRows(page).nth(2).getByRole('button', { name: /^Remove from queue: / }).click();
-  }
+  await queueRows(page).nth(2).getByRole('button', { name: /^More actions for / }).click();
+  await page.getByRole('dialog', { name: 'Song actions', exact: true }).getByRole('button', { name: 'Remove', exact: true }).click();
   await expect.poll(() => ids(queueRows(page))).not.toContain(removed);
   const kept = await ids(queueRows(page));
 
@@ -312,7 +306,11 @@ test("the player bar's heart, Shuffle and Repeat are buttons; its More holds onl
   await expect(menu).toHaveCount(0);
   await expect(more).toBeFocused();
   await more.click();
-  await menu.getByRole('link', { name: 'Open queue', exact: true }).click();
+  await expect(menu.getByRole('link', { name: 'Open queue', exact: true })).toHaveCount(0);
+  await expect(menu.getByRole('button', { name: /autoplay this song/i })).toHaveCount(0);
+  await expect(menu.getByRole('checkbox', { name: 'Stream-safe', exact: true })).toHaveCount(0);
+  await menu.getByRole('button', { name: 'Close player actions', exact: true }).click();
+  await bar(page).getByRole('link', { name: 'Queue', exact: true }).click();
   await expect(page).toHaveURL(/panel=queue$/);
   await expect(queueRows(page).first()).toBeVisible();
   expect((await youtube(page))!).toMatchObject({ state: 1, videoId: playing, players: 1 });

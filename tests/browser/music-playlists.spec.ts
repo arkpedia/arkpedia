@@ -40,6 +40,7 @@ for (const theme of ['dark', 'light']) {
     await expect(dialog.getByRole('status')).toContainText('Playing Night music');
     await page.keyboard.press('Escape');
     await expect(page.getByRole('button', { name: test.info().project.name === 'mobile' ? 'Music menu' : 'Playlists', exact: true })).toBeFocused();
+    if (!await page.getByRole('dialog', { name: 'Playback queue' }).isVisible()) await page.locator('#music-transport-queue').click();
     await expect(page.locator('.music-queue-row')).toHaveCount(1);
     // YouTube reports a removed/blocked video: a one-song playlist must stop, not retry forever.
     const loads = (await youtube(page))!.calls.filter(([call]) => call === 'loadVideoById').length;
@@ -96,5 +97,6 @@ test('an imported playlist plays in its saved order and stream-safe does not add
   await page.getByRole('button', { name: 'Playlists', exact: true }).click();
   await page.getByRole('dialog', { name: 'Music playlists' }).getByRole('button', { name: 'Play all songs', exact: true }).click();
   await page.keyboard.press('Escape');
+  if (!await page.getByRole('dialog', { name: 'Playback queue' }).isVisible()) await page.locator('#music-transport-queue').click();
   await expect.poll(() => page.locator('.music-queue-row').count()).toBeGreaterThan(2);
 });

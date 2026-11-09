@@ -11,6 +11,7 @@
      - buttons, chips and tabs give a little (scale .97) while pressed;
      - a <Tabs> strip's underline slides to the tab chosen (components/ui/Tabs.tsx);
      - an image that arrives after the page is running fades in (lib/ui/imageArrival.ts);
+     - music overlays rise or glide into place when opened;
      - the LIVE badge's dot blinks.
    The static half of the option -- the panels' soft depth (--shadow-panel), the dot
    itself -- is paint, not motion, and lives with the primitives in arkpedia-theme.css
@@ -22,6 +23,15 @@
    --dur-2 (styles/core/shared.css). */
 
 @media (prefers-reduced-motion: no-preference) {
+  /* Overlay entrances: a short rise for Queue, a lateral glide for the shared
+     player. Individual translate preserves the transport's centered transform. */
+  .music-queue-drawer { animation: music-queue-enter var(--dur-1) var(--ease); }
+  .music-player-bottombar[data-minimizable],
+  .music-floating-toggle,
+  .music-player.collapsed { animation: music-player-enter var(--dur-2) var(--ease); }
+  @keyframes music-queue-enter { from { opacity: 0; translate: 0 20px; } }
+  @keyframes music-player-enter { from { opacity: 0; translate: 28px 0; } }
+
   .music-original-waves .music-wave { animation: music-wave-scroll 3.5s linear infinite; }
   .music-original-waves .music-wave-2 { animation-duration: 5s; animation-direction: reverse; }
   .music-original-waves .music-wave-3 { animation-duration: 6.5s; }

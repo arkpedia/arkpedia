@@ -77,6 +77,25 @@ changes produce a new release input. Query dates stay in the job cache.
 
 ### Persistent browsing controls
 
+Music uses the same full transport in Library, Favourites, playlists, Now playing and
+on other pages. Outside Music it starts hidden behind the music button; playback
+opens it automatically. Once open it stays visible through navigation and pauses.
+Music pages always keep it open. On other pages, manual minimizing keeps it hidden
+across navigation and track changes until reopened, without pausing audio. The expand
+and minimize tiles share one bottom-right position and square shape on every device.
+On phones the bottom row is Favourite, Block, volume and Stream-safe; secondary action icons change color only on hover and when active, with no frames or background fills; keyboard focus stays visible. The speaker toggles mute and restores the last audible volume. Volume has a speaker icon, with
+a brief, translucent percentage and speaker in the screen center, clear of playback controls and the touch point.
+More contains Add to playlist, Open on YouTube and the Data saver/Endfield settings; it omits controls already in the transport. Setting help floats without changing menu layout.
+Now Playing keeps artwork and track details in one stable column and reserves the lyrics area even for instrumental tracks, anchoring the visualizer at the same position.
+On phones the lyrics icon toggles a taller lyrics view between the site header and
+the transport, keeping the visualizer at the bottom. Its active color marks expansion;
+collapsing restores the track details and previous page scroll position.
+Queue always opens the shared popup above the transport, preserving the current page,
+filters and playback. Legacy `view=queue` links open that popup over a normal Music view.
+Queue rises and fades into place; the player and its minimize icon glide in from
+the right when opened outside Music. Entrances use the shared motion timings and
+are instant with reduced motion. Already visible controls stay steady during navigation.
+
 Use `StickyControls` for compact search/filter bars and local view choices on long lists.
 For catalogue controls in `PageHeader`, opt into `stickyActions`; it keeps the controls
 in the page frame, following the title, so the header does not limit their sticky range.

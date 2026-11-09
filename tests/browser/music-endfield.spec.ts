@@ -19,7 +19,7 @@ async function catalogue(page: Page): Promise<Row[]> {
   return [...songs, ...CROSSOVER_PAGE_MUSIC.filter(entry => !ids.has(entry.song.id)).map(entry => entry.song)];
 }
 const idOf = (row: Row) => row.videoId || `msr:${row.cid}`;
-const setting = (page: Page) => page.locator(test.info().project.name === 'mobile' ? '.music-phone-settings input[type=checkbox]' : '.page-header input[type=checkbox]');
+const setting = (page: Page) => page.locator((page.viewportSize()?.width ?? 1440) < 1000 ? '.music-phone-settings input[type=checkbox]' : '.page-header input[type=checkbox]');
 async function changeSetting(page: Page, checked: boolean) { await openMusicMenu(page); await setting(page).setChecked(checked); }
 
 test('Endfield music is off until ticked, then joins the Library, and the choice is kept', async ({ page }) => {
@@ -110,7 +110,7 @@ test('the header\'s Endfield music ⓘ says background play on phones may not wo
   await page.goto('/music/discover');
   await page.evaluate(() => document.fonts.ready);
   await openMusicMenu(page);
-  const header = page.locator(test.info().project.name === 'mobile' ? '.music-nav-dropdown' : '.page-header');
+  const header = page.locator((page.viewportSize()?.width ?? 1440) < 1000 ? '.music-nav-dropdown' : '.page-header');
   const info = header.getByRole('button', { name: 'About Endfield music', exact: true });
   await expect(info).toHaveAttribute('aria-expanded', 'false');
   const infoBox = (await info.boundingBox())!;
@@ -137,7 +137,7 @@ test('the header\'s Endfield music ⓘ says background play on phones may not wo
   await expect(setting(page)).not.toBeChecked();
 });
 
-test('the ⋯ menu\'s Endfield music ⓘ says the same, in the menu, under Data saver', async ({ page }) => {
+test('the ⋯ menu\'s Endfield music ⓘ floats without moving the menu', async ({ page }) => {
   await stubYouTube(page);
   await page.goto('/music');
   await openPlayerActions(page);
@@ -145,13 +145,14 @@ test('the ⋯ menu\'s Endfield music ⓘ says the same, in the menu, under Data 
   const info = menu.getByRole('button', { name: 'About Endfield music', exact: true });
   const saverBox = (await menu.getByRole('checkbox', { name: 'Data saver', exact: true }).boundingBox())!;
   expect((await menu.getByRole('checkbox', { name: 'Endfield music', exact: true }).boundingBox())!.y).toBeGreaterThan(saverBox.y);
+  const menuBefore = await menu.boundingBox();
   await info.click();
   const note = page.getByRole('dialog', { name: 'About Endfield music', exact: true });
   await expect(note).toHaveText(BACKGROUND_NOTE);
-  const menuBox = (await menu.boundingBox())!;
+  expect(await menu.boundingBox()).toEqual(menuBefore);
   const noteBox = (await note.boundingBox())!;
-  expect(noteBox.x).toBeGreaterThanOrEqual(menuBox.x - 1);
-  expect(noteBox.x + noteBox.width).toBeLessThanOrEqual(menuBox.x + menuBox.width + 1);
+  expect(noteBox.x).toBeGreaterThanOrEqual(0);
+  expect(noteBox.x + noteBox.width).toBeLessThanOrEqual(page.viewportSize()!.width);
   // Escape closes the note only: the menu stays.
   await page.keyboard.press('Escape');
   await expect(note).toHaveCount(0);

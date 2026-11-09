@@ -34,6 +34,25 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    at: '2026-11-09T16:36:19Z',
+    fixed: [
+      { title: 'Enemy tabs keep their place', detail: 'Switching between Resistances and Stages preserves the detail panel’s scroll position.', href: '/enemies' },
+      { title: 'Albums open reliably from Discover', detail: 'Opening an album no longer races a pending Show all or search update.', href: '/music/discover' },
+      { title: 'Instrumental lyrics and matching timing', detail: 'Recognizes alternate instrumental names and corrects measured recording and video-intro offsets.', href: '/music' },
+      { title: 'Twitch streams appear without a refresh', detail: 'Opening the Twitch tab from the homepage now checks the live feed immediately.', href: '/world' },
+      { title: 'Steady volume when switching song versions', detail: 'Switching between vocals and instrumentals keeps the same playback volume on iPhone.', href: '/music' },
+      { title: 'Outfit and music videos reach their categories', detail: 'Video grouping recognizes plural outfits, BGM compilations and voice lines instead of leaving them in Other.', href: '/world' },
+    ],
+    changed: [
+      { title: 'Expand mobile lyrics with one tap', detail: 'The lyrics button opens a taller scrolling view with the visualizer and playback controls still visible.', href: '/music' },
+      { title: 'Matching autoplay block icons', detail: 'The player and song rows use the same icon to keep a song out of automatic library playback.', href: '/music' },
+      { title: 'One player across the site', detail: 'Use the same controls in every music view and on other pages, with a minimize button and raised volume percentages.', href: '/music' },
+      { title: 'Clearer volume and player controls', detail: 'Favourite, Block and Stream-safe sit beside volume, and the speaker toggles mute while remembering the previous level.', href: '/music' },
+      { title: 'Consistent music layouts and menus', detail: 'Now Playing stays in place between tracks, while More keeps extra actions and shows help without expanding.', href: '/music' },
+      { title: 'Queue always opens as a popup', detail: 'Open your queue from any player or Music menu without leaving the current page.', href: '/music' },
+    ],
+  },
+  {
     at: '2026-11-08T08:09:00Z',
     added: [
       { title: 'Most liked on Arkpedia', detail: 'Discover ranks songs daily using favourites from accounts that contribute to community statistics.', href: '/music/discover' },

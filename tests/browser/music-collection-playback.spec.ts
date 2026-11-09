@@ -1,5 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 import { stubYouTube, youtube } from './youtube-stub';
+import { waitForMusicOverlays } from './music-navigation-helpers';
 
 const album = '/music/discover?facet=album%3A5193';
 const halo = '21P6C7lAb-Y', pilgrimage = 'cmA18BG0gks', detour = 'uBRNsCPG-yU';
@@ -35,8 +36,8 @@ for (const theme of ['light', 'dark']) test('collection playback, queue and cred
   expect(await page.locator('html').getAttribute('data-theme') ?? 'dark').toBe(theme);
   if (info.project.name === 'mobile') {
     const queueToggle = await bar(page).getByRole('link', { name: 'Close queue', exact: true }).boundingBox();
-    const previous = await bar(page).getByRole('button', { name: 'Previous track' }).boundingBox();
-    expect(queueToggle!.x + queueToggle!.width).toBeLessThanOrEqual(previous!.x);
+    const play = await bar(page).getByRole('button', { name: 'Pause', exact: true }).boundingBox();
+    expect(queueToggle!.y + queueToggle!.height).toBeLessThanOrEqual(play!.y);
     const text = await bar(page).locator('.music-transport-song-title').boundingBox();
     expect(text!.width).toBeGreaterThan(50);
   }
@@ -112,10 +113,14 @@ test('Now playing shows lyrics and the phone transport jumps to them', async ({ 
   await expect(lyrics).toBeVisible();
   await expect(page.locator('.music-now-playing').getByRole('link', { name: /lyrics|open queue|youtube/i })).toHaveCount(0);
   await expect(page.locator('.music-wave-visualizer')).toBeVisible();
+  // Returning from expanded phone lyrics commits the new transport clearance
+  // separately. Measure both boxes in the same frame after that layout settles.
+  await expect.poll(() => page.evaluate(() => {
+    const a = document.querySelector('[aria-label="Lyrics"]')!.getBoundingClientRect();
+    const b = document.querySelector('.music-wave-visualizer')!.getBoundingClientRect();
+    return Math.max(Math.abs(b.top - a.bottom), Math.abs(b.left - a.left));
+  })).toBeLessThanOrEqual(1);
   const lyricsBox = (await lyrics.boundingBox())!;
-  const waveBox = (await page.locator('.music-wave-visualizer').boundingBox())!;
-  expect(Math.abs(waveBox.y - lyricsBox.y - lyricsBox.height)).toBeLessThanOrEqual(1);
-  expect(Math.abs(waveBox.x - lyricsBox.x)).toBeLessThanOrEqual(1);
 
   const switchToWaves = page.getByRole('button', { name: 'Switch to original waves' });
   await switchToWaves.focus();
@@ -129,7 +134,7 @@ test('Now playing shows lyrics and the phone transport jumps to them', async ({ 
   await expect(switchToWaves).toBeVisible();
 
   if (info.project.name === 'desktop') {
-    const dislike = bar(page).getByRole('button', { name: 'Dislike: keep this song out of autoplay' });
+    const dislike = bar(page).getByRole('button', { name: "Don't autoplay this song", exact: true });
     await dislike.click();
     await expect(dislike).toHaveAttribute('aria-pressed', 'true');
     expect(await page.evaluate(() => JSON.parse(localStorage.getItem('arkpediaMusicNoAutoplay') || '[]'))).toContain('d3jylNWjb3k');
@@ -141,13 +146,16 @@ test('Now playing shows lyrics and the phone transport jumps to them', async ({ 
   const popup = page.getByRole('dialog', { name: 'Playback queue' });
   await expect(popup).toBeVisible();
   await expect(queueToggle).toHaveAttribute('aria-expanded', 'true');
+  await waitForMusicOverlays(page);
   const popupBox = (await popup.boundingBox())!;
   expect(popupBox.y + popupBox.height).toBeLessThanOrEqual((await bar(page).boundingBox())!.y + 1);
   expect((await lyrics.boundingBox())!.width).toBe(lyricsBox.width);
   if (info.project.name === 'desktop') {
     await page.locator('.music-section .section-title, .music-workspace-content h2').filter({ hasText: /^Now playing$/i }).first().click();
     await expect(popup).toHaveCount(0);
+    await expect(queueToggle).toHaveAttribute('aria-expanded', 'false');
     await queueToggle.click();
+    await expect(popup).toBeVisible();
   }
   await page.keyboard.press('Escape');
   await expect(popup).toHaveCount(0);

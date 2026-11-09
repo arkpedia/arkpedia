@@ -1,17 +1,16 @@
-import { useEffect, useId, useRef, useState } from 'react';
+import { useEffect, useId, useRef } from 'react';
 import XButton from '@/components/ui/XButton';
 import InfoIcon from '@/components/ui/InfoIcon';
+import { useAnchoredPopover } from '@/components/ui/useAnchoredPopover';
 
 /**
  * One of the player's settings: a checkbox, and an ⓘ that opens a short note on what it changes.
  * Data saver (DataSaverSetting) and Endfield music (MusicGameSetting) are both drawn by it, so
  * the two explain themselves the same way.
  *
- * The note opens in place, under the row, inside whatever holds the setting (the player's ⋯
- * menu): a panel of its own would take the focus out of that menu and close it. In the music
- * pages' header (`header`) the same note opens under the row over the page instead, so it moves
- * neither the title nor Playlists beside it. Escape, a press outside the note and its × close it;
- * Escape and × give focus back to the ⓘ, and Escape goes no further (a menu around it stays open).
+ * The note floats above the page without resizing its header or containing menu.
+ * It stays nested in the menu's DOM so focus and outside clicks belong to the
+ * correct disclosure; Escape closes the note before the menu.
  */
 export default function MusicSetting({ label, topic, checked, onChange, about, header = false }: {
   label: string;
@@ -23,27 +22,19 @@ export default function MusicSetting({ label, topic, checked, onChange, about, h
   about: string;
   header?: boolean;
 }) {
-  const [open, setOpen] = useState(false);
+  const { open, setOpen, close, buttonRef: infoRef, menuRef: noteRef, menuStyle } = useAnchoredPopover(320, 'end');
   const id = useId();
-  const infoRef = useRef<HTMLButtonElement>(null);
-  const noteRef = useRef<HTMLDivElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
   const name = `About ${topic}`;
 
   function dismiss() {
-    setOpen(false);
+    close();
     infoRef.current?.focus({ preventScroll: true });
   }
 
   useEffect(() => {
     if (!open) return;
     closeRef.current?.focus({ preventScroll: true });
-    const outside = (event: PointerEvent) => {
-      const target = event.target as Node;
-      if (!noteRef.current?.contains(target) && !infoRef.current?.contains(target)) setOpen(false);
-    };
-    document.addEventListener('pointerdown', outside);
-    return () => document.removeEventListener('pointerdown', outside);
   }, [open]);
 
   return (
@@ -63,7 +54,7 @@ export default function MusicSetting({ label, topic, checked, onChange, about, h
         </button>
       </div>
       {open && (
-        <div id={id} ref={noteRef} className="music-setting-note" role="dialog" aria-label={name}>
+        <div id={id} ref={noteRef} className="action-popover music-setting-note" style={{ ...menuStyle, position: 'fixed' }} role="dialog" aria-label={name}>
           <p>{about}</p>
           <XButton ref={closeRef} dense label={`Close about ${topic}`} onClick={dismiss} />
         </div>

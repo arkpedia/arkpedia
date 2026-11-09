@@ -89,7 +89,7 @@ test('the player uses the same highlight on icon links and buttons', async ({ pa
   const queue = bar.getByRole('link', { name: 'Queue', exact: true });
   const repeat = bar.getByRole('button', { name: /^Repeat:/ });
   const heart = bar.getByRole('button', { name: 'Favourite', exact: true });
-  const lyrics = bar.getByRole('link', { name: 'Lyrics', exact: true });
+  const lyrics = bar.getByRole('button', { name: 'Lyrics', exact: true });
   const swatch = await bar.evaluate(el => {
     const probe = document.createElement('span');
     probe.style.color = 'var(--teal)';
@@ -102,11 +102,14 @@ test('the player uses the same highlight on icon links and buttons', async ({ pa
   if (info.project.name === 'mobile') controls.push(lyrics);
   for (const control of controls) {
     await control.hover();
-    await expect(control).toHaveCSS('border-top-color', swatch);
+    await expect(control).toHaveCSS('color', swatch);
+    await expect(control).toHaveCSS('border-top-color', 'rgba(0, 0, 0, 0)');
+    await expect(control).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
   }
   await heart.click();
   await repeat.hover();
-  await expect(heart).toHaveCSS('border-top-color', swatch);
+  await expect(heart).toHaveCSS('color', swatch);
+  await expect(heart).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
   if (process.env.ARKPEDIA_QA_CAPTURE) {
     await bar.screenshot({ path: `${process.env.ARKPEDIA_QA_CAPTURE}/button-highlights-${info.project.name}-${theme}.png` });
   }
@@ -148,7 +151,7 @@ test('phone music dropdown is anchored, dismisses outside and with Escape, and k
   await expect(menu).not.toBeVisible();
 });
 
-test('pulling down minimizes to Library and the mini player reopens the same song', async ({ page }, info) => {
+test('pulling down returns to Library while the same transport and song remain', async ({ page }, info) => {
   test.skip(info.project.name !== 'mobile');
   await stubYouTube(page);
   await page.goto('/music?view=library');
@@ -156,6 +159,8 @@ test('pulling down minimizes to Library and the mini player reopens the same son
   await expect.poll(async () => (await youtube(page))?.state).toBe(1);
   const playing = (await youtube(page))!;
   await chooseMusicView(page, 'Now playing');
+  const bar = page.getByRole('region', { name: 'Player', exact: true });
+  const transportHeight = (await bar.boundingBox())!.height;
   await page.evaluate(() => scrollTo(0, 0));
   const art = page.locator('.music-now-playing-cover');
   const touch = async (type: string, y: number) => art.evaluate((el, { type, y }) => {
@@ -169,12 +174,11 @@ test('pulling down minimizes to Library and the mini player reopens the same son
   await touch('touchend', 340);
   await expect(page).toHaveURL(/view=library/);
   await expect(page.locator('.music-library-row').first()).toBeVisible();
-  const bar = page.getByRole('region', { name: 'Player', exact: true });
-  await expect.poll(async () => (await bar.boundingBox())!.height).toBeLessThanOrEqual(80);
+  await expect.poll(async () => (await bar.boundingBox())!.height).toBe(transportHeight);
   await bar.getByRole('link', { name: /Open Now playing$/ }).click();
   await expect(page).toHaveURL(/view=player/);
   expect((await youtube(page))!).toMatchObject({ state: 1, videoId: playing.videoId });
   expect((await youtube(page))!.calls.filter(([name]) => name === 'loadVideoById')).toHaveLength(playing.calls.filter(([name]) => name === 'loadVideoById').length);
-  await page.getByRole('link', { name: 'Minimize player to Library', exact: true }).click();
+  await page.getByRole('link', { name: 'Back to Library', exact: true }).click();
   await expect(page).toHaveURL(/view=library/);
 });

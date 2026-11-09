@@ -9,12 +9,13 @@ import { formatSeconds } from '@/lib/ui/formatSeconds';
  * that follows the song's clock (lib/music/playbackPosition.ts): it subscribes here, so the
  * page around it renders only when the song or the queue changes.
  */
-export default function MusicLyrics({ lyrics, loading, shown, playing }: {
+export default function MusicLyrics({ lyrics, loading, shown, playing, expanded = false }: {
   lyrics: LyricLine[];
   loading: boolean;
   playing: boolean;
   /** Now playing is the view on top: only then is the line centred. */
   shown: boolean;
+  expanded?: boolean;
 }) {
   const { currentTime, seeking, readPlaybackTime, handleSeekChange, handleSeekCommit } = useMusicPlayback();
 
@@ -22,7 +23,7 @@ export default function MusicLyrics({ lyrics, loading, shown, playing }: {
   useEffect(() => {
     if (shown && window.location.hash === '#music-lyrics') {
       panelRef.current?.focus({ preventScroll: true });
-      panelRef.current?.scrollIntoView({ block: 'center' });
+      if (!window.matchMedia('(max-width: 999px)').matches) panelRef.current?.scrollIntoView({ block: 'center' });
     }
   }, [shown]);
 
@@ -68,7 +69,7 @@ export default function MusicLyrics({ lyrics, loading, shown, playing }: {
     const line = activeLineRef.current;
     const panel = line?.parentElement;
     if (line && panel) panel.scrollTo({ top: panel.scrollTop + line.getBoundingClientRect().top - panel.getBoundingClientRect().top - (panel.clientHeight - line.clientHeight) / 2, behavior: smooth ? 'smooth' : 'auto' });
-  }, [activeLineIndex, shown, lyrics]);
+  }, [activeLineIndex, shown, lyrics, expanded]);
 
   useEffect(() => {
     return () => {

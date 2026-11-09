@@ -21,8 +21,8 @@ export const filterDiscoveryVideos = (videos: YouTubeVideo[]) => videos.filter(v
 /** Conservative title rules, most specific first. A creator is never assigned a
  * permanent topic: the same channel can publish a guide, a song and an opinion. */
 export function videoTopic(title: string): VideoTopic {
-  if (/\b(skin|outfit|costume|live\s?2d|l2d)\b|皮肤|時装|スキン|스킨/i.test(title)) return 'skins';
-  if (/\b(song|music|ost|soundtrack|theme|cover|remix|amv|mmd|animation|animated|animatic|pv|ep)\b|音楽|歌曲|音乐|애니메이션/i.test(title)) return 'media';
+  if (/\b(skins?|outfits?|costumes?|live\s?2d|l2d)\b|皮肤|時装|スキン|스킨/i.test(title)) return 'skins';
+  if (/\b(song|music|bgm|ost|soundtrack|theme|cover|remix|voice[\s-]?lines?|amv|mmd|animation|animated|animatic|pv|ep)\b|音楽|歌曲|音乐|ボイス集|语音|語音|애니메이션/i.test(title)) return 'media';
   if (/\b(guide|tutorial|walkthrough|afk|low[ -]?(?:end|rarity|stars?)|clear|annihilation|how to)\b|\b[a-z]{1,4}-\d+(?:-\d+)?\b|攻略|공략/i.test(title)) return 'guides';
   if (/\b(?:game review|reviewing arknights|arknights review|retrospective|worth (?:playing|starting)|should you (?:play|start))\b/i.test(title)) return 'reviews';
   if (/\b(news|announcement|announced|update|patch|maintenance|schedule|coming soon|revealed)\b|速報|공지|업데이트/i.test(title)) return 'news';

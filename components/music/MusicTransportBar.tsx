@@ -1,5 +1,5 @@
 import { useRouter } from 'next/router';
-import { queuePanelHref } from '@/lib/music/queuePanelHref';
+import { isQueuePanelOpen, queuePanelHref } from '@/lib/music/queuePanelHref';
 import Link from 'next/link';
 import { useEffect, useRef } from 'react';
 import { useMusicPlayer } from '@/lib/music/musicPlayerContext';
@@ -10,57 +10,60 @@ import TransportIcon from './TransportIcons';
 import { MUSIC_VIEW_HREF, type MusicView } from './MusicNav';
 import PlayerMoreMenu from './PlayerMoreMenu';
 import SeekBar from './SeekBar';
+import VolumeControl from './VolumeControl';
 import { MSR_LABEL } from '@/lib/music/songArt';
+import { minimizeMusicPlayer, playerIsVisible, usePlayerVisibility } from '@/lib/music/playerVisibility';
+import BackgroundMusicNowPlaying from './BackgroundMusicNowPlaying';
+import { songTitle } from '@/lib/music/musicPolish';
 
 
 /** How long a queue action's notice stays up; Clear queue's, with its Undo, a little longer. */
 const NOTICE_MS = 5000;
 const UNDO_NOTICE_MS = 9000;
+// Music pages know the release's lyric files. Carry that public availability to
+// the shared transport when navigating elsewhere in the same document.
+const knownLyrics = new Map<string, boolean>();
 
-/**
- * The music section's player bar, held at the bottom of the window (sticky) on /music and on
- * Discover, so the song playing and the way back to it are always in reach -- the mini player's
- * job on a music app's every screen. Its song names the track and opens Now playing; its Queue
- * button opens the queue. Every form seeks: the head drags on Discover as in the other tabs (it
- * was a progress line there until 2026-10-22). The full bar (/music) also sets the volume. Every
- * form, at every width, has
- * Favourite, Previous, Play, Next, Shuffle and Repeat as buttons: on a phone the row under the
- * song is More, Previous, Play, Next, Shuffle, Repeat, and the heart sits beside the song, before
- * Queue. A queue action's result (Play next, Add to queue, Clear) shows above the controls for a
- * moment, Clear's with Undo.
- */
-export default function MusicTransportBar({ view, compact = false, coverPath, onFullPlayer, hasLyrics }: {
+/** One transport across Music views and ordinary pages. Only the viewport changes
+ * its arrangement; navigation and minimizing never reload the persistent audio host. */
+export default function MusicTransportBar({ view, coverPath, onFullPlayer, hasLyrics, lyricsExpanded, onToggleLyrics }: {
   view: MusicView;
-  compact?: boolean;
   /** The playing song's album cover, where the page has the release's song details. */
   coverPath?: string | null;
   /** On /music: the transport is part of the player page, and its song name still opens Now playing. */
   onFullPlayer?: boolean;
   hasLyrics?: boolean;
+  lyricsExpanded?: boolean;
+  onToggleLyrics?: () => void;
 }) {
   const {
     ready, starting, buffering, isPlaying, title, videoId, volume, shuffle, repeatMode, favorites,
-    currentTrack, nowPlayingCover, nowPlayingArtist, excludeCopyrighted, notice, togglePlay, nextTrack, prevTrack, toggleShuffle, cycleRepeat, setVolumeLevel,
+    currentTrack, upcomingTrack, nowPlayingCover, nowPlayingArtist, excludeCopyrighted, notice, togglePlay, nextTrack, prevTrack, toggleShuffle, cycleRepeat, setVolumeLevel, toggleMute,
     noAutoplay, toggleNoAutoplay, toggleFavorite, setExcludeCopyrighted, dismissNotice, undoClearQueue,
   } = useMusicPlayer();
   const wide = useMediaQuery('(min-width: 1000px)');
   const router = useRouter();
-  const panelOpen = router.query.panel === 'queue';
-  const queueHref = view === 'queue' ? MUSIC_VIEW_HREF.player : queuePanelHref(router, !panelOpen);
-  const queueLabel = view === 'queue' ? 'Now playing' : panelOpen ? 'Close queue' : 'Queue';
+  const onMusicPage = router.pathname === '/music' || router.pathname === '/music/discover';
+  const visible = playerIsVisible(usePlayerVisibility(), onMusicPage, Boolean(videoId) && (isPlaying || starting || buffering));
+  const panelOpen = isQueuePanelOpen(router);
+  const queueHref = queuePanelHref(router, !panelOpen);
+  const queueLabel = panelOpen ? 'Close queue' : 'Queue';
   const barRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
+    const root = document.documentElement;
     const bar = barRef.current;
-    const main = bar?.closest('main');
-    if (!bar || !main) return;
+    const main = bar?.closest('main') ?? document.querySelector('main');
+    if (!main) return;
     const measure = () => {
-      main.style.setProperty('--music-bar-height', `${bar.getBoundingClientRect().height}px`);
+      const height = `${visible && bar ? bar.getBoundingClientRect().height : 0}px`;
+      main.style.setProperty('--music-bar-height', height);
+      if (root.style.getPropertyValue('--music-bar-height') !== height) root.style.setProperty('--music-bar-height', height);
       const view = main.querySelector('.music-view');
       if (view) main.style.setProperty('--music-view-top', `${view.getBoundingClientRect().top + window.scrollY}px`);
     };
     measure();
     const observer = new ResizeObserver(measure);
-    observer.observe(bar);
+    if (bar) observer.observe(bar);
     const header = main.previousElementSibling;
     if (header) observer.observe(header);
     const nav = main.querySelector('.music-nav');
@@ -72,14 +75,16 @@ export default function MusicTransportBar({ view, compact = false, coverPath, on
     rootStyle.observe(document.documentElement, { attributes: true, attributeFilter: ['style'] });
     if (main.parentElement) rootStyle.observe(main.parentElement, { attributes: true, attributeFilter: ['style', 'class'] });
     window.addEventListener('resize', measure);
-    return () => { observer.disconnect(); rootStyle.disconnect(); window.removeEventListener('resize', measure); main.style.removeProperty('--music-bar-height'); main.style.removeProperty('--music-view-top'); };
-  }, []);
+    return () => { observer.disconnect(); rootStyle.disconnect(); window.removeEventListener('resize', measure); main.style.removeProperty('--music-bar-height'); main.style.removeProperty('--music-view-top'); root.style.removeProperty('--music-bar-height'); };
+  }, [visible, router.pathname]);
   const catalogTitle = currentTrack?.title || title || '';
   const { displayName, fading } = useCrossFadeTitle(catalogTitle, currentTrack?.altTitle);
   const isFav = Boolean(videoId) && favorites.has(videoId);
   // The page's cover for the song where it has one, else the player's fallback (lib/music/songArt.ts).
   const cover = videoId ? coverPath || nowPlayingCover || null : coverPath;
   const artist = nowPlayingArtist ?? currentTrack?.artist ?? null;
+  const showLyrics = hasLyrics ?? knownLyrics.get(videoId) ?? false;
+  useEffect(() => { if (videoId && hasLyrics !== undefined) knownLyrics.set(videoId, hasLyrics); }, [videoId, hasLyrics]);
 
   useEffect(() => {
     // A song that would not start says so until the next Play (musicPlayerContext's STUCK_NOTICE).
@@ -118,72 +123,81 @@ export default function MusicTransportBar({ view, compact = false, coverPath, on
     </button>
   );
   const favorite = (
-    <button type="button" className="filter-chip music-fav-btn music-song-favorite music-transport-fav-phone" disabled={!videoId} aria-pressed={isFav}
+    <button type="button" className="filter-chip btn-icon music-fav-btn music-song-favorite music-transport-fav-phone" disabled={!videoId} aria-pressed={isFav}
       aria-label="Favourite" title={isFav ? 'Unfavourite' : 'Favourite'} onClick={() => videoId && toggleFavorite(videoId)}><TransportIcon name="heart" /></button>
   );
   const queueLink = (
-    <Link id="music-transport-queue" aria-haspopup={view === 'queue' ? undefined : 'dialog'}
-      aria-expanded={view === 'queue' ? undefined : panelOpen} aria-controls={panelOpen ? 'music-queue-popup' : undefined}
-      href={queueHref} shallow scroll={false} prefetch={false}
-      className={`ghost filter-chip music-list-btn${view === 'queue' || panelOpen ? ' active' : ''}`} aria-current={view === 'queue' ? 'page' : undefined}
+    <Link id="music-transport-queue" aria-haspopup="dialog"
+      aria-expanded={panelOpen} aria-controls={panelOpen ? 'music-queue-popup' : undefined}
+      href={queueHref} shallow scroll={false} prefetch={false} onClick={event => event.currentTarget.focus({ preventScroll: true })}
+      className={`ghost filter-chip music-list-btn${panelOpen ? ' active' : ''}`}
       aria-label={queueLabel} title={queueLabel}>
-      <TransportIcon name={view === 'queue' ? 'note' : 'queue'} />
+      <TransportIcon name="queue" />
     </Link>
   );
 
   const shuffleButton = <button type="button" className="filter-chip music-shuffle-btn" onClick={toggleShuffle} aria-pressed={shuffle} aria-label="Shuffle" title="Shuffle"><TransportIcon name="shuffle" /></button>;
   const repeatButton = <button type="button" className="filter-chip music-repeat-btn" onClick={cycleRepeat} aria-pressed={repeatMode !== 'off'}
             aria-label={`Repeat: ${repeatMode}`} title={`Repeat: ${repeatMode}`}><TransportIcon name="repeat" />{repeatMode === 'one' && <span className="music-repeat-one-badge">1</span>}</button>;
-
+  const blockButton = <button type="button" className="ghost filter-chip btn-icon music-dislike-btn" disabled={!videoId} aria-pressed={Boolean(videoId) && noAutoplay.has(videoId)}
+    aria-label="Don't autoplay this song" title={videoId && noAutoplay.has(videoId) ? 'Let autoplay play it' : "Don't autoplay"}
+    onClick={() => videoId && toggleNoAutoplay(videoId)}><TransportIcon name="noAutoplay" /></button>;
+  const safeButton = <button type="button" className="filter-chip btn-icon music-stream-safe-btn" onClick={() => setExcludeCopyrighted(!excludeCopyrighted)}
+    aria-pressed={excludeCopyrighted} aria-label="Stream-safe: hide copyrighted songs" title="Stream-safe"><TransportIcon name="streamSafe" /></button>;
+  if (!visible) return null;
   return (
-    // On a phone, outside Now playing, the full bar folds to the mini player's one row (CSS,
-    // .music-player-bottombar-phone-mini): Library and Queue keep the room for their songs.
-    <div ref={barRef} className={`music-player-bottombar${compact ? ' music-player-bottombar-compact' + (panelOpen ? ' music-player-bottombar-phone-mini' : '') : view !== 'player' ? ' music-player-bottombar-phone-mini' : ''}`} role="region" aria-label="Player" data-empty={!videoId || undefined}>
+    <div ref={barRef} className="music-player-bottombar" role="region" aria-label="Player" data-minimizable={!onMusicPage || undefined} data-empty={!videoId || undefined}
+      onKeyDown={event => {
+        if (onMusicPage || event.key !== 'Escape' || event.defaultPrevented || panelOpen || (event.target as Element).closest('[role="dialog"]')) return;
+        event.stopPropagation(); minimizeMusicPlayer();
+      }}>
       <div className="music-transport-notice" role="status">
         {notice && <>
           <span>{notice.text}</span>
           {notice.playback ? null : notice.undo
             ? <button type="button" className="ghost btn-sm" onClick={() => { undoClearQueue(); }}>Undo</button>
-            : view !== 'queue' && !panelOpen && <Link href={queuePanelHref(router)} shallow scroll={false} prefetch={false} className="ghost btn-sm" onClick={dismissNotice}>View queue</Link>}
+            : !panelOpen && <Link href={queuePanelHref(router)} shallow scroll={false} prefetch={false} className="ghost btn-sm" onClick={dismissNotice}>View queue</Link>}
         </>}
       </div>
+      <BackgroundMusicNowPlaying />
       <div className="music-transport-song-row">{song}
-        {(!wide || videoId) && favorite}
-        {wide && videoId && <button type="button" className="ghost filter-chip music-dislike-btn" aria-pressed={noAutoplay.has(videoId)}
-          aria-label="Dislike: keep this song out of autoplay" title={noAutoplay.has(videoId) ? 'Undo dislike · Allow autoplay' : 'Dislike · Keep out of autoplay'}
-          onClick={() => toggleNoAutoplay(videoId)}><TransportIcon name="dislike" /></button>}
-        {hasLyrics && <Link href="/music?view=player#music-lyrics" shallow={onFullPlayer}
+        {wide && favorite}
+        {wide && blockButton}
+        {showLyrics && (!wide && view === 'player' && onToggleLyrics ? <button type="button"
+          className="ghost filter-chip music-list-btn music-lyrics-link" aria-label="Lyrics"
+          title={lyricsExpanded ? 'Collapse lyrics' : 'Expand lyrics'} aria-pressed={Boolean(lyricsExpanded)}
+          aria-expanded={Boolean(lyricsExpanded)} aria-controls="music-lyrics" onClick={onToggleLyrics}><TransportIcon name="lyrics" /></button>
+          : <Link href="/music?view=player#music-lyrics" shallow={onFullPlayer}
           onClick={event => {
             if (view !== 'player' || panelOpen || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
             const lyrics = document.getElementById('music-lyrics');
             if (lyrics) { event.preventDefault(); lyrics.focus(); lyrics.scrollIntoView({ block: 'center' }); }
           }} prefetch={false}
-          className="ghost filter-chip music-list-btn music-lyrics-link" aria-label="Lyrics" title="Lyrics"><TransportIcon name="lyrics" /></Link>}
+          className="ghost filter-chip music-list-btn music-lyrics-link" aria-label="Lyrics" title="Lyrics"><TransportIcon name="lyrics" /></Link>)}
         {!wide && queueLink}</div>
       <SeekBar className="music-player-bottombar-seek" />
       <div className="music-player-bottombar-controls">
         <div className="music-transport-left music-transport-buttons">
-          {!wide && <PlayerMoreMenu onFullPlayer={onFullPlayer} view={view} />}
+          {!wide && <PlayerMoreMenu />}
         </div>
         <div className="music-transport-playback music-transport-buttons" aria-label="Playback controls">
           {wide && shuffleButton}
           <button type="button" className="music-prev-btn" onClick={prevTrack} aria-label="Previous track"><TransportIcon name="prev" /></button>
           {play}
-          <button type="button" className="music-next-btn" onClick={nextTrack} aria-label="Next track"><TransportIcon name="next" /></button>
+          <button type="button" className="music-next-btn" onClick={nextTrack} aria-label="Next track" title={upcomingTrack ? `Next: ${songTitle(upcomingTrack.title, upcomingTrack.altTitle)}` : 'Next'} data-tip={upcomingTrack ? `Next: ${songTitle(upcomingTrack.title, upcomingTrack.altTitle)}` : 'Next'}><TransportIcon name="next" /></button>
           {wide && repeatButton}
         </div>
         <div className="music-transport-right music-transport-buttons">
           {!wide && <>{shuffleButton}{repeatButton}</>}
           {wide && queueLink}
-          {wide && <TransportIcon name="volume" size={16} />}
-          <input type="range" min={0} max={100} step={1} value={volume} onChange={event => setVolumeLevel(Number(event.target.value))} className="music-volume" aria-label="Volume" />
+          {wide && <VolumeControl volume={volume} onChange={setVolumeLevel} onToggleMute={toggleMute} />}
           {wide && <>
-            <button type="button" className="filter-chip music-stream-safe-btn" onClick={() => setExcludeCopyrighted(!excludeCopyrighted)}
-            aria-pressed={excludeCopyrighted} aria-label="Stream-safe: hide copyrighted songs" title="Stream-safe"><TransportIcon name="streamSafe" /></button>
-            <PlayerMoreMenu onFullPlayer={onFullPlayer} view={view} />
+            {safeButton}
+            <PlayerMoreMenu />
           </>}
         </div>
       </div>
+      {!wide && <div className="music-transport-volume-row">{favorite}{blockButton}<VolumeControl volume={volume} onChange={setVolumeLevel} onToggleMute={toggleMute} />{safeButton}</div>}
     </div>
   );
 }

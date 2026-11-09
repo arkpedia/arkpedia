@@ -1,7 +1,6 @@
 import { readPublishedContentPageProps } from '@/lib/content/release';
 import { previousPage } from '@/lib/nav/pageTrail';
 import { restoreScrollOnReturn } from '@/lib/nav/scrollRestoration';
-import QueuePanel from '@/components/music/QueuePanel';
 import { withContentPage } from '@/lib/content/server';
 import PageMeta from '@/components/layout/PageMeta';
 import { GetStaticProps } from 'next';
@@ -383,6 +382,9 @@ export default function DiscoverPage({ songs: releaseSongs, characters, origins,
     musicFacetMatches(artistFilter, [a.name], ['endfield']) && !visibleArtists.some(shown => artistKey(shown.name) === artistKey(a.name))).length : 0;
   const openAlbum = (albumId: string) => {
     const next: typeof router.query = { ...router.query, facet: `album:${albumId}` };
+    // Keep an immediately expanded grid even before its debounced URL write lands.
+    if (browseCollection) next.browse = browseCollection;
+    else delete next.browse;
     delete next.q;
     delete next.sort;
     delete next.artist;
@@ -700,8 +702,7 @@ export default function DiscoverPage({ songs: releaseSongs, characters, origins,
         {browseFloor.spacer}
         </div>
         </div>
-        <QueuePanel />
-        <MusicTransportBar view="discover" hasLyrics={lyricIds?.includes(playingId) ?? false} compact coverPath={playingId ? coverByVideoId.get(playingId) ?? null : undefined} />
+        <MusicTransportBar view="discover" hasLyrics={lyricIds?.includes(playingId) ?? false} coverPath={playingId ? coverByVideoId.get(playingId) ?? null : undefined} />
       </main>
     </>
   );

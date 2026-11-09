@@ -19,15 +19,31 @@ function wavTone(hz: number) {
 async function monitorSpeaker(page: Page) {
   await page.addInitScript(() => {
     Reflect.deleteProperty(HTMLMediaElement.prototype, 'captureStream');
-    const speakers = new Set<MediaElementAudioSourceNode>();
+    const speakers = new Set<AudioNode>();
+    const inputs = new Map<AudioNode, Set<AudioNode>>();
+    const meters = new WeakMap<AudioNode, AnalyserNode>();
     let maxConnections = 0;
-    const prototype = MediaElementAudioSourceNode.prototype;
+    const prototype = AudioNode.prototype;
     for (const method of ['connect', 'disconnect'] as const) {
       Reflect.set(prototype, method, new Proxy(prototype[method], {
-        apply(original, source: MediaElementAudioSourceNode, args) {
+        apply(original, source: AudioNode, args) {
           const result = Reflect.apply(original, source, args);
+          if (method === 'connect' && args[0] instanceof AudioNode) {
+            if (!inputs.has(args[0])) inputs.set(args[0], new Set());
+            inputs.get(args[0])!.add(source);
+          } else if (method === 'disconnect') {
+            if (!args.length) inputs.forEach(nodes => nodes.delete(source));
+            else if (args[0] instanceof AudioNode) inputs.get(args[0])?.delete(source);
+          }
           if (args[0] === source.context.destination) {
-            if (method === 'connect') speakers.add(source);
+            if (method === 'connect') {
+              speakers.add(source);
+              if (!meters.has(source)) {
+                const meter = source.context.createAnalyser();
+                source.connect(meter);
+                meters.set(source, meter);
+              }
+            }
             else speakers.delete(source);
           }
           if (method === 'disconnect' && !args.length) speakers.delete(source);
@@ -36,11 +52,63 @@ async function monitorSpeaker(page: Page) {
         },
       }));
     }
-    Object.defineProperty(window, 'musicSpeakerState', { get: () => ({
-      maxConnections, count: speakers.size,
-      activeOnly: speakers.size === 1 && Array.from(speakers).every(({ mediaElement }) =>
-        mediaElement === document.querySelector('audio[data-music-audio]') && !mediaElement.muted),
-    }) });
+    const audibleElements = (node: AudioNode): HTMLMediaElement[] => {
+      if (node instanceof GainNode && node.gain.value === 0) return [];
+      if (node instanceof MediaElementAudioSourceNode) return [node.mediaElement];
+      return [...inputs.get(node) ?? []].flatMap(audibleElements);
+    };
+    Object.defineProperty(window, 'musicSpeakerState', { get: () => {
+      const audible = [...speakers].flatMap(audibleElements);
+      return {
+        maxConnections, count: speakers.size,
+        activeOnly: audible.length === 1 && audible[0] === document.querySelector('audio[data-music-audio]') && !audible[0].muted,
+      };
+    } });
+    Object.defineProperty(window, 'musicSpeakerRms', { get: () => {
+      const meter = [...speakers].map(source => meters.get(source))[0];
+      if (!meter) return 0;
+      const samples = new Float32Array(meter.fftSize);
+      meter.getFloatTimeDomainData(samples);
+      return Math.sqrt(samples.reduce((sum, sample) => sum + sample * sample, 0) / samples.length);
+    } });
+  });
+}
+
+for (const first of ['vocal', 'instrumental']) {
+  test(`returning to the initial ${first} recording preserves its output level`, async ({ page }) => {
+    await monitorSpeaker(page);
+    await stubYouTube(page, 'allow', { dataSaver: false });
+    await stubMonsterSiren(page);
+    // Identical files make an output-level change distinguishable from mastering differences.
+    const tone = wavTone(440);
+    await page.route(/\/api\/music-audio\/(779468|048776)(\?|$)/, route => route.fulfill({ contentType: 'audio/wav', body: tone }));
+    await page.goto('/music/discover?q=paper');
+    await page.locator(`[data-song-id="${first === 'vocal' ? '2Qul6EjQmYc' : 'klxYxU_4c-k'}"] .music-song-row-main`).first().click();
+    const bar = page.getByRole('region', { name: 'Player', exact: true });
+    await bar.getByRole('link', { name: /Open Now playing/ }).click();
+    const rms = () => page.evaluate(() => Number(Reflect.get(window, 'musicSpeakerRms')));
+    // Wait for a full analyser window, rather than sampling its initial partial buffer.
+    const expected = 12 / 128 / Math.sqrt(2) * 0.5;
+    await expect.poll(rms).toBeCloseTo(expected, 2);
+    await expect(page.locator('audio[data-music-audio]')).toHaveJSProperty('volume', 1);
+    for (let turn = 0; turn < 6; turn++) {
+      const next = turn % 2 === 0 ? (first === 'vocal' ? 'instrumental' : 'vocal') : first;
+      await test.step(`switch ${turn + 1}: ${next}`, async () => {
+        await page.getByRole('button', { name: `Play ${next} version`, exact: true }).click();
+        await expectOnlyActiveSpeaker(page);
+        await expect.poll(rms).toBeCloseTo(expected, 2);
+      });
+    }
+    // Hiding analysis must not change the sound, even during quick switches.
+    await page.getByRole('button', { name: 'Switch to original waves' }).click();
+    for (let turn = 0; turn < 4; turn++) {
+      const next = turn % 2 === 0 ? (first === 'vocal' ? 'instrumental' : 'vocal') : first;
+      await page.getByRole('button', { name: `Play ${next} version`, exact: true }).click();
+    }
+    await expectOnlyActiveSpeaker(page);
+    await expect.poll(rms).toBeCloseTo(expected, 2);
+    await page.getByRole('button', { name: 'Switch to frequency spectrum' }).click();
+    await expect.poll(rms).toBeCloseTo(expected, 2);
   });
 }
 

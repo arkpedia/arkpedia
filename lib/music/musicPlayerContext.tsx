@@ -205,6 +205,7 @@ interface MusicPlayerContextValue {
   /** The songs kept out of autoplay. */
   noAutoplay: ReadonlySet<string>;
   setVolumeLevel: (v: number) => void;
+  toggleMute: () => void;
   playQueueIndex: (index: number) => void;
   playTrackByVideoId: (videoId: string) => void;
   playFirst: (videoId: string) => void;
@@ -476,6 +477,7 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
   const videoIdRef = useRef('');
   const titleRef = useRef('');
   const volumeRef = useRef(50);
+  const lastAudibleVolumeRef = useRef(50);
   useEffect(() => {
     isPlayingRef.current = isPlaying;
   }, [isPlaying]);
@@ -487,6 +489,7 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
   }, [title]);
   useEffect(() => {
     volumeRef.current = volume;
+    if (volume > 0) lastAudibleVolumeRef.current = volume;
   }, [volume]);
 
   // Loaded once on mount, same pattern as musicVolume (lib/music/songFilter.ts reads them).
@@ -1650,13 +1653,28 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
   }
 
   function setVolumeLevel(v: number) {
+    const muting = v === 0 && volumeRef.current > 0;
+    if (muting) lastAudibleVolumeRef.current = volumeRef.current;
+    else if (v > 0) lastAudibleVolumeRef.current = v;
+    volumeRef.current = v;
     setVolume(v);
     playerRef.current?.setVolume(v);
     try {
       window.localStorage.setItem('musicVolume', String(v));
+      if (muting) window.localStorage.setItem('musicVolumeBeforeMute', String(lastAudibleVolumeRef.current));
     } catch {
       /* ignore */
     }
+  }
+
+  function toggleMute() {
+    if (volumeRef.current > 0) { setVolumeLevel(0); return; }
+    let previous = lastAudibleVolumeRef.current;
+    try {
+      const saved = Number(window.localStorage.getItem('musicVolumeBeforeMute'));
+      if (Number.isFinite(saved) && saved > 0 && saved <= 100) previous = saved;
+    } catch { /* The in-memory volume still restores when storage is unavailable. */ }
+    setVolumeLevel(previous);
   }
 
   function handleSeekChange(v: number) {
@@ -1995,6 +2013,7 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
     playPlaylist: (ids: string[] | null, source?: MusicSource, selectedId?: string) => { claimManualAudio(); return playPlaylist(ids, source, selectedId); },
     playHistory: (position: number) => { claimManualAudio(); playHistory(position); },
     setVolumeLevel: (v: number) => { claimManualAudio(); setVolumeLevel(v); },
+    toggleMute: () => { claimManualAudio(); toggleMute(); },
   });
   const upcomingTrack = useMemo(() => {
     const forward = forwardPosition();

@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { chooseMusicView } from './music-navigation-helpers';
+import { chooseMusicView, waitForMusicOverlays } from './music-navigation-helpers';
 import { playAllSongs, stubYouTube, youtube } from './youtube-stub';
 
 const rows = (page: Page) => page.locator('.music-queue-list .music-queue-row[data-song-id]');
@@ -27,6 +27,7 @@ test('song titles play immediately without inserting or changing the queue', asy
   await page.goto('/music?view=queue');
   await playAllSongs(page);
   await expect(rows(page).nth(2)).toBeVisible();
+  await waitForMusicOverlays(page);
   const before = await order(page);
   const song = before[2];
   await rows(page).nth(2).locator('.music-song-row-main').click();
@@ -37,7 +38,7 @@ test('song titles play immediately without inserting or changing the queue', asy
   const played = await queueOrder(page);
   expect(played.slice(0, before.length - 2)).toEqual(before.slice(2));
   await expect(rows(page).first()).toHaveClass(/\bcurrent\b/);
-  await expect(page.getByRole('heading', { name: 'Now playing', exact: true })).toBeVisible();
+  await expect(page.getByRole('dialog', { name: 'Playback queue' }).getByRole('heading', { name: 'Now playing', exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Play now', exact: true })).toHaveCount(0);
   await expect(page.locator('.music-queue-row.selected')).toHaveCount(0);
   const next = (await order(page))[1];
@@ -76,7 +77,7 @@ test('mobile song actions have anchored playlist and reorder submenus', async ({
   await rows(page).nth(1).getByRole('button', { name: /^More actions for / }).click();
   await page.screenshot({ path: '.cache/song-mobile-actions.png' });
   await page.keyboard.press('Escape');
-  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await expect(page.getByRole('dialog', { name: 'Song actions', exact: true })).toHaveCount(0);
   const removedId = (await order(page))[1];
   await rows(page).nth(1).getByRole('button', { name: /^More actions for / }).click();
   await page.getByRole('dialog', { name: 'Song actions', exact: true }).getByRole('button', { name: 'Remove', exact: true }).click();
@@ -89,6 +90,7 @@ for (const shuffled of [false, true]) {
     await page.goto('/music?view=queue');
   await playAllSongs(page);
     await expect(rows(page).nth(3)).toBeVisible();
+    await waitForMusicOverlays(page);
     // The phone's compact bar opens the full controls in Now playing.
     await chooseMusicView(page, 'Now playing');
     const shuffle = page.locator('.music-player-bottombar').getByRole('button', { name: 'Shuffle', exact: true });
@@ -122,6 +124,7 @@ test('edge scrolling is fast, loads more than one batch, and an outside drop can
   await page.goto('/music?view=queue');
   await playAllSongs(page);
   await expect(rows(page).nth(1)).toBeVisible();
+  await waitForMusicOverlays(page);
   const before = await order(page);
   await page.evaluate(() => document.fonts.ready);
   await expect.poll(async () => (await youtube(page))?.state).toBe(1);
@@ -150,6 +153,7 @@ test('Escape cancels a drag, and keyboard arrows reorder with reduced motion', a
   await page.goto('/music?view=queue');
   await playAllSongs(page);
   await expect(rows(page).nth(2)).toBeVisible();
+  await waitForMusicOverlays(page);
   const before = await order(page);
   await rows(page).nth(2).locator('.music-queue-drag-handle').scrollIntoViewIfNeeded();
   const handle = (await rows(page).nth(2).locator('.music-queue-drag-handle').boundingBox())!;
@@ -173,6 +177,7 @@ for (const native of [false, true]) {
     await page.goto('/music?view=queue');
   await playAllSongs(page);
     await expect(rows(page).nth(1)).toBeVisible();
+    await waitForMusicOverlays(page);
     await page.evaluate(() => document.fonts.ready);
     await expect.poll(async () => (await youtube(page))?.state).toBe(1);
     const list = page.locator('[data-song-list]').first();
@@ -224,6 +229,7 @@ test('native desktop dragging supports a drop and cancels an outside release', a
   await page.goto('/music?view=queue');
   await playAllSongs(page);
   await expect(rows(page).nth(3)).toBeVisible();
+  await waitForMusicOverlays(page);
   const before = await order(page);
   await rows(page).nth(3).locator('.music-song-row-main').dragTo(rows(page).nth(1).locator('.music-song-row-main'));
   await expect.poll(async () => (await order(page))[1]).toBe(before[3]);

@@ -23,8 +23,7 @@ import { filterDiscoveryVideos } from '@/lib/music/youtubeDiscovery';
 import { loadVideoDiscoveryContext } from '@/lib/music/youtubeContextServer';
 import { readLocalVideoArchive } from '@/lib/music/youtubeArchiveServer';
 import type { VideoDiscoveryContext } from '@/lib/music/youtubeRelevance';
-import { getLiveTwitchStreams, TwitchStream } from '@/lib/community/twitch';
-import { TWITCH_CATEGORY, TWITCH_STREAM_LIMIT } from '@/lib/community/twitchConfig';
+import { useLiveTwitchStreams } from '@/lib/community/useLiveTwitchStreams';
 import { EVENTS } from '@/lib/schedule/eventsConfig';
 import { CommunityEvent } from '@/lib/schedule/eventTypes';
 import WorldMapEvents from '@/components/schedule/WorldMapEvents';
@@ -43,24 +42,21 @@ interface Props {
   videos: YouTubeVideo[];
   videoArchive?: YouTubeVideo[];
   videoContext?: VideoDiscoveryContext;
-  twitchStreams: TwitchStream[];
   events: CommunityEvent[];
   /** The request's moment (lib/content/pageClock.ts): the event panels render from it until they mount. */
   now: number;
   hasYouTubeApiKey: boolean;
-  hasTwitchCreds: boolean;
 }
 
 export default function CommunityHub({
   directory = { creators: [], webEvents: [], discord: [] },
   videos,
   videoContext,
-  twitchStreams,
   events,
   now,
   hasYouTubeApiKey,
-  hasTwitchCreds,
 }: Props) {
+  const { streams: twitchStreams, loading: twitchLoading, available: twitchAvailable } = useLiveTwitchStreams();
   const { channels: YOUTUBE_CHANNELS } = useReleaseTable<{ channels: YouTubeChannelConfig[] }>('youtube-creators');
   const [categoryQuery, setCategory] = useQueryState('section', 'offline');
   const category: WorldCategory = WORLD_CATEGORIES.find(option => option.value === categoryQuery)?.value ?? 'offline';
@@ -90,7 +86,7 @@ export default function CommunityHub({
         <SearchInput label="Search videos or creators" placeholder="Video or creator" value={query} onChange={setQuery} />
         <details className="pulls-disclosure"><summary>Content creators</summary><div className="world-directory">{YOUTUBE_CHANNELS.filter(channel => !needle || channel.label.toLocaleLowerCase().includes(needle)).map(channel => <a className="ghost" key={channel.id} href={`https://www.youtube.com/channel/${channel.id}`} target="_blank" rel="noreferrer">{channel.label} ↗</a>)}</div></details>
         <YouTubeVideoGallery videos={videos} query={query} context={videoContext} now={readerNow} />
-      </section> : category === 'twitch' ? <section className="op-section"><div className="live-section-heading-row"><h2>Twitch</h2><Link className="ghost btn-sm" href="/world/twitch">All streams</Link></div><div className="world-gallery">{twitchStreams.map(stream => <TwitchCard key={stream.userLogin} s={stream} />)}</div>{!twitchStreams.length && <p className="hint">No one’s live on Twitch right now.</p>}</section>
+      </section> : category === 'twitch' ? <section className="op-section"><div className="live-section-heading-row"><h2>Twitch</h2><Link className="ghost btn-sm" href="/world/twitch">All streams</Link></div><div className="world-gallery">{twitchStreams.map(stream => <TwitchCard key={stream.userLogin} s={stream} />)}</div>{!twitchStreams.length && <p className="hint" role="status">{twitchLoading ? 'Checking live streams…' : twitchAvailable ? 'No one’s live on Twitch right now.' : 'We can’t check who is live at the moment.'}</p>}</section>
       : <section className="op-section"><h2>{WORLD_CATEGORIES.find(value => value.value === category)?.label}</h2><SearchInput label="Search creators or characters" placeholder="Creator or character" value={query} onChange={setQuery} />
         <div className="world-gallery">{creators.map(creator => <article key={creator.url}><h3><a href={creator.url} target="_blank" rel="noreferrer">{creator.name} ↗</a></h3>{creator.works.filter(work => !needle || `${creator.name} ${work.character}`.toLocaleLowerCase().includes(needle)).map(work => <a key={work.source} href={work.source} target="_blank" rel="noreferrer"><ContentImg src={work.image} alt={work.title} width={480} height={480} /><span>{work.character} · {work.title}</span></a>)}</article>)}</div>
         {!creators.length && <p className="hint">No {needle ? 'matching ' : ''}creators listed yet.</p>}
@@ -123,23 +119,12 @@ async function withLiveFeeds(props: Props, context: GetStaticPropsContext): Prom
   const videos = filterDiscoveryVideos([...enriched, ...archive].filter((v) => !v.isLivestream));
   const videoContext = await loadVideoDiscoveryContext(props.now);
 
-  const twitchClientId = process.env.TWITCH_CLIENT_ID;
-  const twitchClientSecret = process.env.TWITCH_CLIENT_SECRET;
-  const twitchStreams = await getLiveTwitchStreams(
-    TWITCH_CATEGORY,
-    TWITCH_STREAM_LIMIT,
-    twitchClientId,
-    twitchClientSecret
-  );
-
   return {
     ...rest,
     directory,
     videos,
     videoContext,
-    twitchStreams,
     hasYouTubeApiKey: Boolean(youtubeApiKey),
-    hasTwitchCreds: Boolean(twitchClientId && twitchClientSecret),
   };
 }
 
@@ -149,5 +134,5 @@ async function withLiveFeeds(props: Props, context: GetStaticPropsContext): Prom
    stayed as the deploy built them until the next release. The builder reads only the
    compiled-in EVENTS, so it can run at runtime, and finalize fetches the feeds either way. */
 export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>('/community', async () => ({
-  props: { directory: { ...(await import('@/data/world-directory.json')).default as WorldDirectory, webEvents: await publishedWebEvents() }, events: EVENTS, videos: [], videoArchive: readLocalVideoArchive(), twitchStreams: [], hasYouTubeApiKey: false, hasTwitchCreds: false },
+  props: { directory: { ...(await import('@/data/world-directory.json')).default as WorldDirectory, webEvents: await publishedWebEvents() }, events: EVENTS, videos: [], videoArchive: readLocalVideoArchive(), hasYouTubeApiKey: false },
 }), { finalize: withLiveFeeds, revalidate: 1500, bundledWhenUnpublished: true, tables: { 'youtube-creators': async () => (await import('@/data/youtube-creators.json')).default } });

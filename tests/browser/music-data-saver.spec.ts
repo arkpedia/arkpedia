@@ -293,7 +293,8 @@ test('hidden, a next song YouTube would not start waits, shown and paused, once 
   expect((await youtube(page))!.videoId).toBe(second.videoId);
 });
 
-test('the ⋯ menu holds Data saver, and its ⓘ explains it in a note that Escape, a press outside and × close', async ({ page }) => {
+for (const theme of ['dark', 'light']) test(`the ⋯ menu holds Data saver and its ⓘ floats without moving the menu (${theme})`, async ({ page }) => {
+  await page.addInitScript(theme => localStorage.setItem('theme', theme), theme);
   await stubYouTube(page, 'allow', { dataSaver: false });
   await page.goto('/music');
   await chooseMusicView(page, 'Now playing');
@@ -308,6 +309,8 @@ test('the ⋯ menu holds Data saver, and its ⓘ explains it in a note that Esca
   const infoBox = (await info.boundingBox())!;
   expect(Math.min(infoBox.width, infoBox.height), 'the ⓘ is a 24px target at least').toBeGreaterThanOrEqual(24);
 
+  const menuBefore = await menu.boundingBox();
+  const saverBefore = await saver.boundingBox();
   await info.click();
   const note = page.getByRole('dialog', { name: 'About data saver', exact: true });
   await expect(note).toBeVisible();
@@ -316,11 +319,16 @@ test('the ⋯ menu holds Data saver, and its ⓘ explains it in a note that Esca
   await expect(note).toContainText('Data saver plays songs from YouTube instead, where background play may not work properly');
   await expect(note).toContainText('Data saver plays songs from YouTube instead');
   await expect(note.getByRole('button', { name: 'Close about data saver', exact: true })).toBeFocused();
-  // Its text sits inside the menu, all of it in view.
-  const menuBox = (await menu.boundingBox())!;
+  // The floating note stays in view without moving or resizing the menu.
+  expect(await menu.boundingBox()).toEqual(menuBefore);
+  expect(await saver.boundingBox()).toEqual(saverBefore);
   const noteBox = (await note.boundingBox())!;
-  expect(noteBox.x).toBeGreaterThanOrEqual(menuBox.x - 1);
-  expect(noteBox.x + noteBox.width).toBeLessThanOrEqual(menuBox.x + menuBox.width + 1);
+  expect(noteBox.x).toBeGreaterThanOrEqual(0);
+  expect(noteBox.x + noteBox.width).toBeLessThanOrEqual(page.viewportSize()!.width);
+  expect(noteBox.y).toBeGreaterThanOrEqual(0);
+  expect(noteBox.y + noteBox.height).toBeLessThanOrEqual(page.viewportSize()!.height);
+
+  await page.screenshot({ path: test.info().outputPath('music-setting-popup.png'), scale: 'css' });
 
   // Escape closes the note only, and gives focus back to the ⓘ.
   await page.keyboard.press('Escape');
@@ -335,10 +343,11 @@ test('the ⋯ menu holds Data saver, and its ⓘ explains it in a note that Esca
   await expect(note).toHaveCount(0);
   await expect(info).toBeFocused();
 
-  // A press elsewhere (the menu's heading): the note closes, the menu stays.
+  // A press in the parent setting row closes the note and leaves the menu open.
   await info.click();
   await expect(note).toBeVisible();
-  await menu.locator('.music-song-playlist-heading > b').click();
+  const row = (await menu.locator('.music-setting-row').first().boundingBox())!;
+  await page.mouse.click(row.x + row.width - 2, row.y + row.height / 2);
   await expect(note).toHaveCount(0);
   await expect(menu).toBeVisible();
   await expect(saver).not.toBeChecked();

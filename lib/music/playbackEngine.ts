@@ -1,4 +1,4 @@
-import { selectSpectrumOutput } from './spectrumInput';
+import { selectSpectrumOutput, setMusicAudioVolume } from './spectrumInput';
 import { createPairedAudio } from './pairedAudio';
 import { logAudioEvent, musicAudioElement, msrAudioAddress, msrAudioCid, releaseMusicAudioFile, setMusicAudioFile } from './audioElement';
 import { trackSource, type TrackSource } from './trackId';
@@ -334,7 +334,7 @@ export function createMsrAudioEngine(events: MsrEngineEvents, { address = msrAud
     loadedAt = now();
     pendingSeek = at > 0 ? at : null;
     clock = at;
-    el.volume = volume;
+    setMusicAudioVolume(el, volume);
   }
 
   function refused() {
@@ -353,7 +353,7 @@ export function createMsrAudioEngine(events: MsrEngineEvents, { address = msrAud
       // Paused: the file is set, so the next Play starts at once.
       if (!wantPlay) { report(PLAYER_STATE.PAUSED); return; }
     }
-    el.volume = volume;
+    setMusicAudioVolume(el, volume);
     selectSpectrumOutput(el);
     logAudioEvent('play()');
     el.play().then(() => logAudioEvent('play() resolved'), (error: unknown) => {
@@ -517,7 +517,7 @@ export function createMsrAudioEngine(events: MsrEngineEvents, { address = msrAud
     getDuration: () => (loadedCid === cid && Number.isFinite(el.duration) ? el.duration : 0),
     setVolume(next) {
       volume = Math.min(1, Math.max(0, next / 100));
-      el.volume = volume;
+      setMusicAudioVolume(el, volume);
     },
     getVideoData: () => ({ video_id: id, title: '' }),
     stop() {

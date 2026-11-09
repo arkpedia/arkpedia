@@ -1,7 +1,7 @@
-import { releaseSpectrumElement, selectSpectrumOutput } from './spectrumInput';
+import { musicAudioVolume, muteMusicAudio, releaseSpectrumElement, selectSpectrumOutput, setMusicAudioVolume } from './spectrumInput';
 import { createMusicAudioElement, msrAudioAddress, releaseMusicAudioFile, setMusicAudioFile } from './audioElement';
 
-/** A muted copy of the other recording follows the audible element. A warm switch
+/** A silent copy of the other recording follows the audible element. A warm switch
  * changes which element is audible in the same task, without reloading or seeking it. */
 export function createPairedAudio(active: () => HTMLAudioElement, attach: (el: HTMLAudioElement) => void) {
   let standby: HTMLAudioElement | null = null;
@@ -42,10 +42,17 @@ export function createPairedAudio(active: () => HTMLAudioElement, attach: (el: H
       if (!b.paused) b.pause();
     } else if (b.readyState >= 2 && !b.seeking && !blocked) {
       const delta = at - b.currentTime;
-      // Seek for a scrub or a track change. For ordinary decoder drift, bring
-      // the muted clock back smoothly without repeatedly flushing its buffer.
-      if (Math.abs(delta) > 0.35) b.currentTime = at;
-      else b.playbackRate = Math.abs(delta) > 0.012 ? 1 + Math.max(-0.25, Math.min(0.25, delta * 2)) : 1;
+      // WebKit's media-element Web Audio sources do not reliably handle rate
+      // changes: a deck can return quiet or silent after following the other.
+      // Keep its decoder at normal speed and correct the silent standby by seek.
+      // https://bugs.webkit.org/show_bug.cgi?id=240405
+      // Capturing browsers can correct ordinary drift smoothly with playbackRate.
+      const adjustsRate = 'captureStream' in b;
+      if (Math.abs(delta) > (adjustsRate ? 0.35 : followIntervalMs / 1000)) b.currentTime = at;
+      else if (adjustsRate) {
+        const rate = Math.abs(delta) > 0.012 ? 1 + Math.max(-0.25, Math.min(0.25, delta * 2)) : 1;
+        if (b.playbackRate !== rate) b.playbackRate = rate;
+      }
       if (b.paused) {
         void b.play().catch(error => { if (standby === b && error.name !== 'AbortError') blocked = true; });
       }
@@ -76,11 +83,11 @@ export function createPairedAudio(active: () => HTMLAudioElement, attach: (el: H
       // timestamp. Both can still take the prepared element without a new request.
       if (!live) incoming.pause();
       incoming.playbackRate = 1;
-      incoming.volume = previous.volume;
-      previous.muted = true;
+      setMusicAudioVolume(incoming, musicAudioVolume(previous));
+      muteMusicAudio(previous);
       if (!live) previous.pause();
-      // WebKit routes analysed decks through Web Audio. Muting the element alone
-      // can leave its speaker connection alive while it follows the new version.
+      // WebKit's graph owns muting and volume for both decks, independently of
+      // the visualizer. Hand off its sole speaker connection in this same task.
       selectSpectrumOutput(live ? incoming : undefined);
       incoming.muted = false;
       previous.removeAttribute('data-music-audio');

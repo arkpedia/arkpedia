@@ -12,6 +12,7 @@ import endfieldAlbumsData from '@/data/endfield-albums.json';
 import { msrTrackId } from './trackId';
 import { hasMusicClaimRisk } from './claimRisk';
 import type { MusicGame } from './songFilter';
+import { findSongVersion, isInstrumentalVersion } from './songVersions';
 
 export interface RawCredit {
   role: string;
@@ -102,12 +103,12 @@ let cachedMonsterSirenOnly: MonsterSirenSong[] | null = null;
 // lets the instrumental still be used karaoke-style, rather than
 // showing "no lyrics available" for a song that clearly has words,
 // just not sung on this particular take.
-const INSTRUMENTAL_SUFFIX = / \(Instrumental\)$/i;
+const versionedSong = (song: RawSong) => ({ ...song, id: song.songId, title: song.songName, altTitle: song.songAltName, album: song.albumId });
 
 function lyricSource(song: RawSong, albumSongs: RawSong[]): RawSong | undefined {
-  if (!INSTRUMENTAL_SUFFIX.test(song.songName)) return song.lyricFilename ? song : undefined;
-  const vocalTitle = song.songName.replace(INSTRUMENTAL_SUFFIX, '');
-  const vocal = albumSongs.find(sibling => sibling.songName === vocalTitle && sibling.lyricFilename);
+  if (!isInstrumentalVersion(versionedSong(song))) return song.lyricFilename ? song : undefined;
+  const matched = findSongVersion(versionedSong(song), albumSongs.map(versionedSong))?.song;
+  const vocal = matched?.lyricFilename ? matched : undefined;
   return song.lyricFilename && song.lyricFilename !== vocal?.lyricFilename ? song : vocal;
 }
 
@@ -230,7 +231,7 @@ function flattenSongs(albums: readonly RawAlbum[], include: (song: RawSong) => b
         copyright: hasMusicClaimRisk({ copyright: song.copyright === 'yes', credits: song.credits }),
         length: song.length || '',
         lyricFilename,
-        ...(source && INSTRUMENTAL_SUFFIX.test(song.songName) ? { lyricTrackId: source.videoId || msrTrackId(source.songId) } : {}),
+        ...(source && isInstrumentalVersion(versionedSong(song)) ? { lyricTrackId: source.videoId || msrTrackId(source.songId) } : {}),
         hasLyrics: Boolean(lyricFilename),
       });
     }

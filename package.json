@@ -56,6 +56,7 @@
     "check:client-chunks": "node scripts/audits/check-client-chunks.mjs",
     "assets:update": "node scripts/sync/update-asset-revisions.mjs",
     "test:browser": "playwright test",
+    "test:browser:webkit-music": "playwright test --config playwright.webkit-music.config.ts",
     "content:export": "node scripts/content/export.mjs",
     "content:validate": "node scripts/content/validate-release.mjs .cache/content-export",
     "test:content-runtime": "node scripts/content/test-runtime.mjs",

@@ -1,5 +1,18 @@
 import { expect, type Page } from '@playwright/test';
 
+/** Playback can already have exposed the shared player on arrival. */
+export async function expandMusicPlayer(page: Page) {
+  const opener = page.getByRole('button', { name: 'Expand player', exact: true });
+  const player = page.getByRole('region', { name: 'Player', exact: true });
+  await expect.poll(async () => await opener.isVisible() || await player.isVisible()).toBe(true);
+  if (await opener.isVisible()) {
+    try { await opener.click({ timeout: 1000 }); }
+    catch (error) { if (!await player.isVisible()) throw error; }
+  }
+  await expect(player).toBeVisible();
+  return player;
+}
+
 /** Use the same sidebar destinations, through the hamburger dropdown on phones. */
 export async function openMusicMenu(page: Page) {
   const trigger = page.getByRole('button', { name: 'Music menu', exact: true });
@@ -50,4 +63,11 @@ export async function clickMusicControl(page: Page, name: string | RegExp) {
   await expect(control).toBeVisible();
   await control.click();
   if (expand) { await page.goBack(); await page.waitForURL(previous); }
+}
+
+/** Geometry checks and native drag coordinates need the overlay's final position. */
+export async function waitForMusicOverlays(page: Page) {
+  await page.evaluate(() => Promise.all(Array.from(document.querySelectorAll('.music-queue-drawer, .music-player-bottombar[data-minimizable], .music-floating-toggle, .music-player.collapsed'))
+    .flatMap(el => el.getAnimations())
+    .map(animation => animation.finished.catch(() => {}))));
 }

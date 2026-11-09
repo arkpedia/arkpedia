@@ -1,4 +1,4 @@
-import { chooseMusicView, openMusicMenu } from './music-navigation-helpers';
+import { chooseMusicView, expandMusicPlayer, openMusicMenu } from './music-navigation-helpers';
 import { expect, test, type Locator, type Page } from '@playwright/test';
 import { stubMonsterSiren } from './monster-siren-stub';
 import { playAllSongs, stubYouTube, youtube } from './youtube-stub';
@@ -130,10 +130,10 @@ test.describe('lock screen artwork', () => {
     // The corner player on another page has only the catalogue: it shows Monster Siren's cover, from this site.
     await page.evaluate(() => (window as unknown as { next: { router: { push: (url: string) => Promise<boolean> } } }).next.router.push('/operators'));
     await page.waitForURL('**/operators');
-    await page.getByRole('button', { name: 'Expand player' }).click();
-    const widget = page.locator('[data-music-widget]');
-    await expect(widget.locator('.music-widget-cover img')).toHaveAttribute('src', `/api/music-cover/${song.cid}`);
-    await expect(widget.locator('.music-widget-artist')).toHaveText('Monster Siren Records, Test Vocalist');
+    await expandMusicPlayer(page);
+    const widget = page.getByRole('region', { name: 'Player', exact: true });
+    await expect(widget.locator('.music-transport-cover img')).toHaveAttribute('src', `/api/music-cover/${song.cid}`);
+    await expect(widget.locator('.music-transport-song-sub')).toHaveText('Monster Siren Records, Test Vocalist');
     expect(covers.length).toBeGreaterThan(0);
     expect(cdn, 'Monster Siren\'s CDN refuses requests from these pages').toEqual([]);
   });
@@ -239,68 +239,12 @@ test('every song surface favourites in one press: the rows, the bar and the corn
 
   // The corner player on any other page.
   await page.goto('/operators');
-  await page.getByRole('button', { name: 'Expand player' }).click();
-  const widget = page.locator('[data-music-widget]');
+  await expandMusicPlayer(page);
+  const widget = page.getByRole('region', { name: 'Player', exact: true });
   await oneClick(page, widget.getByRole('button', { name: 'Favourite', exact: true }), playing, 'corner player');
 });
 
-test('the corner player at 390px: one row of named controls, nothing wraps or overflows, nothing on the page moves', async ({ page }) => {
-  await page.setViewportSize({ width: 390, height: 844 });
-  await stubYouTube(page);
-  await page.goto('/operators');
-  const height = () => page.evaluate(() => document.documentElement.scrollHeight);
-  // The roster lays out over a moment after load: read the page's length once it has settled.
-  let before = -1;
-  await expect.poll(async () => {
-    const last = before;
-    before = await height();
-    await page.waitForTimeout(300);
-    return before === last && before === await height();
-  }, { message: 'the page settles' }).toBe(true);
-  const opener = page.getByRole('button', { name: 'Expand player' });
-  const openSpot = (await opener.boundingBox())!;
-  await opener.click();
-  const widget = page.locator('[data-music-widget]');
-  const close = widget.getByRole('button', { name: 'Collapse player', exact: true });
-  await expect(close).toBeVisible();
-
-  const controls = widget.locator('.music-controls');
-  const names = await controls.locator('button, a').evaluateAll(els => els.map(el => el.getAttribute('aria-label')));
-  expect(names).toEqual(['Favourite', 'Previous track', expect.stringMatching(/^(Play|Pause|Starting…)$/), 'Next track']);
-  const boxes = await controls.locator('button, a').evaluateAll(els => els.map(el => el.getBoundingClientRect().toJSON() as DOMRect));
-  const centre = boxes[0].y + boxes[0].height / 2;
-  for (const [i, box] of boxes.entries()) {
-    expect(Math.abs(box.y + box.height / 2 - centre), `${names[i]} is on the one row`).toBeLessThanOrEqual(1);
-    expect(Math.min(box.width, box.height), `${names[i]} is a 40px target or more`).toBeGreaterThanOrEqual(40);
-    if (i) expect(box.x, `${names[i]} is right of ${names[i - 1]}`).toBeGreaterThanOrEqual(boxes[i - 1].x + boxes[i - 1].width);
-  }
-  const shell = (await widget.boundingBox())!;
-  expect(shell.x).toBeGreaterThanOrEqual(0);
-  expect(shell.x + shell.width).toBeLessThanOrEqual(390);
-  for (const box of boxes) expect(box.x + box.width, 'inside the card').toBeLessThanOrEqual(shell.x + shell.width);
-  // Queue moved beside the song; the × closes from the same spot used to open.
-  const x = (await close.boundingBox())!;
-  const song = (await widget.locator('.music-widget-song').boundingBox())!;
-  const queue = (await widget.getByRole('link', { name: 'Queue', exact: true }).boundingBox())!;
-  expect(x.x + x.width).toBeLessThanOrEqual(shell.x + shell.width);
-  expect(queue.x).toBeGreaterThanOrEqual(song.x + song.width);
-  expect(queue.y).toBeLessThan(song.y + song.height);
-  expect(openSpot.x + openSpot.width / 2).toBeGreaterThanOrEqual(x.x);
-  expect(openSpot.x + openSpot.width / 2).toBeLessThanOrEqual(x.x + x.width);
-  expect(openSpot.y + openSpot.height / 2).toBeGreaterThanOrEqual(x.y);
-  expect(openSpot.y + openSpot.height / 2).toBeLessThanOrEqual(x.y + x.height);
-  // No horizontal overflow anywhere: the card, its rows, the page.
-  const overflow = await widget.evaluate(el => [el, ...el.querySelectorAll('.music-body, .music-widget-song, .music-seek-row, .music-controls')]
-    .filter(node => node.scrollWidth > node.clientWidth + 1).map(node => node.className));
-  expect(overflow).toEqual([]);
-  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
-  // The title is one line, cut with an ellipsis rather than wrapped or scrolled.
-  expect(await widget.locator('.music-widget-title').evaluate(el => [getComputedStyle(el).whiteSpace, getComputedStyle(el).textOverflow])).toEqual(['nowrap', 'ellipsis']);
-  // Fixed in the corner: opening it does not change the page's length.
-  expect(await height()).toBe(before);
-});
-
-test('the phone bar: the heart beside the song, and More, Previous, Play, Next, Shuffle and Repeat on one row from 360 to 390', async ({ page }) => {
+test('the phone bar: Favourite beside volume, and playback controls on one row from 360 to 390', async ({ page }) => {
   test.skip(test.info().project.name !== 'mobile', 'the phone bar (720px and under, on a touch screen)');
   await stubYouTube(page);
   await page.goto('/music?view=library');
@@ -323,12 +267,11 @@ test('the phone bar: the heart beside the song, and More, Previous, Play, Next, 
     const row = (await bar(page).locator('.music-player-bottombar-controls').boundingBox())!;
     expect(Math.abs(boxes[2].x + boxes[2].width / 2 - (row.x + row.width / 2))).toBeLessThan(2);
     expect(boxes[5].x + boxes[5].width).toBeLessThanOrEqual(width);
-    // The heart and Queue sit beside the song, above the row.
+    // Queue sits beside the song; Favourite starts the volume row below playback.
     const heart = (await bar(page).getByRole('button', { name: 'Favourite', exact: true }).boundingBox())!;
     const queue = (await bar(page).getByRole('link', { name: 'Queue', exact: true }).boundingBox())!;
-    expect(heart.y + heart.height).toBeLessThanOrEqual(boxes[0].y);
-    expect(Math.abs(heart.y - queue.y)).toBeLessThanOrEqual(1);
-    expect(queue.x).toBeGreaterThanOrEqual(heart.x + heart.width);
+    expect(heart.y).toBeGreaterThanOrEqual(boxes[0].y + boxes[0].height);
+    expect(queue.y + queue.height).toBeLessThanOrEqual(boxes[0].y);
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
   }
 });
