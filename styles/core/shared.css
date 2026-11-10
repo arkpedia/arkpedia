@@ -24,6 +24,16 @@
 @font-face { font-family: 'Inter Fallback'; src: local('Arial'), local('Helvetica Neue'), local('Liberation Sans'); size-adjust: 108.32%; ascent-override: 89.44%; descent-override: 22.27%; line-gap-override: 0%; }
 @font-face { font-family: 'JetBrains Mono Fallback'; src: local('Courier New'), local('Liberation Mono'); size-adjust: 99.98%; ascent-override: 102.02%; descent-override: 30.01%; line-gap-override: 0%; }
 
+/* Dropdown triggers on a fixed dark artwork scrim keep readable inks in either theme.
+   Portalled menus retain the page theme and their own opaque surface. */
+.scrim-control {
+  --panel-2: transparent;
+  --text: var(--scrim-ink);
+  --teal: var(--scrim-teal);
+  --teal-dim: var(--scrim-teal-dim);
+  --control-border: var(--scrim-control-border);
+}
+
 :root {
   /* Tells the browser this is a dark page, so scrollbars, form controls, and
      other UA chrome render dark instead of glaring white. Flipped in the

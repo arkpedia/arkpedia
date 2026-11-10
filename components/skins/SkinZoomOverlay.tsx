@@ -154,6 +154,7 @@ export default function SkinZoomOverlay({ image, name, dynamic: original, altern
   const [request, setRequest] = useState<{ name: string; id: number } | null>(null);
   // The view opens on a click, never on the server, so the stored choice can be read at once.
   const [sound, setSound] = useState(readSound);
+  const [voiceLanguage, setVoiceLanguage] = useState('cn');
   function toggleSound() {
     setSound((on) => { writeSound(!on); return !on; });
   }
@@ -213,7 +214,7 @@ export default function SkinZoomOverlay({ image, name, dynamic: original, altern
           />
           {animated && (
             <DynamicArtwork key={model} model={model} poster={getSkinArtworkOriginal(image)} label={name} transform={transform} scale={scale} request={request}
-              sound={sound} voiceOperator={voiceOperator} onStatus={onStatus} onPlaying={setPlaying} />
+              sound={sound} voiceOperator={voiceOperator} voiceLanguage={voiceLanguage} onStatus={onStatus} onPlaying={setPlaying} />
           )}
         </div>
       </div>
@@ -223,7 +224,7 @@ export default function SkinZoomOverlay({ image, name, dynamic: original, altern
       {model !== null && (
         <div className="skin-zoom-animations" aria-live="polite">
           {ready && status?.kind === 'ready' ? (<>
-            {status.animations.length > 6 ? <StyledSelect label="Animation" value={playing ?? ''}
+            {status.animations.length > 6 ? <StyledSelect className="scrim-control" label="Animation" value={playing ?? ''}
               options={animationButtons(status.animations, status.labels).map(button => ({value:button.name,label:button.label}))}
               onChange={name => setRequest(last => ({name,id:(last?.id ?? 0) + 1}))} /> : <div role="group" aria-label="Animation" className="seg-control">
               {animationButtons(status.animations, status.labels).map((button) => (
@@ -233,6 +234,9 @@ export default function SkinZoomOverlay({ image, name, dynamic: original, altern
                 </button>
               ))}
             </div>}
+            {status.voiceLanguages.length > 0 && <StyledSelect className="scrim-control" label="Voice language" value={status.voiceLanguage ?? ''}
+              options={status.voiceLanguages} onChange={setVoiceLanguage}
+              renderValue={option => <>Voice: {option.label}</>} />}
             {/* Soundtracks and authored voice actions share the sound preference. */}
             {status.sound && (
               <button type="button" className="filter-chip" aria-pressed={sound} onClick={toggleSound}>
