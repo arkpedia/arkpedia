@@ -7,6 +7,21 @@
 Stories, Vignettes, Operator Records, Modules, Integrated Strategies, Reclamation
 Algorithm, and Side Content. Official Manga remains a separate category.
 
+The canvas sizes each element directly at the displayed scale, without CSS zoom or
+a transform on the full source board. Shapes, arrows and labels use local SVG
+viewBoxes in source coordinates; artwork retains the shared lazy-loading image
+component. Native SVG glyphs keep label sizes coupled to the artwork on mobile.
+Added manga captions wrap using the same conservative character width as their
+reserved geometry. Zoom anchors, panning and chapter links retain source coordinates.
+Browser QA includes iPhone WebKit as well as Chromium; desktop emulation does not
+establish physical-device memory limits or reproduce every iOS rendering behavior.
+The map viewport permits native one-finger panning and handles two-finger zoom with
+non-passive touch listeners. The starting board point stays under the moving pinch
+midpoint, with the same Fit and maximum limits as the buttons. Gesture suppression
+is scoped to the map; browser page zoom remains available elsewhere. Touch samples
+are coalesced to one display-frame update; geometry and anchored scroll commit
+together so no frame shows a new scroll position against the previous map size.
+
 `scripts/imports/import-story-chapters.mjs` fetches the reader's English
 `json/catalog.en.json` during the existing daily content refresh. The pure
 `scripts/lib/timo-library.mjs` transformation reads game review entry types and

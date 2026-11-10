@@ -34,6 +34,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    at: '2026-11-10T08:03:35Z',
+    changed: [
+      { title: 'Clearer story reading progress', detail: 'Read, Unread and percentage labels use green, red and amber while story cards keep their quiet borders.', href: '/story' },
+      { title: 'Pinch to zoom the story map', detail: 'Two-finger gestures zoom the map, with normal page zoom available outside it.', href: '/story' },
+    ],
+    fixed: [{ title: 'Story map rendering on phones', detail: 'The map scales its text and artwork together without a full-size transformed board.', href: '/story' }],
+  },
+  {
     at: '2026-11-09T16:36:19Z',
     fixed: [
       { title: 'Enemy tabs keep their place', detail: 'Switching between Resistances and Stages preserves the detail panel’s scroll position.', href: '/enemies' },

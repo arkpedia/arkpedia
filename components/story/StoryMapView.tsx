@@ -1,4 +1,5 @@
 import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
+import { flushSync } from 'react-dom';
 import { ContentImg } from '@/components/content/ContentImage';
 import { lineDrawing, withManga, type StoryElement, type StoryMap, type StoryText } from '@/lib/story/storyMap';
 import dynamic from 'next/dynamic';
@@ -22,15 +23,40 @@ const ink = (color: string | null) => (!color ? 'none' : color.toLowerCase() ===
 const MAX_SCALE = 1;
 const STEP = 1.5;
 
-function textStyle(text: StoryText) {
-  return {
-    fontSize: `${text.size}px`,
-    color: ink(text.color),
-    textAlign: text.align,
-    fontWeight: text.bold ? 700 : 500,
-    fontStyle: text.italic ? 'italic' : undefined,
-    textDecoration: text.underline ? 'underline' : undefined,
-  } as const;
+/** Only the added manga captions wrap; original board labels keep their authored breaks.
+ * Use the same conservative character width as withManga's caption reservation. */
+function textLines(text: StoryText, width: number): string[] {
+  if (!text.wrap) return text.text.split('\n');
+  const limit = Math.max(1, Math.floor(width / (text.size * 0.62)));
+  return text.text.split('\n').flatMap(paragraph => {
+    const lines = [''];
+    for (const word of paragraph.split(/\s+/)) {
+      const chunks = word.match(new RegExp(`.{1,${limit}}`, 'gu')) ?? [''];
+      for (const chunk of chunks) {
+        const last = lines.length - 1;
+        if (lines[last] && lines[last].length + chunk.length + 1 > limit) lines.push(chunk);
+        else lines[last] += `${lines[last] ? ' ' : ''}${chunk}`;
+      }
+    }
+    return lines;
+  });
+}
+
+/** Native SVG glyphs share the artwork's coordinate system. HTML font inflation and
+ * minimum readable font sizes must not resize labels independently of the diagram. */
+function MapText({ element, scale, centered = false }: { element: StoryText & { x: number; y: number; width: number; height: number }; scale: number; centered?: boolean }) {
+  const { x, y, width, height, size, align } = element;
+  const lines = textLines(element, width);
+  const at = centered || align === 'center' ? width / 2 : align === 'right' ? width : 0;
+  const top = centered ? (height - lines.length * size * 1.25) / 2 : 0;
+  return <svg className={centered ? 'story-map-label' : 'story-map-text'} role="img" aria-label={element.text}
+    style={{ left: x * scale, top: y * scale, width: width * scale, height: height * scale }} viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none">
+    <text x={at} y={top + size} textAnchor={centered || align === 'center' ? 'middle' : align === 'right' ? 'end' : 'start'}
+      fontSize={size} fontWeight={element.bold ? 700 : 500} fontStyle={element.italic ? 'italic' : undefined}
+      textDecoration={element.underline ? 'underline' : undefined} fill={ink(element.color)} xmlSpace="preserve">
+      {lines.map((line, index) => <tspan key={index} x={at} dy={index ? size * 1.25 : 0}>{line || '\u00a0'}</tspan>)}
+    </text>
+  </svg>;
 }
 
 /* Every element is its own positioned box, drawn in the board's order, so what the author put on
@@ -39,11 +65,11 @@ function textStyle(text: StoryText) {
 
 /* A frame or a tag is a rectangle, outlined inside its box as the board draws it; a heart or a
    star is the board's own 64-unit path stretched over its box. */
-function Shape({ element }: { element: Extract<StoryElement, { type: 'shape' }> }) {
+function Shape({ element, scale }: { element: Extract<StoryElement, { type: 'shape' }>; scale: number }) {
   const { x, y, width: w, height: h } = element;
   const stroke = element.stroke ? element.strokeWidth : 0;
   return (
-    <svg className="story-map-shape" style={{ left: x, top: y, width: w, height: h }} viewBox={`0 0 ${w} ${h}`} aria-hidden="true">
+    <svg className="story-map-shape" style={{ left: x * scale, top: y * scale, width: w * scale, height: h * scale }} viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" aria-hidden="true">
       {element.path === RECT
         ? <rect x={stroke / 2} y={stroke / 2} width={Math.max(0, w - stroke)} height={Math.max(0, h - stroke)}
             rx={Math.min(element.radius, h / 2, w / 2)} fill={ink(element.fill)} stroke={ink(element.stroke)} strokeWidth={stroke} />
@@ -55,12 +81,12 @@ function Shape({ element }: { element: Extract<StoryElement, { type: 'shape' }> 
 
 /** A connector, in a box around everything it draws padded by its width so nothing is cut: its
  *  shaft, and at an end with a head (lineDrawing) the board's triangle, in the line's colour. */
-export function Line({ element }: { element: Extract<StoryElement, { type: 'line' }> }) {
+export function Line({ element, scale = 1 }: { element: Extract<StoryElement, { type: 'line' }>; scale?: number }) {
   const { shaft, heads, box } = lineDrawing(element);
   const { x: left, y: top, width, height } = box;
   const color = ink(element.color);
   return (
-    <svg className="story-map-shape story-map-line" style={{ left, top, width, height }} viewBox={`0 0 ${width} ${height}`} aria-hidden="true">
+    <svg className="story-map-shape story-map-line" style={{ left: left * scale, top: top * scale, width: width * scale, height: height * scale }} viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" aria-hidden="true">
       {shaft && <line x1={shaft.x1 - left} y1={shaft.y1 - top} x2={shaft.x2 - left} y2={shaft.y2 - top} stroke={color}
         strokeWidth={element.width} strokeDasharray={element.dash ? element.dash.map((n) => n * element.width).join(' ') : undefined} />}
       {heads.map((points, index) => (
@@ -94,16 +120,17 @@ function storyLinkProps(link: { url: string | null; story?: string }, chapters: 
   return { href: link.url ?? undefined, target: '_blank', rel: 'noopener noreferrer' };
 }
 
-function Picture({ element, chapters }: { element: Extract<StoryElement, { type: 'picture' }>; chapters: ChapterOpener }) {
+function Picture({ element, chapters, scale }: { element: Extract<StoryElement, { type: 'picture' }>; chapters: ChapterOpener; scale: number }) {
   const title = element.link?.title ?? 'A story on the map';
-  const style = { left: element.x, top: element.y, width: element.width, height: element.height };
+  const style = { left: element.x * scale, top: element.y * scale, width: element.width * scale, height: element.height * scale,
+    outlineWidth: 12 * scale, outlineOffset: 6 * scale };
   const art = element.image
     ? <ContentImg src={`/${element.image}`} alt="" draggable={false} />
-    : <span className="story-map-missing">{title}</span>;
+    : <MapText element={{ x: 0, y: 0, width: element.width, height: element.height, text: title, size: 52, color: '#000000', align: 'center', bold: false, italic: false, underline: false, wrap: true }} scale={scale} centered />;
   if (!element.link?.url) return <span className="story-map-picture is-plain" style={style} title={title} role="img" aria-label={title}>{art}</span>;
   const inPopup = !!element.link.story && chapters.has(element.link.story);
   const read = chapters.isRead?.(element.link.story);
-  return <a className={`story-map-picture${read ? ' is-read' : ''}`} style={style} {...storyLinkProps(element.link, chapters)} title={title} aria-label={`${inPopup ? `${title}: its chapters` : `${title} (opens in a new tab)`}${read ? ', read' : ''}`} draggable={false}>{art}{read && <svg className="story-map-read-mark" width="72" height="72" viewBox="0 0 72 72" fill="none" stroke="currentColor" strokeWidth="8" aria-hidden="true"><path d="M16 38 29 51 56 20" /></svg>}</a>;
+  return <a className={`story-map-picture${read ? ' is-read' : ''}`} style={style} {...storyLinkProps(element.link, chapters)} title={title} aria-label={`${inPopup ? `${title}: its chapters` : `${title} (opens in a new tab)`}${read ? ', read' : ''}`} draggable={false}>{art}{read && <svg className="story-map-read-mark" style={{ top: 16 * scale }} width={72 * scale} height={72 * scale} viewBox="0 0 72 72" fill="none" stroke="currentColor" strokeWidth="8" aria-hidden="true"><path d="M16 38 29 51 56 20" /></svg>}</a>;
 }
 
 export default function StoryMapView({ map, chapters, library, view = 'map' }: { map: StoryMap; chapters: ChapterOpener; library: StoryLibraryEntry[]; view?: 'map' | 'list' }) {
@@ -114,6 +141,8 @@ export default function StoryMapView({ map, chapters, library, view = 'map' }: {
   const [fit, setFit] = useState(0.15);
   const [scale, setScale] = useState<number | null>(null);
   const shown = scale === null ? fit : Math.max(fit, Math.min(MAX_SCALE, scale));
+  const live = useRef({ fit, shown });
+  live.current = { fit, shown };
   // Where to keep in view across a zoom: a board point and where it sits in the viewport.
   const anchor = useRef<{ bx: number; by: number; vx: number; vy: number } | null>(null);
 
@@ -165,10 +194,96 @@ export default function StoryMapView({ map, chapters, library, view = 'map' }: {
     return () => element.removeEventListener('wheel', onWheel);
   }, [view, shown, zoomTo]);
 
+  // Keep native one-finger scrolling, but own two-finger zoom inside this viewport.
+  // These listeners stay registered during a pinch; rebuilding them on every scale
+  // change would discard the gesture's starting distance and board anchor.
+  const touchMoved = useRef(false);
+  useEffect(() => {
+    const element = viewport.current;
+    if (!element || view !== 'map') return;
+    let pinch: { distance: number; scale: number; bx: number; by: number } | null = null;
+    let first: { x: number; y: number } | null = null;
+    let frame = 0;
+    let pending: { scale: number; bx: number; by: number; vx: number; vy: number } | null = null;
+    const paint = () => {
+      cancelAnimationFrame(frame);
+      frame = 0;
+      const point = pending;
+      pending = null;
+      if (!point) return;
+      if (point.scale === live.current.shown) {
+        element.scrollLeft = point.bx * point.scale - point.vx;
+        element.scrollTop = point.by * point.scale - point.vy;
+      } else {
+        // Size and scroll must reach the screen together. Scrolling the old-sized
+        // board first produces a visible jump (and may clamp against its old edge).
+        anchor.current = point;
+        flushSync(() => setScale(point.scale));
+      }
+    };
+    const metrics = (event: TouchEvent) => {
+      const [a, b] = [event.touches[0], event.touches[1]];
+      const rect = element.getBoundingClientRect();
+      return { distance: Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY),
+        vx: (a.clientX + b.clientX) / 2 - rect.left - element.clientLeft,
+        vy: (a.clientY + b.clientY) / 2 - rect.top - element.clientTop };
+    };
+    const beginPinch = (event: TouchEvent) => {
+      const { distance, vx, vy } = metrics(event);
+      const scale = live.current.shown;
+      pinch = { distance: Math.max(1, distance), scale,
+        bx: (element.scrollLeft + vx) / scale, by: (element.scrollTop + vy) / scale };
+      touchMoved.current = true;
+      first = null;
+    };
+    const start = (event: TouchEvent) => {
+      if (event.touches.length >= 2) { event.preventDefault(); beginPinch(event); }
+      else if (event.touches.length) {
+        touchMoved.current = false;
+        first = { x: event.touches[0].clientX, y: event.touches[0].clientY };
+      }
+    };
+    const move = (event: TouchEvent) => {
+      if (event.touches.length < 2) {
+        if (first && event.touches.length && Math.hypot(event.touches[0].clientX - first.x, event.touches[0].clientY - first.y) >= 5) touchMoved.current = true;
+        return;
+      }
+      event.preventDefault();
+      if (!pinch) { beginPinch(event); return; }
+      const { distance, vx, vy } = metrics(event);
+      const next = Math.min(MAX_SCALE, Math.max(live.current.fit, pinch.scale * distance / pinch.distance));
+      // Coalesce high-frequency touch samples; only the latest size and midpoint
+      // are painted, once per display frame, with no intermediate scroll position.
+      pending = { scale: next, bx: pinch.bx, by: pinch.by, vx, vy };
+      if (!frame) frame = requestAnimationFrame(paint);
+    };
+    const end = (event: TouchEvent) => {
+      paint();
+      pinch = null;
+      if (event.touches.length >= 2) beginPinch(event);
+      else first = event.touches.length ? { x: event.touches[0].clientX, y: event.touches[0].clientY } : null;
+    };
+    const cancel = () => { paint(); pinch = null; first = null; };
+    element.addEventListener('touchstart', start, { passive: false });
+    element.addEventListener('touchmove', move, { passive: false });
+    element.addEventListener('touchend', end);
+    element.addEventListener('touchcancel', cancel);
+    window.addEventListener('blur', cancel);
+    return () => {
+      cancelAnimationFrame(frame);
+      element.removeEventListener('touchstart', start);
+      element.removeEventListener('touchmove', move);
+      element.removeEventListener('touchend', end);
+      element.removeEventListener('touchcancel', cancel);
+      window.removeEventListener('blur', cancel);
+    };
+  }, [view]);
+
   /* Drag to move, with a mouse (touch already pans the box). A drag that moved is not a click,
      so letting go over a picture does not open it. */
   const drag = useRef<{ x: number; y: number; left: number; top: number; moved: boolean } | null>(null);
   const onPointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (event.pointerType !== 'touch') touchMoved.current = false;
     if (event.pointerType !== 'mouse' || event.button !== 0 || !viewport.current) return;
     drag.current = { x: event.clientX, y: event.clientY, left: viewport.current.scrollLeft, top: viewport.current.scrollTop, moved: false };
   };
@@ -251,24 +366,26 @@ export default function StoryMapView({ map, chapters, library, view = 'map' }: {
       {view === 'map' ? (
         <div ref={viewport} className="story-map-viewport" style={full ? undefined : { aspectRatio: `${bounds.width} / ${bounds.height}` }} onPointerDown={onPointerDown} onPointerMove={onPointerMove}
           onPointerUp={endDrag} onPointerCancel={endDrag} onPointerLeave={endDrag}
-          onClickCapture={(event) => { if (drag.current?.moved) { event.preventDefault(); event.stopPropagation(); } }}>
+          onClickCapture={(event) => { if (drag.current?.moved || (touchMoved.current && event.detail !== 0)) { event.preventDefault(); event.stopPropagation(); } }}>
           <div className="story-map-sizer" style={{ width: bounds.width * shown, height: bounds.height * shown }}>
-            <div className="story-map-board" style={{ width: bounds.width, height: bounds.height, transform: `scale(${shown})` }}>
+            {/* Paint each element at its displayed size, with no large transformed
+                surface and no CSS zoom that can scale HTML text differently on iOS. */}
+            <div className="story-map-board" style={{ width: bounds.width * shown, height: bounds.height * shown }}>
               {board.elements.map((element, index) => {
                 if (element.type === 'line') {
-                  return <Line key={index} element={{ ...element, x1: element.x1 - bounds.x, y1: element.y1 - bounds.y, x2: element.x2 - bounds.x, y2: element.y2 - bounds.y }} />;
+                  return <Line key={index} scale={shown} element={{ ...element, x1: element.x1 - bounds.x, y1: element.y1 - bounds.y, x2: element.x2 - bounds.x, y2: element.y2 - bounds.y }} />;
                 }
                 const at = { left: element.x - bounds.x, top: element.y - bounds.y };
                 if (element.type === 'text') {
-                  return <div key={index} className={`story-map-text${element.wrap ? ' is-wrapped' : ''}`} style={{ ...at, width: element.width, ...textStyle(element) }}>{element.text}</div>;
+                  return <MapText key={index} element={{ ...element, x: at.left, y: at.top }} scale={shown} />;
                 }
                 if (element.type === 'shape') {
                   const shape = { ...element, x: at.left, y: at.top };
                   return element.label
-                    ? <Fragment key={index}><Shape element={shape} /><div className="story-map-label" style={{ ...at, width: element.width, height: element.height, ...textStyle(element.label) }}>{element.label.text}</div></Fragment>
-                    : <Shape key={index} element={shape} />;
+                    ? <Fragment key={index}><Shape element={shape} scale={shown} /><MapText element={{ ...shape, ...element.label }} scale={shown} centered /></Fragment>
+                    : <Shape key={index} element={shape} scale={shown} />;
                 }
-                return <Picture key={index} element={{ ...element, x: at.left, y: at.top }} chapters={chapters} />;
+                return <Picture key={index} element={{ ...element, x: at.left, y: at.top }} chapters={chapters} scale={shown} />;
               })}
             </div>
           </div>

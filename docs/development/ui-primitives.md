@@ -34,6 +34,10 @@ use a quiet `--line-soft` resting edge, `.rarity-frame` portraits, and the Selec
 Tickets portrait-corner badge and full-width action-link treatments. Keep priority
 out of the operator name. This exception is recorded in the design system.
 
+Story library status labels use green (`--cat-green`) for Read, red (`--cat-red`)
+for Unread, and amber (`--amber`) for partial progress. Card borders stay transparent
+at rest and use the shared teal edge on hover/focus.
+
 | What | Where |
 |---|---|
 | Every token (colour, radius, frame, fonts) | `styles/core/shared.css`. Dark values are in `:root` and light values in `:root[data-theme="light"]`. Tokens are never defined anywhere else. |

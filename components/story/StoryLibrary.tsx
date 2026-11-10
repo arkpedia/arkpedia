@@ -51,7 +51,9 @@ function StoryResults({ groups: source, count, images, chapters }: {
             const popup = entry.category !== 'manga' && chapters.has(entry.id);
             const image = entry.image ?? (images.get(entry.id) ? `/${images.get(entry.id)}` : undefined);
             const read = popup && chapters.isRead?.(entry.id);
+            const progress = popup ? chapters.progressLabel?.(entry.id) : undefined;
             return <li key={entry.id}><a className={`story-list-card${entry.category === 'manga' ? ' is-manga' : ''}${read ? ' is-read' : ''}${entry.imageKind === 'portrait' ? ' has-portrait' : ''}`}
+              data-read-state={progress === 'Read' ? 'read' : progress === 'Unread' ? 'unread' : progress ? 'partial' : undefined}
               href={popup ? `/story?chapter=${encodeURIComponent(entry.id)}` : entry.url}
               target={popup ? undefined : '_blank'} rel={popup ? undefined : 'noopener noreferrer'}
               onClick={event => {
@@ -60,7 +62,7 @@ function StoryResults({ groups: source, count, images, chapters }: {
               }}>
               {image && <ContentImg src={image} alt="" width={44} height={54} />}
               <span className="story-list-title">{entry.title}{!popup && <span aria-label="opens in a new tab">↗</span>}</span>
-              {popup && <span className="story-list-progress">{chapters.progressLabel?.(entry.id)}</span>}
+              {popup && <span className="story-list-progress">{progress}</span>}
             </a></li>;
           })}
         </ul>
