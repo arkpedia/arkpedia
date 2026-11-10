@@ -19,8 +19,9 @@ function load(url: string): Promise<SiteSearchEntry[]> {
 
 /**
  * The site search's rows (lib/search/siteSearch.ts), fetched from the page's content
- * release the first time `enabled` is true -- the nav passes whether its box has been
- * opened, so a page that never searches never downloads the index.
+ * release when enabled and open -- the nav passes whether its box has been opened, so a
+ * page that never searches never downloads the index. Reopening retries a failed load;
+ * a successful load is shared for the rest of the visit.
  *
  * The YouTube and Twitch rows (/api/search-feeds) are fetched again each time `open` turns
  * true, since who is live changes while a visit lasts; the route's own cache headers keep
@@ -33,9 +34,11 @@ export function useSiteSearch(enabled: boolean, open: boolean): { entries: SiteS
   const url = contentUrl(SITE_SEARCH_PATH);
   const [state, setState] = useState<{ url: string; entries: SiteSearchEntry[]; failed: boolean } | null>(null);
 
+  // A failure changes state, but only opening again should retry it.
   useEffect(() => {
-    if (!enabled || state?.url === url) return;
+    if (!enabled || !open) return;
     let live = true;
+    setState(previous => previous?.url === url && !previous.failed ? previous : null);
     load(url)
       .then((entries) => { if (live) setState({ url, entries, failed: false }); })
       .catch((error) => {
@@ -43,7 +46,7 @@ export function useSiteSearch(enabled: boolean, open: boolean): { entries: SiteS
         if (live) setState({ url, entries: [], failed: true });
       });
     return () => { live = false; };
-  }, [enabled, url, state?.url]);
+  }, [enabled, open, url]);
 
   const [feeds, setFeeds] = useState<SiteSearchEntry[]>([]);
   useEffect(() => {
