@@ -3,7 +3,7 @@ import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { ImportError, readAccount, readNetwork, readPulls, sendCode, SERVERS, signIn, type ImportStep, type Network, type ServerId, type YostarAccount, type ReplaySession } from '@/lib/account-import/yostar';
 import { isResettingBrowserData } from '@/lib/account/resetData';
 import type { PullRead } from '@/lib/account/pulls';
-import { directTransport, networkTransport, relayTransport } from '@/lib/account-import/relay';
+import { directTransport, networkTransport, relayTransport, retainRelaySession } from '@/lib/account-import/relay';
 import { forgetLogin, maskEmail, readSavedLogin, saveLogin, SAVED_LOGIN_KEY, type SavedLogin } from '@/lib/account-import/savedLogin';
 import ReplaySync from './ReplaySync';
 import { useReplayDownloads } from '@/lib/replays/DownloadProvider';
@@ -128,6 +128,7 @@ export default function GameSignIn({ server, onAccount, idPrefix = 'import' }: {
     setCodeSent(false);
     setRetryingCode(false);
     setStep('send-code');
+    const releaseRelay = retainRelaySession();
     try {
       // Emailing a code needs only Yostar, including when no sign-in is saved.
       if (savedForServer) deviceId.current = savedForServer.deviceId;
@@ -140,6 +141,7 @@ export default function GameSignIn({ server, onAccount, idPrefix = 'import' }: {
     } catch (error) {
       setFailed({ step: error instanceof ImportError ? error.step : 'send-code', message: describe(error) });
     } finally {
+      releaseRelay();
       finishCodeRequest();
       setRetryingCode(false);
       setBusy(false);
@@ -195,6 +197,7 @@ export default function GameSignIn({ server, onAccount, idPrefix = 'import' }: {
     setPullsFailed(null);
     setDone(false);
     setStep('sign-in');
+    const releaseRelay = retainRelaySession();
     try {
       await connect();
       const yostar = await signIn(flow(), email.trim(), code.trim());
@@ -215,6 +218,7 @@ export default function GameSignIn({ server, onAccount, idPrefix = 'import' }: {
     } catch (error) {
       setFailed({ step: error instanceof ImportError ? error.step : 'account', message: describe(error) });
     } finally {
+      releaseRelay();
       setBusy(false);
     }
   }
@@ -228,6 +232,7 @@ export default function GameSignIn({ server, onAccount, idPrefix = 'import' }: {
     setDone(false);
     setStep('game-token');
     deviceId.current = savedForServer.deviceId;
+    const releaseRelay = retainRelaySession();
     try {
       await read(savedForServer, savedForServer.deviceId, savedForServer.email, savedForServer.server);
     } catch (error) {
@@ -236,6 +241,7 @@ export default function GameSignIn({ server, onAccount, idPrefix = 'import' }: {
       // Keep it through network, version, provider and account-read failures.
       setFailed({ step: at, message: `${describe(error)} Your saved sign-in has been kept. Try Import again, or request a new code to replace it.` });
     } finally {
+      releaseRelay();
       setBusy(false);
     }
   }

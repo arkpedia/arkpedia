@@ -72,6 +72,23 @@ WebSocket openings, not encrypted email-code requests inside a tunnel.
 
 ## Regression coverage
 
+Relay connections belong to active work, rather than the lifetime of an open tab.
+Completing or cancelling the last import/download releases its HTTP session and
+shared Wisp WebSocket after any in-flight response body finishes. Waiting for an
+email code holds no connection; verification reconnects using the existing flow's
+credentials. During an active download, an unused pool expires after 15 seconds
+(for example while waiting for cloud work or admission). Short gaps reuse the pool;
+retaining a flow alone never opens it. An unowned hidden tab also releases its idle
+pool without depending on a throttled timer. Cleanup never retries an authenticated
+request or replaces its result. The WASM module stays loaded for later imports.
+
+libcurl.js 0.7.4 defers HTTP-session cleanup by one millisecond and otherwise leaves
+the shared physical WebSocket open. Teardown waits for that cleanup, protects any
+remaining streams, and waits for the old WebSocket close event before reconnecting:
+the library's old close handler can otherwise erase the new connection's registry
+entry. `test-relay-session.ts` exercises the pinned library's actual Wisp lifecycle
+and deferred cleanup alongside overlapping flows, pending bodies and failures.
+
 `test-account-import.ts`, `test-import-public-network.ts` and the desktop/mobile
 `account-import.spec.ts` cover protocol routing, cache coalescing/expiry and failures,
 server isolation, invalid API input, existing-code recovery and no automatic resend.

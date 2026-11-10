@@ -323,6 +323,7 @@ test('the relay uses a bounded session instead of retaining more connections tha
   const limits: number[][] = [];
   class Session {
     set_connections(...values: number[]) { limits.push(values); }
+    close() {}
     async fetch(_url: string, _request: unknown) { return new Response('{}'); }
   }
   const session = createRelaySession({ HTTPSession: Session });

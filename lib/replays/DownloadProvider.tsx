@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 import { useCloudSync } from '@/lib/cloud-account/SyncProvider';
 import { ReplayRequestError, type ReplaySession, type ServerId } from '@/lib/account-import/yostar';
+import { retainRelaySession } from '@/lib/account-import/relay';
 import { isResettingBrowserData } from '@/lib/account/resetData';
 import { namespaceFor, type StageMarker } from './model';
 import { readReplays, saveReplay, removeReplay } from './store';
@@ -90,6 +91,7 @@ function EnabledDownloads({children}:{children:ReactNode}){
     const owner=current.current.cloud&&latest.current.status==='ready'&&latest.current.remote?.syncReviewed&&latest.current.remote.gameSync&&!latest.current.remote.paused?account:null;
     const job={controller:new AbortController(),owner};active.current=job;
     update({phase:'running',visible:true,message:'Preparing auto-deploys…',issues:[],progress:null});
+    const releaseRelay=retainRelaySession();
     try{
       await navigator.locks.request(REPLAY_LOCK,{ifAvailable:true},async lock=>{
         if(!lock)throw new Error('Another tab is importing game data. Wait for it to finish.');
@@ -113,6 +115,7 @@ function EnabledDownloads({children}:{children:ReactNode}){
         if(!paused)try{localStorage.setItem(cooldownKey(namespace),String(Date.now()+replayRetrySeconds(error)*1000));}catch{/* The reported failure still stops the queue. */}
       }
     }finally{
+      releaseRelay();
       if(active.current===job){active.current=null;if(current.current.phase==='pausing')update({phase:'paused'});}
       if(generation.current===version)try{await recount(namespace,version);}catch{update({phase:'error',message:'This browser could not open auto-deploy storage.'});}
     }
