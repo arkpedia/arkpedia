@@ -788,3 +788,47 @@ for (const theme of ['dark', 'light']) {
     expect(await page.evaluate(() => JSON.parse(localStorage.getItem('arkpedia:privacy:v1')!).analytics)).toBe(false);
   });
 }
+
+
+for (const provider of ['google', 'discord'] as const) test(`native ${provider} sign-in recovers from cancellation and authenticates the existing app document`, async ({ page, baseURL }, info) => {
+  await page.route('https://www.arkpedia.net/**', async route => {
+    const url = new URL(route.request().url());
+    await route.fulfill({ response: await route.fetch({ url: `${baseURL}${url.pathname}${url.search}` }) });
+  });
+  const state = await mockAccount(page, true); state.signedIn = false;
+  let opens = 0, cancels = 0;
+  await page.exposeBinding('__nativeAuthCall', async (_, method: string, options?: { state: string }) => {
+    if (method === 'prepare') return { challenge: 'c'.repeat(43) };
+    if (method === 'cancel') { cancels++; return {}; }
+    expect(options?.state).toBe('s'.repeat(43));
+    if (++opens === 1) throw new Error('Sign-in cancelled.');
+    state.signedIn = true;
+    return { returnPath: '/music?view=library&account=welcome#collection' };
+  });
+  await page.addInitScript(theme => {
+    localStorage.setItem('theme', theme);
+    const target = window as unknown as { __nativeAuthCall: (method: string, options?: unknown) => Promise<unknown>; Capacitor: unknown };
+    target.Capacitor = { Plugins: { ArkpediaAuth: {
+      prepare: () => target.__nativeAuthCall('prepare'), open: (options: unknown) => target.__nativeAuthCall('open', options), cancel: () => target.__nativeAuthCall('cancel'),
+    } } };
+  }, provider === 'google' ? 'dark' : 'light');
+  await page.route('**/api/native-auth/begin', async route => {
+    expect(route.request().postDataJSON()).toMatchObject({ challenge: 'c'.repeat(43), provider, mode: 'sign-in' });
+    expect(route.request().postDataJSON()).not.toHaveProperty('verifier');
+    await route.fulfill({ json: { state: 's'.repeat(43) } });
+  });
+  await page.goto('https://www.arkpedia.net/music?view=library#collection');
+  await markDocument(page);
+  await page.getByRole('button', { name: 'Log in', exact: true }).first().click();
+  await page.getByRole('button', { name: 'Log in', exact: true }).last().click();
+  const login = page.getByRole('dialog', { name: 'Log in to Arkpedia' });
+  const button = login.getByRole('button', { name: `Continue with ${provider === 'google' ? 'Google' : 'Discord'}` });
+  await button.click();
+  await expect(login.getByText('Sign-in cancelled.', { exact: true })).toBeVisible();
+  expect(cancels).toBe(1);
+  await button.click();
+  await expect(page.getByRole('dialog', { name: 'Create your account' })).toBeVisible();
+  await expect(page).toHaveURL('https://www.arkpedia.net/music?view=library&account=welcome#collection');
+  await sameDocument(page);
+  await page.screenshot({ path: info.outputPath('native-sign-in-return.png') });
+});

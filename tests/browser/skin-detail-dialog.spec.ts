@@ -1,5 +1,34 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
+import type { Skin } from '../../lib/skins/skinTypes';
 import { readOnly } from './census-routes';
+
+/** Exercise the home carousel with a real outfit even between shop windows. Its
+ * server-selected rows depend on today's date, so fixing the browser clock alone
+ * cannot guarantee that a card (or this animated outfit) is on the home page. */
+async function openHomeWithOutfit(page: Page, name = 'Supernova') {
+  const gallery = await page.request.get('/skins');
+  expect(gallery.ok()).toBe(true);
+  const json = (await gallery.text()).match(/<script id="__NEXT_DATA__" type="application\/json"[^>]*>([\s\S]*?)<\/script>/)?.[1];
+  expect(json, 'the gallery provides the real outfit records').toBeTruthy();
+  const props = JSON.parse(json!).props.pageProps;
+  const skin = (props.skins as Skin[]).find(skin => skin.name === name);
+  expect(skin, `${name} exists in the gallery`).toBeTruthy();
+  // The gallery keeps animation pointers in a separate map to reduce its payload.
+  const outfit = { ...skin!, dynamic: props.dynamicArt?.[skin!.skinId ?? ''] ?? skin!.dynamic ?? null };
+  let given = false;
+  await page.route(url => url.pathname === '/', async route => {
+    const html = await (await route.fetch()).text();
+    const body = html.replace(/(<script id="__NEXT_DATA__" type="application\/json"[^>]*>)([\s\S]*?)(<\/script>)/, (_, open: string, json: string, close: string) => {
+      const data = JSON.parse(json);
+      data.props.pageProps.ongoingSkins = [outfit];
+      given = true;
+      return open + JSON.stringify(data).replace(/</g, '\\u003c') + close;
+    });
+    await route.fulfill({ status: 200, contentType: 'text/html; charset=utf-8', body });
+  });
+  await page.goto('/');
+  expect(given, 'the home carousel receives its outfit fixture').toBe(true);
+}
 
 for (const theme of ['dark', 'light']) {
   test(`outfit details keep artwork, actions and information usable (${theme})`, async ({ page }, info) => {
@@ -52,6 +81,8 @@ for (const theme of ['dark', 'light']) {
     await page.setViewportSize(viewport);
     await dialog.getByRole('button', { name: 'Close', exact: true }).click();
     await expect(dialog).toHaveCount(0);
+    // A deep link opens any outfit; it need not be among today's first 30 cards.
+    await page.getByRole('searchbox', { name: 'Search skins' }).fill('The Spirit-Farer');
     const card = page.getByRole('button', { name: /The Spirit-Farer/ }).first();
     await card.click();
     await expect(dialog).toBeVisible();
@@ -65,7 +96,7 @@ for (const surface of ['home', 'event', 'schedule']) {
   test(`the ${surface} opens the shared outfit dialog and returns focus`, async ({ page }) => {
     await readOnly(page);
     await page.route('**/api/community/stats?**', route => route.fulfill({ json: { contributors: 2, owned: null } }));
-    if (surface === 'home') await page.goto('/');
+    if (surface === 'home') await openHomeWithOutfit(page);
     if (surface === 'event') {
       await page.goto('/events/%5BCelebration%5D%20Critical%20Phase%20Transition');
       await page.getByRole('tab', { name: 'Skins', exact: true }).click();
@@ -100,7 +131,7 @@ for (const theme of ['dark', 'light']) {
       // Keep the model pending: this regression checks discovery and lazy loading,
       // without depending on WebGL or downloading a large animation in every case.
       await page.route(/arkpedia-l2d-assets.*\/model\.json/, route => { modelRequests.push(route.request().url()); });
-      if (surface === 'home') await page.goto('/');
+      if (surface === 'home') await openHomeWithOutfit(page);
       if (surface === 'gallery') await page.goto('/skins?skin=Supernova');
       if (surface === 'event') {
         await page.goto(`/events/${encodeURIComponent("[Side Story – Celebration] The Masses' Travels")}`);

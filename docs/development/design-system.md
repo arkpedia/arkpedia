@@ -87,6 +87,7 @@ On phones the bottom row is Favourite, Block, volume and Stream-safe; secondary 
 a brief, translucent percentage and speaker in the screen center, clear of playback controls and the touch point.
 More contains Add to playlist, Open on YouTube and the Data saver/Endfield settings; it omits controls already in the transport. Setting help floats without changing menu layout.
 Now Playing keeps artwork and track details in one stable column and reserves the lyrics area even for instrumental tracks, anchoring the visualizer at the same position.
+Now Playing stays in normal page flow: dragging the artwork does not slide a layer over Library. Use the explicit Back to Library control to change views. Track details grow with their content and scroll with the page.
 On phones the lyrics icon toggles a taller lyrics view between the site header and
 the transport, keeping the visualizer at the bottom. Its active color marks expansion;
 collapsing restores the track details and previous page scroll position.

@@ -8,7 +8,7 @@ export async function protectPreviewRequest(request, env, run) {
   let path = new URL(request.url).pathname;
   try { path = decodeURIComponent(path); } catch { /* The router rejects malformed paths. */ }
   let response;
-  const accountRequest = /^\/api\/(auth|cloud-account|account-profile|community)(\/|$)/.test(path) || path === '/api/account-import/replay-permit';
+  const accountRequest = /^\/api\/(auth|native-auth|cloud-account|account-profile|community)(\/|$)/.test(path) || path === '/api/account-import/replay-permit';
   if (accountRequest) {
     try {
       if (!env.ACCOUNT_TRAFFIC_LIMIT || !env.ACCOUNT_IP_LIMIT) throw Error('Missing account limiter');
@@ -37,6 +37,6 @@ export async function protectPreviewRequest(request, env, run) {
   headers.set('strict-transport-security', 'max-age=604800');
   headers.set('content-security-policy', PREVIEW_CSP);
   headers.set('content-security-policy-report-only', PREVIEW_SCRIPT_POLICY);
-  if (/^\/api\/auth(?:\/|$)/.test(path)) headers.set('referrer-policy', 'no-referrer');
+  if (/^\/api\/(?:auth|native-auth)(?:\/|$)/.test(path)) headers.set('referrer-policy', 'no-referrer');
   return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
 }
