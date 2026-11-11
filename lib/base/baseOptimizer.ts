@@ -603,10 +603,14 @@ export function optimizeBase(input: OptimizerInput): OptimizerResult {
       const others = (crew: BaseAssignments) => operatorsIn(crew).filter(name => !standing.includes(name));
       // The standing five rest nowhere, so a crew may be that much larger than the beds.
       for (const size of [...new Set([restCapacity, places - standing.length])]) {
-        const teamA0 = pin(buildTeam(new Set(standing), Math.min(size, Math.ceil(owned.length / 2))));
-        const teamB0 = pin(buildTeam(new Set([...standing, ...others(teamA0)]), size));
-        const teamA = pin(fillSupportRooms(teamA0, new Set([...operatorsIn(teamA0), ...operatorsIn(teamB0)])));
-        const teamB = pin(fillSupportRooms(teamB0, new Set([...operatorsIn(teamA), ...operatorsIn(teamB0)])));
+        // Built around the five already seated, so the builder spends its places on the other rooms; pinned after,
+        // since its re-pick of a room's staff may still move them.
+        const teamA0 = pin(buildTeam(new Set(), Math.min(size, Math.ceil(owned.length / 2)) + standing.length, undefined, { [cc.id]: five }));
+        const teamB0 = pin(buildTeam(new Set(others(teamA0)), size + standing.length, undefined, { [cc.id]: five }));
+        // The bed-sized teams stay bed-sized: support staff added on top would have nowhere to rest.
+        const supported = size !== restCapacity;
+        const teamA = supported ? pin(fillSupportRooms(teamA0, new Set([...operatorsIn(teamA0), ...operatorsIn(teamB0)]))) : teamA0;
+        const teamB = supported ? pin(fillSupportRooms(teamB0, new Set([...operatorsIn(teamA), ...operatorsIn(teamB0)]))) : teamB0;
         plans.push({ shape: 'alternate', k: 1, crews: [teamA, teamB], group: [], fiammetta: false, standing });
         if (size !== restCapacity && 2 * loginInterval <= 24) {
           const plan: Plan = { shape: 'thirds', k: 1, crews: [teamA, teamB], group: [], fiammetta: false, thirds: { rest: splitThree([teamA, teamB]), mainB: [] }, standing };
