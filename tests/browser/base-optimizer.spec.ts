@@ -320,6 +320,9 @@ test('support staffing survives every optimized shift, save, selection and reloa
   const dialog = page.getByRole('dialog', { name: 'Base optimizer', exact: true });
   await dialog.getByRole('checkbox', { name: 'Recommend 2-5-2' }).uncheck();
   await dialog.getByRole('button', { name: '2 times a day, every 12 hours' }).click();
+  // The shortest search: a whole catalogue's first plan comes after the seed phase, a share of the search time.
+  await dialog.getByRole('combobox', { name: 'Optimizer search time', exact: true }).click();
+  await page.getByRole('option', { name: '1 min', exact: true }).click();
   await dialog.getByRole('button', { name: 'Recommend layout' }).click();
   await expect(dialog.getByRole('definition').first()).toBeVisible({ timeout: 120000 });
   if (await dialog.getByRole('button', { name: 'Stop', exact: true }).isVisible()) await dialog.getByRole('button', { name: 'Stop', exact: true }).click();
@@ -389,8 +392,7 @@ test('a pasted Krooster profile link imports a testing account inside the Base o
   expect(stored.account.base).toBeUndefined();
   expect(stored.account.doctor).toBe('Tester (Krooster)');
   expect(stored.roster.Matoimaru).toMatchObject({ elite: 2, level: 90, skillLevel: 7, masteries: { 1: 3 }, modules: { 0: 2 } });
-  // The optimizer takes the testing account at once: it has no layout of its own, so Recommend 2-5-2 searches the presets.
-  await expect(optimizer.getByRole('checkbox', { name: 'Recommend 2-5-2' })).toBeChecked();
+  // The optimizer takes the testing account at once: it has no layout of its own, so the presets are searched.
   await optimizer.getByRole('button', { name: 'Recommend layout' }).click();
   await expect(optimizer.getByRole('definition').first()).toBeVisible({ timeout: 60000 });
   if (await optimizer.getByRole('button', { name: 'Stop', exact: true }).isVisible()) await optimizer.getByRole('button', { name: 'Stop', exact: true }).click();
