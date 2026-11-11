@@ -651,3 +651,18 @@ rooms joined the table after the others: their old modules were held equal over 
 and crafter cases, the differences being deviations listed with the rest (six trainers whose
 record text carries a no-break space the old mastery pattern never matched, Talulah's and
 Caleido's CN-only skills, Homebound's recipe gate).
+
+## Named pairs: tried, not kept (2026-11-11)
+
+Twenty-one tester rosters, 5-minute search, 12 h logins. The plans left most named pairs apart (Texas and Lappland in
+all 21), and `scripts/bench/combo-valuation.ts` showed why: the room-team shortlist ranks operators alone, so neither
+half of a pair is ever tried as a team. Swapping the pair into the finished plan raised the snapshot by about 1.5%.
+
+Adding every owned same-room pair to the team builder (read from the skill table) did place them: Texas and Lappland
+together in 15 of 21 plans. It did not raise income: mean +0.05%, 9 rosters up and 12 down, range -1.33% to +1.89%,
+which is the run-to-run noise. The snapshot gain was not real income: a snapshot ignores Morale, and the search had
+already found staffing worth the same over a full rotation. The change was dropped.
+
+What this settles: the search is not losing income to missed same-room pairs, so seeding from a list of known combos
+is not where the next gain is. Still unmeasured: pairs across rooms (Hoederer and Ines, Underflow and Ulpianus), which
+a per-room team cannot hold. The `deep` anchor seeds (`SYNERGY_ANCHORS`) are never switched on by the account search.
