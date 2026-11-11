@@ -61,11 +61,13 @@ export function assertPilotBindings(version) {
   requireValue(UUID.test(version?.id ?? '') && Array.isArray(version?.resources?.bindings), 'invalid version metadata');
   const bindings = version.resources.bindings;
   const legacy = version.id === PILOT.legacyVersion;
+  const accounts = bindings.some(b => b.name === 'ARKPEDIA_ACCOUNTS_ENABLED');
   const names = ['ARKPEDIA_ACCOUNTS_DB', 'ARKPEDIA_AUTH_URL', 'ASSETS', 'BETTER_AUTH_SECRET',
     'GOOGLE_CLIENT_ID', 'GOOGLE_CLIENT_SECRET', 'DISCORD_CLIENT_ID', 'DISCORD_CLIENT_SECRET',
     'NEXT_CACHE_DO_QUEUE', 'NEXT_INC_CACHE_R2_BUCKET', 'WORKER_SELF_REFERENCE',
     ...(legacy || version.id === MEDIA_SECRET_UPDATE.baseline ? [] : MEDIA_SECRETS),
-    ...(legacy ? [] : ['ARKPEDIA_CONTENT_CHANNEL', 'ARKPEDIA_DEPLOYMENT_ROLE'])];
+    ...(legacy ? [] : ['ARKPEDIA_CONTENT_CHANNEL', 'ARKPEDIA_DEPLOYMENT_ROLE']),
+    ...(accounts ? ['ARKPEDIA_ACCOUNTS_ENABLED', 'ACCOUNT_TRAFFIC_LIMIT', 'ACCOUNT_IP_LIMIT'] : [])];
   requireValue(bindings.length === names.length && new Set(bindings.map(b => b.name)).size === names.length
     && bindings.every(b => names.includes(b.name)), 'unexpected pilot bindings');
   const binding = (name, type) => {
@@ -74,6 +76,13 @@ export function assertPilotBindings(version) {
     return found;
   };
   requireValue(binding('ARKPEDIA_ACCOUNTS_DB', 'd1').database_id === PILOT.database, 'account database changed');
+  if (accounts) {
+    requireValue(!legacy && binding('ARKPEDIA_ACCOUNTS_ENABLED', 'plain_text').text === '1', 'invalid account enablement');
+    for (const [name, namespace, limit] of [['ACCOUNT_TRAFFIC_LIMIT', '2026110201', 6000], ['ACCOUNT_IP_LIMIT', '2026110202', 300]]) {
+      const rate = binding(name, 'ratelimit');
+      requireValue(String(rate.namespace_id) === namespace && rate.simple?.limit === limit && rate.simple?.period === 60, 'account request limits changed');
+    }
+  }
   const previousOrigin = [PILOT.legacyVersion, MEDIA_SECRET_UPDATE.baseline, MEDIA_SECRET_UPDATE.version, PRE_CUTOVER_VERSION].includes(version.id);
   requireValue(binding('ARKPEDIA_AUTH_URL', 'plain_text').text === (previousOrigin ? PILOT.legacyAuthOrigin : PILOT.origin), 'auth origin changed');
   for (const name of ['BETTER_AUTH_SECRET', 'GOOGLE_CLIENT_ID', 'GOOGLE_CLIENT_SECRET', 'DISCORD_CLIENT_ID', 'DISCORD_CLIENT_SECRET']) {
@@ -152,12 +161,23 @@ export function createPilotProvider({ run = execFileSync, request = fetch, envir
       await response.body?.cancel();
       requireValue(response.status === 200 && !/\bnoindex\b/i.test(response.headers.get('x-robots-tag') ?? ''), `unhealthy or noncanonical live route ${path}`);
     }
-    for (const path of ['/api/auth/get-session', '/api/cloud-account', '/api/account-profile']) {
+    const accounts = version.resources.bindings.some(b => b.name === 'ARKPEDIA_ACCOUNTS_ENABLED' && b.text === '1');
+    const paths = ['/api/auth/get-session', '/api/cloud-account', '/api/account-profile',
+      ...(accounts ? ['/api/community/sharing', '/api/community/supports?server=en', '/api/community/stats?server=en&operator=Amiya'] : [])];
+    for (const path of paths) {
       const response = await request(`${PILOT.origin}${path}`, { cache: 'no-store', redirect: 'error', signal: AbortSignal.timeout(30_000) });
-      const body = await response.json().catch(() => null);
+      const body = await response.json().catch(() => undefined);
       const cache = response.headers.get('cache-control') ?? '';
-      requireValue(response.status === 503 && body?.error === 'Arkpedia accounts are available on Preview only.'
-        && /\bno-store\b/i.test(cache) && /\bprivate\b/i.test(cache), `exposed or cacheable live account route ${path}`);
+      const privateCache = /\bno-store\b/i.test(cache) && /\bprivate\b/i.test(cache);
+      if (!accounts) {
+        requireValue(response.status === 503 && typeof body?.error === 'string' && privateCache, `exposed or cacheable live account route ${path}`);
+      } else {
+        const session = path === '/api/auth/get-session';
+        const publicCommunity = path.startsWith('/api/community/supports?') || path.startsWith('/api/community/stats?');
+        requireValue(response.status === (session || publicCommunity ? 200 : 401) && privateCache
+          && (session ? body === null : body && typeof body === 'object'), `unhealthy or cacheable live account route ${path}`);
+        if (path === '/api/cloud-account') requireValue(body.providers?.includes('google') && body.providers?.includes('discord'), 'production login providers unavailable');
+      }
     }
     return { healthy: true, build };
   };

@@ -62,7 +62,18 @@ Pages are cached in R2, as Vercel's ISR cache holds them for the Vercel deploys
   works only on a custom domain (`arkpedia-cf.mocchibird.com`); on workers.dev every hit still
   reads R2.
 - **Revalidation queue:** the Durable Object `DOQueueHandler`, bound as `NEXT_CACHE_DO_QUEUE`. A
-  page past its revalidate time is re-rendered once, in the background.
+  page past its revalidate time is re-rendered once, in the background. `queueCache` suppresses
+  repeat requests for the same page version for five seconds per data centre, after the
+  queue acknowledges the first request. A failed acknowledgement remains retryable.
+  `npm ci` applies the version-checked OpenNext 1.20.12 timeout patch
+  (`scripts/build/patch-opennext-queue.mjs`): refreshes still time out after ten seconds,
+  but their timer is cancelled when they finish or fail so it cannot keep an idle object
+  awake. Review/remove the patch when upgrading OpenNext. This applies to production
+  and Preview; page freshness intervals, concurrency, retry policy and storage stay the same.
+- **Video feed outages:** a clean prerender can use the verified published video archive
+  when every live feed is unavailable. Runtime ISR still rejects a total feed outage,
+  keeping its previous valid page. Builds without feeds or a published archive fail;
+  archived uploads are never treated as live streams.
 - **Cache interception:** a cached page is answered before the Next server loads.
 - **Release refresh:** `res.revalidate` (`pages/api/release-refresh.ts`) re-renders through the
   `WORKER_SELF_REFERENCE` service binding.

@@ -1,3 +1,4 @@
+import { expandMusicPlayer } from './music-navigation-helpers';
 import { expect, test, type Page } from '@playwright/test';
 import { markDocument, sameDocument, startMusic, stubYouTube, youtube, type AutoplayPolicy, type StubCall } from './youtube-stub';
 
@@ -32,7 +33,7 @@ const clock = (seconds: number) => `${Math.floor(seconds / 60)}:${String(Math.fl
 /** The corner player as a reader sees it, opened: the play button, the time, what plays next. */
 async function widget(page: Page) {
   const shell = player(page);
-  if (await shell.getByRole('button', { name: 'Expand player' }).count()) await shell.getByRole('button', { name: 'Expand player' }).click();
+  if (await shell.getByRole('button', { name: 'Expand player' }).count()) await expandMusicPlayer(page);
   const play = shell.locator('.music-play-btn');
   return {
     button: await play.getAttribute('aria-label'),
@@ -43,7 +44,7 @@ async function widget(page: Page) {
   };
 }
 async function collapse(page: Page) {
-  const close = player(page).getByRole('button', { name: 'Collapse player' });
+  const close = player(page).getByRole('button', { name: 'Minimize player' });
   if (await close.count()) await close.click();
 }
 
@@ -121,7 +122,7 @@ for (const policy of ['refuse', 'refuse-silently'] as AutoplayPolicy[]) {
     await expect.poll(async () => (await youtube(page))!.refused, { message: 'the player tried, and was refused' }).toBeGreaterThan(0);
     // Not a blank player and not a spinner: the song, paused at its moment, Play ready.
     const shell = player(page);
-    await shell.getByRole('button', { name: 'Expand player' }).click();
+    await expandMusicPlayer(page);
     await expect(shell.getByRole('button', { name: 'Play', exact: true })).toBeEnabled({ timeout: 10000 });
     const shown = await widget(page);
     expect(shown.time).toBe(clock(cue.startSeconds));
@@ -140,7 +141,7 @@ for (const policy of ['refuse', 'refuse-silently'] as AutoplayPolicy[]) {
 test('a player opened but never played carries nothing: YouTube stays unloaded until it is used', async ({ page }) => {
   await stubYouTube(page);
   await page.goto("/pull-planner");
-  await player(page).getByRole('button', { name: 'Expand player' }).click();
+  await expandMusicPlayer(page);
   await expect(player(page).getByRole('button', { name: 'Play', exact: true })).toBeEnabled({ timeout: 20000 });
   await collapse(page);
   await page.reload();
@@ -199,7 +200,7 @@ test('restoring a backup keeps the page and the song, and the player has the res
   // The player's favourites are the backup's, not the set it read when the page loaded (whose
   // next toggle would write it back over the restored one).
   await page.keyboard.press('Escape');
-  await player(page).getByRole('button', { name: 'Expand player' }).click();
+  await expandMusicPlayer(page);
   await expect(player(page).getByRole('button', { name: 'Favourite', exact: true })).toHaveAttribute('aria-pressed', 'true');
   await player(page).getByRole('button', { name: 'Favourite', exact: true }).click();
   await expect.poll(() => page.evaluate(() => localStorage.getItem('musicFavorites'))).toBe('[]');

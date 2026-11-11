@@ -144,6 +144,11 @@ export function sameDocument(page: Page): Promise<boolean> {
 /** Explicitly choose the whole catalogue for regressions that need a populated queue.
  * Fresh visits themselves now have an empty queue. This uses the real playlist action. */
 export async function playAllSongs(page: Page) {
+  const queueOpen = new URL(page.url()).searchParams.get('view') === 'queue' || new URL(page.url()).searchParams.get('panel') === 'queue';
+  if (new URL(page.url()).searchParams.get('view') === 'queue') {
+    await expect(page).not.toHaveURL(/view=queue/);
+    await expect(page.getByRole('dialog', { name: 'Playback queue' })).toBeVisible();
+  }
   await openMusicMenu(page);
   await page.getByRole('button', { name: 'Playlists', exact: true }).click();
   const dialog = page.getByRole('dialog', { name: 'Music playlists', exact: true });
@@ -152,5 +157,9 @@ export async function playAllSongs(page: Page) {
   await expect(dialog.getByRole('status')).toContainText('Playing all songs');
   await expect.poll(async () => (await youtube(page))?.state).toBe(1);
   await dialog.getByRole('button', { name: 'Close Music playlists', exact: true }).click();
-  if (new URL(page.url()).searchParams.get('view') === 'queue') await expect(page.locator('[data-song-list] .music-queue-row.current')).toBeVisible();
+  if (queueOpen) {
+    const queue = page.getByRole('dialog', { name: 'Playback queue' });
+    if (!await queue.isVisible()) await page.locator('#music-transport-queue').click();
+    await expect(queue.locator('.music-queue-row.current')).toBeVisible();
+  }
 }

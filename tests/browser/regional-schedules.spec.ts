@@ -4,7 +4,7 @@ const NAME = '[Celebration] Sealed With Time';
 const EVENT = '[Celebration] Critical Phase Transition';
 test.beforeEach(async ({ page }) => {
   // These scenarios deliberately move the reader clock, including into 2030.
-  await page.addInitScript(() => localStorage.setItem('arkpedia:privacy:v1', JSON.stringify({ version: 1, analytics: false, externalMedia: false, savedAt: Date.now() })));
+  await page.addInitScript(() => localStorage.setItem('arkpedia:privacy:v1', JSON.stringify({ version: 1, analytics: false, externalMedia: false, externalMediaChosen: true, savedAt: Date.now() })));
 });
 async function expectClock(page: import('@playwright/test').Page, text: string) {
   const clock = page.locator('.site-nav-clock:visible').first();
@@ -142,7 +142,7 @@ test('regional reward labels use the server calendar and manual claims survive c
   const progress = { doneKeys: [id, 'manual:regional-qa'], doneEvents: ['manual:event'], annihilationDone: true, ticksFrom: '2026-10-16T00:00:00Z', importedDoneKeys: [] };
   await page.addInitScript(progress => localStorage.setItem('arkpedia.past-rewards.v1', JSON.stringify(progress)), progress);
   await page.clock.setFixedTime(new Date(close.getTime() - 60_000));
-  await page.addInitScript(savedAt => localStorage.setItem('arkpedia:privacy:v1', JSON.stringify({ version: 1, analytics: false, externalMedia: false, savedAt })), close.getTime() - 60_000);
+  await page.addInitScript(savedAt => localStorage.setItem('arkpedia:privacy:v1', JSON.stringify({ version: 1, analytics: false, externalMedia: false, externalMediaChosen: true, savedAt })), close.getTime() - 60_000);
   await page.goto('/stages/supplies');await account(page, 'jp');
   await expect(page.locator('html')).toHaveAttribute('data-site-server', 'jp');
   const mobileMenu = page.getByRole('button', { name: 'Open navigation menu', exact: true });

@@ -68,7 +68,7 @@ export interface SongRowProps {
   actions?: SongRowActions;
   drag?: SongRowDrag;
   data?: Record<string, string | number>;
-  /** Optional factual metadata beside the credits, such as the linked upload's YouTube likes. */
+  /** Optional factual metadata beside the credits, such as the daily Arkpedia favourite count. */
   detail?: string;
 }
 

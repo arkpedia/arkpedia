@@ -5,6 +5,7 @@ import type { D1Database } from '@cloudflare/workers-types';
 
 export interface AccountsEnv {
   ARKPEDIA_DEPLOYMENT_ROLE?: string;
+  ARKPEDIA_ACCOUNTS_ENABLED?: string;
   ARKPEDIA_ACCOUNTS_DB: D1Database;
   ARKPEDIA_AUTH_URL: string;
   BETTER_AUTH_SECRET: string;
@@ -17,8 +18,12 @@ export interface AccountsEnv {
 export function accountsEnv(): AccountsEnv | null {
   try {
     const env = getCloudflareContext().env as unknown as AccountsEnv;
-    // Google/Discord accounts remain a Preview feature, including on direct Worker URLs.
-    if (env.ARKPEDIA_DEPLOYMENT_ROLE !== 'staging') return null;
+    // Production needs explicit enablement and the canonical auth origin. Preview
+    // retains its own bindings, cookies and database. Unknown roles fail closed.
+    const production = env.ARKPEDIA_DEPLOYMENT_ROLE === 'production'
+      && env.ARKPEDIA_ACCOUNTS_ENABLED === '1'
+      && env.ARKPEDIA_AUTH_URL === 'https://www.arkpedia.net';
+    if (env.ARKPEDIA_DEPLOYMENT_ROLE !== 'staging' && !production) return null;
     if (!env.ARKPEDIA_ACCOUNTS_DB || !env.ARKPEDIA_AUTH_URL || !env.BETTER_AUTH_SECRET || env.BETTER_AUTH_SECRET.length < 32) return null;
     const url = new URL(env.ARKPEDIA_AUTH_URL);
     if (url.origin !== env.ARKPEDIA_AUTH_URL || (url.protocol !== 'https:' && !['localhost', '127.0.0.1'].includes(url.hostname))) return null;

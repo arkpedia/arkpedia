@@ -11,7 +11,9 @@
     "tests/browser/**/*.spec.ts",
     // Browser script loaded by the palette review tool's HTML.
     "scripts/palettes/palette-review/review.js",
-    "scripts/tests/fixtures/previous-release/refresh.mjs"
+    "scripts/tests/fixtures/previous-release/refresh.mjs",
+    // Standalone Node/tsx entry exercised by the video-context subprocess test.
+    "scripts/tests/fixtures/youtube-local-context.ts"
   ],
   "project": [
     "workers/edge/*.{mjs,mts}",

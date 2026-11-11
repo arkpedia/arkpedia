@@ -22,13 +22,13 @@ export default function AccountActions({ children }: { children: ReactNode }) {
   const [error, setError] = useState('');
   const [attempt, setAttempt] = useState(0);
   const opener = useRef<HTMLElement | null>(null);
-  const [settingsTab, setSettingsTab] = useState<'profile' | 'saving' | 'logins' | 'data'>('profile');
+  const [settingsTab, setSettingsTab] = useState<'community' | 'profile' | 'saving' | 'logins' | 'data'>('profile');
   const setupOwner = useRef<string | null>(null);
   const tables = useContext(ContentTablesContext), release = useContext(ContentContext);
   const sync = useCloudSync(), router = useRouter();
   const onboarding = !!sync.remote?.profile && !sync.remote.syncReviewed;
   const requested = router.query.confirm === 'delete' ? 'data' :
-    ['profile', 'saving', 'logins'].includes(String(router.query.settings)) ? String(router.query.settings) :
+    ['profile', 'community', 'saving', 'logins'].includes(String(router.query.settings)) ? String(router.query.settings) :
     router.query.account === 'welcome' || router.query.signin === 'failed' ? 'profile' : '';
   useEffect(() => {
     if (!router.isReady || !requested) return;

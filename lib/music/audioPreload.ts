@@ -1,6 +1,6 @@
 import { audioLinkExpiry } from './monsterSirenAudio';
 
-/** One upcoming complete audio file, held only for this tab. The playing element stays
+/** Preload one upcoming file and retain up to three recently used complete files in this tab. The playing element stays
  * the same (including on iOS); handing it a Blob URL avoids another network round trip.
  *
  * Before that, and without it (a file not finished, or too large), the upcoming song's signed
@@ -11,6 +11,8 @@ import { audioLinkExpiry } from './monsterSirenAudio';
  * from its origin. No audio is downloaded for it, and the element is never touched: the press sets
  * the address and plays, as before (iOS). */
 const MAX_BYTES = 80 * 1024 * 1024;
+const RECENT_BYTES = 96 * 1024 * 1024;
+const RECENT_TRACKS = 3;
 const MAX_AGE_MS = 15 * 60 * 1000;
 const LOAD_MS = 90000;
 const LINK_MS = 20000;
@@ -18,7 +20,7 @@ const LINK_MS = 20000;
  *  address for up to an hour before asking again (playbackEngine.ts ADDRESS_MAX_AGE_MS). */
 const LINK_MIN_LIFE_MS = 70 * 60 * 1000;
 interface Target { cid: string; address: string }
-interface Prepared extends Target { url: string; at: number }
+interface Prepared extends Target { url: string; at: number; reusable?: Blob }
 interface Link extends Target { href: string; expires: number }
 interface PreloadOptions {
   fetch?: typeof fetch;
@@ -66,6 +68,21 @@ export function createAudioPreloader({ fetch: request = fetch, createURL = blob 
   let linkFailed = false;
   const cids = new Map<string, string>();
   const matches = (a: Target | null, b: Target | null) => a?.cid === b?.cid && a?.address === b?.address;
+  // Keep only files already downloaded for playback. Each deck gets its own
+  // object URL, so eviction or releasing one deck cannot interrupt the other.
+  const recent = new Map<string, { blob: Blob; at: number; cid: string }>();
+  function pruneRecent() {
+    let bytes = 0;
+    for (const [address, file] of recent) {
+      if (now() - file.at > MAX_AGE_MS) recent.delete(address);
+      else bytes += file.blob.size;
+    }
+    for (const [address, file] of recent) {
+      if (recent.size <= RECENT_TRACKS && bytes <= RECENT_BYTES) break;
+      recent.delete(address);
+      bytes -= file.blob.size;
+    }
+  }
   const revoke = (url: string) => { cids.delete(url); revokeURL(url); };
   const cancel = () => { if (pending) { clearTimeout(pending.timer); pending.controller.abort(); pending = null; } };
   const cancelLink = () => { if (linking) { clearTimeout(linking.timer); linking.controller.abort(); linking = null; } };
@@ -102,16 +119,21 @@ export function createAudioPreloader({ fetch: request = fetch, createURL = blob 
     }
     if (prepared && now() - prepared.at > MAX_AGE_MS) { revoke(prepared.url); prepared = null; }
     // The address is asked for even while this song is paused or still loading: it is headers only.
+    pruneRecent();
+    if (next && recent.get(next.address)?.cid === next.cid) return;
     if (next) resolveLink(next);
     if (!next || !load) { cancel(); return; }
     if (prepared || pending || failed) return;
     const controller = new AbortController();
     const task = { controller, timer: setTimeout(() => controller.abort(), LOAD_MS) };
     pending = task;
-    void request(next.address, { signal: controller.signal, credentials: 'omit', priority: 'low' }).then(completeAudio).then(blob => {
+    void request(next.address, { signal: controller.signal, credentials: 'omit', priority: 'low' }).then(async response => {
+      const reusable = !/\bno-store\b/i.test(response.headers.get('cache-control') ?? '');
+      return { blob: await completeAudio(response), reusable };
+    }).then(({ blob, reusable }) => {
       if (pending !== task || controller.signal.aborted || !matches(target, next)) return;
       const url = createURL(blob);
-      prepared = { ...next, url, at: now() };
+      prepared = { ...next, url, at: now(), reusable: reusable ? blob : undefined };
       cids.set(url, next.cid);
     }).catch(() => {
       // Optional loading never changes the current song or playback errors.
@@ -124,6 +146,15 @@ export function createAudioPreloader({ fetch: request = fetch, createURL = blob 
   return {
     select,
     take(cid: string, address: string): { url: string; release: () => void } | null {
+      pruneRecent();
+      const cached = recent.get(address);
+      if (cached && cached.cid === cid) {
+        recent.delete(address);
+        recent.set(address, cached);
+        const url = createURL(cached.blob);
+        cids.set(url, cid);
+        return { url, release: () => revoke(url) };
+      }
       if (!matches(target, { cid, address })) return null;
       cancel();
       cancelLink();
@@ -134,7 +165,13 @@ export function createAudioPreloader({ fetch: request = fetch, createURL = blob 
       target = null;
       failed = false;
       linkFailed = false;
-      if (ready && now() - ready.at <= MAX_AGE_MS) return { url: ready.url, release: () => revoke(ready.url) };
+      if (ready && now() - ready.at <= MAX_AGE_MS) {
+        if (ready.reusable) {
+          recent.set(address, { blob: ready.reusable, cid, at: ready.at });
+          pruneRecent();
+        }
+        return { url: ready.url, release: () => revoke(ready.url) };
+      }
       if (ready) revoke(ready.url);
       // No complete file: the signed address, if it still lasts, so the route is not asked again.
       if (!lasts(held)) return null;

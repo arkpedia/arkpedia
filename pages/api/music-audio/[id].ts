@@ -1,6 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { SONG_ID, monsterSirenAudioUrl } from '@/lib/music/monsterSirenAudio';
-import { createAudioLinkMemo, workerContext } from '@/lib/music/audioLinkMemo';
+import { audioLinkKeepMs, createAudioLinkMemo, workerContext } from '@/lib/music/audioLinkMemo';
 
 /** The Cloudflare Worker's kept addresses (lib/music/audioLinkMemo.ts); unused on Vercel. */
 const workerLinks = createAudioLinkMemo();
@@ -30,10 +30,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       href = (await monsterSirenAudioUrl(id)).href;
       if (worker) worker.waitUntil(workerLinks.put(id, href, worker.bucket));
     }
-    // Signed addresses last three hours (audioLinkExpiry): the edge keeps the redirect half an
-    // hour, so a press is not kept waiting on Monster Siren's API (the first load took about seven
-    // seconds on an iPhone over 5G, 2026-10-14); a browser keeps it a minute.
-    res.setHeader('Cache-Control', 'public, max-age=60, s-maxage=1800');
+    // Keep the same CDN URL for repeat plays, with time left for seeks into the file.
+    const ttl = Math.floor(audioLinkKeepMs(href, Date.now()) / 1000);
+    res.setHeader('Cache-Control', ttl ? `public, max-age=${ttl}, s-maxage=${ttl}` : 'no-store');
     res.setHeader('Location', href);
     return res.status(302).end();
   } catch {

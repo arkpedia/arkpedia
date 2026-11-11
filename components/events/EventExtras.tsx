@@ -13,12 +13,8 @@ export { packDay } from '@/lib/events/packDay';
  * Each names its source (the official post, or the game's furniture data).
  */
 
-/** A pack window's day, as the announcement dates it: on the Global server's clock (UTC-7) and in
- *  the site's day-month-year wording ("29 Sept 2026"), as /skins dates its windows. The post's
- *  "September 29, 2026, 23:59 (UTC-7)" is stored as the instant 2026-09-30T06:59Z
- *  (scripts/build/official-news.mjs parseDuration), and read in UTC it printed the 30th: a day
- *  longer to buy than the post gives, on every pack that ends late in the evening. Text that is not
- *  a date is shown as it is, never as "Invalid Date". */
+/** Show the final sale day in fixed Global time. A close at server midnight belongs to
+ * the preceding sale day; the interval itself keeps its exact exclusive timestamp. */
 
 export function EventPacks({ groups }: { groups: EventExtras['packs'] }) {
   return (
@@ -31,7 +27,7 @@ export function EventPacks({ groups }: { groups: EventExtras['packs'] }) {
               {pack.imagePath && <Image className="event-pack-card-image" src={pack.imagePath} alt="" width={112} height={84} />}
               <span className="event-pack-card-copy">
               <span className="event-pack-card-name">{pack.name}</span>
-              {pack.start && <span className="event-pack-window">{packDay(pack.start)}{pack.end ? ` – ${packDay(pack.end)}` : ''}</span>}
+              {pack.start && <span className="event-pack-window">{packDay(pack.start)}{pack.end ? ` – ${packDay(pack.end, { exclusiveEnd: true })}` : ''}</span>}
               <span className="event-pack-preview">{pack.contents.slice(0, 2).map(item => `${item.name} ×${item.count.toLocaleString('en-US')}`).join(' · ')}</span>
               <span className="event-pack-more">View contents ↗</span>
               </span>

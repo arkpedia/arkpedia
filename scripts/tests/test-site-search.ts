@@ -182,11 +182,13 @@ test('the feeds are the deployment\'s route, read from the pages\' own feeds and
   assert.deepEqual(requests, [SITE_SEARCH_FEEDS_PATH]);
   await assert.rejects(() => loadSiteSearchFeeds(undefined, async () => ({ ok: false, status: 500, json: async () => ({}) })), /500/);
   const route = fs.readFileSync('pages/api/search-feeds.ts', 'utf8');
-  assert.match(route, /filterArknightsVideos\(enriched\.filter\(\(v\) => !v\.isLivestream\)\)/, 'the community pages\' filter, so the search finds no video they hide');
+  assert.match(route, /rankDiscoveryVideos\(filterDiscoveryVideos\(\[\.\.\.enriched, \.\.\.archive\]\.filter\(video => !video\.isLivestream\)\), context, now\)/, 'the shared discovery filter keeps current Global relevance ranking');
   assert.match(route, /s-maxage=1500/, 'as old as the pages\' revalidate: 1500, and no older');
   const community = fs.readFileSync('pages/community.tsx', 'utf8');
   assert.match(community, /revalidate: 1500/);
-  assert.match(community, /filterArknightsVideos\(enriched\.filter\(\(v\) => !v\.isLivestream\)\)/);
+  assert.match(community, /filterDiscoveryVideos\(\[\.\.\.enriched, \.\.\.archive\]\.filter\(\(v\) => !v\.isLivestream\)\)/);
+  const gallery = fs.readFileSync('components/community/YouTubeVideoGallery.tsx', 'utf8');
+  assert.match(gallery, /rankDiscoveryVideos\(videos, context, now\)/, 'the visible gallery uses the same relevance rules');
 });
 
 test('rows carry the other names, and no duplicate or variant rows', () => {

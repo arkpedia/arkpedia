@@ -3,7 +3,23 @@ import { mkdtempSync, readFileSync, writeFileSync, unlinkSync, rmdirSync } from 
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
+import yaml from 'js-yaml';
 import { readPilotBuild, readPilotConfig, pilotBuildEnvironment } from '../deploy/cloudflare-pilot.mjs';
+
+test('ready PRs check the real production Worker before merge without publication permissions', () => {
+  const workflow = yaml.load(readFileSync('.github/workflows/check.yml', 'utf8'));
+  const job = workflow.jobs['production-build'];
+  assert.equal(job.needs, 'seen');
+  assert.equal(job['runs-on'], 'ubuntu-latest', 'premerge builds cannot take the deploy-only NAS runner');
+  assert.equal(job.if, workflow.jobs.check.if, 'same exact-tree reuse and draft rules as application checks');
+  assert.deepEqual(job.permissions, { contents: 'read' });
+  assert.equal(job.steps.find(step => step.run === 'npm run cf:build')?.env.NODE_OPTIONS, '--max-old-space-size=4096');
+  assert.ok(job.steps.some(step => step.run === 'node scripts/content/pull-data.mjs'));
+  const serialized = JSON.stringify(job);
+  assert.doesNotMatch(serialized, /secrets\.|CLOUDFLARE_API_TOKEN|wrangler deploy|migrations apply/);
+  const temp = job.steps.findIndex(step => step.name === 'Use disk-backed temporary storage');
+  assert.ok(temp >= 0 && temp < job.steps.findIndex(step => step.run === 'npm ci'));
+});
 
 function fixture(t, value) {
   const directory = mkdtempSync(join(tmpdir(), 'arkpedia-pilot-test-'));
@@ -18,14 +34,19 @@ test('pilot configuration retains the existing account, cache and queue resource
   assert.equal(config.name, 'arkpedia');
   assert.equal(config.vars.ARKPEDIA_DEPLOYMENT_ROLE, 'production');
   assert.equal(config.vars.ARKPEDIA_CONTENT_CHANNEL, 'live');
+  assert.deepEqual(config.triggers, { crons: ['17 4 * * *'] });
 });
 
 for (const [name, change] of Object.entries({
   'new route': config => { config.routes = [{ pattern: 'arkpedia.net/*' }]; },
+  'changed statistics schedule': config => { config.triggers.crons = ['* * * * *']; },
   'environment override': config => { config.env = { production: {} }; },
   'different Worker': config => { config.name = 'arkpedia-staging'; },
   'different account': config => { config.account_id = 'another-account'; },
   'different database': config => { config.d1_databases[0].database_id = 'another-database'; },
+  'missing request limits': config => { delete config.ratelimits; },
+  'Preview request limit namespace': config => { config.ratelimits[0].namespace_id = '2026110101'; },
+  'disabled production accounts': config => { delete config.vars.ARKPEDIA_ACCOUNTS_ENABLED; },
   'different cache': config => { config.r2_buckets[0].bucket_name = 'arkpedia-staging-cache'; },
   'wrong self reference': config => { config.services[0].service = 'arkpedia-staging'; },
   'changed queue migration': config => { config.migrations[0].tag = 'v2'; },
@@ -70,4 +91,21 @@ test('legacy aliases lead directly to current public pages without chains', () =
     const candidates = [`pages${destination}.tsx`, `pages${destination}/index.tsx`];
     assert.ok(candidates.some(file => { try { readFileSync(file); return true; } catch { return false; } }), `missing canonical page ${destination}`);
   }
+});
+
+test('production enables accounts independently from the Preview-only optimizer', async () => {
+  const { execFileSync } = await import('node:child_process');
+  for (const [role, worker, accounts, optimizer] of [
+    ['production', '1', '1', ''], ['staging', '1', '1', '1'], ['production', '', '1', ''],
+  ]) {
+    const result = JSON.parse(execFileSync(process.execPath, ['-e', 'console.log(JSON.stringify(require("./next.config.js")().env))'], {
+      encoding: 'utf8', env: { ...process.env, ARKPEDIA_DEPLOYMENT_ROLE: role, ARKPEDIA_WORKER: worker },
+    }));
+    assert.equal(result.ARKPEDIA_CLOUD_ACCOUNTS, accounts);
+    assert.equal(result.ARKPEDIA_BASE_OPTIMIZER, optimizer);
+    assert.equal(result.ARKPEDIA_PREVIEW, role === 'staging' ? '1' : '');
+  }
+  const wrapper = readFileSync('scripts/deploy/production-worker.mjs', 'utf8');
+  assert.match(wrapper, /protectPreviewRequest\(request, env/);
+  assert.match(wrapper, /export \{ DOQueueHandler \}/);
 });

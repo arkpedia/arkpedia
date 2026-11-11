@@ -272,6 +272,8 @@ const DATA_ONLY: Record<string, Record<string, string>> = {
     // neither field (name, art, price and window only).
     '.ongoingSkins[].searchAliases': "an outfit's other search names (Skin, optional), on some outfits only; SkinsCarousel does not read it",
     '.ongoingSkins[].fashionReviewDate': "an outfit's Fashion Review date (Skin, optional), on some outfits only; SkinsCarousel does not read it",
+    '.ongoingSkins[].dynamic': 'finalize always supplies a model pointer or null; an older sale selection may contain only still outfits, and shapeOf skips nulls (explicitly checked below)',
+    '.ongoingSkins[].alternate': 'the same nullable pointer for alternate artwork; not every sale selection includes a second version',
     '.upcomingEvent.startAt': "the same exact opening, on the next event to open",
     '.upcomingEvent.endAt': "the same exact close, on the next event to open",
     '.upcomingEvent.timingSource': "the same window source, on the next event to open",
@@ -357,6 +359,8 @@ const FEEDS: { host: string; answer: (url: URL) => unknown }[] = [
 
 async function withStubbedFeeds<T>(run: () => Promise<T>): Promise<{ result: T; unexpected: string[] }> {
   const real = globalThis.fetch;
+  const archiveFile = process.env.ARKPEDIA_YOUTUBE_ARCHIVE_FILE;
+  process.env.ARKPEDIA_YOUTUBE_ARCHIVE_FILE = path.join(ROOT, 'tests/fixtures/youtube-discovery-empty.json');
   const unexpected: string[] = [];
   globalThis.fetch = (async (input: string | URL | Request, init?: RequestInit) => {
     const url = new URL(typeof input === 'string' ? input : input instanceof URL ? input.href : input.url);
@@ -370,6 +374,8 @@ async function withStubbedFeeds<T>(run: () => Promise<T>): Promise<{ result: T; 
     return { result: await run(), unexpected };
   } finally {
     globalThis.fetch = real;
+    if (archiveFile === undefined) delete process.env.ARKPEDIA_YOUTUBE_ARCHIVE_FILE;
+    else process.env.ARKPEDIA_YOUTUBE_ARCHIVE_FILE = archiveFile;
   }
 }
 
@@ -380,6 +386,28 @@ async function withStubbedFeeds<T>(run: () => Promise<T>): Promise<{ result: T; 
  * running cannot pass.
  */
 const REGENERATED: Record<string, (props: Record<string, unknown>, clock: { from: number; to: number }) => void> = {
+  '/community/statistics': (props) => {
+    const ops=props.operators as {className:string;charIds:string[]}[];
+    assert.ok(ops.length>400);
+    assert.ok(ops.some(op=>op.className==='Guard'&&op.charIds.includes('char_293_thorns')));
+  },
+  '/polls/favourite-skins': (props) => {
+    const skins=props.skins as {id:string;name:string}[];
+    assert.ok(skins.length>400);
+    assert.ok(skins.some(s=>s.id==='char_002_amiya@winter#1'&&s.name==='Newsgirl'));
+  },
+  '/polls': (props) => {
+    const showcase=props.showcase as {image:string;name:string;operator:string}[];
+    assert.equal(showcase.length,3);assert.ok(showcase.every(skin=>skin.image.startsWith('/')&&skin.name&&skin.operator));
+    assert.equal((props.previousArt as string[]).length,3);
+  },
+  '/community/support-units': props => {
+    const operators = props.operators as {name:string;rarity:number;skills:number}[];
+    assert.ok(operators.length > 350, 'support search has a real operator catalogue');
+    assert.equal(operators.find(op => op.name === 'Lancet-2')?.rarity, 1);
+    const tables = props.__contentTables as Record<string, {chars?:Record<string,unknown>}>;
+    assert.ok(Object.keys(tables['game-account-map'].chars ?? {}).length > 400, 'finalize supplies the support portrait map');
+  },
   '/community/projects': props => {
     assert.equal((props.chibis as unknown[]).length, 2);
     assert.equal(((props.__contentTables as Record<string, { projects: unknown[] }>)['community-projects'].projects).length, 10);
@@ -425,8 +453,8 @@ const REGENERATED: Record<string, (props: Record<string, unknown>, clock: { from
     assert.ok(campaigns.every(event => event.name && Number.isFinite(Date.parse(event.expiresAt))), 'discovered campaign records keep verified deadlines');
     const videos = props.videos as { videoId: string }[];
     assert.ok(videos.length > 0 && videos.every((video) => video.videoId.startsWith('stub-')), 'the videos are the feeds finalize fetched');
-    assert.deepEqual((props.twitchStreams as { userLogin: string }[]).map((stream) => stream.userLogin), ['stub_streamer'], 'the Twitch streams are the ones finalize fetched');
-    assert.equal(props.hasTwitchCreds, true);
+    assert.equal(Object.hasOwn(props, 'twitchStreams'), false, 'live Twitch status is fetched on entry, never baked into regenerated content');
+    assert.equal(Object.hasOwn(props, 'hasTwitchCreds'), false, 'live feed availability comes from the Twitch API response');
     const now = props.now as number;
     assert.ok(now >= Math.floor(from / 60_000) * 60_000 && now <= to, `now (${new Date(now).toISOString()}) is the server's clock at the regeneration`);
   },
@@ -497,21 +525,33 @@ test('the fixtures are the live release\'s own pages, and name content routes', 
 
 for (const route of Object.keys(PREVIOUS.pages)) {
   test(`${route} renders the previous release's props, and they carry every field this code's do`, async () => {
-    const { page, params, props } = await fromPreviousRelease(route);
-    const html = renderPage(page.default, props);
-    assert.ok(html.length > 1000, `${route}: the page rendered`);
+    const run = async () => {
+      const { page, params, props } = await fromPreviousRelease(route);
+      if (route === '/') for (const skin of props.ongoingSkins as { dynamic?: string | null; alternate?: string | null }[]) {
+        assert.ok(skin.dynamic === null || typeof skin.dynamic === 'string', 'older homepage outfits receive explicit animation metadata');
+        assert.ok(skin.alternate === null || typeof skin.alternate === 'string', 'older homepage outfits receive explicit alternate metadata');
+      }
+      const html = renderPage(page.default, props);
+      assert.ok(html.length > 1000, `${route}: the page rendered`);
 
-    // A stale regeneration on Vercel reads the same page, and may not use this checkout's data.
-    await withRelease(Object.keys(PREVIOUS.pages), async (release) => {
-      const regenerated = await propsOf(page.getStaticProps, params, 'stale');
-      assert.equal((regenerated.__contentRelease as { release?: string } | undefined)?.release, release, `${route}: a regeneration on Vercel reads the release`);
-    }, { VERCEL: '1' });
+      // A stale regeneration on Vercel reads the same page, and may not use this checkout's data.
+      await withRelease(Object.keys(PREVIOUS.pages), async (release) => {
+        const regenerated = await propsOf(page.getStaticProps, params, 'stale');
+        assert.equal((regenerated.__contentRelease as { release?: string } | undefined)?.release, release, `${route}: a regeneration on Vercel reads the release`);
+      }, { VERCEL: '1' });
 
-    const bundled = await withEnv({ ARKPEDIA_CONTENT_DISABLED: '1' }, () => propsOf(page.getStaticProps, params));
-    assert.ok(!bundled.__contentRelease, `${route}: this code's own props, from its own data`);
-    const allowed = DATA_ONLY[route] ?? {};
-    const missing = missingFromRelease(shapeOf(bundled), shapeOf(props)).filter((at) => !(at in allowed));
-    assert.deepEqual(missing, [], `${route}: the previous release's props lack ${missing.join(', ')} -- fill them in the page's withContentPage finalize (or list a field only the data lacks in DATA_ONLY)`);
+      const bundled = await withEnv({ ARKPEDIA_CONTENT_DISABLED: '1' }, () => propsOf(page.getStaticProps, params));
+      assert.ok(!bundled.__contentRelease, `${route}: this code's own props, from its own data`);
+      const allowed = DATA_ONLY[route] ?? {};
+      const missing = missingFromRelease(shapeOf(bundled), shapeOf(props)).filter((at) => !(at in allowed));
+      assert.deepEqual(missing, [], `${route}: the previous release's props lack ${missing.join(', ')} -- fill them in the page's withContentPage finalize (or list a field only the data lacks in DATA_ONLY)`);
+    };
+    // The homepage now keeps successful feeds between renders. Stub its first
+    // request too, so the following regeneration tests cannot inherit live videos.
+    if (route === '/') {
+      const { unexpected } = await withStubbedFeeds(run);
+      assert.deepEqual(unexpected, []);
+    } else await run();
   });
 }
 

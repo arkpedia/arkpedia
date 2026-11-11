@@ -4,8 +4,9 @@
 .header-utility-actions .action-popover-trigger { background: transparent; border-color: transparent; line-height: 0; }
 .header-utility-actions .action-popover-trigger:hover { color: var(--teal); background: var(--teal-dim); border-color: transparent; }
 .header-utility-actions .action-popover-trigger[aria-expanded="true"] { border-color: transparent; }
-.action-popover-trigger { display: inline-flex; align-items: center; justify-content: center; flex: none; width: var(--control-h); min-height: var(--control-h); padding: 0; color: var(--text-dim); background: var(--well); border: 1px solid var(--control-border); border-radius: var(--radius-control); }
-.action-popover-trigger[aria-expanded="true"] { border-color: var(--teal); color: var(--teal); background: var(--teal-dim); }
+.action-popover-trigger { display: inline-flex; align-items: center; justify-content: center; flex: none; width: var(--control-h); min-height: var(--control-h); padding: 0; color: var(--text-dim); background: var(--action-popover-ground, var(--well)); border: 1px solid var(--control-border); border-radius: var(--radius-control); }
+.action-popover-trigger[aria-expanded="true"] { border-color: var(--teal); color: var(--teal); background: var(--action-popover-ground, var(--teal-dim)); }
+.action-popover-trigger.action-popover-text { width: auto; padding-inline: 10px; }
 .action-popover:not(.header-action-menu) { box-sizing: border-box; z-index: 100; overflow-y: auto; overscroll-behavior: contain; padding: 12px; background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: var(--radius-frame); box-shadow: 0 8px 24px rgb(0 0 0 / .2); }
 .action-popover:not(.header-action-menu) > a, .action-popover:not(.header-action-menu) .theme-toggle-menu { display: flex; align-items: center; gap: 10px; box-sizing: border-box; width: 100%; min-height: var(--control-h); padding: 8px; color: var(--text); text-decoration: none; }
 .action-popover:not(.header-action-menu) > a:hover { background: var(--teal-dim); color: var(--teal); }

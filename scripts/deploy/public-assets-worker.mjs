@@ -6,10 +6,11 @@ import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 const UUID = /^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/;
-export function uploadedAssetVersion(output) {
+export function uploadedAssetVersion(output, worker = 'arkpedia-assets') {
+  assert.ok(['arkpedia-assets', 'arkpedia-data-assets'].includes(worker), 'Unexpected public asset Worker');
   if (output.length > 1_000_000) throw new Error('Oversized Wrangler output');
   const versions = output.trim().split('\n').filter(Boolean).map(line => JSON.parse(line))
-    .filter(record => record.type === 'version-upload' && record.version === 1 && record.worker_name === 'arkpedia-assets');
+    .filter(record => record.type === 'version-upload' && record.version === 1 && record.worker_name === worker);
   if (versions.length !== 1 || !UUID.test(versions[0].version_id || '')) throw new Error('Expected exactly one arkpedia-assets version upload');
   return versions[0].version_id;
 }

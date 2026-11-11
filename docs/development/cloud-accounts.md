@@ -173,11 +173,24 @@ cross-device restore/deletion on disposable accounts remain manual acceptance.
 
 ### Optional auto-deploy archive
 
-Preview's explicit auto-deploy sync uses the nested `/api/cloud-account/auto-deploys`
+Explicit auto-deploy sync uses the nested `/api/cloud-account/auto-deploys`
 API. Its separate opt-in is available only with reviewed imported-game-data consent;
 normal account sign-in never starts game traffic. Migration `0006_auto_deploys.sql`
 adds bounded, per-user replay rows and quota accounting. Consent withdrawal and
 account deletion reclaim these rows. Server-side compare-and-swap and monotonic
 stage-counter checks reject stale writes; credential fields are rejected before
-storage. See [the transport contract](account-import-transport.md#optional-auto-deploy-sync-preview)
+storage. See [the transport contract](account-import-transport.md#optional-auto-deploy-sync)
 for queue pacing, retention, limitations and separate export behavior.
+
+### Profile pictures
+
+Account pictures are catalogue IDs in `arkpedia_profile.avatarId` (migration 0013),
+updated through the authenticated, same-origin, owner-bound profile PATCH. Apply
+the migration before serving the new application. The API accepts only catalogue
+IDs and null for the default; pictures are validated again before rendering.
+
+This is profile identity, separate from cloud-save categories and their replacement
+contract. Old clients changing a username or uploading a cloud snapshot preserve it.
+Deleting the account removes the profile row; deleting cloud saves does not.
+Guest pictures remain in `arkpedia:profile-avatar-v1` and are never automatically
+adopted by a signed-in account. Select a picture while signed in to save it there.

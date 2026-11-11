@@ -165,10 +165,15 @@ export default function Tabs<V extends string | number>({
     const place = (instant: boolean) => {
       const at = underlineOf(strip);
       if (!at) { strip.removeAttribute('data-slide'); return; }
-      const next = `translate(${at.x}px, ${at.y}px) scaleX(${at.w})`;
+      // Give the bar its real layout width. Stretching a 1px element magnifies
+      // browser-zoom rounding and can disagree with the compositor's painted edge.
+      // Only its position slides; sizing never affects surrounding layout.
+      const next = `translate(${at.x}px, ${at.y}px)`;
+      const width = `${at.w}px`;
       const first = !strip.hasAttribute('data-slide');
-      if (indicator.dataset.at === next && !first) return;
+      if (indicator.dataset.at === next && indicator.style.width === width && !first) return;
       if (instant || first) indicator.style.transition = 'none';
+      indicator.style.width = width;
       indicator.style.transform = next;
       indicator.dataset.at = next;
       if (instant || first) {
@@ -186,9 +191,11 @@ export default function Tabs<V extends string | number>({
     let live = true;
     document.fonts?.ready.then(() => { if (live) place(true); });
     const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(() => place(true));
+    const resized = () => place(true);
+    window.addEventListener('resize', resized);
     observer?.observe(strip);
     for (const tab of Array.from(strip.children)) if (tab !== indicator) observer?.observe(tab);
-    return () => { live = false; observer?.disconnect(); indicator.removeEventListener('transitionend', settle); };
+    return () => { live = false; observer?.disconnect(); window.removeEventListener('resize', resized); indicator.removeEventListener('transitionend', settle); };
   }, [value, optionKeys]);
 
   return (

@@ -3,7 +3,7 @@ import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { ImportError, readAccount, readNetwork, readPulls, sendCode, SERVERS, signIn, type ImportStep, type Network, type ServerId, type YostarAccount, type ReplaySession } from '@/lib/account-import/yostar';
 import { isResettingBrowserData } from '@/lib/account/resetData';
 import type { PullRead } from '@/lib/account/pulls';
-import { directTransport, networkTransport, relayTransport } from '@/lib/account-import/relay';
+import { directTransport, networkTransport, relayTransport, retainRelaySession } from '@/lib/account-import/relay';
 import { forgetLogin, maskEmail, readSavedLogin, saveLogin, SAVED_LOGIN_KEY, type SavedLogin } from '@/lib/account-import/savedLogin';
 import ReplaySync from './ReplaySync';
 import { useReplayDownloads } from '@/lib/replays/DownloadProvider';
@@ -14,6 +14,7 @@ import StageDiagnostics from './StageDiagnostics';
 import { stageDiagnostics } from '@/lib/account-import/stageDiagnostics';
 import { connectionDiagnostics } from '@/lib/account-import/connectionDiagnostics';
 import { beginnerDiagnostics } from '@/lib/account-import/beginnerDiagnostics';
+import { useImportDiagnostics } from '@/lib/account-import/importDiagnostics';
 import { useCodeCooldown } from '@/lib/account-import/codeCooldown';
 
 /*
@@ -59,6 +60,7 @@ export default function GameSignIn({ server, onAccount, idPrefix = 'import' }: {
   const { secondsLeft, begin: beginCodeRequest, finish: finishCodeRequest } = useCodeCooldown(server);
   const [importBusy, setBusy] = useState(false);
   const downloads = useReplayDownloads();
+  const diagnostics = useImportDiagnostics();
   const busy = importBusy || downloads.running;
   const validEmail = /^\S+@\S+\.\S+$/.test(email.trim());
   const [step, setStep] = useState<ImportStep | null>(null);
@@ -126,6 +128,7 @@ export default function GameSignIn({ server, onAccount, idPrefix = 'import' }: {
     setCodeSent(false);
     setRetryingCode(false);
     setStep('send-code');
+    const releaseRelay = retainRelaySession();
     try {
       // Emailing a code needs only Yostar, including when no sign-in is saved.
       if (savedForServer) deviceId.current = savedForServer.deviceId;
@@ -138,6 +141,7 @@ export default function GameSignIn({ server, onAccount, idPrefix = 'import' }: {
     } catch (error) {
       setFailed({ step: error instanceof ImportError ? error.step : 'send-code', message: describe(error) });
     } finally {
+      releaseRelay();
       finishCodeRequest();
       setRetryingCode(false);
       setBusy(false);
@@ -160,7 +164,7 @@ export default function GameSignIn({ server, onAccount, idPrefix = 'import' }: {
       let replaySession: ReplaySession | undefined;
       // The report's beginner summary is this import's, never an earlier one's.
       connectionDiagnostics.setBeginner(null);
-      const user = await readAccount({ transport: relayTransport, direct: directTransport, deviceId: device, network: await connect(from), onStep: setStep, ...(process.env.ARKPEDIA_CLOUD_ACCOUNTS === '1' ? { onReplaySession: (session: ReplaySession) => { replaySession = session; } } : {}) }, yostar);
+      const user = await readAccount({ transport: relayTransport, direct: directTransport, deviceId: device, network: await connect(from), onStep: setStep, readFriendSlots: true, readWelcomeMail: from === 'en', ...(process.env.ARKPEDIA_CLOUD_ACCOUNTS === '1' ? { onReplaySession: (session: ReplaySession) => { replaySession = session; } } : {}) }, yostar);
       stageDiagnostics.capture(user, from);
       connectionDiagnostics.setBeginner(beginnerDiagnostics(user));
       setStep('pulls');
@@ -180,6 +184,9 @@ export default function GameSignIn({ server, onAccount, idPrefix = 'import' }: {
     if (process.env.ARKPEDIA_CLOUD_ACCOUNTS === '1' && navigator.locks) {
       await navigator.locks.request(REPLAY_LOCK,{ifAvailable:true},async lock=>{if(!lock)throw new Error('Another tab is importing game data. Wait for it to finish.');await perform();});
     } else await perform();
+    // Start only after the import lock has been released. The provider owns the job,
+    // so it continues if this dialog closes or the reader navigates within the site.
+    void downloads.run({afterImport:true});
   }
 
   async function onImport(event: FormEvent) {
@@ -190,6 +197,7 @@ export default function GameSignIn({ server, onAccount, idPrefix = 'import' }: {
     setPullsFailed(null);
     setDone(false);
     setStep('sign-in');
+    const releaseRelay = retainRelaySession();
     try {
       await connect();
       const yostar = await signIn(flow(), email.trim(), code.trim());
@@ -210,6 +218,7 @@ export default function GameSignIn({ server, onAccount, idPrefix = 'import' }: {
     } catch (error) {
       setFailed({ step: error instanceof ImportError ? error.step : 'account', message: describe(error) });
     } finally {
+      releaseRelay();
       setBusy(false);
     }
   }
@@ -223,6 +232,7 @@ export default function GameSignIn({ server, onAccount, idPrefix = 'import' }: {
     setDone(false);
     setStep('game-token');
     deviceId.current = savedForServer.deviceId;
+    const releaseRelay = retainRelaySession();
     try {
       await read(savedForServer, savedForServer.deviceId, savedForServer.email, savedForServer.server);
     } catch (error) {
@@ -231,6 +241,7 @@ export default function GameSignIn({ server, onAccount, idPrefix = 'import' }: {
       // Keep it through network, version, provider and account-read failures.
       setFailed({ step: at, message: `${describe(error)} Your saved sign-in has been kept. Try Import again, or request a new code to replace it.` });
     } finally {
+      releaseRelay();
       setBusy(false);
     }
   }
@@ -245,6 +256,20 @@ export default function GameSignIn({ server, onAccount, idPrefix = 'import' }: {
     if (stepIndex > index) return 'done';
     return busy && index === stepIndex ? 'running' : 'waiting';
   };
+
+  const progressSteps = (
+    <ol className="import-steps" aria-live="polite">
+      {steps.map((entry, index) => {
+        const state = stateOf(index);
+        return (
+          <li key={entry.id} className={`import-step import-step-${state}`}>
+            <span className="import-step-mark" aria-hidden="true">{state === 'done' ? '✓' : state === 'failed' ? '✕' : state === 'running' ? '…' : '·'}</span>
+            {entry.label}
+          </li>
+        );
+      })}
+    </ol>
+  );
 
   const forgetButton = <button type="button" className="ghost btn-sm" disabled={busy} onClick={() => {
     // Explicit removal reports failure; automatic expired-login cleanup is best effort.
@@ -266,17 +291,13 @@ export default function GameSignIn({ server, onAccount, idPrefix = 'import' }: {
       ) : (
         <>
           <div className="import-yostar">
-            <p>
-              <b>Use the email that is already the Yostar login of your Arknights account.</b> Any other email
-              makes Yostar create a separate, empty account for it.
-            </p>
-            <details><summary>Using Google, Apple or Facebook in the game?</summary>
-            <p>
-              Your Google email is not automatically a Yostar login. Undoing that takes several steps in the game.
-              So check in the game which login you use first ({ACCOUNT_SETTINGS}). If you play with Google, Apple or Facebook only,
-              link an email there as its Yostar login (the option that emails you a code), then use that email here.
-            </p>
-            </details>
+            <div className="account-shortcuts import-email-help">
+              <p>Use your Arknights account’s Yostar email. A different email creates an empty account.</p>
+              <InfoPopover label="Which email should I use?">
+                <p>Check your linked email in the game under {ACCOUNT_SETTINGS} before importing.</p>
+                <p>Your Google email is not automatically a Yostar login. If you play with Google, Apple or Facebook only, link an email in the game as its Yostar login, then use that email here.</p>
+              </InfoPopover>
+            </div>
           </div>
           <div className="import-forms">
             <form className="import-row" onSubmit={onSendCode}>
@@ -315,7 +336,7 @@ export default function GameSignIn({ server, onAccount, idPrefix = 'import' }: {
               />
               <button type="submit" className="primary btn-sm" disabled={busy || !validEmail || !code.trim()}>Import</button>
             </form>
-            <div className="account-shortcuts"><label className="check import-remember">
+            <div className="account-shortcuts import-remember-row"><label className="check import-remember">
               <input type="checkbox" checked={saveSignIn} onChange={(event) => setSaveSignIn(event.target.checked)} disabled={busy} />
               Save this sign-in on this browser
             </label><InfoPopover label="About remembering your game sign-in"><p>Keeps your game-login email, tokens and device information in this browser so later imports need no emailed code. They never sync to your Arkpedia account or backups.</p><p>Leave this off on a shared device. Remove a saved sign-in with Forget Yostar login.</p></InfoPopover></div>
@@ -326,22 +347,12 @@ export default function GameSignIn({ server, onAccount, idPrefix = 'import' }: {
       {retryingCode && <p className="hint import-note" role="status">Connection failed. Retrying once…</p>}
       {!busy && secondsLeft > 0 && <p className="hint import-note" aria-live="off">Request another code in {secondsLeft}s.</p>}
 
-      {step !== 'send-code' && (busy || done || !!failed?.step || step !== null) && (
-        <ol className="import-steps" aria-live="polite">
-          {steps.map((entry, index) => {
-            const state = stateOf(index);
-            return (
-              <li key={entry.id} className={`import-step import-step-${state}`}>
-                <span className="import-step-mark" aria-hidden="true">{state === 'done' ? '✓' : state === 'failed' ? '✕' : state === 'running' ? '…' : '·'}</span>
-                {entry.label}
-              </li>
-            );
-          })}
-        </ol>
+      {step !== 'send-code' && (importBusy || done || !!failed?.step || step !== null) && (
+        (done ? <details><summary>Import steps</summary>{progressSteps}</details> : progressSteps)
       )}
       {failed && <p className="import-error" role="alert">{failed.message}</p>}
       {process.env.ARKPEDIA_CLOUD_ACCOUNTS === '1' && <ReplaySync busy={importBusy} />}
-      <ConnectionDiagnostics />
+      {diagnostics && <ConnectionDiagnostics />}
       <StageDiagnostics server={server} busy={busy} />
       {failed?.step === 'network' && <button type="button" className="ghost btn-sm" disabled={busy || connection === 'opening'} onClick={() => { connect().catch(error => setFailed({ step: 'network', message: describe(error) })); }}>Retry connection</button>}
       {done && pullsFailed && <p className="hint import-note">The pull history could not be read ({pullsFailed}). Everything else was imported.</p>}

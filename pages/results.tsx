@@ -75,7 +75,7 @@ export default function Results({ iconMap }: Props) {
     <>
       <PageMeta title="Community Results" description="How the community rated Arknights operators in the power-scale poll, in a compact and a detailed view." path="/results" />
 
-      <PageHeader eyebrow="Rhodes Island // Community Survey" title="Community results" />
+      <PageHeader back={{href:'/polls',label:'Community polls'}} eyebrow="Rhodes Island // Community Survey" title="Community results" />
 
       <main className="results-page">
         <div className="results-toolbar">

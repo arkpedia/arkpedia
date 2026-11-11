@@ -7,6 +7,7 @@ export function eventMusicId(name: string, table: PageMusicTable): string | null
   const match = table.find(event => event.names.some(alias => key(alias) === key(name)));
   return match?.videoId ?? match?.cid ?? null;
 }
+
 // Default “Vision” menu, m_sys_void: https://arknights.wiki.gg/wiki/Soundtrack/BGM/Interface
 export const HOME_MUSIC_CID = '232202';
 export const MAIN_AUDIO_START = 'arkpedia:main-audio-start';

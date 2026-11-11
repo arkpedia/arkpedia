@@ -20,6 +20,66 @@ test('the nav search finds a page by name and Enter opens the exact match', asyn
   await expect(page.getByRole('dialog', { name: 'Search Arkpedia' })).toHaveCount(0);
 });
 
+for (const theme of ['dark', 'light']) {
+  test(`the nav search retries a failed index on reopen and keeps a successful load (${theme})`, async ({ page }, info) => {
+    await page.addInitScript(value => localStorage.setItem('theme', value), theme);
+    let indexRequests = 0;
+    let recovered = false;
+    let finishRecovery!: () => void;
+    const recoveryReady = new Promise<void>(resolve => { finishRecovery = resolve; });
+    // Fail both a release's index and the bundled fallback. A reopen can recover without
+    // changing the page, release URL or query; typing alone must not cause a retry loop.
+    await page.route(url => url.pathname.endsWith('/site-search.json'), async route => {
+      indexRequests++;
+      if (!recovered) return route.fulfill({ status: 503, body: 'Temporarily unavailable' });
+      await recoveryReady;
+      return route.fulfill({ json: { entries: [{ kind: 'operator', title: 'Amiya', href: '/operators/Amiya' }] } });
+    });
+    await page.route('**/api/search-feeds', route => route.fulfill({ json: { entries: [] } }));
+    try {
+      await page.goto('/schedule');
+      const button = page.getByRole('button', { name: 'Search Arkpedia' });
+      const field = page.getByRole('combobox', { name: 'Search Arkpedia' });
+      const dialog = page.getByRole('dialog', { name: 'Search Arkpedia' });
+      const unavailable = dialog.getByText('Search is unavailable right now.');
+      const close = async () => {
+        if (info.project.name === 'mobile') await page.getByRole('button', { name: 'Close search' }).tap();
+        else await page.mouse.click(5, 300);
+        await expect(dialog).toHaveCount(0);
+      };
+      await button.click();
+      await field.fill('amiya');
+      await expect(unavailable).toBeVisible();
+      const failedRequests = indexRequests;
+      expect([1, 2]).toContain(failedRequests); // A pinned release can also try the bundled fallback.
+      await field.fill('ami');
+      await field.fill('amiya');
+      // Observe the settled error across renders and time: an effect retry loop would
+      // request again even while the reader leaves the pop-up open.
+      await page.waitForTimeout(250);
+      await expect(unavailable).toBeVisible();
+      expect(indexRequests).toBe(failedRequests);
+      if (process.env.ARKPEDIA_QA_CAPTURE) await page.screenshot({ path: `${process.env.ARKPEDIA_QA_CAPTURE}/search-failed-${theme}-${info.project.name}.png` });
+
+      await close();
+      recovered = true;
+      await button.click();
+      await expect(dialog.getByText('Loading search…')).toBeVisible();
+      finishRecovery();
+      await expect(page.getByRole('option').first()).toContainText('Amiya');
+      expect(indexRequests).toBe(failedRequests + 1);
+      if (process.env.ARKPEDIA_QA_CAPTURE) await page.screenshot({ path: `${process.env.ARKPEDIA_QA_CAPTURE}/search-recovered-${theme}-${info.project.name}.png` });
+
+      await close();
+      await button.click();
+      await expect(page.getByRole('option').first()).toContainText('Amiya');
+      expect(indexRequests).toBe(failedRequests + 1);
+    } finally {
+      finishRecovery();
+    }
+  });
+}
+
 test('a stage code matches as a code, and a pick opens the stage', async ({ page }) => {
   await page.goto('/schedule');
   await page.getByRole('button', { name: 'Search Arkpedia' }).click();

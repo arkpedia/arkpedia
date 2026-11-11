@@ -72,6 +72,23 @@ WebSocket openings, not encrypted email-code requests inside a tunnel.
 
 ## Regression coverage
 
+Relay connections belong to active work, rather than the lifetime of an open tab.
+Completing or cancelling the last import/download releases its HTTP session and
+shared Wisp WebSocket after any in-flight response body finishes. Waiting for an
+email code holds no connection; verification reconnects using the existing flow's
+credentials. During an active download, an unused pool expires after 15 seconds
+(for example while waiting for cloud work or admission). Short gaps reuse the pool;
+retaining a flow alone never opens it. An unowned hidden tab also releases its idle
+pool without depending on a throttled timer. Cleanup never retries an authenticated
+request or replaces its result. The WASM module stays loaded for later imports.
+
+libcurl.js 0.7.4 defers HTTP-session cleanup by one millisecond and otherwise leaves
+the shared physical WebSocket open. Teardown waits for that cleanup, protects any
+remaining streams, and waits for the old WebSocket close event before reconnecting:
+the library's old close handler can otherwise erase the new connection's registry
+entry. `test-relay-session.ts` exercises the pinned library's actual Wisp lifecycle
+and deferred cleanup alongside overlapping flows, pending bodies and failures.
+
 `test-account-import.ts`, `test-import-public-network.ts` and the desktop/mobile
 `account-import.spec.ts` cover protocol routing, cache coalescing/expiry and failures,
 server isolation, invalid API input, existing-code recovery and no automatic resend.
@@ -82,7 +99,9 @@ Browser account responses are fixtures; no test sends a real email or signs in t
 The browser observes libcurl.js 0.7.4's exported Wisp lifecycle methods, without reading
 message packets or changing encryption, routing, retries or relay logging. A bounded report
 of the last 12 relay attempts stays only in page memory; the reader can copy it from the
-Connection diagnostics disclosure after a transport failure. It is never uploaded or saved.
+Connection diagnostics disclosure after a transport failure. These testing controls require
+`?importDiagnostics=1` on `preview.arkpedia.net` or localhost; production never shows them.
+The report is never uploaded or saved.
 
 The allow-listed report schema contains destination categories, rounded elapsed duration,
 HTTP status, numeric curl/Wisp reason codes, a relay-handshake flag and a failure leg. No
@@ -118,13 +137,17 @@ reload or Clear captures. Compare a baseline, an unchanged import, and one after
 reader replaces one known auto-deploy in game. Field differences are evidence to
 investigate, not proof of a reliable replay revision contract.
 
-## Optional auto-deploy sync (Preview)
+## Optional auto-deploy sync
 
-Import / export offers an explicit **Sync auto-deploys** action after a successful
-Yostar import. It never runs from Google/Discord sign-in or ordinary page visits.
+Import / export offers an opt-in **Include auto-deploys and save to my account** choice.
+When checked, a successful Yostar import automatically starts downloads after releasing
+the shared import lock. The choice survives subsequent imports within the tab; account
+changes or revoked saving consent clear it. Saving the Yostar login is not required.
+An unchecked import starts no replay requests; **Sync auto-deploys** remains available
+after import for manual local downloads. Google/Discord sign-in and ordinary page visits
+never start downloads.
 The in-memory game session continues at sequence 3 after syncData. The only exposed
-continuation reads `quest/getBattleReplay` (`campaign/getBattleReplay` for `camp_`
-stages). The [ArkPRTS client](https://github.com/ashleney/ArkPRTS/blob/master/arkprts/client.py)
+continuation reads `quest/getBattleReplay`, including `camp_` Annihilation stages. The [ArkPRTS client](https://github.com/ashleney/ArkPRTS/blob/master/arkprts/client.py)
 uses a caller-supplied battle type; it does not define a literal `battle` route.
 Normal stages use the [quest route](https://github.com/loongling/LocalArknights/blob/main/src/main/java/com/hypergryph/arknights/game/quest.java).
 Failures distinguish HTTP status, bounded numeric game-result codes and missing replay
@@ -136,31 +159,54 @@ the tab, account changes or browser-data resets discard the capability; import
 again to resume from durable checkpoints. A compact status bar exposes Pause,
 Resume and Details outside the dialog.
 
-Queue operations hold a shared browser Web Lock with game imports, wait 3–4.5
-seconds between items, and continue through all pending stages after an explicit
-start. Pause, page exit, reset and account changes stop further work. A response already in flight may finish, but an aborted
+Queue operations hold a shared browser Web Lock with game imports and continue
+through pending stages after an explicit start. Actual game downloads also retain
+a local 3–4.5-second delay as a second guard; cloud-only work skips it. Pause, page exit, reset and account
+changes stop further work. A response already in flight may finish, but an aborted
 queue does not save/upload it. HTTP 429 honors Retry-After with at least a minute's
-cooldown. Any uncertain/authentication response invalidates the session; there is
-no automatic retry or relogin. These limits are precautionary, not a confirmed
-Yostar-approved quota.
+cooldown. Any uncertain/authentication response invalidates the game session; there
+is no automatic game-request retry or relogin.
 
-Before each actual game replay fetch, the downloader asks the Preview-only
-`/api/account-import/replay-permit` endpoint for admission. Migration 0007 adds
-atomic D1 coordination: at most one grant every 500 ms across cooperating Preview
-clients, and one every 3 seconds per anonymous browser identifier. An unsuccessful
-per-browser attempt does not consume a global slot. No game UID, stage, login
-secret or replay content enters this endpoint; browser identifiers expire from
-D1 after an hour idle, with indexed bounded cleanup. Preview ingress guards and
-exact-origin/body checks apply; the endpoint is unavailable in production.
+Before each actual game replay fetch, the downloader asks the same-origin
+`/api/account-import/replay-permit` endpoint for admission. Production and Preview
+use their own isolated database and aggregate budget. Migration 0007 provides the
+atomic counter: at most one grant every 500 ms and one every 3 seconds per anonymous
+browser identifier. Migration 0012 adds a bounded FIFO waiting queue. Repeated polls
+renew the same place; eligible older waiters win before newcomers. A browser still
+on its own cooldown does not block eligible browsers. Pause sends best-effort
+cancellation without resetting the consumed-grant counter; abandoned places expire
+after 10 seconds and are removed by the next admission. The queue is capped at
+1,000 waiters and returns a 60-second retry when full. Old clients retain the same
+shared counter, although their longer polling can let their waiting place expire.
 
-Denied admission uses jittered exponential waiting up to 32 seconds and is
-cancellable; HTTP 429 respects Retry-After. Network/server failures pause instead
-of bypassing coordination. Responses taking a second or longer are treated as
-stale and reacquired to avoid waking tabs spending old grants. This is application
-admission control, not an official Yostar quota, strict FIFO fairness or an
-inspection/enforcement mechanism inside the encrypted relay. Separate devices
-have distinct browser limits but share the aggregate budget. Normal imports and
-login requests do not use this admission service or change their relay route.
+The response gives a position and a short retry delay (500–2,000 ms, with up to
+100 ms client jitter), replacing exponential waits of up to 32 seconds. Network or
+server failures pause instead of bypassing coordination. Responses taking a second
+or longer are treated as stale and reacquired. No game UID, stage, login secret or
+replay content enters admission; browser rate counters are removed after an hour
+idle by bounded cleanup. Exact-origin/body checks and account ingress guards apply.
+These are precautionary application limits, not a confirmed Yostar quota or an
+inspection/enforcement mechanism inside the encrypted relay. Separate devices have
+distinct browser limits. Ordinary login and import traffic do not use this queue.
+
+Cloud-only restoration, uploads and removals skip Yostar admission and its delay.
+Cloud requests use separate cancellation-aware pacing below account API quotas:
+700 ms between reads, 1,250 ms between writes, and 6,500 ms between removals. The
+server quota remains authoritative across other tabs/devices. Game downloads stay
+sequential and never upload game credentials. Existing consent, ownership,
+compare-and-swap and durable local-checkpoint safeguards remain in effect.
+
+This first scheduling change uses the existing atomic D1 coordinator; it does not
+add a second traffic budget or deploy extra relay Workers. A separate coordinator
+Worker can later move this workload off the account database if measured admission
+latency or database contention warrants it. That migration must hand over the one
+aggregate counter, preserve environment isolation and keep game credentials in the
+browser. Splitting Workers alone must not multiply upstream throughput.
+
+Apply migration 0012 to the target environment before deploying this scheduler.
+It adds only the anonymous waiting table; it preserves the existing rate counter
+and all account/replay data. Rolling code back leaves the unused table in place.
+Do not reset the shared counter during migration or rollback.
 
 A bounded replay document with an unsupported journal, squad/action list or
 mismatched stage ID is skipped during a bulk run, so later stages can still save.
@@ -176,7 +222,8 @@ IndexedDB checkpoints successful replays by server, game UID and stage. Fingerpr
 use hasBattleReplay/start/completion/practice counters and state. A login-only
 sample left the metadata unchanged; changing one known stage changed only that
 stage's start/completion counters. These are conservative hints, not an authoritative
-replay revision contract. Manual per-stage refresh is available. Counter changes
+replay revision contract. Manual per-stage refresh is a Preview/local testing tool,
+available only with `?importDiagnostics=1`. Counter changes
 may fetch an unchanged replay; canonical content hashes then avoid uploading it
 again (only its marker changes). Failed saves retain the old checkpoint.
 

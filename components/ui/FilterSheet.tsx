@@ -121,7 +121,7 @@ function Sheet({ children, onClose, onReset, resetDisabled, hold, returnTo }: {
   }, [returnTo]);
   return (
     <dialog ref={ref} className="account-dialog filter-sheet" aria-labelledby="filter-sheet-title" tabIndex={-1}
-      onCancel={(event) => { event.preventDefault(); onClose(); }}
+      onCancel={(event) => { event.preventDefault(); event.stopPropagation(); onClose(); }}
       // Before any control inside changes a filter: the page keeps its height for the
       // reader's position, in the same render as the narrower list.
       // A native checkbox toggles before click capture. Capturing the page's

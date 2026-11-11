@@ -1,6 +1,9 @@
 const assetRevisions = require('./data/assets/revisions.json');
 const assetCdn = require('./config/asset-delivery.json');
-const assetUrl = (repository, path) => assetCdn.template.replace('{repository}', repository).replace('{revision}', assetRevisions[repository]).replace('{path}', path);
+const fs = require('node:fs');
+const mediaMaps = fs.existsSync(`${__dirname}/.cache/native-media-delivery.json`) ? JSON.parse(fs.readFileSync(`${__dirname}/.cache/native-media-delivery.json`, 'utf8')) : {};
+const { mediaRedirects } = require('./scripts/build/media-redirects.cjs');
+const assetUrl = (repository, path) => assetCdn.template.replace('{repository}', repository).replace('{revision}', mediaMaps[repository]?.[assetRevisions[repository]]?.baseRevision || assetRevisions[repository]).replace('{path}', path);
 const contentPageRoutes = require('./scripts/content/pages.json');
 const { ClientDataGuard } = require('./scripts/build/client-bundle-guard.cjs');
 const { contentPointer } = require('./scripts/content/content-channel.cjs');
@@ -46,8 +49,8 @@ const nextConfig = {
   // ARKPEDIA_CONTENT_CHANNEL: the content pointer this build reads (lib/content/server.ts): the
   // channel of the project Deploy builds for (scripts/content/content-channel.cjs). Inlined
   // because the prebuilt functions carry no Vercel project env.
-  // The base optimizer stays a Preview feature too (owner, 2026-10-28): www builds leave it out.
-  env: { ARKPEDIA_CLOUD_ACCOUNTS: stagingBuild ? '1' : '', ARKPEDIA_BASE_OPTIMIZER: stagingBuild ? '1' : '', ARKPEDIA_KROOSTER_IMPORT: stagingBuild ? '1' : '', ARKPEDIA_WEB_ANALYTICS: !stagingBuild && productionAnalytics && contentPointer() === 'live' ? '1' : '', ARKPEDIA_CONTENT_CHANNEL: contentPointer(), ARKPEDIA_WORKER: workerBuild ? '1' : '' },
+  // The base optimizer stays a Preview feature (owner, 2026-10-28): www builds leave it out.
+  env: { ARKPEDIA_BUNDLED_MEDIA_DELIVERY: JSON.stringify(mediaMaps), ARKPEDIA_CLOUD_ACCOUNTS: '1', ARKPEDIA_PREVIEW: stagingBuild ? '1' : '', ARKPEDIA_BASE_OPTIMIZER: stagingBuild ? '1' : '', ARKPEDIA_KROOSTER_IMPORT: stagingBuild ? '1' : '', ARKPEDIA_WEB_ANALYTICS: !stagingBuild && productionAnalytics && contentPointer() === 'live' ? '1' : '', ARKPEDIA_CONTENT_CHANNEL: contentPointer(), ARKPEDIA_WORKER: workerBuild ? '1' : '' },
   // The browser bundle may not carry a game record the content release publishes (such as
   // data/albums.json): the build fails, naming the import chain. See the guard's header.
   webpack(config, { isServer, webpack }) {
@@ -97,6 +100,7 @@ const nextConfig = {
     // result; the :slug is captured and handed straight to the query the page
     // reads.
     return [
+      ...mediaRedirects(mediaMaps, assetRevisions, assetFolders, assetCdn.template),
       // Old public names remain valid bookmarks. Query strings follow Next's redirect rules.
       ...Object.entries(pilotRouteAliases).map(([source, destination]) => ({ source, destination, permanent: true })),
       ...externalAssetRedirects(SKIN_ASSET_FOLDERS, 'arkpedia-skin-assets'),
@@ -111,6 +115,7 @@ const nextConfig = {
         destination: assetUrl('arkpedia-skin-assets', 'variants/:format/:width/:path*'),
         permanent: false,
       },
+      { source: '/friends', destination: '/account?panel=friends', permanent: true },
       { source: '/community/livestreams', destination: '/world/videos', permanent: true },
       // arkpedia.net/?s=<query> is the site search too (pages/search.tsx), for anyone who
       // sets the site up as a search engine by hand. Only on the home page: /stages/browse

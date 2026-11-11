@@ -40,6 +40,7 @@ for (const theme of ['dark', 'light']) {
     await expect(dialog.getByRole('status')).toContainText('Playing Night music');
     await page.keyboard.press('Escape');
     await expect(page.getByRole('button', { name: test.info().project.name === 'mobile' ? 'Music menu' : 'Playlists', exact: true })).toBeFocused();
+    if (!await page.getByRole('dialog', { name: 'Playback queue' }).isVisible()) await page.locator('#music-transport-queue').click();
     await expect(page.locator('.music-queue-row')).toHaveCount(1);
     // YouTube reports a removed/blocked video: a one-song playlist must stop, not retry forever.
     const loads = (await youtube(page))!.calls.filter(([call]) => call === 'loadVideoById').length;
@@ -86,15 +87,16 @@ test('an imported playlist plays in its saved order and stream-safe does not add
   await expect.poll(async () => (await youtube(page))?.videoId).toBe(ids[1]);
   await page.reload();
   // The first song has played: the Queue keeps it under Played earlier, folded.
-  await page.getByRole('button', { name: /^Played earlier/ }).click();
-  await expect(page.locator('.music-queue-row')).toHaveCount(2);
+  await page.getByRole('button', { name: /^History/ }).click();
+  await expect(page.getByRole('region', { name: 'History' }).locator('[data-song-id]').first()).toHaveAttribute('data-song-id', ids[0]);
   const safe = page.getByRole('button', { name: 'Stream-safe: hide copyrighted songs', exact: true });
   // The compact phone transport hides this optional control; exercise it where it is exposed.
   if (await safe.isVisible()) { await safe.click(); await safe.click(); }
-  await expect(page.locator('.music-queue-row')).toHaveCount(2);
+  await expect(page.getByRole('region', { name: 'History' }).locator('[data-song-id]').first()).toHaveAttribute('data-song-id', ids[0]);
   await openMusicMenu(page);
   await page.getByRole('button', { name: 'Playlists', exact: true }).click();
   await page.getByRole('dialog', { name: 'Music playlists' }).getByRole('button', { name: 'Play all songs', exact: true }).click();
   await page.keyboard.press('Escape');
+  if (!await page.getByRole('dialog', { name: 'Playback queue' }).isVisible()) await page.locator('#music-transport-queue').click();
   await expect.poll(() => page.locator('.music-queue-row').count()).toBeGreaterThan(2);
 });

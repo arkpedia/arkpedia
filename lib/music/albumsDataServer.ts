@@ -8,6 +8,7 @@ import fs from 'fs';
 import path from 'path';
 import { albumCoverPath, albumGame, getAllAlbums, getAllPlayerSongs, songsFromAlbums, MonsterSirenSong, RawAlbum, RawCredit } from './albumsData';
 import { lyricsPath } from './trackId';
+import { isLyricCredit } from './lyricCredits';
 import { getAllOperators } from '@/lib/operators/operators';
 import { getOperatorAppearances } from '@/lib/operators/operatorAppearances';
 import { normalizeReleaseDate, parseReleaseDate } from './releaseDate.mjs';
@@ -100,31 +101,6 @@ function resolveCharacterArt(names: string[], prefer: 'icon' | 'full' = 'full'):
 // ([ar:...], [ti:...], [by:...], etc.) and empty-text timing markers
 // (pure pause/rest beats with no lyric on that line) are dropped
 // entirely, same as before.
-/**
- * Roles that open a credit line, taken from the 182 published LRC files rather than
- * imagined: 54 of them begin with a credits block, in Chinese, English or both
- * ("作曲 Composer: Yocke"). Monster Siren puts it in the lyric file itself, so without
- * this the player spends a song's first forty seconds highlighting an engineer's name.
- */
-const CREDIT_ROLE = /作曲|作词|编曲|制作人|录音|混音|母带|演唱|歌手|主唱|领唱|合唱|和声|吉他|贝斯|鼓|弦乐|大提琴|音乐设计|监制|乐器|Composer|Composed|Arrang|Producer|Vocal|Lyric|Songwriter|Recording|Mixing|Mastering|Guitar|Bass|Drums|Strings|Chorus|Instrument/i;
-/** A few credit lines carry no colon at all. Matched whole, never by prefix. */
-const CREDIT_PREAMBLE = /^(?:Presented by .+|(?:Music and Lyrics|Vocals|Words and Music) by .+)$/i;
-
-/**
- * Is this one of the credit lines that open the file?
- *
- * Only ever applied to the LEADING run, and that restriction is load bearing: real
- * lyrics do contain a colon -- "We cry:" and "I'm calling:" are both sung lines in
- * this catalogue -- so a rule that swept the whole file would delete them. Stopping
- * at the first line that is not credit-shaped cannot reach them.
- */
-function isCreditLine(text: string): boolean {
-  if (!text) return true;
-  if (CREDIT_PREAMBLE.test(text)) return true;
-  const label = text.match(/^(.{1,44}?)\s*[:：]\s*\S/);
-  return Boolean(label && CREDIT_ROLE.test(label[1]));
-}
-
 export function parseLrc(content: string): LyricLine[] {
   const TIME_TAG = /\[(\d{1,3}):(\d{2})(?:\.(\d{1,3}))?\]/g;
   const lines: LyricLine[] = [];
@@ -135,7 +111,7 @@ export function parseLrc(content: string): LyricLine[] {
     const text = rawLine.replace(TIME_TAG, '').trim();
     if (!text || /^\[[a-z]+:.*\]$/i.test(text)) continue;
     if (inCreditsBlock) {
-      if (isCreditLine(text)) continue;
+      if (isLyricCredit(text)) continue;
       inCreditsBlock = false;
     }
     for (const m of matches) {
@@ -145,7 +121,7 @@ export function parseLrc(content: string): LyricLine[] {
       lines.push({ time: minutes * 60 + seconds + fraction, text });
     }
   }
-  if (!lines.length && !/\[\d{1,3}:\d{2}/.test(content)) return content.split(/\r?\n/).map(text => text.trim()).filter(text => text && !/^\[[a-z]+:.*\]$/i.test(text) && !isCreditLine(text)).map(text => ({ time: 0, text }));
+  if (!lines.length && !/\[\d{1,3}:\d{2}/.test(content)) return content.split(/\r?\n/).map(text => text.trim()).filter(text => text && !/^\[[a-z]+:.*\]$/i.test(text) && !isLyricCredit(text)).map(text => ({ time: 0, text }));
   return lines.sort((a, b) => a.time - b.time);
 }
 
@@ -237,9 +213,11 @@ export interface SongModalLookupEntry {
    *  plays from Monster Siren. Named videoId since releases carry it by that name. */
   videoId: string;
   title: string;
+  albumId?: string;
   albumName: string;
   coverPath: string | null;
   credits: RawCredit[];
+  lyricTrackId?: string;
   hasLyrics: boolean;
 }
 
@@ -249,9 +227,11 @@ export function getAllSongModalLookup(): SongModalLookupEntry[] {
   cachedModalLookup = getAllSongDetails().map((s) => ({
     videoId: s.trackId,
     title: s.title,
+    albumId: s.albumId,
     albumName: s.albumName,
     coverPath: s.coverPath,
     credits: s.credits,
+    ...(s.lyricTrackId ? { lyricTrackId: s.lyricTrackId } : {}),
     hasLyrics: s.lyrics != null && s.lyrics.length > 0,
   }));
   return cachedModalLookup;
@@ -299,6 +279,7 @@ export interface DiscoverSong {
   game?: 'endfield';
   title: string;
   altTitle: string | null;
+  albumTrack?: number;
   albumId: string;
   albumName: string;
   coverPath: string | null;
@@ -358,12 +339,13 @@ export interface DiscoverPendingSong {
   songId: string;
   title: string;
   altTitle: string | null;
+  albumTrack?: number;
   albumId: string;
   albumName: string;
   coverPath: string | null;
   characters: string[];
   origin: string[];
-  artist: null;
+  artist: string | null;
 }
 
 export interface DiscoverPageData {
@@ -426,9 +408,11 @@ export function getDiscoverPageData(): DiscoverPageData {
 /** getDiscoverPageData for any catalogue: the pure part, which the tests call with fixtures. */
 export function discoverPageData(rawAlbums: readonly RawAlbum[]): DiscoverPageData {
   const fullSongs = songsFromAlbums(rawAlbums);
+  const positions = new Map(rawAlbums.flatMap(album => (album.songs ?? []).map((song, index) => [album.albumId + '/' + song.songId, index] as const)));
   const songs: DiscoverSong[] = fullSongs.map((s) => ({
     videoId: s.videoId,
     ...endfieldMark(s.game),
+    albumTrack: positions.get(s.albumId + '/' + s.songId) ?? 0,
     title: s.title,
     altTitle: s.altTitle,
     albumId: s.albumId,
@@ -447,6 +431,7 @@ export function discoverPageData(rawAlbums: readonly RawAlbum[]): DiscoverPageDa
     .filter((song) => !song.videoId)
     .map((song) => ({
       songId: song.songId,
+      albumTrack: positions.get(album.albumId + '/' + song.songId) ?? 0,
       title: song.songName,
       altTitle: song.songAltName || null,
       albumId: album.albumId,
@@ -454,7 +439,7 @@ export function discoverPageData(rawAlbums: readonly RawAlbum[]): DiscoverPageDa
       coverPath: albumCoverPath(album),
       characters: album.characters || [],
       origin: album.origin || [],
-      artist: null,
+      artist: song.credits?.find(credit => credit.role === 'artist')?.names.join(', ') ?? null,
     })));
 
   // Each character's most recent release date -- releaseDate lives on

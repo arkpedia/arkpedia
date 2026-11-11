@@ -68,6 +68,8 @@ async function openHome(page: Page, make: (real: Banner[]) => Banner[], clock = 
     await route.fulfill({ status: 200, contentType: 'text/html; charset=utf-8', body });
   });
   await page.clock.setFixedTime(new Date(clock));
+  // Keep this returning reader's choice valid at the fixture's future clock.
+  await page.addInitScript(() => localStorage.setItem('arkpedia:privacy:v1', JSON.stringify({ version: 1, analytics: false, externalMedia: false, externalMediaChosen: true, savedAt: Date.now() })));
   await page.goto('/');
   return given;
 }
@@ -156,7 +158,7 @@ test.describe('home page banners', () => {
     await expect(poster(page).locator('.badge-upcoming')).toBeVisible();
     expect(await sizes(page), 'and with "Starts in"').toEqual(withBadge);
 
-    // Every thumbnail is the same 56px square, badge or none, and its badge sits inside it.
+    // Every preview keeps the same landscape size, badge or none, with its badge inside.
     const thumbs = await panel(page).locator('.front-gacha-thumb').evaluateAll((els) => els.map((el) => {
       const e = el as HTMLElement;
       const b = el.querySelector<HTMLElement>('.badge-live, .badge-upcoming');
@@ -164,7 +166,9 @@ test.describe('home page banners', () => {
       const inside = !b || (b.offsetLeft >= 0 && b.offsetTop >= 0 && b.offsetLeft + b.offsetWidth <= e.clientWidth && b.offsetTop + b.offsetHeight <= e.clientHeight);
       return { width: e.offsetWidth, height: e.offsetHeight, inside };
     }));
-    expect(thumbs).toEqual([0, 1, 2].map(() => ({ width: 56, height: 56, inside: true })));
+    expect(thumbs[0].width).toBeGreaterThan(56);
+    expect(thumbs[0].width).toBeLessThanOrEqual(104);
+    expect(thumbs).toEqual([0, 1, 2].map(() => ({ width: thumbs[0].width, height: 64, inside: true })));
   });
 
   test('once every banner is over, and with no banners at all, no badge shows', async ({ page }) => {

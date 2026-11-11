@@ -44,6 +44,10 @@ test(`YouTube loads only after external media permission and stays off after wit
   await expect(page.getByRole('dialog', {name:'Allow external media?', exact:true})).not.toBeVisible();
   expect(await youtube(page)).toBeNull();
   await page.goto('/operators/Thorns');
+  const firstVisit = page.getByRole('region', {name:'Music playback choice', exact:true});
+  await expect(firstVisit).toBeVisible();
+  await firstVisit.getByRole('button', {name:'No thanks, close media prompt', exact:true}).click();
+  expect(await youtube(page)).toBeNull();
   await page.getByRole('button', {name:'Play EP', exact:true}).click();
   const prompt = page.getByRole('dialog', {name:'Allow external media?', exact:true});
   await expect(prompt).toBeVisible(); expect(await youtube(page)).toBeNull();

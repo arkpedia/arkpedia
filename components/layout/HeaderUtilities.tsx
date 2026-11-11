@@ -1,3 +1,4 @@
+import MusicVisualizerSetting from '@/components/music/MusicVisualizerSetting';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { ICONS } from './NavIcons';
@@ -28,7 +29,7 @@ export default function HeaderUtilities({ search, mobile = false, onOpen }: { se
       <button type="button" className="btn-bare site-nav-popitem" onClick={() => actions.open('settings')}>{icon('profile')}Account settings</button>
       <Link prefetch={false} className="site-nav-popitem" href="/cookies">{icon('privacy')}Privacy choices</Link>
       <p className="label-tag">Appearance</p><ThemeToggle menu />
-      <p className="label-tag">Audio</p><BackgroundMusicSetting />
+      <p className="label-tag">Audio</p><BackgroundMusicSetting /><MusicVisualizerSetting menu />
     </ActionPopover>
     </div>
     <ServerClock variant={mobile ? 'mobile' : 'bar'} />
@@ -40,7 +41,7 @@ export default function HeaderUtilities({ search, mobile = false, onOpen }: { se
       {accountLink('pulls', 'Pull history', 'history')}
       {accountLink('operators', 'Operators', 'roster')}
       {accountLink('skins', 'Skins', 'skins')}
-      <Link prefetch={false} className={`site-nav-popitem${router.pathname === '/friends' ? ' active' : ''}`} href={PROFILE_LINKS[1].href}>{icon('friends')}Friends</Link>
+      {accountLink('friends', 'Friends', 'friends')}
     </ActionPopover>
     </div>
   </div>;

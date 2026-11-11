@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test';
 import albums from '../../data/albums.json';
 import { songsFromAlbums, type RawAlbum } from '../../lib/music/albumsData';
+import { stubMonsterSiren } from './monster-siren-stub';
 import { stubYouTube, youtube } from './youtube-stub';
 
 const songs = songsFromAlbums(albums as RawAlbum[]);
@@ -10,17 +11,17 @@ const album = (albums as RawAlbum[]).find(a => {
 })!;
 const albumSongs = songs.filter(s => s.albumId === album.albumId);
 const chartSongs = [...new Map([...songs.filter(s => s.albumId !== album.albumId).slice(0, 40), ...albumSongs.slice(0, 4)].map(s => [s.videoId, s])).values()];
-const likes = Object.fromEntries(chartSongs.map((s, i) => [s.videoId, i === chartSongs.length - 1 ? 0 : (i + 1) * 100]));
+const likes = Object.fromEntries(chartSongs.map((s, i) => [s.videoId, (i + 1) * 100]));
 const chartIds = chartSongs.map(s => s.videoId).sort((a, b) => likes[b] - likes[a]);
 
 test.beforeEach(async ({ page }) => {
-  await page.route('**/api/music/youtube-likes', route => route.fulfill({ json: { updatedAt: new Date().toISOString(), likes } }));
+  await page.route('**/api/music/likes', route => route.fulfill({ json: { updatedAt: new Date().toISOString(), likes } }));
 });
 
 test('Discover matches the album shelves, expands its ranked grid, and plays in one press', async ({ page }, info) => {
   await stubYouTube(page);
   await page.goto('/music/discover');
-  const section = page.getByRole('region', { name: 'Most liked on YouTube', exact: true });
+  const section = page.getByRole('region', { name: 'Most liked on Arkpedia', exact: true });
   const tiles = section.locator('.music-discover-album-tile');
   await expect(tiles).toHaveCount(24);
   await expect.poll(() => tiles.evaluateAll(rows => rows.map(r => r.getAttribute('data-song-id')))).toEqual(chartIds.slice(0, 24));
@@ -40,8 +41,8 @@ test('Discover matches the album shelves, expands its ranked grid, and plays in 
     const box = el.getBoundingClientRect(); return [Math.round(box.width), Math.round(box.height)];
   });
   expect(await coverSize('#discover-likes .music-discover-album-tile-cover')).toEqual(await coverSize('#discover-albums .music-discover-album-tile-cover'));
-  await expect(section.getByRole('button', { name: 'Scroll on through Songs ordered by YouTube likes' })).toBeVisible();
-  const rail = section.getByRole('slider', { name: 'Scroll through Songs ordered by YouTube likes' });
+  await expect(section.getByRole('button', { name: 'Scroll on through Songs ordered by Arkpedia likes' })).toBeVisible();
+  const rail = section.getByRole('slider', { name: 'Scroll through Songs ordered by Arkpedia likes' });
   await expect(rail).toBeVisible();
   await rail.focus();
   await rail.press('End');
@@ -70,7 +71,7 @@ test('Discover matches the album shelves, expands its ranked grid, and plays in 
   await page.screenshot({ path: `.cache/qa/music-likes/${info.project.name}-light-viewport.png` });
 });
 
-test('likes ordering survives reload and keeps zero before unknown songs and ordinary row actions', async ({ page }) => {
+test('likes ordering survives reload and keeps unliked songs in their original order and ordinary row actions', async ({ page }) => {
   await stubYouTube(page);
   await page.goto(`/music/discover?facet=album%3A${album.albumId}`);
   const rows = page.locator('.music-discover-song-list .music-song-row');
@@ -78,37 +79,84 @@ test('likes ordering survives reload and keeps zero before unknown songs and ord
   const original = await rows.evaluateAll(els => els.map(el => el.getAttribute('data-song-id')!));
   const order = page.getByRole('combobox', { name: 'Order songs' });
   await order.click();
-  await expect(page.getByRole('option', { name: 'Most liked on YouTube', exact: true })).not.toHaveAttribute('aria-disabled', 'true');
-  await page.getByRole('option', { name: 'Most liked on YouTube', exact: true }).click();
+  await expect(page.getByRole('option', { name: 'Most liked on Arkpedia', exact: true })).not.toHaveAttribute('aria-disabled', 'true');
+  await page.getByRole('option', { name: 'Most liked on Arkpedia', exact: true }).click();
   const expected = [...original].sort((a, b) => (likes[b] ?? -1) - (likes[a] ?? -1));
   await expect.poll(() => rows.evaluateAll(els => els.map(el => el.getAttribute('data-song-id')!))).toEqual(expected);
   await expect(page).toHaveURL(/[?&]sort=likes\b/);
-  await expect(rows.first()).toContainText('YouTube likes');
-  const zero = page.locator(`.music-discover-song-list [data-song-id="${albumSongs[3].videoId}"]`);
-  await expect(zero).toContainText('0 YouTube likes');
+  await expect(rows.first()).toContainText('Arkpedia likes');
+  const liked = page.locator(`.music-discover-song-list [data-song-id="${albumSongs[3].videoId}"]`);
+  await expect(liked).toContainText(likes[albumSongs[3].videoId].toLocaleString('en-US') + ' Arkpedia likes');
   await page.reload();
-  await expect(order).toContainText('Most liked on YouTube');
+  await expect(order).toContainText('Most liked on Arkpedia');
   await expect.poll(() => rows.evaluateAll(els => els.map(el => el.getAttribute('data-song-id')!))).toEqual(expected);
   await rows.first().getByRole('button', { name: /^Favourite:/ }).click();
   await expect(rows.first().getByRole('button', { name: /^Favourite:/ })).toHaveAttribute('aria-pressed', 'true');
   await rows.first().locator('.music-song-row-main').click();
   await expect(rows.first()).toHaveClass(/\bactive\b/);
   await order.click();
-  await page.getByRole('option', { name: 'Default', exact: true }).click();
+  await page.getByRole('option', { name: 'Album order', exact: true }).click();
   await expect.poll(() => rows.evaluateAll(els => els.map(el => el.getAttribute('data-song-id')!))).toEqual(original);
 });
 
 test('API failure and empty counts leave browsing available without a fabricated chart', async ({ page }) => {
-  await page.route('**/api/music/youtube-likes', route => route.fulfill({ status: 503, json: { error: 'Unavailable' } }));
+  await stubYouTube(page);
+  await page.route('**/api/music/likes', route => route.fulfill({ status: 503, json: { error: 'Unavailable' } }));
   await page.goto('/music/discover');
-  await expect(page.getByRole('status', { name: '' }).filter({ hasText: 'YouTube likes are temporarily unavailable.' })).toBeVisible();
+  await expect(page.getByRole('status', { name: '' }).filter({ hasText: 'Arkpedia likes are temporarily unavailable.' })).toBeVisible();
   await expect(page.locator('#discover-likes .music-discover-album-tile')).toHaveCount(0);
   await page.getByRole('searchbox', { name: /Search songs, characters/ }).fill(album.albumAltName || album.albumName);
   await expect(page.locator('.music-discover-song-list .music-song-row').first()).toBeVisible();
   await page.getByRole('combobox', { name: 'Order songs' }).click();
-  await expect(page.getByRole('option', { name: 'Most liked on YouTube', exact: true })).toHaveAttribute('aria-disabled', 'true');
+  await expect(page.getByRole('option', { name: 'Most liked on Arkpedia', exact: true })).toHaveAttribute('aria-disabled', 'true');
   await page.getByRole('combobox', { name: 'Order songs' }).press('Escape');
-  await page.route('**/api/music/youtube-likes', route => route.fulfill({ json: { updatedAt: new Date().toISOString(), likes: {} } }));
+  await page.route('**/api/music/likes', route => route.fulfill({ json: { updatedAt: new Date().toISOString(), likes: {} } }));
   await page.goto('/music/discover');
-  await expect(page.getByText('YouTube likes are temporarily unavailable.', { exact: true })).toBeVisible();
+  await expect(page.getByText('No favourites in the daily chart yet.', { exact: true })).toBeVisible();
+  const chart = page.getByRole('region', { name: 'Most liked on Arkpedia' });
+  await expect(chart.getByRole('checkbox')).toHaveCount(0);
+  await expect(chart.getByRole('link', { name: 'Do you want to contribute?' })).toHaveAttribute('href', '/account?settings=community');
+});
+
+test('a Monster Siren-only favourite can lead the daily chart and open its song', async ({ page }) => {
+  await stubYouTube(page, 'allow', { dataSaver: false });
+  await stubMonsterSiren(page);
+  await page.goto('/music/discover');
+  const id = await page.locator('#__NEXT_DATA__').evaluate(el => 'msr:' + JSON.parse(el.textContent!).props.pageProps.pendingSongs[0].songId);
+  await page.route('**/api/music/likes', route => route.fulfill({ json: {
+    updatedAt: new Date().toISOString(), likes: { [id]: 2, d3jylNWjb3k: 1 },
+  } }));
+  await page.goto('/music/discover?browse=likes');
+  const chart = page.getByRole('region', { name: 'Most liked on Arkpedia', exact: true });
+  const first = chart.locator('.music-discover-album-tile').first();
+  await expect(first).toHaveAttribute('data-song-id', id);
+  await expect(chart.getByText('1 like', { exact: true })).toBeVisible();
+  await first.click();
+  await expect(first).toHaveAttribute('aria-current', 'true');
+});
+
+test('YouTube likes follows Arkpedia, with its own ranking and playback queue', async ({ page }) => {
+  await stubYouTube(page);
+  const counts = Object.fromEntries(chartIds.map((id, index) => [id, index + 1]));
+  await page.route('**/api/music/youtube-likes', route => route.fulfill({ json: { updatedAt: new Date().toISOString(), likes: counts } }));
+  await page.goto('/music/discover');
+  const arkpedia = page.getByRole('region', { name: 'Most liked on Arkpedia', exact: true });
+  const uploads = page.getByRole('region', { name: 'Most liked on YouTube', exact: true });
+  await expect(arkpedia.locator('xpath=following-sibling::section[1]')).toHaveAttribute('aria-labelledby', 'discover-youtube-likes-heading');
+  await expect(arkpedia.locator('[data-song-id]').first()).toHaveAttribute('data-song-id', chartIds[0]);
+  const tiles = uploads.locator('[data-song-id]');
+  await expect(tiles.first()).toHaveAttribute('data-song-id', chartIds.at(-1)!);
+  await uploads.getByRole('button', { name: 'Show all', exact: true }).click();
+  await expect(page).toHaveURL(/[?&]browse=youtube-likes\b/);
+  await expect(tiles).toHaveCount(chartIds.length);
+  await tiles.first().click();
+  const bar = page.getByRole('region', { name: 'Player', exact: true });
+  await bar.getByRole('link', { name: 'Queue', exact: true }).click();
+  const drawer = page.getByRole('dialog', { name: 'Playback queue' });
+  await expect(drawer.getByRole('link', { name: 'Most liked on YouTube', exact: true })).toHaveAttribute('href', '/music/discover?browse=youtube-likes');
+  await expect(drawer.locator('[data-song-id]').nth(1)).toHaveAttribute('data-song-id', chartIds.at(-2)!);
+  await page.route('**/api/music/likes', route => route.fulfill({ status: 503 }));
+  await page.goto('/music/discover?browse=youtube-likes');
+  await expect(arkpedia.getByRole('status')).toContainText('temporarily unavailable');
+  await expect(tiles).toHaveCount(chartIds.length);
 });

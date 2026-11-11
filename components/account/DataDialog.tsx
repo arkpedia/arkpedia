@@ -8,6 +8,7 @@ import { readSavedLogin } from '@/lib/account-import/savedLogin';
 import { storedAccount } from '@/lib/account/accountStore';
 import { siteServerNow } from '@/lib/time/siteServer';
 import ImportDialog from '@/components/account/ImportDialog';
+import InfoPopover from '@/components/ui/InfoPopover';
 import { useReleaseTable } from '@/lib/content/context';
 import { depotNames, type MaterialCatalogue } from '@/lib/farming/materialCatalogue.mjs';
 import { unheldSummary, type ImportAliases } from '@/lib/planner/foreignImport';
@@ -154,18 +155,19 @@ export default function DataDialog({ onClose, initialView = 'game' }: { onClose:
       ]} />
       <div className="data-dialog-body">
       <section {...tabPanelProps('data-management', 'game')} hidden={view !== 'game'} className="data-dialog-part">
-        <p className="import-copy">
-          Your browser signs in directly to Yostar over an encrypted connection. Arkpedia <strong>NEVER</strong> receives your Yostar email, codes or tokens.
-        </p>
-        <p className="hint import-note">
-          Importing replaces your operators, depot and account, and kicks you out of the game if you are logged in.
-        </p>
+        <div className="account-shortcuts import-copy">
+          <span>Your Yostar sign-in stays in this browser.</span>
+          <InfoPopover label="About game imports">
+            <p>Your browser signs in directly to Yostar over an encrypted connection. Arkpedia never receives your Yostar email, codes or tokens.</p>
+            <p>Importing replaces your imported operators, inventory and profile. Your import stays in this browser unless you enable game-data saving in Account settings → Saving & sharing.</p>
+          </InfoPopover>
+        </div>
+        <p className="import-copy">Importing updates your account data and signs you out of the game.</p>
         {/* A sign-in is one server's: a code Yostar sent for one is no use on another, so each
             server's sign-in is its own (key). */}
         <SegmentedControl label="Server" className="import-server" value={server} onChange={setServer}
           options={SERVER_IDS.map((id) => ({ value: id, label: SERVERS[id].label }))} />
         <GameSignIn key={server} server={server} idPrefix="data" onAccount={onAccount} />
-        <p className="hint">Your import stays in this browser unless you enable game-data storage in Account settings → Saving.</p>
         {process.env.ARKPEDIA_KROOSTER_IMPORT === '1' && <>
           <h3>From a Krooster profile</h3>
           <p className="hint">Preview only, for testers: paste a public Krooster profile link and it becomes the account, with its operators, promotions, levels, skills, masteries and modules. It replaces the account shown here and the planner roster, like a game import, and has no base layout, clears or depot; the base optimizer recommends a layout.</p>

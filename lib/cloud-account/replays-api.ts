@@ -8,7 +8,7 @@ export function createReplayHandler(resolveEnv:()=>AccountsEnv|null=accountsEnv)
   return async (req:NextApiRequest,res:NextApiResponse) => {
     res.setHeader('Cache-Control','private, no-store'); res.setHeader('Vary','Cookie');
     const env=resolveEnv();
-    if(!env) return res.status(503).json({error:'Auto-deploy cloud saving is available on Preview only.'});
+    if(!env) return res.status(503).json({error:'Auto-deploy cloud saving is not configured on this deployment.'});
     if(!['GET','PUT','PATCH','DELETE'].includes(req.method??'')){res.setHeader('Allow','GET, PUT, PATCH, DELETE');return res.status(405).end();}
     if(req.method!=='GET' && (req.headers.origin!==env.ARKPEDIA_AUTH_URL || !req.headers['content-type']?.startsWith('application/json')))return res.status(403).json({error:'Use Arkpedia to save auto-deploys.'});
     try {

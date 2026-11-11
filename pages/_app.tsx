@@ -82,6 +82,7 @@ import '@/styles/account/account.css';
 import '@/styles/core/motion.css';
 import SiteNav from '@/components/layout/Sitenav';
 import AccountActions from '@/components/account/AccountActions';
+import SharingProvider from '@/lib/community/SharingProvider';
 import MusicPlayer from '@/components/music/MusicPlayer';
 import MenuAudio from '@/components/music/MenuAudio';
 import { GAME_PATHS } from '@/lib/minigames/catalogue';
@@ -90,7 +91,7 @@ import { MusicPlayerProvider } from '@/lib/music/musicPlayerContext';
 import { getEssentialIconPath } from '@/lib/operators/operatorIconPaths';
 import type { PageWithMobileNav } from '@/lib/nav/mobileNavOverride';
 import { watchImageArrivals } from '@/lib/ui/imageArrival';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { flushSync } from 'react-dom';
 import { watchBrowserDataReset } from '@/lib/account/resetData';
 import { useRouter } from 'next/router';
@@ -107,6 +108,7 @@ import ReplayDownloadBar from '@/components/account-import/ReplayDownloadBar';
 export default function App({ Component, pageProps }: AppProps) {
   useEffect(() => watchPrivacyWithdrawal(), []);
   const [cloudRestoreVersion, setCloudRestoreVersion] = useState(0);
+  const onCloudRestore = useCallback(() => setCloudRestoreVersion(version => version + 1), []);
   const [resetting, setResetting] = useState(false);
   useEffect(() => watchBrowserDataReset(() => flushSync(() => setResetting(true))), []);
   // Dedicated compact tools declare their layout before the server's first paint.
@@ -136,10 +138,11 @@ export default function App({ Component, pageProps }: AppProps) {
   return (
     <ContentContext.Provider value={pageProps.__contentRelease ?? null}>
     <ContentTablesContext.Provider value={pageProps.__contentTables ?? {}}>
-    <CloudSyncProvider onRestore={() => setCloudRestoreVersion(version => version + 1)}>
+    <CloudSyncProvider onRestore={onCloudRestore}>
     <ReplayDownloadProvider>
     <MusicPlayerProvider>
     <RoamingChibiProvider>
+    <SharingProvider>
     <AccountActions>
       {/* Next injects a bare `width=device-width` on its own, with no
           initial-scale. That is the pair iOS Safari reads together when it
@@ -210,6 +213,7 @@ export default function App({ Component, pageProps }: AppProps) {
       <StatisticsPrompt />
       {process.env.ARKPEDIA_WEB_ANALYTICS === '1' && <SiteAnalytics />}
     </AccountActions>
+    </SharingProvider>
     </RoamingChibiProvider>
     </MusicPlayerProvider>
     </ReplayDownloadProvider>

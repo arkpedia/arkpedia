@@ -1389,3 +1389,25 @@ main.enemy-page {
 /* A SegmentedControl: one tab's content at a time, with the identity block above it
    staying put. Only its place in the pane is this file's. */
 .enemy-tabs { margin: 12px 0 14px; }
+
+/* The enemy's name along the foot of its tile. The grid was labelled only by the
+   handbook code, so a reader who knows an enemy by name had to open tiles until the
+   right one appeared; the name was in a title tooltip, which a phone cannot hover.
+   The ground is art in both themes, so it is a scrim with the fixed scrim ink, the
+   same treatment as the code badge above it -- a solid plate rather than a gradient,
+   which is also what the flat-and-matte card rule asks for. */
+.enemy-tile-name {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1;
+  padding: 3px 6px;
+  background: rgb(0 0 0 / 72%);
+  color: var(--scrim-ink);
+  font-size: 10px;
+  line-height: 1.3;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}

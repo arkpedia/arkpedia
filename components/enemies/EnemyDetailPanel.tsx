@@ -5,7 +5,7 @@ import { STAT_ICONS } from '@/components/enemies/EnemyStatIcons';
 import StyledSelect, { type SelectOption } from '@/components/ui/StyledSelect';
 import SegmentedControl from '@/components/ui/SegmentedControl';
 import Tabs, { tabPanelProps } from '@/components/ui/Tabs';
-import { useHeightFloor } from '@/components/ui/useHeightFloor';
+import { useSwitchHold } from '@/components/ui/useSwitchHold';
 import EnemyRangeMap from '@/components/enemies/EnemyRangeMap';
 import EnemyStatusPopover from '@/components/enemies/EnemyStatusPopover';
 import { ENEMY_STATUSES, type EnemyStatusOperatorMap } from '@/lib/enemies/statusOperators';
@@ -285,8 +285,9 @@ export default function EnemyDetailPanel({ enemy, introducedBy, appearances, ref
      a long list of stages), and on a phone the pane flows in the page: switching to a
      shorter tab near the foot left the document too short for the reader's position,
      the browser clamped it and the tab row jumped 55px down the screen (2026-09-25
-     review, UC-10). The floor holds what the position needs, per enemy. */
-  const tabFloor = useHeightFloor(enemy.slug);
+     review, UC-10). Capture before the change: desktop must hold its nested
+     detail scroller too, not only the window used by the phone layout. */
+  const tabHold = useSwitchHold(enemy.slug, '.enemy-detail-pane');
   const level: EnemyLevel = enemy.levels[levelIndex] ?? enemy.levels[0];
   const s = level.stats;
   const g = level.stat_ranks;
@@ -668,11 +669,11 @@ export default function EnemyDetailPanel({ enemy, introducedBy, appearances, ref
           label="Show"
           id={`enemy-${enemy.slug}`}
           value={activeTab ?? 'resistances'}
-          onChange={setTab}
+          onChange={next => { tabHold.capture(); setTab(next); }}
           options={tabs.map((t) => ({ value: t.key, label: t.label }))}
         />
 
-        <div ref={tabFloor.ref} {...tabPanelProps(`enemy-${enemy.slug}`, activeTab ?? 'resistances')}>
+        <div ref={tabHold.ref} style={tabHold.style} {...tabPanelProps(`enemy-${enemy.slug}`, activeTab ?? 'resistances')}>
         {/* The figures the handbook does not print. Kept because the data has them
             and someone planning around a stall needs the interval, but out of the
             grid, which is the game's eight and only those. */}
@@ -828,7 +829,6 @@ export default function EnemyDetailPanel({ enemy, introducedBy, appearances, ref
         </section>
           </>
         )}
-        {tabFloor.spacer}
         </div>
     </>
   );

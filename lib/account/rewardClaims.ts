@@ -90,6 +90,9 @@ export function rewardClaimsFromGame(user: Record<string, unknown>, programs: re
     waiting(`${program.id}:checkInData`, object(starter.checkIn).history);
     waiting(`${program.id}:chainLoginData`, object(starter.chainLogin).history);
   }
+  // Internal result of the read-only mailbox import, already matched to this one gift.
+  const mail = parseRewardClaims(user.arkpediaMailClaims);
+  if (mail?.known.includes('free:welcome-mail')) states.set('free:welcome-mail', mail.claimed.includes('free:welcome-mail'));
   return { known: [...states.keys()].sort(), claimed: [...states].filter(([, claimed]) => claimed).map(([id]) => id).sort() };
 }
 

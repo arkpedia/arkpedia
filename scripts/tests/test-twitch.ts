@@ -19,9 +19,63 @@ test('Twitch only returns live streams in the requested category and bypasses fe
   try {
     assert.deepEqual((await getLiveTwitchStreams('Arknights', 12, 'fixture', 'fixture')).map(s => s.userLogin), ['live']);
     assert.ok(calls.some(url => url.includes('streams?game_id=arknights')));
+    await getLiveTwitchStreams('Arknights', 12, 'fixture', 'fixture');
+    assert.equal(calls.filter(url => url.includes('/games?')).length, 1, 'reuse category metadata');
+    assert.equal(calls.filter(url => url.includes('/streams?')).length, 2, 'refresh live results every time');
     globalThis.fetch = async () => { throw new Error('Offline'); };
     assert.deepEqual(await getLiveTwitchStreams('Arknights', 12, 'fixture', 'fixture'), []);
   } finally { globalThis.fetch = original; }
+});
+
+test('Twitch category metadata expires, stays scoped to its name, and retries failed lookups', async () => {
+  const originalFetch = globalThis.fetch;
+  const originalNow = Date.now;
+  let now = originalNow();
+  const gameRequests: string[] = [];
+  const streamGameIds: string[] = [];
+  let gameResult: 'success' | 'missing' | 'error' = 'success';
+  Date.now = () => now;
+  globalThis.fetch = async input => {
+    const url = new URL(String(input));
+    if (url.pathname.includes('oauth2')) return Response.json({ access_token:'fixture', expires_in:3600 });
+    if (url.pathname === '/helix/games') {
+      gameRequests.push(url.searchParams.get('name')!);
+      if (gameResult === 'error') return new Response(null, { status:503 });
+      return Response.json({ data:gameResult === 'missing' ? [] : [{ id:`game-${gameRequests.length}` }] });
+    }
+    streamGameIds.push(url.searchParams.get('game_id')!);
+    return Response.json({ data:[] });
+  };
+  const fetchStreams = (name: string) => getLiveTwitchStreams(name, 12, 'fixture', 'fixture');
+  try {
+    await fetchStreams('Cache fixture');
+    now += 23 * 60 * 60 * 1000;
+    await fetchStreams('Cache fixture');
+    assert.deepEqual(gameRequests, ['Cache fixture']);
+    assert.deepEqual(streamGameIds, ['game-1', 'game-1']);
+
+    now += 60 * 60 * 1000;
+    await fetchStreams('Cache fixture');
+    assert.equal(gameRequests.length, 2, 'refresh metadata after one day');
+    assert.equal(streamGameIds.at(-1), 'game-2');
+
+    await fetchStreams('Other category');
+    assert.equal(gameRequests.at(-1), 'Other category');
+    assert.equal(streamGameIds.at(-1), 'game-3', 'never reuse another category ID');
+
+    gameResult = 'missing';
+    await fetchStreams('Retry fixture');
+    gameResult = 'error';
+    await fetchStreams('Retry fixture');
+    assert.equal(streamGameIds.length, 4, 'failed lookups do not request streams');
+    gameResult = 'success';
+    await fetchStreams('Retry fixture');
+    assert.equal(gameRequests.length, 6, 'empty and failed lookups stay retryable');
+    assert.equal(streamGameIds.at(-1), 'game-6');
+  } finally {
+    globalThis.fetch = originalFetch;
+    Date.now = originalNow;
+  }
 });
 
 test('live endpoint shares requests for 15 seconds and never serves stale CDN data', async () => {

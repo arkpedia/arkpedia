@@ -3,8 +3,8 @@ import { createPortal } from 'react-dom';
 import { useAnchoredPopover } from './useAnchoredPopover';
 
 /** A non-modal disclosure: ordinary links/buttons keep their native Tab behavior. */
-export default function ActionPopover({ label, trigger, children, className = '', width = 260, align = 'start', onOpen, navigation = false }: {
-  label: string; trigger: ReactNode; children: ReactNode; className?: string; width?: number; align?: 'start' | 'end'; onOpen?: () => void; navigation?: boolean;
+export default function ActionPopover({ label, trigger, children, className = '', width = 260, align = 'start', onOpen, navigation = false, textTrigger = false }: {
+  label: string; trigger: ReactNode; children: ReactNode; className?: string; width?: number; align?: 'start' | 'end'; onOpen?: () => void; navigation?: boolean; textTrigger?: boolean;
 }) {
   const { open, setOpen, close, buttonRef, menuRef, menuStyle } = useAnchoredPopover(width, align);
   const id = useId();
@@ -23,7 +23,7 @@ export default function ActionPopover({ label, trigger, children, className = ''
     return () => document.removeEventListener('keydown', escape, true);
   }, [open, close, buttonRef]);
   return <>
-    <button type="button" ref={buttonRef} className={`action-popover-trigger ${className}`} aria-label={label} title={label}
+    <button type="button" ref={buttonRef} className={`action-popover-trigger${textTrigger ? ' action-popover-text' : ''} ${className}`} aria-label={label} title={label}
       aria-expanded={open} aria-controls={open ? id : undefined} onClick={() => { if (!open) onOpen?.(); setOpen(!open); }}>{trigger}</button>
     {open && createPortal(<div id={id} ref={menuRef} className={`action-popover${navigation ? ' header-action-menu site-nav-pop' : ''}`} role="region" aria-label={label}
       style={{ ...menuStyle, position: 'fixed' }} onKeyDown={event => {

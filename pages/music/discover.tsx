@@ -1,3 +1,6 @@
+import { readPublishedContentPageProps } from '@/lib/content/release';
+import { previousPage } from '@/lib/nav/pageTrail';
+import { restoreScrollOnReturn } from '@/lib/nav/scrollRestoration';
 import { withContentPage } from '@/lib/content/server';
 import PageMeta from '@/components/layout/PageMeta';
 import { GetStaticProps } from 'next';
@@ -6,6 +9,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { GAME_PATHS } from '@/lib/minigames/catalogue';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import TransportIcon from '@/components/music/TransportIcons';
 import MusicHeader from '@/components/music/MusicHeader';
 import ScrollRow from '@/components/ui/ScrollRow';
 import SearchInput from '@/components/ui/SearchInput';
@@ -14,7 +18,7 @@ import { useHeightFloor } from '@/components/ui/useHeightFloor';
 import { useMusicPlayer } from '@/lib/music/musicPlayerContext';
 import { useQueryState } from '@/lib/hooks/useQueryState';
 import AlbumCover from '@/components/music/AlbumCover';
-import { discoverForDisplay, discoverFromRelease, getDiscoverPageData, DiscoverSong, DiscoverFacet, DiscoverCharacter, DiscoverAlbum, DiscoverBrowseAlbum, DiscoverPendingSong } from '@/lib/music/albumsDataServer';
+import { discoverForDisplay, discoverFromRelease, getDiscoverPageData, getAllSongModalLookup, DiscoverSong, DiscoverFacet, DiscoverCharacter, DiscoverAlbum, DiscoverBrowseAlbum, DiscoverPendingSong } from '@/lib/music/albumsDataServer';
 import LoadOnScroll from '@/components/ui/LoadOnScroll';
 import MusicNav from '@/components/music/MusicNav';
 import MusicPlaylists from '@/components/music/MusicPlaylists';
@@ -25,8 +29,10 @@ import { createSongIndex, musicFacetMatches } from '@/lib/music/songSearch';
 import { msrTrackId } from '@/lib/music/trackId';
 import { artistKey, creditedArtists, creditsArtist } from '@/lib/music/artistCredits';
 import { characterInitials } from '@/lib/music/characterPortraits.mjs';
-import { useYouTubeLikes } from '@/lib/music/useYouTubeLikes';
+import { useLikesChart } from '@/lib/music/useLikesChart';
 import { byYouTubeLikes, mostLikedSongs } from '@/lib/music/youtubeLikes';
+import CommunityContributionFooter from '@/components/community/CommunityContributionFooter';
+import { byArkpediaLikes, mostLikedTracks } from '@/lib/music/arkpediaLikes';
 import { songTitle } from '@/lib/music/musicPolish';
 import { discoverShown } from '@/lib/music/discoverFilter';
 import MusicGameSetting from '@/components/music/MusicGameSetting';
@@ -34,6 +40,7 @@ import HiddenEndfieldHint from '@/components/music/HiddenEndfieldHint';
 import { gameSearchNames } from '@/lib/music/songFilter';
 
 interface Props {
+  lyricIds?: string[];
   songs: DiscoverSong[];
   characters: DiscoverCharacter[];
   origins: DiscoverFacet[];
@@ -74,6 +81,7 @@ function CharacterPortrait({ name, artPath }: { name: string; artPath: string | 
   );
 }
 
+const likeCount = (count: number, source = '') => `${count.toLocaleString('en-US')}${source} like${count === 1 ? '' : 's'}`;
 const songCount = (count: number) => `${count} song${count === 1 ? '' : 's'}`;
 
 function weightedPillSize(count: number, maxCount: number): number {
@@ -100,7 +108,7 @@ function Collection({ id, label, expanded, cloud = false, grid = false, albums =
     : <div id={id}><ScrollRow label={label} className={className} controls={controls} persistentScrollbar={controls}>{children}</ScrollRow></div>;
 }
 
-type AlbumOrder = 'newest' | 'name';
+type AlbumOrder = 'newest' | 'oldest' | 'name';
 
 /** An album tile: its cover and its English name (its own where it has none), the song count
  *  once the albums are a grid. Opens the album's songs in place, as Recently added does. */
@@ -117,8 +125,8 @@ function AlbumTile({ album, withCount, onOpen }: { album: Pick<DiscoverBrowseAlb
   );
 }
 
-export default function DiscoverPage({ songs: releaseSongs, characters, origins, artists: releaseArtists, recentAlbums: releaseRecentAlbums, albums: releaseAlbums, pendingSongs }: Props) {
-  const { playNow, queueSong, videoId: playingId, queued, favorites, toggleFavorite, noAutoplay, toggleNoAutoplay, libraryTracks, includeEndfield } = useMusicPlayer();
+export default function DiscoverPage({ songs: releaseSongs, characters, origins, artists: releaseArtists, recentAlbums: releaseRecentAlbums, albums: releaseAlbums, pendingSongs, lyricIds }: Props) {
+  const { playPlaylist, queueSong, videoId: playingId, queued, favorites, toggleFavorite, noAutoplay, toggleNoAutoplay, libraryTracks, includeEndfield } = useMusicPlayer();
   // What the reader's settings let in (lib/music/discoverFilter.ts): Endfield's songs and albums
   // only once Endfield music is on, as in the queue and the Library.
   const { songs, recentAlbums, albums, artists } = useMemo(() => discoverShown(
@@ -132,6 +140,18 @@ export default function DiscoverPage({ songs: releaseSongs, characters, origins,
   const allSongs = useMemo(() => [...releaseSongs, ...pendingSongs], [releaseSongs, pendingSongs]);
   const router = useRouter();
   const [musicMenuOpen, setMusicMenuOpen] = useState(false);
+  // Also recognize a detail already open in a tab from before the player links carried their origin.
+  const [initialReturn, setInitialReturn] = useState(false);
+  useEffect(() => {
+    if (!router.isReady) return;
+    const url = new URL(window.location.href);
+    const previous = previousPage();
+    if (!url.searchParams.has('from') && (url.searchParams.has('facet') || url.searchParams.has('q')) && previous) {
+      const source = new URL(previous, window.location.origin);
+      setInitialReturn(source.pathname === '/music' && source.searchParams.get('view') === 'player');
+    }
+  }, [router.isReady]);
+  const returnToPlayer = router.query.from === 'player' || initialReturn;
 
   // Both the search text (?q=...) and the active facet are mirrored
   // into the URL so a filtered view survives reload and can be shared.
@@ -140,10 +160,16 @@ export default function DiscoverPage({ songs: releaseSongs, characters, origins,
   const [query, setQuery] = useQueryState('q');
   const [browseCollection, setBrowseCollection] = useQueryState('browse');
   const [songOrder, setSongOrder] = useQueryState('sort');
-  const { data: youtubeLikes, loading: likesLoading } = useYouTubeLikes();
-  const rankedSongs = useMemo(() => youtubeLikes ? mostLikedSongs(songs, youtubeLikes.likes) : [], [songs, youtubeLikes]);
-  const likesExpanded = browseCollection === 'likes';
-  const visibleRankedSongs = rankedSongs.slice(0, likesExpanded ? undefined : ROW_PREVIEW_COUNT);
+  const { data: chart, loading: likesLoading } = useLikesChart('Arkpedia');
+  const { data: youtubeChart, loading: youtubeLoading } = useLikesChart('YouTube');
+  const rankedSongs = useMemo(() => chart ? mostLikedTracks(allSongs.filter(song =>
+    includeEndfield || !('game' in song && song.game === 'endfield')), chart.likes, trackIdOf) : [], [allSongs, chart, includeEndfield]);
+  const youtubeSongs = useMemo(() => youtubeChart ? mostLikedSongs(songs, youtubeChart.likes) : [], [songs, youtubeChart]);
+  const charts = [
+    { key: 'likes', source: 'Arkpedia', data: chart, loading: likesLoading, tracks: rankedSongs, empty: 'No favourites in the daily chart yet.' },
+    { key: 'youtube-likes', source: 'YouTube', data: youtubeChart, loading: youtubeLoading, tracks: youtubeSongs, empty: 'No YouTube like counts available yet.' },
+  ];
+  const selectedChart = charts.find(item => item.key === songOrder);
 
   // Only ONE facet is ever active at a time (every setter below spreads
   // EMPTY_FACETS first), so the whole FacetState fits in a single
@@ -199,12 +225,30 @@ export default function DiscoverPage({ songs: releaseSongs, characters, origins,
      links to Monster Siren, and before that left a new album's tile on "No songs match". */
   const songIndex = useMemo(() => createSongIndex(allSongs, searchFields(originals)), [allSongs, originals]);
   const matchingSongs = useMemo(() => (isBrowsing ? [] : songIndex.search(query).filter(inFacets)), [songIndex, query, inFacets, isBrowsing]);
+  const selectedAlbum = albums.find(album => album.albumId === facets.albumId);
+  const albumArtist = selectedAlbum && typeof router.query.artist === 'string' ? router.query.artist : '';
+  const dates = useMemo(() => new Map(albums.map(album => [album.albumId, album.releaseDate])), [albums]);
+  const albumArtists = useMemo(() => {
+    const names = new Map<string, string>();
+    for (const song of allSongs) if (song.albumId === facets.albumId) {
+      for (const name of creditedArtists(song.artist)) names.set(artistKey(name), name);
+    }
+    return [...names.values()];
+  }, [allSongs, facets.albumId]);
   const filteredSongs = useMemo(() => {
-    const matching = matchingSongs.filter((s) => includeEndfield || !('game' in s && s.game === 'endfield'));
-    return songOrder === 'likes' && youtubeLikes ? byYouTubeLikes(matching, youtubeLikes.likes, trackIdOf) : matching;
-  }, [matchingSongs, includeEndfield, songOrder, youtubeLikes]);
+    const matching = matchingSongs.filter(s => (includeEndfield || !('game' in s && s.game === 'endfield')) && (!albumArtist || creditsArtist(s.artist, albumArtist)));
+    if (songOrder === 'newest' || songOrder === 'oldest') return matching.sort((a, b) => {
+      const first = dates.get(a.albumId) || '', second = dates.get(b.albumId) || '';
+      return first && second ? (songOrder === 'oldest' ? first.localeCompare(second) : second.localeCompare(first)) : Number(!first) - Number(!second);
+    });
+    if (songOrder === 'likes' && chart) return byArkpediaLikes(matching, chart.likes, trackIdOf);
+    if (songOrder === 'youtube-likes' && youtubeChart) return byYouTubeLikes(matching, youtubeChart.likes, trackIdOf);
+    if (facets.albumId && !hasActiveQuery) return matching.sort((a, b) => (a.albumTrack ?? 0) - (b.albumTrack ?? 0));
+    return matching;
+  }, [matchingSongs, includeEndfield, songOrder, chart, youtubeChart, albumArtist, dates, facets.albumId, hasActiveQuery]);
   // Endfield songs the search or facet found while Endfield music is off (a search result for one).
-  const hiddenEndfield = includeEndfield ? 0 : matchingSongs.length - filteredSongs.length;
+  const hiddenEndfield = includeEndfield ? 0 : matchingSongs.filter(song => 'game' in song && song.game === 'endfield'
+    && (!albumArtist || creditsArtist(song.artist, albumArtist))).length;
 
   // Mirrors the queue panel's "Show more" pagination on /music (see
   // QUEUE_PAGE_SIZE in pages/music/index.tsx): a broad facet -- one
@@ -235,6 +279,13 @@ export default function DiscoverPage({ songs: releaseSongs, characters, origins,
     return Array.from(seen.values());
   }, [filteredSongs]);
 
+  const artistCatalogue = useMemo(() => {
+    if (!facets.artist) return null;
+    const tracks = allSongs.filter(song => inFacets(song) && (includeEndfield || !('game' in song && song.game === 'endfield')));
+    return { songs: new Set(tracks.map(trackIdOf)).size, albums: new Set(tracks.map(song => song.albumId)).size };
+  }, [allSongs, facets.artist, inFacets, includeEndfield]);
+  const artistTools = artistCatalogue && (artistCatalogue.songs > 6 || hasActiveQuery || Boolean(songOrder));
+
   const resultArtists = useMemo(() => {
     const seen = new Map<string, string>();
     for (const s of filteredSongs) for (const name of creditedArtists(s.artist)) if (!seen.has(artistKey(name))) seen.set(artistKey(name), name);
@@ -251,6 +302,7 @@ export default function DiscoverPage({ songs: releaseSongs, characters, origins,
   const playlistSongs = useMemo(() => allSongs.map((s) => ({ videoId: trackIdOf(s), title: s.title })), [allSongs]);
 
   function backToBrowse() {
+    setInitialReturn(false);
     setQuery('');
     setFacets(EMPTY_FACETS);
     // The two setters above reset local state immediately, but their
@@ -264,13 +316,23 @@ export default function DiscoverPage({ songs: releaseSongs, characters, origins,
     const cleaned = { ...router.query };
     delete cleaned.q;
     delete cleaned.facet;
+    delete cleaned.artist;
+    delete cleaned.from;
     router.replace({ pathname: router.pathname, query: cleaned }, undefined, { shallow: true, scroll: false });
   }
 
-  // Play now: the song plays right away and the queue plays on after it, so browsing never
-  // throws away what was lined up (it used to jump to the song's place in the shuffled queue).
-  function playSong(videoId: string) {
-    playNow(videoId);
+  function playSong(videoId: string, shelf?: typeof charts[number]) {
+    if (shelf) {
+      void playPlaylist(shelf.tracks.map(trackIdOf), { name: 'Most liked on ' + shelf.source, href: '/music/discover?browse=' + shelf.key }, videoId);
+      return;
+    }
+    const params = new URLSearchParams();
+    if (facetParam) params.set('facet', facetParam);
+    if (query.trim()) params.set('q', query.trim());
+    if (songOrder) params.set('sort', songOrder);
+    if (albumArtist) params.set('artist', albumArtist);
+    const name = [activeFacetLabel, albumArtist, query.trim()].filter(Boolean).join(' · ') || 'Discover';
+    void playPlaylist(filteredSongs.map(trackIdOf), { name, href: '/music/discover?' + params }, videoId);
   }
 
   const maxOriginCount = origins[0]?.count || 1;
@@ -311,7 +373,7 @@ export default function DiscoverPage({ songs: releaseSongs, characters, origins,
       : albums;
     return albumOrder === 'name'
       ? [...matching].sort((a, b) => a.albumAltName.localeCompare(b.albumAltName, 'en', { numeric: true, sensitivity: 'base' }))
-      : matching;
+      : albumOrder === 'oldest' ? [...matching].sort((a, b) => a.releaseDate && b.releaseDate ? a.releaseDate.localeCompare(b.releaseDate) : Number(!a.releaseDate) - Number(!b.releaseDate)) : matching;
   }, [albums, albumsExpanded, albumFilter, albumOrder, recentAlbumIds, albumOriginals]);
   const hiddenAlbumMatches = !includeEndfield && albumFilter.trim() ? releaseAlbums.filter(a => a.game === 'endfield' &&
     musicFacetMatches(albumFilter, [a.albumAltName, a.albumName], [a.game])).length : 0;
@@ -320,12 +382,22 @@ export default function DiscoverPage({ songs: releaseSongs, characters, origins,
     musicFacetMatches(artistFilter, [a.name], ['endfield']) && !visibleArtists.some(shown => artistKey(shown.name) === artistKey(a.name))).length : 0;
   const openAlbum = (albumId: string) => {
     const next: typeof router.query = { ...router.query, facet: `album:${albumId}` };
+    // Keep an immediately expanded grid even before its debounced URL write lands.
+    if (browseCollection) next.browse = browseCollection;
+    else delete next.browse;
     delete next.q;
     delete next.sort;
+    delete next.artist;
     void router.push({ pathname: router.pathname, query: next }, undefined, { scroll: false });
   };
 
-  const activeFacetLabel = facets.character || facets.origin || facets.artist || (facets.albumId && resultAlbums[0]?.albumName) || null;
+  function filterAlbumArtist(name: string) {
+    const next = { ...router.query };
+    if (name) next.artist = name;
+    else delete next.artist;
+    void router.push({ pathname: router.pathname, query: next }, undefined, { shallow: true, scroll: false });
+  }
+  const activeFacetLabel = facets.character || facets.origin || facets.artist || selectedAlbum?.albumAltName || null;
   /* "Show less" folds a wrapped collection (hundreds of tiles) back to one row. Pressed
      from low on the page it took 373px (1440) / 344px (390) out from under the reader;
      the floor holds their place and gives the space back as they scroll up. One browse
@@ -340,7 +412,7 @@ export default function DiscoverPage({ songs: releaseSongs, characters, origins,
 
   return (
     <>
-      <PageMeta title="Discover" description="Discover Arknights music: songs, albums and artists from Monster Siren Records." path="/music/discover" />
+      <PageMeta title={facets.artist || 'Discover'} description="Discover Arknights music: songs, albums and artists from Monster Siren Records." path="/music/discover" />
 
       {/* The music section's one header and nav, in the same place as on /music, so moving
           between Discover and the player's views moves nothing. */}
@@ -348,38 +420,59 @@ export default function DiscoverPage({ songs: releaseSongs, characters, origins,
       <main className="music-discover-page">
         <MusicNav current="discover" open={musicMenuOpen} onOpenChange={setMusicMenuOpen}>{returnFocus => <><MusicPlaylists songs={playlistSongs} onClose={returnFocus} /><div className="music-phone-settings" onChange={() => setMusicMenuOpen(false)}><MusicGameSetting /></div></>}</MusicNav>
         <div className="music-workspace-content">
-        <h2 className="section-title music-workspace-title">Discover</h2>
+        {!facets.artist && <h2 className="section-title music-workspace-title">Discover</h2>}
         <div className="music-discover-search-row">
-          {!isBrowsing && (
-            <button type="button" className="back-btn music-discover-back-btn" onClick={backToBrowse}>
-              ‹ Back to browse
-            </button>
-          )}
-          <SearchInput label="Search songs, characters, artists, albums" name="discover-search"
-            placeholder="Search songs, characters, artists, albums…" value={query} onChange={setQuery} />
+          {!isBrowsing && (returnToPlayer
+            ? <Link className="back-btn music-discover-back-btn" href="/music?view=player" onNavigate={() => restoreScrollOnReturn('/music?view=player')}>‹ Back to Now playing</Link>
+            : <button type="button" className="back-btn music-discover-back-btn" onClick={backToBrowse}>‹ Back to browse</button>)}
+          {!facets.artist && <SearchInput label="Search songs, characters, artists, albums" name="discover-search"
+            placeholder="Search songs, characters, artists, albums…" value={query} onChange={setQuery} />}
         </div>
-        <p className="hint music-view-hint">Know these tracks by heart? <Link href={GAME_PATHS.music} prefetch={false}>Play Music Guesser</Link></p>
+        {isBrowsing && <p className="hint music-view-hint">Know these tracks by heart? <Link href={GAME_PATHS.music} prefetch={false}>Play Music Guesser</Link></p>}
         <div ref={browseFloor.ref} className="music-discover-body">
 
         {!isBrowsing ? (
-          <div className="music-discover-results">
+          <div className={artistCatalogue?.albums === 1 ? 'music-discover-results music-single-release-artist' : 'music-discover-results'}>
+            {artistCatalogue && <div className="music-artist-heading">
+              <div><span className="label-tag">Artist</span>
+                <h2 className="entity-title entity-title-name">{facets.artist}</h2>
+                <span className="hint">{songCount(artistCatalogue.songs)} · {artistCatalogue.albums} {artistCatalogue.albums === 1 ? 'album' : 'albums'}</span>
+              </div>
+              {filteredSongs.length > 0 && <button type="button" className="primary btn-sm" onClick={() => playSong(trackIdOf(filteredSongs[0]))}
+                aria-label={'Play songs by ' + facets.artist}><TransportIcon name="play" size={16} /> Play</button>}
+            </div>}
+            {selectedAlbum && <section className="music-album-overview">
+              <AlbumCover coverPath={selectedAlbum.coverPath} size={128} className="music-context-art" />
+              <div><span className="label-tag">Album</span><h2 className="entity-title">{selectedAlbum.albumAltName}</h2>
+                <span>{[selectedAlbum.releaseDate, songCount(selectedAlbum.songCount)].filter(Boolean).join(' · ')}</span>
+              </div>
+              {albumArtists.length > 8 && <div className="music-album-artists"><StyledSelect label="Artist on this album" value={albumArtist} onChange={filterAlbumArtist}
+                options={['', ...albumArtists].map(name => ({ value: name, label: name || 'All artists' }))} /></div>}
+              {albumArtists.length > 0 && albumArtists.length <= 8 && <div className="music-album-artists" role="group" aria-label="Artists on this album">
+                {['', ...albumArtists].map(name => <button type="button" key={name} className="filter-chip" aria-pressed={name === albumArtist}
+                  onClick={() => filterAlbumArtist(name)}>{name || 'All artists'}</button>)}
+              </div>}
+              {albumArtist && <Link className="ghost btn-sm music-album-all-artist" href={{ pathname: router.pathname, query: { facet: 'artist:' + albumArtist } }}>All songs by {albumArtist}</Link>}
+            </section>}
             <section className="op-section music-discover-section">
               <div className="music-discover-section-heading">
                 <h2>
                   Songs
-                  {activeFacetLabel && <span className="music-discover-active-facet"> · {activeFacetLabel}</span>}
+                  {!selectedAlbum && !facets.artist && activeFacetLabel && <span className="music-discover-active-facet"> · {activeFacetLabel}</span>}
                 </h2>
-                <div className="music-discover-song-order">
+                {artistTools && <SearchInput label="Search this artist’s songs" name="artist-song-search" placeholder="Find a song…" value={query} onChange={setQuery} />}
+                {(!artistCatalogue || artistTools) && <div className="music-discover-song-order">
                   <span aria-hidden="true">Sort</span>
-                  <StyledSelect label="Order songs" value={songOrder === 'likes' ? 'likes' : ''} onChange={setSongOrder} align="end"
+                  <StyledSelect label="Order songs" value={['likes', 'youtube-likes', 'oldest', 'newest'].includes(songOrder) ? songOrder : ''} onChange={setSongOrder} align="end"
                     options={[
-                      { value: '', label: hasActiveQuery ? 'Best match' : 'Default' },
-                      { value: 'likes', label: 'Most liked on YouTube', disabled: !rankedSongs.length },
+                      { value: '', label: hasActiveQuery ? 'Best match' : facets.albumId ? 'Album order' : 'Default' },
+                      ...(!selectedAlbum ? [{ value: 'newest', label: 'Newest first' }, { value: 'oldest', label: 'Oldest first' }] : []),
+                      ...charts.map(item => ({ value: item.key, label: 'Most liked on ' + item.source, disabled: !item.tracks.length })),
                     ]} />
-                </div>
+                </div>}
               </div>
-              {songOrder === 'likes' && !rankedSongs.length && <p className="hint" role="status">
-                {likesLoading ? 'Loading YouTube likes…' : 'YouTube likes are temporarily unavailable. Showing default order.'}
+              {selectedChart && !selectedChart.tracks.length && <p className="hint" role="status">
+                {selectedChart.loading ? 'Loading ' + selectedChart.source + ' likes…' : selectedChart.data ? selectedChart.empty : selectedChart.source + ' likes are temporarily unavailable. Showing default order.'}
               </p>}
               <HiddenEndfieldHint count={hiddenEndfield} />
               {filteredSongs.length === 0 ? (
@@ -392,7 +485,8 @@ export default function DiscoverPage({ songs: releaseSongs, characters, origins,
                     // row per album listing, keyed by both.
                     return <SongRow key={`${s.albumId}:${id}`} marker="music-discover-song-row"
                       song={{ id, title: s.title, altTitle: s.altTitle, artist: s.artist, album: s.albumName, cover: s.coverPath }}
-                      detail={songOrder === 'likes' && youtubeLikes?.likes[id] !== undefined ? `${youtubeLikes.likes[id].toLocaleString('en-US')} YouTube likes` : undefined}
+                      detail={selectedChart?.data && (selectedChart.source === 'Arkpedia' || selectedChart.data.likes[id] !== undefined)
+                        ? likeCount(selectedChart.data.likes[id] ?? 0, ' ' + selectedChart.source) : undefined}
                       active={playingId === id} queued={queued.has(id)} onPlay={() => playSong(id)}
                       actions={{
                         playNow: () => playSong(id),
@@ -408,7 +502,7 @@ export default function DiscoverPage({ songs: releaseSongs, characters, origins,
               )}
             </section>
 
-            {resultAlbums.length > 0 && (
+            {!selectedAlbum && resultAlbums.length > 0 && (
               <section className="op-section music-discover-section">
                 <h2>Albums</h2>
                 <ScrollRow label="Albums in these results" className="music-discover-row">
@@ -428,20 +522,20 @@ export default function DiscoverPage({ songs: releaseSongs, characters, origins,
               </section>
             )}
 
-            {resultArtists.length > 0 && (
+            {!selectedAlbum && !facets.artist && resultArtists.length > 0 && (
               <section className="op-section music-discover-section">
                 <h2>Artists</h2>
                 <ScrollRow label="Artists in these results" className="music-discover-row">
                   {resultArtists.map((name) => (
-                    <button key={name} type="button" className="filter-chip music-discover-artist-pill" onClick={() => setFacets({ ...EMPTY_FACETS, artist: name })}>
+                    <Link key={name} prefetch={false} className="filter-chip music-discover-artist-pill" href={{ pathname: router.pathname, query: { facet: 'artist:' + name } }}>
                       {name}
-                    </button>
+                    </Link>
                   ))}
                 </ScrollRow>
               </section>
             )}
 
-            {resultCharacters.length > 0 && (
+            {!facets.artist && resultCharacters.length > 0 && (
               <section className="op-section music-discover-section">
                 <h2>Characters</h2>
                 <ScrollRow label="Characters in these results" className="music-discover-row">
@@ -471,37 +565,44 @@ export default function DiscoverPage({ songs: releaseSongs, characters, origins,
               </ScrollRow>
             </section>
 
-            <section className="op-section music-discover-section" aria-labelledby="discover-likes-heading">
-              <div className="music-discover-section-heading">
-                <h2 id="discover-likes-heading">Most liked on YouTube</h2>
-                {rankedSongs.length > ROW_PREVIEW_COUNT && showAllButton('likes', 'discover-likes')}
-              </div>
-              <div className="music-discover-likes-content" aria-busy={likesLoading}>
-                {rankedSongs.length > 0 ? <>
-                  <Collection id="discover-likes" label="Songs ordered by YouTube likes" expanded={likesExpanded} grid albums controls>
-                    {visibleRankedSongs.map(song => {
-                      const title = songTitle(song.title, song.altTitle);
-                      const count = youtubeLikes!.likes[song.videoId].toLocaleString('en-US');
-                      const id = song.videoId;
-                      // The tile plays the song; its ⋯ queues it, as a song row's does (it could only play, 2026-10-22).
-                      return <div key={id} className="music-discover-like-tile">
-                        <button type="button" className="btn-bare music-discover-album-tile" data-song-id={id}
-                          aria-label={`Play ${title} now, ${count} YouTube likes`}
-                          title={`${title} · ${count} YouTube likes`} aria-current={playingId === id ? 'true' : undefined}
-                          onClick={() => playSong(id)}>
-                          <AlbumCover coverPath={song.coverPath} size={120} className="music-discover-album-tile-cover" />
-                          <span className="music-discover-album-tile-name">{title}</span>
-                        </button>
-                        <span className="music-discover-album-tile-count">{count} likes</span>
-                        <SongActionsMenu song={{ id, title }} isActive={playingId === id}
-                          onPlayNow={() => playSong(id)} onQueueNext={() => void queueSong(id, 'next')} onQueueLast={() => void queueSong(id, 'last')}
-                          noAutoplay={{ on: noAutoplay.has(id), toggle: () => toggleNoAutoplay(id) }} />
-                      </div>;
-                    })}
-                  </Collection>
-                </> : <p className="hint" role="status">{likesLoading ? 'Loading YouTube likes…' : 'YouTube likes are temporarily unavailable.'}</p>}
-              </div>
-            </section>
+            {charts.map(shelf => {
+              const id = 'discover-' + shelf.key;
+              const expanded = browseCollection === shelf.key;
+              return (
+                <section className="op-section music-discover-section" key={shelf.key} aria-labelledby={id + '-heading'}>
+                  <div className="music-discover-section-heading">
+                    <h2 id={id + '-heading'}>Most liked on {shelf.source}</h2>
+                    {shelf.tracks.length > ROW_PREVIEW_COUNT && showAllButton(shelf.key, id)}
+                  </div>
+                  <div className="music-discover-likes-content" aria-busy={shelf.loading}>
+                    {shelf.data && shelf.tracks.length > 0 ?
+                      <Collection id={id} label={'Songs ordered by ' + shelf.source + ' likes'} expanded={expanded} grid albums controls>
+                        {shelf.tracks.slice(0, expanded ? undefined : ROW_PREVIEW_COUNT).map(song => {
+                          const title = songTitle(song.title, song.altTitle);
+                          const id = trackIdOf(song);
+                          const count = shelf.data!.likes[id];
+                          // The tile plays the song; its ⋯ queues it, as a song row's does (it could only play, 2026-10-22).
+                          return <div key={id} className="music-discover-like-tile">
+                            <button type="button" className="btn-bare music-discover-album-tile" data-song-id={id}
+                              aria-label={`Play ${title} now, ${likeCount(count, ' ' + shelf.source)}`}
+                              title={`${title} · ${likeCount(count, ' ' + shelf.source)}`} aria-current={playingId === id ? 'true' : undefined}
+                              onClick={() => playSong(id, shelf)}>
+                              <AlbumCover coverPath={song.coverPath} size={120} className="music-discover-album-tile-cover" />
+                              <span className="music-discover-album-tile-name">{title}</span>
+                            </button>
+                            <span className="music-discover-album-tile-count">{likeCount(count)}</span>
+                            <SongActionsMenu song={{ id, title }} isActive={playingId === id}
+                              onPlayNow={() => playSong(id, shelf)} onQueueNext={() => void queueSong(id, 'next')} onQueueLast={() => void queueSong(id, 'last')}
+                              noAutoplay={{ on: noAutoplay.has(id), toggle: () => toggleNoAutoplay(id) }} />
+                          </div>;
+                        })}
+                      </Collection>
+                    : <p className="hint" role="status">{shelf.loading ? 'Loading ' + shelf.source + ' likes…' : shelf.data ? shelf.empty : shelf.source + ' likes are temporarily unavailable.'}</p>}
+                  </div>
+                  {shelf.source === 'Arkpedia' && <CommunityContributionFooter />}
+                </section>
+              );
+            })}
 
             {albums.length > 0 && (
               <section className="op-section music-discover-section">
@@ -517,6 +618,7 @@ export default function DiscoverPage({ songs: releaseSongs, characters, origins,
                     </div>
                     <div role="group" aria-label="Order albums" className="music-discover-album-order">
                       <button type="button" className="filter-chip" aria-pressed={albumOrder === 'newest'} onClick={() => setAlbumOrder('newest')}>Newest</button>
+                      <button type="button" className="filter-chip" aria-pressed={albumOrder === 'oldest'} onClick={() => setAlbumOrder('oldest')}>Oldest</button>
                       <button type="button" className="filter-chip" aria-pressed={albumOrder === 'name'} onClick={() => setAlbumOrder('name')}>A–Z</button>
                     </div>
                   </div>
@@ -587,10 +689,10 @@ export default function DiscoverPage({ songs: releaseSongs, characters, origins,
               {artistsExpanded && <HiddenEndfieldHint count={hiddenArtistMatches} kind="artist" />}
               <Collection id="discover-artists" label="Artists" expanded={artistsExpanded} grid>
                 {visibleArtists.map((a) => (
-                  <button key={a.name} type="button" className="btn-bare music-discover-artist-card" onClick={() => setFacets({ ...EMPTY_FACETS, artist: a.name })}>
+                  <Link key={a.name} prefetch={false} className="btn-bare music-discover-artist-card" href={{ pathname: router.pathname, query: { facet: 'artist:' + a.name } }}>
                     <span className="music-discover-artist-name">{a.name}</span>
                     <span className="music-discover-artist-count">{songCount(a.count)}</span>
-                  </button>
+                  </Link>
                 ))}
               </Collection>
               {artistsExpanded && visibleArtists.length === 0 && hiddenArtistMatches === 0 && <p className="hint">No artist matches “{artistFilter.trim()}”.</p>}
@@ -600,7 +702,7 @@ export default function DiscoverPage({ songs: releaseSongs, characters, origins,
         {browseFloor.spacer}
         </div>
         </div>
-        <MusicTransportBar view="discover" compact coverPath={playingId ? coverByVideoId.get(playingId) ?? null : undefined} />
+        <MusicTransportBar view="discover" hasLyrics={lyricIds?.includes(playingId) ?? false} coverPath={playingId ? coverByVideoId.get(playingId) ?? null : undefined} />
       </main>
     </>
   );
@@ -608,9 +710,23 @@ export default function DiscoverPage({ songs: releaseSongs, characters, origins,
 
 export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/music/discover", async () => {
   const data = getDiscoverPageData();
-  return { props: data };
+  return { props: { ...data, lyricIds: getAllSongModalLookup().filter(song => song.hasLyrics).map(song => song.videoId) } };
 }, {
   // The live release can be one compiled before pendingSongs and playable existed.
   // The artists and the characters' portraits by this code's rules, whichever release it renders.
-  finalize: async (props) => discoverForDisplay(discoverFromRelease(props)),
+  finalize: async props => {
+    const display = discoverForDisplay(discoverFromRelease(props));
+    // Older catalogues preserve the order within each album in the released rows.
+    const positions = new Map<string, number>();
+    function withPosition<T extends { albumId: string; albumTrack?: number }>(song: T): T {
+      const position = song.albumTrack ?? positions.get(song.albumId) ?? 0;
+      positions.set(song.albumId, position + 1);
+      return song.albumTrack === undefined ? { ...song, albumTrack: position } : song;
+    }
+    const ordered = { ...display, songs: display.songs.map(withPosition), pendingSongs: display.pendingSongs.map(withPosition) };
+    if (props.lyricIds) return ordered;
+    const music = await readPublishedContentPageProps<{ songLookup: { hasLyrics: boolean; videoId: string }[] }>('/music');
+    const lookup = music?.songLookup;
+    return { ...ordered, lyricIds: (lookup ?? []).filter(song => song.hasLyrics).map(song => song.videoId) };
+  },
 });

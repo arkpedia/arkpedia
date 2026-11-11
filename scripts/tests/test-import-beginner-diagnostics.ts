@@ -57,3 +57,18 @@ test('the copyable report carries the summary next to the connection attempts, u
   diagnostic.setBeginner(null);
   assert.equal(diagnostic.snapshot(), '');
 });
+
+test('Paradox diagnostics retain completion flags for the reported stages without identity, timestamps or arbitrary fields', () => {
+  const report = beginnerDiagnostics({ ...user, troop: { addon: {
+    char_183_skgoat: { stage: { mem_skgoat_1: { state: 3, completeTimes: 1, fts: 1790000000, secret: 'DO-NOT-EXPORT' } } },
+    char_272_strong: { stage: { mem_strong_1: { state: 0, completeTimes: 0, fts: 0 } } },
+    unknown: { stage: { 'PRIVATE-STAGE-ID': { state: 2, completeTimes: 3 }, mem_crow_1: { state: '3', completeTimes: '1' } } },
+  } } });
+  assert.deepEqual(report.sources.paradox, { stages: 4, states: { 0: 1, 2: 1, 3: 1, '-1': 1 }, samples: {
+    mem_skgoat_1: { state: 3, completeTimes: 1, hasFts: true, hasRts: false },
+    mem_strong_1: { state: 0, completeTimes: 0, hasFts: false, hasRts: false },
+    mem_crow_1: { state: null, completeTimes: null, hasFts: false, hasRts: false },
+  } });
+  const text = JSON.stringify(report);
+  for (const privateValue of ['DO-NOT-EXPORT', 'PRIVATE-STAGE-ID', 'char_183_skgoat', '1790000000', 'UID-DO-NOT-EXPORT']) assert(!text.includes(privateValue));
+});

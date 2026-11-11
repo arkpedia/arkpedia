@@ -6,24 +6,21 @@ test.beforeEach(async ({ request }) => {
   test.skip(build?.deploymentRole === 'staging', 'This acceptance check targets the production build.');
 });
 
-for (const theme of ['dark', 'light']) test(`production keeps the local profile without cloud sign-in (${theme})`, async ({ page }) => {
+for (const theme of ['dark', 'light']) test(`production offers account Beta while keeping browser imports available (${theme})`, async ({ page }) => {
   await page.addInitScript(theme => localStorage.setItem('theme', theme), theme);
   let cloudReads = 0;
   await page.route('**/api/cloud-account', route => { cloudReads++; return route.fulfill({ status: 401, json: { providers: ['google', 'discord'] } }); });
   await page.goto('/account');
-  await expect(page.getByRole('heading', { name: 'My profile', exact: true })).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Arkpedia account', exact: true })).toHaveCount(0);
-  await expect(page.getByRole('button', { name: 'Continue with Google', exact: true })).toHaveCount(0);
-  await expect(page.getByRole('button', { name: 'Continue with Discord', exact: true })).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: 'My Account', exact: true })).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Arkpedia account', exact: true }).locator('.beta-label')).toHaveText('Beta');
   await page.locator('.page-header-actions').getByRole('button', { name: 'Account settings', exact: true }).click();
-  const settings = page.getByRole('dialog', { name: 'Account settings', exact: true });
-  await expect(settings.getByRole('heading', { name: 'Profile picture', exact: true })).toBeVisible();
-  await expect(settings.getByRole('button', { name: 'Use default', exact: true })).toBeVisible();
-  await expect(settings).not.toContainText('Google');
-  await expect(settings).not.toContainText('Cloud');
-  expect(cloudReads).toBe(0);
+  const login = page.getByRole('dialog', { name: 'Log in to Arkpedia', exact: true });
+  await expect(login.getByRole('button', { name: 'Continue with Google', exact: true })).toBeVisible();
+  await expect(login.getByRole('button', { name: 'Continue with Discord', exact: true })).toBeVisible();
+  await expect(login.locator('.beta-label')).toHaveText('Beta');
+  expect(cloudReads).toBeGreaterThan(0);
   await page.keyboard.press('Escape');
-  await expect(settings).toHaveCount(0);
+  await expect(login).toHaveCount(0);
   await page.locator('.page-header-actions').getByRole('button', { name: 'Import / export', exact: true }).click();
   await expect(page.getByRole('dialog', { name: 'Import / export', exact: true }).getByRole('tab', { name: 'Game import', exact: true })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);

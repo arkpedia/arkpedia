@@ -36,7 +36,7 @@ for (const theme of ['dark', 'light']) {
     await settings.click();
     await popover.getByRole('button', { name: 'Account settings', exact: true }).click();
     const profile = page.getByRole('dialog', { name: 'Account settings', exact: true });
-    await expect(profile.getByText('Saved in this browser.', { exact: false })).toBeVisible();
+    await expect(profile.getByText('Choose a picture for this browser.', { exact: false })).toBeVisible();
     if (process.env.ARKPEDIA_QA_CAPTURE) await page.screenshot({ path: `${process.env.ARKPEDIA_QA_CAPTURE}/profile-${theme}-${info.project.name}.png` });
     await profile.getByRole('searchbox', { name: 'Search profile icons' }).fill('Suzuran - Base');
     await profile.getByRole('button', { name: 'Suzuran - Base', exact: true }).click();

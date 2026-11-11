@@ -43,12 +43,14 @@ jobs:
     # ARKPEDIA_RUNNER (a repository variable) names the self-hosted runner's label, e.g.
     # arkpedia-vps; unset, jobs run on GitHub's hosted runners. See docs/development/ci-runner.md.
     runs-on: ${{ vars.ARKPEDIA_RUNNER || 'ubuntu-latest' }}
-    # Up to 30 of these minutes may go to waiting for the asset syncs (below), and up to 14 after
+    # Up to 30 of these minutes may go to waiting for the asset syncs (below), and up to 20 for native publication and 14 after
     # a publish to the page refresh's wait for the pointer (its step's own timeout): a job timeout
     # there would report a release that went out as failed, and skip the heartbeat.
-    timeout-minutes: ${{ vars.ARKPEDIA_RUNNER && 105 || 85 }}
+    timeout-minutes: ${{ vars.ARKPEDIA_RUNNER && 120 || 100 }}
     steps:
       - uses: actions/checkout@v7
+      - name: Use disk-backed temporary storage
+        run: echo "TMPDIR=$RUNNER_TEMP" >> "$GITHUB_ENV"
       - uses: actions/setup-node@v7
         with:
           node-version: '22'
@@ -252,6 +254,24 @@ jobs:
         if: github.event_name != 'schedule' || steps.prepared.outputs.cache-hit != 'true'
         run: npx tsx scripts/sync/sync-official-videos.mjs --offline
 
+      - name: Restore the public YouTube discovery archive
+        if: github.event_name != 'schedule' || steps.prepared.outputs.cache-hit != 'true'
+        uses: actions/cache/restore@v6
+        with:
+          path: .cache/youtube-discovery/archive.json
+          key: youtube-discovery-${{ github.run_id }}
+          restore-keys: youtube-discovery-
+      - name: Refresh videos relevant to current Global content
+        if: (github.event_name != 'schedule' || steps.prepared.outputs.cache-hit != 'true') && (github.event_name == 'schedule' || inputs.refresh_upstream)
+        timeout-minutes: 6
+        run: node --import tsx scripts/sync/sync-youtube-discovery.ts
+      - name: Keep the public YouTube discovery archive
+        if: github.event_name != 'schedule' || steps.prepared.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v6
+        with:
+          path: .cache/youtube-discovery/archive.json
+          key: youtube-discovery-${{ github.run_id }}
+
       - name: Validate and compile data (no website build)
         if: github.event_name != 'schedule' || steps.prepared.outputs.cache-hit != 'true'
         env:
@@ -268,6 +288,8 @@ jobs:
           npx tsx scripts/build/build-operator-search.ts
           # Hydration removes this derived fallback; selector pages/tests import it before export.
           npx tsx scripts/build/build-selector-catalogue.ts
+          # Community ranking tests import this derived catalogue after hydration too.
+          npx tsx scripts/build/build-community-stage-catalogue.ts
           # check:published-assets, except that a legacy voice clip an operator page offers
           # but the pinned voice repository lacks (a day the voices stage failed, or a newly
           # adopted voice revision that dropped one) holds back that clip, and a folder an asset
@@ -364,14 +386,17 @@ jobs:
       # data main either way, and the issue says what is missing. Once live has moved, await-live
       # names the commit it serves as this step's `revision` output, for the page refresh below:
       # the pushed one, or a later data main commit that superseded it.
+      # Native publication has taken 11 minutes; the former five-minute wait skipped page
+      # refreshes even when storage publication succeeded. Keep the wait inside its step budget.
       - name: Confirm the release went live
         id: live
         if: steps.publish.outputs.pushed != ''
         continue-on-error: true
-        timeout-minutes: 8
+        timeout-minutes: 22
         env:
           GH_TOKEN: ${{ github.token }}
           PUSHED: ${{ steps.publish.outputs.pushed }}
+          ARKPEDIA_LIVE_TIMEOUT_SECONDS: '1200'
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           set -euo pipefail

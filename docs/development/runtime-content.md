@@ -475,3 +475,37 @@ comparison, fallback behavior, supported old-client retention window and expecte
 monthly account-level cost have been reviewed. The initial USD 0–5 planning estimate
 is not a spend cap or permission to buy additional capacity. Production retention,
 cleanup and any media migration require their own accepted policy and evidence.
+
+### Time-window authority
+
+The `arkpedia-data` importer pins one revision per regional client, then builds
+`regional-schedules.json` from that pin and the region’s official notices. EN
+stage/content and farming compatibility records project that same snapshot.
+Weekly supplies, force-open campaigns, Annihilation, SSS, activities and gacha use
+their own client windows; outfit shops, packs and reward sections keep their own
+explicit notice windows. A shop deadline must never be borrowed from stage closure.
+
+English notice readers share `scripts/build/official-news.mjs` (the importer owns
+the active production ingestion; retained application helpers use the same API).
+Yearless dates resolve against the notice’s publication time. Interval consumers
+use `parseNoticeWindow` for fixed UTC-7 and an exclusive close. For example, the
+Masses’ Travels rerun notice 5045 closes stages on November 15, 2026, but sells
+Caelum Aeternum until November 19. Both begin November 5 at 08:00 server time.
+
+Pages read the same immutable release, not separate live upstream feeds. The
+home carousel and `/skins` both use `computeSkinCountdowns` / `availableSkins`;
+`/skin-planner` reconciles collections against the same regional shop inventory.
+`lib/time/servers.mjs` owns server offsets/resets, and `contentPageClock` with
+`useReaderClock` decides live/upcoming state at request/view time. Export guards
+reject frozen countdown fields. Preview consumes the same `live` content pointer
+while retaining its isolated application/account environment.
+
+Timed skin windows have no browser-bundled emergency override. The gallery and
+homepage use their published windows and regional table; the current official
+notice replaces conflicting earlier windows for the same outfit and sale. The
+client data guard rejects `skin-availability-windows.json` in browser code.
+
+Native storage publication can take more than five minutes. Prepare content waits
+up to twenty minutes for the approved live pointer before refreshing the clock
+pages; the confirmation step and job budgets include this wait. A completed Git
+push alone must not skip the post-publication refresh.

@@ -14,6 +14,10 @@ import { withContentPage } from '@/lib/content/server';
 const SHOWN = 100;
 /** How long the URL waits behind the field, so typing writes one history entry, not ten. */
 const URL_DELAY_MS = 300;
+/** The empty state's examples: real searches the index answers -- an operator, a stage
+ *  code, an event, a label -- not "example query" filler. Each is a link to ?s=, so a
+ *  reader can share the one they meant. */
+const SEARCH_EXAMPLES = ['Skadi', 'Mlynar', '1-7', 'Il Siracusano', 'Monster Siren'];
 
 /**
  * /search?s=<query>: the site search as a page (lib/search/siteSearch.ts).
@@ -93,6 +97,24 @@ export default function SearchPage() {
           autoFocus={!urlQuery}
           className="site-search-page-field"
         />
+        {/* With no query the page was a field and 700px of nothing: no examples, no
+            way in for a reader who does not already know a record's exact name. Five
+            real searches, drawn as the site's chip, each a link to ?s= so they are
+            shareable and the field fills in when one is followed. */}
+        {!q && (
+          <div className="site-search-empty">
+            <p className="hint site-search-empty-note">Search covers every operator, stage, event, track and page. Try one:</p>
+            <ul className="site-search-empty-list">
+              {SEARCH_EXAMPLES.map((example) => (
+                <li key={example}>
+                  <Link prefetch={false} href={{ pathname: '/search', query: { s: example } }} className="site-search-example">
+                    {example}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
         {q && (
           <p className="site-search-page-count" aria-live="polite">
             {failed ? 'Search is unavailable right now.'

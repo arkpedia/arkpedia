@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { acquireReplayPermit } from '../../lib/replays/pacing-server';
+import { acquireReplayPermit, cancelReplayPermit, REPLAY_QUEUE_LEASE } from '../../lib/replays/pacing-server';
 import { createPermitHandler } from '../../pages/api/account-import/replay-permit';
 import { allowAccountRequest, ACCOUNT_LIMITS } from '../../lib/cloud-account/limits';
 // Runtime is Node 24; the application's older @types/node does not declare this module.
@@ -17,6 +17,7 @@ import { collectCloudData, fingerprint, personalData, restoreCloudData, validate
 import { accountAuth, accountsEnv, type AccountsEnv } from '../../lib/cloud-account/server';
 import { createReplayHandler } from '../../lib/cloud-account/replays-api';
 import { createCloudAccountHandler } from '../../lib/cloud-account/api';
+import { createCommunityHandler } from '../../lib/community/api';
 import { createAccountProfileHandler } from '../../lib/cloud-account/profile-api';
 import { normalizeUsername, validateProfile } from '../../lib/cloud-account/profile';
 import { syncDecision } from '../../lib/cloud-account/sync-policy';
@@ -29,6 +30,16 @@ const archive = (uid = '123', rows = [{ at: 1000, pool: 'pool1', char: 'char_002
 function storage(entries: Record<string, string> = {}) {
   return { entries, getItem: (k: string) => entries[k] ?? null, setItem: (k: string, v: string) => { entries[k] = v; }, removeItem: (k: string) => { delete entries[k]; } } as Storage & { entries: Record<string, string> };
 }
+
+test('visualizer preference survives personal cloud save and restore on a new browser', () => {
+  const key = 'arkpedia:settings';
+  const browser = storage({ [key]: JSON.stringify({ version: 2, values: { musicVisualizer: 'waves' } }) });
+  const saved = validateCloudData(collectCloudData(browser, false), false);
+  const other = storage();
+  restoreCloudData(saved, false, other);
+  assert.equal(JSON.parse(other.getItem(key)!).values.musicVisualizer, 'waves');
+  assert.equal(key in collectCloudData(browser, false, false), false);
+});
 
 test('archive union keeps old draws, repeated operators and isolated game accounts without duplicating overlap', () => {
   const first = archive(); first.history.rows.push({ ...first.history.rows[0] });
@@ -158,7 +169,7 @@ function database(filename = ':memory:') {
 const envFor = (db: D1Database): AccountsEnv => ({ ARKPEDIA_ACCOUNTS_DB: db, ARKPEDIA_AUTH_URL: 'https://accounts.example.invalid',
   BETTER_AUTH_SECRET: 'test-only-a-long-random-secret-0123456789', GOOGLE_CLIENT_ID: 'google-test', GOOGLE_CLIENT_SECRET: 'test', DISCORD_CLIENT_ID: 'discord-test', DISCORD_CLIENT_SECRET: 'test' });
 
-test('live and unknown deployment roles cannot enable accounts even with all bindings present', () => {
+test('production accounts require explicit enablement and canonical origin; unknown roles stay disabled', () => {
   const key = Symbol.for('__cloudflare-context__');
   const runtime = globalThis as unknown as Record<symbol, unknown>;
   const previous = runtime[key];
@@ -166,6 +177,13 @@ test('live and unknown deployment roles cannot enable accounts even with all bin
   try {
     for (const role of ['production', undefined, 'dev']) {
       runtime[key] = { env: { ...env, ARKPEDIA_DEPLOYMENT_ROLE: role } };
+      assert.equal(accountsEnv(), null);
+    }
+    const production = { ...env, ARKPEDIA_DEPLOYMENT_ROLE: 'production', ARKPEDIA_ACCOUNTS_ENABLED: '1', ARKPEDIA_AUTH_URL: 'https://www.arkpedia.net' };
+    runtime[key] = { env: production };
+    assert.equal(accountsEnv(), production);
+    for (const patch of [{ ARKPEDIA_ACCOUNTS_ENABLED: undefined }, { ARKPEDIA_ACCOUNTS_ENABLED: '0' }, { ARKPEDIA_AUTH_URL: 'https://preview.arkpedia.net' }, { ARKPEDIA_DEPLOYMENT_ROLE: 'dev' }]) {
+      runtime[key] = { env: { ...production, ...patch } };
       assert.equal(accountsEnv(), null);
     }
     const preview = { ...env, ARKPEDIA_DEPLOYMENT_ROLE: 'staging' };
@@ -241,6 +259,7 @@ test('authenticated API enforces isolation, origin, consent, revisions and casca
   assert.ok(!JSON.stringify(initial.result).includes('arkpedia@example.invalid'));
   assert.equal((await call('PUT', { revision: 0, data: {} })).status, 428);
   sqlite.prepare('INSERT INTO arkpedia_profile (userId, username, usernameKey, updatedAt) VALUES (?, ?, ?, ?)').run(user.id, 'Test#1234', 'test#1234', new Date().toISOString());
+  sqlite.prepare('UPDATE arkpedia_profile SET avatarId = ? WHERE userId = ?').run('six-star-icons/Suzuran - Base.webp', user.id);
   sqlite.prepare('UPDATE cloud_save SET syncReviewed = 1, personalSync = 1 WHERE userId = ?').run(user.id);
   assert.equal((await call('PUT', { owner: 'previous-user', revision: 0, data: { musicFavorites: ['private'] } })).status, 409);
   assert.equal((await call('PUT', { revision: 0, data: { arkpediaAccount: account } })).status, 400);
@@ -255,6 +274,7 @@ test('authenticated API enforces isolation, origin, consent, revisions and casca
   assert.equal(sqlite.prepare('SELECT count(*) AS n FROM cloud_save WHERE userId = ?').get(user.id)?.n, 1);
   assert.equal(sqlite.prepare('SELECT count(*) AS n FROM cloud_save WHERE userId = ?').get('someone-else')?.n, 0);
   assert.equal((await call('DELETE', { revision: 4 })).status, 200);
+  assert.equal(((await call('GET')).result.profile as { avatarId: string }).avatarId, 'six-star-icons/Suzuran - Base.webp', 'profile pictures survive snapshot replacement and cloud-save deletion');
   assert.equal((await call('GET')).result.paused, true);
   assert.equal((await call('PUT', { revision: 4, data: { musicFavorites: ['old'] } })).status, 409);
   assert.equal((await call('PUT', { revision: 5, data: { musicFavorites: ['resumed'] } })).status, 200);
@@ -383,6 +403,23 @@ test('profile claims are authenticated, unique under races, owner-bound and pres
     assert.equal(sqlite.prepare('SELECT payload FROM cloud_save WHERE userId = ?').get(user.id)?.payload, '{"musicFavorites":["kept"]}');
     assert.equal(sqlite.prepare('SELECT revision FROM cloud_save WHERE userId = ?').get(user.id)?.revision, 4);
   }
+  const avatarId = 'six-star-icons/Suzuran - Base.webp';
+  assert.equal((await call(winner.user.id, '', 'PATCH', { avatarId })).status, 401);
+  assert.equal((await call(winner.user.id, winner.cookie, 'PATCH', { avatarId }, 'https://evil.invalid')).status, 403);
+  assert.equal((await call(loser.user.id, winner.cookie, 'PATCH', { avatarId })).status, 409);
+  assert.equal((await call(loser.user.id, loser.cookie, 'PATCH', { avatarId })).status, 409, 'a username is required');
+  for (const avatarId of ['https://evil.invalid/avatar.png', 'six-star-icons/../../secret.png', 'six-star-icons/not-in-catalogue.webp', 5, undefined]) {
+    assert.equal((await call(winner.user.id, winner.cookie, 'PATCH', { avatarId })).status, 400);
+  }
+  const changed = await call(winner.user.id, winner.cookie, 'PATCH', { avatarId });
+  assert.equal(changed.status, 200);
+  assert.equal((changed.result.profile as { avatarId: string }).avatarId, avatarId);
+  assert.equal(sqlite.prepare('SELECT avatarId FROM arkpedia_profile WHERE userId = ?').get(winner.user.id)?.avatarId, avatarId);
+  assert.equal((await call(winner.user.id, winner.cookie, 'PUT', { username: winner.username })).status, 200);
+  assert.equal(sqlite.prepare('SELECT avatarId FROM arkpedia_profile WHERE userId = ?').get(winner.user.id)?.avatarId, avatarId, 'older username writes preserve the picture');
+  assert.equal(sqlite.prepare('SELECT payload FROM cloud_save WHERE userId = ?').get(winner.user.id)?.payload, '{"musicFavorites":["kept"]}');
+  assert.equal((await call(winner.user.id, winner.cookie, 'PATCH', { avatarId: null })).status, 200);
+  assert.equal(sqlite.prepare('SELECT avatarId FROM arkpedia_profile WHERE userId = ?').get(winner.user.id)?.avatarId, null, 'default is saved, not a missing update');
   assert.equal((await call(loser.user.id, winner.cookie, 'DELETE', { confirmation })).status, 409);
   assert.equal((await call(winner.user.id, winner.cookie, 'DELETE', { confirmation: 'wrong' })).status, 400);
   sqlite.prepare('UPDATE session SET createdAt = ? WHERE id = ?').run(new Date(Date.now() - 600_000).toISOString(), winner.session.id);
@@ -678,19 +715,59 @@ test('auto-deploy API isolates owners, enforces consent and CAS, avoids stale fi
 });
 
 
-test('shared replay admission is atomic across browsers and enforces the browser minimum without burning denied slots', async()=>{
-  const {sqlite,db}=database();const a=crypto.randomUUID(),b=crypto.randomUUID(),now=10000000;
-  const simultaneous=await Promise.all(Array.from({length:30},()=>acquireReplayPermit(db,crypto.randomUUID(),now)));
-  assert.equal(simultaneous.filter(Boolean).length,1);
-  assert.equal(await acquireReplayPermit(db,a,now+500),true);
-  assert.equal(await acquireReplayPermit(db,a,now+1000),false);
-  assert.equal(await acquireReplayPermit(db,b,now+1000),true,'a denied browser must not consume a global grant');
-  assert.equal(await acquireReplayPermit(db,a,now+3499),false);
-  assert.equal(await acquireReplayPermit(db,a,now+3500),true);
-  assert.equal(await acquireReplayPermit(db,b,now+3999),false);
-  assert.equal(await acquireReplayPermit(db,b,now+4000),true);
-  await acquireReplayPermit(db,crypto.randomUUID(),now+3610000);
-  assert.equal(sqlite.prepare('SELECT count(*) AS n FROM replay_pacing').get()?.n,2,'expired browser identifiers are removed, global survives');
+test('shared replay queue is FIFO, deduplicates polls and gives a returning browser the last position', async()=>{
+  const {sqlite,db}=database(),now=10000000;
+  const clients=Array.from({length:30},()=>crypto.randomUUID());
+  const first=await Promise.all(clients.map(client=>acquireReplayPermit(db,client,now)));
+  assert.equal(first.filter(r=>r.granted).length,1);
+  assert.equal(sqlite.prepare('SELECT count(*) AS n FROM replay_wait_queue').get()?.n,29);
+  // A fast newcomer or repeated polls cannot overtake an already waiting client.
+  const newcomer=crypto.randomUUID();
+  assert.equal((await acquireReplayPermit(db,newcomer,now+500)).granted,false);
+  for(let i=1;i<clients.length;i++){
+    const at=now+i*500;
+    assert.equal((await acquireReplayPermit(db,newcomer,at)).granted,false);
+    assert.equal((await acquireReplayPermit(db,clients[i],at)).granted,true);
+    // Renew the simulated waiting browsers, as the real client does every <=2.1s.
+    for(const pending of clients.slice(i+1))await acquireReplayPermit(db,pending,at);
+  }
+  assert.equal((await acquireReplayPermit(db,newcomer,now+15000)).granted,true);
+  assert.equal((await acquireReplayPermit(db,newcomer,now+15500)).granted,false);
+  const other=crypto.randomUUID();
+  assert.equal((await acquireReplayPermit(db,other,now+15500)).granted,true,'a browser on cooldown does not hold up others');
+  assert.equal((await acquireReplayPermit(db,newcomer,now+18000)).granted,true);
+  sqlite.close();
+});
+test('abandoned waits expire, cancellation keeps cooldowns and older clients share the same global allowance',async()=>{
+  const {sqlite,db}=database(),now=10000000,a=crypto.randomUUID(),b=crypto.randomUUID();
+  assert.equal((await acquireReplayPermit(db,a,now)).granted,true);
+  await acquireReplayPermit(db,a,now+1);
+  await cancelReplayPermit(db,a);
+  assert.equal((await acquireReplayPermit(db,a,now+500)).granted,false,'cancel cannot reset cooldown');
+  assert.equal((await acquireReplayPermit(db,b,now+500)).granted,true);
+  await acquireReplayPermit(db,a,now+501);
+  await cancelReplayPermit(db,a);
+  assert.equal(sqlite.prepare('SELECT count(*) AS n FROM replay_wait_queue').get()?.n,0);
+  const abandoned=crypto.randomUUID(),next=crypto.randomUUID();
+  await acquireReplayPermit(db,abandoned,now+501);
+  assert.equal((await acquireReplayPermit(db,next,now+1000)).granted,false);
+  assert.equal((await acquireReplayPermit(db,next,now+501+REPLAY_QUEUE_LEASE)).granted,true);
+  await acquireReplayPermit(db,crypto.randomUUID(),now+3620000);
+  assert.equal(sqlite.prepare('SELECT count(*) AS n FROM replay_pacing').get()?.n,2);
+  sqlite.close();
+});
+test('replay queue is bounded, permits existing waiters to renew and reclaims expired capacity',async()=>{
+  const {sqlite,db}=database(),now=10000000;
+  const clients=Array.from({length:1000},()=>crypto.randomUUID());
+  const insert=sqlite.prepare('INSERT INTO replay_wait_queue(client,readyAt,expiresAt) VALUES (?,?,?)');
+  for(const client of clients)insert.run(client,now,now+REPLAY_QUEUE_LEASE);
+  const overflow=await acquireReplayPermit(db,crypto.randomUUID(),now);
+  assert.equal(overflow.full,true);assert.equal(overflow.granted,false);
+  const renewed=await acquireReplayPermit(db,clients[999],now+1);
+  assert.equal(renewed.full,undefined);assert.equal(renewed.position,1000);
+  assert.equal(sqlite.prepare('SELECT count(*) AS n FROM replay_wait_queue').get()?.n,1000);
+  assert.equal((await acquireReplayPermit(db,clients[0],now+500)).granted,true);
+  assert.equal((await acquireReplayPermit(db,crypto.randomUUID(),now+REPLAY_QUEUE_LEASE+1)).granted,true);
   sqlite.close();
 });
 test('replay admission API accepts only anonymous same-origin requests and stops when coordination is unavailable',async()=>{
@@ -703,9 +780,28 @@ test('replay admission API accepts only anonymous same-origin requests and stops
   assert.equal((await call('GET')).status,405);
   assert.equal((await call('POST',{client:crypto.randomUUID()},'https://elsewhere.invalid')).status,403);
   for(const body of [null,[],{client:'global'},{client:crypto.randomUUID(),stageId:'main_00-01'},{client:crypto.randomUUID(),token:'private'}])assert.equal((await call('POST',body)).status,400);
-  assert.deepEqual((await call()).result,{granted:true});
-  assert.deepEqual((await call()).result,{granted:false});
+  assert.equal((await call()).result.granted,true);
+  assert.equal((await call()).result.granted,false);
+  assert.deepEqual((await call('DELETE')).result,{cancelled:true});
   assert.equal((await call('POST',undefined,undefined,createPermitHandler(()=>null))).status,503);
   sqlite.exec('DROP TABLE replay_pacing');assert.equal((await call()).status,503);
   sqlite.close();
+});
+
+
+test('community sharing accepts the same authenticated session as private cloud saves',async()=>{
+  const {sqlite,db}=database();
+  try{
+    const limiter={limit:async()=>({success:true})};
+    const env={...envFor(db),ACCOUNT_TRAFFIC_LIMIT:limiter,ACCOUNT_IP_LIMIT:limiter};
+    const context=await accountAuth(env).$context;
+    const user=await context.internalAdapter.createUser({name:'Test',email:'community@example.invalid',emailVerified:true},{method:'oauth'});
+    const session=await context.internalAdapter.createSession(user.id,false);
+    const cookie=`${context.authCookies.sessionToken.name}=${session.token}.${await makeSignature(session.token,context.secret)}`;
+    for(const handler of [createCloudAccountHandler(()=>env),createCommunityHandler('sharing',{resolveEnv:()=>env})]){
+      let status=200,result:any;const res={setHeader:()=>{},status:(n:number)=>{status=n;return res;},json:(v:unknown)=>{result=v;},end:()=>{}};
+      await handler({method:'GET',headers:{cookie},query:{}} as NextApiRequest,res as unknown as NextApiResponse);
+      assert.equal(status,200,JSON.stringify(result));
+    }
+  }finally{sqlite.close();}
 });

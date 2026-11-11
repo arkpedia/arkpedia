@@ -1,3 +1,4 @@
+import type { MediaDeliveryMaps } from '../assets/mediaDelivery.mjs';
 export const CONTENT_SCHEMA = 2;
 
 export interface ContentFile { path: string; sha256: string; bytes: number }
@@ -16,6 +17,7 @@ export interface ContentManifest {
 export interface ContentRelease {
   release: string;
   baseUrl: string;
+  media?: MediaDeliveryMaps;
   assets: Record<string, string>;
 }
 

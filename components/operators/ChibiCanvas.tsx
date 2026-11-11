@@ -1,3 +1,4 @@
+import { chibiBodyBounds } from '@/lib/operators/chibiFrame';
 import { useEffect, useRef, useState } from 'react';
 import { premultipliedTexture } from '@/lib/spine/premultipliedTexture';
 import { acquireChibiGL } from '@/lib/spine/sharedChibiGL';
@@ -7,7 +8,7 @@ import type { ChibiActivity } from '@/lib/operators/chibiRoutine';
 import { chibiIdleAnimation, isChibiTap } from '@/lib/operators/chibiRoutine';
 import { chibiAtlas } from '@/lib/operators/chibiAtlas';
 import { fetchAsset, loadAssetImage } from '@/lib/assets/assetRetry';
-import { pinAssetUrl } from '@/lib/assets/revisions';
+import { useContentUrl } from '@/lib/content/context';
 interface ChibiCanvasProps {
   model: ChibiModel; label: string; animation: string; onAnimationChange: (value: string) => void;
   onAnimationsChange: (values: string[], durations?: Record<string, number>) => void; paused: boolean; moving: boolean; flipped: boolean;
@@ -17,6 +18,11 @@ interface ChibiCanvasProps {
   animationSequence?: number; once?: boolean; playWhilePaused?: boolean;
 }
 export default function ChibiCanvas({ model, label, animation, onAnimationChange, onAnimationsChange, paused, moving, flipped, onPointerDown, roaming, activity, animationSequence = 0, once = false, playWhilePaused = false, onAnimationComplete }: ChibiCanvasProps) {
+  const resolveUrl = useContentUrl();
+  // A new page context must not restart a roaming animation when its resources
+  // still resolve to the same immutable physical files.
+  const skeletonUrl = resolveUrl(model.skeleton), atlasUrl = resolveUrl(model.atlas);
+  const textureUrls = JSON.stringify(Object.entries(model.textures).map(([name, url]) => [name, resolveUrl(url)]));
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [loading, setLoading] = useState(true), [error, setError] = useState('');
   const control = useRef({ animation, paused, moving, roaming, activity, animationSequence, once, playWhilePaused, onAnimationComplete });
@@ -29,9 +35,9 @@ export default function ChibiCanvas({ model, label, animation, onAnimationChange
     (async () => {
       const [{ spine }, skeletonBytes, atlasText, images] = await Promise.all([
         import('@/lib/vendor/spine-3.8/spine-webgl'),
-        fetchAsset(pinAssetUrl(model.skeleton), { signal: abort.signal }).then(res => { if (!res.ok) throw Error('Skeleton unavailable'); return res.arrayBuffer(); }),
-        fetchAsset(pinAssetUrl(model.atlas), { signal: abort.signal }).then(res => { if (!res.ok) throw Error('Atlas unavailable'); return res.text(); }),
-        Promise.all(Object.entries(model.textures).map(([name, url]) => loadAssetImage(pinAssetUrl(url), { crossOrigin: 'anonymous', signal: abort.signal })
+        fetchAsset(skeletonUrl, { signal: abort.signal }).then(res => { if (!res.ok) throw Error('Skeleton unavailable'); return res.arrayBuffer(); }),
+        fetchAsset(atlasUrl, { signal: abort.signal }).then(res => { if (!res.ok) throw Error('Atlas unavailable'); return res.text(); }),
+        Promise.all((JSON.parse(textureUrls) as [string, string][]).map(([name, url]) => loadAssetImage(url, { crossOrigin: 'anonymous', signal: abort.signal })
           .then((image): [string, HTMLImageElement] => [name, image], () => { throw Error(abort.signal.aborted ? 'Aborted' : 'Texture unavailable'); }))),
       ]);
       if (stopped) return;
@@ -60,6 +66,13 @@ export default function ChibiCanvas({ model, label, animation, onAnimationChange
       const drawOrder = skeleton.drawOrder;
       skeleton.drawOrder = drawOrder.filter(slot => slot.color.a >= .01);
       const origin = new spine.Vector2(), size = new spine.Vector2(); skeleton.getBounds(origin, size, []);
+      const parts = skeleton.drawOrder.map(slot => {
+        skeleton.drawOrder = [slot];
+        const point = new spine.Vector2(), extent = new spine.Vector2(); skeleton.getBounds(point, extent, []);
+        return { left: point.x, bottom: point.y, right: point.x + extent.x, top: point.y + extent.y };
+      });
+      const body = chibiBodyBounds(parts);
+      if (body) { origin.set(body.left, body.bottom); size.set(body.right - body.left, body.top - body.bottom); }
       skeleton.drawOrder = drawOrder;
       if (!Number.isFinite(size.x) || !Number.isFinite(size.y)) { origin.set(-100, 0); size.set(200, 300); }
       // Measure every frame of a clip before playback. Transparent effect attachments
@@ -152,7 +165,7 @@ export default function ChibiCanvas({ model, label, animation, onAnimationChange
       frame = requestAnimationFrame(render);
     })().catch(() => { cleanup?.(); cleanup = undefined; if (!stopped) setError('This chibi could not load. Try another facing or reopen the viewer.'); });
     return () => { stopped = true; abort.abort(); cancelAnimationFrame(frame); cleanup?.(); };
-  }, [model, onAnimationChange, onAnimationsChange]);
+  }, [skeletonUrl, atlasUrl, textureUrls, onAnimationChange, onAnimationsChange]);
   return <div className={`chibi-viewer${roaming ? ' is-roaming' : ''}`}>
     <canvas ref={canvasRef} aria-label={`${label} chibi`} title={roaming ? 'Tap to interact · Drag to move' : 'Drag chibi onto the page'} onPointerDown={onPointerDown} style={flipped ? { transform: 'scaleX(-1)' } : undefined} />
     {error ? <p role="status">{error}</p> : loading ? <p role="status">Loading chibi…</p> : null}

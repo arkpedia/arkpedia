@@ -21,11 +21,9 @@ test('every arrowed line draws its head, pointing onto the cover it leads to, in
   await expect(page.locator('.story-map-board')).toBeVisible();
   const found = await page.evaluate(() => {
     const board = document.querySelector('.story-map-board')!;
-    const px = (value: string) => parseFloat(value);
-    const covers = [...board.querySelectorAll<HTMLElement>('.story-map-picture')].map((el) => ({ x: px(el.style.left), y: px(el.style.top), w: px(el.style.width), h: px(el.style.height) }));
+    const covers = [...board.querySelectorAll<HTMLElement>('.story-map-picture')].map(el => el.getBoundingClientRect());
     const out = { heads: 0, wrongWay: [] as string[], offColour: [] as string[], touching: 0, offCover: [] as string[] };
     for (const svg of board.querySelectorAll<SVGSVGElement>('svg.story-map-line')) {
-      const left = px(svg.style.left), top = px(svg.style.top);
       const shaft = svg.querySelector('line');
       for (const head of svg.querySelectorAll<SVGPathElement>('path.story-map-head')) {
         out.heads++;
@@ -41,7 +39,9 @@ test('every arrowed line draws its head, pointing onto the cover it leads to, in
         // The shaft's far end lies behind the head's base: the head points away from the line.
         const behind = !shaft || [[+shaft.getAttribute('x1')!, +shaft.getAttribute('y1')!], [+shaft.getAttribute('x2')!, +shaft.getAttribute('y2')!]]
           .every(([x, y]) => (x - mid[0]) * u[0] + (y - mid[1]) * u[1] <= 0.01);
-        const where = `head at ${Math.round(left + tip[0])},${Math.round(top + tip[1])}`;
+        const matrix = head.getScreenCTM()!;
+        const screenTip = new DOMPoint(tip[0], tip[1]).matrixTransform(matrix);
+        const where = `head at ${Math.round(screenTip.x)},${Math.round(screenTip.y)}`;
         if (!(across(0.1) < across(0.9)) || !behind) out.wrongWay.push(where);
         const style = getComputedStyle(head);
         if (style.fill !== style.stroke || (shaft && style.fill !== getComputedStyle(shaft).stroke) || style.strokeLinejoin !== 'round') {
@@ -49,9 +49,10 @@ test('every arrowed line draws its head, pointing onto the cover it leads to, in
         }
         // The visible tip, the outline's round join half a width past the vertex, on a cover's edge.
         const half = Number(head.getAttribute('stroke-width')) / 2;
-        const [x, y] = [left + tip[0] + u[0] * half, top + tip[1] + u[1] * half];
-        const gap = Math.min(...covers.map((r) => Math.hypot(Math.max(r.x - x, 0, x - (r.x + r.w)), Math.max(r.y - y, 0, y - (r.y + r.h)))));
-        if (gap <= 2) out.touching++; else out.offCover.push(`${where}: ${gap.toFixed(1)} off`);
+        const { x, y } = new DOMPoint(tip[0] + u[0] * half, tip[1] + u[1] * half).matrixTransform(matrix);
+        const gap = Math.min(...covers.map(r => Math.hypot(Math.max(r.left - x, 0, x - r.right), Math.max(r.top - y, 0, y - r.bottom))));
+        const tolerance = 2 * Math.max(Math.hypot(matrix.a, matrix.b), Math.hypot(matrix.c, matrix.d));
+        if (gap <= tolerance) out.touching++; else out.offCover.push(`${where}: ${gap.toFixed(3)} off`);
       }
     }
     return out;

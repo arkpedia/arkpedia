@@ -78,6 +78,8 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@v7
+      - name: Use disk-backed temporary storage
+        run: echo "TMPDIR=$RUNNER_TEMP" >> "$GITHUB_ENV"
       - uses: actions/setup-node@v7
         with:
           node-version: '22'
@@ -121,6 +123,36 @@ jobs:
         run: |
           echo 'Draft feedback passed: application/Python tests, generated inputs, types, lint, style and code graph. No website build, browser coverage or reusable Check proof. Mark ready for review to run the full release gate.' >> "$GITHUB_STEP_SUMMARY"
 
+  # The browser build is ordinary Next.js. Also compile the real production Worker
+  # before merge: deployment must not discover missing modules or bundle bloat first.
+  production-build:
+    needs: seen
+    if: ${{ !cancelled() && needs.seen.outputs.checked != 'true' && !(github.event_name == 'pull_request' && github.event.pull_request.draft == true && github.event.pull_request.head.repo.full_name == github.repository) }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Use disk-backed temporary storage
+        run: echo "TMPDIR=$RUNNER_TEMP" >> "$GITHUB_ENV"
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: ${{ runner.environment == 'github-hosted' && 'npm' || '' }}
+          package-manager-cache: ${{ runner.environment == 'github-hosted' }}
+      - run: npm ci
+      - name: Pull the live game records
+        run: node scripts/content/pull-data.mjs
+      - name: Compile and check the production Worker
+        run: npm run cf:build
+        env:
+          NODE_OPTIONS: --max-old-space-size=4096
+          NEXT_TELEMETRY_DISABLED: '1'
+          WRANGLER_SEND_METRICS: 'false'
+
   check:
     needs: seen
     # A cache miss, failed lookup or skipped lookup runs the full Check.
@@ -141,6 +173,9 @@ jobs:
       pull-requests: read
     steps:
       - uses: actions/checkout@v7
+      # The NAS /tmp is a 2 GB tmpfs; importer fixtures need the job's disk storage.
+      - name: Use disk-backed temporary storage
+        run: echo "TMPDIR=$RUNNER_TEMP" >> "$GITHUB_ENV"
 
       - uses: actions/setup-node@v7
         with:
@@ -245,8 +280,15 @@ jobs:
       # the site's behaviour, and a nightly release must not turn an unrelated PR red.
       - name: Pull the pinned game records for the browser specs
         run: node scripts/content/pull-data.mjs --pinned
+      - name: Prepare pinned browser build inputs
+        # Public catalogues and shipped tables must use the same revision as the
+        # pages. The earlier preparation belongs to the live-data type checks.
+        run: npm run prebuild
+        env:
+          NODE_ENV: production
+          ARKPEDIA_CONTENT_DISABLED: '1'
       - name: Build
-        # prebuild ran above, and postbuild must still enforce BOTH output budgets.
+        # Pinned inputs are prepared above; postbuild enforces BOTH output budgets.
         run: npm run --ignore-scripts build && npm run postbuild
         env:
           NEXT_TELEMETRY_DISABLED: '1'
@@ -304,9 +346,13 @@ jobs:
       # Fail on broken publication before the long browser suite. Its own build directory
       # keeps fixture releases out of the bundled pages the browser suite reads.
       - name: Content updates and rollback without rebuilding
-        run: npm run test:content-runtime
+        run: |
+          df -h "$TMPDIR" /tmp /dev/shm
+          npm run test:content-runtime
         env:
           NEXT_DIST_DIR: .next-live
+          # Chromium's profile and IPC fallback must not use the NAS's 2 GB RAM-backed /tmp.
+          TMPDIR: ${{ runner.temp }}
 
       - name: Browser runner resources
         if: steps.browser.outputs.lane != 'none'

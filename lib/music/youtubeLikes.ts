@@ -11,7 +11,8 @@ export function validYouTubeLikes(value: unknown, now: number): value is YouTube
   const data = value as YouTubeLikes | null;
   if (!data || typeof data.updatedAt !== 'string' || !data.likes || typeof data.likes !== 'object' || Array.isArray(data.likes)) return false;
   const time = Date.parse(data.updatedAt);
-  return Number.isFinite(time) && time <= now && now - time < YOUTUBE_LIKES_MAX_AGE
+  // The server stamps a fresh snapshot. Small differences between device and server clocks are normal.
+  return Number.isFinite(time) && time <= now + 60_000 && now - time < YOUTUBE_LIKES_MAX_AGE
     && Object.entries(data.likes).every(([id, count]) => YOUTUBE_VIDEO_ID.test(id) && Number.isSafeInteger(count) && count >= 0);
 }
 

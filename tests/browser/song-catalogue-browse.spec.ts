@@ -42,6 +42,7 @@ for (const theme of ['dark', 'light']) {
     await expect(lists.getByRole('status')).toContainText('Playing Night music');
     await page.keyboard.press('Escape');
     await expect.poll(async () => (await youtube(page))?.state).toBe(1);
+    if (!await page.getByRole('dialog', { name: 'Playback queue' }).isVisible()) await page.locator('#music-transport-queue').click();
     await expect(queueRows(page)).toHaveCount(2);
     const before = (await youtube(page))!;
     const queueBefore = await queueRows(page).evaluateAll(rows => rows.map(row => (row as HTMLElement).dataset.songId));

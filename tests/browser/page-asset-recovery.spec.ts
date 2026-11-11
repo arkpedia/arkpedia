@@ -33,7 +33,7 @@ async function fixture(page: Page, options: { permanent?: boolean; startup?: boo
 for (const theme of ['dark', 'light']) test(`the actual homepage recovers a failed stylesheet before application startup (${theme})`, async ({ page }) => {
   await page.addInitScript(theme => {
     localStorage.setItem('theme', theme);
-    localStorage.setItem('arkpedia:privacy:v1', JSON.stringify({ version: 1, analytics: false, externalMedia: false, savedAt: Date.now() }));
+    localStorage.setItem('arkpedia:privacy:v1', JSON.stringify({ version: 1, analytics: false, externalMedia: false, externalMediaChosen: true, savedAt: Date.now() }));
   }, theme);
   let failures = 0;
   let retries = 0;

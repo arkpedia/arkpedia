@@ -1,0 +1,553 @@
+{
+  "observedAt": "2026-11-04T14:22:55.661880+00:00",
+  "method": "Complete source readiness-key listing (89 objects, no continuation); bodies checked against listed length and MD5. Each receipt supplies published path counts/bytes. Full media blob/index checksum replay is not claimed.",
+  "totalRevisions": 89,
+  "nativeMedia": {
+    "revisions": 40,
+    "files": 534105,
+    "bytes": 47588950664,
+    "roundedStandardStorageUsdPerMonthBeforeAllowances": 0.72
+  },
+  "retainedOnDeduplicatedReader": {
+    "repository": "arkpedia-data",
+    "revisions": 49,
+    "files": 439591,
+    "bytes": 12947852516
+  },
+  "receipts": [
+    {
+      "repository": "arkpedia-color-palette",
+      "revision": "35165bb8e07f4d2296c31d4ff5e0b12c87677573",
+      "files": 2,
+      "bytes": 1066
+    },
+    {
+      "repository": "arkpedia-data",
+      "revision": "020625b51222ec102895fa49b5bcfca780a64011",
+      "files": 8987,
+      "bytes": 267269904
+    },
+    {
+      "repository": "arkpedia-data",
+      "revision": "0a33d943820e1584a95325c917a475e8c60eb3d1",
+      "files": 8967,
+      "bytes": 263613183
+    },
+    {
+      "repository": "arkpedia-data",
+      "revision": "0a3513547cbfdbfa2a5c25878ca4bcdb568a1a05",
+      "files": 8967,
+      "bytes": 263613547
+    },
+    {
+      "repository": "arkpedia-data",
+      "revision": "2adcf74d798898096de5394362f0275698f62684",
+      "files": 8967,
+      "bytes": 263613521
+    },
+    {
+      "repository": "arkpedia-data",
+      "revision": "2d5bc001608948aabf2109213b3c64d1e70af227",
+      "files": 8967,
+      "bytes": 263613183
+    },
+    {
+      "repository": "arkpedia-data",
+      "revision": "35c7bd50cb60c5dc973984d7855125032a72bcbf",
+      "files": 8983,
+      "bytes": 266690658
+    },
+    {
+      "repository": "arkpedia-data",
+      "revision": "3796f40cb7bba5bb44738862ceee185921a65ec1",
+      "files": 8965,
+      "bytes": 262428925
+    },
+    {
+      "repository": "arkpedia-data",
+      "revision": "4a3d0caec404261cb56b275ae1c6220983c0916d",
+      "files": 8983,
+      "bytes": 266686672
+    },
+    {
+      "repository": "arkpedia-data",
+      "revision": "4d1e7b08e0ea5fc81c3a3d9051d6609fbca962cb",
+      "files": 8987,
+      "bytes": 267269904
+    },
+    {
+      "repository": "arkpedia-data",
+      "revision": "5146505ea194e3f91fcc5a0af75ca28f18798a24",
+      "files": 8967,
+      "bytes": 263539710
+    },
+    {
+      "repository": "arkpedia-data",
+      "revision": "5eba787d9853707e425c608121a70b8c54be15f4",
+      "files": 8965,
+      "bytes": 262429497
+    },
+    {
+      "repository": "arkpedia-data",
+      "revision": "5f39304214f285787f0a0d551ae9e592e5d18248",
+      "files": 8967,
+      "bytes": 263613521
+    },
+    {
+      "repository": "arkpedia-data",
+      "revision": "6626b1e483439f2fce1f74bd2db2126cce455ee7",
+      "files": 8967,
+      "bytes": 263613183
+    },
+    {
+      "repository": "arkpedia-data",
+      "revision": "68ab72ac980ee86bb405652667e5cc03c8baf17e",
+      "files": 8967,
+      "bytes": 263613572
+    },
+    {
+      "repository": "arkpedia-data",
+      "revision": "6e83ce3bf037d59a58619c3dfaf6922db3eac464",
+      "files": 8985,
+      "bytes": 267076564
+    },
+    {
+      "repository": "arkpedia-data",
+      "revision": "71cd26c17a44fa678e6235338dd3d035d19250eb",
+      "files": 8967,
+      "bytes": 263613521
+    },
+    {
+      "repository": "arkpedia-data",
+      "revision": "71f864f3a55c7e3a2d79d338f48b5046e9ce6543",
+      "files": 8967,
+      "bytes": 263613547
+    },
+    {
+      "repository": "arkpedia-data",
+      "revision": "73ae5924d4c93a35e9e18584b46ae19232b7da33",
+      "files": 8967,
+      "bytes": 263613547
+    },
+    {
+      "repository": "arkpedia-data",
+      "revision": "7a21deb5d7bf706ebb7c7a02c36f50bf228a163e",
+      "files": 8967,
+      "bytes": 263613521
+    },
+    {
+      "repository": "arkpedia-data",
+      "revision": "82066ef4534e86236a403cb1e11472a6f90ba66e",
+      "files": 8985,
+      "bytes": 267228374
+    },
+    {
+      "repository": "arkpedia-data",
+      "revision": "83e1020e5c46c4ab24ce8339d6bce39dc2500e91",
+      "files": 8983,
+      "bytes": 265017460
+    },
+    {
+      "repository": "arkpedia-data",
+      "revision": "87ff52dc143f21bfaa4de52930a17c32dcaf242f",
+      "files": 8987,
+      "bytes": 267269153
+    },
+    {
+      "repository": "arkpedia-data",
+      "revision": "8c13ee7f92eedf0021fcce93e8838177f51cc99a",
+      "files": 8967,
+      "bytes": 263519578
+    },
+    {
+      "repository": "arkpedia-data",
+      "revision": "8e0ed81b4e4b3c9b305f97206f441a2dc77233b6",
+      "files": 8967,
+      "bytes": 263615149
+    },
+    {
+      "repository": "arkpedia-data",
+      "revision": "94634fa753530f9485b4f8e24e1dc355e14f0377",
+      "files": 8987,
+      "bytes": 267269904
+    },
+    {
+      "repository": "arkpedia-data",
+      "revision": "a536ec18509f68a2b766e5c2d1d8fab7a58c5a9f",
+      "files": 8967,
+      "bytes": 263613521
+    },
+    {
+      "repository": "arkpedia-data",
+      "revision": "a97b22c4268d184bb37f78afe92dd3dad042747b",
+      "files": 8967,
+      "bytes": 263539184
+    },
+    {
+      "repository": "arkpedia-data",
+      "revision": "af12d9c79999a1ed81922715ac7720951038656a",
+      "files": 8965,
+      "bytes": 262279593
+    },
+    {
+      "repository": "arkpedia-data",
+      "revision": "b03f6c7ec88aa44bb1a7913a68af5bbbe7c43974",
+      "files": 8967,
+      "bytes": 263519729
+    },
+    {
+      "repository": "arkpedia-data",
+      "revision": "b1844206bc32788a0eb283572c9f5b608d70729c",
+      "files": 8967,
+      "bytes": 263613547
+    },
+    {
+      "repository": "arkpedia-data",
+      "revision": "b3500954f87ad1b2f32affdb6a55750363800d64",
+      "files": 8967,
+      "bytes": 263613547
+    },
+    {
+      "repository": "arkpedia-data",
+      "revision": "b6ddc46e9ba00142fafaa4499040521c24bb2e66",
+      "files": 8970,
+      "bytes": 264035142
+    },
+    {
+      "repository": "arkpedia-data",
+      "revision": "b97b8a73b87d00353e2f837c5f7eb3038baeaa6d",
+      "files": 8983,
+      "bytes": 266686672
+    },
+    {
+      "repository": "arkpedia-data",
+      "revision": "c34e566c4f66ddaa369b10cfe73efff2e335eeab",
+      "files": 8967,
+      "bytes": 263613521
+    },
+    {
+      "repository": "arkpedia-data",
+      "revision": "c88712485dcd371c7c44d0f61e656c5e608daf79",
+      "files": 8965,
+      "bytes": 262430413
+    },
+    {
+      "repository": "arkpedia-data",
+      "revision": "cb6f51983a970c21e04d83634316ae26528e5e90",
+      "files": 8967,
+      "bytes": 263613547
+    },
+    {
+      "repository": "arkpedia-data",
+      "revision": "cda350755986e89fba9085e13f230fb12ae9ce89",
+      "files": 8983,
+      "bytes": 265017358
+    },
+    {
+      "repository": "arkpedia-data",
+      "revision": "d157a9ff67b77c083f5cd8dd340774f7ffae61ca",
+      "files": 8967,
+      "bytes": 263613521
+    },
+    {
+      "repository": "arkpedia-data",
+      "revision": "d2025961783296d4a5c5244556c502d7b8ea3e14",
+      "files": 8967,
+      "bytes": 263613547
+    },
+    {
+      "repository": "arkpedia-data",
+      "revision": "d2743781f0fe5e19938ac5e2d50261a4b94aebe6",
+      "files": 8983,
+      "bytes": 266469924
+    },
+    {
+      "repository": "arkpedia-data",
+      "revision": "d8a4498cfe62a74224cd9996dfb05618b57f23a4",
+      "files": 8967,
+      "bytes": 263539488
+    },
+    {
+      "repository": "arkpedia-data",
+      "revision": "db80d979299cd29b8f842780c2e7adb26bc71a92",
+      "files": 8965,
+      "bytes": 262428925
+    },
+    {
+      "repository": "arkpedia-data",
+      "revision": "e07bb647015cffd919e766143cfcd2a5a2d60549",
+      "files": 8970,
+      "bytes": 264035142
+    },
+    {
+      "repository": "arkpedia-data",
+      "revision": "e0f9e1fe6ee75b38651852775727fd5d37412d8a",
+      "files": 8967,
+      "bytes": 263613572
+    },
+    {
+      "repository": "arkpedia-data",
+      "revision": "e1d267c61a8ab49a97026fb74a0c15c465fedb85",
+      "files": 8967,
+      "bytes": 263521569
+    },
+    {
+      "repository": "arkpedia-data",
+      "revision": "e4737f990b7ee46daf02e14d5c6ea7dc11e7cf3d",
+      "files": 8967,
+      "bytes": 263613547
+    },
+    {
+      "repository": "arkpedia-data",
+      "revision": "eaf9de3697aa0dab0c3a41f79e5d71ad448ab8fd",
+      "files": 8967,
+      "bytes": 263539488
+    },
+    {
+      "repository": "arkpedia-data",
+      "revision": "f8fb9b0f9b773dee7e35150cb00a630a6ab70bcf",
+      "files": 8967,
+      "bytes": 263615149
+    },
+    {
+      "repository": "arkpedia-data",
+      "revision": "fa8ae3c58dddf43d2abe14b48d2235cc6e5c14d7",
+      "files": 8967,
+      "bytes": 263613572
+    },
+    {
+      "repository": "arkpedia-image-assets",
+      "revision": "2270ff0849a16a7fd4ed4e89f18172f12bb19c06",
+      "files": 16161,
+      "bytes": 438994051
+    },
+    {
+      "repository": "arkpedia-image-assets",
+      "revision": "2c85d9daf4e28010149870707f837ba5e03827a1",
+      "files": 16162,
+      "bytes": 439035374
+    },
+    {
+      "repository": "arkpedia-image-assets",
+      "revision": "32fa0e5f26dc0409cc085851dbe7a6d4b4839791",
+      "files": 15985,
+      "bytes": 434832742
+    },
+    {
+      "repository": "arkpedia-image-assets",
+      "revision": "4aae1c5d28fe7d9c171bbdc80840bc31614d22c3",
+      "files": 15937,
+      "bytes": 433318375
+    },
+    {
+      "repository": "arkpedia-image-assets",
+      "revision": "4dba4282c56c6cb538cc6b5c458a0f461b8546b5",
+      "files": 16096,
+      "bytes": 437368352
+    },
+    {
+      "repository": "arkpedia-image-assets",
+      "revision": "6c280c33ca24acdd863a7e1926232043fbd41222",
+      "files": 15992,
+      "bytes": 435260918
+    },
+    {
+      "repository": "arkpedia-image-assets",
+      "revision": "6fe84212de764751b6da642990083ef22ce5e176",
+      "files": 15993,
+      "bytes": 435295774
+    },
+    {
+      "repository": "arkpedia-image-assets",
+      "revision": "75bca3430542ff200f79b60621999a6c18c16b1d",
+      "files": 15984,
+      "bytes": 434805571
+    },
+    {
+      "repository": "arkpedia-image-assets",
+      "revision": "8388a11a06076a42f3e73feb439a37465e328fa4",
+      "files": 16097,
+      "bytes": 436594503
+    },
+    {
+      "repository": "arkpedia-image-assets",
+      "revision": "8ea06c3f625770d80549a80ea5d3900d1a1d2020",
+      "files": 14986,
+      "bytes": 416349521
+    },
+    {
+      "repository": "arkpedia-image-assets",
+      "revision": "beedc688ce026d1741cf2d2a432f4fe9441c8179",
+      "files": 16097,
+      "bytes": 438573047
+    },
+    {
+      "repository": "arkpedia-image-assets",
+      "revision": "d9ef287134cbc502c07e29192cf2f08957efe8f7",
+      "files": 16166,
+      "bytes": 439273081
+    },
+    {
+      "repository": "arkpedia-image-assets",
+      "revision": "e62bfc987ae01a6361c0c2036657eb2caea3c608",
+      "files": 16093,
+      "bytes": 435573042
+    },
+    {
+      "repository": "arkpedia-image-assets",
+      "revision": "fb8ce98b867c148d4ffe6c301c9b03ba45e79d7b",
+      "files": 16095,
+      "bytes": 437319077
+    },
+    {
+      "repository": "arkpedia-l2d-assets",
+      "revision": "2f84e3329fcec0019543724a75d9a33b4c44299b",
+      "files": 6008,
+      "bytes": 839459111
+    },
+    {
+      "repository": "arkpedia-l2d-assets",
+      "revision": "7721354d79f1821a7b17546e91dc9a505a2dcda0",
+      "files": 12648,
+      "bytes": 1783461295
+    },
+    {
+      "repository": "arkpedia-l2d-assets",
+      "revision": "807d2e1e58c9f75c757340b7de2f136ce6d3d03f",
+      "files": 12235,
+      "bytes": 1713339996
+    },
+    {
+      "repository": "arkpedia-l2d-assets",
+      "revision": "8c12ccd9ae38c13626a66d090587fba965a6dd32",
+      "files": 12823,
+      "bytes": 1821248063
+    },
+    {
+      "repository": "arkpedia-sd-assets",
+      "revision": "456cb5aaa3888d8af92966a5b955657ee0d065a7",
+      "files": 8968,
+      "bytes": 1837192788
+    },
+    {
+      "repository": "arkpedia-sd-assets",
+      "revision": "6f3cfd431aeb1475e7654cb9c019e176b238c01a",
+      "files": 10133,
+      "bytes": 1905476214
+    },
+    {
+      "repository": "arkpedia-sd-assets",
+      "revision": "d105e64639e4e8a28880a476c365fa43b67abeaa",
+      "files": 10232,
+      "bytes": 1943866693
+    },
+    {
+      "repository": "arkpedia-skin-assets",
+      "revision": "3faf6068797b3f51511350986db30da9cab31e7d",
+      "files": 10910,
+      "bytes": 4547115967
+    },
+    {
+      "repository": "arkpedia-skin-assets",
+      "revision": "792389c3bb4284ec821f0bef372c156c058335c7",
+      "files": 11070,
+      "bytes": 4659908717
+    },
+    {
+      "repository": "arkpedia-skin-assets",
+      "revision": "a3be6fb9c2c1254eae9f1952ff606fa9bcb24584",
+      "files": 10934,
+      "bytes": 4569567166
+    },
+    {
+      "repository": "arkpedia-voice-english",
+      "revision": "257a57c09aa0d2ba0644eac60c3b97f6b7443228",
+      "files": 15985,
+      "bytes": 1173321195
+    },
+    {
+      "repository": "arkpedia-voice-english",
+      "revision": "2def2b90b306f554890d2d34ddd0aafe240f2f68",
+      "files": 15985,
+      "bytes": 1155855375
+    },
+    {
+      "repository": "arkpedia-voice-english",
+      "revision": "72ea44d190920189e3e20f4a821a2ac4d02627e0",
+      "files": 15985,
+      "bytes": 1173321195
+    },
+    {
+      "repository": "arkpedia-voice-japanese",
+      "revision": "04de2676a71aa0e0f25a0c81cc1150ebc5ed908a",
+      "files": 17593,
+      "bytes": 1530861967
+    },
+    {
+      "repository": "arkpedia-voice-japanese",
+      "revision": "3139fa9cbce07a55ce3f2e3dba90aa8839982f78",
+      "files": 17327,
+      "bytes": 1481956087
+    },
+    {
+      "repository": "arkpedia-voice-japanese",
+      "revision": "ead2680d907b55749022ab055c31d8cc5d5b2c87",
+      "files": 17327,
+      "bytes": 1481956087
+    },
+    {
+      "repository": "arkpedia-voice-korean",
+      "revision": "121ed0d59e19e0cbaa6914bf6bddec767eb16b9b",
+      "files": 15731,
+      "bytes": 1322905007
+    },
+    {
+      "repository": "arkpedia-voice-korean",
+      "revision": "313ac10c442469596ec0d4326ac8b12027ad80e9",
+      "files": 15731,
+      "bytes": 1342495311
+    },
+    {
+      "repository": "arkpedia-voice-korean",
+      "revision": "90d4a3c83d19a2970f24b98a51534d71a036a932",
+      "files": 15731,
+      "bytes": 1342495311
+    },
+    {
+      "repository": "arkpedia-voice-mandarin",
+      "revision": "b2008cefea1c220659c75a68342bcfde766d5dfb",
+      "files": 16523,
+      "bytes": 1099194457
+    },
+    {
+      "repository": "arkpedia-voice-mandarin",
+      "revision": "b3d17a9991d9ea5ba73219d0ac3ef36c8b7931ca",
+      "files": 16789,
+      "bytes": 1135782549
+    },
+    {
+      "repository": "arkpedia-voice-mandarin",
+      "revision": "b8edd168adafff1940fbeed2b955271ed205e92f",
+      "files": 16523,
+      "bytes": 1099194457
+    },
+    {
+      "repository": "arkpedia-voice-regional",
+      "revision": "4a7d867ea7a9388b44f8364593707b30b3991684",
+      "files": 2280,
+      "bytes": 167881877
+    },
+    {
+      "repository": "arkpedia-voice-regional",
+      "revision": "66e3d039e0044b91f8ec81b240be8cf359926f3f",
+      "files": 2280,
+      "bytes": 167881877
+    },
+    {
+      "repository": "arkpedia-voice-regional",
+      "revision": "ec13821f50e9b692a71adbb1c96519f1caa47bf9",
+      "files": 2508,
+      "bytes": 200617408
+    }
+  ]
+}

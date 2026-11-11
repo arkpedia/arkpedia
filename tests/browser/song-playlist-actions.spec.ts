@@ -3,13 +3,12 @@ import { expect, test, type Page, type Locator } from '@playwright/test';
 import { playAllSongs, stubYouTube, youtube } from './youtube-stub';
 
 const KEY = 'arkpedia.music-playlists.v1';
-const mobile = (page: Page) => page.viewportSize()!.width <= 720;
-function playlistTrigger(page: Page, row: Locator) {
-  return mobile(page) ? row.getByRole('button', { name: /^More actions for / }) : row.getByRole('button', { name: /^Add to playlist: / });
+function playlistTrigger(_page: Page, row: Locator) {
+  return row.getByRole('button', { name: /^More actions for / });
 }
 async function openPicker(page: Page, row: Locator) {
   await playlistTrigger(page, row).click();
-  if (mobile(page)) await page.getByRole('dialog', { name: 'Song actions', exact: true }).getByRole('button', { name: 'Add to playlist', exact: true }).click();
+  await page.getByRole('dialog', { name: 'Song actions', exact: true }).getByRole('button', { name: 'Add to playlist', exact: true }).click();
 }
 /** A row's heart: one press at every width (a phone shows it beside the row's More). */
 const heart = (row: Locator) => row.getByRole('button', { name: /^Favourite: / });
@@ -92,6 +91,7 @@ for (const theme of ['dark', 'light']) {
     await expect(page.getByRole('option', { name: 'Night music', exact: true })).toBeVisible();
     await page.getByRole('option', { name: 'Night music', exact: true }).click();
     await page.keyboard.press('Escape');
+    if (!await page.getByRole('dialog', { name: 'Playback queue' }).isVisible()) await page.locator('#music-transport-queue').click();
     await page.reload();
     await expect(favorite).toHaveAttribute('aria-pressed', 'true');
     await openPicker(page, rows.nth(1));
@@ -128,6 +128,8 @@ test('the picker keeps a second tab’s playlist edits and does not duplicate ex
   const other = await context.newPage();
   await stubYouTube(other);
   await other.goto('/music?view=queue');
+  await expect(other).toHaveURL(/view=player&panel=queue/);
+  await expect(other.getByRole('dialog', { name: 'Playback queue' })).toBeVisible();
   await other.evaluate(key => localStorage.setItem(key, JSON.stringify([{ id: 'a', name: 'Shared', tracks: ['abcdefghijk'] }, { id: 'b', name: 'New in other tab', tracks: [] }])), KEY);
   await expect(dialog.getByRole('checkbox', { name: 'New in other tab', exact: true })).toBeVisible();
   await dialog.getByRole('button', { name: 'Add to playlists', exact: true }).click();
@@ -149,7 +151,7 @@ test('playlist picker flips above a low button and stays within the viewport as 
   await stubYouTube(page);
   await page.goto('/music?view=queue');
   await playAllSongs(page);
-  const buttons = page.locator(`.music-queue-list ${mobile(page) ? '.music-song-mobile-actions' : '.music-song-desktop-actions'} button[aria-haspopup="dialog"]`);
+  const buttons = page.locator('.music-queue-list .music-song-mobile-actions button[aria-haspopup="dialog"]');
   await expect(buttons.first()).toBeVisible();
   // Pick a visible row near the queue's bottom without scrolling it into a new position.
   const positions = await buttons.evaluateAll(elements => elements.map(el => {
@@ -161,7 +163,7 @@ test('playlist picker flips above a low button and stays within the viewport as 
   expect(index).toBeGreaterThanOrEqual(0);
   const plus = buttons.nth(index);
   await plus.click();
-  if (mobile(page)) await page.getByRole('dialog', { name: 'Song actions', exact: true }).getByRole('button', { name: 'Add to playlist', exact: true }).click();
+  await page.getByRole('dialog', { name: 'Song actions', exact: true }).getByRole('button', { name: 'Add to playlist', exact: true }).click();
   const picker = page.getByRole('dialog', { name: 'Add to playlists', exact: true });
   await expect(picker).toBeVisible();
   await picker.getByRole('textbox', { name: 'New playlist name' }).fill('A playlist with a long title that wraps onto more than one line');
@@ -219,7 +221,7 @@ test('Favourites exists by default and stays in sync with hearts and playlist im
   await dialog.locator('input[type=file]').setInputFiles({ name: 'favourites.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(data)) });
   await expect(dialog.getByRole('status')).toContainText('Imported 1 playlist');
   await expect(dialog.locator('li')).toHaveCount(1);
-  await expect(favorite).toHaveAttribute('aria-pressed', 'true');
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('musicFavorites')!))).toContain(favoriteId);
   await dialog.locator('input[type=file]').setInputFiles({ name: 'favourites.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(data)) });
   await expect(dialog.getByRole('status')).toContainText('already saved');
   expect(await page.evaluate(key => JSON.parse(localStorage.getItem(key)!).filter((p: { id: string }) => p.id === 'arkpedia-favourites').length, KEY)).toBe(1);

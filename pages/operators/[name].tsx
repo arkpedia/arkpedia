@@ -19,6 +19,7 @@ import { operatorPageNames } from '@/lib/operators/operatorPagePaths';
 import { getOperatorIconPath } from '@/lib/operators/operatorIcon';
 import { portraitStatus } from '@/lib/operators/operatorPortrait';
 import OperatorSearch from '@/components/operators/OperatorSearch';
+import CommunityStats from '@/components/community/CommunityStats';
 import { operatorHref, isOperatorSection, OperatorSection } from '@/lib/operators/operatorHref';
 import PageHeader from '@/components/ui/PageHeader';
 import SegmentedControl from '@/components/ui/SegmentedControl';
@@ -667,6 +668,7 @@ export default function OperatorDetailPage({ chibis = {}, summons = [], epTrack,
   if (operator.stats?.phases.length) availableSections.push({ key: 'stats', label: 'Stats' });
   if (skillList.length > 0) availableSections.push({ key: 'skills', label: 'Skills' });
   if (operator.talents && operator.talents.length > 0) availableSections.push({ key: 'talents', label: 'Talents' });
+  availableSections.push({ key: 'community', label: 'Community stats' });
   if (operator.modules?.some(module => module.type !== 'Original')) availableSections.push({ key: 'modules', label: 'Modules' });
   if (operator.synergies && operator.synergies.length > 0) availableSections.push({ key: 'synergy', label: 'Synergy' });
   else if (autoSynergyGroups && autoSynergyGroups.length > 0) availableSections.push({ key: 'synergy', label: 'Synergy' });
@@ -680,7 +682,7 @@ export default function OperatorDetailPage({ chibis = {}, summons = [], epTrack,
   if (operator.guides?.length) availableSections.push({ key: 'guides', label: 'Guides' });
   if (priorityGuideGroups.length) availableSections.push({ key: 'mastery', label: 'Mastery' });
   if (operator.promotion?.length) availableSections.push({ key: 'promotion', label: 'Promotion' });
-  const sectionOrder: SectionKey[] = ['skills', 'stats', 'talents', 'mastery', 'modules', 'promotion', 'potential', 'baseSkills', 'synergy', 'characterInfo', 'files', 'voiceLines', 'guides'];
+  const sectionOrder: SectionKey[] = ['skills', 'stats', 'talents', 'community', 'mastery', 'modules', 'promotion', 'potential', 'baseSkills', 'synergy', 'characterInfo', 'files', 'voiceLines', 'guides'];
   availableSections.sort((a, b) => sectionOrder.indexOf(a.key) - sectionOrder.indexOf(b.key));
   const [activeSection, setActiveSection] = useState<OperatorSection>('overview');
   const hasSection = (key: OperatorSection) => availableSections.some(section => section.key === key);
@@ -726,7 +728,7 @@ export default function OperatorDetailPage({ chibis = {}, summons = [], epTrack,
   }
 
   const sectionGroups = [
-    { label: 'Overview and abilities', keys: ['overview', 'skills', 'stats', 'talents'] },
+    { label: 'Overview and abilities', keys: ['overview', 'skills', 'stats', 'talents', 'community'] },
     { label: 'Upgrades', keys: ['mastery', 'modules', 'promotion', 'potential'] },
     { label: 'More operator information', keys: ['baseSkills', 'synergy', 'characterInfo', 'files', 'voiceLines', 'guides'] },
   ] as const;
@@ -1275,6 +1277,10 @@ export default function OperatorDetailPage({ chibis = {}, summons = [], epTrack,
                   }} />
               </section>
             )}
+
+            <section id="operator-community" data-operator-section="community" tabIndex={-1} className={`op-section ${pageStyles.section}`}>
+              <CommunityStats maxElite={operator.stats?.phases.length?Math.max(...operator.stats.phases.map(phase=>phase.elite)):(operator.rarity??0)<=2?0:operator.rarity===3?1:2} operator={operator.name} rarity={operator.rarity??0} skills={skillList.length} skillNames={skillList.map(skill=>skill.name)} modules={modules.map((m,index)=>({index,label:m.badgeText||m.name?.split(':')[0]||`Module ${index+1}`}))} />
+            </section>
 
             {priorityGuideGroups.length > 0 && (
               <section id="operator-mastery" data-operator-section="mastery" tabIndex={-1} className={`op-section ${pageStyles.section}`}>

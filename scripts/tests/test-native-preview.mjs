@@ -1,10 +1,37 @@
 import test from 'node:test';
 import { verifyPreviewRecovery } from '../deploy/preview-account-recovery.mjs';
 import { protectPreviewRequest } from '../deploy/preview-security.mjs';
+import { requestPreview } from '../deploy/request-preview.mjs';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
 const config = JSON.parse(readFileSync('wrangler.preview.jsonc', 'utf8').replace(/^\/\/.*$/gm, ''));
+
+test('Preview requests resolve a short ref and dispatch only an existing full source SHA', () => {
+  const source = 'a'.repeat(40), calls = [];
+  const options = {
+    changes: () => [],
+    git: args => args[0] === 'remote' ? 'git@github.com:arkpedia/arkpedia.git' : source,
+    gh: args => { calls.push(args); return args[0] === 'api' ? JSON.stringify({ sha: source }) : ''; },
+  };
+  assert.deepEqual(requestPreview('aaaaaaa', options), { source, url: 'https://preview.arkpedia.net', workflow: 'cloudflare-preview.yml' });
+  assert.equal(calls[1].at(-1), `source=${source}`);
+  assert.throws(() => requestPreview('HEAD', { ...options, changes: () => ['lib/edited.ts'] }), /Commit/);
+  assert.throws(() => requestPreview('HEAD', { ...options, gh: () => JSON.stringify({ sha: 'b'.repeat(40) }) }), /Push/);
+  assert.throws(() => requestPreview('HEAD', { ...options, gh: () => { throw new Error('HTTP 404'); } }), /push it and check GitHub access/);
+  assert.throws(() => requestPreview('HEAD', { ...options, git: () => 'https://github.com/other/repo' }), /canonical/);
+  assert.throws(() => requestPreview('--help', options), /source commit/);
+  assert.equal(calls.length, 2, 'invalid requests never reach dispatch');
+});
+
+test('Preview publication verifies the served source through the public domain before success', () => {
+  const workflow = readFileSync('.github/workflows/cloudflare-preview.yml', 'utf8');
+  const publish = workflow.indexOf('- name: Publish the native Preview only');
+  const verify = workflow.indexOf('- name: Verify the served Preview source');
+  assert.ok(publish >= 0 && verify > publish);
+  assert.match(workflow.slice(verify), /node scripts\/deploy\/check-build-identity\.mjs preview/);
+  assert.doesNotMatch(workflow.slice(verify), /continue-on-error|CLOUDFLARE_API_TOKEN/);
+});
 test('native Preview binds its own account database, cache and queue without production services', () => {
   assert.equal(config.name, 'arkpedia');
   assert.equal(config.previews.vars.ARKPEDIA_DEPLOYMENT_ROLE, 'staging');
@@ -70,6 +97,11 @@ test('Preview limits account ingress before application work and fails closed wi
   assert.equal(denied.status,429); assert.equal(denied.headers.get('retry-after'),'60'); assert.equal(applicationCalls,0);
   assert.equal((await protectPreviewRequest(request,{},run)).status,503);
   assert.equal((await protectPreviewRequest(new Request('https://preview.arkpedia.net/api/account-import/replay-permit'),{},run)).status,503);
+  for (const path of ['stats', 'supports', 'sharing', 'availability']) {
+    const community = new Request(`https://preview.arkpedia.net/api/community/${path}`);
+    assert.equal((await protectPreviewRequest(community, {}, run)).status, 503);
+    assert.equal(applicationCalls, 0, 'community traffic is bounded before application work');
+  }
   const publicPage = await protectPreviewRequest(new Request('https://preview.arkpedia.net/music'),{},run);
   assert.equal(publicPage.status,200); assert.equal(applicationCalls,1);
   assert.match(publicPage.headers.get('content-security-policy'),/object-src 'none'/);
@@ -113,5 +145,15 @@ test('Preview recovery authorization errors are actionable without leaking provi
       if (status !== 500) assert.match(error.message, /ARKPEDIA_PREVIEW_D1_API_TOKEN.*D1 permissions/);
       return true;
     });
+  }
+});
+
+test('packaged account routes stay private even when the auth library replaces cache headers', async () => {
+  const env = { ACCOUNT_TRAFFIC_LIMIT: { limit: async () => ({success:true}) }, ACCOUNT_IP_LIMIT: { limit: async () => ({success:true}) } };
+  for (const host of ['preview.arkpedia.net', 'www.arkpedia.net', 'arkpedia.cloudflare-1ff.workers.dev']) {
+    const response = await protectPreviewRequest(new Request(`https://${host}/api/auth/get-session`), env,
+      () => Response.json(null, { headers: { 'cache-control': 'no-store', vary: 'Accept-Encoding' } }));
+    assert.equal(response.headers.get('cache-control'), 'private, no-store');
+    assert.equal(response.headers.get('vary'), 'Accept-Encoding, Cookie');
   }
 });

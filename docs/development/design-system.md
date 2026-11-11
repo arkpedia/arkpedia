@@ -44,6 +44,24 @@ unconfirmed streams after errors or inactivity. Only live entries in the Arknigh
 category qualify. The live endpoint shares results for 15 seconds within a server
 instance and disables browser/CDN caching, including stale-while-revalidate.
 
+The homepage has one YouTube slide alongside its stream and event slides. Each carousel
+round selects a different creator's video in that slot; hover/focus pauses rotation.
+Stack the alternatives inside the slot to reserve the tallest caption without extra dots.
+The candidate pool prefers active Global event guides, currently obtainable
+operator showcases and currently available outfits, including older uploads. Remaining
+choices use the newest upload per channel within 48 hours; when nothing qualifies, fall
+back to the three newest available channels. Keep one video per creator in the rotation.
+Keep the last successful public feeds through temporary upstream failures, independently
+of that editorial window. World’s YouTube tab groups uploads by conservative title rules,
+with ambiguous titles in Other. Relevant current content precedes newer unrelated videos;
+the matching Global window’s exclusive close removes its priority. CN and future-content
+uploads remain included. Both views retain search/category choices in the URL.
+Show publication dates when known and Archive otherwise; never invent dates for older
+indexed guides. The daily content preparation refreshes a bounded, cached metadata archive
+from trusted creators and publishes it with World, so reruns can revive older guides.
+Video metadata is the `data/youtube-discovery.json` content record, so archive-only
+changes produce a new release input. Query dates stay in the job cache.
+
 - Browser Back/Forward and a page's Back link return readers to their previous scroll
   position, including content revealed by progressive lists. Ordinary links open the
   destination normally. Do not reset a returning reader to the top of a catalogue.
@@ -58,6 +76,25 @@ instance and disables browser/CDN caching, including stale-while-revalidate.
   or closed event belongs in its label and countdown, not an unselected navigation dot.
 
 ### Persistent browsing controls
+
+Music uses the same full transport in Library, Favourites, playlists, Now playing and
+on other pages. Outside Music it starts hidden behind the music button; playback
+opens it automatically. Once open it stays visible through navigation and pauses.
+Music pages always keep it open. On other pages, manual minimizing keeps it hidden
+across navigation and track changes until reopened, without pausing audio. The expand
+and minimize tiles share one bottom-right position and square shape on every device.
+On phones the bottom row is Favourite, Block, volume and Stream-safe; secondary action icons change color only on hover and when active, with no frames or background fills; keyboard focus stays visible. The speaker toggles mute and restores the last audible volume. Volume has a speaker icon, with
+a brief, translucent percentage and speaker in the screen center, clear of playback controls and the touch point.
+More contains Add to playlist, Open on YouTube and the Data saver/Endfield settings; it omits controls already in the transport. Setting help floats without changing menu layout.
+Now Playing keeps artwork and track details in one stable column and reserves the lyrics area even for instrumental tracks, anchoring the visualizer at the same position.
+On phones the lyrics icon toggles a taller lyrics view between the site header and
+the transport, keeping the visualizer at the bottom. Its active color marks expansion;
+collapsing restores the track details and previous page scroll position.
+Queue always opens the shared popup above the transport, preserving the current page,
+filters and playback. Legacy `view=queue` links open that popup over a normal Music view.
+Queue rises and fades into place; the player and its minimize icon glide in from
+the right when opened outside Music. Entrances use the shared motion timings and
+are instant with reduced motion. Already visible controls stay steady during navigation.
 
 Use `StickyControls` for compact search/filter bars and local view choices on long lists.
 For catalogue controls in `PageHeader`, opt into `stickyActions`; it keeps the controls
@@ -301,17 +338,19 @@ verification limits. Update these references when a new pattern is accepted.
 ## Navigation and account surfaces
 
 The desktop header and mobile drawer use `lib/nav/navLinks.ts`. Keep Database,
-Guides, Planner, Community and About in the same order on both. Schedule is a direct
-link. Database dividers separate operators/reference, world/story, and creators.
-My account and Friends belong to the profile dropdown. Community projects belongs to Community. About owns site
+Guides, Planner, Community, Extras, Schedule and About in the same order on both.
+Community groups Polls, Community Stats and Find support units before a divider, then
+Community projects and World. Extras holds Music and Games. Schedule holds Events and Calendar. Database dividers separate operators/reference, world/story, and creators.
+My account and Friends shortcuts belong to the profile dropdown; Friends opens the account’s Friends tab. Community projects belongs to Community. About owns site
 news, credits and support. Use current canonical routes; do not copy dev-only URL
 renames without their routing migration.
 
 Header utilities run Search → Settings → server clock → profile. Phones keep 44px
-utility targets; the narrow bar hides its clock and wordmark, with the full clock
+utility targets; desktop navigation hides its clock below 1100px and its wordmark
+below 960px to keep every menu readable. The mobile bar hides its clock and wordmark, with the full clock
 still available in the navigation drawer. Settings owns Import / export and the
 Suzuran appearance toggle. The profile disclosure owns Profile, Pull history,
-Operators, Skins and Friends. Profile opens `/account`. Login appears only when this deployment supports providers.
+Operators, Skins and Friends. Profile opens `/account`; Friends opens `/account?panel=friends` and currently supports manual exported-file imports only. Login appears only when this deployment supports providers.
 
 `ActionPopover` is a non-modal disclosure of native links/buttons, with Tab,
 Escape, outside dismissal and route-change dismissal. It mounts inside a containing
@@ -329,10 +368,11 @@ the large Sync now action; optional checking lives under Cloud saving details.
 Profile icons come from the catalogue arkpedia-data's import builds nightly
 (`public/profile-avatars.json`, fetched from the live release). It contains published
 icon paths, loads only when needed and renders at most 60 initial choices. Every stored ID is checked against the exact catalogue before rendering.
-The picture preference is **browser-only**, separate from imported game identity,
-provider identity and username. It is deliberately outside backup/cloud replacement
-payloads until a versioned sync contract supports old clients safely. Do not add it
-to BACKUP_STORES/CLOUD_KEYS as an incidental UI change. No uploads or arbitrary URLs.
+Signed-in pictures save directly to the Arkpedia profile and follow that account
+across devices. Guest choices stay browser-only and are not automatically adopted
+by an account. Both are separate from imported game and provider identity. Keep
+pictures outside BACKUP_STORES/CLOUD_KEYS so older clients replacing cloud saves
+cannot erase them. No uploads or arbitrary URLs.
 
 Pull-history banner summaries and batches use bordered panels, with full rarity
 frames around portraits. Keep storage help inline beside its status label. Header

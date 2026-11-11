@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import { createRequire } from 'node:module';
 import path from 'node:path';
 import { test } from 'node:test';
+import { canonicalPublicHref } from '../../lib/nav/publicRoutes';
 import { LINKS, NAV_ORDER, isActiveLink } from '../../lib/nav/navLinks';
 
 /*
@@ -141,4 +142,11 @@ test('nothing bakes a deploy-time slug into the nav any more', () => {
   assert.ok(isActiveLink(enemies!, '/enemies'));
   assert.doesNotMatch(fs.readFileSync('next.config.js', 'utf8'), /NEXT_PUBLIC_ENEMY_HANDBOOK_ENTRY|firstEnemySlug/);
   assert.ok(!fs.existsSync(path.join('lib', 'enemies', 'handbookEntry.ts')));
+});
+
+
+test('legacy Friends links open the account tab even in an older search index',()=>{
+  assert.equal(canonicalPublicHref('/friends'),'/account?panel=friends');
+  assert.equal(canonicalPublicHref('/friends?panel=profile#collection'),'/account?panel=friends#collection');
+  assert.ok(isActiveLink(NAV_ORDER.find(link=>link.label==='Friends')!,'/account','/account?panel=friends'));
 });

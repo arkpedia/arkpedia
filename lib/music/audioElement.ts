@@ -13,20 +13,24 @@ import { musicAudioPreloader } from './audioPreload';
  * address needs no request first: msrAudioAddress).
  */
 
+export function createMusicAudioElement(role: 'active' | 'standby'): HTMLAudioElement {
+  const audio = document.createElement('audio');
+  audio.crossOrigin = 'anonymous';
+  audio.hidden = true;
+  audio.muted = role === 'standby';
+  audio.preload = role === 'standby' ? 'auto' : 'none';
+  audio.setAttribute(role === 'standby' ? 'data-music-standby' : 'data-music-audio', '');
+  document.body.appendChild(audio);
+  return audio;
+}
+
 /** The element, made (hidden, preload none, in <body>) the first time it is asked for. One per
  *  document: an element already there (a hot reload of the provider) is taken, not doubled. */
 let element: HTMLAudioElement | null = null;
 export function musicAudioElement(): HTMLAudioElement {
-  if (element && element.isConnected) return element;
+  if (element?.isConnected && element.hasAttribute('data-music-audio')) return element;
   element = document.querySelector<HTMLAudioElement>('audio[data-music-audio]');
-  if (!element) {
-    element = document.createElement('audio');
-    element.crossOrigin = 'anonymous';
-    element.preload = 'none';
-    element.hidden = true;
-    element.setAttribute('data-music-audio', '');
-    document.body.appendChild(element);
-  }
+  if (!element) element = createMusicAudioElement('active');
   watch(element);
   return element;
 }

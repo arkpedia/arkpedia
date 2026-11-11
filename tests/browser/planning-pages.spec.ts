@@ -536,21 +536,14 @@ test.describe("/gacha-simulator", () => {
     expect(details.wrong).toEqual([]);
   });
 
-  // A banner type with no tutorial of its own (trio, crossover) used to end its guide on
-  // a "coming soon" page. Placeholders stay hidden until they have content, so its guide
-  // is the Basics alone and ends on Done.
-  test('a banner without its own tutorial opens its guide on the Basics, with no placeholder', async ({ page }) => {
-    await page.goto("/gacha-simulator");
-    // "The Front That Was" banners are trio and the Crossover category is crossover
-    // (getMechanicType in lib/gacha/realGachaBanners.ts): neither type has pages of its
-    // own. Not a skip when one is missing -- a guard that can skip itself guards nothing.
-    const categories = page.getByRole('group', { name: 'Banner category' });
-    const trio = categories.getByRole('button', { name: 'The Front That Was', exact: true });
-    const category = await trio.count() ? trio : categories.getByRole('button', { name: 'Crossover', exact: true });
+  test('The Front That Was guide walks through Basics and then explains its banner', async ({ page }) => {
+    await page.goto('/gacha-simulator');
+    const category = page.getByRole('group', { name: 'Banner category' }).getByRole('button', { name: 'The Front That Was', exact: true });
     await category.click();
     await page.getByRole('region', { name: 'Banners' }).getByRole('button').first().click();
     await page.getByRole('button', { name: 'How does this work?' }).first().click();
     const guide = page.locator('.gacha-guide-modal');
+    await guide.getByRole('button', { name: 'No', exact: true }).click();
     await expect(guide.locator('.gacha-tutorial-progress')).toHaveText(/^Basics 1 \/ \d+$/);
     await expect(guide.getByText('Do you understand the basics', { exact: false })).toHaveCount(0);
     for (let i = 0; i < 20 && await guide.getByRole('button', { name: /^Next/ }).count(); i += 1) {
@@ -558,7 +551,12 @@ test.describe("/gacha-simulator", () => {
       await guide.getByRole('button', { name: /^Next/ }).click();
     }
     await expect(guide).not.toContainText(/coming soon/i);
-    await expect(guide.getByRole('button', { name: /^Continue/ }), 'nothing to continue into').toHaveCount(0);
+    await guide.getByRole('button', { name: /^Continue/ }).click();
+    await expect(guide.locator('.gacha-tutorial-progress')).toHaveText(/^Banner 1 \/ \d+$/);
+    await expect(guide.locator('.gacha-tutorial-text')).not.toBeEmpty();
+    while (await guide.getByRole('button', { name: /^Next/ }).count()) {
+      await guide.getByRole('button', { name: /^Next/ }).click();
+    }
     await guide.getByRole('button', { name: 'Done' }).click();
     await expect(guide).toHaveCount(0);
   });

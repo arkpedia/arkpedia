@@ -75,6 +75,22 @@ test('replay sessions strictly sequence requests and invalidate uncertain sessio
   const throttled=createReplaySession(async()=>({status:429,json:null,headers:[['Retry-After','600']]}),'https://game.invalid','1','s');
   await assert.rejects(throttled.readReplay(stage),e=>e instanceof ReplayRequestError&&e.retryAfter===600);
 });
+test('Annihilation and ordinary stages use the same replay endpoint in a mixed sync',async()=>{
+  const s=setup(),stages=['camp_01','main_00-01'];
+  s.options.markers=stages.map(stageId=>({...markers()[0],stageId}));
+  const requests:{stage:string;seq:string}[]=[];
+  s.options.session=createReplaySession(async(url,request)=>{
+    if(url!=='https://game.invalid/quest/getBattleReplay')return {status:404,json:{}};
+    const stageId=JSON.parse(request.body!).stageId;
+    requests.push({stage:stageId,seq:request.headers.seqnum});
+    return {status:200,json:{battleReplay:encoded(payload.replaceAll(stage,stageId))}};
+  },'https://game.invalid','1','private-secret');
+  const result=await syncReplays(s.options);
+  assert.equal(result.remaining,0);assert.equal(result.fetched,2);
+  assert.deepEqual(requests,[{stage:'camp_01',seq:'3'},{stage:'main_00-01',seq:'4'}]);
+  assert.deepEqual([...s.records.keys()],stages);
+  await syncReplays(s.options);assert.equal(requests.length,2,'completed checkpoints are not fetched again');
+});
 function setup(){
   const records=new Map<string,ReplayRecord>();let fetched=0;const waits:number[]=[];
   const options:QueueOptions={namespace:'en:1',markers:markers(),session:{uid:'1',readReplay:async()=>{fetched++;return encoded();}},store:{read:async()=>[...records.values()],save:async r=>{records.set(r.stageId,r);},remove:async(_ns,id)=>{records.delete(id);}},signal:new AbortController().signal,progress:()=>{},check:()=>{},wait:async ms=>{waits.push(ms);},random:()=>0};
@@ -123,6 +139,7 @@ test('cloud restoration avoids Yostar and unchanged replay contents upload only 
   const r:ReplayRecord={namespace:'en:1',stageId:stage,fingerprint:markers()[0].fingerprint,hash,payload:canonical,savedAt:1};
   s.options.cloud={manifest:async()=>[r],read:async()=>{reads++;return r;},save:async()=>{saves++;},mark:async()=>{marks++;},remove:async()=>{}};
   await syncReplays(s.options);assert.equal(reads,1);assert.equal(s.fetched(),0);
+  assert.deepEqual(s.waits,[],'cloud restoration must not wait for a game-download slot');
   s.options.markers=markers(2);await syncReplays(s.options);assert.equal(s.fetched(),1);assert.equal(saves,0);assert.equal(marks,1);
 });
 test('queue respects batch limits and identity changes before further network requests',async()=>{
@@ -146,7 +163,7 @@ test('equal stage markers with conflicting local/cloud contents are resolved fro
 
 test('replay failures distinguish HTTP, game result and missing payload without exposing response data',async()=>{
   for(const [response,expected] of [
-    [{status:404,json:{message:'private-secret'}},/HTTP 404/],
+    [{status:404,json:{message:'private-secret'}},/main_00-01.*HTTP 404/],
     [{status:200,json:{result:2,message:'private-secret'}},/result 2/],
     [{status:200,json:{result:'private-secret'}},/game refused/],
     [{status:200,json:{result:0,secret:'private-secret'}},/contained no auto-deploy/],

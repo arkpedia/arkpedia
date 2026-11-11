@@ -1,6 +1,6 @@
 import NextImage, { type ImageProps } from 'next/image';
-import { forwardRef, useRef, version as reactVersion, type HTMLAttributes, type ImgHTMLAttributes } from 'react';
-import { useContentUrl } from '@/lib/content/context';
+import { forwardRef, useContext, useRef, version as reactVersion, type HTMLAttributes, type ImgHTMLAttributes } from 'react';
+import { ContentContext, useContentUrl } from '@/lib/content/context';
 import { cssUrl } from '@/lib/content/urls';
 import { useAssetUrl } from '@/lib/assets/assetRetry';
 import { assetUrl, encodeAssetPath } from '@/lib/assets/assetUrl';
@@ -35,15 +35,17 @@ export type ApplicationAsset = {
 
 /** Code-owned UI artwork, pinned independently of a page's content release. */
 export const ApplicationImage = forwardRef<HTMLImageElement, Omit<ImageProps, 'src' | 'loading'> & { asset: ApplicationAsset }>(function ApplicationImage({ asset, priority, ...props }, ref) {
+  const media = useContext(ContentContext)?.media;
   if (!/^[a-f0-9]{40}$/.test(asset.revision)) throw new Error('Application artwork requires an immutable commit');
   const eager = priority ? { preload: true, fetchPriority: 'high' as const } : {};
-  return <NextImage {...props} {...eager} src={assetUrl(asset.repository, asset.revision, encodeAssetPath(asset.path))} ref={ref} />;
+  return <NextImage {...props} {...eager} src={assetUrl(asset.repository, asset.revision, encodeAssetPath(asset.path), media)} ref={ref} />;
 });
 
 /** Code-owned monochrome UI art follows ink without adopting a page's content pin. */
 export function ApplicationArt({ asset, style, ...props }: HTMLAttributes<HTMLSpanElement> & { asset: ApplicationAsset }) {
+  const media = useContext(ContentContext)?.media;
   if (!/^[a-f0-9]{40}$/.test(asset.revision)) throw new Error('Application artwork requires an immutable commit');
-  const image = cssUrl(assetUrl(asset.repository, asset.revision, encodeAssetPath(asset.path)));
+  const image = cssUrl(assetUrl(asset.repository, asset.revision, encodeAssetPath(asset.path), media));
   return <span {...props} style={{ ...style, maskImage: image, WebkitMaskImage: image }} />;
 }
 

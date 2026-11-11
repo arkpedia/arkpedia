@@ -7,7 +7,7 @@ export interface FriendOperator {
   name: string; rarity: number; icon: string; className: string | null; skills: number;
   modules: { index: number; label: string; mark: string | null }[];
 }
-export interface FriendSkin { id: string; name: string; model: string | null; series: string; image: string | null }
+export interface FriendSkin { id: string; name: string; model: string | null; series: string; image: string | null; dynamic?: string | null; alternate?: string | null }
 
 /** Compact page data. The bundled id map also covers builds before this route is published. */
 export function friendOperators(map: GameAccountMap, records: readonly Operator[]): FriendOperator[] {

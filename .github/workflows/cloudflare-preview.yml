@@ -29,6 +29,8 @@ jobs:
         with:
           ref: ${{ inputs.source }}
           persist-credentials: false
+      - name: Use disk-backed temporary storage
+        run: echo "TMPDIR=$RUNNER_TEMP" >> "$GITHUB_ENV"
       - uses: actions/setup-node@v7
         with:
           node-version: '24'
@@ -107,3 +109,5 @@ jobs:
           WRANGLER_SEND_METRICS: 'false'
           OPEN_NEXT_DEPLOY: 'true'
         run: node node_modules/wrangler/bin/wrangler.js preview --config wrangler.preview.jsonc --worker-name arkpedia --name arkpedia --message "Redesign Preview ${{ inputs.source }}"
+      - name: Verify the served Preview source
+        run: node scripts/deploy/check-build-identity.mjs preview

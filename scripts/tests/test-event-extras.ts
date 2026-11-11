@@ -105,9 +105,12 @@ test("the furniture checklist names the store and price, else the block, by the 
 test('a pack window is dated on the Global server clock (UTC-7), day first, as the announcement dates it', () => {
   // "September 29, 2026, 23:59 (UTC-7)" is stored as the next day's 06:59 UTC: the post's day is the 29th.
   assert.match(packDay('2026-09-30T06:59:00.000Z'), /^29 Sept? 2026$/);
+  assert.match(packDay('2026-09-30T07:00:00.000Z', { exclusiveEnd: true }), /^29 Sept? 2026$/);
+  assert.match(packDay('2026-09-30T07:00:00.000Z'), /^30 Sept? 2026$/, 'ordinary publication/opening dates are not shifted');
   assert.match(packDay('2026-09-16T15:00:00.000Z'), /^16 Sept? 2026$/);
   assert.equal(packDay('soon'), 'soon', 'text that is not a date is shown as it is');
-  const html = render(createElement(EventPacks, { groups: eventExtras(groups, () => null).packs }));
+  const exclusive = eventExtras(groups, () => null).packs.map(group => ({ ...group, packs: group.packs.map(pack => ({ ...pack, end: '2026-09-30T07:00:00.000Z' })) }));
+  const html = render(createElement(EventPacks, { groups: exclusive }));
   assert.match(html, /event-pack-window">16 Sept? 2026 – 29 Sept? 2026</);
   assert.doesNotMatch(html, /Sep 30|30 Sept?/);
 });

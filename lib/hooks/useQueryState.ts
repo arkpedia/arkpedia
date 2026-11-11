@@ -10,7 +10,8 @@ export function pathOf(url: string): string {
  * Whether a navigation to `url` leaves the page at `currentPath`. A pending write belongs to
  * the page it was typed on: once the reader follows a link to another page, writing it would
  * send them back. A navigation within the page (another key's shallow write, a link to the same
- * page with another query) keeps it: dropping it would lose that key from the address.
+ * page with another query) has the same path. The hooks separately cancel a full
+ * navigation's old writes immediately, because its destination address wins.
  */
 export function leavesPage(currentPath: string, url: string): boolean {
   return pathOf(url) !== pathOf(currentPath);
@@ -72,7 +73,7 @@ export function applyPendingWrites(query: Query, pending: Map<string, string>): 
  * (2026-10-13). It is now dropped when a navigation away starts, and checked against the page
  * it was scheduled on when it fires.
  */
-export function useQueryState(key: string, defaultValue = ''): [string, (v: string) => void] {
+export function useQueryState(key: string, defaultValue = '', scopeOf = pathOf): [string, (v: string) => void] {
   const router = useRouter();
   const [value, setValue] = useState(defaultValue);
   const appliedRef = useRef(false);
@@ -93,19 +94,21 @@ export function useQueryState(key: string, defaultValue = ''): [string, (v: stri
     if (writeTimerRef.current) clearTimeout(writeTimerRef.current);
   }, []);
 
-  // A navigation to another page drops the write still waiting for its delay.
+  // Explicit full navigation wins immediately, including another view of this
+  // page. Waiting for completion lets an old debounce cancel a slow album open.
   useEffect(() => {
     const events = router.events;
     if (!events) return;
-    const onStart = (url: string) => {
-      if (writeTimerRef.current && leavesPage(routerRef.current.asPath, url)) {
-        clearTimeout(writeTimerRef.current);
+    const onStart = (url: string, options?: { shallow?: boolean }) => {
+      if (!options?.shallow || scopeOf(routerRef.current.asPath) !== scopeOf(url)) {
+        if (writeTimerRef.current) clearTimeout(writeTimerRef.current);
         writeTimerRef.current = null;
+        asked.get(pathOf(routerRef.current.asPath))?.delete(key);
       }
     };
     events.on('routeChangeStart', onStart);
     return () => events.off('routeChangeStart', onStart);
-  }, [router.events]);
+  }, [router.events, scopeOf, key]);
 
   // A link to this same page with another query (the site search's "Endfield music" row, opened
   // on Discover) lands on the page still mounted: the address is the reader's ask, so it wins,
@@ -130,11 +133,12 @@ export function useQueryState(key: string, defaultValue = ''): [string, (v: stri
     setValue(v);
     if (writeTimerRef.current) clearTimeout(writeTimerRef.current);
     const page = pathOf(routerRef.current.asPath);
+    const scope = scopeOf(routerRef.current.asPath);
     writeTimerRef.current = setTimeout(() => {
       writeTimerRef.current = null;
       const r = routerRef.current;
       // Written only on the page it was typed on.
-      if (pathOf(r.asPath) !== page) return;
+      if (scopeOf(r.asPath) !== scope) return;
       const pending = asked.get(page) ?? new Map<string, string>();
       asked.set(page, pending);
       pending.set(key, v === defaultValue ? '' : v);
@@ -147,7 +151,7 @@ export function useQueryState(key: string, defaultValue = ''): [string, (v: stri
       void Promise.resolve(r.replace({ pathname: r.pathname, query }, undefined, { shallow: true, scroll: false }))
         .then(() => { applyPendingWrites(routerRef.current.query, pending); }, () => {});
     }, 250);
-  }, [key, defaultValue]);
+  }, [key, defaultValue, scopeOf]);
 
   return [value, set];
 }
@@ -188,13 +192,14 @@ export function useQueryRecord<K extends string>(defaults: Readonly<Record<K, st
     if (writeTimerRef.current) clearTimeout(writeTimerRef.current);
   }, []);
 
-  // A navigation to another page drops the write still waiting for its delay.
+  // Explicit full navigation wins immediately, including another view of this
+  // page. Waiting for completion lets an old debounce cancel a slow album open.
   useEffect(() => {
     const events = router.events;
     if (!events) return;
-    const onStart = (url: string) => {
-      if (writeTimerRef.current && leavesPage(routerRef.current.asPath, url)) {
-        clearTimeout(writeTimerRef.current);
+    const onStart = (url: string, options?: { shallow?: boolean }) => {
+      if (!options?.shallow || leavesPage(routerRef.current.asPath, url)) {
+        if (writeTimerRef.current) clearTimeout(writeTimerRef.current);
         writeTimerRef.current = null;
       }
     };

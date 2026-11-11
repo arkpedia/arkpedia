@@ -28,7 +28,7 @@ const tileNames = (page: Page, scope: string) => page.locator(`${scope} .music-d
 test('Browse by album: a row of covers after Recently added that does not repeat it', async ({ page }) => {
   await page.goto('/music/discover');
   const headings = await page.locator('.music-discover-section h2').allTextContents();
-  expect(headings.slice(0, 4)).toEqual(['Recently added', 'Most liked on YouTube', 'Browse by album', 'Browse by character']);
+  expect(headings.slice(0, 5)).toEqual(['Recently added', 'Most liked on Arkpedia', 'Most liked on YouTube', 'Browse by album', 'Browse by character']);
   const { albums, recentAlbums } = await pageProps(page);
   expect(albums.length, 'every album with a song is listed').toBeGreaterThan(200);
 
@@ -92,7 +92,7 @@ test('an album opens its songs, which play, queue and favourite in one press', a
   expect(album, 'an album of three to twenty songs on YouTube').toBeTruthy();
   await page.getByRole('searchbox', { name: 'Filter albums' }).fill(album.albumAltName);
   await page.locator('#discover-albums .music-discover-album-tile', { has: page.locator('.music-discover-album-tile-name', { hasText: album.albumAltName }) }).first().click();
-  await expect(page.locator('.music-discover-active-facet')).toHaveText(` · ${album.albumAltName}`);
+  await expect(page.locator('.music-album-overview').getByRole('heading', { name: album.albumAltName, exact: true })).toBeVisible();
   await expect(page).toHaveURL(new RegExp(`[?&]facet=album%3A${album.albumId}\\b`));
   const rows = page.locator('.music-discover-song-list .music-song-row');
   await expect(rows).toHaveCount(album.songCount);
@@ -164,3 +164,27 @@ test('the album grid fits a 390px phone, three covers across, and a desktop', as
     expect(layout.widths[0], `${width}: a cover the size of Recently added's or larger`).toBeGreaterThanOrEqual(104);
   }
 });
+
+for (const theme of ['dark', 'light']) {
+  test(`opening an album survives a pending Show all URL write (${theme})`, async ({ page }) => {
+    await page.addInitScript(theme => localStorage.setItem('theme', theme), theme);
+    await page.goto('/music/discover');
+    const section = page.locator('.music-discover-section', { has: page.getByRole('heading', { name: 'Browse by album', exact: true }) });
+    const first = page.locator('#discover-albums .music-discover-album-tile').first();
+    await expect(first).toBeVisible();
+    const title = await first.locator('.music-discover-album-tile-name').textContent();
+    // A slow page-data response leaves time for the collection's 250 ms URL
+    // debounce to fire while the explicit album navigation is still in flight.
+    await page.route(/\/_next\/data\/.*\/music\/discover\.json(?:\?|$)/, async route => {
+      await new Promise(resolve => setTimeout(resolve, 800));
+      await route.continue();
+    });
+    await section.getByRole('button', { name: 'Show all', exact: true }).click();
+    await page.locator('#discover-albums .music-discover-album-tile').filter({ has: page.getByText(title!, { exact: true }) }).first().click();
+    await expect(page.locator('.music-album-overview').getByRole('heading', { name: title!, exact: true })).toBeVisible();
+    await expect(page).toHaveURL(/facet=album/);
+    await expect.poll(() => page.locator('.music-discover-song-row').count()).toBeGreaterThan(0);
+    await page.reload();
+    await expect(page.locator('.music-album-overview').getByRole('heading', { name: title!, exact: true })).toBeVisible();
+  });
+}

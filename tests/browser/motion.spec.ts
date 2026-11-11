@@ -340,7 +340,7 @@ test('reduced motion: the World video gallery stays drawn and keeps its cards', 
   await readOnly(page);
   await page.goto("/world");
   await page.getByRole('tab', { name: 'YouTube', exact: true }).click();
-  const gallery = page.locator('.world-gallery');
+  const gallery = page.locator('.youtube-topic-list');
   await expect(gallery.locator('a[href]').first()).toBeVisible();
   await page.clock.pauseAt(await page.evaluate(() => Date.now() + 50));
   const look = () => gallery.evaluate(el => ({
@@ -690,12 +690,23 @@ test.describe('the tab underline slides', () => {
       const tabs = page.locator(strip).first().locator(':scope > [role="tab"]:not([disabled])');
       const n = await tabs.count();
       expect(n, 'the strip has tabs to press').toBeGreaterThan(1);
+      // Capture the actual transition before clicking. An aria-selected assertion
+      // can finish after the short animation on a busy runner, when getAnimations()
+      // is already empty. Still require a real transform transition, not just its CSS.
+      await page.locator(strip).first().evaluate(list => {
+        const bar = list.querySelector(':scope > .tabs-indicator')!;
+        const transitions: string[] = [];
+        (window as unknown as { __tabTransitions: string[] }).__tabTransitions = transitions;
+        bar.addEventListener('transitionrun', event => {
+          if (event.target === bar) transitions.push((event as TransitionEvent).propertyName);
+        });
+      });
       for (let i = n - 1; i >= 0; i -= 1) {
         await tabs.nth(i).click();
         await expect(tabs.nth(i)).toHaveAttribute('aria-selected', 'true');
         // The first press moves the bar off the first tab: it slides there, on transform.
         if (i === n - 1) {
-          expect(await page.locator(strip).first().evaluate((list) => list.querySelector(':scope > .tabs-indicator')!.getAnimations().map((a) => (a as CSSTransition).transitionProperty)), 'the bar slides to the tab pressed').toContain('transform');
+          await expect.poll(() => page.evaluate(() => (window as unknown as { __tabTransitions: string[] }).__tabTransitions), { message: 'the bar slides to the tab pressed' }).toContain('transform');
         }
         await page.mouse.move(0, 0);
         await underCurrent(page, strip, `a click on tab ${i + 1}`);

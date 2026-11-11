@@ -6,7 +6,7 @@ import type { JSX } from 'react';
  * baseline it chose -- iOS drew ⏸ as a colour emoji. One 20px grid, currentColor, so
  * each takes the colour of the button it sits in (teal when that button is on).
  */
-type IconName = 'prev' | 'play' | 'pause' | 'next' | 'shuffle' | 'repeat' | 'list' | 'heart' | 'plus' | 'streamSafe' | 'close' | 'note' | 'loading' | 'more' | 'back' | 'up' | 'down' | 'reorder' | 'trash' | 'playNext' | 'addToQueue' | 'queue' | 'library' | 'nowPlaying' | 'noAutoplay' | 'youtube' | 'lyrics';
+type IconName = 'prev' | 'play' | 'pause' | 'next' | 'shuffle' | 'repeat' | 'list' | 'heart' | 'plus' | 'streamSafe' | 'close' | 'note' | 'loading' | 'more' | 'back' | 'up' | 'down' | 'reorder' | 'trash' | 'playNext' | 'addToQueue' | 'queue' | 'library' | 'nowPlaying' | 'volume' | 'muted' | 'noAutoplay' | 'youtube' | 'lyrics';
 
 const PATHS: Record<IconName, JSX.Element> = {
   lyrics: <><path d="M3 3.5h14v11H8l-4 3v-3H3z" /><path d="M6 7h8M6 10.5h5" /></>,
@@ -20,6 +20,8 @@ const PATHS: Record<IconName, JSX.Element> = {
   // YouTube: a play triangle in a rounded screen, the shape of its logo, drawn in currentColor.
   youtube: <><rect x="2.5" y="4.5" width="15" height="11" rx="3" /><path d="M8.5 7.6v4.8l4-2.4z" fill="currentColor" stroke="none" /></>,
   // Don't autoplay: a circle struck through, the sign for "not this one".
+  volume: <><path d="M3 8h3l4-3.5v11L6 12H3z" /><path d="M13 7a4 4 0 0 1 0 6m2-8a7 7 0 0 1 0 10" /></>,
+  muted: <><path d="M3 8h3l4-3.5v11L6 12H3z" /><path d="m13 7 5 6m0-6-5 6" /></>,
   noAutoplay: <><circle cx="10" cy="10" r="6.5" /><path d="m5.4 14.6 9.2-9.2" /></>,
   more: <><circle cx="4" cy="10" r="1.4" fill="currentColor" stroke="none" /><circle cx="10" cy="10" r="1.4" fill="currentColor" stroke="none" /><circle cx="16" cy="10" r="1.4" fill="currentColor" stroke="none" /></>,
   back: <path d="m12 4-6 6 6 6" />,

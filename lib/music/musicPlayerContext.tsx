@@ -8,14 +8,17 @@ import { MUSIC_CATALOGUE_PATH, loadMusicCatalogue, type MusicCatalogueSong } fro
 import { createCatalogueStore, type CatalogueStore } from './catalogueStore';
 import { MUSIC_FAVORITES_EVENT, MUSIC_FAVORITES_KEY, readMusicFavorites } from './musicFavorites';
 import { CLOUD_RESTORED_EVENT } from '@/lib/cloud-account/events';
-import { migrateChosenQueue, restoreQueue, sessionStore, takeMusicResume, writeMusicResume, type MusicResumeState } from './musicResume';
+import { migrateChosenQueue, restoreQueue, sessionStore, takeMusicResume, writeMusicResume, type MusicResumeState, type MusicSource, type ListeningHistory } from './musicResume';
 import { songTitle } from './musicPolish';
 import { clearUpcoming, placeSong, restoreAround, type Placement, type QueueState } from './queueOps';
 import { PLAYER_STATE, createMsrAudioEngine, createTrackEngine, type EngineKind, type MsrAudioEngine, type PlaybackEngine, type TrackEngine } from './playbackEngine';
 import { trackSource, type TrackSource } from './trackId';
 import { useMsrMediaSession } from './useMsrMediaSession';
 import { SITE_ICON_PATH, artistLine, imageType, msrCoverPath, sessionArtwork, useSongArt, youtubeThumbnail } from './songArt';
+import { versionTiming } from './versionTiming';
+import { findSongVersion } from './songVersions';
 import { musicAudioPreloader } from './audioPreload';
+import { primeSpectrumContext } from './spectrumInput';
 import { musicAudioElement, primeMusicAudio, msrAudioAddress } from './audioElement';
 import AudioDebugPanel from '@/components/music/AudioDebugPanel';
 import EndfieldNoticeDialog from '@/components/music/EndfieldNoticeDialog';
@@ -77,6 +80,7 @@ export type RepeatMode = 'off' | 'one' | 'all';
 // /music page's release props (its songLookup), which carry them for every song.
 export interface QueueTrack {
   id: string;
+  cid?: string;
   title: string;
   altTitle?: string | null;
   artist?: string | null;
@@ -92,7 +96,7 @@ export interface QueueTrack {
 
 /** Where the queue came from, for the Queue view's "Playing from": every song (the default),
  *  a saved playlist, or the reader's own (a queue they cleared and built up again). */
-export type QueueSource = 'all' | 'playlist' | 'custom';
+export type QueueSource = MusicSource | null;
 
 /** What a queue action did, shown under the transport for a moment (pages/music). */
 export interface MusicNotice {
@@ -111,7 +115,7 @@ export const STUCK_NOTICE = 'Couldn’t start this song. Tap Play to try again.'
 export type QueueSongResult = 'queued' | 'current' | 'unavailable';
 
 function toQueueTrack(song: MusicCatalogueSong): QueueTrack {
-  return { id: song.id, title: song.title, altTitle: song.altTitle ?? null, artist: song.artist ?? null,
+  return { id: song.id, ...(song.cid ? { cid: song.cid } : {}), title: song.title, altTitle: song.altTitle ?? null, artist: song.artist ?? null,
     album: song.album ?? null, albumOriginal: song.albumOriginal ?? null, cover: song.cover ?? null, copyright: song.copyright,
     ...(song.game === 'endfield' ? { game: song.game } : {}) };
 }
@@ -160,6 +164,10 @@ interface MusicPlayerContextValue {
   /** Songs the reader queued (Play next, Add to queue) that have not played yet. */
   queued: ReadonlySet<string>;
   queueSource: QueueSource;
+  queueView: React.RefObject<{ search: string; scrollTop: number; visible: number }>;
+  history: ListeningHistory;
+  upcomingTrack: QueueTrack | null;
+  playHistory: (position: number) => void;
   libraryTracks: QueueTrack[];
   currentTrack: QueueTrack | undefined;
   /** The playing song's picture: the catalogue's cover (a /album-covers/ path), else Monster
@@ -197,16 +205,19 @@ interface MusicPlayerContextValue {
   /** The songs kept out of autoplay. */
   noAutoplay: ReadonlySet<string>;
   setVolumeLevel: (v: number) => void;
+  toggleMute: () => void;
   playQueueIndex: (index: number) => void;
   playTrackByVideoId: (videoId: string) => void;
   playFirst: (videoId: string) => void;
-  playPlaylist: (videoIds: string[] | null, playlistId?: string) => Promise<number>;
+  playPlaylist: (videoIds: string[] | null, source?: MusicSource, selectedId?: string) => Promise<number>;
   reorderQueue: (fromIndex: number, toIndex: number) => void;
   reorderShuffleOrder: (fromPos: number, toPos: number) => void;
   moveQueueItemToTop: (index: number) => void;
   removeFromQueue: (index: number) => void;
   /** Plays a song right away; the rest of the queue plays on after it. */
   playNow: (videoId: string) => void;
+  alternateVersion: { song: QueueTrack; label: string } | null;
+  switchVersion: () => void;
   /** Play next (right after the current song) or Add to queue (after the songs already queued). */
   queueSong: (videoId: string, where: Placement) => Promise<QueueSongResult>;
   /** Takes out every song but the one playing; undoClearQueue puts them back. */
@@ -228,6 +239,7 @@ export function useMusicPlayer(): MusicPlayerContextValue {
 /** The seek bars' side of the player: where the song is, and seeking (lib/music/playbackPosition.ts). */
 interface MusicPlaybackContextValue {
   position: PlaybackPositionStore;
+  readPlaybackTime: () => number;
   /** Moves the displayed time only, while the reader drags; handleSeekCommit seeks the engine. */
   handleSeekChange: (v: number) => void;
   handleSeekCommit: (v: number) => void;
@@ -363,6 +375,7 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
       if (saved !== null) { autoplayRef.current = saved === 'true'; setAutoplayState(autoplayRef.current); }
     } catch { /* refused */ }
   }, []);
+  const queueView = useRef({ search: '', scrollTop: 0, visible: 0 });
   const [queue, setQueue] = useState<QueueTrack[]>([]);
   const [queueIndex, setQueueIndex] = useState(0);
   const [queueLoading, setQueueLoading] = useState(false);
@@ -370,8 +383,8 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
   const playingPlaylistIdRef = useRef<string | null>(null);
   const [queued, setQueued] = useState<ReadonlySet<string>>(new Set());
   const queuedRef = useRef<ReadonlySet<string>>(new Set());
-  const [queueSource, setQueueSourceState] = useState<QueueSource>('custom');
-  const queueSourceRef = useRef<QueueSource>('custom');
+  const [queueSource, setQueueSourceState] = useState<QueueSource>(null);
+  const queueSourceRef = useRef<QueueSource>(null);
   const setQueueSource = (source: QueueSource) => { queueSourceRef.current = source; setQueueSourceState(source); };
   const [notice, setNotice] = useState<MusicNotice | null>(null);
   const noticeIdRef = useRef(0);
@@ -390,9 +403,24 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
     clearPlaybackNotice();
     const source = id ? routeTrack(id) : null;
     if (source?.kind !== 'msr') return;
+    primeSpectrumContext();
     if (playerReadyRef.current && playerRef.current && musicAudioElement().getAttribute('src')) return;
     primeMusicAudio(source.cid, seconds);
   };
+  const collectionRequest = useRef(0);
+  const [history, renderHistory] = useState<ListeningHistory>({ tracks: [], position: 0 });
+  const historyRef = useRef(history);
+  function setHistory(next: ListeningHistory) {
+    historyRef.current = next;
+    renderHistory(next);
+  }
+  function recordHeard(id: string) {
+    const current = historyRef.current;
+    if (!id || current.tracks[current.position] === id) return;
+    const tracks = [...current.tracks.slice(0, current.position + 1), id].slice(-500);
+    setHistory({ tracks, position: tracks.length - 1 });
+  }
+
   // The queue as Clear queue found it, for Undo.
   const clearedRef = useRef<{ state: QueueState<QueueTrack>; playlistIds: string[] | null; playingPlaylistId: string | null; source: QueueSource } | null>(null);
   const [canUndoClear, setCanUndoClear] = useState(false);
@@ -449,6 +477,7 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
   const videoIdRef = useRef('');
   const titleRef = useRef('');
   const volumeRef = useRef(50);
+  const lastAudibleVolumeRef = useRef(50);
   useEffect(() => {
     isPlayingRef.current = isPlaying;
   }, [isPlaying]);
@@ -460,6 +489,7 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
   }, [title]);
   useEffect(() => {
     volumeRef.current = volume;
+    if (volume > 0) lastAudibleVolumeRef.current = volume;
   }, [volume]);
 
   // Loaded once on mount, same pattern as musicVolume (lib/music/songFilter.ts reads them).
@@ -654,16 +684,29 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
     setStarting(false);
   }, []);
 
-  const loadTrackAt = useCallback((index: number) => {
+  const loadTrackAt = useCallback((index: number, handoff?: { seconds: number; playing: boolean }) => {
     const q = queueRef.current;
     if (q.length === 0) return;
     const clamped = ((index % q.length) + q.length) % q.length;
     queueIndexRef.current = clamped; setQueueIndex(clamped);
     autoplayVideoIdRef.current = ''; setAutoplayVideoId('');
     endResumeWatch();
-    cuedAtRef.current = null;
-    playerRef.current?.loadVideoById(q[clamped].id);
-    noteHiddenLoad(q[clamped].id);
+    const id = q[clamped].id;
+    const at = handoff ? { videoId: id, startSeconds: handoff.seconds, switchVersion: true } : id;
+    if (handoff) {
+      videoIdRef.current = id;
+      setVideoId(id);
+      setTitle(q[clamped].title);
+      setCurrentTime(handoff.seconds);
+    }
+    if (handoff && !handoff.playing) {
+      cuedAtRef.current = { videoId: id, seconds: handoff.seconds };
+      playerRef.current?.cueVideoById(at);
+    } else {
+      cuedAtRef.current = null;
+      playerRef.current?.loadVideoById(at);
+      noteHiddenLoad(id);
+    }
   // noteHiddenLoad reads refs only.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [endResumeWatch]);
@@ -787,19 +830,39 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
   }
 
 
-  // Prepare only the actual next song. Queue edits, shuffle, repeat and automatic tracks
+  function forwardPosition() {
+    const current = historyRef.current;
+    return current.tracks.findIndex((id, i) => i > current.position && Boolean(playableTrack(id)));
+  }
+  function nextSong() {
+    const forward = forwardPosition();
+    if (forward >= 0) return playableTrack(historyRef.current.tracks[forward]);
+    const step = nextQueueStep();
+    return step ? queueRef.current[step.index] : autoplayRef.current ? nextAutoplayTracks()[0] ?? null : null;
+  }
+  const currentTrack = useMemo(() => libraryTracks.find(track => track.id === videoId) ?? queue.find(track => track.id === videoId), [libraryTracks, queue, videoId]);
+  const alternateVersion = useMemo(() => currentTrack
+    ? findSongVersion(currentTrack, libraryTracks.filter(song => songAllowed({ excludeCopyrighted, includeEndfield }, song)))
+    : null, [currentTrack, libraryTracks, excludeCopyrighted, includeEndfield]);
+  const versionPair = useRef<{ from: string; to: string; fromStart: boolean } | null>(null);
+  versionPair.current = currentTrack && alternateVersion ? { from: currentTrack.id, to: alternateVersion.song.id, fromStart: alternateVersion.fromStart } : null;
+  // Prepare the matching recording for a live handoff and the next song for normal playback. Queue edits, shuffle, repeat and automatic tracks
   // read the same decision as Next; paused players retain a completed file but stop fetching
   // (its signed address, headers only, is still asked for). Data saver prepares nothing.
   // Decided again at each change below, and at each tick of the clock while a song plays
   // (the poll effect below), as the song's own buffering comes along.
   function selectPreload() {
     const saver = (navigator as Navigator & { connection?: { saveData?: boolean } }).connection?.saveData;
-    const step = nextQueueStep();
-    const next = repeatModeRef.current === 'one' ? undefined : step ? queueRef.current[step.index]
-      : autoplayRef.current ? nextAutoplayTracks()[0] : undefined;
+    const next = repeatModeRef.current === 'one' ? undefined : nextSong();
     const source = next ? routeTrack(next.id) : null;
     const playing = videoIdRef.current ? routeTrack(videoIdRef.current) : null;
-    const target = playerRef.current?.loaded() === videoIdRef.current && !dataSaverRef.current && !saver && source?.kind === 'msr'
+    const mayPrepare = playerRef.current?.loaded() === videoIdRef.current && !dataSaverRef.current && !saver && readPrivacy().externalMedia;
+    const other = mayPrepare && versionPair.current?.from === videoIdRef.current && playing?.kind === 'msr'
+      ? routeTrack(versionPair.current.to) : null;
+    const otherCid = other?.kind === 'msr' ? other.cid : null;
+    const offset = otherCid && playing?.kind === 'msr' ? versionTiming(playing.cid, otherCid).offset : 0;
+    audioRef.current?.prepareVersion(otherCid, versionPair.current?.fromStart ? null : offset);
+    const target = mayPrepare && source?.kind === 'msr' && source.cid !== otherCid
       && !(playing?.kind === 'msr' && playing.cid === source.cid)
       ? { cid: source.cid, address: msrAudioAddress(source.cid) } : null;
     let buffered = playing?.kind !== 'msr';
@@ -818,10 +881,15 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isPlaying, videoId, queue, queueIndex, queued, shuffle, shuffleOrder,
     shufflePosition, repeatMode, autoplay, autoplayVideoId, dataSaver, excludeCopyrighted, includeEndfield, libraryTracks]);
-  useEffect(() => () => musicAudioPreloader.select(null, false), []);
+  useEffect(() => () => {
+    musicAudioPreloader.select(null, false);
+    audioRef.current?.prepareVersion(null);
+  }, []);
 
   const nextTrack = useCallback(async () => {
     primeAudio();
+    const forward = forwardPosition();
+    if (forward >= 0) { playHistory(forward); return; }
     const step = nextQueueStep();
     if (step) {
       shufflePositionRef.current = step.position; setShufflePosition(step.position);
@@ -833,30 +901,36 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loadTrackAt]);
 
-  const prevTrack = useCallback(() => {
-    primeAudio();
-    if (autoplayVideoIdRef.current) {
-      if (queueRef.current.length) loadTrackAt(queueIndexRef.current);
-      else {
-        const track = nextAutoplayTracks().at(-1);
-        if (track) { autoplayVideoIdRef.current = track.id; setAutoplayVideoId(track.id); playerRef.current?.loadVideoById(track.id); }
-      }
-      return;
+  function manualNextTrack() {
+    claimManualAudio();
+    // A quick skip can beat the engine's first confirmed PLAYING event.
+    // Keep the loaded song reachable with Previous even during that handoff.
+    const id = videoIdRef.current;
+    if (id && playerRef.current?.loaded() === id) recordHeard(id);
+    return nextTrack();
+  }
+
+  function playHistory(position: number) {
+    const current = historyRef.current;
+    const id = current.tracks[position];
+    if (!id || !playableTrack(id)) return;
+    setHistory({ ...current, position });
+    primeAudio(id);
+    const index = queueRef.current.findIndex(song => song.id === id);
+    if (index >= 0) playQueueIndex(index);
+    else {
+      autoplayVideoIdRef.current = id;
+      setAutoplayVideoId(id);
+      playerRef.current?.loadVideoById(id);
     }
-    if (shuffleRef.current) {
-      const order = shuffleOrderRef.current;
-      const q = queueRef.current;
-      if (!order || q.length === 0) return;
-      const prevPos = (shufflePositionRef.current - 1 + order.length) % order.length;
-      shufflePositionRef.current = prevPos;
-      setShufflePosition(prevPos);
-      loadTrackAt(order[prevPos]);
-      return;
+  }
+  const prevTrack = () => {
+    const previous = historyRef.current;
+    for (let i = previous.position - 1; i >= 0; i--) {
+      if (playableTrack(previous.tracks[i])) { playHistory(i); return; }
     }
-    loadTrackAt(queueIndexRef.current - 1);
-  // The automatic source helper reads refs.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loadTrackAt]);
+    playerRef.current?.seekTo(0, true);
+  };
 
   useEffect(() => {
     if (!initialized) return;
@@ -984,11 +1058,13 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
           setTitle(video?.title || '');
           // The ref too, at once: the next song is worked out from it just below.
           videoIdRef.current = video?.video_id || '';
+          recordHeard(videoIdRef.current);
           setVideoId(videoIdRef.current);
           setDuration(engine.getDuration());
           // Retry if the initial catalogue load failed.
           if (queueRef.current.length === 0) loadFullQueue();
         } else if (data === state.PAUSED) {
+          if (!position.get().seeking) setCurrentTime(cuedAtRef.current?.seconds ?? engine.getCurrentTime());
           setIsPlaying(false);
         } else if (data === state.ENDED) {
           setIsPlaying(false);
@@ -1251,6 +1327,8 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
       // A play still loading is carried as playing: the next document asks for it again.
       playing: isPlayingRef.current || bufferingRef.current || pendingPlayRef.current || !!resumeWatchRef.current,
       queue: queue.map((track) => track.id),
+      source: queueSourceRef.current ?? undefined,
+      history: historyRef.current,
       playlistIds: playlistIdsRef.current,
       playingPlaylistId: playingPlaylistIdRef.current,
       queueIndex: queueIndexRef.current,
@@ -1344,7 +1422,8 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
     }
     playingPlaylistIdRef.current = record.playingPlaylistId ?? null;
     setPlayingPlaylistId(playingPlaylistIdRef.current);
-    setQueueSource(playingPlaylistIdRef.current ? 'playlist' : 'custom');
+    setQueueSource(record.source ?? (record.playingPlaylistId ? { name: 'Saved playlist', href: '/music?view=library&playlist=' + encodeURIComponent(record.playingPlaylistId), playlistId: record.playingPlaylistId } : null));
+    if (record.history) setHistory(record.history);
     pendingPlayRef.current = play;
     shuffleRef.current = record.shuffle;
     setShuffle(record.shuffle);
@@ -1457,31 +1536,47 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
     player.playVideo();
   }
 
-  async function playPlaylist(videoIds: string[] | null, playlistId?: string): Promise<number> {
-    if (!playerReadyRef.current) return 0;
-    // Before the catalogue is awaited: after it, the press is over. Shuffled, the first song is
-    // not known yet, and a guess would be heard: the press then primes nothing.
-    primeAudio(shuffleRef.current ? null : videoIds?.[0]);
-    await buildQueueFromCatalog();
-    const byId = new Map((catalogRef.current ?? []).map(song => [song.id, song]));
-    const tracks = [...new Set(videoIds ?? [...byId.keys()])].flatMap(id => {
-      const song = byId.get(id);
-      return song && allowed(song) ? [toQueueTrack(song)] : [];
-    });
-    if (!tracks.length) return 0;
-    playlistIdsRef.current = videoIds ? [...videoIds] : tracks.map(track => track.id);
-    playingPlaylistIdRef.current = videoIds ? playlistId ?? null : null;
+  async function playPlaylist(videoIds: string[] | null, source?: MusicSource, selectedId?: string): Promise<number> {
+    const request = ++collectionRequest.current;
+    const requestedId = selectedId ?? videoIds?.[0];
+    primeAudio(requestedId && playableTrack(requestedId) ? requestedId : undefined);
+    try {
+      await buildQueueFromCatalog();
+    } catch {
+      announce('Could not load the music catalogue. Try again.');
+      return 0;
+    }
+    if (request !== collectionRequest.current) return 0;
+    const byId = new Map((catalogRef.current ?? []).filter(allowed).map(song => [song.id, toQueueTrack(song)]));
+    const ids = [...new Set(videoIds ?? byId.keys())];
+    const tracks = ids.flatMap(id => byId.get(id) ?? []);
+    const index = selectedId ? tracks.findIndex(song => song.id === selectedId) : 0;
+    if (!tracks.length || index < 0) {
+      announce('This selection is unavailable with your music settings.');
+      return 0;
+    }
+    // Take the complete collection at the moment Play was pressed. Later browsing cannot change it.
+    playlistIdsRef.current = ids;
+    playingPlaylistIdRef.current = source?.playlistId ?? null;
     setPlayingPlaylistId(playingPlaylistIdRef.current);
-    setQueueSource(playlistId ? 'playlist' : 'custom');
-    queuedRef.current = new Set(); setQueued(queuedRef.current);
-    clearedRef.current = null; setCanUndoClear(false);
-    queueRef.current = tracks; setQueue(tracks);
-    queueIndexRef.current = 0; setQueueIndex(0);
-    // Start in the saved order. The reader can turn shuffle on afterwards.
-    shuffleRef.current = false; setShuffle(false);
-    shuffleOrderRef.current = null; setShuffleOrder(null);
-    shufflePositionRef.current = 0; setShufflePosition(0);
-    loadTrackAt(0);
+    setQueueSource(source ?? { name: 'Library', href: '/music?view=library' });
+    clearedRef.current = null;
+    setCanUndoClear(false);
+    // Explicit requests already lined up play before the new source continues.
+    const previous = queueState();
+    const oldOrder = previous.shuffleOrder ?? previous.queue.map((_, i) => i);
+    const manual = oldOrder.map(i => previous.queue[i]).filter(song => previous.queued.has(song.id) && song.id !== tracks[index].id && byId.has(song.id));
+    const manualIds = new Set(manual.map(song => song.id));
+    const collection = tracks.filter(song => !manualIds.has(song.id));
+    const start = collection.findIndex(song => song.id === tracks[index].id);
+    collection.splice(start + 1, 0, ...manual);
+    const order = shuffleRef.current ? generateShuffleOrder(collection.length, start).filter(i => !manualIds.has(collection[i].id)) : null;
+    if (order) order.splice(1, 0, ...manual.map((_, i) => start + i + 1));
+    applyQueueState({ queue: collection, queueIndex: start, shuffleOrder: order, shufflePosition: 0, queued: manualIds });
+    discardForward();
+    pendingFirstRef.current = null;
+    autoplayVideoIdRef.current = ''; setAutoplayVideoId('');
+    playQueueIndex(start);
     return tracks.length;
   }
 
@@ -1495,7 +1590,23 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
       q = previous.map(position => q[position]);
       queueRef.current = q; setQueue(q); queueIndexRef.current = index; setQueueIndex(index);
     }
-    const order = turningOn && q.length ? autoplayVideoIdRef.current ? q.map((_, index) => index) : generateShuffleOrder(q.length, queueIndexRef.current) : null;
+    if (!turningOn && !autoplayVideoIdRef.current && queuedRef.current.size) {
+      const current = q[queueIndexRef.current];
+      const order = shuffleOrderRef.current ?? q.map((_, i) => i);
+      const pending = order.map(i => q[i]).filter(song => song.id !== current?.id && queuedRef.current.has(song.id));
+      const requested = new Set(pending.map(song => song.id));
+      q = q.filter(song => !requested.has(song.id));
+      const index = Math.max(0, q.indexOf(current));
+      q.splice(index + 1, 0, ...pending);
+      queueRef.current = q; setQueue(q);
+      queueIndexRef.current = index; setQueueIndex(index);
+    }
+    let order = turningOn && q.length ? autoplayVideoIdRef.current ? q.map((_, index) => index) : generateShuffleOrder(q.length, queueIndexRef.current) : null;
+    if (order && !autoplayVideoIdRef.current && queuedRef.current.size) {
+      const pending = q.map((_, index) => index).filter(index => queuedRef.current.has(q[index].id) && index !== queueIndexRef.current);
+      const requested = new Set(pending);
+      order = [order[0], ...pending, ...order.slice(1).filter(index => !requested.has(index))];
+    }
     shuffleOrderRef.current = order; setShuffleOrder(order);
     const position = order ? Math.max(0, order.indexOf(queueIndexRef.current)) : 0;
     shufflePositionRef.current = position; setShufflePosition(position);
@@ -1542,13 +1653,28 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
   }
 
   function setVolumeLevel(v: number) {
+    const muting = v === 0 && volumeRef.current > 0;
+    if (muting) lastAudibleVolumeRef.current = volumeRef.current;
+    else if (v > 0) lastAudibleVolumeRef.current = v;
+    volumeRef.current = v;
     setVolume(v);
     playerRef.current?.setVolume(v);
     try {
       window.localStorage.setItem('musicVolume', String(v));
+      if (muting) window.localStorage.setItem('musicVolumeBeforeMute', String(lastAudibleVolumeRef.current));
     } catch {
       /* ignore */
     }
+  }
+
+  function toggleMute() {
+    if (volumeRef.current > 0) { setVolumeLevel(0); return; }
+    let previous = lastAudibleVolumeRef.current;
+    try {
+      const saved = Number(window.localStorage.getItem('musicVolumeBeforeMute'));
+      if (Number.isFinite(saved) && saved > 0 && saved <= 100) previous = saved;
+    } catch { /* The in-memory volume still restores when storage is unavailable. */ }
+    setVolumeLevel(previous);
   }
 
   function handleSeekChange(v: number) {
@@ -1568,8 +1694,8 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
     selectPreload();
   }
 
-  function playQueueIndex(index: number) {
-    primeAudio(queueRef.current[index]?.id);
+  function playQueueIndex(index: number, handoff?: { seconds: number; playing: boolean }) {
+    if (!handoff || handoff.playing) primeAudio(queueRef.current[index]?.id, handoff?.seconds);
     // Before YouTube is ready a tap waited for nothing: it now waits for the player, as a song
     // chosen elsewhere does (playTrackByVideoId's pending request).
     if (!playerReadyRef.current) {
@@ -1577,7 +1703,7 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
       if (id) playTrackByVideoId(id);
       return;
     }
-    loadTrackAt(index);
+    loadTrackAt(index, handoff);
     const order = shuffleOrderRef.current;
     if (shuffleRef.current && order) {
       const pos = order.indexOf(index);
@@ -1643,30 +1769,10 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
     setShufflePosition(shufflePositionRef.current);
   }
 
-  // Despite the name/icon, this doesn't move to literal array index 0
-  // -- it moves to be the very next thing that plays after the
-  // currently-playing song, which is what "push to top" actually needs
-  // to mean once the currently-playing song isn't itself at index 0
-  // (true as soon as you've advanced past the first track at all).
-  // Landing at literal index 0 would put it BEFORE the current song
-  // instead, which never plays "next" at all without a full wraparound.
   function moveQueueItemToTop(index: number) {
-    if (shuffleRef.current && shuffleOrderRef.current) {
-      const order = shuffleOrderRef.current;
-      const fromPos = order.indexOf(index);
-      if (fromPos === -1) return;
-      const curPos = shufflePositionRef.current;
-      if (fromPos === curPos) return; // can't push the currently-playing song to play next after itself
-      const targetPos = fromPos < curPos ? curPos : curPos + 1;
-      reorderShuffleOrder(fromPos, targetPos);
-      return;
-    }
-    const qi = queueIndexRef.current;
-    if (index === qi) return; // can't push the currently-playing song to play next after itself
-    const target = index < qi ? qi : qi + 1;
-    reorderQueue(index, target);
+    const track = queueRef.current[index];
+    if (track) void queueSong(track.id, 'next');
   }
-
 
   // Removes a track from the queue. Refuses to remove the currently-
   // playing track itself -- that's what the player controls
@@ -1703,6 +1809,11 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
     queuedRef.current = next;
     setQueued(next);
   }, [videoId]);
+
+  function discardForward() {
+    const current = historyRef.current;
+    if (current.position < current.tracks.length - 1) setHistory({ ...current, tracks: current.tracks.slice(0, current.position + 1) });
+  }
 
   function queueState(): QueueState<QueueTrack> {
     return { queue: queueRef.current, queueIndex: queueIndexRef.current, shuffleOrder: shuffleRef.current ? shuffleOrderRef.current : null,
@@ -1748,14 +1859,42 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
       announce(result.reason === 'current' ? `${title} is playing now.` : `${title} can’t be queued${why}.`);
       return result.reason;
     }
+    discardForward();
     applyQueueState(result.state);
     if (playlistIdsRef.current && !playlistIdsRef.current.includes(id)) playlistIdsRef.current = [...playlistIdsRef.current, id];
     announce(where === 'next' ? `Playing next: ${title}` : `Added to queue: ${title}`);
     return 'queued';
   }
 
-  function playNow(id: string) {
-    primeAudio(id);
+  function switchVersion() {
+    if (!alternateVersion || !playerRef.current || !playerReadyRef.current) return;
+    const id = videoIdRef.current;
+    const target = alternateVersion.song.id;
+    const { fromStart } = alternateVersion;
+    const route = routeTrack(target);
+    const engine = playerRef.current;
+    if (!engine || videoIdRef.current !== id || engine.loaded() !== id) return;
+    const seconds = cuedAtRef.current?.videoId === id ? cuedAtRef.current.seconds : engine.getCurrentTime();
+    let at = fromStart || !Number.isFinite(seconds) ? 0 : seconds;
+    const source = routeTrack(id);
+    if (!fromStart) {
+      const timing = versionTiming(source.kind === 'msr' ? source.cid : id, route.kind === 'msr' ? route.cid : target);
+      at = Math.max(0, at + timing.offset);
+      const duration = route.kind === 'msr' ? audioRef.current?.versionDuration(route.cid) : undefined;
+      if (at >= (duration ?? timing.duration)) {
+        announce('The other version has already ended.', false, true);
+        return;
+      }
+    }
+    clearPlaybackNotice();
+    playNow(target, {
+      seconds: at,
+      playing: isPlayingRef.current || bufferingRef.current || playerStateRef.current === PLAYER_STATE.BUFFERING || Boolean(resumeWatchRef.current),
+    });
+  }
+
+  function playNow(id: string, handoff?: { seconds: number; playing: boolean }) {
+    if (!handoff || handoff.playing) primeAudio(id, handoff?.seconds);
     // Not loaded yet: the song is put first as the player starts (playFirst), which is the same
     // thing -- nothing has played, so the queue plays on after it.
     if (!playerReadyRef.current) {
@@ -1778,10 +1917,11 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
     queuedNow.delete(id);
     applyQueueState({ ...result.state, queued: queuedNow });
     if (playlistIdsRef.current && !playlistIdsRef.current.includes(id)) playlistIdsRef.current = [...playlistIdsRef.current, id];
-    playQueueIndex(result.state.queue.findIndex(track => track.id === id));
+    playQueueIndex(result.state.queue.findIndex(track => track.id === id), handoff);
   }
 
   function clearQueue() {
+    discardForward();
     const state = queueState();
     if (!state.queue.length) return;
     clearedRef.current = { state, playlistIds: playlistIdsRef.current, playingPlaylistId: playingPlaylistIdRef.current, source: queueSourceRef.current };
@@ -1791,7 +1931,7 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
     // A setting turned back (stream-safe off, Endfield on) must not refill a cleared queue with the whole catalogue.
     playlistIdsRef.current = cleared.queue.map(track => track.id);
     playingPlaylistIdRef.current = null; setPlayingPlaylistId(null);
-    setQueueSource('custom');
+    setQueueSource(null);
     announce(`Cleared ${state.queue.length - cleared.queue.length} songs from the queue.`, true);
   }
 
@@ -1810,7 +1950,7 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
     announce('Restored the queue.');
   }
 
-  const currentTrack = useMemo(() => libraryTracks.find(track => track.id === videoId) ?? queue.find(track => track.id === videoId), [libraryTracks, queue, videoId]);
+
   // The playing song's art and artist where the catalogue has none (lib/music/songArt.ts), and
   // Monster Siren's JPEG cover for the lock screen whenever its audio plays the song.
   const msrSession = Boolean(videoId) && engineKind === 'msr';
@@ -1842,7 +1982,7 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
         if (bufferingRef.current) { primeAudio(videoIdRef.current); playerRef.current?.playVideo(); } else if (!isPlayingRef.current) togglePlay();
       },
       pause: () => { claimManualAudio(); pausePlayback(); },
-      next: () => { claimManualAudio(); void nextTrack(); },
+      next: manualNextTrack,
       previous: () => { claimManualAudio(); prevTrack(); },
       seek: (seconds) => { setCurrentTime(seconds); handleSeekCommit(seconds); },
     },
@@ -1863,27 +2003,41 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
     undoClearQueue, setExcludeCopyrighted,
     togglePlay: () => { claimManualAudio(); togglePlay(); },
     pausePlayback: () => { claimManualAudio(); pausePlayback(); },
-    nextTrack: () => { claimManualAudio(); return nextTrack(); },
+    nextTrack: manualNextTrack,
     prevTrack: () => { claimManualAudio(); prevTrack(); },
     playTrackByVideoId: (id: string) => { claimManualAudio(); playTrackByVideoId(id); },
     playFirst: (id: string) => { claimManualAudio(); playFirst(id); },
+    switchVersion: () => { claimManualAudio(); switchVersion(); },
     playNow: (id: string) => { claimManualAudio(); playNow(id); },
     playQueueIndex: (index: number) => { claimManualAudio(); playQueueIndex(index); },
-    playPlaylist: (ids: string[] | null, id?: string) => { claimManualAudio(); return playPlaylist(ids, id); },
+    playPlaylist: (ids: string[] | null, source?: MusicSource, selectedId?: string) => { claimManualAudio(); return playPlaylist(ids, source, selectedId); },
+    playHistory: (position: number) => { claimManualAudio(); playHistory(position); },
     setVolumeLevel: (v: number) => { claimManualAudio(); setVolumeLevel(v); },
+    toggleMute: () => { claimManualAudio(); toggleMute(); },
   });
+  const upcomingTrack = useMemo(() => {
+    const forward = forwardPosition();
+    if (forward >= 0) return playableTrack(history.tracks[forward]);
+    const step = nextQueueStep();
+    return step ? queue[step.index] : autoplay ? autoplayTracks[0] ?? null : null;
+  // Same queue decision as Next, evaluated again whenever the refs it reads change.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [history, queue, shuffleOrder, shuffle, queueIndex, videoId, repeatMode, autoplay, autoplayVideoId, autoplayTracks, queued]);
   const value = useMemo<MusicPlayerContextValue>(() => ({
     ready, starting, isPlaying, buffering, title, videoId, volume, shuffle, repeatMode, favorites,
-    queue, queueIndex, shuffleOrder, shufflePosition, queueLoading, playingPlaylistId, queued, queueSource, libraryTracks, currentTrack,
+    queue, queueIndex, shuffleOrder, shufflePosition, queueLoading, playingPlaylistId, queued, queueSource, history, upcomingTrack, libraryTracks, currentTrack, alternateVersion,
     nowPlayingCover, nowPlayingArtist, autoplay, autoplayVideoId, autoplayTracks, notice, excludeCopyrighted, includeEndfield, dataSaver,
-    engineKind, noAutoplay, canUndoClear, containerRef, ...actions,
+    engineKind, noAutoplay, canUndoClear, containerRef, queueView, ...actions,
   }), [
     ready, starting, isPlaying, buffering, title, videoId, volume, shuffle, repeatMode, favorites,
-    queue, queueIndex, shuffleOrder, shufflePosition, queueLoading, playingPlaylistId, queued, queueSource, libraryTracks, currentTrack,
+    queue, queueIndex, shuffleOrder, shufflePosition, queueLoading, playingPlaylistId, queued, queueSource, history, upcomingTrack, libraryTracks, currentTrack, alternateVersion,
     nowPlayingCover, nowPlayingArtist, autoplay, autoplayVideoId, autoplayTracks, notice, excludeCopyrighted, includeEndfield, dataSaver,
     engineKind, noAutoplay, canUndoClear, actions,
   ]);
-  const playbackActions = useLatestActions({ handleSeekChange, handleSeekCommit, setSeeking });
+  const playbackActions = useLatestActions({
+    handleSeekChange, handleSeekCommit, setSeeking,
+    readPlaybackTime: () => playerRef.current?.getCurrentTime() ?? position.get().currentTime,
+  });
   const playback = useMemo<MusicPlaybackContextValue>(() => ({ position, ...playbackActions }), [position, playbackActions]);
 
   return (

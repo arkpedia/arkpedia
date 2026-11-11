@@ -1,10 +1,12 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import Image from '@/components/content/ContentImage';
 import Link from 'next/link';
 import { TwitchStream } from '@/lib/community/twitch';
 import { YouTubeVideo } from '@/lib/music/youtube';
 import { CommunityEvent } from '@/lib/schedule/eventTypes';
 import { useLiveTwitchStreams } from '@/lib/community/useLiveTwitchStreams';
+import { featuredChannelVideos, videoDate } from '@/lib/music/youtubeDiscovery';
+import { currentVideoRelevance, type VideoDiscoveryContext } from '@/lib/music/youtubeRelevance';
 
 type Slide =
   | { kind: 'stream'; data: TwitchStream }
@@ -27,21 +29,40 @@ function formatEventWindow(startTime: string, endTime?: string, timeZone?: strin
   return from === to ? from : `${from} \u2013 ${to}`;
 }
 
+/** The quieter second path on a slide: the card opens the stream or the video
+ *  itself (what a reader who presses a LIVE thumbnail wants), and this opens the
+ *  World section that collects the rest. It is under the card rather than inside
+ *  it -- one link cannot hold another -- and it follows the slide, so the label
+ *  and destination always name what is on screen. */
+function WorldMore({ href, children }: { href: string; children: ReactNode }) {
+  return (
+    <div className="front-community-more-row">
+      <Link prefetch={false} className="front-community-more" href={href}>{children}</Link>
+    </div>
+  );
+}
+
 interface Props {
-  video: YouTubeVideo | null;
+  videos: YouTubeVideo[];
+  now: number;
+  context?: VideoDiscoveryContext;
   event: CommunityEvent | null;
 }
 
-export default function CommunityFader({ video, event }: Props) {
+export default function CommunityFader({ videos, now, context, event }: Props) {
   const { streams } = useLiveTwitchStreams();
   const stream = streams[0] ?? null;
+  const featuredVideos = featuredChannelVideos(videos, now, context);
   const slides: Slide[] = [
     ...(stream ? [{ kind: 'stream', data: stream } as Slide] : []),
-    ...(video ? [{ kind: 'video', data: video } as Slide] : []),
+    ...(featuredVideos[0] ? [{ kind: 'video', data: featuredVideos[0] } as Slide] : []),
     ...(event ? [{ kind: 'event', data: event } as Slide] : []),
   ];
 
-  const [index, setIndex] = useState(0);
+  // One YouTube slot; each completed carousel round chooses the next creator.
+  const [position, setPosition] = useState(0);
+  const index = slides.length ? ((position % slides.length) + slides.length) % slides.length : 0;
+  const videoIndex = featuredVideos.length ? ((Math.floor(position / slides.length) % featuredVideos.length) + featuredVideos.length) % featuredVideos.length : 0;
   // Bumped on every swipe or dot press so the rotation timer restarts and
   // counts from the interaction instead of yanking the chosen slide away.
   const [interactionKey, setInteractionKey] = useState(0);
@@ -55,16 +76,16 @@ export default function CommunityFader({ video, event }: Props) {
   useEffect(() => { setZone(undefined); }, []);
 
   useEffect(() => {
-    if (slides.length <= 1 || paused) return;
+    if ((slides.length <= 1 && featuredVideos.length <= 1) || paused) return;
     const interval = setInterval(() => {
-      setIndex((i) => (i + 1) % slides.length);
+      setPosition((i) => i + 1);
     }, FADE_INTERVAL_MS);
     return () => clearInterval(interval);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [slides.length, interactionKey, paused]);
+  }, [slides.length, featuredVideos.length, interactionKey, paused]);
 
   const goTo = (next: number) => {
-    setIndex(((next % slides.length) + slides.length) % slides.length);
+    setPosition((current) => Math.floor(current / slides.length) * slides.length + next);
     setInteractionKey((k) => k + 1);
   };
 
@@ -94,26 +115,33 @@ export default function CommunityFader({ video, event }: Props) {
   const current = index % slides.length;
   const slide = (active: Slide) => {
     if (active.kind === 'stream') return (
-      <a className="front-community-item" href={active.data.url} target="_blank" rel="noreferrer">
-        <div className="front-community-thumb-wrap">
-          <Image src={active.data.thumbnailUrl} alt={active.data.title} fill sizes="384px" style={{ objectFit: 'cover' }} />
-          <span className="badge-live front-live-badge">LIVE</span>
-        </div>
-        <p className="front-community-title">{active.data.title}</p>
-        <p className="hint">{active.data.displayName} on Twitch</p>
-      </a>
+      <>
+        <a className="front-community-item" href={active.data.url} target="_blank" rel="noreferrer">
+          <div className="front-community-thumb-wrap">
+            <Image src={active.data.thumbnailUrl} alt={active.data.title} fill sizes="384px" style={{ objectFit: 'cover' }} />
+            <span className="badge-live front-live-badge">LIVE</span>
+          </div>
+          <p className="front-community-title">{active.data.title}</p>
+          <p className="hint">{active.data.displayName} on Twitch</p>
+        </a>
+        <WorldMore href="/world?section=twitch">More Twitch streams</WorldMore>
+      </>
     );
     if (active.kind === 'video') return (
-      <a className="front-community-item" href={active.data.url} target="_blank" rel="noreferrer">
-        <div className="front-community-thumb-wrap">
-          <Image src={active.data.thumbnail} alt={active.data.title} fill sizes="384px" style={{ objectFit: 'cover' }} />
-        </div>
-        <p className="front-community-title">{active.data.title}</p>
-        <p className="hint">{active.data.channelLabel} on YouTube</p>
-      </a>
+      <>
+        <a className="front-community-item" href={active.data.url} target="_blank" rel="noreferrer">
+          <div className="front-community-thumb-wrap">
+            <Image src={active.data.thumbnail} alt={active.data.title} fill sizes="384px" style={{ objectFit: 'cover' }} />
+          </div>
+          <p className="front-community-title">{active.data.title}</p>
+          <p className="hint">{active.data.channelLabel} on YouTube{videoDate(active.data.publishedAt) ? <> · <time dateTime={active.data.publishedAt}>{videoDate(active.data.publishedAt)}</time></> : ' · Archive'}</p>
+          {context && currentVideoRelevance(active.data, context, now).label && <p className="hint">{currentVideoRelevance(active.data, context, now).label}</p>}
+        </a>
+        <WorldMore href="/world?section=youtube">More videos</WorldMore>
+      </>
     );
     return (
-      <Link prefetch={false} className="front-community-item" href="/world">
+      <Link prefetch={false} className="front-community-item" href="/world?section=offline">
         <div className="front-community-thumb-wrap front-community-event-thumb">
           <span className="front-community-event-country">{active.data.country}</span>
         </div>
@@ -141,7 +169,17 @@ export default function CommunityFader({ video, event }: Props) {
         {slides.map((item, i) => (
           // visibility: hidden (front.css) takes the others out of the tab order and the accessibility tree.
           <div key={item.kind} className="front-community-slide" data-current={i === current ? '' : undefined}>
-            {slide(item)}
+            {item.kind === 'video' ? (
+              // Stack the alternatives inside this single slot to reserve the tallest
+              // caption. Inherit visibility so an inactive outer slide stays hidden.
+              <div className="front-community-video-options">
+                {featuredVideos.map((data, candidate) => (
+                  <div key={data.videoId} className="front-community-video-option" data-current={candidate === videoIndex ? '' : undefined}>
+                    {slide({ kind: 'video', data })}
+                  </div>
+                ))}
+              </div>
+            ) : slide(item)}
           </div>
         ))}
       </div>

@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 import { useCloudSync } from '@/lib/cloud-account/SyncProvider';
 import { ReplayRequestError, type ReplaySession, type ServerId } from '@/lib/account-import/yostar';
+import { retainRelaySession } from '@/lib/account-import/relay';
 import { isResettingBrowserData } from '@/lib/account/resetData';
 import { namespaceFor, type StageMarker } from './model';
 import { readReplays, saveReplay, removeReplay } from './store';
@@ -19,7 +20,7 @@ const INITIAL:State={info:null,ready:false,phase:'idle',visible:false,cloud:fals
 interface Downloads extends State {
   running:boolean; eligible:boolean; install:(value:ReplayImport|null)=>void;
   setCloud:(value:boolean)=>void; setSelected:(value:string)=>void;
-  run:()=>Promise<void>; pause:()=>void; dismiss:()=>void;
+  run:(options?:{afterImport?:boolean})=>Promise<void>; pause:()=>void; dismiss:()=>void;
 }
 const Context=createContext<Downloads>({...INITIAL,running:false,eligible:false,install:()=>{},setCloud:()=>{},setSelected:()=>{},run:async()=>{},pause:()=>{},dismiss:()=>{}});
 export const useReplayDownloads=()=>useContext(Context);
@@ -48,7 +49,8 @@ function EnabledDownloads({children}:{children:ReactNode}){
     active.current?.controller.abort('A new game import replaced this session.');
     const version=++generation.current;source.current=value;
     const info=value?{namespace:namespaceFor(value.server,value.session.uid),server:value.server,available:value.markers.filter(m=>m.hasReplay).length}:null;
-    update({...INITIAL,info,ready:!!value});
+    // Importing replaces the session, not the reader's explicit saving choice.
+    update({...INITIAL,cloud:current.current.cloud,info,ready:!!value});
     if(info)void recount(info.namespace,version).catch(()=>{if(generation.current===version)update({message:'This browser could not open auto-deploy storage.'});});
   },[recount,update]);
   const pause=useCallback(()=>{
@@ -73,7 +75,10 @@ function EnabledDownloads({children}:{children:ReactNode}){
     }
   },[eligible,sync.remote?.user.id,retire,update]);
 
-  const run=useCallback(async()=>{
+  const run=useCallback(async(options?:{afterImport?:boolean})=>{
+    // Automatic work requires the checked choice and current cloud consent. Manual
+    // downloads remain available locally without an Arkpedia account.
+    if(options?.afterImport&&(!current.current.cloud||latest.current.status!=='ready'||!latest.current.remote?.syncReviewed||!latest.current.remote.gameSync||latest.current.remote.paused))return;
     const imported=source.current,info=current.current.info;
     if(!imported||!info||active.current||isResettingBrowserData())return;
     const version=generation.current,selected=current.current.selected.trim(),namespace=info.namespace;
@@ -86,12 +91,13 @@ function EnabledDownloads({children}:{children:ReactNode}){
     const owner=current.current.cloud&&latest.current.status==='ready'&&latest.current.remote?.syncReviewed&&latest.current.remote.gameSync&&!latest.current.remote.paused?account:null;
     const job={controller:new AbortController(),owner};active.current=job;
     update({phase:'running',visible:true,message:'Preparing auto-deploys…',issues:[],progress:null});
+    const releaseRelay=retainRelaySession();
     try{
       await navigator.locks.request(REPLAY_LOCK,{ifAvailable:true},async lock=>{
         if(!lock)throw new Error('Another tab is importing game data. Wait for it to finish.');
         const result=await syncReplays({namespace,markers:imported.markers,session:imported.session,signal:job.controller.signal,
-          permit:()=>requestReplayPermit(job.controller.signal,()=>{if(generation.current===version)update({message:'Waiting for a shared download slot… You can keep browsing.'});}),
-          store:{read:readReplays,save:saveReplay,remove:removeReplay},...(owner?{cloud:replayCloud(owner,namespace)}:{}),forceStage:selected||undefined,
+          permit:()=>requestReplayPermit(job.controller.signal,position=>{if(generation.current===version)update({message:position?`Waiting for a shared download slot (${position} in queue)… You can keep browsing.`:'Waiting for a shared download slot… You can keep browsing.'});}),
+          store:{read:readReplays,save:saveReplay,remove:removeReplay},...(owner?{cloud:replayCloud(owner,namespace,job.controller.signal)}:{}),forceStage:selected||undefined,
           check:()=>{
             if(generation.current!==version||isResettingBrowserData())throw new DOMException('Paused','AbortError');
             if((latest.current.remote?.user.id??null)!==account)throw new Error('Your Arkpedia account changed. Downloads paused.');
@@ -109,6 +115,7 @@ function EnabledDownloads({children}:{children:ReactNode}){
         if(!paused)try{localStorage.setItem(cooldownKey(namespace),String(Date.now()+replayRetrySeconds(error)*1000));}catch{/* The reported failure still stops the queue. */}
       }
     }finally{
+      releaseRelay();
       if(active.current===job){active.current=null;if(current.current.phase==='pausing')update({phase:'paused'});}
       if(generation.current===version)try{await recount(namespace,version);}catch{update({phase:'error',message:'This browser could not open auto-deploy storage.'});}
     }

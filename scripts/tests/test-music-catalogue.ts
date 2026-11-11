@@ -158,9 +158,9 @@ test('the bundle guard fails a browser compilation that holds any data/ record i
   // Denied by default: albums, and skins too, which the old named list never mentioned.
   assert.deepEqual(deniedClientModules([`${root}/data/albums.json`, `${root}/data/albums.json?x`, `${root}/data/skins.json`, undefined], root, none), ['data/albums.json', 'data/skins.json']);
   assert.deepEqual(deniedClientModules([`${root}/lib/music/musicCatalogue.ts`, `${root}/data/assets/revisions.json`, `${root}/data/polls/power-scale-v1.0.json`], root, none), []);
-  // SL-4b's table passes only through its one importer.
+  // Timed windows are denied even through the former emergency importer.
   const windows = `${root}/data/skin-availability-windows.json`;
-  assert.deepEqual(deniedClientModules([windows], root, () => ['lib/skins/localSkinWindows.ts']), []);
+  assert.deepEqual(deniedClientModules([windows], root, () => ['lib/skins/localSkinWindows.ts']), ['data/skin-availability-windows.json']);
   assert.deepEqual(deniedClientModules([windows], root, () => ['lib/skins/localSkinWindows.ts', 'lib/skins/skinAvailability.ts']), ['data/skin-availability-windows.json']);
 
   const compile = (resources: string[]) => {
@@ -181,7 +181,7 @@ test('the bundle guard fails a browser compilation that holds any data/ record i
   assert.equal(errors.length, 1);
   assert.match(errors[0], /^data\/albums\.json is compiled into browser code \(imported by lib\/music\/albumsData\.ts <- lib\/music\/musicPlayerContext\.tsx <- pages\/_app\.tsx\)\. /);
   assert.deepEqual(compile([`${root}/pages/_app.tsx`, `${root}/lib/music/musicCatalogue.ts`]), []);
-  assert.deepEqual(compile([`${root}/pages/skins.tsx`, `${root}/lib/skins/localSkinWindows.ts`, `${root}/data/skin-availability-windows.json`]), []);
+  assert.match(compile([`${root}/pages/skins.tsx`, `${root}/lib/skins/localSkinWindows.ts`, `${root}/data/skin-availability-windows.json`])[0], /^data\/skin-availability-windows\.json is compiled into browser code/);
   assert.match(compile([`${root}/pages/skins.tsx`, `${root}/lib/skins/skinAvailability.ts`, `${root}/data/skin-availability-windows.json`])[0], /^data\/skin-availability-windows\.json is compiled into browser code \(imported by lib\/skins\/skinAvailability\.ts/);
 });
 

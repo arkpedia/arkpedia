@@ -205,7 +205,7 @@ test('silent autoplay refusal eventually offers Play without loading the main pl
   expect((await youtube(page))?.players).toBe(0);
 });
 test('MSR-only page music uses a separate element and stops on departure', async ({page}) => {
-  await stubYouTube(page); await enable(page); const siren=await stubMonsterSiren(page);
+  await stubYouTube(page); await enable(page, { eventMusic: true }); const siren=await stubMonsterSiren(page);
   await page.route('**/music-catalogue.json',route=>route.fulfill({json:{songs:[{cid:'232236',title:'Touch of the Law'}]}}));
   await page.goto(event);
   await expect(page.locator('[data-page-audio]')).toHaveAttribute('data-page-audio',/playing|blocked/);
@@ -220,8 +220,18 @@ test('MSR-only page music uses a separate element and stops on departure', async
 });
 
 test('Yet Another Wave resolves its published Mirari recording', async ({page}) => {
-  await stubYouTube(page); await enable(page); const siren=await stubMonsterSiren(page);
-  await page.goto('/events/'+encodeURIComponent('[side story] Yet Another Wave'));
+  await stubYouTube(page); await enable(page, { eventMusic: true }); const siren=await stubMonsterSiren(page);
+  const name='[side story] Yet Another Wave',path='/events/'+encodeURIComponent(name);
+  // The pinned browser snapshot predates automatic lobby associations. Supply the
+  // published table through a real client navigation, as a newer content release
+  // does. Server-side association generation is covered by test-page-music-table.
+  const response=await page.request.get(path);expect(response.ok()).toBe(true);
+  const html=await response.text();
+  const data=JSON.parse(html.match(/<script id="__NEXT_DATA__" type="application\/json">([\s\S]*?)<\/script>/)![1]).props;
+  expect(Array.isArray(data.pageProps.__contentTables['page-music'])).toBe(true);
+  data.pageProps.__contentTables['page-music']=[{names:['Yet Another Wave','昨日海'],cid:'306864'}];
+  await page.route(url=>url.pathname.startsWith('/_next/data/')&&decodeURIComponent(url.pathname).endsWith(`/events/${name}.json`),route=>route.fulfill({json:data}));
+  await page.goto('/games/music-guesser');await navigate(page,path);
   await expect(page.locator('[data-page-audio]')).toHaveAttribute('data-page-audio',/playing|blocked/);
   if(await page.locator('[data-page-audio]').getAttribute('data-page-audio')==='blocked') {
     const menu=await settings(page); await menu.getByRole('button',{name:'Play background music',exact:true}).click();
@@ -236,18 +246,17 @@ for (const theme of ['dark', 'light']) test(`background now-playing stays separa
   await page.addInitScript(theme=>localStorage.setItem('theme',theme),theme);
   await page.goto(event); await playing(page);
   const opener=shell(page).getByRole('button',{name:'Expand player'});
-  const box=(await opener.boundingBox())!; const point={x:box.x+box.width/2,y:box.y+box.height/2};
   await opener.click();
   const row=shell(page).getByRole('group',{name:'Background music'});
   await expect(row).toContainText('Background music · Playing');
   const themeTitle=await row.locator('.music-widget-title').innerText(); expect(themeTitle.length).toBeGreaterThan(0);
-  await expect(shell(page).locator('.music-widget-song')).toContainText('No song selected');
+  await expect(shell(page).locator('.music-transport-song-link')).toContainText('Nothing playing yet');
   // Let opening the personal player's engine settle: inspection must not steal audio.
   await expect.poll(async()=>(await youtube(page))?.players).toBe(1);
   await page.waitForTimeout(250);
   await playing(page); await expect(row).toContainText('Background music · Playing');
   if(process.env.ARKPEDIA_QA_CAPTURE) await page.screenshot({animations:'disabled',path:`${process.env.ARKPEDIA_QA_CAPTURE}/${info.project.name}-${theme}-background-playing.png`});
-  await page.mouse.click(point.x,point.y); await expect(opener).toBeVisible();
+  await shell(page).getByRole('button',{name:'Minimize player',exact:true}).click(); await expect(opener).toBeVisible();
   await navigate(page,'/music?view=library');
   await page.locator('.music-library-row .music-song-row-main').first().click();
   await expect.poll(async()=>(await youtube(page))?.state).toBe(1);

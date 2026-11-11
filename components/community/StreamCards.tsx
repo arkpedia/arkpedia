@@ -2,13 +2,14 @@ import Link from 'next/link';
 import Image from '@/components/content/ContentImage';
 import { YouTubeVideo } from '@/lib/music/youtube';
 import { TwitchStream } from '@/lib/community/twitch';
+import { videoDate } from '@/lib/music/youtubeDiscovery';
 
 /** The community pages' eyebrow: the section, with a crumb back to the hub. */
 export function CommunityEyebrow() {
   return <>Rhodes Island // <Link href="/world" prefetch={false}>World</Link></>;
 }
 
-export function VideoCard({ v, live }: { v: YouTubeVideo; live?: boolean }) {
+export function VideoCard({ v, live, relevanceLabel }: { v: YouTubeVideo; live?: boolean; relevanceLabel?: string }) {
   return (
     <a href={v.url} target="_blank" rel="noreferrer" className="video-card">
       <div className="video-thumb">
@@ -18,6 +19,9 @@ export function VideoCard({ v, live }: { v: YouTubeVideo; live?: boolean }) {
       </div>
       <div className="video-card-body">
         <p className="video-title">{v.title}</p>
+        {videoDate(v.publishedAt) && <p className="hint video-published"><time dateTime={v.publishedAt}>{videoDate(v.publishedAt)}</time></p>}
+        {!videoDate(v.publishedAt) && v.archived && <p className="hint video-published">Archive</p>}
+        {relevanceLabel && <p className="hint video-relevance">{relevanceLabel}</p>}
       </div>
     </a>
   );

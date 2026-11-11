@@ -79,7 +79,7 @@ export default function StoryPage({ map, chapters = {}, library = [] }: Props) {
           {view === 'map' && <InfoPopover label="About the story map"><p>
             <a href={map.source} target="_blank" rel="noopener noreferrer">{map.title}</a>, kept up to date from the original. Click
             a story to choose where to start reading it in Timo&apos;s reader.
-          </p><p>Drag to pan. Use the zoom buttons or Ctrl/⌘ + wheel to zoom around your pointer. Fit returns to the complete map.</p></InfoPopover>}</div>
+          </p><p>Drag to pan. Pinch inside the map to zoom it, or use the zoom buttons or Ctrl/⌘ + wheel. Fit shows the complete map.</p></InfoPopover>}</div>
           {chapter && !shown && <p className="hint" role="status">This chapter is not available in the current catalogue. <a href={entry?.url ?? READER} target="_blank" rel="noopener noreferrer">Open Timo&apos;s reader ↗</a></p>}
           <StoryMapView map={map} chapters={opener} library={library} view={view} />
         </section>

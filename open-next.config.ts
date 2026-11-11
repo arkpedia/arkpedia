@@ -1,6 +1,7 @@
 import { defineCloudflareConfig } from "@opennextjs/cloudflare";
 import r2IncrementalCache from "@opennextjs/cloudflare/overrides/incremental-cache/r2-incremental-cache";
 import doQueue from "@opennextjs/cloudflare/overrides/queue/do-queue";
+import queueCache from "@opennextjs/cloudflare/overrides/queue/queue-cache";
 import { regionalPageCache } from "./lib/cloudflare/regionalPageCache";
 
 // The Worker's page cache, as Vercel's ISR cache is for the Vercel deploys
@@ -12,6 +13,8 @@ import { regionalPageCache } from "./lib/cloudflare/regionalPageCache";
 //   only its first reader waits for R2.
 // - queue: a page past its revalidate time is re-rendered once, in the background, by the
 //   Durable Object bound as NEXT_CACHE_DO_QUEUE; visitors get the cached copy meanwhile.
+//   Deduplicate the same stale page for five seconds in each data centre before calling
+//   the object. New page versions have different deduplication IDs and still refresh.
 // - enableCacheInterception: a cached page is answered before the Next server loads, so a
 //   cache hit costs a few milliseconds of CPU, not a render.
 // No tag cache: the pages router's res.revalidate (pages/api/release-refresh.ts) re-renders a
@@ -22,7 +25,7 @@ import { regionalPageCache } from "./lib/cloudflare/regionalPageCache";
 const config = {
   ...defineCloudflareConfig({
     incrementalCache: regionalPageCache(r2IncrementalCache),
-    queue: doQueue,
+    queue: queueCache(doQueue, { regionalCacheTtlSec: 5, waitForQueueAck: true }),
     enableCacheInterception: true,
   }),
   buildCommand: "ARKPEDIA_WORKER=1 npm run build",

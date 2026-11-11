@@ -17,9 +17,9 @@ export const CROSSOVER_PAGE_MUSIC: { names: string[]; song: MusicCatalogueSong }
   } },
 ];
 
-/** Older content releases do not list these recordings yet. Preserve their existing
- * metadata when they do; the supplement must never duplicate a video in the queue. */
+/** Supplement older releases without replacing their reviewed metadata. */
 export function withCrossoverPageMusic(songs: MusicCatalogueSong[]): MusicCatalogueSong[] {
   const ids = new Set(songs.map(song => song.id));
   return [...songs, ...CROSSOVER_PAGE_MUSIC.filter(entry => !ids.has(entry.song.id)).map(entry => entry.song)];
 }
+

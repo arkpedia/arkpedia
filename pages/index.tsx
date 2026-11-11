@@ -10,17 +10,17 @@ import { parseGameWindow } from '@/lib/schedule/gameWindow';
 import { loadGameEvents } from '@/lib/home/frontPageContent';
 import { getAllSkins } from '@/lib/skins/skins';
 import { availableSkins, getSkinWindows, type SkinWindow } from '@/lib/skins/skinAvailability';
-import { withLocalConfirmedSkinWindows } from '@/lib/skins/localSkinWindows';
 import { getAllEvents } from '@/lib/schedule/schedule';
 import type { HeadhuntingBanner } from '@/lib/gacha/headhuntingBanners';
 import { getBannersSortedByDate } from '@/lib/gacha/headhuntingBannerData';
-import { GetStaticProps } from 'next';
+import { GetStaticProps, type GetStaticPropsContext } from 'next';
 import { useEffect, useState, useMemo } from 'react';
 import AnnouncementTicker from '@/components/layout/AnnouncementTicker';
 import { useReleaseTable } from '@/lib/content/context';
 import { checkSssCycle, type SssCycle } from '@/lib/schedule/sssCycle';
 import EventsPanel from '@/components/schedule/EventsPanel';
 import GachaBannersPanel from '@/components/home/GachaBannersPanel';
+import FarmableMaterialsPanel from '@/components/home/FarmableMaterialsPanel';
 import FeaturedOperatorsPanel from '@/components/home/FeaturedOperatorsPanel';
 import SkinsCarousel from '@/components/skins/SkinsCarousel';
 import CommunityFader from '@/components/home/CommunityFader';
@@ -36,11 +36,15 @@ import {
   getOngoingSkins,
 } from '@/lib/home/frontPageContent';
 import { Skin } from '@/lib/skins/skinTypes';
+import { withSkinArtwork } from '@/lib/skins/dynamicArtFallback';
 import { FarmingMaterial } from '@/lib/farming/farmingTypes';
 import { enrichWithLiveStatus, YouTubeVideo } from '@/lib/music/youtube';
 import { getLatestVideos } from '@/lib/music/youtubeFeedsServer';
 import { youtubeChannels, VIDEOS_PER_CHANNEL } from '@/lib/music/youtubeConfig';
-import { filterBannedByTitle } from '@/lib/music/contentFilter';
+import { featuredChannelVideos } from '@/lib/music/youtubeDiscovery';
+import { loadVideoDiscoveryContext } from '@/lib/music/youtubeContextServer';
+import { loadVideoArchive } from '@/lib/music/youtubeArchiveServer';
+import type { VideoDiscoveryContext } from '@/lib/music/youtubeRelevance';
 import type { TwitchStream } from '@/lib/community/twitch';
 import { EVENTS } from '@/lib/schedule/eventsConfig';
 import { CommunityEvent } from '@/lib/schedule/eventTypes';
@@ -59,6 +63,8 @@ interface Props {
   farmableMaterials: FarmingMaterial[];
   featuredStream: TwitchStream | null;
   featuredVideo: YouTubeVideo | null;
+  featuredVideos?: YouTubeVideo[];
+  videoContext?: VideoDiscoveryContext;
   earliestCommunityEvent: CommunityEvent | null;
   /** Each server's maintenance announced in game and not over (lib/home/maintenance.ts): the
    *  notice above the panels and the ticker. Absent from releases before it, so finalize fills it. */
@@ -82,6 +88,8 @@ export default function HomePage({
   ongoingSkins: globalSkins,
   farmableMaterials: globalMaterials,
   featuredVideo,
+  featuredVideos,
+  videoContext,
   earliestCommunityEvent,
   maintenance,
   now: requestNow,
@@ -135,16 +143,21 @@ export default function HomePage({
             the panels' h2s with nothing above them. */}
         <h1 className="visually-hidden">Arkpedia — Arknights community hub</h1>
         <MaintenanceNotice maintenance={maintenance} now={now} />
+        {/* The hero panels share one row so their bottoms meet. Below them the
+            columns stack independently; current farming stays outside the carousel. */}
+        <div className="front-hero-row">
+          <EventsPanel ongoing={deserializedEvents} upcoming={deserializedUpcoming} now={now} />
+          <GachaBannersPanel banners={deserializedBanners} activeIndex={activeBannerIndex} onSelect={setActiveBannerIndex} now={now} />
+        </div>
         <div className="front-page-left">
-          <EventsPanel ongoing={deserializedEvents} upcoming={deserializedUpcoming} farmableMaterials={farmableMaterials} now={now} />
+          <FarmableMaterialsPanel materials={farmableMaterials} now={now} />
           <SkinsCarousel skins={ongoingSkins} />
           {/* A "Packs -- Coming soon" panel stood here. Placeholders stay hidden until
               they have content (decision of 2026-09-25). */}
         </div>
         <div className="front-page-right">
-          <GachaBannersPanel banners={deserializedBanners} activeIndex={activeBannerIndex} onSelect={setActiveBannerIndex} now={now} />
           <FeaturedOperatorsPanel banner={activeBanner} />
-          <CommunityFader video={featuredVideo} event={earliestCommunityEvent} />
+          <CommunityFader videos={featuredVideos ?? (featuredVideo ? [featuredVideo] : [])} context={videoContext} now={now} event={earliestCommunityEvent} />
         </div>
       </main>
     </>
@@ -153,7 +166,7 @@ export default function HomePage({
 
 // Recompute time-sensitive homepage selections during server revalidation, at the
 // request's clock -- the same `now` the page renders its first paint from.
-async function finalizeHome(props: Props): Promise<Props> {
+async function finalizeHome(props: Props, context: GetStaticPropsContext): Promise<Props> {
   const { __calendar, ...rest } = props;
   if (!Number.isFinite(props.now)) throw new Error('/ needs the request clock: it is in CLOCK_UNITS (lib/content/pageClock.ts), and finalize never runs for an export');
   const now = new Date(props.now);
@@ -165,9 +178,10 @@ async function finalizeHome(props: Props): Promise<Props> {
   });
   const serialize = (event: GameEvent) => ({ ...event, start: event.start.toISOString(), end: event.end.toISOString() });
   const upcoming = getNextUpcomingEvent(now, events);
-  const rawVideos = await getLatestVideos(await youtubeChannels(), VIDEOS_PER_CHANNEL);
+  const rawVideos = await getLatestVideos(await youtubeChannels(), VIDEOS_PER_CHANNEL, context);
   const enrichedVideos = await enrichWithLiveStatus(rawVideos, process.env.YOUTUBE_API_KEY);
-  const videos = filterBannedByTitle(enrichedVideos.filter(video => !video.isLivestream));
+  const [videoContext, archivedVideos] = await Promise.all([loadVideoDiscoveryContext(props.now), loadVideoArchive()]);
+  const videos = featuredChannelVideos([...enrichedVideos, ...archivedVideos], props.now, videoContext);
   const communityEvent = [...EVENTS].filter(event => {
     const end = event.endTime ? new Date(event.endTime) : new Date(new Date(event.startTime).getTime() + 86400000);
     return end.getTime() >= now.getTime();
@@ -196,10 +210,10 @@ async function finalizeHome(props: Props): Promise<Props> {
     farmableMaterials: rest.farmableMaterials.map(material => ({ ...material, stages: material.stages.filter(stage => !stage.endAt || Date.parse(stage.endAt) > props.now) })).filter(material => material.stages.length),
     // What is on sale now, as /skins' Available now tab has it. A release from before the
     // windows were stored falls back to the old match against running events.
-    ongoingSkins: __calendar?.skinWindows
-      ? availableSkins(__calendar.skins, regionalSkinWindows(withLocalConfirmedSkinWindows(__calendar.skinWindows), regional?.servers?.en, 'en'), now)
-      : getOngoingSkins(now, __calendar?.skins, events),
-    featuredVideo: videos[0] || null, featuredStream: null, earliestCommunityEvent: communityEvent,
+    ongoingSkins: await withSkinArtwork(__calendar?.skinWindows
+      ? availableSkins(__calendar.skins, regionalSkinWindows(__calendar.skinWindows, regional?.servers?.en, 'en'), now)
+      : getOngoingSkins(now, __calendar?.skins, events)),
+    featuredVideo: videos[0] || null, featuredVideos: videos, videoContext, featuredStream: null, earliestCommunityEvent: communityEvent,
     // A release from before the regions, which held Global's list alone, counts as Global's.
     maintenance: currentRegionalMaintenance(Array.isArray(props.maintenance) ? { en: props.maintenance } : props.maintenance ?? {}, props.now),
   };
@@ -207,11 +221,11 @@ async function finalizeHome(props: Props): Promise<Props> {
 
 export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>('/', async () => ({ props: {
   ongoingEvents: [], upcomingEvent: null, ongoingBanners: [], ongoingSkins: [],
-  farmableMaterials: getEventFarmingMaterials((await import('@/data/event-farming.json')).default.drops), featuredStream: null, featuredVideo: null, earliestCommunityEvent: null,
+  farmableMaterials: getEventFarmingMaterials((await import('@/data/event-farming.json')).default.drops), featuredStream: null, featuredVideo: null, featuredVideos: [], earliestCommunityEvent: null,
   maintenance: readMaintenanceWindows(),
   // Stored in the data release, consumed on the server, and never sent to the browser.
   __calendar: {
-    events: loadGameEvents().map(event => ({ ...event, start: event.start.toISOString(), end: event.end.toISOString() })), banners: getBannersSortedByDate(), skins: getAllSkins(),
+    events: loadGameEvents().map(event => ({ ...event, start: event.start.toISOString(), end: event.end.toISOString() })), banners: getBannersSortedByDate(), skins: await withSkinArtwork(getAllSkins()),
     skinWindows: getSkinWindows(getAllSkins(), getAllEvents(), {
       confirmed: (await import('@/data/skin-availability-windows.json')).default,
       rotations: (await import('@/data/skin-shop-rotations.json')).default,

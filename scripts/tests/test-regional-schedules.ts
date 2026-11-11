@@ -1,3 +1,4 @@
+import { computeSkinCountdowns, type SkinWindow } from '../../lib/skins/skinAvailability';
 import { certificateMonths, greenCertificateIncome, certificatePulls } from '../../lib/pulls/incomeSettings';
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
@@ -113,4 +114,18 @@ test('monthly shops cross the account reset at 04:00, not regional midnight', ()
     assert.equal(certificatePulls(beforeReset, reset, 516, true, undefined, server), 76);
     assert.deepEqual(certificateMonths(beforeReset, reset, 'en'), ['2026-10']);
   }
+});
+
+
+test('official shop corrections replace older windows without reviving a closed sale', () => {
+  const old: SkinWindow = { event: 'Event', kind: 'shop', label: 'Outfits', newRelease: true, source: 'https://www.arknights.global/news/5045',
+    startAt: '2026-11-05T15:00:00Z', endAt: '2026-11-20T11:00:00Z', skinIds: ['A / Outfit', 'B / Other'] };
+  const corrected: SkinWindow = { ...old, startAt: '2026-11-05T17:00:00Z', endAt: '2026-11-19T11:00:00Z', skinIds: ['A / Outfit'] };
+  const next: SkinWindow = { ...old, source: 'https://www.arknights.global/news/9999', startAt: '2026-11-30T15:00:00Z', endAt: '2026-12-14T11:00:00Z', skinIds: ['A / Outfit'] };
+  const selected = regionalSkinWindows([old, next], { sources: {}, skinWindows: [corrected] }, 'en');
+  assert.equal(selected.filter(w => w.skinIds.includes('A / Outfit')).length, 2, 'the corrected sale and the distinct later reissue');
+  assert.equal(computeSkinCountdowns(new Date('2026-11-05T16:00:00Z'), selected).get('A / Outfit')?.live, false);
+  assert.equal(computeSkinCountdowns(new Date('2026-11-05T17:00:00Z'), selected).get('A / Outfit')?.live, true);
+  assert.equal(computeSkinCountdowns(new Date('2026-11-19T11:00:00Z'), selected).get('A / Outfit')?.live, false, 'a stale confirmation cannot extend the shop');
+  assert.equal(computeSkinCountdowns(new Date('2026-11-05T16:00:00Z'), selected).get('B / Other')?.live, true, 'unrelated stock is preserved');
 });

@@ -14,6 +14,24 @@ const cnOnly: HeadhuntingBanner = { ...jointRecord, name: 'A CN-only featured ba
 import { resolveGachaSimulatorBanners } from '../../lib/gacha/gachaBannerWindows';
 import { getAllEvents } from '../../lib/schedule/schedule';
 import { getEventCalendar } from '../../lib/home/frontPageContent';
+import { getPullSchedule } from '../../lib/pulls/schedule';
+
+test('a newly imported CN limited banner reaches the planner with the simulator forecast', () => {
+  const fresh: HeadhuntingBanner = {
+    name: '[Celebration] Cinders of Snow', category: 'limited', year: 2026,
+    global_date: null, cn_date: '2026/11/01–2026/11/15', linked_event: null,
+    pull_type: 'limited', cnPoolId: 'LIMITED_79_0_1',
+    six_stars: ['Talulah', 'Тоска'], five_stars: ['Ольга'],
+  };
+  const [simulated] = resolveGachaSimulatorBanners([fresh], [], []);
+  const [planned] = getPullSchedule([fresh]);
+  assert.ok(planned, 'an unlinked CN-only banner must not disappear from the planner');
+  assert.equal(`${planned.start}–${planned.end}`.replaceAll('-', '/'), simulated.global_date);
+  assert.equal(planned.datesEstimated, true);
+  assert.deepEqual(planned.sixStars, fresh.six_stars);
+  assert.equal(planned.poolId, fresh.cnPoolId);
+  assert.equal(fresh.global_date, null, 'the source remains unconfirmed');
+});
 
 test('simulator follows calendar forecasts and keeps confirmed Global dates', () => {
   const calendar = getEventCalendar();

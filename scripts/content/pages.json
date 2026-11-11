@@ -8,6 +8,7 @@
   "/pulls",
   "/account",
   "/friends",
+  "/community/support-units",
   "/skin-planner",
   "/free-op",
   "/story",
@@ -48,5 +49,8 @@
   "/voice-actors",
   "/search",
   "/community/projects",
-  "/support"
+  "/support",
+  "/community/statistics",
+  "/polls/favourite-skins",
+  "/polls"
 ]

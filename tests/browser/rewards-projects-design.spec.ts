@@ -4,7 +4,7 @@ import { expect, test } from '@playwright/test';
 import { markDocument, sameDocument } from './youtube-stub';
 
 test.beforeEach(async ({ page }) => {
-  await page.addInitScript(() => localStorage.setItem('arkpedia:privacy:v1', JSON.stringify({ version: 1, analytics: false, externalMedia: false, savedAt: Date.now() })));
+  await page.addInitScript(() => localStorage.setItem('arkpedia:privacy:v1', JSON.stringify({ version: 1, analytics: false, externalMedia: false, externalMediaChosen: true, savedAt: Date.now() })));
 });
 
 for (const theme of ['dark', 'light']) {

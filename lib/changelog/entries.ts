@@ -34,11 +34,158 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    at: '2026-11-10T08:03:35Z',
+    changed: [
+      { title: 'Clearer story reading progress', detail: 'Read, Unread and percentage labels use green, red and amber while story cards keep their quiet borders.', href: '/story' },
+      { title: 'Pinch to zoom the story map', detail: 'Two-finger gestures zoom the map, with normal page zoom available outside it.', href: '/story' },
+    ],
+    fixed: [{ title: 'Story map rendering on phones', detail: 'The map scales its text and artwork together without a full-size transformed board.', href: '/story' }],
+  },
+  {
+    at: '2026-11-09T16:36:19Z',
+    fixed: [
+      { title: 'Enemy tabs keep their place', detail: 'Switching between Resistances and Stages preserves the detail panel’s scroll position.', href: '/enemies' },
+      { title: 'Albums open reliably from Discover', detail: 'Opening an album no longer races a pending Show all or search update.', href: '/music/discover' },
+      { title: 'Instrumental lyrics and matching timing', detail: 'Recognizes alternate instrumental names and corrects measured recording and video-intro offsets.', href: '/music' },
+      { title: 'Twitch streams appear without a refresh', detail: 'Opening the Twitch tab from the homepage now checks the live feed immediately.', href: '/world' },
+      { title: 'Steady volume when switching song versions', detail: 'Switching between vocals and instrumentals keeps the same playback volume on iPhone.', href: '/music' },
+      { title: 'Outfit and music videos reach their categories', detail: 'Video grouping recognizes plural outfits, BGM compilations and voice lines instead of leaving them in Other.', href: '/world' },
+    ],
+    changed: [
+      { title: 'Expand mobile lyrics with one tap', detail: 'The lyrics button opens a taller scrolling view with the visualizer and playback controls still visible.', href: '/music' },
+      { title: 'Matching autoplay block icons', detail: 'The player and song rows use the same icon to keep a song out of automatic library playback.', href: '/music' },
+      { title: 'One player across the site', detail: 'Use the same controls in every music view and on other pages, with a minimize button and raised volume percentages.', href: '/music' },
+      { title: 'Clearer volume and player controls', detail: 'Favourite, Block and Stream-safe sit beside volume, and the speaker toggles mute while remembering the previous level.', href: '/music' },
+      { title: 'Consistent music layouts and menus', detail: 'Now Playing stays in place between tracks, while More keeps extra actions and shows help without expanding.', href: '/music' },
+      { title: 'Queue always opens as a popup', detail: 'Open your queue from any player or Music menu without leaving the current page.', href: '/music' },
+    ],
+  },
+  {
+    at: '2026-11-08T08:09:00Z',
+    added: [
+      { title: 'Most liked on Arkpedia', detail: 'Discover ranks songs daily using favourites from accounts that contribute to community statistics.', href: '/music/discover' },
+      { title: 'Banner-specific headhunting guarantees', detail: 'See how Standard and Kernel Selection work after 150 and 300 pulls, alongside guides for Crossover and The Front That Was.', href: '/gacha-simulator' },
+    ],
+    changed: [
+      { title: 'A queue that follows what you play', detail: 'See upcoming tracks from your album, playlist or search, and open the queue while reading lyrics.', href: '/music' },
+      { title: 'Switch between vocals and instrumentals', detail: 'Switch at the matching passage on compatible recordings and choose a spectrum or waveform below the lyrics.', href: '/music' },
+    ],
+  },
+  {
+    at: '2026-11-06T23:00:00Z',
+    changed: [{ title: 'Community statistics load from daily totals', detail: 'Shared daily updates keep rankings quick to open, with the last update time shown on the page.', href: '/community/statistics' }],
+  },
+  {
+    at: '2026-11-06T20:00:00Z',
+    fixed: [{ title: 'Completed Paradox Simulations import correctly', detail: 'Successful handbook clears now count even when the game retains an unlocked stage state.', href: '/reward-tracker' }],
+    changed: [{ title: 'New Doctor mail is easier to identify', detail: 'Imports check the retained 3,800 Orundum supply mail; unavailable claim history stays manual and excluded from totals.', href: '/reward-tracker' }],
+  },
+  {
+    at: '2026-11-06T16:40:00Z',
+    title: 'Videos for what is happening now',
+    added: [
+      { title: 'Browse videos by category', detail: 'Find guides, operator analyses, outfit showcases and more, including CN videos.', href: '/world/videos' },
+      { title: 'Older guides return when relevant', detail: 'Current Global events, obtainable operators and available outfits bring useful older videos to the front.', href: '/world/videos' },
+    ],
+    changed: [
+      { title: 'One homepage video, different creators', detail: 'The Community carousel keeps one video slot and features a different creator each round.', href: '/' },
+      { title: 'Farming materials have their own card', detail: 'Currently farmable materials stay separate from upcoming events, with larger gacha banner previews nearby.', href: '/' },
+    ],
+    fixed: [{ title: 'Videos survive temporary feed failures', detail: 'The last successful uploads remain available when YouTube feeds cannot be reached.', href: '/world/videos' }],
+  },
+  {
+    at: '2026-11-06T10:54:00Z',
+    fixed: [{ title: 'Reruns use imported stage progress first', detail: 'Available stage records take priority over medals when detecting whether you already cleared a rerun.', href: '/pull-planner' }],
+  },
+  {
+    at: '2026-11-05T21:53:00Z',
+    title: 'Clearer browsing across Arkpedia',
+    added: [
+      { title: 'Enemy names in the picker', detail: 'Enemy tiles show names alongside handbook codes, including on phones.', href: '/enemies' },
+      { title: 'Search examples to get started', detail: 'Try an operator, stage, event or music search directly from the empty search page.', href: '/search' },
+      { title: 'More community streams and videos', detail: 'Homepage community cards now include links to the matching World section.', href: '/' },
+    ],
+    changed: [
+      { title: 'Better framing on the homepage', detail: 'Event and banner art fit their slots more closely, with aligned panels on desktop.', href: '/' },
+      { title: 'More compact operator filters', detail: 'Search, rarity and class filters share a row on wide screens.', href: '/operators' },
+      { title: 'Clearer account and information pages', detail: 'An empty profile offers an import action; information-page navigation aligns consistently on phones.', href: '/account' },
+      { title: 'A shared card entrance', detail: 'Operator, outfit and stage catalogues use the same short rise, respecting reduced motion.' },
+    ],
+    fixed: [
+      { title: 'Enemy pages open at the top', detail: 'Opening the handbook on a phone keeps the heading and picker in view.', href: '/enemies' },
+      { title: 'More readable stage labels', detail: 'Stage names and years get more room, and desktop Terminal sections span the bar.', href: '/stages' },
+      { title: 'Wishlist totals and farming rows align', detail: 'Wishlist totals wrap on phones, while farming stage codes line up beneath material names.', href: '/pull-planner' },
+    ],
+  },
+  {
+    at: '2026-11-05T20:00:00Z',
+    fixed: [{title: 'Skin dates follow live schedule corrections', detail: 'The gallery and homepage use the published shop windows together, including corrected opening and closing times.', href: '/skins'}],
+  },
+  {
+    at: '2026-11-05T19:50:00Z',
+    fixed: [{title: 'Rerun outfits appear when their shop opens', detail: 'Outfit shops, banners and rewards now share official notice dates, including notices that omit the year.', href: '/skins'}],
+  },
+  {
+    at: '2026-11-05T17:40:35Z',
+    added: [{title:'Full-screen artwork from live poll results',detail:'Open full-size art and animations from the podium, tier list or ranking tables, then return to the same results.',href:'/polls/favourite-skins'}],
+    fixed: [{title:'More reliable cold statistics loads',detail:'New regions retry brief database overloads once, while cached totals still respect current sharing consent.',href:'/community/statistics'}],
+  },
+  {
+    at: '2026-11-05T15:13:28Z',
+    added: [{title:'Full-screen art while rating skins',detail:'Open an outfit’s artwork and animations, then return to the same rating.',href:'/polls/favourite-skins'}],
+    changed: [
+      {title:'Poll previews show the actual leaders',detail:'Both poll cards place first in the middle, with second on the left and third on the right.',href:'/polls'},
+      {title:'Clearer ways back from community results',detail:'Back buttons return from artwork, rating dialogs, detailed results and poll pages.',href:'/polls'},
+    ],
+  },
+  {
+    at: '2026-11-05T12:30:00Z',
+    added: [
+      { title: 'Explore community rankings', detail: 'Compare operator upgrades and uploaded auto-deploy usage, with filters and absolute or relative rankings.', href: '/community/statistics' },
+      { title: 'Arkpedia Drip Awards', detail: 'Rate outfits from 1–10, return to your saved ratings, and explore public rankings, tier lists and detailed results.', href: '/polls' },
+    ],
+    changed: [
+      { title: 'Community and Extras menus', detail: 'Find polls, statistics and supports together; Music and Games now live in Extras.' },
+      { title: 'Friends have their own profile tab', detail: 'Import manually shared friend files from the Friends tab.', href: '/account' },
+    ],
+  },
+  {
     at: '2026-11-04T17:00:00Z',
     fixed: [
       { title: 'The base optimizer staffs the Reception Room and HR Office properly', detail: 'They get operators with a skill for the room, preferring the ones you have promoted, or stay empty with the names to put there by hand. Before, the search left whoever it last tried in them.', href: '/base' },
       { title: 'The base optimizer says when it cannot compare your layout', detail: 'A testing account with no base layout gets a note in place of a 2-5-2 checkbox that could not be turned off.', href: '/base' },
     ],
+  },
+  {
+    at: '2026-11-04T14:10:00Z',
+    fixed: [{ title: 'Talulah’s pull chances', detail: 'Plan Talulah goals with confirmed CN rates, exchange costs, and her 300-pull gift.', href: '/pull-planner' }],
+  },
+  {
+    at: '2026-11-04T08:07:00Z',
+    fixed: [{ title: 'New banners reach the Pull Planner', detail: 'CN banners such as Talulah’s now use the same estimated Global dates as the gacha simulator.', href: '/pull-planner' }],
+  },
+  {at:'2026-11-03T19:05:00Z',changed:[{title:'One search for operators and friend tags',detail:'Choose an operator or search a shared in-game tag from the same field.',href:'/community/support-units'}],fixed:[{title:'Support cards stay compact after filtering',detail:'Small result lists keep the same card size as the full list.',href:'/community/support-units'}]},
+  {at: '2026-11-03T19:00:00Z', fixed: [{title: 'Community stats match available promotions', detail: 'Lower-rarity operators show their highest available promotion and hide unavailable masteries.', href: '/operators'}]},
+  {
+    at: '2026-11-03T17:15:00Z',
+    added: [{ title: 'Find supports by in-game tag', detail: 'Search shared friend tags alongside operator and build filters.', href: '/community/support-units' }],
+    changed: [
+      { title: 'Saving and sharing in one place', detail: 'Manage private saves and community choices in one tab, with explanations beside each option.', href: '/account' },
+      { title: 'Clearer community build statistics', detail: 'Headlines show M3 and level 3 modules; legends now include no masteries and no module.', href: '/operators' },
+    ],
+  },
+  {
+    at: '2026-11-03T15:10:00Z',
+    added: [{ title: 'Community stats across regions', detail: 'Choose All to combine Global, JP and KR statistics, or select a region for its own results.', href: '/operators' }],
+  },
+  {
+    at: '2026-11-03T14:00:00Z',
+    fixed: [{ title: 'Tab underlines at every zoom', detail: 'Skill and other tab underlines stay aligned when you change your browser zoom.' }, { title: 'Animated outfits from every entry point', detail: 'Animated artwork is available from homepage, event and calendar outfit popups, just like the skin gallery.', href: '/skins' }],
+  },
+  {
+    at: '2026-11-03T12:53:00Z',
+    changed: [{ title: 'Clearer mastery and promotion stats', detail: 'Skill bars show M1–M3 among E2 owners, and the promotion headline shows the E2 percentage.', href: '/operators' }],
+    fixed: [{ title: 'Statistics popups stay out of the way', detail: 'Mouse details close as soon as you leave the bar, keeping lower modules accessible; touch and keyboard still work.', href: '/operators' }],
   },
   {
     at: '2026-11-03T12:00:00Z',
@@ -50,6 +197,55 @@ export const CHANGELOG: ChangelogEntry[] = [
     fixed: [
       { title: 'Optimizer rotations fit the game\'s presets', detail: 'The base optimizer now recommends rotations that fit the three presets the game stores, and saving one creates a setup per preset.', href: '/base' },
     ],
+  },
+  {
+    at: '2026-11-03T10:15:00Z',
+    changed: [
+      { title: 'Community stats at a glance', detail: 'Compact bars show promotion, skill ranks and exact module levels, with percentages on hover or tap.', href: '/operators' },
+      { title: 'Refreshed outfit details', detail: 'Larger uncropped artwork, compact details and easier controls on phones.', href: '/skins' },
+      { title: 'Streamer Mode music filters', detail: 'More known claim-risk artists and duplicate recordings are excluded when Streamer Mode is on.', href: '/music' },
+    ],
+    fixed: [
+      { title: 'Import and keep downloading', detail: 'Opted-in auto-deploy downloads start after importing and continue while you browse in the same tab.', href: '/account' },
+      { title: 'Your profile picture follows your account', detail: 'Profile pictures save separately from replaceable cloud saves, with clearer profile settings.', href: '/account' },
+      { title: 'The same artwork viewer everywhere', detail: 'Account and friend skins use the full artwork viewer, with centred controls on phones.', href: '/account' },
+      { title: 'Support filters survive reload', detail: 'Reloading a filtered support search no longer briefly offers unfiltered builds.', href: '/community/support-units' },
+      { title: 'Planner rewards switch off completely', detail: 'Off excludes expected rewards, including unclaimed permanent-content rewards.', href: '/planner' },
+    ],
+  },
+  {
+    at: '2026-11-02T22:45:00Z',
+    fixed: [{ title: 'Annihilation auto-deploy downloads', detail: 'Sync all uses the correct replay address for Annihilation stages, and failed requests now name the stage.', href: '/account' }],
+  },
+  {
+    at: '2026-11-02T21:15:00Z',
+    changed: [{ title: 'Community stats for smaller groups', detail: 'Once a server has 10 contributors, all known upgrade and outfit percentages appear, including zeroes.', href: '/operators' }],
+  },
+  {
+    at: '2026-11-02T20:20:00Z',
+    fixed: [{ title: 'Auto-deploy download banner', detail: 'Download progress now stays centred within the page width on phones and desktops.', href: '/account' }],
+  },
+  {
+    at: '2026-11-02T15:20:00Z',
+    added: [
+      { title: 'Arkpedia accounts enter Beta', detail: 'Sign in with Google or Discord and choose which settings, plans and imported game data to save across devices.', href: '/account' },
+      { title: 'Find community support units', detail: 'Opt in to share your equipped supports and friend tag, or search by operator, level and mastery.', href: '/community/support-units' },
+      { title: 'Community operator and skin statistics', detail: 'Contribute optionally to ownership, upgrades, masteries and outfit statistics.', href: '/operators' },
+      { title: 'Background and event music', detail: 'Enable either separately and choose a background song, including your imported menu theme or Endfield music.', href: '/music' },
+      { title: 'Save your auto-deploys', detail: 'Download and optionally save replays to your account while browsing, with pause and resume controls.', href: '/account' },
+    ],
+  },
+  {
+    at: '2026-11-02T12:00:00Z',
+    fixed: [{ title: 'Walking chibis keep their size', detail: 'Detached skin decorations no longer make roaming characters unusually small.', href: '/operators' }],
+  },
+  {
+    at: '2026-11-02T00:58:00Z',
+    fixed: [{ title: 'Headhunting filters include every rarity', detail: 'Standard and Kernel headhunting now work with lower-rarity operator filters.', href: '/operators' }],
+  },
+  {
+    at: '2026-11-01T23:35:00Z',
+    fixed: [{ title: 'Calendar years stay visible', detail: 'Browsing beyond the scheduled years keeps the selected year visible and the calendar controls in place.', href: '/schedule' }],
   },
   {
     at: '2026-10-31T19:00:00Z',

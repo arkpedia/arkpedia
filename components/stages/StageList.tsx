@@ -503,7 +503,7 @@ export default function StageList({ typeCounts, now, selectedSlug }: Props) {
         <div className="stage-rail-head">
           <SearchInput
             label="Search stages"
-            placeholder="Search by code or name..."
+            placeholder="Code or name…"
             value={filters.search}
             onChange={(search) => setFilters((f) => ({ ...f, search }))}
           />

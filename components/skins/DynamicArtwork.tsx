@@ -2,7 +2,8 @@ import { useEffect, useRef, type PointerEvent } from 'react';
 import { useContentUrl } from '@/lib/content/context';
 import { assetAudioUrl, fetchAsset, loadAssetImage, retryAssetAudioOnNextPress, retryAssetMedia } from '@/lib/assets/assetRetry';
 import { alphaBox, visibleWorldBox, posterView, type ArtworkBox } from '@/lib/skins/artworkFraming';
-import { selectableAnimations, voiceActionEnd, voiceAnimation, VoiceChoreography, type ArtworkVoice } from '@/lib/skins/dynamicPlayback';
+import { selectableAnimations, voiceActionEnd, voiceAnimation, VoiceChoreography } from '@/lib/skins/dynamicPlayback';
+import { artworkVoicePack, type ArtworkVoicePack } from '@/lib/skins/artworkVoices';
 import type { spine as Spine } from '@/lib/vendor/spine-3.8/spine-webgl';
 import { premultipliedTexture } from '@/lib/spine/premultipliedTexture';
 import {
@@ -65,7 +66,8 @@ export type DynamicArtworkStatus =
   | { kind: 'loading' }
   /** The first frame is on the canvas: the still picture can step aside. `sound`: the outfit's
    *  entrance has a soundtrack (the view then offers a Sound switch). */
-  | { kind: 'ready'; animations: string[]; labels: Record<string, string>; sound: boolean }
+  | { kind: 'ready'; animations: string[]; labels: Record<string, string>; sound: boolean;
+      voiceLanguages: { value: string; label: string }[]; voiceLanguage: string | null }
   | { kind: 'error'; message: string };
 
 interface Props {
@@ -84,6 +86,7 @@ interface Props {
   /** Whether the entrance's soundtrack is heard (the view's Sound switch). */
   sound: boolean;
   voiceOperator?: string;
+  voiceLanguage: string;
   onStatus: (status: DynamicArtworkStatus) => void;
   /** The animation now playing, for the buttons' pressed state; null while it stands still. */
   onPlaying: (name: string | null) => void;
@@ -93,6 +96,7 @@ interface Player {
   press: (name: string) => void;
   resize: () => void;
   setSound: (on: boolean) => void;
+  setVoiceLanguage: (language: string) => void;
   dispose: () => void;
 }
 
@@ -206,8 +210,11 @@ async function loadModel(url: string, signal: AbortSignal, operator: string | un
   url = resolveUrl(url);
   const model = parseDynamicModel(await (await fetchOk(url, signal)).json());
   const file = (name: string) => new URL(name, url).href;
-  const voices: ArtworkVoice[] = operator && model.playback?.voiceActions.length ? await fetchOk(`/api/artwork-voices?operator=${encodeURIComponent(operator)}&skinId=${encodeURIComponent(model.skinId.replace(/\^sp_dyn$/, ''))}`, signal)
-    .then(r => r.json()).then((records: ArtworkVoice[]) => records.map(v => ({ ...v, url: resolveUrl(v.url) }))).catch(() => []) : [];
+  const voicePacks: ArtworkVoicePack[] = operator && model.playback?.voiceActions.length ? await fetchOk(`/api/artwork-voices?operator=${encodeURIComponent(operator)}&skinId=${encodeURIComponent(model.skinId.replace(/\^sp_dyn$/, ''))}&languages=all`, signal)
+    .then(r => r.json()).then((packs: ArtworkVoicePack[]) => packs.map(pack => ({ ...pack,
+      voices: pack.voices.filter(voice => model.playback!.voiceActions.some(action => action.id === voice.id))
+        .map(voice => ({ ...voice, url: resolveUrl(voice.url) })),
+    })).filter(pack => pack.voices.length > 0)).catch(() => []) : [];
   const [illustration, entrance, audio, layers, posterBounds] = await Promise.all([
     loadSkeleton(model, file, signal),
     model.entrance ? loadSkeleton(model.entrance, file, signal) : null,
@@ -215,7 +222,7 @@ async function loadModel(url: string, signal: AbortSignal, operator: string | un
     model.layers ? loadLayers(model.layers.file, file, signal) : null,
     loadPoster(resolveUrl(poster), signal),
   ]);
-  return { model, ...illustration, entrance, audio, layers, voices, posterBounds };
+  return { model, ...illustration, entrance, audio, layers, voicePacks, posterBounds };
 }
 
 type SpineContext = InstanceType<SpineRuntime['webgl']['ManagedWebGLRenderingContext']>;
@@ -243,8 +250,9 @@ function readSkeleton(spine: SpineRuntime, context: SpineContext, files: Awaited
 function createPlayer(spine: SpineRuntime, host: HTMLElement, files: Awaited<ReturnType<typeof loadModel>>, options: {
   reducedMotion: boolean;
   sound: boolean;
+  voiceLanguage: string;
   scale: () => number;
-  onFirstFrame: (animations: string[], sound: boolean, labels: Record<string, string>) => void;
+  onReady: (status: Extract<DynamicArtworkStatus, { kind: 'ready' }>) => void;
   onPlaying: (name: string | null) => void;
   /** The particles, when they came within the grace; else the load still running (they fade in), or null. */
   particles: { ready: ParticleFiles | null; later: Promise<ParticleFiles | null> | null };
@@ -346,8 +354,18 @@ function createPlayer(spine: SpineRuntime, host: HTMLElement, files: Awaited<Ret
     };
     // How long the illustration has run since it took over (the layers' clock).
     let illustrationTime = 0;
-    const names = selectableAnimations(data.animations.map((animation) => animation.name), model.playback);
-    const labels = Object.fromEntries((model.playback?.voiceActions ?? []).map((action, i) => [voiceAnimation(action.id), files.voices.find(v => v.id === action.id)?.title ?? `Dialogue ${i + 1}`]));
+    const allNames = selectableAnimations(data.animations.map((animation) => animation.name), model.playback);
+    let voicePack = artworkVoicePack(files.voicePacks, options.voiceLanguage);
+    const availableNames = () => allNames.filter(name => !voicePack || !name.startsWith('voice:')
+      || voicePack.voices.some(voice => voiceAnimation(voice.id) === name));
+    let names = availableNames();
+    const reportReady = () => options.onReady({ kind: 'ready', animations: names,
+      labels: Object.fromEntries((model.playback?.voiceActions ?? []).map((action, i) => [voiceAnimation(action.id),
+        voicePack?.voices.find(voice => voice.id === action.id)?.title ?? `Dialogue ${i + 1}`])),
+      sound: !!audio || !!voicePack,
+      voiceLanguages: files.voicePacks.map(pack => ({ value: pack.id, label: pack.label })),
+      voiceLanguage: voicePack?.id ?? null,
+    });
     const scene = renderer;
     const reduced = options.reducedMotion;
     const hasEntrance = entrance !== null;
@@ -566,7 +584,7 @@ function createPlayer(spine: SpineRuntime, host: HTMLElement, files: Awaited<Ret
       const clock = clockNow();
       stepParticles(clock, delta, now);
       draw(clock);
-      if (firstFrame) { firstFrame = false; options.onFirstFrame(names, !!audio || files.voices.length > 0, labels); }
+      if (firstFrame) { firstFrame = false; reportReady(); }
       if (moving() || fadeFrom !== null) frameId = requestAnimationFrame(frame);
       else last = 0;
     };
@@ -637,7 +655,7 @@ function createPlayer(spine: SpineRuntime, host: HTMLElement, files: Awaited<Ret
         speech = { key: name, choreography: new VoiceChoreography(action, state), time: 0, end: voiceActionEnd(action, model.animations), waiting: false, heard: false };
         speech.choreography.apply(0);
         options.onPlaying(name);
-        const clip = files.voices.find(v => v.id === action.id);
+        const clip = voicePack?.voices.find(v => v.id === action.id);
         if (clip) {
           const current = speech;
           // Played inside the press, as a phone requires: from the clip's own address, or from the
@@ -703,6 +721,20 @@ function createPlayer(spine: SpineRuntime, host: HTMLElement, files: Awaited<Ret
       press,
       resize,
       setSound: (on: boolean) => { sound = on; if (audio) audio.muted = !on; if (voiceAudio) voiceAudio.muted = !on; },
+      setVoiceLanguage: (language: string) => {
+        const next = artworkVoicePack(files.voicePacks, language);
+        if (next === voicePack) return;
+        // End the old recording immediately; changing language does not reload the model.
+        if (speech) {
+          stopSpeech();
+          const rest = names.includes('Idle') ? 'Idle' : names.find(name => !name.startsWith('voice:'));
+          if (rest) press(rest);
+          else options.onPlaying(null);
+        }
+        voicePack = next;
+        names = availableNames();
+        reportReady();
+      },
       dispose: () => {
         disposed = true;
         if (frameId) cancelAnimationFrame(frameId);
@@ -720,12 +752,13 @@ function createPlayer(spine: SpineRuntime, host: HTMLElement, files: Awaited<Ret
   }
 }
 
-export default function DynamicArtwork({ model, poster, label, transform, scale, request, sound, voiceOperator, onStatus, onPlaying }: Props) {
+export default function DynamicArtwork({ model, poster, label, transform, scale, request, sound, voiceOperator, voiceLanguage, onStatus, onPlaying }: Props) {
   const resolveVoiceUrl = useContentUrl();
   const hostRef = useRef<HTMLDivElement>(null);
   const playerRef = useRef<Player | null>(null);
   const scaleRef = useRef(scale);
   const soundRef = useRef(sound);
+  const voiceLanguageRef = useRef(voiceLanguage);
   const handlers = useRef({ onStatus, onPlaying });
   const tap = useRef<{ x: number; y: number; at: number } | null>(null);
 
@@ -755,8 +788,9 @@ export default function DynamicArtwork({ model, poster, label, transform, scale,
         particles: { ready, later: pending && !ready ? pending : null },
         reducedMotion: window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false,
         sound: soundRef.current,
+        voiceLanguage: voiceLanguageRef.current,
         scale: () => scaleRef.current,
-        onFirstFrame: (animations, hasSound, labels) => { if (!controller.signal.aborted) handlers.current.onStatus({ kind: 'ready', animations, labels, sound: hasSound }); },
+        onReady: status => { if (!controller.signal.aborted) handlers.current.onStatus(status); },
         onPlaying: (name) => { if (!controller.signal.aborted) handlers.current.onPlaying(name); },
       });
       playerRef.current = player;
@@ -781,6 +815,11 @@ export default function DynamicArtwork({ model, poster, label, transform, scale,
     scaleRef.current = scale;
     playerRef.current?.resize();
   }, [scale]);
+
+  useEffect(() => {
+    voiceLanguageRef.current = voiceLanguage;
+    playerRef.current?.setVoiceLanguage(voiceLanguage);
+  }, [voiceLanguage]);
 
   useEffect(() => {
     soundRef.current = sound;

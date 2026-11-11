@@ -1,5 +1,5 @@
 import { Unzip, UnzipInflate, unzipSync, strFromU8 } from 'fflate';
-import { isServerId, type ServerId } from '@/lib/account-import/yostar';
+import { isServerId, type ServerId } from '../account-import/yostar';
 
 export const MAX_REPLAY_BYTES = 512_000;
 export const MAX_ARCHIVE_BYTES = 32 * 1024 * 1024;

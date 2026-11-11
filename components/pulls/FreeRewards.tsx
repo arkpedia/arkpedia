@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useState } from 'react';
 import SegmentedControl from '@/components/ui/SegmentedControl';
+import InfoPopover from '@/components/ui/InfoPopover';
 import { welfarePriority } from '@/lib/pulls/welfarePriority';
 import LoadOnScroll from '@/components/ui/LoadOnScroll';
 import { freeRewardAvailable, freeRewardLabel, isOperatorReward, LOCKED_LABEL, type FreeReward, type LockedReason } from '@/lib/pulls/freeRewards';
@@ -35,7 +36,7 @@ export default function FreeRewards({ rewards, icons, done, locked, onKeys, now,
       if (!upcoming && !freeRewardAvailable(reward, now)) continue;
       const unknown = reward.claimUnknown && !done.has(reward.id);
       if (show === 'unknown' ? !unknown : show !== 'all' && (unknown || (show === 'claimed') !== done.has(reward.id))) continue;
-      if (query && !`${reward.name} ${reward.event ?? ''} ${reward.rewards.map(item => item.name).join(' ')}`.toLowerCase().includes(query.toLowerCase())) continue;
+      if (query && !`${freeRewardLabel(reward)} ${reward.name} ${reward.event ?? ''} ${reward.rewards.map(item => item.name).join(' ')}`.toLowerCase().includes(query.toLowerCase())) continue;
       const list = groups.get(reward.group) ?? []; list.push(reward); groups.set(reward.group, list);
     }
     return groups;
@@ -52,7 +53,7 @@ export default function FreeRewards({ rewards, icons, done, locked, onKeys, now,
       <SegmentedControl label="Free rewards status" value={show} onChange={value => { setShow(value); setLimits({}); }} options={[{ value: 'all', label: 'All' }, { value: 'unclaimed', label: 'Unclaimed' }, { value: 'claimed', label: 'Claimed' }, { value: 'unknown', label: 'Needs confirmation' }]} />
       <label className="check"><input type="checkbox" checked={upcoming} onChange={event => { setUpcoming(event.target.checked); setLimits({}); }} />Include upcoming rewards</label>
     </div>
-    {rewards.some(reward => reward.claimUnknown && !done.has(reward.id)) && <p className="hint">Welcome-mail status needs confirmation. <button type="button" className="btn-bare" onClick={() => setShow('unknown')}>Review unknown claims</button></p>}
+    {rewards.some(reward => reward.claimUnknown && !done.has(reward.id)) && <p className="hint">New Doctor mail needs confirmation. <InfoPopover label="About New Doctor mail"><p>The one-time 3,800 Orundum supply sent when you started playing. An import can check it only while the game retains the mail. If you already received it, mark it claimed here.</p></InfoPopover> <button type="button" className="btn-bare" onClick={() => setShow('unknown')}>Review unknown claims</button></p>}
     {!groups.size && <p className="hint">No matching rewards.</p>}
     <div ref={floor.ref}>{[...groups].sort(([a], [b]) => (GROUP_ORDER.indexOf(a) < 0 ? 99 : GROUP_ORDER.indexOf(a)) - (GROUP_ORDER.indexOf(b) < 0 ? 99 : GROUP_ORDER.indexOf(b))).map(([group, list]) => {
       const limit = limits[group] ?? 30;
@@ -68,7 +69,7 @@ export default function FreeRewards({ rewards, icons, done, locked, onKeys, now,
             <WelfareCard key={reward.id} reward={reward} operator={operator} icon={icons[operator.id]} priority={welfarePriority(operator.name)} server={server} now={now} onPreview={setPreview}
               claim={{ checked: done.has(reward.id), lock: locked.get(reward.id), onChange: claimed => claim([reward.id], claimed) }} />)}</ul>}
           {plain.length > 0 && <ul className="pulls-past-list free-reward-list" aria-label={`${group}: claimed`}>{plain.map(reward => { const lock = locked.get(reward.id); return <li className={`free-reward-row${done.has(reward.id) ? ' is-claimed' : ''}`} key={reward.id}>
-            <label className="check" title={lock ? `${LOCKED_LABEL[lock]} (from your import)` : undefined}><input type="checkbox" checked={done.has(reward.id)} disabled={!!lock} onChange={event => claim([reward.id], event.target.checked)} /><span>{freeRewardLabel(reward)}{reward.claimUnknown && !done.has(reward.id) && <small> · Needs confirmation: mail history is absent from the import. Not included in totals.</small>}</span></label>
+            <label className="check" title={lock ? `${LOCKED_LABEL[lock]} (from your import)` : undefined}><input type="checkbox" checked={done.has(reward.id)} disabled={!!lock} onChange={event => claim([reward.id], event.target.checked)} /><span>{freeRewardLabel(reward)}{reward.claimUnknown && !done.has(reward.id) && <small> · Claim status unavailable; excluded from totals.</small>}</span></label>
             <div className="free-reward-content"><div className="free-reward-items">{reward.rewards.map(item => isOperatorReward(item) ? <FreeOperatorButton key={item.id} item={item} icon={icons[item.id]} onPreview={setPreview} /> : <FreeRewardItem key={item.id} item={item} icon={icons[item.id]} />)}{!reward.rewards.length && <small>Free pack</small>}</div>{(reward.startAt || reward.href || lock) && <div className="free-reward-meta">{reward.event && <small>From {reward.event}</small>}{reward.startAt && <small>{now < reward.startAt ? 'Upcoming' : reward.endAt ? `Until ${regionalDate(new Date(reward.endAt).toISOString(), server)}` : 'Available'}</small>}{lock && <small>{LOCKED_LABEL[lock]}</small>}{reward.href && <a href={reward.href}>Details →</a>}</div>}</div>
           </li>; })}</ul>}
           <LoadOnScroll shown={Math.min(limit, list.length)} total={list.length} onMore={() => setLimits(value => ({ ...value, [group]: limit + 30 }))} />

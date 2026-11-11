@@ -1,0 +1,77 @@
+name: Inventory or backfill native R2 assets
+on:
+  workflow_dispatch:
+    inputs:
+      operation:
+        description: 'Media history backfill, deduplicated JSON migration, or future direct Git publication'
+        type: choice
+        options: [media, data, unified]
+        default: media
+      apply:
+        description: 'Write verified native copies (false = source-only read-only forecast)'
+        type: boolean
+        default: false
+      max_new_bytes:
+        description: 'Maximum additional bytes for this backfill (required for apply)'
+        type: string
+        default: ''
+      max_total_bytes:
+        description: 'Maximum total native bucket bytes (required for apply)'
+        type: string
+        default: ''
+permissions:
+  contents: read
+concurrency:
+  # Use the existing publisher's lock for a consistent immutable source inventory.
+  group: public-assets-mirror
+  cancel-in-progress: false
+jobs:
+  plan:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    environment: public-assets
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Resolve current public sources for direct Git publication
+        if: inputs.operation == 'unified'
+        run: |
+          node scripts/content/pull-data.mjs
+          node scripts/content/asset-mirror-plan.mjs > unified-pins.json
+      # Explicit additive backfill only; no domain, Worker or application deployment.
+      - name: Inventory or publish every retained media revision
+        run: |
+          case "$OPERATION" in
+            media) script=scripts/content/native-assets.mjs ;;
+            data) script=scripts/content/migrate-dedup-data.mjs ;;
+            unified) script=scripts/content/unified-assets.mjs ;;
+            *) echo 'Unknown publication operation'; exit 1 ;;
+          esac
+          args=(--report=native-assets-plan.json)
+          if [ "$OPERATION" = unified ]; then args+=(--pins=unified-pins.json --cache="$RUNNER_TEMP/unified-git"); fi
+          if [ "$APPLY" = true ]; then
+            args+=(--apply --max-new-bytes="$MAX_NEW_BYTES" --max-total-bytes="$MAX_TOTAL_BYTES")
+            if [ "$OPERATION" = media ]; then args+=(--concurrency=64); fi
+          elif [ "$OPERATION" = media ]; then
+            args+=(--empty-destination)
+          fi
+          node "$script" "${args[@]}"
+        env:
+          OPERATION: ${{ inputs.operation }}
+          APPLY: ${{ inputs.apply }}
+          MAX_NEW_BYTES: ${{ inputs.max_new_bytes }}
+          MAX_TOTAL_BYTES: ${{ inputs.max_total_bytes }}
+          ARKPEDIA_NATIVE_R2_ACCESS_KEY_ID: ${{ secrets.ARKPEDIA_NATIVE_R2_ACCESS_KEY_ID }}
+          ARKPEDIA_NATIVE_R2_SECRET_ACCESS_KEY: ${{ secrets.ARKPEDIA_NATIVE_R2_SECRET_ACCESS_KEY }}
+          ARKPEDIA_R2_ACCOUNT_ID: '1ff51c10571eaa9934bc451e1bfdb361'
+          ARKPEDIA_R2_ACCESS_KEY_ID: ${{ secrets.ARKPEDIA_R2_ACCESS_KEY_ID }}
+          ARKPEDIA_R2_SECRET_ACCESS_KEY: ${{ secrets.ARKPEDIA_R2_SECRET_ACCESS_KEY }}
+      - uses: actions/upload-artifact@v7
+        with:
+          name: native-assets-plan-${{ github.run_id }}
+          path: native-assets-plan.json
+          if-no-files-found: error

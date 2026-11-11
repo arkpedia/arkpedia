@@ -3,22 +3,14 @@ import { readOnly } from './census-routes';
 import { markDocument, sameDocument, startMusic, stubYouTube, youtube } from './youtube-stub';
 import { mergePullArchives, type PullArchive } from '@/lib/account/pullArchive';
 
-// Account sign-in/cloud journeys belong to the isolated Preview build.
-test.beforeEach(async ({ request }, info) => {
-  if (info.title === 'unconfigured deployment keeps import and browser data available') return;
-  const response = await request.get('/build-info.json');
-  const build = response.ok() ? await response.json() : null;
-  test.skip(build?.deploymentRole !== 'staging', 'Cloud accounts are Preview-only; production exercises local profile/import controls.');
-});
-
-const profile = { username: 'Doctor#1234', friendTag: null as string | null, friendServer: null as string | null };
+const profile = { username: 'Doctor#1234', friendTag: null as string | null, friendServer: null as string | null, avatarId: null as string | null };
 async function mockAccount(page: Page, firstTime = false, data: Record<string, unknown> = {}) {
   await readOnly(page);
   const state = {
     remote: { user: { id: 'test-user', name: 'PRIVATE REAL GOOGLE NAME' }, profile: firstTime ? null : { ...profile },
       linkedProviders: ['google'], linkedAccounts: [{ id: 'google-id', providerId: 'google' }],
       syncReviewed: !firstTime, revision: 0, archiveRevision: 0, gameSync: false, personalSync: !firstTime, historySync: false, archives: [] as PullArchive[], paused: false, data, providers: ['google', 'discord'] },
-    signedIn: true, uploads: [] as string[], archiveWrites: [] as string[], cachedArchiveReads: 0, profileWrites: [] as Record<string, unknown>[], deletes: 0,
+    signedIn: true, failAvatar: false, uploads: [] as string[], archiveWrites: [] as string[], cachedArchiveReads: 0, profileWrites: [] as Record<string, unknown>[], deletes: 0,
   };
   await page.route('**/api/cloud-account', async route => {
     if (!state.signedIn) return route.fulfill({ status: 401, json: { providers: ['google', 'discord'] } });
@@ -52,7 +44,10 @@ async function mockAccount(page: Page, firstTime = false, data: Record<string, u
     if (request.method() === 'GET') return route.fulfill({ json: { available: new URL(request.url()).searchParams.get('username') !== 'Taken#1234' } });
     const input = request.postDataJSON(); state.profileWrites.push(input);
     if (request.method() === 'DELETE') { state.signedIn = false; return route.fulfill({ json: { deleted: true } }); }
-    state.remote.profile = { username: input.username, friendTag: input.friendTag || null, friendServer: input.friendServer || null };
+    if (request.method() === 'PATCH') {
+      if (state.failAvatar) return route.fulfill({ status: 503, json: { error: 'Your picture could not be saved. Try again.' } });
+      state.remote.profile!.avatarId = input.avatarId;
+    } else state.remote.profile = { username: input.username, friendTag: input.friendTag || null, friendServer: input.friendServer || null, avatarId: state.remote.profile?.avatarId ?? null };
     await route.fulfill({ json: { profile: state.remote.profile } });
   });
   await page.route('**/api/auth/sign-out', async route => { state.signedIn = false; await route.fulfill({ json: { success: true } }); });
@@ -103,7 +98,7 @@ for (const theme of ['dark', 'light']) {
     await page.getByRole('tab', { name: 'Profile', exact: true }).click();
     await page.getByRole('button', { name: 'Account settings' }).click();
     const settings = page.getByRole('dialog', { name: 'Account settings' });
-    await settings.getByRole('tab', { name: 'Saving', exact: true }).click();
+    await settings.getByRole('tab', { name: 'Saving & sharing', exact: true }).click();
     await expect(settings.getByRole('checkbox', { name: 'Save settings and plans' })).toBeChecked();
     await expect(settings.getByRole('checkbox', { name: 'Save imported game data' })).not.toBeChecked();
     const historyToggle = settings.getByRole('checkbox', { name: 'Save pull history' });
@@ -179,7 +174,7 @@ for (const theme of ['dark', 'light']) {
     await page.getByLabel('Arkpedia username', { exact: true }).fill('Taken#1234');
     await expect(page.getByText('That username is taken. Try another name or number.')).toBeVisible();
     await expect(page.getByRole('button', { name: 'Continue', exact: true })).toBeDisabled();
-    await page.getByRole('button', { name: 'Use Doctor#1234', exact: true }).click();
+    await page.getByRole('button', { name: 'Use game name: Doctor#1234', exact: true }).click();
     await expect(page.getByText('Username available', { exact: true })).toBeVisible();
     await capture(page, `setup-${theme}`, info);
     await page.getByRole('button', { name: 'Continue', exact: true }).click();
@@ -201,7 +196,7 @@ for (const theme of ['dark', 'light']) {
     await saving.getByRole('button', { name: 'Save choices', exact: true }).click();
     await expect(saving).toHaveCount(0);
     await expect(page.getByRole('button', { name: 'Cloud saving details' })).toBeVisible();
-    expect(state.profileWrites[0]).toMatchObject({ owner: 'test-user', username: 'Doctor#1234', friendTag: '', friendServer: null });
+    expect(state.profileWrites[0]).toMatchObject({ owner: 'test-user', username: 'Doctor#1234', friendTag: 'Doctor#1234', friendServer: 'en' });
     await expect.poll(() => state.uploads[0]).toContain('msr:local');
     for (const value of ['arkpediaAccount', 'PRIVATE-YOSTAR-TOKEN', 'private@example.invalid']) expect(state.uploads[0]).not.toContain(value);
     await expect(page.getByRole('button', { name: 'Use this browser’s data' })).toHaveCount(0);
@@ -211,14 +206,83 @@ for (const theme of ['dark', 'light']) {
     await expect(page.getByRole('heading', { name: 'Choose your Arkpedia username' })).toHaveCount(0);
     await page.getByRole('button', { name: 'Account settings' }).click();
     const settings = page.getByRole('dialog', { name: 'Account settings' });
-    await settings.getByText('Arknights friend tag (optional)', { exact: true }).click();
-    await settings.getByRole('button', { name: 'Use imported friend tag' }).click();
-    await expect(settings.getByLabel('Arknights name and #number', { exact: true })).toHaveValue('Doctor#1234');
-    await expect(settings.getByText('Username available', { exact: true })).toBeVisible();
+    await expect(settings.getByText('Doctor#1234', { exact: true })).toBeVisible();
+    await expect(settings.getByLabel('Arknights name and #number', { exact: true })).toHaveCount(0);
+    await expect(settings.getByText('Username available', { exact: true })).toHaveCount(0);
     await settings.getByRole('button', { name: 'Save profile' }).click();
     await expect(settings.getByText('Profile saved.', { exact: true })).toBeVisible();
     expect(state.profileWrites.at(-1)).toMatchObject({ friendTag: 'Doctor#1234', friendServer: 'en' });
     expect(state.remote.gameSync).toBe(false);
+  });
+
+  test(`profile help and account pictures survive reloads without adopting guest choices (${theme})`, async ({ page, browser, baseURL }, info) => {
+    const state = await mockAccount(page); await seed(page, theme);
+    state.remote.personalSync = false; state.remote.paused = true;
+    state.remote.profile!.friendTag = 'Doctor#1234'; state.remote.profile!.friendServer = 'en';
+    await page.addInitScript(() => localStorage.setItem('arkpedia:profile-avatar-v1', 'six-star-icons/Surtr - Base.webp'));
+    await page.goto('/account?settings=profile');
+    const settings = page.getByRole('dialog', { name: 'Account settings', exact: true });
+    await expect(settings.getByText('Username available', { exact: true })).toHaveCount(0);
+    await expect(settings.getByRole('button', { name: 'Use game name:', exact: false })).toHaveCount(0);
+    for (const [label, text] of [['Username rules', 'Use 3–40 characters:'], ['About your friend tag', 'Read from your latest game import.']]) {
+      const help = settings.getByRole('button', { name: label, exact: true });
+      await help.focus(); await page.keyboard.press('Enter');
+      await expect(page.getByText(text, { exact: false })).toBeVisible();
+      await capture(page, `profile-help-${label}-${theme}`, info);
+      await page.keyboard.press('Escape'); await expect(help).toBeFocused();
+    }
+    await capture(page, `profile-polish-${theme}`, info);
+    expect(await settings.evaluate(e => e.scrollWidth <= e.clientWidth)).toBe(true);
+    const pictureTab = settings.getByRole('tab', { name: 'Profile picture', exact: true });
+    await pictureTab.click();
+    await expect(settings.locator('.account-profile-summary img')).toHaveCount(0);
+    const help = settings.getByRole('button', { name: 'About your profile picture' });
+    await help.click(); await expect(page.getByText('Your picture saves when you select it', { exact: false })).toBeVisible();
+    await page.keyboard.press('Escape'); await expect(help).toBeFocused();
+    const search = settings.getByRole('searchbox', { name: 'Search profile icons' });
+    await search.fill('Suzuran - Base');
+    state.failAvatar = true;
+    await settings.getByRole('button', { name: 'Suzuran - Base', exact: true }).click();
+    await expect(settings.getByRole('alert')).toHaveText('Your picture could not be saved. Try again.');
+    await expect(settings.locator('.account-profile-summary img')).toHaveCount(0);
+    state.failAvatar = false;
+    await settings.getByRole('button', { name: 'Suzuran - Base', exact: true }).click();
+    await expect(settings.getByRole('status')).toHaveText('Profile picture saved to your account.');
+    await expect(settings.locator('.account-profile-summary img')).toHaveAttribute('src', /Suzuran/);
+    expect(state.remote.profile!.avatarId).toBe('six-star-icons/Suzuran - Base.webp');
+    expect(state.uploads).toHaveLength(0);
+    expect(await page.evaluate(() => localStorage.getItem('arkpedia:profile-avatar-v1'))).toBe('six-star-icons/Surtr - Base.webp');
+    await capture(page, `profile-picture-saved-${theme}`, info);
+    const otherContext = await browser.newContext({ baseURL });
+    try {
+      const otherPage = await otherContext.newPage();
+      const sameAccount = await mockAccount(otherPage);
+      sameAccount.remote.profile = { ...state.remote.profile! };
+      await otherPage.goto('/account?settings=profile');
+      const otherSettings = otherPage.getByRole('dialog', { name: 'Account settings', exact: true });
+      await expect(otherSettings.getByText('Doctor#1234', { exact: true })).toBeVisible();
+      await otherSettings.getByLabel('Arkpedia username', { exact: true }).fill('Fresh#1234');
+      await expect(otherSettings.getByText('Username available', { exact: true })).toBeVisible();
+      await otherSettings.getByRole('button', { name: 'Save profile', exact: true }).click();
+      await expect(otherSettings.getByText('Profile saved.', { exact: true })).toBeVisible();
+      expect(sameAccount.profileWrites.at(-1)).toMatchObject({ friendTag: 'Doctor#1234', friendServer: 'en' });
+      await otherSettings.getByRole('tab', { name: 'Profile picture', exact: true }).click();
+      await expect(otherSettings.locator('.account-profile-summary img')).toHaveAttribute('src', /Suzuran/);
+      expect(await otherPage.evaluate(() => localStorage.getItem('arkpedia:profile-avatar-v1'))).toBeNull();
+    } finally { await otherContext.close(); }
+
+    await page.reload();
+    await settings.getByRole('tab', { name: 'Profile picture', exact: true }).click();
+    await expect(settings.locator('.account-profile-summary img')).toHaveAttribute('src', /Suzuran/);
+    await settings.getByRole('button', { name: 'Use default', exact: true }).click();
+    await expect(settings.getByRole('status')).toHaveText('Profile picture saved to your account.');
+    expect(state.remote.profile!.avatarId).toBeNull();
+    await page.reload(); await settings.getByRole('tab', { name: 'Profile picture', exact: true }).click();
+    await expect(settings.locator('.account-profile-summary img')).toHaveCount(0);
+    state.remote.user.id = 'other-user'; state.remote.profile = { ...profile, username: 'Another Doctor' };
+    await page.reload(); await settings.getByRole('tab', { name: 'Profile picture', exact: true }).click();
+    await expect(settings.locator('.account-profile-summary img')).toHaveCount(0);
+    expect(state.profileWrites.filter(w => w.avatarId !== undefined)).toHaveLength(3);
   });
 
   test(`profile tabs preserve drafts and icon categories keep search width (${theme})`, async ({ page }, info) => {
@@ -250,7 +314,7 @@ for (const theme of ['dark', 'light']) {
       }
     }
     await search.fill('Suzuran - Base'); await settings.getByRole('button', { name: 'Suzuran - Base', exact: true }).click();
-    await expect(settings.getByRole('status')).toHaveText('Profile picture saved in this browser.');
+    await expect(settings.getByRole('status')).toHaveText('Profile picture saved to your account.');
     await expect.poll(() => settings.locator('.avatar-choice img').evaluate((img: HTMLImageElement) => img.naturalWidth)).toBeGreaterThan(0);
     await capture(page, `picture-tabs-${theme}`, info);
     await settings.getByRole('tab', { name: 'Profile', exact: true }).click();
@@ -270,7 +334,7 @@ for (const theme of ['dark', 'light']) {
     await settings.getByRole('tab', { name: 'Logins', exact: true }).click();
     await expect(settings.getByRole('button', { name: 'Link Discord' })).toBeVisible();
     await expect(settings.getByRole('button', { name: 'Unlink Google' })).toBeDisabled();
-    await settings.getByRole('tab', { name: 'Saving', exact: true }).click();
+    await settings.getByRole('tab', { name: 'Saving & sharing', exact: true }).click();
     const consent = settings.getByRole('checkbox', { name: 'Save imported game data' });
     await consent.check();
     await expect.poll(() => state.uploads.at(-1)).toContain('arkpediaAccount');
@@ -623,6 +687,8 @@ test('pending sync choices survive a fresh visit and failed confirmation, with a
 
 for (const theme of ['dark', 'light']) {
   test(`audio choices are available in Account settings and saved as personal preferences (${theme})`, async ({ page }, info) => {
+    // Three changes are uploaded by the real 15-second polling cycle.
+    test.setTimeout(90_000);
     await stubYouTube(page);
     const state = await mockAccount(page); await seed(page, theme);
     await page.goto('/account?settings=profile');
@@ -637,8 +703,8 @@ for (const theme of ['dark', 'light']) {
     await settings.getByLabel('Background Music', {exact:true}).uncheck();
     await expect.poll(() => state.remote.data['arkpedia:settings'], { timeout: 25000 }).toEqual({ version: 2, values: { backgroundMusic: false, eventMusic: true } });
     await capture(page, `account-audio-${theme}`, info);
-    await settings.getByRole('tab', { name: 'Saving', exact: true }).click();
-    await expect(settings.getByText('What saves to your account')).toBeVisible();
+    await settings.getByRole('tab', { name: 'Saving & sharing', exact: true }).click();
+    await expect(settings.getByText('Private cloud saving')).toBeVisible();
   });
 }
 

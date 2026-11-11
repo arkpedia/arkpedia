@@ -13,7 +13,7 @@
  */
 export const OPERATOR_SECTIONS = [
   'overview', 'artwork',
-  'skills', 'stats', 'talents', 'mastery', 'modules', 'promotion', 'potential', 'baseSkills',
+  'skills', 'stats', 'talents', 'community', 'mastery', 'modules', 'promotion', 'potential', 'baseSkills',
   'synergy', 'characterInfo', 'files', 'voiceLines', 'guides',
 ] as const;
 export type OperatorSection = (typeof OPERATOR_SECTIONS)[number];

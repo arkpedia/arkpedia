@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import LoadOnScroll from '@/components/ui/LoadOnScroll';
@@ -6,7 +7,7 @@ import StyledSelect from '@/components/ui/StyledSelect';
 import { useMusicPlayer } from '@/lib/music/musicPlayerContext';
 import { downloadBlob } from '@/lib/ui/downloadBlob';
 import { MUSIC_FAVORITES_EVENT, MUSIC_FAVORITES_KEY } from '@/lib/music/musicFavorites';
-import { formatPlaylistFile, MAX_PLAYLIST_BYTES, mergePlaylists, MUSIC_PLAYLISTS_EVENT, MUSIC_PLAYLISTS_KEY, readPlaylists, validatePlaylists, writePlaylists, initializeFavoritesPlaylist, FAVORITES_PLAYLIST_ID, isFavoritesPlaylistName, type MusicPlaylist } from '@/lib/music/musicPlaylists';
+import { formatPlaylistFile, MAX_PLAYLIST_BYTES, mergePlaylists, MUSIC_PLAYLISTS_EVENT, MUSIC_PLAYLISTS_KEY, readPlaylists, validatePlaylists, writePlaylists, initializeFavoritesPlaylist, FAVORITES_PLAYLIST_ID, isFavoritesPlaylistName, playlistHref, type MusicPlaylist } from '@/lib/music/musicPlaylists';
 import { parseMusicData } from '@/lib/music/musicData';
 import SongRow from './SongRow';
 import TransportIcon from './TransportIcons';
@@ -85,11 +86,11 @@ export default function MusicPlaylists({ songs, onClose }: { songs: { videoId: s
     } catch (error) { setNote(error instanceof Error ? error.message : 'This file could not be read.'); }
     finally { setBusy(false); if (file.current) file.current.value = ''; }
   }
-  async function play(all = false) {
+  async function play(all = false, selectedId?: string) {
     if (!all && !chosen) return;
     setBusy(true);
     try {
-      const count = await player.playPlaylist(all ? null : chosen.tracks, all ? undefined : chosen.id);
+      const count = await player.playPlaylist(all ? null : chosen.tracks, all ? undefined : { name: chosen.name, href: playlistHref(chosen.id), playlistId: chosen.id }, selectedId);
       setNote(count ? `Playing ${all ? 'all songs' : chosen.name}.${!all && count < chosen.tracks.length ? ' Songs that are unavailable, or hidden by Stream-safe or the Endfield music setting, were skipped.' : ''}` : 'No playable songs in this playlist with the current settings (Stream-safe, Endfield music).');
     } catch { setNote('The music catalogue could not be loaded. Try again.'); }
     finally { setBusy(false); }
@@ -104,10 +105,9 @@ export default function MusicPlaylists({ songs, onClose }: { songs: { videoId: s
     <button ref={trigger} type="button" className="music-workspace-link" onClick={() => setOpen(true)}><TransportIcon name="list" />Playlists</button>
     <div className="music-playlist-shortcuts">
       {playlists.filter(playlist => playlist.id !== FAVORITES_PLAYLIST_ID).slice(0, 6).map(playlist => (
-        <button key={playlist.id} type="button" className="music-workspace-link" title={playlist.name}
-          onClick={() => { setSelected(playlist.id); setVisible(50); setOpen(true); }}>
+        <Link key={playlist.id} className="music-workspace-link" title={playlist.name} href={playlistHref(playlist.id)} scroll={false}>
           <TransportIcon name="note" /><span>{playlist.name}</span>
-        </button>
+        </Link>
       ))}
     </div>
     {open && createPortal(<RecordDialog label="Music playlists" onClose={close} className="music-playlists-dialog">
@@ -116,7 +116,7 @@ export default function MusicPlaylists({ songs, onClose }: { songs: { videoId: s
         <button type="button" className="ghost btn-sm" disabled={busy} onClick={() => file.current?.click()}>Import playlists</button>
         <InfoPopover label="About playlist imports"><p>Import Arkpedia playlist files; existing playlists are kept.</p></InfoPopover>
         <button type="button" className="ghost btn-sm" disabled={!playlists.length || busy} onClick={() => exportFile(true)}>Export all</button>
-        <button type="button" className="ghost btn-sm" disabled={!player.ready || busy} onClick={() => void play(true)}>Play all songs</button>
+        <button type="button" className="ghost btn-sm" disabled={busy} onClick={() => void play(true)}>Play all songs</button>
         {undo && <button type="button" className="ghost btn-sm" disabled={busy} onClick={() => { const previous = undo; if (store(previous, 'Undid the last playlist change.')) setUndo(null); }}>Undo</button>}
         <input ref={file} type="file" accept=".json,application/json" hidden onChange={e => void importFile(e.target.files?.[0])} />
       </div>
@@ -128,7 +128,7 @@ export default function MusicPlaylists({ songs, onClose }: { songs: { videoId: s
       {chosen ? <>
         <div className="music-playlists-toolbar">
           <StyledSelect label="Saved playlist" value={chosen.id} options={playlists.map(p => ({ value: p.id, label: p.name }))} onChange={id => { setSelected(id); setVisible(50); }} />
-          <button type="button" className="primary btn-sm" disabled={!chosen.tracks.length || !player.ready || busy} onClick={() => void play()}>Play playlist</button>
+          <button type="button" className="primary btn-sm" disabled={!chosen.tracks.length || busy} onClick={() => void play()}>Play playlist</button>
           <button type="button" className="ghost btn-sm" disabled={busy} onClick={() => exportFile(false)}>Export playlist</button>
           <button type="button" className="ghost btn-sm" disabled={!player.videoId || busy || chosen.tracks.includes(player.videoId)} onClick={() => store(playlists.map(p => p.id === chosen.id ? { ...p, tracks: [...p.tracks, player.videoId] } : p), `Added the playing song to ${chosen.name}.`)}>Add playing song</button>
           <button type="button" className="ghost btn-sm" disabled={busy || chosen.id === FAVORITES_PLAYLIST_ID} onClick={() => store(playlists.filter(p => p.id !== chosen.id), `Removed ${chosen.name}. Use Undo to restore it.`)}>Delete playlist</button>
@@ -139,9 +139,9 @@ export default function MusicPlaylists({ songs, onClose }: { songs: { videoId: s
             // The songs' one row (components/music/SongRow.tsx); a song the catalogue no longer
             // has keeps its place, named by its id, with nothing to play.
             return <li key={id}>{track
-              ? <SongRow marker="music-playlist-row" song={track} active={player.videoId === id} queued={player.queued.has(id)} onPlay={() => void player.playNow(id)}
+              ? <SongRow marker="music-playlist-row" song={track} active={player.videoId === id} queued={player.queued.has(id)} onPlay={() => void play(false, id)}
                 actions={{
-                  playNow: () => void player.playNow(id),
+                  playNow: () => void play(false, id),
                   playNext: player.videoId === id ? undefined : () => void player.queueSong(id, 'next'),
                   addToQueue: player.videoId === id ? undefined : () => void player.queueSong(id, 'last'),
                   favorite: { on: player.favorites.has(id), toggle: () => player.toggleFavorite(id) },

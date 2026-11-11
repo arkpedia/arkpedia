@@ -1,17 +1,16 @@
 import { useRegionalTime } from '@/lib/time/useRegionalTime';
 import PageMeta from '@/components/layout/PageMeta';
 import { regionalSkinWindows } from '@/lib/time/regional';
-import { SERVER_TIME, serverOffsetLabel } from '@/lib/time/servers.mjs';
+import { SERVER_TIME } from '@/lib/time/servers.mjs';
 import { withContentPage } from '@/lib/content/server';
 import { GetStaticProps } from 'next';
 import Link from 'next/link';
-import { KeyboardEvent as ReactKeyboardEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useReaderClock } from '@/lib/time/readerClock';
 import { getAllSkins } from '@/lib/skins/skins';
 import { useSkinGalleryState } from '@/lib/skins/useSkinGalleryState';
 import { Skin } from '@/lib/skins/skinTypes';
 import { acquisitionLabel, compareUpcomingSkins, isUpcomingSkin, compareCurrentSkins, computeSkinCountdowns, getSkinWindows, isAvailableNow, skinKey, type SkinWindow } from '@/lib/skins/skinAvailability';
-import { withLocalConfirmedSkinWindows } from '@/lib/skins/localSkinWindows';
 import { assertSkinMatching } from '@/lib/schedule/scheduleSkinMatch';
 import { seriesKey, skinSeriesOptions } from '@/lib/skins/skinSeriesConfig';
 import { parsePrices, formatPrices } from '@/lib/skins/skinPrice';
@@ -25,7 +24,7 @@ import { useSkinPlan } from '@/lib/skins/skinPlan';
 import StyledSelect from '@/components/ui/StyledSelect';
 import FilterSheet, { type ActiveFilter } from '@/components/ui/FilterSheet';
 import { useSwitchHold } from '@/components/ui/useSwitchHold';
-import SkinZoomOverlay from '@/components/skins/SkinZoomOverlay';
+import SkinDetailDialog from '@/components/skins/SkinDetailDialog';
 import { skinDynamicArt } from '@/lib/skins/dynamicArt';
 import { withSkinDynamicArt, loadDynamicArtIndex } from '@/lib/skins/dynamicArtFallback';
 import ResponsiveSkinArtwork from '@/components/skins/ResponsiveSkinArtwork';
@@ -72,23 +71,13 @@ export default function SkinsGallery({ skins, now, availabilityWindows, dynamicA
     () => (activeSkinName ? skins.find((s) => s.name === activeSkinName) ?? null : null),
     [skins, activeSkinName]
   );
-  const [zooming, setZooming] = useState(false);
-  // Focus bookkeeping for the detail dialog: where focus should land
-  // when it opens (its Back button), and where it should return when it
-  // closes (the card that opened it). With a deep link there is no
-  // opener, and focus simply stays where it was.
-  const modalBoxRef = useRef<HTMLDivElement | null>(null);
-  const modalBackBtnRef = useRef<HTMLButtonElement | null>(null);
-  const openerRef = useRef<HTMLElement | null>(null);
-
   // The request's clock first, the reader's after mount (lib/time/readerClock.ts).
   const clock = useReaderClock(now, { tickMs: 30_000, onFocus: true });
   // Recompute from acquisition windows even when runtime content contains old
   // build-time availability flags. Initial server/client clocks still agree.
-  // SL-4b: the bundled confirmed windows still merge in here until the maintainer decides.
   // Global's windows first; JP and KR move each onto their own sale of the same outfits (lib/time/regional.ts).
   const windows = useMemo(() => {
-    const global = regionalSkinWindows(withLocalConfirmedSkinWindows(availabilityWindows), globalSchedule, 'en');
+    const global = regionalSkinWindows(availabilityWindows, globalSchedule, 'en');
     return server === 'en' ? global : regionalSkinWindows(global, schedule, server);
   }, [availabilityWindows, globalSchedule, schedule, server]);
   const availability = useMemo(() => computeSkinCountdowns(new Date(clock), windows), [clock, windows]);
@@ -105,76 +94,14 @@ export default function SkinsGallery({ skins, now, availabilityWindows, dynamicA
   const account = useAccount();
   const ownedSkins = useMemo(() => new Set(account?.skins ?? []), [account]);
   const shortDate = (value: string) => new Date(value).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', timeZone: SERVER_TIME.en.timeZone });
-  const exactDate = (value: string) => new Date(value).toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: SERVER_TIME.en.timeZone }) + ` (${serverOffsetLabel('en')})`;
   function availabilityText(skin: Skin): string | null {
     const window = availability.get(skinKey(skin));
     if (!window) return null;
     return window.live ? `${acquisitionLabel(window)} · until ${shortDate(window.endAt)}` : `${window.estimated ? 'Estimated ' : ''}${shortDate(window.startAt)}`;
   }
 
-  useEffect(() => {
-    if (!active) setZooming(false);
-  }, [active]);
-
-  /** Opens the detail dialog, remembering the element that opened it so
-   * focus can be handed back there on close. */
-  function openSkin(skin: Skin) {
-    openerRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    setActiveSkinName(skin.name);
-  }
-
-  function closeSkin() {
-    setActiveSkinName('');
-    // The opener card is still in the document (closing a dialog doesn't
-    // reflow the grid), so focus can go straight back to it.
-    openerRef.current?.focus();
-    openerRef.current = null;
-  }
-
-  // Focus moves into the dialog the moment it opens -- otherwise a
-  // keyboard or screen-reader user is left standing outside a modal
-  // they can't see past. The Back button is the dialog's first control,
-  // which also makes "get me out" the closest action at hand.
-  useEffect(() => {
-    if (activeSkinName) modalBackBtnRef.current?.focus();
-  }, [activeSkinName]);
-
-  // Escape closes the topmost layer only: the zoom overlay first if
-  // it's up, the dialog otherwise. Document-level because focus can be
-  // anywhere (the overlay backdrop, the zoomed image) when it's hit.
-  useEffect(() => {
-    if (!active) return;
-    function onDocumentKeyDown(e: KeyboardEvent) {
-      if (e.key !== 'Escape') return;
-      if (zooming) setZooming(false);
-      else closeSkin();
-    }
-    document.addEventListener('keydown', onDocumentKeyDown);
-    return () => document.removeEventListener('keydown', onDocumentKeyDown);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [active, zooming]);
-
-  // Simple Tab containment while the dialog is open: when Tab would
-  // step past the last control (or Shift+Tab before the first), wrap
-  // around instead of escaping into the page hidden underneath.
-  function handleModalKeyDown(e: ReactKeyboardEvent<HTMLDivElement>) {
-    if (e.key !== 'Tab') return;
-    const box = modalBoxRef.current;
-    if (!box) return;
-    const focusables = Array.from(
-      box.querySelectorAll<HTMLElement>('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])')
-    ).filter((el) => !el.hasAttribute('disabled'));
-    if (focusables.length === 0) return;
-    const first = focusables[0];
-    const last = focusables[focusables.length - 1];
-    if (e.shiftKey && document.activeElement === first) {
-      e.preventDefault();
-      last.focus();
-    } else if (!e.shiftKey && document.activeElement === last) {
-      e.preventDefault();
-      first.focus();
-    }
-  }
+  function openSkin(skin: Skin) { setActiveSkinName(skin.name); }
+  function closeSkin() { setActiveSkinName(''); }
 
   // Keep legacy wishlist links working alongside independent filters.
   const selectedSeriesRaw = query.series;
@@ -269,8 +196,7 @@ export default function SkinsGallery({ skins, now, availabilityWindows, dynamicA
         <button
           key={`${keyPrefix}${skin.series}-${skin.name}-${i}`}
           type="button"
-          className="btn-bare skin-card skin-card-enter"
-          style={{ animationDelay: `${Math.min(i * 25, 600)}ms` }}
+          className="btn-bare skin-card rise-in"
           onClick={() => openSkin(skin)}
         >
           <div className="skin-image-wrap">
@@ -380,83 +306,12 @@ export default function SkinsGallery({ skins, now, availabilityWindows, dynamicA
         </div>
       </main>
 
-      {active && (
-        <div className="modal-overlay" onClick={closeSkin}>
-          <div
-            className="modal-box skin-modal"
-            role="dialog"
-            aria-modal="true"
-            aria-label={active.name}
-            ref={modalBoxRef}
-            onClick={(e) => e.stopPropagation()}
-            onKeyDown={handleModalKeyDown}
-          >
-            <button type="button" className="back-btn" ref={modalBackBtnRef} onClick={closeSkin}>
-              ‹ Back
-            </button>
-            <button
-              type="button"
-              className="filter-chip skin-wishlist-btn"
-              aria-pressed={isWished(active)}
-              disabled={ownedSkins.has(active.skinId ?? '')}
-              onClick={() => toggleWishlist(active)}
-            >
-              {ownedSkins.has(active.skinId ?? '') ? '✓ Owned' : isWished(active) ? '★ Wishlisted' : '☆ Wishlist'}
-            </button>
-            <div className="skin-modal-image-wrap-full">
-              {active.image && (
-                <ResponsiveSkinArtwork
-                  src={active.image}
-                  alt={active.name}
-                  width={1600}
-                  height={900}
-                  sizes="90vw"
-                  className="skin-modal-image-clickable"
-                  style={{ maxWidth: '100%', maxHeight: '60vh', width: 'auto', height: 'auto', objectFit: 'contain' }}
-                  onClick={() => setZooming(true)}
-                />
-              )}
-            </div>
-            <div className="skin-modal-info">
-              <div className="eyebrow">
-                {active.series}
-                {active.code ? ` · ${active.code}` : ''}
-              </div>
-              <h2>{active.name}</h2>
-              {active.model && <p className="hint">Model: {active.model}</p>}
-              {active.illustrator && <p className="hint">Illustrator: {active.illustrator}</p>}
-              {active.description && <p style={{ marginTop: 10 }}>{active.description}</p>}
-              {active.release && <p className="hint" style={{ marginTop: 10 }}>Original release: {availability.get(skinKey(active))?.live ? active.release.replace(/\[CN\]\s*/g, '') : active.release}</p>}
-              {(() => {
-                const window = availability.get(skinKey(active));
-                const prices = parsePrices(active.howToObtain);
-                return <>
-                  {window && <div className="skin-acquisition">
-                    <strong>{window.live ? 'Available now' : window.estimated ? 'Estimated availability' : 'Upcoming'} · {acquisitionLabel(window)}</strong>
-                    <p>{window.label} · {window.event.replace(/\[[^\]]*\]\s*/g, '')}</p>
-                    <p>{exactDate(window.startAt)} – {exactDate(window.endAt)}</p>
-                    {window.details && <p>{window.details}</p>}
-                    {window.source && <a href={window.source} target="_blank" rel="noreferrer">{window.estimated ? 'Schedule source' : 'Official announcement'} ↗</a>}
-                    {window.inventorySource && <> · <a href={window.inventorySource} target="_blank" rel="noreferrer">Pool contents ↗</a></>}
-                  </div>}
-                  {prices.length > 0 && <p className="hint">{window?.live && window.kind !== 'shop' ? 'Original shop price' : 'Catalogue price'}: {formatPrices(prices)}</p>}
-                  {active.howToObtain && <p className="hint">Original acquisition: {active.howToObtain}</p>}
-                </>;
-              })()}
-            </div>
-            <div className="modal-actions">
-              <button type="button" className="primary" onClick={closeSkin}>
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {active && <SkinDetailDialog key={active.name} skin={active} onClose={closeSkin}
+        availability={availability.get(skinKey(active))}
+        wishlist={{wished:isWished(active),owned:ownedSkins.has(active.skinId ?? ''),toggle:()=>toggleWishlist(active)}}
+        dynamic={active.skinId ? dynamicArt[active.skinId] ?? null : null}
+        alternate={active.skinId ? dynamicArt[`${active.skinId}^sp_dyn`] ?? null : null} />}
 
-      {zooming && active?.image && (
-        <SkinZoomOverlay voiceOperator={active.model ?? undefined} image={active.image} name={active.name} dynamic={active.skinId ? dynamicArt[active.skinId] ?? null : null} alternate={active.skinId ? dynamicArt[`${active.skinId}^sp_dyn`] ?? null : null}
-          onClose={() => setZooming(false)} />
-      )}
     </>
   );
 }

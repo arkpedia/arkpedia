@@ -1,7 +1,7 @@
 /**
  * The refresh's odds-rules stage: every limited, crossover or Orienteering banner the pull
- * planner lists without odds because nobody has verified its rules, as a quarantine entry
- * (stage odds-rules), so the daily 'Content quarantined' issue names it until someone does.
+ * planner lists without odds because supported rules could not be imported, as a quarantine entry
+ * (stage odds-rules), so the daily 'Content quarantined' issue names the incomplete evidence or new mechanic.
  *
  *   npx tsx scripts/content/check-pull-odds.ts
  *
@@ -11,8 +11,7 @@
  * Only the banners a reader can still plan for count: the ones currentPullPlan keeps at
  * the run's clock, as the page does on a request. An entry names the banner's
  * announcement when its record has one, and clears on the first refresh run after its
- * rules are added. It is overdue after the usual three days, since only a person can
- * clear it.
+ * rules are imported. A new or changed mechanic still needs an explicit model review.
  */
 import { getAllHeadhuntingBanners } from '../../lib/gacha/headhuntingBannerData';
 import { getBannerOdds, unverifiedBanners } from '../../lib/pulls/bannerOdds';

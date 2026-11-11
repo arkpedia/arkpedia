@@ -987,6 +987,7 @@ test('lyrics drop the credits block Monster Siren puts in the file, and only tha
   const parsed = parseLrc(credits);
   assert.deepEqual(parsed.map((line) => line.text),
     ['Clear morning light, your voice so sweet.', 'We cry: "March on!"']);
+  assert.deepEqual(parseLrc('[00:01]Director: Person\n[00:02]Performed by: Person\n[00:03]词: Person\n[00:04]词曲: Person\n[00:05]音乐制作: Studio\n[00:06]Produced by: Person\n[00:10]First sung line').map(line => line.text), ['First sung line']);
 
   // The leading-block restriction is load bearing: a sung line may carry a colon,
   // and a rule that swept the whole file would delete it.

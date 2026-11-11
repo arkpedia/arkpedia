@@ -65,6 +65,11 @@
   grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
   gap: 16px;
 }
+.youtube-topic-filters { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin: 14px 0; }
+.youtube-topic-list { display: grid; gap: var(--section-gap); }
+.youtube-topic-grid { grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr)); }
+.youtube-topic-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: var(--heading-gap); }
+.youtube-topic-heading h3 { margin: 0; }
 /* A card is a link, and its thumbnail says so: no resting frame (maintainer,
    2026-09-26), teal on hover and keyboard focus. */
 .video-card {
@@ -90,6 +95,8 @@
 /* The text keeps one inset from the flush art, --card-inset (shared.css): the card's teal
    hover edge boxes it. It was 14px here, 10-12px on the other picture cards. */
 .video-card-body { padding: var(--card-inset); }
+.video-published { margin: 6px 0 0; }
+.video-relevance { margin: 6px 0 0; }
 .video-title {
   font-family: var(--font-display);
   font-weight: 600;

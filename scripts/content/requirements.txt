@@ -1,4 +1,6 @@
 # The Python packages the content run's steps use (.github/workflows/prepare-content.yml installs
-# them): only the shared ones now. The import's own (UnityPy, arkprts, yt-dlp) are in
+# them). The import's own UnityPy and arkprts dependencies are in
 # arkpedia-data's importer/scripts/content/requirements.txt, which its Dependabot watches.
 -r ../requirements.txt
+# Metadata-only historical discovery, pinned to the importer’s existing yt-dlp version.
+yt-dlp==2026.8.19

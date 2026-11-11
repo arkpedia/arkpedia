@@ -13,22 +13,24 @@
 import { parseNetwork, SERVER_IDS, SERVERS, type Transport } from './yostar';
 import relayConfig from '@/config/relay.json';
 import { connectionDiagnostics, type WispDiagnosticsAPI } from './connectionDiagnostics';
+import { closeRelaySession, createRelaySessionPool, type RelayWispConnection } from './relaySession';
 
 /** Where the relay is: config/relay.json (the relay itself is arkpedia/arkpedia-relay). */
 export function relayUrlForDeployment(preview: boolean): string {
   return preview ? relayConfig.previewUrl : relayConfig.url;
 }
 // This build-time flag is set only for the isolated Preview deployment.
-export const RELAY_URL = relayUrlForDeployment(process.env.ARKPEDIA_CLOUD_ACCOUNTS === '1');
+export const RELAY_URL = relayUrlForDeployment(process.env.ARKPEDIA_PREVIEW === '1');
 
 interface CurlSession {
   set_connections(total: number, cached: number, perHost: number): void;
+  close(): void;
   /** raw_headers: every header line as sent. A Headers object folds two Set-Cookie lines into
    *  one, and a page's own fetch never shows them at all; libcurl's response keeps them. */
   fetch(url: string, init: { method: string; headers: Record<string, string>; body?: string; redirect?: 'manual' }): Promise<Response & { raw_headers?: [string, string][] }>;
 }
 interface Libcurl {
-  wisp: WispDiagnosticsAPI;
+  wisp: WispDiagnosticsAPI & { wisp_connections: Record<string, RelayWispConnection> };
   load_wasm(): Promise<void>;
   set_websocket(url: string): void;
   HTTPSession: new () => CurlSession;
@@ -43,20 +45,37 @@ export function createRelaySession(curl: Pick<Libcurl, 'HTTPSession'>): CurlSess
   return session;
 }
 
-let loading: Promise<CurlSession> | null = null;
-function libcurl(): Promise<CurlSession> {
+let loading: Promise<Libcurl> | null = null;
+function libcurl(): Promise<Libcurl> {
   loading ??= import('libcurl.js/bundled').then(async (module) => {
     const curl = module.libcurl as Libcurl;
     await curl.load_wasm();
     const relayUrl = RELAY_URL;
     connectionDiagnostics.install(curl.wisp, relayUrl);
     curl.set_websocket(relayUrl);
-    return createRelaySession(curl);
+    return curl;
   }).catch((error) => {
     loading = null;
     throw error;
   });
   return loading;
+}
+
+const relaySessions = createRelaySessionPool(async () => {
+  const curl = await libcurl();
+  return { curl, session: createRelaySession(curl) };
+}, ({ curl, session }) => closeRelaySession(session, curl.wisp.wisp_connections, RELAY_URL),
+{ hidden: () => typeof document !== 'undefined' && document.hidden });
+
+/** Keep the pool through a whole multi-request import or replay download. The
+ * caller's finally releases it; credentials remain in the existing flow, not here. */
+export const retainRelaySession = () => relaySessions.retain();
+
+if (typeof window !== 'undefined') {
+  // Hidden tabs can throttle timers. Active imports/downloads retain ownership;
+  // a pending unowned request still finishes before its pool is released.
+  document.addEventListener('visibilitychange', () => { if (document.hidden) void relaySessions.closeIdle(); });
+  window.addEventListener('pagehide', () => { void relaySessions.closeIdle(); });
 }
 
 async function read(response: Response & { raw_headers?: [string, string][] }) {
@@ -83,9 +102,18 @@ export const relayTransport: Transport = async (url, request) => {
   const stub = typeof window === 'undefined' ? undefined : window.__arkpediaImportTransport;
   const finish = connectionDiagnostics.begin(url);
   try {
-    const response = stub ? await stub(url, request) : await read(await (await libcurl()).fetch(url, request));
-    finish({ status: response.status });
-    return response;
+    if (stub) {
+      const response = await stub(url, request);
+      finish({ status: response.status });
+      return response;
+    }
+    return await relaySessions.run(async ({ session }) => {
+      try {
+        const response = await read(await session.fetch(url, request));
+        finish({ status: response.status });
+        return response;
+      } catch (error) { finish({ error }); throw error; }
+    });
   } catch (error) {
     finish({ error });
     throw error;

@@ -165,7 +165,18 @@ export function supplyOpen(id: string, now: number, schedule: RegionalSchedule |
  * without one keeps Global's dates and flags: marking a confirmed Global sale estimated would
  * take its outfits off "Available now" (computeSkinCountdowns), and the list keeps Global's items. */
 export function regionalSkinWindows(windows: readonly SkinWindow[], schedule: RegionalSchedule | undefined, server: GameServer): SkinWindow[] {
-  if (server === 'en') return [...windows, ...(schedule?.skinWindows ?? [])];
+  if (server === 'en') {
+    const official = schedule?.skinWindows ?? [];
+    // The same notice can correct a sale after an earlier release (or a hand-entered
+    // confirmation). Replace that outfit's old window, never add two competing clocks.
+    const retained = windows.flatMap(window => {
+      const skinIds = window.skinIds.filter(id => !official.some(sale => !sale.estimated && sale.kind === window.kind && sale.skinIds.includes(id)
+        && ((!!sale.source && sale.source === window.source)
+          || (Date.parse(sale.startAt) < Date.parse(window.endAt) && Date.parse(window.startAt) < Date.parse(sale.endAt)))));
+      return skinIds.length ? [{ ...window, skinIds }] : [];
+    });
+    return [...retained, ...official];
+  }
   return windows.map(window => {
     const sale = regionalSale(window, schedule);
     return sale ? { ...window, startAt: sale.startAt, endAt: sale.endAt, estimated: !!sale.estimated, source: sale.source ?? window.source } : { ...window };

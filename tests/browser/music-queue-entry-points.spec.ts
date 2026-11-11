@@ -3,7 +3,7 @@ import { stubYouTube, youtube } from './youtube-stub';
 
 /*
  * Every place a song is offered can queue it, Endfield's and Arknights' alike (owner, 2026-10-22:
- * "why can't endfield? or youtube song be queued?"): a Discover row, a Most liked on YouTube tile
+ * "why can't endfield? or youtube song be queued?"): a Discover row, a Most liked on Arkpedia tile
  * (it could only play), the Library. And Discover's player bar seeks like the other tabs' (it had a
  * progress line there). A tab open across a content release queues the new release's songs too:
  * lib/music/catalogueStore.ts, unit-tested in scripts/tests/test-music-catalogue-store.ts.
@@ -53,14 +53,14 @@ test('a Discover row queues an Endfield song and an Arknights song, with nothing
   await expect(notice(page)).toContainText(`Added to queue: ${titleOf(endfield)}`);
 });
 
-test('a Most liked on YouTube tile queues its song from its ⋯, and still plays on a press', async ({ page }) => {
+test('a Most liked on Arkpedia tile queues its song from its ⋯, and still plays on a press', async ({ page }) => {
   const rows = await catalogue(page);
   const endfield = rows.filter((row) => row.game === 'endfield' && row.videoId).slice(0, 2);
   const arknights = rows.filter((row) => row.game !== 'endfield' && row.videoId).slice(0, 2);
   const likes = Object.fromEntries([...endfield, ...arknights].map((row, i) => [row.videoId!, 1000 - i]));
-  await page.route('**/api/music/youtube-likes', (route) => route.fulfill({ json: { updatedAt: new Date().toISOString(), likes } }));
+  await page.route('**/api/music/likes', (route) => route.fulfill({ json: { updatedAt: new Date().toISOString(), likes } }));
   await page.goto('/music/discover');
-  const section = page.getByRole('region', { name: 'Most liked on YouTube', exact: true });
+  const section = page.getByRole('region', { name: 'Most liked on Arkpedia', exact: true });
   await expect(section.locator('.music-discover-album-tile')).toHaveCount(4);
   for (const song of [endfield[0], arknights[0]]) {
     const tile = section.locator('.music-discover-like-tile', { has: page.locator(`[data-song-id="${song.videoId}"]`) });

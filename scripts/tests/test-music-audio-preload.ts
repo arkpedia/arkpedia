@@ -30,7 +30,7 @@ function fixture(fetcher?: typeof fetch, head: (input: string, init?: RequestIni
     createURL: () => `blob:test-${++urls}`, revokeURL: url => revoked.push(url), now: () => clock });
   return { cache, requests, heads, revoked, advance: (ms = 16 * MINUTE) => { clock += ms; } };
 }
-test('prepares one full file without playing, reuses it once, and keeps its id until playback releases it', async () => {
+test('reuses a complete file across replays with independent deck lifetimes and no extra download', async () => {
   const { cache, requests, revoked } = fixture();
   cache.select(target('1'), false);
   assert.equal(requests.length, 0);
@@ -41,14 +41,20 @@ test('prepares one full file without playing, reuses it once, and keeps its id u
   const ready = cache.take('1', '/audio/1');
   assert.ok(ready);
   assert.equal(cache.cid(ready.url + '#t=5.0'), '1');
-  assert.equal(cache.take('1', '/audio/1'), null);
+  const replay = cache.take('1', '/audio/1');
+  assert.ok(replay);
+  assert.notEqual(replay.url, ready.url);
+  replay.release();
+  cache.select(target('1'), true);
+  await turn();
+  assert.deepEqual(requests, ['/audio/1']);
   cache.select(target('2'), true);
   await turn();
   assert.equal(cache.cid(ready.url), '1', 'preparing the next track does not release the playing track');
   ready.release();
-  assert.deepEqual(revoked, ['blob:test-1']);
+  assert.deepEqual(revoked, ['blob:test-2', 'blob:test-1']);
   cache.select(null, false);
-  assert.deepEqual(revoked, ['blob:test-1', 'blob:test-2']);
+  assert.deepEqual(revoked, ['blob:test-2', 'blob:test-1', 'blob:test-3']);
 });
 test('queue changes abort stale work; an ignored abort cannot replace the selected track', async () => {
   let respond: (response: Response) => void = () => {};
@@ -174,4 +180,22 @@ test('changing or clearing the upcoming song aborts its address request, and a l
   assert.deepEqual(aborted, ['/audio/1', '/audio/2', '/audio/3']);
   // Data saver (and no upcoming Monster Siren song) selects nothing: nothing is asked for.
   assert.deepEqual(heads, ['/audio/1', '/audio/2', '/audio/3']);
+});
+
+test('recent files expire, respect no-store and evict the least recently used track', async () => {
+  const { cache, advance } = fixture(async url => new Response('song', { headers: {
+    'content-type': 'audio/wav', 'cache-control': String(url).endsWith('/5') ? 'no-store' : 'public',
+  } }));
+  for (const cid of ['1', '2', '3', '4', '5']) {
+    cache.select(target(cid), true);
+    await turn();
+    const first = cache.take(cid, target(cid).address);
+    assert.ok(first);
+    first.release();
+  }
+  assert.equal(cache.take('1', '/audio/1'), null);
+  assert.equal(cache.take('5', '/audio/5'), null);
+  assert.ok(cache.take('2', '/audio/2'));
+  advance();
+  assert.equal(cache.take('2', '/audio/2'), null);
 });

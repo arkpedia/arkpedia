@@ -5,7 +5,7 @@ import { stubYouTube, youtube } from './youtube-stub';
 /*
  * The music pages' one song row (components/music/SongRow.tsx, 2026-10-13). Every list -- a
  * Discover search with a song not on YouTube yet, the Library, Favourites, the Queue and its
- * autoplay, Up next and a saved playlist -- draws the same row: one height, the album art at one
+ * autoplay, and a saved playlist -- draws the same row: one height, the album art at one
  * size and one inset from the row's edge, whatever the variant (playing, queued, draggable). Before,
  * five lists drew five rows, and Discover's unplayable songs had their art flush against the edge.
  * A song not on YouTube is an ordinary row: it plays from Monster Siren (music-msr-playback.spec).
@@ -64,6 +64,9 @@ test('every music list draws the same song row, and its actions are named', asyn
 
   // Library: play one song, queue two more, favourite one.
   await page.goto('/music?view=library');
+  // Leave other songs available for the autoplay rows checked below.
+  await page.getByRole('searchbox', { name: 'Search all songs' }).fill('the');
+  await expect(page.locator('.music-all-songs-list .music-song-row').first()).toContainText(/the/i);
   const library = rowsIn(page, '.music-all-songs-list');
   await expect(library.nth(3)).toBeVisible();
   const [first, second, third] = await Promise.all([0, 1, 2].map(i => library.nth(i).getAttribute('data-song-id')));
@@ -85,6 +88,8 @@ test('every music list draws the same song row, and its actions are named', asyn
   await collect(library, 'library');
   expect(all.some(row => row.view === 'library' && row.variant.includes('active'))).toBe(true);
   await page.getByRole('radio', { name: 'Favourites', exact: true }).or(page.getByRole('button', { name: 'Favourites', exact: true })).first().click();
+  await expect(library).toHaveCount(1);
+  await expect(library).toHaveAttribute('data-song-id', third!);
   await collect(library, 'favourites');
 
   // Queue: your queue (the song playing, then the two queued) and the autoplay section.
@@ -96,10 +101,6 @@ test('every music list draws the same song row, and its actions are named', asyn
   await collect(queue, 'queue');
   expect(all.some(row => row.view === 'queue' && row.variant.includes('draggable'))).toBe(true);
 
-  // Now playing's Up next.
-  await chooseMusicView(page, 'Now playing');
-  await collect(rowsIn(page, '.music-up-next-list'), 'up next');
-
   // A saved playlist: save the queue, and its songs list as the same rows.
   await openMusicMenu(page);
   await page.getByRole('button', { name: 'Playlists', exact: true }).click();
@@ -109,7 +110,7 @@ test('every music list draws the same song row, and its actions are named', asyn
   await collect(rowsIn(page, '.music-playlist-tracks'), 'playlist');
 
   const views = new Set(all.map(row => row.view));
-  expect([...views]).toEqual(['discover', 'library', 'favourites', 'queue', 'up next', 'playlist']);
+  expect([...views]).toEqual(['discover', 'library', 'favourites', 'queue', 'playlist']);
   const base = all[0];
   for (const row of all) {
     const where = `${row.view} (${row.variant})`;
