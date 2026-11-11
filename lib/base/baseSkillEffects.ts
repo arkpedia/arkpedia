@@ -210,6 +210,13 @@ export interface BaseSkillEffectsTable {
 
 const TABLE = table as unknown as BaseSkillEffectsTable;
 
+// A skill table entry of the skill's own, instead of the one its buff id has: for a synthetic skill a test or bench
+// makes up to supply a stated rate. Records never carry one. Declared here, not in operatorTypes.ts: that file is
+// shared with arkpedia-data's importer and must stay the same file in both (scripts/tests/test-importer-copies.ts).
+declare module '@/lib/operators/operatorTypes' {
+  interface BaseSkill { tableEntry?: BaseSkillEffectEntry }
+}
+
 /** A skill's table entry, by its buff id, or the entry a synthetic skill carries itself; undefined for a skill
  *  without either (a record the refresh has not rebuilt). */
 export function skillEffectEntry(skill: Pick<BaseSkill, 'buffId' | 'tableEntry'>): BaseSkillEffectEntry | undefined {

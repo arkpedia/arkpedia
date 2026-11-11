@@ -115,9 +115,6 @@ export interface BaseSkill {
   slot?: number;
   phase?: number;
   level?: number;
-  /** A skill table entry of the skill's own, instead of the one its buff id has (lib/base/baseSkillEffects.ts):
-     for a synthetic skill a test or bench makes up to supply a stated rate. Records never carry one. */
-  tableEntry?: import('@/lib/base/baseSkillEffects').BaseSkillEffectEntry;
 }
 
 export interface ModuleStage {
@@ -372,7 +369,7 @@ export interface BaseOperator {
   faction: string | null;
   baseSkills?: BaseSkill[];
   /** The names the operator had before a rename (Operator.aliases), so the calculator still finds
-   *  a skill table override keyed by one of them (scripts/build/base-skill-overrides.ts). */
+   *  a special skill keyed by one of them (lib/base/specialSkillKeys.ts). */
   aliases?: string[];
 }
 
