@@ -29,11 +29,13 @@ export function noAutoplaySongs(): ReadonlySet<string> {
 
 function write(ids: Iterable<string>) {
   const list = [...ids];
+  let saved = true;
   try {
     if (list.length) window.localStorage?.setItem(KEY, JSON.stringify(list));
     else window.localStorage?.removeItem(KEY);
-  } catch { /* refused: lasts until the page is left */ }
+  } catch { saved = false; /* refused: lasts until the page is left */ }
   window.dispatchEvent(new Event(EVENT));
+  return saved;
 }
 
 /** Keeps a song out of autoplay, or lets it back. Returns whether it is now kept out. */
@@ -43,6 +45,13 @@ export function toggleNoAutoplay(id: string): boolean {
   if (out) next.add(id);
   write(next);
   return out;
+}
+
+/** Absolute native lock-screen edit; replaying the same revision is idempotent. */
+export function setNoAutoplay(id: string, excluded: boolean): void {
+  const next = new Set(noAutoplaySongs());
+  if (excluded) next.add(id); else next.delete(id);
+  if (!write(next)) throw new Error('Could not persist native autoplay preference');
 }
 
 /** Lets every kept-out song back into autoplay. */
