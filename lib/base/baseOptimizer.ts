@@ -87,7 +87,7 @@ export interface ScheduleStep { hour: number; crewIn: { crew: number; rooms: str
  * three formations this way).
  */
 export type RotationShape = 'alternate' | 'staggered' | 'duty' | 'formations' | 'thirds';
-interface Plan { shape: RotationShape; k: number; crews: [BaseAssignments, BaseAssignments]; group: string[]; fiammetta: boolean; /** formations: the core workers (in every shift) and one crew per shift, each crew holding the core */ formation?: { core: string[]; crews: BaseAssignments[] }; /** duty: steps the first crew works in a row before it rests one */ duty?: number; /** thirds: the staffing change (0-2) each room's main crew rests, and the rooms whose main crew is the second */ thirds?: { rest: Record<string, number>; mainB: string[] } }
+interface Plan { shape: RotationShape; k: number; crews: [BaseAssignments, BaseAssignments]; group: string[]; fiammetta: boolean; /** a Control Center team in both crews that loses no Morale there and never changes */ standing?: string[]; /** formations: the core workers (in every shift) and one crew per shift, each crew holding the core */ formation?: { core: string[]; crews: BaseAssignments[] }; /** duty: steps the first crew works in a row before it rests one */ duty?: number; /** thirds: the staffing change (0-2) each room's main crew rests, and the rooms whose main crew is the second */ thirds?: { rest: Record<string, number>; mainB: string[] } }
 
 export interface OptimizerResult {
   shape: RotationShape;
@@ -122,6 +122,8 @@ export const WORK_KINDS: FacilityKind[] = ['controlCenter', 'tradingPost', 'fact
 /** Rooms whose value the snapshot under-reads: drones, Morale relief, clues and recruits. */
 const SUPPORT_KINDS: FacilityKind[] = ['controlCenter', 'powerPlant', 'office', 'receptionRoom'];
 const EPS = 1e-6;
+/** Team Rainbow's four Control Center skills: together they cancel the room's Morale drain. */
+const STANDING_CONTROL_CENTER = ['Ash', 'Frost', 'Tachanka', 'Blitz'];
 /** Candidates re-scored every greedy step; the rest wait for the periodic full pass. */
 const LAZY_TOP = 40;
 const FULL_PASS_EVERY = 6;
@@ -348,7 +350,9 @@ export function optimizeBase(input: OptimizerInput): OptimizerResult {
   /** The other team rests, in dorm order, as far as dorm slots go. */
   function withDorms(working: BaseAssignments, resting: string[], extra: Record<string, SlotAssignment[]> = lockedExtra): BaseAssignments {
     const result: BaseAssignments = { ...working };
-    const queue = [...resting];
+    // Someone both crews hold (a Control Center team that never changes) works this shift: no bed for them.
+    const on = new Set(operatorsIn(working));
+    const queue = resting.filter(name => !on.has(name));
     for (const d of dorms) {
       const fixed = extra[d.id] ?? [];
       const slots: (SlotAssignment | null)[] = [];
@@ -561,6 +565,56 @@ export function optimizeBase(input: OptimizerInput): OptimizerResult {
     }
     return result;
   }
+  // Thirds again, with each crew's Control Center, Power Plants, Office and Reception Room staffed first. The greedy
+  // teams hold only who raises the snapshot, which on a thin roster leaves the Control Center nearly empty; its Morale
+  // relief is what lets a crew work two changes running at 12-hour logins, so without it the thirds above exhaust
+  // someone and the search falls back to two alternating teams the beds cap at 20 workers (found 2026-11-11: the
+  // first 70 and 100 operators of a profile left 22 seats open; staffed first, none, and a higher score).
+  if (2 * loginInterval <= 24) {
+    const crewA0 = bestTeam(new Set(), Math.min(places, Math.ceil(owned.length / 2)));
+    const crewB0 = bestTeam(new Set(operatorsIn(crewA0)), places);
+    const crewA = fillSupportRooms(crewA0, new Set([...operatorsIn(crewA0), ...operatorsIn(crewB0)]));
+    const crewB = fillSupportRooms(crewB0, new Set([...operatorsIn(crewA), ...operatorsIn(crewB0)]));
+    if (operatorsIn(crewA).length + operatorsIn(crewB).length > operatorsIn(crewA0).length + operatorsIn(crewB0).length) {
+      const plan: Plan = { shape: 'thirds', k: 1, crews: [crewA, crewB], group: [], fiammetta: false, thirds: { rest: splitThree([crewA, crewB]), mainB: [] } };
+      if (fits(plan)) plans.push(plan);
+    }
+  }
+  // A standing Control Center (owner, 2026-11-11): Ash, Frost, Tachanka and Blitz each give everyone in the Control
+  // Center +0.05 Morale an hour per Team Rainbow operator, which with the room's own relief cancels the drain, so
+  // the four and a fifth never leave and never need a bed. It earns less than a Control Center picked for output,
+  // but five beds a change go to other workers: tried as one more plan, kept where the simulator scores it higher
+  // (a roster the beds hold back).
+  const cc = rooms.find(f => f.kind === 'controlCenter');
+  if (cc && cc.capacity >= 5 && STANDING_CONTROL_CENTER.every(name => owned.includes(name))) {
+    const seat = (names: string[]): BaseAssignments => ({ [cc.id]: [...names.map(slotOf), ...Array(cc.capacity).fill(null)].slice(0, cc.capacity) });
+    let fifth: { name: string; value: number } | null = null;
+    for (const name of owned) {
+      if (STANDING_CONTROL_CENTER.includes(name) || name === 'Fiammetta') continue;
+      const snap = snapshotValue(seat([...STANDING_CONTROL_CENTER, name]));
+      const drain = (snap.result.rooms[cc.id] as { perOperatorMorale?: Record<string, number> } | undefined)?.perOperatorMorale ?? {};
+      if ([...STANDING_CONTROL_CENTER, name].some(n => (drain[n] ?? 1) > EPS)) continue;
+      if (!fifth || snap.value > fifth.value + EPS) fifth = { name, value: snap.value };
+    }
+    if (fifth) {
+      const standing = [...STANDING_CONTROL_CENTER, fifth.name], five = seat(standing)[cc.id];
+      // The five hold the Control Center in both crews; the team builder may not move them or staff the room itself.
+      const pin = (crew: BaseAssignments): BaseAssignments => ({ ...Object.fromEntries(Object.entries(crew).map(([id, slots]) => [id, (slots ?? []).map(x => x && standing.includes(x.operatorName) ? null : x)])), [cc.id]: five });
+      const others = (crew: BaseAssignments) => operatorsIn(crew).filter(name => !standing.includes(name));
+      // The standing five rest nowhere, so a crew may be that much larger than the beds.
+      for (const size of [...new Set([restCapacity, places - standing.length])]) {
+        const teamA0 = pin(buildTeam(new Set(standing), Math.min(size, Math.ceil(owned.length / 2))));
+        const teamB0 = pin(buildTeam(new Set([...standing, ...others(teamA0)]), size));
+        const teamA = pin(fillSupportRooms(teamA0, new Set([...operatorsIn(teamA0), ...operatorsIn(teamB0)])));
+        const teamB = pin(fillSupportRooms(teamB0, new Set([...operatorsIn(teamA), ...operatorsIn(teamB0)])));
+        plans.push({ shape: 'alternate', k: 1, crews: [teamA, teamB], group: [], fiammetta: false, standing });
+        if (size !== restCapacity && 2 * loginInterval <= 24) {
+          const plan: Plan = { shape: 'thirds', k: 1, crews: [teamA, teamB], group: [], fiammetta: false, thirds: { rest: splitThree([teamA, teamB]), mainB: [] }, standing };
+          if (fits(plan)) plans.push(plan);
+        }
+      }
+    }
+  }
   // Formations: the best workers whose Morale Fiammetta can keep up with work every shift; a crew per shift fills the rest.
   if (input.formations && roster.Fiammetta && byName.has('Fiammetta') && dorms.length && bigCrew) {
     const crew0: BaseAssignments = fillSupportRooms(bigCrew, new Set(operatorsIn(bigCrew)));
@@ -671,6 +725,7 @@ export function optimizeBase(input: OptimizerInput): OptimizerResult {
     if (!best || c.value > best.value * (1 + 1e-3) + EPS || (c.value >= best.value * (1 - 1e-3) - EPS && changes(plan) < changes(best.plan))) best = c;
   }
   const namesOf = () => best!.plan.crews.map(operatorsIn);
+  if (best!.plan.standing) notes.push(`The Control Center never changes: ${best!.plan.standing.join(', ')} lose no Morale there (Team Rainbow's skills cancel the drain), so they work every shift and need no bed.`);
   if (best!.plan.shape === 'thirds') notes.push('Each room\'s main crew works two staffing changes out of three and rests the third while the other crew covers it; rooms rest on different changes (the schedule shows which), so only a third of the base rests at a time.');
   if (best!.plan.shape === 'alternate' && namesOf()[1].length < namesOf()[0].length) notes.push(`The roster fills ${namesOf()[1].length} of ${namesOf()[0].length} places in the second team; its empty places stay empty while the first team rests.`);
 

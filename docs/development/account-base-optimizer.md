@@ -455,10 +455,39 @@ search itself still seats only skilled operators there.
 Measured with `scripts/bench/seat-gaps.ts` (30 rounds, 12-hour logins, the same plan
 before and after since only the completion differs) on the 21 saved profiles: open
 seat-shifts outside the Training Room **119 → 0**, no operator exhausted, score unchanged
-on 18 and within ±0.07% on three. A thin roster still leaves seats: the first 15, 40 and
-70 operators of one profile leave 69, 24 and 22 open, because the rotation the search
-chose has no workers or beds to carry more (70 operators over two shifts can rest only 20
-at a time). Filling those would take a different rotation, not a different fill.
+on 18 and within ±0.07% on three.
+
+### Thin rosters and the standing Control Center (2026-11-11)
+
+A thin roster at 12-hour logins still left a third of its seats open after the fill: the
+first 70 and 100 operators of a profile, 22 seat-shifts each. The fill was not the cause.
+The seed search (`baseOptimizer.ts`) had chosen two alternating teams, which the 20 beds
+cap at 20 workers a change, because its three-shift plan (`thirds`: each room's main crew
+works two changes and rests the third) exhausted one operator. The greedy teams hold only
+operators who raise the snapshot value, which leaves a thin roster's Control Center at one
+of five; without its Morale relief nobody lasts two 12-hour changes running. At 8- and
+6-hour logins the same rosters already came out fully staffed.
+
+Two seed plans are added, each kept only when the simulator scores it higher:
+
+- **Thirds with the support rooms staffed first.** The same three-shift plan, with each
+  crew's Control Center, Power Plants, Office and Reception Room filled before it is
+  simulated (`fillSupportRooms`). First 70 operators of ashie: 22 open → 0, 58,328 →
+  60,505. First 100: 22 → 0, 62,738 → 65,385.
+- **A standing Control Center** (the owner's suggestion). Ash, Frost, Tachanka and Blitz
+  each give everyone in the Control Center +0.05 Morale an hour per Team Rainbow operator;
+  with the room's own relief the four cancel the drain (`scripts/bench/rainbow-cc.ts`: any
+  fifth operator also sits at zero). The five hold the room in both crews, work every
+  shift and take no bed, so five beds a change go to other workers. It is tried when the
+  roster owns all four. First 70, 100 and 150 operators of gita plus the four: open
+  14 → 0, 22 → 0, 0 → 0 and score +5.6%, +5.7%, +4.6% against the same roster without the
+  plan; first 40: 22 → 16 open. The plan's note names the five. A shift's beds never go to
+  someone who works that shift (`withDorms`), which is what lets one team sit in both crews.
+
+Still open: a thin roster without Team Rainbow whose Control Center staff cannot last two
+changes (first 70 of gita without the four: 14 open, the staffed thirds exhausts Amiya and
+Chongyue in the Control Center), and rosters too small to have the bodies (15 and 40
+operators).
 
 Per-slot staggering (the base expert's second rotation: one or two seats of a room change
 hands while the rest of the crew works on, a weaker filler covering, and the best workers

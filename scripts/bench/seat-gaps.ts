@@ -1,7 +1,7 @@
 /**
  * Which seats a finished plan leaves empty, and what its Dormitory beds hold.
  *
- *   npx tsx scripts/bench/seat-gaps.ts <tests/fixtures/krooster/user.json> [seconds=60 | r<rounds>] [interval=12] [--brief] [--take=40]
+ *   npx tsx scripts/bench/seat-gaps.ts <tests/fixtures/krooster/user.json> [seconds=60 | r<rounds>] [interval=12] [--brief] [--take=40] [--keep=Ash,Frost]
  *
  * `r40` runs 40 anneal rounds instead of the clock: the same plan every run, so two checkouts differ only in the
  * completion (lib/base/completeStaffing.ts). `--brief` prints one line: empty seat-shifts outside the Training Room.
@@ -29,7 +29,9 @@ const known = new Set(operators.map(o => o.name));
 const profile = profileFromData(JSON.parse(fs.readFileSync(file, 'utf8')));
 if (!profile) throw new Error('not a profile');
 const owned = ownedBaseRoster(accountFromKrooster(profile, map as never).record, known).roster;
-const roster = take ? Object.fromEntries(Object.entries(owned).slice(0, take)) : owned;
+// `--keep=Ash,Frost` keeps those owned operators in the thin roster whatever their place in the list.
+const keep = (process.argv.find(a => a.startsWith('--keep='))?.slice(7) ?? '').split(',').filter(Boolean);
+const roster = take ? Object.fromEntries([...Object.entries(owned).slice(0, take), ...Object.entries(owned).filter(([name]) => keep.includes(name))]) : owned;
 const base = { operators, rosters: toBaseRosters(groups), skillSlots: slots as never, workshopRecipes: recipes as never };
 const r = optimizeAccountBase({ base, roster, snapshot: undefined, loginInterval: Number(interval), objective: 'balanced', externalGold: 0, compareLayouts: true, searchSeconds: rounds ? 600 : Number(seconds), ...(rounds ? { annealRounds: rounds } : {}) });
 for (const rec of r.recommendations.slice(0, 1)) {
@@ -41,6 +43,8 @@ for (const rec of r.recommendations.slice(0, 1)) {
   const open = facs.filter(f => !['dormitory', 'trainingRoom'].includes(f.kind)).reduce((sum, f) => sum + plan.shifts.reduce((n, s) => n + f.capacity - (s.assignments[f.id] ?? []).filter(Boolean).length, 0), 0);
   const plain = plan.notes.find(n => n.startsWith('Seated so the room is not left open'))?.split(':')[1]?.split('. ')[0] ?? '';
   console.log(`${file.split('/').pop()}: ${Object.keys(roster).length} ops, ${rec.label}, score ${rec.score.toFixed(1)}, ${plan.shifts.length} shifts, open ${open} [${gaps.join(', ')}]${plain ? ` plain:${plain}` : ''}, exhausted ${plan.simulation.events.filter(e => e.kind === 'exhausted').length}`);
+  const standing = plan.notes.find(n => n.startsWith('The Control Center never changes'));
+  if (standing) console.log(`  ${standing.split(' lose ')[0]}`);
   if (brief) continue;
   plan.shifts.forEach((s, i) => {
     const empty = facs.filter(f => f.kind !== 'dormitory').flatMap(f => { const n = f.capacity - (s.assignments[f.id] ?? []).filter(Boolean).length; return n ? [`${f.label} -${n}`] : []; });
