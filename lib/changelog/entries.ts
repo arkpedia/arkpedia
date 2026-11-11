@@ -34,6 +34,12 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    at: '2026-11-11T12:00:00Z',
+    changed: [
+      { title: 'The base optimizer staffs every room', detail: 'Every seat outside the Training Room is filled where your roster can rest the workers, on Preview.', href: '/base' },
+    ],
+  },
+  {
     at: '2026-11-10T08:03:35Z',
     changed: [
       { title: 'Clearer story reading progress', detail: 'Read, Unread and percentage labels use green, red and amber while story cards keep their quiet borders.', href: '/story' },

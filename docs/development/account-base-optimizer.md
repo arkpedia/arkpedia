@@ -399,8 +399,8 @@ HR over Haruka at E2, and a fourth Factory worker adding nothing):
   the room's speed, then Morale drain, then the reader's build. Only occupants who work
   nowhere else are given back, so a cross-room choice the search made for its score
   (Mulberry in HR for a Trading Post) stands. An operator without a skill for either
-  room is never seated there, by the search (`annealBase.ts`) or the fill; a roster with
-  nobody skilled leaves the room empty and the note says so.
+  room is never seated there by the search (`annealBase.ts`), and by the fill only as
+  the last resort of "Every seat filled" below.
 - **Built operators first.** An Elite 0 worker in a Factory, Trading Post or Power
   Plant gives their whole schedule to an idle built (Elite 1 or 2) operator with a skill
   for the room when the simulated funded score falls by no more than
@@ -413,22 +413,52 @@ HR over Haruka at E2, and a fourth Factory worker adding nothing):
   fill never takes a bed from anyone who works anywhere in the rotation (`putToRest`);
   it took one before, the swapped-in worker ran out of Morale, and every candidate for
   the seat was refused (zensher's Reception Room, 2026-11-05).
-- **Seats with no bed.** On 19 of the 21 saved Krooster profiles (57 Reception Room and
-  Office seat-shifts at 60 rounds) every Dormitory bed rests a worker of the plan in every
-  shift, so a support seat would take a bed from production and the fill refuses it. The
-  note then says every bed is in use, beside the skilled operators to staff it by hand.
 - **Workers who add nothing.** A Factory or Trading Post worker whose removal from the
   room, in every shift, leaves the funded score where it is (gold no post sells, orders
-  no gold fills) is left out, and the note names them. Power Plant workers are not
+  no gold fills) can be left out, and the note names them. Power Plant workers are not
   judged this way: drone charge has uses the score does not count. A worker left out
   gives up their beds too (unless a Dormitory skill of theirs still serves the room, or
   the rotation protects them), and the freed beds go once more to the fill for the
-  Control Center, Power Plants, Reception Room and Office, which are last in line for a
-  bed otherwise. A bed can count for a skill (a Dormitory headcount: 27 LMD a day on the
-  saved profiles), so the beds are freed within `BUILT_FIRST_MARGIN` and only kept freed
-  when the fill then seats someone; otherwise the resident stays. On the 21 saved
-  Krooster profiles the Office stood empty in most shifts while a left-out seller kept a
-  bed in every one (found 2026-11-05).
+  Control Center, Power Plants, Reception Room and Office. A bed can count for a skill
+  (a Dormitory headcount: 27 LMD a day on the saved profiles), so the beds are freed
+  within `BUILT_FIRST_MARGIN` and only kept freed when the fill then seats someone.
+  Since 2026-11-11 the plan is completed both ways, with and without leaving anyone out,
+  and the one with fewer open seats is kept (then the higher score; a tie keeps every
+  worker): leaving a worker out opens a seat, so it has to seat more than it opens.
+
+### Every seat filled (2026-11-11)
+
+The owner's rule: every room but the Training Room is staffed. The Training Room's
+operator depends on the skill being trained, so the plan picks one only when the import
+carries a training target. Before, 19 of the 21 saved Krooster profiles left Reception
+Room and Office seats open (every Dormitory bed rested a worker of the plan in every
+shift, and the fill only seats a new worker who has a free bed), and a worker left out as
+adding nothing opened a Factory or Trading Post seat.
+
+After the fill, `fillEverySeat` goes over each open seat, shift by shift, cheapest in
+beds first:
+
+1. **A worker of the plan who is off in that shift**, neither working nor resting. The
+   seat costs no bed. A three-shift plan has many: about 60 workers rest once each and
+   fill some 93 seat-shifts, so a good part of them work one shift in three.
+2. **A new worker in a free bed** of another shift (the fill's own way, shift by shift).
+3. **A new worker in a bed its resident can spare**: a resident who rests in two or more
+   shifts gives one up.
+
+Each is kept only when the simulated rotation repeats, nobody runs out of Morale, it fits
+the three presets, and the funded score is no lower. The room's own skilled operators are
+tried everywhere first; the Reception Room and Office take an operator without a skill
+for them only on a second pass, where nobody skilled could be seated, and the note names
+them ("Seated so the room is not left open"): the room then runs at its base speed. The
+search itself still seats only skilled operators there.
+
+Measured with `scripts/bench/seat-gaps.ts` (30 rounds, 12-hour logins, the same plan
+before and after since only the completion differs) on the 21 saved profiles: open
+seat-shifts outside the Training Room **119 → 0**, no operator exhausted, score unchanged
+on 18 and within ±0.07% on three. A thin roster still leaves seats: the first 15, 40 and
+70 operators of one profile leave 69, 24 and 22 open, because the rotation the search
+chose has no workers or beds to carry more (70 operators over two shifts can rest only 20
+at a time). Filling those would take a different rotation, not a different fill.
 
 Per-slot staggering (the base expert's second rotation: one or two seats of a room change
 hands while the rest of the crew works on, a weaker filler covering, and the best workers

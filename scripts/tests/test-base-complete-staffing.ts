@@ -28,17 +28,16 @@ function emptyPlan(ctx: GenomeContext, count = 3): OptimizerResult {
 }
 const occupied = (plan: OptimizerResult) => plan.shifts.map(s => Object.values(s.assignments).flatMap(slots => slots.flatMap(x => x ? [x.operatorName] : [])));
 
-test('a three-shift 252 fills Workshop, Control Center and power plants with real recovery; the skill rooms take nobody unskilled', () => {
+test('a three-shift 252 fills every room but the Training Room with real recovery, the skill rooms included', () => {
   const ctx = context(), seed = emptyPlan(ctx), before = JSON.stringify(seed);
   const plan = completeStaffing(seed, ctx);
   assert.equal(JSON.stringify(seed), before, 'does not alter the production search seed');
-  for (const shift of plan.shifts) for (const room of facilities.filter(f => ['controlCenter', 'powerPlant', 'workshop'].includes(f.kind))) {
+  for (const shift of plan.shifts) for (const room of facilities.filter(f => f.capacity && !['dormitory', 'trainingRoom'].includes(f.kind))) {
     assert.equal(shift.assignments[room.id].filter(Boolean).length, room.capacity, `${room.label} is full in every shift`);
   }
-  // Nobody in this roster has a Reception Room or Office skill: those rooms stay empty and say why.
-  for (const shift of plan.shifts) for (const room of facilities.filter(f => ['receptionRoom', 'office'].includes(f.kind))) assert.equal(shift.assignments[room.id].filter(Boolean).length, 0, `${room.label} takes no unskilled operator`);
-  assert(plan.notes.some(n => n.startsWith('Reception Room: left empty, nobody in the roster has a skill for it')));
-  assert(plan.notes.some(n => n.startsWith('Office: left empty, nobody in the roster has a skill for it')));
+  // Nobody in this roster has a Reception Room or Office skill: the seats are filled all the same (owner,
+  // 2026-11-11: every room but the Training Room is staffed), and the plan says they run at the base speed.
+  assert(plan.notes.some(n => n.startsWith('Seated so the room is not left open, without a skill for it:') && n.includes('Reception Room') && n.includes('Office')), plan.notes.join(' / '));
   for (const names of occupied(plan)) {
     assert.equal(new Set(names).size, names.length, 'no duplicate placements');
     assert(names.every(n => n in roster));
@@ -189,9 +188,10 @@ test('an idle built operator with a Factory skill replaces an Elite 0 worker whe
   assert.ok(plan.score >= seed.score * (1 - BUILT_FIRST_MARGIN) - 1e-6);
 });
 
-test('a Trading Post worker whose orders the gold made never fills is left out', () => {
+test('a Trading Post worker whose orders add nothing keeps the seat when leaving it would fill nothing', () => {
   // One gold line and two sellers: Proviso's post sells every Precious Metal Gravel makes on his own, so Vigil's orders
-  // add nothing the base can fund, and the funded score is the same without him.
+  // add nothing the base can fund. Leaving him out would only open a seat (owner, 2026-11-11: every room but the
+  // Training Room is staffed), so he stays.
   const ctx = realContext({ Gravel: e2(), Proviso: e2(), Vigil: e2() }, ['dormitory', 'tradingPost', 'factory']);
   const seed = emptyPlan(ctx);
   const factory = facilities.find(f => f.kind === 'factory')!, post = facilities.find(f => f.kind === 'tradingPost')!;
@@ -199,35 +199,60 @@ test('a Trading Post worker whose orders the gold made never fills is left out',
   workThenRest(seed, { Gravel: [factory.id, 0], Proviso: [post.id, 0], Vigil: [post.id, 1] }, ctx.roster);
   seed.simulation = simulateBase({ base: ctx.base, shifts: seed.shifts, loginInterval: 12 });
   const plan = completeStaffing(seed, ctx);
-  assert.ok(plan.notes.some(n => /^Left out as adding nothing to the funded output[^:]*: (Proviso|Vigil) from Trading Post/.test(n)), plan.notes.join(' / '));
+  assert.ok(!plan.notes.some(n => n.startsWith('Left out as adding nothing')), plan.notes.join(' / '));
   assert.ok(plan.score >= seed.score - 1e-6);
-  assert.equal(plan.shifts[0].assignments[post.id].filter(Boolean).length, 1, 'one seller stays');
+  assert.equal(plan.shifts[0].assignments[post.id].filter(Boolean).length, 2, 'both sellers stay');
+  assert.ok(plan.simulation.periodic && !plan.simulation.events.some(e => e.kind === 'exhausted'));
 });
 
-test('a pruned worker gives up their beds, and the freed beds staff a support room', () => {
-  // Three beds: Kroos, Fang and Beagle sleep in them in shift 1 (locked residents), Gravel, Proviso and Vigil
-  // in shifts 2 and 3. Orchid (Psychology) is idle with nowhere to recover, so the Office stays empty until Vigil is
-  // left out of the post and his beds go to her.
-  const ctx = realContext({ Gravel: e2(), Proviso: e2(), Vigil: e2(), Orchid: e2(), Kroos: e0(), Fang: e0(), Beagle: e0() }, ['dormitory', 'tradingPost', 'factory', 'office']);
+/** Three beds; Kroos, Fang and Beagle are locked into them in `lockedShifts`, and Gravel (gold), Proviso and Vigil
+ *  (one post) work the other shifts' complement, resting in the same three beds. */
+function threeBeds(owned: Record<string, OwnedOperator>, keep: string[]) {
+  const ctx = realContext({ Gravel: e2(), Proviso: e2(), Vigil: e2(), Kroos: e0(), Fang: e0(), Beagle: e0(), ...owned }, keep);
   const [firstDorm] = ctx.base.facilities.filter(f => f.kind === 'dormitory');
   ctx.base = { ...ctx.base, facilities: ctx.base.facilities.map(f => f.kind !== 'dormitory' ? f : f.id === firstDorm.id ? { ...f, capacity: 3 } : { ...f, capacity: 0, level: 0 }) };
   ctx.lockedDorm = ['Kroos', 'Fang', 'Beagle'];
   const seed = emptyPlan(ctx);
-  const factory = facilities.find(f => f.kind === 'factory')!, post = facilities.find(f => f.kind === 'tradingPost')!, office = facilities.find(f => f.kind === 'office')!;
+  const factory = facilities.find(f => f.kind === 'factory')!, post = facilities.find(f => f.kind === 'tradingPost')!;
   for (const shift of seed.shifts) shift.factoryProducts = { ...shift.factoryProducts, [factory.id]: 'Precious Metals' };
+  return { ctx, seed, firstDorm, factory, post };
+}
+const exhausted = (plan: OptimizerResult) => plan.simulation.events.filter(e => e.kind === 'exhausted').length;
+
+test('a new worker takes a bed its resident can spare, and nobody is left out for it', () => {
+  // Gravel, Proviso and Vigil work shift 1 and sleep in shifts 2 and 3: twice a cycle, once more than they need.
+  // Orchid (Psychology) is idle and every bed is taken, so the first fill finds her nowhere to rest. She takes one
+  // of a worker's two rests and staffs the Office; before 2026-11-11 a seller was left out of the post for her bed.
+  const { ctx, seed, firstDorm, post } = threeBeds({ Orchid: e2() }, ['dormitory', 'tradingPost', 'factory', 'office']);
+  const office = facilities.find(f => f.kind === 'office')!, factory = facilities.find(f => f.kind === 'factory')!;
   workThenRest(seed, { Gravel: [factory.id, 0], Proviso: [post.id, 0], Vigil: [post.id, 1] }, ctx.roster);
   ['Kroos', 'Fang', 'Beagle'].forEach((name, i) => { seed.shifts[0].assignments[firstDorm.id][i] = { operatorName: name, ...ctx.roster[name] }; });
   seed.simulation = simulateBase({ base: ctx.base, shifts: seed.shifts, loginInterval: 12 });
   const plan = completeStaffing(seed, ctx);
-  const where = () => plan.shifts.map(s => Object.fromEntries(Object.entries(s.assignments).filter(([, v]) => v.some(Boolean)).map(([id, v]) => [id, v.map(x => x?.operatorName ?? null)])));
-  // One of the two sellers adds nothing (Proviso's post sells every Precious Metal Gravel makes): whichever the prune
-  // names gives up the beds, and Orchid takes them.
-  const left = plan.notes.map(n => /^Left out as adding nothing[^:]*: (Proviso|Vigil) from Trading Post/.exec(n)?.[1]).find(Boolean);
-  assert.ok(left, plan.notes.join(' / '));
-  assert.ok(plan.shifts.every(s => !s.assignments[firstDorm.id].some(x => x?.operatorName === left)), `${left} keeps no bed: ${JSON.stringify(where())}`);
-  assert.ok(plan.shifts.some(s => s.assignments[office.id].some(x => x?.operatorName === 'Orchid')), `Orchid staffs the Office: ${JSON.stringify(where())}`);
+  assert.ok(plan.shifts.some(s => s.assignments[office.id].some(x => x?.operatorName === 'Orchid')), `Orchid staffs the Office: ${plan.notes.join(' / ')}`);
+  assert.ok(!plan.notes.some(n => n.startsWith('Left out as adding nothing')), plan.notes.join(' / '));
+  assert.equal(plan.shifts[0].assignments[post.id].filter(Boolean).length, 2, 'both sellers stay');
   assert.ok(plan.shifts.every(s => s.assignments[firstDorm.id].filter(Boolean).length <= 3), 'three beds');
-  assert.ok(plan.simulation.periodic && !plan.simulation.events.some(e => e.kind === 'exhausted'));
+  for (const names of occupied(plan)) assert.equal(new Set(names).size, names.length, 'no duplicate placements');
+  assert.ok(plan.score >= seed.score - 1e-6);
+  assert.ok(plan.simulation.periodic && exhausted(plan) === 0);
+});
+
+test('a worker of the plan who is neither working nor resting in a shift takes its open seat', () => {
+  // Proviso works the post in shift 1 and rests in shift 2; in shift 3 he is nowhere. The post's seat in shift 3 is
+  // open and no bed is free for anyone new, so he works it too: no bed needed, and the rotation still holds.
+  const { ctx, seed, firstDorm, post, factory } = threeBeds({}, ['dormitory', 'tradingPost', 'factory']);
+  const at = (name: string) => ({ operatorName: name, ...ctx.roster[name] });
+  seed.shifts[0].assignments[factory.id][0] = at('Gravel'); seed.shifts[0].assignments[post.id][0] = at('Proviso'); seed.shifts[0].assignments[post.id][1] = at('Vigil');
+  seed.shifts[1].assignments[firstDorm.id] = ['Gravel', 'Proviso', 'Vigil'].map(at);
+  seed.shifts[0].assignments[firstDorm.id] = ['Kroos', 'Fang', 'Beagle'].map(at); seed.shifts[2].assignments[firstDorm.id] = ['Kroos', 'Fang', 'Beagle'].map(at);
+  seed.simulation = simulateBase({ base: ctx.base, shifts: seed.shifts, loginInterval: 12 });
+  const plan = completeStaffing(seed, ctx);
+  const third = Object.entries(plan.shifts[2].assignments).filter(([id]) => id !== firstDorm.id).flatMap(([, slots]) => slots.flatMap(x => x ? [x.operatorName] : []));
+  assert.ok(third.some(name => ['Gravel', 'Proviso', 'Vigil'].includes(name)), `shift 3 works: ${third.join(', ')} / ${plan.notes.join(' / ')}`);
+  for (const names of occupied(plan)) assert.equal(new Set(names).size, names.length, 'no duplicate placements');
+  assert.ok(plan.score >= seed.score - 1e-6);
+  assert.ok(plan.simulation.periodic && exhausted(plan) === 0);
 });
 
 test('a robot at Elite 0 is its whole build: built-first leaves it in place', () => {

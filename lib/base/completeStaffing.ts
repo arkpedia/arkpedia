@@ -38,7 +38,13 @@ const SUPPORT_FILL_KINDS = new Set<string>(['controlCenter', 'powerPlant', 'rece
  * which ranks by the room's own speed and the reader's build (`refineSupport`, off when the search had a scored
  * reason for its choice); an Elite 0 worker in a production room gives way to an idle built operator with a
  * skill there when the score falls by at most BUILT_FIRST_MARGIN; and a Factory or Trading Post worker whose
- * removal does not lower the score is removed. */
+ * removal does not lower the score is removed, but only when their beds seat more than their leaving opens.
+ *
+ * Every room but the Training Room ends staffed wherever the rotation can carry it (owner, 2026-11-11; the Training
+ * Room's operator depends on the skill being trained, so the plan never picks one without a training target). A
+ * seat the fill cannot staff from a free bed goes to a worker of the plan who is off in that shift, or to a new
+ * worker in a bed its resident can spare; the Reception Room and Office take an operator without a skill for them
+ * last of all, and the plan says so. Never at the cost of an exhausted operator or a lower score. */
 export function completeStaffing(plan: OptimizerResult, ctx: GenomeContext, options: { refineSupport?: boolean } = {}): OptimizerResult {
   const { base, roster } = ctx;
   const byName = new Map(base.operators.map(o => [o.name, o]));
@@ -231,6 +237,76 @@ export function completeStaffing(plan: OptimizerResult, ctx: GenomeContext, opti
     }
   } };
   fill(rooms);
+  // ---------------------------------------------------------------- every seat filled
+  // What the fill above leaves open, it leaves for want of a bed: its worker is new to the plan and must rest in a
+  // free bed of another shift. Two more ways to a full room, each kept only when the rotation stays sound, within
+  // the presets and scores no lower: a worker of the plan who is neither working nor resting in that shift takes the
+  // seat (no bed needed), and a new worker takes one of the beds of a resident who rests more than once a cycle.
+  // The Training Room is never part of this: who teaches there depends on the skill being trained.
+  const plainSupport: string[] = [];
+  const built = (name: string) => ['Base', 'Elite 1', 'Elite 2'].indexOf(roster[name].eliteLevel) * 100 + roster[name].level;
+  const seated = (trial: SimulationShift[], room: FacilityDef, index: number, step: number, name: string) => {
+    const slots = trial[step].assignments[room.id] ?? [];
+    trial[step].assignments[room.id] = Array.from({ length: room.capacity }, (_, i) => i === index ? slot(name) : slots[i] ?? null);
+    return trial;
+  };
+  const accept = (trial: SimulationShift[], room: FacilityDef, name: string) => {
+    if (!keepIf(trial, scoreNow() - 1e-6)) return false;
+    assigned.add(name);
+    if (SUPPORT_SKILL_ROOMS.has(room.kind) && !skills(name, room.label).length && !plainSupport.includes(`${name} in ${room.label}`)) plainSupport.push(`${name} in ${room.label}`);
+    return true;
+  };
+  /** Who may take the room: its skilled first; the Reception Room and Office take anyone else only when `anyone`. */
+  const eligible = (names: string[], room: FacilityDef, anyone: boolean) => {
+    const skilled = names.filter(n => skills(n, room.label).length), rest = names.filter(n => !skilled.includes(n));
+    return SUPPORT_SKILL_ROOMS.has(room.kind) && !anyone ? skilled : [...skilled, ...rest];
+  };
+  function seatIdleWorker(room: FacilityDef, index: number, step: number, anyone: boolean): boolean {
+    const inShift = new Set(Object.values(shifts[step].assignments).flatMap(slots => slots.flatMap(x => x ? [x.operatorName] : [])));
+    const workers = [...new Set(shifts.flatMap(s => Object.entries(s.assignments).flatMap(([id, slots]) => kind.get(id) === 'dormitory' ? [] : slots.flatMap(x => x ? [x.operatorName] : []))))];
+    const pool = workers.filter(n => !inShift.has(n) && !untouchable.has(n) && byName.has(n) && roster[n] && n !== base.trainingTarget?.operatorName).sort((x, y) => built(y) - built(x) || x.localeCompare(y));
+    return eligible(pool, room, anyone).slice(0, 8).some(name => accept(seated(clone(shifts), room, index, step, name), room, name));
+  }
+  function seatWithSharedBed(room: FacilityDef, index: number, step: number, anyone: boolean): boolean {
+    const placed = placedNames();
+    const ranked = candidates(room, step).filter(n => !placed.has(n));
+    const others = anyone ? available.filter(n => !placed.has(n) && !ranked.includes(n)).sort((x, y) => built(y) - built(x) || x.localeCompare(y)) : [];
+    const rests = cycleAfter(step, shifts.map((_, i) => i).filter(i => i !== step));
+    for (const name of eligible([...ranked, ...others], room, anyone).slice(0, 4)) for (const rest of rests) {
+      const free = seated(clone(shifts), room, index, step, name);
+      if (putToRest(free, rest, name) && accept(free, room, name)) return true;
+      const restCount = (n: string) => shifts.filter(s => dorms.some(d => s.assignments[d.id]?.some(x => x?.operatorName === n))).length;
+      for (const d of dorms) {
+        if (shifts[rest].refill?.length && shifts[rest].assignments[d.id]?.some(x => x?.operatorName === 'Fiammetta')) continue;
+        for (const [at, resident] of (shifts[rest].assignments[d.id] ?? []).entries()) {
+          if (!resident || untouchable.has(resident.operatorName) || restCount(resident.operatorName) < 2) continue;
+          const trial = seated(clone(shifts), room, index, step, name);
+          trial[rest].assignments[d.id] = trial[rest].assignments[d.id].map((x, i) => i === at ? slot(name) : x);
+          if (accept(trial, room, name)) return true;
+        }
+      }
+    }
+    return false;
+  }
+  const fillRest = (anyone: boolean) => { for (const room of rooms) {
+    if (STANDBY_ROOMS.has(room.kind) || (anyone && !SUPPORT_SKILL_ROOMS.has(room.kind))) continue;
+    for (let step = 0; step < shifts.length; step++) for (let index = 0; index < room.capacity; index++) {
+      if (!shifts[step].assignments[room.id]?.[index]) { if (!seatIdleWorker(room, index, step, anyone)) seatWithSharedBed(room, index, step, anyone); }
+    }
+  } };
+  // The room's own skilled staff everywhere first; an operator without a skill for the Reception Room or Office only
+  // where nobody skilled could be seated (the room's base speed still runs, and the seat is not left open).
+  const fillEverySeat = () => { fillRest(false); fillRest(true); };
+  const emptySeats = () => rooms.filter(r => r.kind !== 'trainingRoom').reduce((sum, room) => sum + shifts.reduce((n, s) => n + room.capacity - (s.assignments[room.id] ?? []).filter(Boolean).length, 0), 0);
+  // ---------------------------------------------------------------- refinements, after the fill
+  // The prune below empties seats, and its freed beds can seat the support rooms. Both ways are completed, with and
+  // without it, and the one with fewer open seats is kept (then the higher score; a tie keeps every worker).
+  const unpruned = { shifts, simulation, assigned: [...assigned], countSeats: countSeats.length, plainSupport: plainSupport.length };
+  fillEverySeat();
+  const whole = { shifts, simulation, assigned: [...assigned], countSeats: [...countSeats], plainSupport: [...plainSupport], empty: emptySeats() };
+  shifts = unpruned.shifts; simulation = unpruned.simulation;
+  assigned.clear(); for (const name of unpruned.assigned) assigned.add(name);
+  countSeats.length = unpruned.countSeats; plainSupport.length = unpruned.plainSupport;
   // ---------------------------------------------------------------- refinements, after the fill
   // Prune: a Factory or Trading Post worker whose removal from the room (in every shift) leaves the funded score
   // where it is: what they add is output the base cannot fund (gold no post sells, orders no gold fills). Power
@@ -261,6 +337,12 @@ export function completeStaffing(plan: OptimizerResult, ctx: GenomeContext, opti
       if (assigned.size === before.assigned) { shifts = before.shifts; simulation = before.simulation; }
     }
   }
+  fillEverySeat();
+  if (whole.empty < emptySeats() || (whole.empty === emptySeats() && scoreOf(whole.simulation, ctx) >= scoreNow() - 1e-6)) {
+    shifts = whole.shifts; simulation = whole.simulation; pruned.length = 0;
+    assigned.clear(); for (const name of whole.assigned) assigned.add(name);
+    countSeats.splice(0, countSeats.length, ...whole.countSeats); plainSupport.splice(0, plainSupport.length, ...whole.plainSupport);
+  }
 
   // Present the actual completed staffing as one template per change. Never leave old
   // crew/schedule metadata referring to a different rotation than the saved shifts.
@@ -279,6 +361,7 @@ export function completeStaffing(plan: OptimizerResult, ctx: GenomeContext, opti
   if (builtSwaps.length) notes.push(`Built operators first: ${builtSwaps.join('; ')} (an Elite 0 worker gives way to an idle built one when the funded output keeps within ${BUILT_FIRST_MARGIN * 100}%).`);
   if (pruned.length) notes.push(`Left out as adding nothing to the funded output (gold no post sells, orders no gold fills): ${pruned.join('; ')}.`);
   if (countSeats.length) notes.push(`Seated to be counted in the base, not for the room's own work: ${countSeats.join('; ')}. A skill elsewhere counts how many of their faction or group are in the base, and a Dormitory bed counts the same, so this seat is worth it only while they have no bed.`);
+  if (plainSupport.length) notes.push(`Seated so the room is not left open, without a skill for it: ${plainSupport.join('; ')}. The room runs at its base speed; nobody with a skill for it could be rested in this rotation.`);
   if (rooms.some(r => r.kind === 'workshop')) notes.push('Workshop staff are a crafting standby; choose the crafter for your recipe. Crafting and its Morale costs are not scheduled; swap crafters and rest them after crafting.');
   if (!base.trainingTarget && base.facilities.some(f => f.kind === 'trainingRoom' && f.capacity)) notes.push('Training Room needs a training target; no mastery task is assumed.');
   // The usual reason on a full roster (19 of 21 Krooster profiles, 2026-11-05): no bed is free in any shift.
