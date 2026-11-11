@@ -15,6 +15,7 @@ import { makeSignature } from 'better-auth/crypto';
 import { getAuthTables } from 'better-auth/db';
 import { collectCloudData, fingerprint, personalData, restoreCloudData, validateCloudData } from '../../lib/cloud-account/data';
 import { accountAuth, accountsEnv, type AccountsEnv } from '../../lib/cloud-account/server';
+import { createNativeAuthHandler, nativeAuthChallenge } from '../../lib/cloud-account/native-auth';
 import { createReplayHandler } from '../../lib/cloud-account/replays-api';
 import { createCloudAccountHandler } from '../../lib/cloud-account/api';
 import { createCommunityHandler } from '../../lib/community/api';
@@ -804,4 +805,87 @@ test('community sharing accepts the same authenticated session as private cloud 
       assert.equal(status,200,JSON.stringify(result));
     }
   }finally{sqlite.close();}
+});
+
+
+test('native OAuth requires provider callback ticket and native proof; cookies never enter URLs or JSON', async () => {
+  const { sqlite, db } = database();
+  const env = { ...envFor(db), ARKPEDIA_AUTH_URL: 'https://www.arkpedia.net', ARKPEDIA_DEPLOYMENT_ROLE: 'production', ARKPEDIA_ACCOUNTS_ENABLED: '1' };
+  const auth = accountAuth(env), context = await auth.$context;
+  const user = await context.internalAdapter.createUser({ name: 'Test', email: 'native@example.invalid', emailVerified: true }, { method: 'oauth' });
+  const session = await context.internalAdapter.createSession(user.id, false);
+  const cookie = `${context.authCookies.sessionToken.name}=${session.token}.${await makeSignature(session.token, context.secret)}`;
+  const handler = createNativeAuthHandler(() => env);
+  async function call(action: string, body: Record<string, unknown> = {}, query: Record<string, string> = {}, headers: Record<string, string> = {}) {
+    let status = 200, result: Record<string, unknown> = {}, location = '';
+    const responseHeaders: Record<string, string | string[]> = {};
+    const res = { setHeader: (key: string, value: string | string[]) => { responseHeaders[key.toLowerCase()] = value; }, status: (value: number) => { status = value; return res; },
+      json: (value: Record<string, unknown>) => { result = value; }, end: () => {}, redirect: (value: number, url: string) => { status = value; location = url; } };
+    await handler({ method: ['begin', 'redeem'].includes(action) ? 'POST' : 'GET', query: { action, ...query }, body,
+      headers: { origin: env.ARKPEDIA_AUTH_URL, cookie, 'content-type': 'application/json', ...headers } } as unknown as NextApiRequest, res as unknown as NextApiResponse);
+    return { status, result, location, headers: responseHeaders };
+  }
+  try {
+    const verifier = 'v'.repeat(43), challenge = await nativeAuthChallenge(verifier);
+    const body = { challenge, provider: 'google', mode: 'sign-in', returnPath: '//evil.invalid' };
+    assert.equal((await call('begin', body, {}, { origin: 'https://evil.invalid' })).status, 403);
+    assert.equal((await call('begin', { ...body, challenge: 'plain' })).status, 400);
+    assert.equal((await call('begin', { ...body, provider: 'unknown' })).status, 400);
+    for (const provider of ['google', 'discord']) {
+      const begin = await call('begin', { ...body, provider });
+      assert.equal(begin.status, 200);
+      const state = begin.result.state as string;
+      const start = await call('start', {}, { state });
+      assert.equal(start.status, 302);
+      assert.equal(new URL(start.location).protocol, 'https:');
+      assert.equal(new URL(start.location).searchParams.get('redirect_uri'), env.ARKPEDIA_AUTH_URL + '/api/auth/callback/' + provider);
+      assert.ok(!start.location.includes(session.token));
+      assert.match((await call('start', {}, { state })).location, /error=expired/);
+      assert.match((await call('complete', {}, { state })).location, /error=failed/);
+      assert.equal((await call('redeem', { state, verifier })).status, 401);
+      // Emulate the successful provider return. The extra ticket is stored server-side
+      // inside Better Auth's OAuth state; start/failed returns never disclose it.
+      const record = sqlite.prepare("SELECT identifier FROM verification WHERE identifier LIKE ?").get('native-complete:' + state + ':%');
+      const ticket = String(record.identifier).split(':')[2];
+      assert.ok(!start.location.includes(ticket));
+      const completed = await call('complete', {}, { state, ticket });
+      assert.equal(completed.location, 'net.arkpedia.mobile://auth?state=' + state);
+      assert.equal((await call('redeem', { state, verifier: 'x'.repeat(43) })).status, 401);
+      const attempts = await Promise.all([call('redeem', { state, verifier }), call('redeem', { state, verifier })]);
+      assert.deepEqual(attempts.map(attempt => attempt.status).sort(), [200, 401]);
+      const redeemed = attempts.find(attempt => attempt.status === 200)!;
+      assert.deepEqual(redeemed.result, { returnPath: '/account?account=welcome' });
+      const cookies = redeemed.headers['set-cookie'] as string[];
+      assert.ok(cookies.some(value => value.startsWith('__Secure-arkpedia.session_token=') && value.includes('HttpOnly') && value.includes('Secure')));
+      assert.ok(!JSON.stringify(redeemed.result).includes(session.token));
+      assert.equal((await call('redeem', { state, verifier })).status, 401);
+      assert.match((await call('complete', {}, { state, ticket })).location, /error=failed/);
+    }
+    const linked = await call('begin', { ...body, mode: 'link' });
+    assert.equal((await call('start', {}, { state: linked.result.state as string })).status, 302);
+    assert.equal((await call('begin', { ...body, mode: 'link' }, {}, { cookie: '' })).status, 401);
+    sqlite.prepare('UPDATE session SET createdAt = ? WHERE id = ?').run(Date.now() - 600_000, session.id);
+    assert.equal((await call('begin', { ...body, mode: 'link' })).result.code, 'SESSION_NOT_FRESH');
+    const expired = await call('begin', body);
+    sqlite.prepare("UPDATE verification SET expiresAt = 0 WHERE identifier = ?").run('native-launch:' + expired.result.state);
+    assert.match((await call('start', {}, { state: expired.result.state as string })).location, /error=expired/);
+    const other = await context.internalAdapter.createUser({ name: 'Other', email: 'other-native@example.invalid', emailVerified: true }, { method: 'oauth' });
+    const otherSession = await context.internalAdapter.createSession(other.id, false);
+    const otherCookie = `${context.authCookies.sessionToken.name}=${otherSession.token}.${await makeSignature(otherSession.token, context.secret)}`;
+    const confirmation = await call('begin', { ...body, mode: 'confirm' });
+    const confirmState = confirmation.result.state as string;
+    await call('start', {}, { state: confirmState });
+    const confirmRecord = sqlite.prepare("SELECT identifier FROM verification WHERE identifier LIKE ?").get('native-complete:' + confirmState + ':%');
+    const confirmTicket = String(confirmRecord.identifier).split(':')[2];
+    assert.match((await call('complete', {}, { state: confirmState, ticket: confirmTicket }, { cookie: otherCookie })).location, /error=account/);
+    assert.equal((await call('redeem', { state: confirmState, verifier })).status, 401);
+    const timed = await call('begin', body), timedState = timed.result.state as string;
+    await call('start', {}, { state: timedState });
+    const timedRecord = sqlite.prepare("SELECT identifier FROM verification WHERE identifier LIKE ?").get('native-complete:' + timedState + ':%');
+    await call('complete', {}, { state: timedState, ticket: String(timedRecord.identifier).split(':')[2] });
+    sqlite.prepare("UPDATE verification SET expiresAt = 0 WHERE identifier LIKE ?").run('native-handoff:' + timedState + ':%');
+    assert.equal((await call('redeem', { state: timedState, verifier })).status, 401);
+    const generate = await auth.handler(new Request(env.ARKPEDIA_AUTH_URL + '/api/auth/one-time-token/generate', { headers: { cookie } }));
+    assert.equal(generate.status, 400, 'One-time tokens cannot be generated by a browser client');
+  } finally { sqlite.close(); }
 });

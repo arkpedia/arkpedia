@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { accountReturnPath } from '@/lib/cloud-account/navigation';
 import { accountClient } from '@/lib/cloud-account/client';
+import { nativeAccountAuth, nativeSignIn } from '@/lib/cloud-account/native-client';
 import { useCloudSync } from '@/lib/cloud-account/SyncProvider';
 import { BACKUP_STORES } from '@/lib/account/backup';
 import ImportDialog from './ImportDialog';
@@ -65,6 +66,20 @@ export default function CloudAccountPanel({ onOpenData, hideSettingsButton = fal
     finally { setWorking(false); }
   }
   async function login(provider: 'google' | 'discord', mode: 'sign-in' | 'link' | 'delete' | 'confirm' = 'sign-in') {
+    const native = nativeAccountAuth();
+    if (native) {
+      try {
+        let returnPath: string;
+        sync.pause();
+        try { returnPath = await nativeSignIn(native, provider, mode, router.asPath); }
+        finally { await sync.resume(); }
+        await router.replace(returnPath, undefined, { scroll: false });
+      } catch (error) {
+        if (error instanceof Error && error.message === 'SESSION_NOT_FRESH') { setReauth(true); throw new Error('Confirm with an existing login, then try again.'); }
+        throw error;
+      }
+      return;
+    }
     const body = { provider, callbackURL: mode === 'delete' ? '/account?confirm=delete' : mode === 'link' || mode === 'confirm' ? '/account?settings=logins' : accountReturnPath(router.asPath), errorCallbackURL: accountReturnPath(router.asPath, true) };
     const result = mode === 'link' ? await accountClient.linkSocial(body) : await accountClient.signIn.social(body);
     if (result.error?.code === 'SESSION_NOT_FRESH') { setReauth(true); throw new Error('Confirm with an existing login, then try again.'); }

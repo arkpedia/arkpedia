@@ -12,7 +12,6 @@ import type { LyricLine } from '@/lib/music/albumsDataServer';
 import { useMusicPlayer } from '@/lib/music/musicPlayerContext';
 import MusicWaveVisualizer from '@/components/music/MusicWaveVisualizer';
 import { artistKey, creditedArtists } from '@/lib/music/artistCredits';
-import { usePlayerMinimizeGesture } from '@/lib/music/usePlayerMinimizeGesture';
 import { useCrossFadeTitle } from '@/lib/music/useCrossFadeTitle';
 import { instrumentalLyricLines } from '@/lib/music/versionTiming';
 import { lyricsPath } from '@/lib/music/trackId';
@@ -20,7 +19,7 @@ import MusicPlaylists from '@/components/music/MusicPlaylists';
 import MusicGameSetting from '@/components/music/MusicGameSetting';
 import MusicLibrary from '@/components/music/MusicLibrary';
 import MusicLyrics from '@/components/music/MusicLyrics';
-import MusicNav, { MUSIC_VIEW_HREF } from '@/components/music/MusicNav';
+import MusicNav from '@/components/music/MusicNav';
 import MusicTransportBar from '@/components/music/MusicTransportBar';
 import MusicHeader from '@/components/music/MusicHeader';
 import { hiddenUnless } from '@/lib/ui/inert';
@@ -150,7 +149,6 @@ export default function MusicPage({ songLookup }: Props) {
   const lyricsExpanded = mobile && view === 'player' && hasLyrics && router.asPath.endsWith('#music-lyrics');
   const lyricsAndWaveRef = useRef<HTMLDivElement>(null);
   const collapsedScrollRef = useRef<number | null>(null);
-  const minimizeGesture = usePlayerMinimizeGesture(view === 'player' && !lyricsExpanded, () => { void router.push(MUSIC_VIEW_HREF.library, undefined, { shallow: true, scroll: false }); });
 
   useEffect(() => {
     if (!lyricsExpanded) {
@@ -252,8 +250,8 @@ export default function MusicPage({ songLookup }: Props) {
             search and scroll position survive a trip to Now playing and back. */}
         {/* A view counts as opened (loads its songs) only once the router has read ?view: the
             first render shows the default view, and must not load a hidden Library. */}
-        <div className={`music-view${minimizeGesture.offset ? ' music-player-pulling' : ''}`} data-music-view={view}>
-          <div ref={minimizeGesture.ref} style={minimizeGesture.offset ? { transform: `translateY(${minimizeGesture.offset}px)` } : undefined} className={`music-now-playing${view === 'player' ? '' : ' music-now-playing-behind'}`} aria-hidden={view === 'player' ? undefined : true} {...hiddenUnless(view === 'player')}>
+        <div className="music-view" data-music-view={view}>
+          <div className={`music-now-playing${view === 'player' ? '' : ' music-now-playing-behind'}`} aria-hidden={view === 'player' ? undefined : true} {...hiddenUnless(view === 'player')}>
 
             <div className="music-now-playing-details">
             <div className="music-now-playing-cover-col">
@@ -315,7 +313,7 @@ export default function MusicPage({ songLookup }: Props) {
 
           </div>
           <div className={`music-view-panel${view === 'library' ? '' : ' music-view-behind'}`} aria-hidden={view === 'library' ? undefined : true} {...hiddenUnless(view === 'library')}>
-            <MusicLibrary key={JSON.stringify([router.query.scope, router.query.playlist])} shown={router.isReady && (view === 'library' || minimizeGesture.offset > 0)} />
+            <MusicLibrary key={JSON.stringify([router.query.scope, router.query.playlist])} shown={router.isReady && view === 'library'} />
           </div>
         </div>
 

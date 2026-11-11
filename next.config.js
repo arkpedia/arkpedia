@@ -77,6 +77,7 @@ const nextConfig = {
   // traces its Node export. Keep both variants in the API's standalone output.
   outputFileTracingIncludes: {
     '/api/auth/*': ['node_modules/@better-auth/core/dist/instrumentation/*.mjs'],
+    '/api/native-auth/*': ['node_modules/@better-auth/core/dist/instrumentation/*.mjs'],
     '/api/cloud-account': ['node_modules/@better-auth/core/dist/instrumentation/*.mjs'],
     '/api/cloud-account/auto-deploys': ['node_modules/@better-auth/core/dist/instrumentation/*.mjs'],
     '/api/account-profile': ['node_modules/@better-auth/core/dist/instrumentation/*.mjs'],

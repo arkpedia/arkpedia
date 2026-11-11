@@ -49,6 +49,8 @@ export interface EngineEvents {
 export type EngineKind = 'youtube' | 'msr';
 
 export interface TrackEngine extends PlaybackEngine {
+  /** Adopt an already-playing native session after a page reload without reloading its file. */
+  adoptNative(): void;
   /** Which engine plays the track loaded now. Events from the other one are stale. */
   active(): EngineKind;
   /** The track id last loaded or cued, '' before any. */
@@ -92,7 +94,8 @@ export function createTrackEngine(youtube: PlaybackEngine, audio: PlaybackEngine
   const current = () => (active === 'msr' ? audio : youtube);
   return {
     active: () => active,
-    loaded: () => loadedId,
+    loaded: () => active === 'msr' ? audio.getVideoData().video_id || loadedId : loadedId,
+    adoptNative: () => { youtube.pauseVideo(); active = 'msr'; loadedId = audio.getVideoData().video_id || ''; },
     routeOf: (id) => route(id).kind,
     loadVideoById: (video) => pick(video, (engine, arg) => engine.loadVideoById(arg)),
     cueVideoById: (video) => pick(video, (engine, arg) => engine.cueVideoById(arg)),

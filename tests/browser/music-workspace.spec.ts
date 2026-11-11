@@ -151,7 +151,7 @@ test('phone music dropdown is anchored, dismisses outside and with Escape, and k
   await expect(menu).not.toBeVisible();
 });
 
-test('pulling down returns to Library while the same transport and song remain', async ({ page }, info) => {
+test('scrolling Now Playing never exposes Library underneath; the explicit back control preserves playback', async ({ page }, info) => {
   test.skip(info.project.name !== 'mobile');
   await stubYouTube(page);
   await page.goto('/music?view=library');
@@ -170,8 +170,12 @@ test('pulling down returns to Library while the same transport and song remain',
   await touch('touchstart', 200); await touch('touchmove', 245); await touch('touchend', 245);
   await expect(page).toHaveURL(/view=player/);
   await touch('touchstart', 200); await touch('touchmove', 340);
-  await expect.poll(() => page.locator('.music-now-playing').evaluate(el => getComputedStyle(el).transform)).not.toBe('none');
+  await expect.poll(() => page.locator('.music-now-playing').evaluate(el => getComputedStyle(el).transform)).toBe('none');
+  await expect(page.locator('.music-view-panel')).not.toBeVisible();
+  expect(await page.locator('.music-now-playing-song-info').evaluate(el => getComputedStyle(el).overflowY)).toBe('visible');
   await touch('touchend', 340);
+  await expect(page).toHaveURL(/view=player/);
+  await page.getByRole('link', { name: 'Back to Library', exact: true }).click();
   await expect(page).toHaveURL(/view=library/);
   await expect(page.locator('.music-library-row').first()).toBeVisible();
   await expect.poll(async () => (await bar.boundingBox())!.height).toBe(transportHeight);

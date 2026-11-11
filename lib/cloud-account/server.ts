@@ -1,4 +1,5 @@
 import { betterAuth } from 'better-auth';
+import { oneTimeToken } from 'better-auth/plugins/one-time-token';
 import { APIError, createAuthMiddleware, getAuthoritativeSessionFromCtx } from 'better-auth/api';
 import { getCloudflareContext } from '@opennextjs/cloudflare';
 import type { D1Database } from '@cloudflare/workers-types';
@@ -35,6 +36,7 @@ export function accountsEnv(): AccountsEnv | null {
 export function accountAuth(env: AccountsEnv) {
   return betterAuth({
     appName: 'Arkpedia',
+    plugins: [oneTimeToken({ storeToken: 'hashed', expiresIn: 1, disableClientRequest: true })],
     hooks: { before: createAuthMiddleware(async ctx => {
       if (!['/link-social', '/revoke-other-sessions'].includes(ctx.path)) return;
       const session = await getAuthoritativeSessionFromCtx(ctx);

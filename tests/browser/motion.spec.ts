@@ -565,6 +565,7 @@ const FLAT_BOXES: Record<string, string> = {
   'gm-oprow': 'a row of the Stronghold operator list',
   'regular-now': 'a content card on /stages/regular: it lifts on hover instead',
   'gm-co-launch': 'the Stronghold companion launcher: a teal-edged call to action under the lookup, not a panel',
+  'gacha-banner-main-placeholder': 'the missing banner artwork, occupying the same flat image box as a loaded poster',
 };
 test.describe('boxed panels sit on a soft shadow', () => {
   test.skip(({ isMobile }) => !!isMobile, 'the same stylesheet at every width; measured at 1440');

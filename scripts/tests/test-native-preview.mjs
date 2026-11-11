@@ -102,6 +102,12 @@ test('Preview limits account ingress before application work and fails closed wi
     assert.equal((await protectPreviewRequest(community, {}, run)).status, 503);
     assert.equal(applicationCalls, 0, 'community traffic is bounded before application work');
   }
+  for (const action of ['begin', 'start', 'complete', 'redeem']) {
+    const native = new Request(`https://www.arkpedia.net/api/native-auth/${action}`, { headers: { 'cf-connecting-ip': '192.0.2.1' } });
+    assert.equal((await protectPreviewRequest(native, {}, run)).status, 503);
+    assert.equal((await protectPreviewRequest(native, env, run)).status, 429);
+    assert.equal(applicationCalls, 0, 'native sign-in is bounded before application work');
+  }
   const publicPage = await protectPreviewRequest(new Request('https://preview.arkpedia.net/music'),{},run);
   assert.equal(publicPage.status,200); assert.equal(applicationCalls,1);
   assert.match(publicPage.headers.get('content-security-policy'),/object-src 'none'/);
@@ -151,9 +157,12 @@ test('Preview recovery authorization errors are actionable without leaking provi
 test('packaged account routes stay private even when the auth library replaces cache headers', async () => {
   const env = { ACCOUNT_TRAFFIC_LIMIT: { limit: async () => ({success:true}) }, ACCOUNT_IP_LIMIT: { limit: async () => ({success:true}) } };
   for (const host of ['preview.arkpedia.net', 'www.arkpedia.net', 'arkpedia.cloudflare-1ff.workers.dev']) {
-    const response = await protectPreviewRequest(new Request(`https://${host}/api/auth/get-session`), env,
+    for (const path of ['auth/get-session', 'native-auth/redeem']) {
+    const response = await protectPreviewRequest(new Request(`https://${host}/api/${path}`), env,
       () => Response.json(null, { headers: { 'cache-control': 'no-store', vary: 'Accept-Encoding' } }));
     assert.equal(response.headers.get('cache-control'), 'private, no-store');
     assert.equal(response.headers.get('vary'), 'Accept-Encoding, Cookie');
+    assert.equal(response.headers.get('referrer-policy'), 'no-referrer');
+    }
   }
 });

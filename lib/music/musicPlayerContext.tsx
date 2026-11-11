@@ -14,6 +14,7 @@ import { clearUpcoming, placeSong, restoreAround, type Placement, type QueueStat
 import { PLAYER_STATE, createMsrAudioEngine, createTrackEngine, type EngineKind, type MsrAudioEngine, type PlaybackEngine, type TrackEngine } from './playbackEngine';
 import { trackSource, type TrackSource } from './trackId';
 import { useMsrMediaSession } from './useMsrMediaSession';
+import { createNativeAudioEngine, isNativeEngine, nativeAudioPlugin, nativeQueue } from './nativeAudio';
 import { SITE_ICON_PATH, artistLine, imageType, msrCoverPath, sessionArtwork, useSongArt, youtubeThumbnail } from './songArt';
 import { versionTiming } from './versionTiming';
 import { findSongVersion } from './songVersions';
@@ -403,6 +404,7 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
     clearPlaybackNotice();
     const source = id ? routeTrack(id) : null;
     if (source?.kind !== 'msr') return;
+    if (nativeAudioPlugin()) return;
     primeSpectrumContext();
     if (playerReadyRef.current && playerRef.current && musicAudioElement().getAttribute('src')) return;
     primeMusicAudio(source.cid, seconds);
@@ -852,6 +854,20 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
   // Decided again at each change below, and at each tick of the clock while a song plays
   // (the poll effect below), as the song's own buffering comes along.
   function selectPreload() {
+    if (isNativeEngine(audioRef.current)) {
+      musicAudioPreloader.select(null, false);
+      if (playerRef.current?.active() === 'msr') {
+        audioRef.current.synchronize(nativeQueue({
+          currentId: videoIdRef.current, currentAutoplay: autoplayVideoIdRef.current === videoIdRef.current,
+          queue: queueRef.current, order: shuffleRef.current ? shuffleOrderRef.current : null,
+          history: historyRef.current, queued: queuedRef.current,
+          autoplay: autoplayRef.current ? nextAutoplayTracks() : [], repeat: repeatModeRef.current,
+          lookup: id => catalogRef.current?.find(song => song.id === id) ?? queueRef.current.find(song => song.id === id),
+          route: routeTrack,
+        }));
+      }
+      return;
+    }
     const saver = (navigator as Navigator & { connection?: { saveData?: boolean } }).connection?.saveData;
     const next = repeatModeRef.current === 'one' ? undefined : nextSong();
     const source = next ? routeTrack(next.id) : null;
@@ -880,7 +896,7 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
   // Helpers read current refs; preloading never chooses its own shuffle order.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isPlaying, videoId, queue, queueIndex, queued, shuffle, shuffleOrder,
-    shufflePosition, repeatMode, autoplay, autoplayVideoId, dataSaver, excludeCopyrighted, includeEndfield, libraryTracks]);
+    shufflePosition, repeatMode, autoplay, autoplayVideoId, dataSaver, excludeCopyrighted, includeEndfield, libraryTracks, favorites, noAutoplay]);
   useEffect(() => () => {
     musicAudioPreloader.select(null, false);
     audioRef.current?.prepareVersion(null);
@@ -950,12 +966,18 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
         if (engine?.active() === kind) run(engine);
       };
       // The element the first press already primed (lib/music/audioElement.ts), or made now.
-      const audio = createMsrAudioEngine({
-        onState: (state) => fromEngine('msr', (engine) => onPlayerState(state, engine)),
+      const audioEvents = {
+        onState: (state: number) => fromEngine('msr', (engine) => onPlayerState(state, engine)),
         onError: () => fromEngine('msr', onPlayerError),
         onAutoplayBlocked: () => fromEngine('msr', onAutoplayRefused),
         onStuck: () => fromEngine('msr', onStuck),
-      }, { element: musicAudioElement() });
+      };
+      const native = nativeAudioPlugin();
+      const audio = native ? createNativeAudioEngine(audioEvents, native, (id, cid) => {
+        const song = catalogRef.current?.find(song => song.id === id);
+        return { id, cid, title: song ? songTitle(song.title, song.altTitle) : 'Arkpedia',
+          artist: song?.artist || 'Monster Siren Records', album: song?.album || '', autoplay: autoplayVideoIdRef.current === id };
+      }, musicAudioElement()) : createMsrAudioEngine(audioEvents, { element: musicAudioElement() });
       audioRef.current = audio;
 
       const onPlayerError = () => {
@@ -1018,6 +1040,21 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
 
       const onPlayerState = (data: number, engine: TrackEngine) => {
         const state = PLAYER_STATE;
+        if (engine.active() === 'msr' && isNativeEngine(audio)) {
+          const track = audio.track();
+          if (track && track.id !== videoIdRef.current) {
+            const index = queueRef.current.findIndex(song => song.id === track.id);
+            if (index >= 0) {
+              queueIndexRef.current = index; setQueueIndex(index);
+              const at = shuffleOrderRef.current?.indexOf(index) ?? -1;
+              if (at >= 0) { shufflePositionRef.current = at; setShufflePosition(at); }
+            }
+            autoplayVideoIdRef.current = track.autoplay ? track.id : '';
+            setAutoplayVideoId(autoplayVideoIdRef.current);
+            videoIdRef.current = track.id; setVideoId(track.id); setTitle(track.title);
+            setCurrentTime(engine.getCurrentTime()); setDuration(engine.getDuration());
+          }
+        }
         // Ignore unsolicited playback before a main-player request.
         if (!manualAudio.current && !videoIdRef.current && data === state.PLAYING) {
           engine.pauseVideo(); return;
@@ -1084,7 +1121,7 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
           autoplay: 0,
         },
         events: {
-          onReady: (e: { target: YTPlayer }) => {
+          onReady: async (e: { target: YTPlayer }) => {
             // routeTrack reads the refs it needs at each call: Data saver, the catalogue.
             const engine = createTrackEngine(e.target, audio, (id) => routeTrack(id));
             playerRef.current = engine;
@@ -1103,6 +1140,14 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
             }
             engine.setVolume(savedVolume);
             setVolume(savedVolume);
+
+            if (isNativeEngine(audio) && !pendingVideoIdRef.current && await audio.restore()) {
+              manualAudio.current = true;
+              engine.adoptNative(); audio.refresh();
+              pendingPlayRef.current = false;
+              setReady(true); setStarting(false);
+              return;
+            }
 
             // A specific track was requested (via playTrackByVideoId)
             // before the player finished initializing -- load THAT
@@ -1970,7 +2015,7 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
     base: typeof window === 'undefined' ? 'https://www.arkpedia.net/' : window.location.href,
   });
   useMsrMediaSession({
-    msr: msrSession,
+    msr: msrSession && !isNativeEngine(audioRef.current),
     trackId: videoId,
     track: currentTrack,
     playing: isPlaying,
