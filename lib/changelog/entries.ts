@@ -152,8 +152,8 @@ export const CHANGELOG: ChangelogEntry[] = [
   {
     at: '2026-11-04T17:00:00Z',
     fixed: [
-      { title: 'The base optimizer staffs the Reception Room and HR Office properly', detail: 'They get operators with a skill for the room, preferring the ones you have promoted, or stay empty with the names to put there by hand. Before, the search left whoever it last tried in them.', href: '/base' },
-      { title: 'The base optimizer says when it cannot compare your layout', detail: 'A testing account with no base layout gets a note in place of a 2-5-2 checkbox that could not be turned off.', href: '/base' },
+      { title: 'Skilled staff in Reception and HR Office', detail: 'The base optimizer seats operators with a skill for the room, or leaves it empty and names who to place by hand.', href: '/base' },
+      { title: 'A note when no layout can be compared', detail: 'A testing account with no base layout gets a note in place of a 2-5-2 checkbox that could not be turned off.', href: '/base' },
     ],
   },
   {
@@ -190,12 +190,12 @@ export const CHANGELOG: ChangelogEntry[] = [
   {
     at: '2026-11-03T12:00:00Z',
     changed: [
-      { title: 'The base optimizer uses your spare cores', detail: 'On a device with several cores the optimizer runs searches side by side for the same minute and shows the best plan found.', href: '/base' },
-      { title: 'The base optimizer tries more plans a minute', detail: 'It no longer rescores staffing it has already scored, so a minute reaches two to three times as many plans on a large roster.', href: '/base' },
-      { title: 'Testers can import a Krooster profile', detail: 'On Preview, paste a public Krooster profile link into the Base optimizer or Import / export and it becomes the account.', href: '/base' },
+      { title: 'The base optimizer uses your spare cores', detail: 'On a device with several cores it runs searches side by side and shows the best plan found.', href: '/base' },
+      { title: 'The base optimizer tries more plans a minute', detail: 'It no longer rescores staffing it has already scored, reaching two to three times as many plans on a large roster.', href: '/base' },
+      { title: 'Testers can import a Krooster profile', detail: 'On Preview, paste a public Krooster profile link into the Base optimizer or Import / export.', href: '/base' },
     ],
     fixed: [
-      { title: 'Optimizer rotations fit the game\'s presets', detail: 'The base optimizer now recommends rotations that fit the three presets the game stores, and saving one creates a setup per preset.', href: '/base' },
+      { title: 'Optimizer rotations fit the game\'s presets', detail: 'Recommended rotations fit the three presets the game stores, and saving one creates a setup per preset.', href: '/base' },
     ],
   },
   {
@@ -262,11 +262,11 @@ export const CHANGELOG: ChangelogEntry[] = [
   {
     at: '2026-10-30T10:00:00Z',
     changed: [
-      { title: 'A deeper, faster base optimizer', detail: 'The base optimizer keeps improving its plan for the time you choose, 1 minute by default; Stop keeps the best so far.', href: '/base' },
+      { title: 'A deeper, faster base optimizer', detail: 'The base optimizer keeps improving its plan for the time you choose; Stop keeps the best so far.', href: '/base' },
     ],
     fixed: [
       { title: 'Rooms count only their places', detail: 'A room with more operators saved than it has places, such as after a downgrade, no longer counts the extra ones.', href: '/base' },
-      { title: 'Saved optimizer rotations keep their numbers', detail: 'A rotation saved from the optimizer now shows the same daily yields on the Base page, drones and Fiammetta\'s refills included.', href: '/base' },
+      { title: 'Saved optimizer rotations keep their numbers', detail: 'A rotation saved from the optimizer shows the same daily yields on the Base page, drones and refills included.', href: '/base' },
     ],
   },
   {
