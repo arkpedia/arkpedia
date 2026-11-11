@@ -54,5 +54,6 @@ test("Closure's Chief Engineer adds +0.05 Morale per hour to everyone in the Con
   near(r.ccEffects.ccMoraleBonus, 0.05, 'Chief Engineer');
   const both = calc({ controlCenter: [maxed('Closure'), maxed('Dobermann')] });
   near(both.ccEffects.ccMoraleBonus, 0.05 + 0.05, "with Dobermann's Capable Assistance");
-  near(r.rooms.controlCenter.perOperatorMorale!.Amiya, 1 - 0.05 * 2 - 0.05 * 2, 'Amiya: 1 base, 0.05 per Control Center operator for everyone, 0.05 per Chief Engineer');
+  // No own-room headcount term in the Control Center (the game server's 0.75 for five, calculateBase.ts).
+  near(r.rooms.controlCenter.perOperatorMorale!.Amiya, 1 - 0.05 * 2 - 0.05, 'Amiya: 1 base, 0.05 per Control Center operator for everyone, 0.05 for the Chief Engineer');
 });

@@ -548,7 +548,10 @@ export function calculateBase(input: BaseCalculationInput) {
     const specialNotes: { operator: string; note: string }[] = [];
     let facilityBreakdown: FacilityBreakdown | null = null;
     // Room-wide Morale effects and each operator's own, from every skill's shapes (the custom handlers never change these).
-    const morale: MoraleResult = { grey: greyMoraleRate(filled.length), selfYellow: {}, allOperatorsYellow: 0 };
+    // Control Center staff get the room's base-wide relief (0.05 per operator there) and not the own-room headcount
+    // term on top: the game server records 0.75 an hour for five (a raw save, 2026-10-28: room apCost -75 beside the
+    // Factories' 100 - 5(n - 1) - 25), where both terms together gave 0.55.
+    const morale: MoraleResult = { grey: f.kind === 'controlCenter' ? (filled.length > 0 ? 1 : 0) : greyMoraleRate(filled.length), selfYellow: {}, allOperatorsYellow: 0 };
     for (const { x, c } of evaluated) {
       if (!c) continue;
       morale.allOperatorsYellow += c.roomMorale;

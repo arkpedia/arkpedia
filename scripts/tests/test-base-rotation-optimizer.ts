@@ -133,9 +133,11 @@ test('a formations plan never places an operator twice in a shift, Fiammetta inc
   assert.deepEqual(result.simulation.warnings.filter(w => / twice\.$/.test(w)), []);
 });
 
-test('in a full Sui Control Center Dusk loses no Morale, so parked below 12 she adds Worldly Plight +15 beside Ling', () => {
-  // What the optimizer's Dusk pass relies on: she can stay below 12 indefinitely, and her +15 and Ling's
-  // +15 (above 12) then hold at once, read from each one's own Morale.
+test('in a full Sui Control Center Dusk loses 0.2 Morale an hour, and parked below 12 she adds Worldly Plight +15 beside Ling', () => {
+  // What the optimizer's Dusk pass relies on: her +15 below 12 and Ling's +15 above 12 hold at once, read from each
+  // one's own Morale. She does lose Morale there: Control Center staff get the base-wide relief only (0.75 an hour
+  // for five on the game server, 2026-11-11), not the own-room term that once brought her to zero, so the pass keeps
+  // her parked only where the simulated rotation holds.
   const tp = full243.find(f => f.kind === 'tradingPost')!.id;
   const cc = ['Dusk', 'Ling', 'Chongyue', 'Saileach', 'Swire'];
   const assignments = { controlCenter: cc.map(n => ({ operatorName: n, eliteLevel: 'Elite 2' as const, level: 90 })), [tp]: [{ operatorName: 'Mr. Nothing', eliteLevel: 'Elite 2' as const, level: 90 }] };
@@ -144,7 +146,7 @@ test('in a full Sui Control Center Dusk loses no Morale, so parked below 12 she 
     return { plight: r.resourcePools.worldlyPlight, dusk: (r.rooms.controlCenter as { perOperatorMorale?: Record<string, number> }).perOperatorMorale?.Dusk };
   };
   const parked = plight(11), full = plight(20);
-  near(parked.dusk ?? NaN, 0);
+  near(parked.dusk ?? NaN, 0.2);
   near(parked.plight - full.plight, 15);
 });
 

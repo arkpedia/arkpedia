@@ -108,6 +108,10 @@ for (const file of files) {
       row(label('Trading Post order efficiency, all posts'), Number(buff.trading?.speed ?? 0), result.ccEffects?.tradingPostBonus);
       row(label('Factory productivity, all factories'), Number(buff.manufacture?.speed ?? 0), result.ccEffects?.factoryBonus);
       row(label('Morale saving, whole base'), ccGlobal / 100, result.ccMoraleRelief);
+      // Control Center staff's own hourly Morale change before the floor at zero: the room's rate (`apCost` on the
+      // room, 100 less the base-wide saving and no own-room headcount term) less each operator's saving.
+      const roomRate = -Number(building.rooms?.CONTROL?.[slot]?.apCost ?? NaN) / 100, savings = Object.values(buff.apCost ?? {}).map(Number);
+      if (Number.isFinite(roomRate) && savings.length && ours.morale) row(label('staff Morale per hour, before the floor'), roomRate - Math.max(...savings) / 100, ours.morale.grey + ours.morale.yellow);
     }
   }
 }

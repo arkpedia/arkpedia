@@ -21,8 +21,8 @@ const at = (name: string) => ({ operatorName: name, eliteLevel: 'Elite 2' as con
 const four = ['Ash', 'Frost', 'Tachanka', 'Blitz'];
 const cc = facilities.find(f => f.kind === 'controlCenter')!;
 const drains = (names: string[]) => { const r = calculateBase({ ...base, assignments: { [cc.id]: names.map(at) }, factoryProducts: {}, loginInterval: 12, swapPolicy: 'onLogin' }).rooms[cc.id]; return names.map(n => r.perOperatorMorale?.[n] ?? r.combinedMoraleRate); };
-const raw = (names: string[]) => { const r = calculateBase({ ...base, assignments: { [cc.id]: names.map(at) }, factoryProducts: {}, loginInterval: 12, swapPolicy: 'onLogin' }).rooms[cc.id]; return JSON.stringify({ per: r.perOperatorMorale, combined: r.combinedMoraleRate, keys: Object.keys(r) }); };
-if (process.env.RAW) { console.log(raw(['12F'])); console.log(raw(four)); console.log(raw([...four, 'Amiya'])); console.log(raw(['Ash', 'Frost', '12F'])); }
+const raw = (names: string[]) => { const r = calculateBase({ ...base, assignments: { [cc.id]: names.map(at) }, factoryProducts: {}, loginInterval: 12, swapPolicy: 'onLogin' }).rooms[cc.id]; return JSON.stringify({ per: r.perOperatorMorale, combined: r.combinedMoraleRate, morale: r.morale, notes: r.specialNotes, breakdown: r.facilityBreakdown }); };
+if (process.env.RAW) { console.log(raw(['12F'])); console.log(raw(four)); console.log(raw([...four, 'Amiya'])); console.log(raw(['Ash', 'Frost', '12F'])); console.log(raw(['Ash', '12F'])); console.log(raw(['Ash'])); console.log(raw(['12F', 'Adnachiel', 'Ansel'])); }
 console.log('four alone:', drains(four).map(d => d.toFixed(2)).join(' '));
 const rows = operators.filter(o => !four.includes(o.name)).map(o => ({ name: o.name, d: drains([...four, o.name]) })).filter(r => Math.max(...r.d) <= 1e-9);
 console.log(`${rows.length} fifths bring every seat to zero or below:`);
