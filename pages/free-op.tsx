@@ -187,6 +187,7 @@ export default function FreeOpPage({ backlogSources, freeRewards: globalFreeRewa
           <div ref={welfareRef} className="free-op-welfare">
             <div className="free-op-heading"><div><h3>Welfare operators</h3><a className="free-op-welfare-guide" href={WELFARE_GUIDE} target="_blank" rel="noopener noreferrer">kukkikaze’s welfare recommendations · +3 highest, +0 lowest</a></div>
               <SegmentedControl label="Welfare order" value={welfareOrder} onChange={setWelfareOrder} options={[{ value: 'recommended', label: 'Recommended' }, { value: 'availability', label: 'Availability' }]} /></div>
+            {welfareOrder === 'availability' && <p className="support-copy">Running events ending soon come first, then permanent Record Restoration rewards. Your event unlocks and required stars are not checked here.</p>}
             {operators.length
               ? <ul className="free-op-welfare-list" aria-label="Welfare operators to claim">{operators.map(({ reward, operator }) =>
                   <WelfareCard key={`${reward.id}:${operator.id}`} reward={reward} operator={operator} icon={rewardIcons[operator.id]} priority={welfarePriority(operator.name)} server={server} now={clock} onPreview={setPreview} />)}</ul>

@@ -91,19 +91,27 @@
 .pulls-past-body { display: grid; gap: 12px; }
 .pulls-past-body .pulls-disclosure { margin-top: 0; }
 /* The Income and Skin wishlist popups (pages/pulls.tsx), in the same frame as Past events. */
-.pulls-income-dialog { --dialog-w: 760px; }
+.pulls-income-dialog { --dialog-w: 1100px; }
+.pulls-available-dialog { --dialog-w: 820px; }
 .pulls-skins-dialog { --dialog-w: 1080px; }
 /* The Add banner popup: two columns of banner cards (components/pulls/BannerPicker). */
 .pulls-banner-dialog { --dialog-w: 960px; }
-.pulls-income-body, .pulls-skins-body { display: grid; gap: 14px; }
+.pulls-income-body, .pulls-skins-body { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; min-width: 0; }
+.pulls-income-body > * { min-width: 0; }
+.pulls-breakdown-context { display: grid; gap: 6px; margin: 0; overflow-wrap: anywhere; }
+.pulls-breakdown-detail { display: grid; gap: 6px; }
+.pulls-breakdown-resources { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; }
 /* The condensed income report: one line per source -- what, its working, its pulls -- and the
    two sums the forecast adds, ruled above. */
-.pulls-report { width: 100%; border-collapse: collapse; font: 13px var(--font-body); }
+.pulls-report { width: 100%; table-layout: fixed; border-collapse: collapse; font: 13px var(--font-body); }
 .pulls-report th, .pulls-report td { padding: 7px 8px; border-bottom: 1px solid var(--line-soft); text-align: left; vertical-align: middle; }
 .pulls-report thead th { color: var(--text-faint); font: 600 11px var(--font-mono); letter-spacing: 0.04em; text-transform: uppercase; }
-.pulls-report tbody th { color: var(--text); font-weight: 500; white-space: nowrap; }
+.pulls-report tbody th { color: var(--text); font-weight: 500; }
+.pulls-report th, .pulls-report td { overflow-wrap: anywhere; }
+.pulls-report th:first-child { width: 28%; }
 .pulls-report td { color: var(--text-dim); }
-.pulls-report td:last-child, .pulls-report th:last-child { width: 1%; white-space: nowrap; text-align: right; color: var(--text-bright); font-variant-numeric: tabular-nums; }
+.pulls-report td:last-child, .pulls-report th:last-child { width: 24%; text-align: right; color: var(--text-bright); font-variant-numeric: tabular-nums; }
+.pulls-available-report td:last-child, .pulls-available-report th:last-child { width: 16%; }
 .pulls-report tr.muted th, .pulls-report tr.muted td { color: var(--text-faint); }
 .pulls-report .pulls-report-group th { padding-top: 16px; text-align: left; color: var(--teal); font: 600 12px var(--font-mono); letter-spacing: 0.04em; text-transform: uppercase; }
 .pulls-report-sum th, .pulls-report-sum td { border-top: 1px solid var(--line); border-bottom: 0; font-weight: 600; }
@@ -111,13 +119,31 @@
 .pulls-report .pulls-tick { display: inline-flex; margin-left: 10px; }
 /* An event's rewards in two columns, OP then permits, the same width on every row, so each
    icon sits under the one above it and "OP" never runs into the permit icon (2026-10-29). */
-.pulls-report-amounts { display: inline-grid; grid-template-columns: 6.5em 7.5em; column-gap: 18px; align-items: center; justify-items: start; text-align: left; }
+.pulls-report-amounts { display: inline-grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; width: 100%; align-items: center; justify-items: start; text-align: left; }
 .pulls-report-amounts .pulls-reward-amount { gap: 8px; font-variant-numeric: tabular-nums; }
 .pulls-report-uncounted { opacity: .5; }
-.pulls-report .pulls-wish-options { display: inline-flex; gap: 6px; }
+.pulls-report .pulls-wish-options { display: inline-flex; flex-wrap: wrap; gap: 6px; }
 .pulls-report .pulls-wish-option { align-items: center; padding: 3px 8px; }
 .pulls-report .pulls-wish-option b { font-size: 12px; white-space: nowrap; }
-@media (max-width: 640px) { .pulls-report th, .pulls-report td { padding: 6px 4px; } .pulls-report .pulls-wish-options { flex-wrap: wrap; } }
+@media (max-width: 1000px) { .pulls-report-amounts { grid-template-columns: 1fr; } }
+/* On phones the working goes below its source and amount. Keep table semantics and
+   all source details; the dialog body is the only scrolling surface. */
+@media (max-width: 800px) {
+  .pulls-report thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+  .pulls-report tbody { display: block; }
+  .pulls-report tr { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 12px; padding-block: 10px; border-bottom: 1px solid var(--line-soft); }
+  .pulls-report th, .pulls-report td { padding: 0; border: 0; min-width: 0; }
+  .pulls-report th:first-child, .pulls-report td:last-child, .pulls-report th:last-child { width: auto; }
+  .pulls-report th[scope="row"] { grid-column: 1; grid-row: 1; }
+  .pulls-report td:nth-child(2) { grid-column: 1 / -1; grid-row: 2; }
+  .pulls-report td:last-child { grid-column: 2; grid-row: 1; }
+  .pulls-report [colspan] { grid-column: 1 / -1; text-align: left; }
+  .pulls-report .pulls-report-group th { padding-top: 6px; }
+  .pulls-report-amounts { grid-template-columns: 1fr; gap: 4px; }
+  .pulls-report-sum { border-top: 1px solid var(--line); }
+  .pulls-report .pulls-tick { margin-left: 0; display: flex; margin-top: 6px; }
+  .pulls-income-body .pulls-target-row { grid-template-columns: minmax(0, 1fr); }
+}
 
 /* The Reward Tracker (pages/free-op.tsx): the same lists, each group a section of the page. */
 .pulls-past-page { display: grid; gap: 12px; align-content: start; }

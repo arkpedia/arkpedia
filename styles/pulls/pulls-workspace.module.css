@@ -75,6 +75,9 @@
 .date b { font-weight: 500; font-size: 13px; }
 .date small,.figure small { min-height: 14px; font-size: 10px; color: var(--text-dim); }
 .figure b { font: 600 22px/1.2 var(--font-display); font-variant-numeric: tabular-nums; }
+.available { width: 100%; height: var(--control-h); padding: 0 4px; }
+.figure .available b { line-height: 1.2; }
+.figure small { text-align: center; }
 .chance b { color: var(--text-bright); }
 .budget input { width: 100%; min-height: var(--control-h); background: var(--bg); color: var(--text); border: 1px solid var(--control-border); border-radius: var(--radius); padding: 0 3px; text-align: center; font: 600 22px var(--font-display); appearance: textfield; }
 .budget input::-webkit-inner-spin-button { appearance: none; }
@@ -94,8 +97,6 @@
 .goalEditor :global(.pulls-copy-details) { border-top: 0; }
 .goalEditor :global(.pulls-odds-headline) { display: none; }
 .goalEditor :global(.pulls-odds-result) { min-height: 0; }
-.spending { display: flex; gap: 24px; padding-top: 14px; font-size: 12px; color: var(--text-dim); }
-.spending b { margin-left: 8px; color: var(--text); }
 .planFooter { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 16px 20px; background: var(--panel-2); border-top: 1px solid var(--line); }
 .planFooter>span:first-child { display: grid; gap: 4px; font-size: 13px; }
 .planFooter>span:first-child small { font-size: 11px; color: var(--text-dim); }
@@ -116,7 +117,7 @@
  .columns { display: none; } .planHeading { padding: 12px; } .add { min-width: 105px; }
  .bannerRow { grid-template-columns: repeat(4,minmax(0,1fr)) var(--control-h); gap: 12px 7px; padding: 14px 12px; } .bannerIdentity { grid-column: 1/5; grid-row: 1; } .bannerIdentity img { width: 84px; height: 56px; } .bannerIdentity strong { font-size: 18px; } .remove { grid-column: 5; grid-row: 1; }
  .date { grid-column: 1/-1; flex-direction: row; gap: 6px; justify-content: flex-start; } .date .mobileLabel { margin: 0; } .date b { font-size: 11px; } .date small { min-height: auto; } .budget { grid-column: 1; } .bannerRow>.figure:last-of-type { grid-column: 4/6; } .mobileLabel { display: block; color: var(--text-dim); font: 11px var(--font-body); margin-bottom: 4px; } .budget .mobileLabel { text-align: center; } .figure { align-self: stretch; justify-content: flex-start; gap: 2px; } .figure b { line-height: var(--control-h); font-size: 22px; } .figure small { line-height: 12px; }
- .goalEditor { padding: 12px; } .goalEditor :global(.pulls-goal-choices) { grid-template-columns: 1fr; } .spending { gap: 10px; flex-wrap: wrap; } .planFooter { padding: 12px; align-items: flex-start; } .planFooter>span:last-child { display: grid; gap: 2px; text-align: right; font-size: 11px; } .detailPanel { padding: 12px; }
+ .goalEditor { padding: 12px; } .goalEditor :global(.pulls-goal-choices) { grid-template-columns: 1fr; } .planFooter { padding: 12px; align-items: flex-start; } .planFooter>span:last-child { display: grid; gap: 2px; text-align: right; font-size: 11px; } .detailPanel { padding: 12px; }
 }
 :global(html[data-theme='light']) .forecastDate input { color-scheme: light; }
 /* Past events is one frame, "PAST EVENTS  [ ] Include  +": the disclosure button spans

@@ -173,9 +173,11 @@ export interface BudgetRow {
  * Negative balances remain negative: later rows must not forgive earlier debt. */
 export function planBudgets(goals: readonly BannerGoal[], banners: readonly UpcomingBanner[], now: Date, walletAt: (date: Date) => number, server: GameServer = 'en'): BudgetRow[] {
   let spent = 0;
-  return goals.map((goal, index) => ({ goal, index })).sort((a, b) => a.goal.spendOn.localeCompare(b.goal.spendOn) || a.index - b.index).map(({ goal }) => {
+  return goals.map((goal, index) => {
     const banner = banners.find(b => b.name === goal.banner || b.aliases?.includes(goal.banner)) ?? null;
     const when = planningDeadline(banner ?? { end: goal.spendOn, endAt: goal.bannerEndAt, server }, goal.spendOn);
+    return { goal, index, banner, when };
+  }).sort((a, b) => a.when.getTime() - b.when.getTime() || a.goal.spendOn.localeCompare(b.goal.spendOn) || a.index - b.index).map(({ goal, banner, when }) => {
     const expired = when < now;
     const issue = expired ? 'This spending date has passed. Remove this goal and update your holdings with what you actually spent.' : !banner ? 'This banner is missing from the current schedule.' : goal.spendOn < banner.start || goal.spendOn > banner.end ? 'This date is outside the current banner dates. Choose a date during its run.' : null;
     // Past goals are not deducted again from today's updated holdings. Unknown
@@ -183,9 +185,10 @@ export function planBudgets(goals: readonly BannerGoal[], banners: readonly Upco
     const free = !issue && banner ? availableBannerFreePulls(banner, when, now, goal.ticketUsed) : 0;
     const paid = expired ? 0 : Math.max(0, goal.pulls - free);
     const spentBefore = spent;
-    const available = expired ? 0 : walletAt(when) - spentBefore + free;
+    const wallet = expired ? 0 : walletAt(when);
+    const available = expired ? 0 : wallet - spentBefore + free;
     spent += paid;
-    return { goal, banner, issue, expired, available, free, paid, shortfall: expired ? 0 : Math.max(0, goal.pulls - available), remaining: expired ? 0 : walletAt(when) - spent, spentBefore };
+    return { goal, banner, issue, expired, available, free, paid, shortfall: expired ? 0 : Math.max(0, goal.pulls - available), remaining: expired ? 0 : wallet - spent, spentBefore };
   });
 }
 
