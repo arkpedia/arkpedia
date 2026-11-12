@@ -219,6 +219,9 @@ Schedule uses the shared Upcoming/Past segmented selector, with both labels alwa
 visible in fixed positions. Place the event count and ordering beneath it (soonest first
 for Upcoming, newest first for Past). Do not duplicate the selected option in another
 heading or changing navigation button. Calendar hides the period selector.
+Event detail tabs share the Operators tab’s outer panel, inset and heading divider.
+The calendar’s sync action and independent Events/Birthdays toggles stay together at
+the right of the calendar toolbar, including when that toolbar wraps on phones.
 The Events/Calendar tabs select presentation separately. The archive
 shows confirmed, finished events from newest to oldest, linking to each event page;
 predicted dates and headhunting-only entries are not historical stage events. Its

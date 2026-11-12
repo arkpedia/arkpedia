@@ -54,6 +54,7 @@ export function tabAlign({ tolerance }: TabAlignOptions): TabAlignOffence[] {
   ];
   /** Rows that are not on a section's edge by design, with the reason. */
   const PLACED_OK: [string, string][] = [
+    ['.cal-head-shows', 'the calendar sync action and independent visibility toggles stay together on the right, including mobile (maintainer, 2026-11-12)'],
     ['.music-player-bottombar-controls', 'the music player\'s transport, centred under the full-width seek bar like every player'],
     ['[class*="OperatorAttackRange_elites"]', 'the attack-range figure\'s own switch, centred under the grid it changes'],
   ];

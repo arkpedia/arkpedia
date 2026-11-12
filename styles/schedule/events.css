@@ -175,12 +175,13 @@ button.event-banner-extra:hover > .event-banner-extra-name,
 button.event-banner-extra:focus-visible > .event-banner-extra-name { color: var(--teal); }
 .event-detail-word { white-space: nowrap; }
 
-/* The Operators tab: one .panel per banner (the owner's mockup, 2026-10-29). Its name with its
+/* All event tabs share the outer panel inset and heading divider.
+   The Operators tab: one .panel per banner (the owner's mockup, 2026-10-29). Its name with its
    tag apart on the right over a rule; its art beside its rate-up and returning limited lineups
    (stacked on a narrow screen); then a line per operator the event gives. */
-.event-banner-card { padding: 20px 24px; }
-.event-banner-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 16px; margin-bottom: 18px; padding-bottom: 14px; border-bottom: 1px solid var(--line); }
-.event-banner-head > h3 { margin: 0; }
+.event-section-card { padding: 20px 24px; }
+.event-section-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 16px; margin-bottom: 18px; padding-bottom: 14px; border-bottom: 1px solid var(--line); }
+.event-section-head > h3 { margin: 0; }
 .event-banner-tag { color: var(--text-dim); font: 13px var(--font-mono); }
 .event-banner-body { display: grid; grid-template-columns: minmax(0, 1fr); gap: 20px 32px; align-items: start; }
 @media (min-width: 960px) {
@@ -219,7 +220,7 @@ button.event-banner-extra:focus-visible > .event-banner-extra-name { color: var(
 .event-banner-sep { width: 1px; height: 24px; background: var(--line); }
 .event-banner-extra-how { min-width: 0; color: var(--text-dim); font: 13px var(--font-mono); }
 @media (max-width: 640px) {
-  .event-banner-card { padding: 14px; }
+  .event-section-card { padding: 14px; }
   /* The kind over its line; the line keeps the shared columns. */
   .event-banner-extras { grid-template-columns: 56px max-content 1px max-content 1px minmax(0, 1fr); column-gap: 12px; }
   .event-banner-extra-label { grid-column: 1 / -1; padding-right: 0; }
