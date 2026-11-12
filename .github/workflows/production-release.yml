@@ -30,6 +30,7 @@ permissions:
 jobs:
   release:
     if: >-
+      vars.ARKPEDIA_DEPLOYMENT_OWNER == 'github-actions' &&
       vars.ARKPEDIA_PRODUCTION_RELEASES_ENABLED == 'true' && github.ref == 'refs/heads/main' &&
       (github.event_name == 'workflow_dispatch' ||
       (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push' &&

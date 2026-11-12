@@ -120,16 +120,18 @@ test('workflow gives the provider token only to the validated release step, neve
 
 test('actual workflow expression refuses disabled, foreign, failed and non-main events', () => {
   const expression = yaml.load(readFileSync('.github/workflows/production-release.yml', 'utf8')).jobs.release.if;
-  const allowed = (patch = {}, runPatch = {}, enabled = 'true') => {
+  const allowed = (patch = {}, runPatch = {}, enabled = 'true', owner = 'github-actions') => {
     const github = { event_name: 'workflow_run', ref: 'refs/heads/main', repository: 'arkpedia/arkpedia', ...patch,
       event: { workflow_run: { conclusion: 'success', event: 'push', head_branch: 'main',
         head_repository: { full_name: 'arkpedia/arkpedia' }, ...runPatch } } };
-    return new Function('github', 'vars', `return (${expression})`)(github, { ARKPEDIA_PRODUCTION_RELEASES_ENABLED: enabled });
+    return new Function('github', 'vars', `return (${expression})`)(github, { ARKPEDIA_PRODUCTION_RELEASES_ENABLED: enabled, ARKPEDIA_DEPLOYMENT_OWNER: owner });
   };
   assert.equal(allowed(), true);
   assert.equal(allowed({ event_name: 'workflow_dispatch' }), true);
   assert.equal(allowed({}, {}, ''), false);
   assert.equal(allowed({}, {}, 'false'), false);
+  assert.equal(allowed({}, {}, 'true', 'cloudflare-builds'), false);
+  assert.equal(allowed({}, {}, 'true', ''), false);
   assert.equal(allowed({ ref: 'refs/heads/feature' }), false);
   assert.equal(allowed({ event_name: 'pull_request' }, { event: 'pull_request' }), false);
   assert.equal(allowed({}, { conclusion: 'failure' }), false);
