@@ -7,9 +7,9 @@ import { codeFingerprint } from '../content/code-fingerprint.mjs';
 import { SCHEMA } from '../content/release-input.mjs';
 import { contentPointer } from '../content/channel.mjs';
 
-export function expectedBuildIdentity({ cwd = process.cwd(), env = process.env } = {}) {
-  return { version: 1, commit: execFileSync('git', ['rev-parse', 'HEAD'], { cwd, encoding: 'utf8' }).trim(),
-    codeFingerprint: codeFingerprint('HEAD', { cwd }), contentSchema: SCHEMA,
+export function expectedBuildIdentity({ cwd = process.cwd(), env = process.env, ref = 'HEAD' } = {}) {
+  return { version: 1, commit: execFileSync('git', ['rev-parse', ref], { cwd, encoding: 'utf8' }).trim(),
+    codeFingerprint: codeFingerprint(ref, { cwd }), contentSchema: SCHEMA,
     contentChannel: contentPointer(env), deploymentRole: 'production', dirty: false };
 }
 
@@ -69,12 +69,19 @@ export async function waitForBuildIdentity(origin, expected, { attempts = 12, de
 }
 
 async function main() {
-  const expected = expectedBuildIdentity();
+  const ref = process.argv[2]?.startsWith('preview') ? process.env.SOURCE ?? 'HEAD' : 'HEAD';
+  if (ref !== 'HEAD' && !/^[a-f0-9]{40}$/.test(ref)) throw new Error('Invalid Preview source');
+  const expected = expectedBuildIdentity({ ref });
   if (process.argv[2] === 'local') checkBuildFile(expected);
   else if (process.argv[2] === 'live' && process.argv[3]) await waitForBuildIdentity(process.argv[3], expected);
-  else if (process.argv[2] === 'preview') {
+  else if (['preview', 'preview-local'].includes(process.argv[2])) {
     expected.deploymentRole = 'staging';
-    await waitForBuildIdentity('https://preview.arkpedia.net', expected, { role: 'staging' });
+    if (process.argv[2] === 'preview-local') {
+      for (const file of ['public/build-info.json', '.open-next/assets/build-info.json']) {
+        if (fs.statSync(file).size > 16_384) throw new Error('Build identity exceeds its size limit');
+        validateBuildIdentity(parse(fs.readFileSync(file)), expected, { role: 'staging' });
+      }
+    } else await waitForBuildIdentity('https://preview.arkpedia.net', expected, { role: 'staging' });
   } else throw new Error('Use local, preview or live <public HTTPS origin>');
   console.log(`Verified clean build ${expected.commit.slice(0, 12)} (${expected.contentChannel}, schema ${expected.contentSchema}).`);
 }
