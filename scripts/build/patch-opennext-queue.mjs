@@ -1,4 +1,4 @@
-// OpenNext 1.20.12 leaves AbortSignal.timeout's timer alive after a refresh.
+// OpenNext 1.20.16 leaves AbortSignal.timeout's timer alive after a refresh.
 // Use a cancellable timer so a completed refresh can hibernate immediately.
 // Keep this patch narrow and fail on upstream changes; remove it when OpenNext
 // provides the same cleanup. Both production and Preview compile this module.
@@ -39,7 +39,7 @@ function main() {
   const require = createRequire(import.meta.url);
   const entry = require.resolve('@opennextjs/cloudflare');
   const { version } = JSON.parse(readFileSync(resolve(dirname(entry), '../../package.json'), 'utf8'));
-  if (version !== '1.20.12') throw new Error(`Review the queue timeout patch for OpenNext ${version}`);
+  if (version !== '1.20.16') throw new Error(`Review the queue timeout patch for OpenNext ${version}`);
   const file = require.resolve('@opennextjs/cloudflare/durable-objects/queue');
   const source = readFileSync(file, 'utf8');
   const patched = patchQueueSource(source);
