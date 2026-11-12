@@ -1,5 +1,6 @@
 import { execFileSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
+import { approvePilotRelease } from './pilot-release-gate.mjs';
 
 const repository = 'arkpedia/arkpedia';
 const requireValue = (value, message) => { if (!value) throw new Error(`Preview refused: ${message}`); };
@@ -7,7 +8,12 @@ export async function approvePreviewSource(source, github) {
   requireValue(/^[a-f0-9]{40}$/.test(source ?? ''), 'expected full source SHA');
   const prefix = `repos/${repository}`;
   const workflow = await github(`${prefix}/actions/workflows/check.yml`);
-  const result = await github(`${prefix}/actions/workflows/check.yml/runs?head_sha=${source}&per_page=1`);
+  const main = await github(`${prefix}/branches/main`);
+  const currentMain = main.commit?.sha === source;
+  // Main's Check can reuse a verified, identical PR tree. Use the same authorization
+  // as production; unrelated manual runs must not replace that exact-push proof.
+  const query = currentMain ? `event=push&branch=main&head_sha=${source}` : `head_sha=${source}`;
+  const result = await github(`${prefix}/actions/workflows/check.yml/runs?${query}&per_page=1`);
   const run = result.workflow_runs?.[0];
   requireValue(workflow.path === '.github/workflows/check.yml' && workflow.state === 'active'
     && Number.isSafeInteger(workflow.id) && run?.workflow_id === workflow.id && run.path === workflow.path,
@@ -16,6 +22,10 @@ export async function approvePreviewSource(source, github) {
     'source or repository differs');
   requireValue(run.status === 'completed' && run.conclusion === 'success', 'latest source Check has not passed');
   requireValue(Number.isSafeInteger(run.id) && run.id > 0, 'invalid Check ID');
+  if (currentMain) {
+    const approved = await approvePilotRelease({ repository, runId: run.id, source, github });
+    if (approved.mode === 'exact-tree-reuse') return { source, checkRun: run.id };
+  }
   if (run.event === 'pull_request') {
     requireValue(run.pull_requests?.length === 1, 'ambiguous pull request');
     const number = run.pull_requests[0].number;
