@@ -302,7 +302,6 @@ export default function SchedulePage({ events: globalEvents, operators: exported
       <PageHeader
         eyebrow="Rhodes Island // Schedule"
         title={view === 'calendar' ? 'Calendar' : 'Events'}
-        actions={<button type="button" className="ghost" aria-haspopup="dialog" onClick={() => setSyncOpen(true)}>Sync calendar / .ics</button>}
       />
       {syncOpen && <CalendarSubscription server={server} birthdays={showBirthdays} onClose={() => setSyncOpen(false)} />}
 
@@ -320,6 +319,7 @@ export default function SchedulePage({ events: globalEvents, operators: exported
         <div id="schedule-events" hidden={view !== 'events'}>
           <section className="op-section" aria-label="Event listings">
             <StickyControls className="schedule-events-controls">
+              <div className="schedule-events-period">
               <SegmentedControl<'upcoming' | 'past'>
                 label="Event period"
                 options={[{ value: 'upcoming', label: 'Upcoming' }, { value: 'past', label: 'Past' }]}
@@ -331,6 +331,8 @@ export default function SchedulePage({ events: globalEvents, operators: exported
                 }}
               />
               <p className="hint">{showPast ? `${pastEvents.length} events · newest first` : `${eventRows.length} events · soonest first`}</p>
+              </div>
+              <button type="button" className="ghost" aria-haspopup="dialog" onClick={() => setSyncOpen(true)}>Sync calendar / .ics</button>
             </StickyControls>
           {showPast ? <>
             {pastEvents.length ? <>
@@ -476,7 +478,8 @@ export default function SchedulePage({ events: globalEvents, operators: exported
 
           {/* What the grid shows, on the other end of the same line: these say what is
               drawn, not where you are, so they belong apart from the date controls. */}
-          <div className="cal-head-shows" role="group" aria-label="Show on the calendar">
+          <div className="cal-head-shows" role="group" aria-label="Calendar controls">
+            <button type="button" className="ghost" aria-haspopup="dialog" onClick={() => setSyncOpen(true)}>Sync calendar / .ics</button>
             <button
               type="button"
               className="filter-chip"

@@ -32,7 +32,7 @@ Exact closes are exclusive. Client final seconds are normalized to the exclusive
 
 ### Calendar subscriptions
 
-The Schedule header's **Sync calendar / .ics** dialog offers a subscribable URL and a
+The Schedule toolbar’s **Sync calendar / .ics** dialog offers a subscribable URL and a
 one-time download. `/api/calendar.ics?server=en&predicted=1&birthdays=0` reads the current
 verified content release; it does not require another application deployment when
 event dates change. Supported servers are `en`, `jp`, and `kr`. The optional

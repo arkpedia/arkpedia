@@ -4,6 +4,7 @@ for (const theme of ['dark', 'light']) {
   test(`calendar subscription and download in ${theme}`, async ({ page, request }, info) => {
     await page.addInitScript(theme => localStorage.setItem('theme', theme), theme);
     await page.goto('/schedule?view=calendar');
+    await expect(page.getByRole('heading', {name:'Calendar',exact:true})).toBeVisible();
     const trigger = page.getByRole('button', { name: 'Sync calendar / .ics', exact: true });
     await trigger.focus();
     await page.keyboard.press('Enter');

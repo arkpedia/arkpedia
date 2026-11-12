@@ -32,7 +32,7 @@
 /* Only drawn when it would do something, so its presence is the message: you are not
    on this month. The slot holds its width whether or not it is drawn. */
 .cal-today-slot { display: inline-flex; min-width: 72px; margin-left: 4px; }
-.cal-head-shows { display: flex; gap: 6px; }
+.cal-head-shows { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; margin-left: auto; }
 /* The month menu's text (components/schedule/CalendarMonthValue.tsx): the full name,
    and on a phone the first three letters, the full name then kept for a screen reader
    only. At 390px the head leaves the month 105px beside its steps and the year, and

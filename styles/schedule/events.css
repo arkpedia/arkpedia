@@ -3,8 +3,9 @@
    and the pull-planner link inside the row. The row is not itself a link (the art and
    title are), so the plan link can sit in it; it carries the passive frame, and the
    link's hover lights it. Two columns once the frame is wide enough to read them. */
-.schedule-events-controls { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; margin-bottom: var(--heading-gap); }
-.schedule-events-controls > p { margin: 0; }
+.schedule-events-controls { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: 12px; margin-bottom: var(--heading-gap); }
+.schedule-events-period { display: grid; gap: 8px; }
+.schedule-events-controls p { margin: 0; }
 .events-list {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
@@ -651,3 +652,8 @@ html:not([data-site-server="jp"]) .event-news-server[data-server="jp"],
 html:not([data-site-server="kr"]) .event-news-server[data-server="kr"],
 html[data-site-server="jp"] .event-news[data-own-jp] .event-news-server[data-server="en"],
 html[data-site-server="kr"] .event-news[data-own-kr] .event-news-server[data-server="en"] { display: none; }
+
+@media (max-width: 360px) {
+  .schedule-events-controls { grid-template-columns: minmax(0, 1fr); }
+  .schedule-events-controls > button { justify-self: end; }
+}
