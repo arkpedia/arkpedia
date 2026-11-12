@@ -33,10 +33,7 @@ jobs:
   # API failure runs the full Check. Manual rechecks always run the full Check.
   seen:
     if: github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository)
-    # A few seconds of API calls: on the light runner (ARKPEDIA_LIGHT_RUNNER, the VPS), so a
-    # merge's push is not queued behind another pull request's whole Check on the NAS before
-    # it can vouch and let Deploy start. Falls back to ARKPEDIA_RUNNER when unset.
-    runs-on: ${{ (github.actor == 'dependabot[bot]' || startsWith(github.head_ref, 'dependabot/')) && 'ubuntu-latest' || vars.ARKPEDIA_LIGHT_RUNNER || vars.ARKPEDIA_RUNNER || 'ubuntu-latest' }}
+    runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
       actions: read
@@ -72,7 +69,7 @@ jobs:
   # GitHub prevents merging drafts; ready_for_review always starts the full path below.
   draft:
     if: github.event_name == 'pull_request' && github.event.pull_request.draft == true && github.event.pull_request.head.repo.full_name == github.repository
-    runs-on: ${{ (github.actor == 'dependabot[bot]' || startsWith(github.head_ref, 'dependabot/')) && 'ubuntu-latest' || vars.ARKPEDIA_RUNNER || 'ubuntu-latest' }}
+    runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
       contents: read
@@ -83,8 +80,8 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: '22'
-          cache: ${{ runner.environment == 'github-hosted' && 'npm' || '' }}
-          package-manager-cache: ${{ runner.environment == 'github-hosted' }}
+          cache: npm
+          package-manager-cache: true
       - run: npm ci
       # Game records live in arkpedia-data; this repository keeps code only. The live release's
       # records, the ones www serves (scripts/content/pull-data.mjs).
@@ -141,8 +138,8 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: '24'
-          cache: ${{ runner.environment == 'github-hosted' && 'npm' || '' }}
-          package-manager-cache: ${{ runner.environment == 'github-hosted' }}
+          cache: npm
+          package-manager-cache: true
       - run: npm ci
       - name: Pull the live game records
         run: node scripts/content/pull-data.mjs
@@ -158,13 +155,8 @@ jobs:
     # A cache miss, failed lookup or skipped lookup runs the full Check.
     # Draft feedback never creates that proof. Forks/manual checks retain the full path.
     if: ${{ !cancelled() && needs.seen.outputs.checked != 'true' && !(github.event_name == 'pull_request' && github.event.pull_request.draft == true && github.event.pull_request.head.repo.full_name == github.repository) }}
-    # ARKPEDIA_RUNNER (a repository variable) names the self-hosted runner's label, e.g.
-    # arkpedia-vps; unset, jobs run on GitHub's hosted runners. See docs/development/ci-runner.md.
-    # Dependabot pull requests install dependency versions nobody has reviewed yet. They run
-    # on GitHub's hosted runners, which start fresh and hold no secrets, never on a
-    # self-hosted runner, whose files persist into the next Deploy or release job.
-    runs-on: ${{ (github.actor == 'dependabot[bot]' || startsWith(github.head_ref, 'dependabot/')) && 'ubuntu-latest' || vars.ARKPEDIA_RUNNER || 'ubuntu-latest' }}
-    timeout-minutes: ${{ (github.actor == 'dependabot[bot]' || startsWith(github.head_ref, 'dependabot/')) && 20 || vars.ARKPEDIA_RUNNER && 60 || 20 }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
     permissions:
       contents: read
       issues: write
@@ -173,17 +165,14 @@ jobs:
       pull-requests: read
     steps:
       - uses: actions/checkout@v7
-      # The NAS /tmp is a 2 GB tmpfs; importer fixtures need the job's disk storage.
       - name: Use disk-backed temporary storage
         run: echo "TMPDIR=$RUNNER_TEMP" >> "$GITHUB_ENV"
 
       - uses: actions/setup-node@v7
         with:
           node-version: '22'
-          # Self-hosted runner homes persist: downloading ~484 MB over that local
-          # npm cache costs more than npm ci. Fresh hosted runners still restore it.
-          cache: ${{ runner.environment == 'github-hosted' && 'npm' || '' }}
-          package-manager-cache: ${{ runner.environment == 'github-hosted' }}
+          cache: npm
+          package-manager-cache: true
 
       - run: npm ci
       # Game records live in arkpedia-data; this repository keeps code only. The live release's
@@ -325,8 +314,8 @@ jobs:
           NODE_ENV: production
 
       - name: Install Chromium only
-        # --with-deps installs system libraries with sudo; a self-hosted runner has them already.
-        run: npx playwright install ${{ runner.environment == 'github-hosted' && '--with-deps' || '' }} chromium
+
+        run: npx playwright install --with-deps chromium
 
       # PRs, and pushes to main no PR Check vouched for, compare with a trusted full-browser
       # ancestor, then run core and affected release journeys: named feature families, and
@@ -351,22 +340,17 @@ jobs:
           npm run test:content-runtime
         env:
           NEXT_DIST_DIR: .next-live
-          # Chromium's profile and IPC fallback must not use the NAS's 2 GB RAM-backed /tmp.
-          TMPDIR: ${{ runner.temp }}
 
+          TMPDIR: ${{ runner.temp }}
       - name: Browser runner resources
         if: steps.browser.outputs.lane != 'none'
         env:
           TMPDIR: ${{ runner.temp }}
-          PW_WORKERS: ${{ runner.environment == 'github-hosted' && '2' || '5' }}
+          PW_WORKERS: '2'
         run: |
           node -e 'const os=require("node:os");console.log({temporaryDirectory:os.tmpdir(),memoryLimitBytes:process.constrainedMemory(),availableMemoryBytes:process.availableMemory(),workers:process.env.PW_WORKERS})'
           df -h "$TMPDIR" /tmp /dev/shm
 
-      # Five browsers on the NAS Check runner (7 CPUs, 11 GB, one Check at a time since
-      # 2026-10-29): the whole suite took 1,671s on two workers and 824s on five there, peaking
-      # at 4.4 GB for the container with about six CPUs busy, so a sixth would only contend.
-      # GitHub's hosted runners (Dependabot) have 4 vCPUs and keep two.
       # Keep this name exclusive to actual full execution: baseline verification checks it.
       - name: Desktop and mobile browser regressions
         id: full_browser
@@ -374,10 +358,8 @@ jobs:
         run: npm run test:browser -- --reporter=list,json
         env:
           PLAYWRIGHT_JSON_OUTPUT_FILE: .cache/browser-results.json
-          # The NAS /tmp is a 2 GB tmpfs; Chromium's profiles and IPC fallback
-          # must use the disk-backed job directory instead of filling it.
           TMPDIR: ${{ runner.temp }}
-          PW_WORKERS: ${{ runner.environment == 'github-hosted' && '2' || '5' }}
+          PW_WORKERS: '2'
 
       - name: Selected browser regressions
         id: selected_browser
@@ -386,7 +368,7 @@ jobs:
         env:
           PLAYWRIGHT_JSON_OUTPUT_FILE: .cache/browser-results.json
           TMPDIR: ${{ runner.temp }}
-          PW_WORKERS: ${{ runner.environment == 'github-hosted' && '2' || '5' }}
+          PW_WORKERS: '2'
 
       - name: Validate browser execution evidence
         id: validate_browser

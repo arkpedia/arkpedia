@@ -40,13 +40,11 @@ concurrency:
 jobs:
   prepare:
     if: github.ref_name == 'main'
-    # ARKPEDIA_RUNNER (a repository variable) names the self-hosted runner's label, e.g.
-    # arkpedia-vps; unset, jobs run on GitHub's hosted runners. See docs/development/ci-runner.md.
-    runs-on: ${{ vars.ARKPEDIA_RUNNER || 'ubuntu-latest' }}
+    runs-on: ubuntu-latest
     # Up to 30 of these minutes may go to waiting for the asset syncs (below), and up to 20 for native publication and 14 after
     # a publish to the page refresh's wait for the pointer (its step's own timeout): a job timeout
     # there would report a release that went out as failed, and skip the heartbeat.
-    timeout-minutes: ${{ vars.ARKPEDIA_RUNNER && 120 || 100 }}
+    timeout-minutes: 120
     steps:
       - uses: actions/checkout@v7
       - name: Use disk-backed temporary storage
@@ -54,10 +52,8 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: '22'
-          # Self-hosted runner homes persist: downloading ~484 MB over that local
-          # npm cache costs more than npm ci. Fresh hosted runners still restore it.
-          cache: ${{ runner.environment == 'github-hosted' && 'npm' || '' }}
-          package-manager-cache: ${{ runner.environment == 'github-hosted' }}
+          cache: npm
+          package-manager-cache: true
       # Only main publishes data main and live. Feature Previews consume live content.
       - name: Choose the content channel
         id: channel
@@ -547,9 +543,8 @@ jobs:
           JOB_STATUS: ${{ job.status }}
           SOURCE_HEAD: ${{ steps.source.outputs.head }}
         run: |
-          # Failed before the checkout or setup-node: no alert-issue.mjs, or no node to run it (the
-          # NAS runners' image keeps its Node off PATH, infra/runners/nas/Dockerfile; setup-node
-          # puts one there). Said with gh alone, under the marker that script finds the issue by
+          # A failure before checkout or setup-node may leave no reporting script or runtime.
+          # Fall back to gh alone, under the marker that the normal reporter finds the issue by
           # (marker(), scripts/content/alert-issue.mjs), so the next good run's close step closes
           # it; an issue already open for the alert gets nothing more.
           if [ ! -f scripts/content/alert-issue.mjs ] || ! command -v node > /dev/null; then
@@ -619,7 +614,7 @@ jobs:
   notify-editorial:
     needs: prepare
     if: ${{ !cancelled() && github.ref_name == 'main' && needs.prepare.result == 'success' }}
-    runs-on: ${{ vars.ARKPEDIA_LIGHT_RUNNER || vars.ARKPEDIA_RUNNER || 'ubuntu-latest' }}
+    runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
       contents: read

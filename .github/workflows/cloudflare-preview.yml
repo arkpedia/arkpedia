@@ -18,7 +18,7 @@ concurrency:
 
 jobs:
   build:
-    runs-on: [self-hosted, Linux, X64, arkpedia-nas-build]
+    runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
       - name: Validate immutable source

@@ -462,8 +462,8 @@ test('only a scheduled release waits, for the day\'s import, before it reads the
   assert.match(block, /continue-on-error: true\n/);
   assert.match(block, /timeout-minutes: 35\n[\s\S]*run: node scripts\/content\/asset-syncs\.mjs wait --timeout-minutes 30 --sync arkpedia-data\/import\.yml\n/);
   // The job has room for the wait on top of a compile (about 8 minutes) and the live check.
-  const [runner, hosted] = workflow.match(/timeout-minutes: \$\{\{ vars\.ARKPEDIA_RUNNER && (\d+) \|\| (\d+) \}\}/)!.slice(1).map(Number);
-  assert.ok(runner >= 75 && hosted >= 60, `${runner}/${hosted}`);
+  const timeout = Number(workflow.match(/^    timeout-minutes: (\d+)$/m)![1]);
+  assert.ok(timeout >= 75, `${timeout}`);
   // One list: the report after the publish checks exactly the syncs the release waited for.
   const report = workflow.slice(workflow.indexOf('- name: Report failing asset syncs'), workflow.indexOf('- name: Report quarantined content'));
   assert.match(report, /syncs=\$\(node scripts\/content\/asset-syncs\.mjs list\)/);

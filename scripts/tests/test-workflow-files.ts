@@ -87,11 +87,15 @@ for (const name of files) {
   });
 }
 
-test("Check sends Dependabot's pull requests to hosted runners, runner and timeout alike", () => {
-  const job = load('check.yml').jobs!.check;
-  const dependabot = "(github.actor == 'dependabot[bot]' || startsWith(github.head_ref, 'dependabot/'))";
-  assert.ok(String(job['runs-on']).startsWith(`\${{ ${dependabot} && 'ubuntu-latest' ||`), `runs-on: ${job['runs-on']}`);
-  assert.ok(String(job['timeout-minutes']).startsWith(`\${{ ${dependabot} && 20 ||`), `timeout-minutes: ${job['timeout-minutes']}`);
+test('all workflows use isolated hosted runners, including fork and Dependabot checks', () => {
+  for (const name of files) {
+    const workflow = load(name);
+    assert.ok(!('pull_request_target' in (workflow.on ?? {})), `${name}: untrusted PR code must not use a privileged trigger`);
+    for (const [id, job] of Object.entries(workflow.jobs ?? {})) {
+      assert.equal(job['runs-on'], 'ubuntu-latest', `${name}/${id}: no self-hosted routing, including PR-edited runner variables`);
+    }
+  }
+  assert.ok(Number(load('check.yml').jobs!.check['timeout-minutes']) >= 90, 'full hosted browser coverage has enough time');
 });
 
 test('Deploy may start a held content release again', () => {
@@ -211,10 +215,7 @@ test("pushes and same-repository PRs reuse only a successful exact-tree Check", 
   assert.equal(eligible({ ...integration, ref: 'refs/heads/main' }, { reuse_pr_check: true }), false);
   assert.equal(eligible({ ...integration, ref: 'refs/heads/feature' }, { reuse_pr_check: true }), false);
   assert.equal(eligible({ ...github('pull_request', 'someone/fork'), ref: integration.ref }, { reuse_pr_check: true }), false);
-  // Self-hosted like Check, never a hosted runner for our pushes: the light runner first (a few
-  // seconds of API calls, so a merge does not queue behind a whole Check), then Check's own.
-  assert.equal(String(seen['runs-on']), String(check['runs-on']).replace('vars.ARKPEDIA_RUNNER ||', 'vars.ARKPEDIA_LIGHT_RUNNER || vars.ARKPEDIA_RUNNER ||'),
-    'the lookup runs on the light runner, else where Check does');
+  assert.equal(seen['runs-on'], 'ubuntu-latest');
   assert.equal(seen.permissions?.actions, 'read', 'it lists artifacts');
   assert.equal(seen.outputs?.checked, '${{ steps.seen.outputs.checked }}');
   assert.ok(seen.steps!.some(step => step.run === 'node scripts/ci/already-checked.mjs >> "$GITHUB_OUTPUT"'));

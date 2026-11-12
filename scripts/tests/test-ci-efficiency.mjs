@@ -158,8 +158,8 @@ test('only fresh hosted runners restore npm archives; every profile has one lock
       if (name === 'deploy') assert.equal(job.steps.filter(step => step.run === 'npm ci').length, 0, 'Vercel must not repeat an outer install');
       const setups = job.steps.filter(step => step.uses === 'actions/setup-node@v7' && step.with?.cache);
       assert.equal(setups.length, 1, 'each selected profile installs once with its own cache policy');
-      assert.equal(setups[0].with.cache, "${{ runner.environment == 'github-hosted' && 'npm' || '' }}");
-      assert.equal(setups[0].with['package-manager-cache'], "${{ runner.environment == 'github-hosted' }}");
+      assert.equal(setups[0].with.cache, 'npm');
+      assert.equal(setups[0].with['package-manager-cache'], true);
     }
   }
 });

@@ -106,7 +106,7 @@ test('only the editorial notifier can start workflows; the scraper keeps least p
   // on the NAS it queued behind a whole Check.
   const deploy = yaml.load(fs.readFileSync('.github/workflows/deploy.yml', 'utf8')) as { jobs: Record<string, { 'runs-on'?: string }> };
   assert.equal(start['runs-on'], deploy.jobs.targets['runs-on']);
-  assert.equal(start['runs-on'], "${{ vars.ARKPEDIA_LIGHT_RUNNER || vars.ARKPEDIA_RUNNER || 'ubuntu-latest' }}");
+  assert.equal(start['runs-on'], 'ubuntu-latest');
   assert.equal(start.steps[0]['continue-on-error'], true, 'a failed dispatch never fails the release');
   const refresh = workflow.jobs.prepare.steps.find(step => step.name === 'Refresh supported upstream records')!;
   // Only the image repository's key, for the story covers: arkpedia-data's import publishes all

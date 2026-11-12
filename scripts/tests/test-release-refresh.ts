@@ -114,8 +114,8 @@ test('prepare-content refreshes them right after the release is confirmed live, 
   // Long enough for the wait (below) and the requests after it, and the job's budget has room
   // for it: a job timeout during the wait would report a published release as failed.
   assert.ok(step['timeout-minutes']! * 60_000 > 9 * 60_000 + SERVER_REFRESH_MS + 60_000, `timeout-minutes: ${step['timeout-minutes']}`);
-  const job = fs.readFileSync('.github/workflows/prepare-content.yml', 'utf8').match(/timeout-minutes: \$\{\{ vars\.ARKPEDIA_RUNNER && (\d+) \|\| (\d+) \}\}/);
-  assert.ok(job && Number(job[1]) >= 90 + step['timeout-minutes']! + Math.ceil((publicationWait - 300) / 60) && Number(job[2]) >= 70 + step['timeout-minutes']! + Math.ceil((publicationWait - 300) / 60), job?.[0]);
+  const job = fs.readFileSync('.github/workflows/prepare-content.yml', 'utf8').match(/^    timeout-minutes: (\d+)$/m);
+  assert.ok(job && Number(job[1]) >= 90 + step['timeout-minutes']! + Math.ceil((publicationWait - 300) / 60), job?.[0]);
 });
 
 /* On 2026-10-04 the refresh fired the moment the pointer moved. A server reads the pointer through

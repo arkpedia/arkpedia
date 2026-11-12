@@ -18,7 +18,7 @@ jobs:
     if: >-
       github.repository == 'arkpedia/arkpedia' &&
       github.ref_name == 'main'
-    runs-on: ${{ vars.ARKPEDIA_LIGHT_RUNNER || vars.ARKPEDIA_RUNNER || 'ubuntu-latest' }}
+    runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
       contents: read
