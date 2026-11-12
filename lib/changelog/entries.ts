@@ -34,6 +34,28 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    at: '2026-11-12T17:59:21Z',
+    fixed: [{ title: 'Aligned pull counts on phones', detail: 'The clickable Available count lines up with the Pulls input and the other banner values.', href: '/pull-planner' }],
+  },
+  {
+    at: '2026-11-12T17:34:22Z',
+    added: [
+      { title: 'Subscribe to the event calendar', detail: 'Sync automatic schedule updates to your calendar app, with optional predicted dates and operator birthdays.', href: '/schedule' },
+      { title: 'See where available pulls come from', detail: 'Tap a banner’s Available count for resources, income, stage-clear OP, reservations and banner-only pulls.', href: '/pull-planner' },
+      { title: 'Save shareable event reward images', detail: 'Download a readable reward list with game icons, full item names and muted event artwork in your current theme.', href: '/events' },
+    ],
+    changed: [
+      { title: 'Consistent planner forecasts', detail: 'Banner plans, Income and pull calculations use the same rewards, deadlines and OP settings.', href: '/pull-planner' },
+      { title: 'Matching event panels and Global artwork', detail: 'Operators, rewards, skins, news and videos share a card layout, with Global art used when available.', href: '/events' },
+      { title: 'Clearer confirmed and predicted dates', detail: 'Official Global dates are distinguished from CN estimates across the schedule and planner.', href: '/schedule' },
+    ],
+    fixed: [
+      { title: 'Reward tracking follows imported progress', detail: 'Owned operators, E2 requirements and completed rewards are tracked separately when importing your save.', href: '/reward-tracker' },
+      { title: 'Readable base-skill descriptions', detail: 'Official English skill descriptions retain their spacing and punctuation.', href: '/operators' },
+      { title: 'Native music visualization', detail: 'Compatible iPhone app builds use the native analyzer for spectrum and waveform views.', href: '/music' },
+    ],
+  },
+  {
     at: '2026-11-10T08:03:35Z',
     changed: [
       { title: 'Clearer story reading progress', detail: 'Read, Unread and percentage labels use green, red and amber while story cards keep their quiet borders.', href: '/story' },
