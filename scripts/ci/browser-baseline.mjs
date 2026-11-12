@@ -30,8 +30,8 @@ export function hydrateProofPullRequest(run, { repository, baseRef, tree, query 
   return run;
 }
 
-export function fullRunProof({ run, artifact, repository, baseRef, commit, tree, query = api, jobsCache = new Map() }) {
-  if (!run?.id || run.status !== 'completed' || run.conclusion !== 'success' || run.path !== '.github/workflows/check.yml'
+export function fullRunProof({ run, artifact, repository, baseRef, commit, tree, query = api, jobsCache = new Map(), allowAudit = false }) {
+  if (!run?.id || run.status !== 'completed' || run.conclusion !== 'success' || (run.path !== '.github/workflows/check.yml' && !(allowAudit && run.path === '.github/workflows/browser-audit.yml'))
     || run.repository?.full_name !== repository || run.head_repository?.full_name !== repository
     || run.event === 'pull_request' && !artifact) return null;
   const record = hydrateProofPullRequest(run, { repository, baseRef, tree, query });
@@ -40,37 +40,52 @@ export function fullRunProof({ run, artifact, repository, baseRef, commit, tree,
     const response = query(`repos/${repository}/actions/runs/${run.id}/jobs?filter=latest&per_page=100`);
     jobsCache.set(run.id, Array.isArray(response.jobs) && response.total_count === response.jobs.length ? response.jobs : []);
   }
-  return fullBrowserBaseline({ run: record, jobs: jobsCache.get(run.id), repository, baseRef, commit, tree, artifact });
+  return fullBrowserBaseline({ run: record, jobs: jobsCache.get(run.id), repository, baseRef, commit, tree, artifact, allowAudit });
 }
 
-export function baselineForCommit(commit, repository, baseRef, { query = api, treeOf: readTree = treeOf } = {}) {
+export function baselineForCommit(commit, repository, baseRef, { query = api, treeOf: readTree = treeOf, allowAudit = false } = {}) {
   if (!baseRef) return null;
   const tree = readTree(commit), jobsCache = new Map();
   const runs = query(`repos/${repository}/actions/workflows/check.yml/runs?head_sha=${commit}&status=success&per_page=10`).workflow_runs ?? [];
+  if (allowAudit) runs.push(...(query(`repos/${repository}/actions/workflows/browser-audit.yml/runs?head_sha=${commit}&status=success&per_page=10`).workflow_runs ?? []));
   for (const run of runs) {
-    const proof = fullRunProof({ run, repository, baseRef, commit, tree, query, jobsCache });
+    const proof = fullRunProof({ run, repository, baseRef, commit, tree, query, jobsCache, allowAudit });
     if (proof) return proof;
   }
   const { artifacts = [] } = query(`repos/${repository}/actions/artifacts?name=${ARTIFACT_PREFIX}${tree}&per_page=20`);
   for (const artifact of artifacts) {
     if (artifact.expired !== false || !Number.isSafeInteger(artifact.workflow_run?.id)) continue;
     const run = query(`repos/${repository}/actions/runs/${artifact.workflow_run.id}`);
-    const proof = fullRunProof({ run, artifact, repository, baseRef, commit, tree, query, jobsCache });
+    const proof = fullRunProof({ run, artifact, repository, baseRef, commit, tree, query, jobsCache, allowAudit });
     if (proof) return proof;
   }
   return null;
 }
 
+/** Bound API work, but do not let a busy first page hide older full execution. */
+export function pagedRecords(query, path, key, maxPages = 10) {
+  const records = [];
+  for (let page = 1; page <= maxPages; page++) {
+    const response = query(page === 1 ? path : `${path}&page=${page}`);
+    if (!Array.isArray(response[key])) throw new Error(`Missing ${key} inventory`);
+    records.push(...response[key]);
+    if (response[key].length < 100) break;
+  }
+  return records;
+}
+
 /** Callers supply actual first-parent history, newest first; no assumed-green flag exists. */
 export function fullBaselineAncestor(ancestors, repository, baseRef, { query = api } = {}) {
   if (!Array.isArray(ancestors) || !ancestors.length || ancestors.some(value => !/^[a-f0-9]{40}$/.test(value.commit) || !/^[a-f0-9]{40}$/.test(value.tree))) return null;
-  const artifacts = query(`repos/${repository}/actions/artifacts?per_page=100`).artifacts ?? [];
-  const runs = query(`repos/${repository}/actions/workflows/check.yml/runs?status=success&per_page=100`).workflow_runs ?? [];
+  const artifacts = pagedRecords(query, `repos/${repository}/actions/artifacts?per_page=100`, 'artifacts');
+  const runs = ['check.yml', 'browser-audit.yml'].flatMap(workflow =>
+    pagedRecords(query, `repos/${repository}/actions/workflows/${workflow}/runs?status=success&per_page=100`, 'workflow_runs'));
   const cache = new Map();
   const indexed = path => {
-    if (path.includes('/workflows/check.yml/runs?head_sha=')) {
+    if (/\/workflows\/(?:check|browser-audit)\.yml\/runs\?head_sha=/.test(path)) {
       const sha = new URLSearchParams(path.split('?')[1]).get('head_sha');
-      return { workflow_runs: runs.filter(run => run.head_sha === sha) };
+      const workflow = path.includes('/browser-audit.yml/') ? '.github/workflows/browser-audit.yml' : '.github/workflows/check.yml';
+      return { workflow_runs: runs.filter(run => run.head_sha === sha && run.path === workflow) };
     }
     if (path.includes('/actions/artifacts?name=')) {
       const name = new URLSearchParams(path.split('?')[1]).get('name');
@@ -82,7 +97,7 @@ export function fullBaselineAncestor(ancestors, repository, baseRef, { query = a
   for (const ancestor of ancestors) {
     if (!artifacts.some(artifact => artifact.name === `${ARTIFACT_PREFIX}${ancestor.tree}` && artifact.expired === false)
       && !runs.some(run => run.head_sha === ancestor.commit)) continue;
-    const proof = baselineForCommit(ancestor.commit, repository, baseRef, { query: indexed, treeOf: () => ancestor.tree });
+    const proof = baselineForCommit(ancestor.commit, repository, baseRef, { query: indexed, treeOf: () => ancestor.tree, allowAudit: true });
     if (proof) return proof;
   }
   return null;
@@ -94,6 +109,6 @@ export function revalidateFullBaseline(proof, { query = api } = {}) {
   if (query(`repos/${proof.repository}/git/commits/${proof.commit}`).tree?.sha !== proof.tree) return null;
   const run = query(`repos/${proof.repository}/actions/runs/${proof.runId}`);
   const artifact = proof.artifactId === null ? undefined : query(`repos/${proof.repository}/actions/artifacts/${proof.artifactId}`);
-  const actual = fullRunProof({ run, artifact, repository: proof.repository, baseRef: proof.baseRef, commit: proof.commit, tree: proof.tree, query });
+  const actual = fullRunProof({ run, artifact, repository: proof.repository, baseRef: proof.baseRef, commit: proof.commit, tree: proof.tree, query, allowAudit: true });
   return actual && Object.keys(actual).every(key => actual[key] === proof[key]) ? actual : null;
 }

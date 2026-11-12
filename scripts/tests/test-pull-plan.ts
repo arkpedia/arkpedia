@@ -435,6 +435,7 @@ test('planner banner windows are the shared banner records, and unconfirmed ones
   const { resolvePullBannerWindows } = await import('../../lib/pulls/bannerWindows');
   const { getAllHeadhuntingBanners } = await import('../../lib/gacha/headhuntingBannerData');
   const banners=getAllHeadhuntingBanners(), planned=getPullSchedule();
+  const resolved=new Map(resolvePullBannerWindows(banners).map(banner=>[banner.name,banner.global_date]));
   let confirmed=0;
   for (const plan of planned) {
     const shared=banners.find(b=>b.name===plan.name);
@@ -443,7 +444,7 @@ test('planner banner windows are the shared banner records, and unconfirmed ones
     // unconfirmed one is always flagged.
     if (!shared.global_window?.timingSource) assert.equal(plan.datesEstimated, true, plan.name);
     // A confirmed window is used as it is; an estimate follows the shared calendar.
-    const expected=shared.global_window?.timingSource ? (confirmed++, shared.global_date) : resolvePullBannerWindows([shared])[0].global_date;
+    const expected=shared.global_window?.timingSource ? (confirmed++, shared.global_date) : resolved.get(shared.name);
     if (expected) assert.equal(`${plan.start}–${plan.end}`.replace(/-/g,'/'), expected, plan.name);
   }
   assert.ok(confirmed > 0, 'the schedule holds banners with a confirmed Global window');
