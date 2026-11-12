@@ -219,6 +219,9 @@ Schedule uses the shared Upcoming/Past segmented selector, with both labels alwa
 visible in fixed positions. Place the event count and ordering beneath it (soonest first
 for Upcoming, newest first for Past). Do not duplicate the selected option in another
 heading or changing navigation button. Calendar hides the period selector.
+Event detail tabs share the Operators tab’s outer panel, inset and heading divider.
+The calendar’s sync action and independent Events/Birthdays toggles stay together at
+the right of the calendar toolbar, including when that toolbar wraps on phones.
 The Events/Calendar tabs select presentation separately. The archive
 shows confirmed, finished events from newest to oldest, linking to each event page;
 predicted dates and headhunting-only entries are not historical stage events. Its
@@ -311,6 +314,13 @@ a real representative record; empty tools need a populated state as well as the 
 | System/development | `/404`, `/500`, `/dev`, `/dev/ui` | Same header/control system; UI gallery documents reusable primitives |
 
 ## Ownership and maintenance
+
+Saved event reward images use the page's theme and reward totals, with muted event
+art at its original proportions, fading into the background at its lower edge.
+Translucent category panels carry opaque game icons, full item names and
+aligned quantities. Keep sources and reward provenance in the image so it remains
+useful when shared outside the site. The export has the same resolution on phones
+and desktop; unavailable artwork must not remove an item or block downloading.
 
 - Product patterns and this route inventory: this document.
 - Exact tokens, component APIs, interaction rules and exceptions: [UI primitives](ui-primitives.md).

@@ -4,6 +4,8 @@ import { useEffect, useId, useRef } from 'react';
 import type { EngineKind } from '@/lib/music/playbackEngine';
 import { useMediaQuery } from '@/lib/hooks/useMediaQuery';
 import { openSpectrumInput, primeSpectrumContext } from '@/lib/music/spectrumInput';
+import { nativeAudioPlugin } from '@/lib/music/nativeAudio';
+import { observeNativeSpectrum } from '@/lib/music/nativeSpectrum';
 
 const bands = 48;
 const lowHz = 62.5;
@@ -19,10 +21,26 @@ function Spectrum({ playing, engine, trackId }: SpectrumProps) {
   const reducedMotion = useMediaQuery('(prefers-reduced-motion: reduce)');
 
   useEffect(() => {
-    const element = document.querySelector<HTMLAudioElement>('audio[data-music-audio]');
     const graph = svg.current;
     const path = trace.current;
-    if (!playing || engine !== 'msr' || reducedMotion || !element || !graph || !path) return;
+    if (!playing || engine !== 'msr' || reducedMotion || !graph || !path) return;
+    const paint = (levels: number[] | null) => {
+      if (!levels) { path.removeAttribute('d'); graph.removeAttribute('data-live'); return; }
+      path.setAttribute('d', levels.map((level, i) => {
+        const height = (level / 255 * plotHeight).toFixed(1);
+        return `M${i * 10 + 1} ${plotHeight}v-${height}h8v${height}Z`;
+      }).join(''));
+      graph.setAttribute('data-live', '');
+    };
+    const native = nativeAudioPlugin();
+    if (native) {
+      // Native audio owns no browser samples. Older builds/Android stay honestly
+      // unavailable instead of attaching Web Audio to an empty standby element.
+      if (!native.getSpectrum) return;
+      return observeNativeSpectrum(native, trackId, paint);
+    }
+    const element = document.querySelector<HTMLAudioElement>('audio[data-music-audio]');
+    if (!element) return;
     let input: ReturnType<typeof openSpectrumInput>;
     try { input = openSpectrumInput(element); } catch { return; }
     if (!input) return;
@@ -47,15 +65,13 @@ function Spectrum({ playing, engine, trackId }: SpectrumProps) {
         return;
       }
       analyser.getByteFrequencyData(samples);
-      const bars = [];
+      const levels = [];
       for (let i = 0; i < bands; i++) {
         let peak = 0;
         for (let bin = edges[i]; bin < edges[i + 1]; bin++) peak = Math.max(peak, samples[bin]);
-        const height = (peak / 255 * plotHeight).toFixed(1);
-        bars.push(`M${i * 10 + 1} ${plotHeight}v-${height}h8v${height}Z`);
+        levels.push(peak);
       }
-      path.setAttribute('d', bars.join(''));
-      graph.setAttribute('data-live', '');
+      paint(levels);
     };
     frame = requestAnimationFrame(draw);
     return () => {
@@ -130,7 +146,7 @@ export default function MusicWaveVisualizer({ volume, ...spectrum }: SpectrumPro
   return <button type="button" className="btn-bare music-wave-visualizer" data-playing={spectrum.playing}
     aria-label={action} aria-describedby={descriptionId} title={description + ' ' + action}
     onClick={() => {
-      if (waves && spectrum.engine === 'msr') primeSpectrumContext();
+      if (waves && spectrum.engine === 'msr' && !nativeAudioPlugin()) primeSpectrumContext();
       setSetting('musicVisualizer', waves ? 'spectrum' : 'waves');
     }}>
     <span id={descriptionId} className="visually-hidden">{description}</span>

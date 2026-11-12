@@ -87,3 +87,23 @@ test('history-only PR head updates retain proof only with old-head ancestry and 
   assert.equal(baselineForCommit(commit, repository, 'main', { ...original, query }).runId, 10);
   assert.equal(passed(commit, repository, 'main', original), false);
 });
+
+test('ancestor discovery finds full execution past the first hundred runs and revalidates nightly evidence', () => {
+  const audit = { ...run(), event: 'schedule', path: '.github/workflows/browser-audit.yml' };
+  const auditJob = { ...job(), name: 'audit', steps: [{ name: 'Exhaustive desktop and mobile audit', status: 'completed', conclusion: 'success' }] };
+  const calls = [];
+  const query = path => {
+    calls.push(path);
+    if (path.includes('/actions/artifacts?')) return { artifacts: [] };
+    if (path.includes('/workflows/check.yml/')) return { workflow_runs: [] };
+    if (path.includes('/workflows/browser-audit.yml/')) return { workflow_runs: path.endsWith('&page=2') ? [audit] : Array.from({ length: 100 }, (_, i) => ({ ...audit, id: 1000 + i, head_sha: 'd'.repeat(40) })) };
+    if (path.includes('/jobs?')) return { total_count: 1, jobs: [auditJob] };
+    if (path.includes('/git/commits/')) return { tree: { sha: tree } };
+    if (path.endsWith('/runs/10')) return audit;
+    assert.fail(path);
+  };
+  const proof = fullBaselineAncestor([{ commit, tree }], repository, 'main', { query });
+  assert.equal(proof.event, 'schedule');
+  assert.ok(calls.some(path => path.endsWith('&page=2')));
+  assert.deepEqual(revalidateFullBaseline(proof, { query }), proof);
+});

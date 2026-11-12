@@ -16,9 +16,25 @@ The page opens with the shared page header (the eyebrow, the title and the **Exp
 2. **Pull calculation.** The forecast for one date, set by the **Until** date field: available now, plus income, plus event rewards, equals the pulls before spending. The skin reserve is already taken out.
 3. **Your banners.** The **+ Add banner** button opens the banner picker. Each planned banner is one row: the banner (its art, name and a goals toggle), until when, the pulls budget, the pulls available, all goals, and the pulls left, with a borderless × to remove it. The row's values sit on one line with the budget field; captions such as *Estimated* hang below without moving them.
    - Under a banner, **Operator goals** picks operators and copies and shows individual and combined chances. Its help panel's "pull budget" link goes to that banner's budget field.
-   - Each row's footer shows the banner's free pulls, what comes from savings, and what is left after earlier banners. The section's footer shows how far the budgets are covered and the savings after the plan.
+   - The **Available** count opens a breakdown for that banner's deadline: current resources, recurring income, event/past rewards, skin reservations, earlier paid budgets, and banner-only free pulls. The terms reconcile with the clicked count, independently of the Income popup's selected forecast date. The caption **Banner free** identifies exclusive pulls; these do not carry over. The goals editor does not repeat the budget breakdown. The section's footer shows how far the budgets are covered and the savings after the plan.
 
 Phones stack the same sections in one column; the triggers and the banner rows reflow, and no content moves out of reach.
+
+Income uses a wider desktop dialog. Income and Available keep their full source details on phones by placing the working below each source and amount, without horizontal scrolling. Both use the shared dialog's close, Escape, focus restoration and vertical scrolling behavior.
+
+Available shows game resource icons and raw Orundum, OP and permit amounts from the
+same `totalAt` result used for its pull total. Stage-clear OP is explicit; disabling
+**Use OP for pulls** keeps the OP visible but excludes conversion everywhere. Income's
+reward summary uses those same resource totals, including selected unclaimed past
+rewards when enabled.
+
+A selected forecast banner uses the same exact closing deadline as its budget row;
+a manually entered date uses the complete server calendar day and says so. Completed
+event rewards count through the last playable instant, so an event's first-clear OP
+and permits can fund a banner that closes with it. Earlier forecasts do not assume
+completion. Same-day budgets are ordered by their actual closing times, and **Savings
+after your plan** reads the final budget row's balance instead of adding income after
+that banner closes. Skin forecasts use the selected server's calendar boundaries.
 
 Past Events opens one category at a time. Tick completed chapters, events, resource stages and Annihilation maps, then enable their remaining rewards. Individual first clears are projected from the existing reward pools by `node scripts/build-pull-first-clears.mjs`; generation fails if those lists do not reconcile with the old totals. Old all-cleared resource/Annihilation flags keep their meaning and expand into individual IDs only when that category is edited.
 
@@ -38,7 +54,7 @@ Existing manual reserves remain under the optional **Extra OP reserve** disclosu
 
 Validation covers explicit shop membership, exclusion of inferred Fashion Review/rerun stock, projected date offsets, separate expiry boundaries and cumulative skin costs without duplicate purchases. Browser checks cover desktop and mobile selection, persistence, shared artwork loading, schedule deep links, and horizontal overflow.
 
-The forecast headline shows available pulls before planned spending, with the skin reserve already excluded. After your plan deducts budgets due through the forecast date, charging other banners only for savings spent and the selected banner for its own used free pulls too. Unspent free pulls shown for that selected banner remain banner-only. Calculation details retain the comparison after earlier spending and first/last-day totals. Negative balances and deadline shortfalls stay visible.
+The forecast headline shows ordinary savings before planned spending, with the skin reserve already excluded. Each banner adds only its own free pulls, deducts earlier paid budgets, and reports the ordinary savings left after its budget. The plan footer uses the final banner's balance independently of the custom forecast date. Unused free pulls do not carry forward. Negative balances and deadline shortfalls stay visible.
 
 ## Wishing Wall scenarios
 

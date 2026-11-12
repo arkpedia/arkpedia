@@ -649,11 +649,13 @@ test('a red Check on main opens one issue, a superseded run does not, and the ne
     assert.match(github.issues()[0].comments.at(-1)!.body, /^Green again at cccccccccccc: https:\/\/example\.invalid\/run\/1$/);
   });
   const check = fs.readFileSync('.github/workflows/check.yml', 'utf8');
+  const reportJob = check.slice(check.indexOf('  main-report:'));
+  assert.match(reportJob, /if: always\(\) && github\.event_name == 'push' && github\.ref == 'refs\/heads\/main'/);
   for (const name of ['Report a red Check on main', 'Close the red-Check report']) {
-    const at = check.indexOf(`- name: ${name}`);
-    assert.match(check.slice(at, at + 200), /github\.event_name == 'push' && github\.ref == 'refs\/heads\/main'/, `${name}: pushes to main only, never a pull request`);
+    assert.ok(reportJob.includes(`- name: ${name}`), `${name}: confined to trusted main reporting`);
   }
-  assert.match(check, /^permissions:\n {2}contents: read\n( {2}#.*\n)* {2}issues: write$/m);
+  assert.doesNotMatch(check.slice(0, check.indexOf('  main-report:')), /issues: write/);
+  assert.match(reportJob, /issues: write/);
 });
 
 test('a failed deploy opens one issue per deployment that its next deploy closes, even when the token is missing', () => {

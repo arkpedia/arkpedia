@@ -1,7 +1,7 @@
 import { useRegionalTime } from '@/lib/time/useRegionalTime';
 import PageMeta from '@/components/layout/PageMeta';
 import { regionalPullBanners, regionalPullEvents, regionalSkinCollections, withLightRegionalTable } from '@/lib/time/regional';
-import { planningWindowEnd, planningDayEnd } from '@/lib/pulls/planningWindows';
+import { planningWindowEnd, planningDayEnd, planningDeadline } from '@/lib/pulls/planningWindows';
 import { useReaderValue } from '@/lib/time/readerClock';
 import { serverCalendarTime, serverOffsetLabel } from '@/lib/time/servers.mjs';
 import NumberInput from '@/components/ui/NumberInput';
@@ -9,6 +9,8 @@ import { withPullPlannerDynamicArt, loadDynamicArtIndex } from '@/lib/skins/dyna
 import { skinDynamicArt } from '@/lib/skins/dynamicArt';
 import BannerPicker from '@/components/pulls/BannerPicker';
 import PullBannerRow from '@/components/pulls/PullBannerRow';
+import AvailablePullsDialog from '@/components/pulls/AvailablePullsDialog';
+import PullResourceAmounts from '@/components/pulls/PullResourceAmounts';
 import workspace from '@/styles/pulls/pulls-workspace.module.css';
 import { RewardAmount } from "@/components/pulls/RewardAmount";
 import DataLink from '@/components/account/DataLink';
@@ -44,7 +46,7 @@ import { usePastRewards } from '@/lib/pulls/usePastRewards';
 import { rosterOperatorIds } from '@/lib/pulls/freeRewards';
 import { NO_STAGE_EXCLUSIONS } from '@/lib/pulls/stageKinds';
 import { pullSkinCatalogue, skinReservation, type PlannedSkin } from '@/lib/pulls/skins';
-import { availableBannerFreePulls, MAX_GOALS, PULL_PLAN_KEY, parsePullPlan, planBudgets, planHorizon, planNumber, savingsAfterPlanAt, validPlanDate, type BannerGoal, type SavedPullPlan } from '@/lib/pulls/plan';
+import { availableBannerFreePulls, MAX_GOALS, PULL_PLAN_KEY, parsePullPlan, planBudgets, planHorizon, planNumber, validPlanDate, type BannerGoal, type SavedPullPlan } from '@/lib/pulls/plan';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import LockToggle from '@/components/ui/LockToggle';
 import { useLock } from '@/lib/ui/useLock';
@@ -123,6 +125,7 @@ type PullsProps = { skinCollections: SkinCollection[]; bannerOdds: Record<string
 export default function PullsPage({ scheduledEvents: globalEvents, scheduledBanners: globalBanners, skinCatalogue, skinCollections: globalCollections, bannerOdds, backlogSources }: PullsProps) {
   const router = useRouter();
   const [incomeOpen, setIncomeOpen] = useState(false);
+  const [availableBanner, setAvailableBanner] = useState<string | null>(null);
   const [skinsOpen, setSkinsOpen] = useState(false);
   const [choosingBanner, setChoosingBanner] = useState(false);
   const [editingBanner, setEditingBanner] = useState<string | null>(null);
@@ -262,10 +265,12 @@ export default function PullsPage({ scheduledEvents: globalEvents, scheduledBann
 
   const target = useMemo(() => {
     if (!validPlanDate(until)) return null;
-    /* The selected server's calendar day, including its final millisecond. */
-    const d = new Date(planningDayEnd(until, server) - 1);
+    /* A selected banner uses the same exact deadline as its budget row. A custom
+       date still means the selected server's complete calendar day. */
+    const selected = scheduledBanners.find(banner => banner.name === bannerName);
+    const d = selected ? planningDeadline(selected, until) : new Date(planningDayEnd(until, server) - 1);
     return Number.isNaN(d.getTime()) ? null : d;
-  }, [until, server]);
+  }, [until, server, bannerName, scheduledBanners]);
 
   const banners = useMemo(() => (now ? scheduledBanners.filter(b => planningWindowEnd(b) > now.getTime()).sort((a, b) => a.start.localeCompare(b.start)) : []), [now, scheduledBanners]);
   const rewardEvents = useMemo(() => now ? scheduledEvents.filter(event => planningWindowEnd(event) > now.getTime()) : [], [now, scheduledEvents]);
@@ -273,14 +278,6 @@ export default function PullsPage({ scheduledEvents: globalEvents, scheduledBann
     () => banners.find((b) => b.name === bannerName) ?? null,
     [banners, bannerName],
   );
-
-  const income = useMemo(
-    () => selectedIncome(now && target ? incomeBetween(now, target, server) : incomeBetween(new Date(0), new Date(0), server), incomeSettings),
-    [now, target, incomeSettings, server],
-  );
-  /* The card pays at the daily sign-in, so it rides the same counted resets as
-     the daily mission rather than being multiplied out by calendar days. */
-  const card = useMemo(() => monthlyCardIncome(income), [income]);
 
   /* Only what is actually left: a returning player is the normal case, and
      telling somebody with three years of clears that 2,717 OP is waiting would
@@ -354,18 +351,29 @@ export default function PullsPage({ scheduledEvents: globalEvents, scheduledBann
       free,
       income: inc,
       card: mc,
+      green,
+      certs,
       haul,
+      resources: {
+        held: { orundum: readNumber(orundum), originitePrime: readNumber(originite), permits: readNumber(permits) },
+        income: { orundum: recurringIncome.orundum, originitePrime: monthlyCard ? mc.originitePrime : 0, permits: certs + green.permits },
+        rewards: { orundum: inHand.orundum - readNumber(orundum) + haul.wishOrundum,
+          originitePrime: inHand.originitePrime - readNumber(originite) + haul.op,
+          permits: inHand.permits - readNumber(permits) + haul.permits },
+      },
       arriving: withExtras.orundum,
     };
   }, [now, rewardEvents, picked, rerunOptions, monthlyCard, inHand.orundum, inHand.originitePrime,
     inHand.permits, reserve, orundum, originite, permits, goals, incomeSettings, yellowCerts, certSpending, server, opForPulls]);
 
   const at = useMemo(() => (target ? totalAt(target) : null), [target, totalAt]);
+  const income = at?.income ?? selectedIncome(incomeBetween(new Date(0), new Date(0), server), incomeSettings);
+  const card = at?.card ?? monthlyCardIncome(income);
   const total = at ? at.pulls : pullsFrom({ ...held, originitePrime: opForPulls(Math.max(0, held.originitePrime - reserve)) }, incomeBetween(new Date(0), new Date(0), server));
   const haul = at ? at.haul : bannerHaul([], new Date(0), rerunOptions);
 
   const today = pullsFrom({ ...held, originitePrime: opForPulls(Math.max(0, held.originitePrime - reserve)) }, incomeBetween(new Date(0), new Date(0), server));
-  const greenIncome = greenCertificateIncome(now ?? new Date(0), target ?? now ?? new Date(0), !!incomeSettings.greenCertificates, server);
+  const greenIncome = at?.green ?? greenCertificateIncome(new Date(0), new Date(0), false, server);
   /* The Pull calculation row: what you hold, plus income, plus event rewards, all with nothing
      held back, then minus the pulls the Skin wishlist's OP reservation removes -- so the row
      adds up to Before spending, which (like the banner budgets) keeps the reservation. */
@@ -379,15 +387,13 @@ export default function PullsPage({ scheduledEvents: globalEvents, scheduledBann
     const result = totalAt(date);
     return result.pulls.pulls - result.free;
   }, server) : [], [goals, scheduledBanners, now, totalAt, server]);
+  const availableRow = budgetRows.find(row => row.goal.banner === availableBanner && !row.issue);
+  const availableAt = availableRow?.banner ? totalAt(planningDeadline(availableRow.banner, availableRow.goal.spendOn)) : null;
   const forecastSavings = total.pulls - (at?.free ?? 0);
   /* The banner plan is judged through its own last banner, not the Pull calculation's date: the
      savings left once every planned banner has been paid for, at the last one's spending date. */
   const planThrough = now ? planHorizon(goals, serverCalendarTime(now, server).toISOString().slice(0, 10)) : null;
-  const savingsAfterPlan = useMemo(() => {
-    if (!planThrough) return today.pulls;
-    const at = totalAt(new Date(planningDayEnd(planThrough) - 1));
-    return savingsAfterPlanAt(at.pulls.pulls - at.free, budgetRows, planThrough);
-  }, [planThrough, totalAt, budgetRows, today.pulls]);
+  const savingsAfterPlan = budgetRows.filter(row => !row.expired).at(-1)?.remaining ?? today.pulls;
   const totalShortfall = budgetRows.reduce((max, row) => Math.max(max, row.shortfall), 0);
   const addGoal = useCallback((banner: UpcomingBanner) => {
     setGoals(previous => previous.some(g => g.banner === banner.name) || previous.length >= MAX_GOALS ? previous : [...previous, { banner: banner.name, pulls: 0, spendOn: banner.end, ...(banner.endAt ? { bannerEndAt: banner.endAt } : {}) }]);
@@ -461,6 +467,7 @@ export default function PullsPage({ scheduledEvents: globalEvents, scheduledBann
       </section>
       <section className={`op-section ${workspace.forecast}`} aria-label="Pull calculation">
         <div className={workspace.calculationHeading}><h2>Pull calculation</h2><div className={workspace.forecastDate}><label htmlFor="pull-calculation-date">Until</label><input id="pull-calculation-date" type="date" value={until} onChange={e => {if (e.target.value && !validPlanDate(e.target.value)) return; setUntil(e.target.value); setBannerName('');}} /></div></div>
+        <p className="hint">{picked ? `${picked.name} · ${until === picked.end ? 'through banner close' : 'through the selected day'}` : 'Custom date · through the end of the selected server day'}. Banner rows use their own closing deadlines.</p>
         {incomeSettings.certificates && now && target && <details className="pulls-disclosure" open>
           <summary>Yellow cert shop · monthly spending</summary>
           <p className="hint">Enter a budget for each month. Complete tiers cost 10 / 28 / 68 / 138 / 258 certs for 1 / 3 / 8 / 18 / 38 pulls. Include only purchases you have not already claimed.</p>
@@ -470,7 +477,7 @@ export default function PullsPage({ scheduledEvents: globalEvents, scheduledBann
         <dl className={workspace.fiveTerms}>
           <div><dt>Available now</dt><dd>{availableNow}</dd></div>
           <div><dt>Income</dt><dd><span aria-hidden="true">+</span>{recurringGained}</dd></div>
-          <div><dt>Event rewards</dt><dd><span aria-hidden="true">+</span>{rewardGained}</dd></div>
+          <div><dt>{includeBacklog ? 'Event & past rewards' : 'Event rewards'}</dt><dd><span aria-hidden="true">+</span>{rewardGained}</dd></div>
           {/* Always shown, "− 0" too, so the row reads the same whatever the wishlist holds; with
               "Use OP for pulls" off it is 0, as the wishlist only ever reserved OP. */}
           <div><dt>Skin planner</dt><dd><span aria-hidden="true">−</span>{Math.max(0, skinPlannerHeld)}</dd></div>
@@ -480,7 +487,7 @@ export default function PullsPage({ scheduledEvents: globalEvents, scheduledBann
       <section className={`op-section ${workspace.plan}`} aria-label="Your banner plan">
         <div className={workspace.planHeading}><h2>Your banners <span>{goals.length}</span></h2><button className={`primary btn-sm ${workspace.add}`} type="button" aria-haspopup="dialog" onClick={() => setChoosingBanner(true)}>+ Add banner</button></div>
         <div className={workspace.columns}><span>Operators / banner</span><span>Until</span><span>Pulls</span><span>Available</span><span>All goals</span><span>Left</span><span /></div>
-        {budgetRows.map(row => <PullBannerRow key={row.goal.banner} row={row} rules={bannerOdds[row.goal.banner]} expanded={editingBanner===row.goal.banner} onExpand={() => setEditingBanner(editingBanner===row.goal.banner ? null : row.goal.banner)} onChange={goal=>setGoals(prev=>prev.map(g=>g.banner===goal.banner?goal:g))} onRemove={()=>setGoals(prev=>prev.filter(g=>g.banner!==row.goal.banner))} />)}
+        {budgetRows.map(row => <PullBannerRow key={row.goal.banner} row={row} rules={bannerOdds[row.goal.banner]} expanded={editingBanner===row.goal.banner} onExpand={() => setEditingBanner(editingBanner===row.goal.banner ? null : row.goal.banner)} onAvailable={() => setAvailableBanner(row.goal.banner)} onChange={goal=>setGoals(prev=>prev.map(g=>g.banner===goal.banner?goal:g))} onRemove={()=>setGoals(prev=>prev.filter(g=>g.banner!==row.goal.banner))} />)}
         {!goals.length && <div className={workspace.empty}>Add a banner to start planning.</div>}
         <footer className={workspace.planFooter}><span>{!goals.length ? 'No planned spending' : totalShortfall ? 'Budget needs attention' : 'Budgets covered'}<small>Through {planThrough ? formatDayMonthYear(planThrough) : 'today'}{goals.length > 1 ? ', the last banner' : ''}</small></span><span>Savings after your plan <strong className={savingsAfterPlan < 0 ? workspace.negative : ''}>{savingsAfterPlan}<small> pulls</small></strong></span></footer>
         {/* Whether the Skin wishlist eats into these budgets, in so many words: its OP comes off
@@ -495,6 +502,13 @@ export default function PullsPage({ scheduledEvents: globalEvents, scheduledBann
       </section>
       </div>
     </main>
+    {availableRow && availableAt && <AvailablePullsDialog row={availableRow} holdings={availableNow}
+      income={availableAt.recurringOnlyUnreserved - availableNow}
+      rewards={availableAt.unreservedPulls - availableAt.free - availableAt.recurringOnlyUnreserved}
+      reserved={availableAt.unreservedPulls - availableAt.pulls.pulls}
+      resources={availableAt.resources} reservedOP={reserve} useOP={useOP}
+      stageClearOP={availableAt.haul.op} hasPastClears={availableAt.haul.skipped.length > 0}
+      includePast={includeBacklog} onClose={() => setAvailableBanner(null)} />}
     {incomeOpen && (
       <ImportDialog title="Income" className="pulls-income-dialog" onClose={() => setIncomeOpen(false)}>
         <div className="pulls-income-body">
@@ -512,7 +526,7 @@ export default function PullsPage({ scheduledEvents: globalEvents, scheduledBann
             <div className="pulls-day-options" role="group" aria-label="Forecast day">{(['start', 'end'] as const).map(day => <button type="button" key={day} className="filter-chip" disabled={!picked} aria-pressed={!!picked && until === picked[day]} onClick={() => picked && setUntil(picked[day])}>{day === 'start' ? 'First day' : 'Last day'}</button>)}</div>
           </div>
           {picked && <div className="pulls-target-preview">{/* eslint-disable-next-line @next/next/no-img-element */}
-            {picked.image ? <ContentImg src={picked.image} alt="" /> : <span className="pulls-target-preview-art" aria-hidden="true" />}<span><b>{picked.sixStars.join(' · ') || picked.name}</b><small>{picked.start} – {picked.end}{picked.datesEstimated ? ' · Estimated' : ''}</small></span></div>}
+            {picked.image ? <ContentImg src={picked.image} alt="" /> : <span className="pulls-target-preview-art" aria-hidden="true" />}<span><b>{picked.sixStars.join(' · ') || picked.name}</b><small>{picked.start} – {picked.end}{picked.datesEstimated ? ' · [Predicted]' : ' · Confirmed'}{until === picked.end ? ' · through banner close' : ''}</small></span></div>}
           {/* The condensed report (the maintainer, 2026-10-02): every source on one line, with
               its working and what it is worth in pulls, then the two figures the forecast
               adds. Off sources stay listed, muted, so the list reads the same every time. */}
@@ -524,7 +538,7 @@ export default function PullsPage({ scheduledEvents: globalEvents, scheduledBann
               <ReportRow what="Annihilation" how={`${income.weeks} weeks × ${ANNIHILATION_WEEKLY_ORUNDUM} Orundum`} pulls={income.annihilation / ORUNDUM_PER_PULL} off={!incomeSettings.annihilation} />
               <ReportRow what="Monthly card" how={`${income.days} sign-ins × ${MONTHLY_CARD_DAILY_ORUNDUM} Orundum · ${card.cards} × ${MONTHLY_CARD_ORIGINITE} OP`} pulls={monthlyCard ? (card.orundum + opForPulls(card.originitePrime) * ORUNDUM_PER_ORIGINITE) / ORUNDUM_PER_PULL : 0} off={!monthlyCard} />
               <ReportRow what="Green cert shop" how={`${greenIncome.months} resets · 600 Orundum + 4 permits each`} pulls={greenIncome.orundum / ORUNDUM_PER_PULL + greenIncome.permits} off={!incomeSettings.greenCertificates} />
-              <ReportRow what="Yellow cert shop" how="planned monthly shop purchases" pulls={now && target ? certificatePulls(now, target, readNumber(yellowCerts), incomeSettings.certificates, certSpending, server) : 0} off={!incomeSettings.certificates} />
+              <ReportRow what="Yellow cert shop" how="planned monthly shop purchases" pulls={at?.certs ?? 0} off={!incomeSettings.certificates} />
               <tr className="pulls-report-sum"><th scope="row">Income</th><td>in whole pulls, with what you hold</td><td>{recurringGained}</td></tr>
             </tbody>
             <tbody>
@@ -554,7 +568,7 @@ export default function PullsPage({ scheduledEvents: globalEvents, scheduledBann
                 );
               })}
               {haul.skipped.map((b) => (
-                <tr key={b.name} className="muted"><th scope="row">{(b.event ?? b.name).replace(/^\[[^\]]*\]\s*/, '')}</th><td>counted in Past events</td><td>{b.op} OP</td></tr>
+                <tr key={b.name}><th scope="row">{(b.event ?? b.name).replace(/^\[[^\]]*\]\s*/, '')}</th><td>First clears are managed in Past events{includeBacklog ? '; selected unclaimed rewards included' : '; not included'}. Shop permits count separately.</td><td><RewardAmount resource="permits" amount={eventShopPermits(b)} /></td></tr>
               ))}
               {haul.counted.length === 0 && haul.skipped.length === 0 && <tr className="muted"><td colSpan={3}>No events end before this date.</td></tr>}
               <tr>
@@ -570,7 +584,7 @@ export default function PullsPage({ scheduledEvents: globalEvents, scheduledBann
                 </td>
                 <td>{formatOneDecimal(haul.wishOrundum / ORUNDUM_PER_PULL)}</td>
               </tr>
-              <tr className="pulls-report-sum"><th scope="row">Event rewards</th><td>{haul.op} OP · {haul.permits} permits · Wishing Wall, in whole pulls</td><td>{rewardGained}</td></tr>
+              <tr className="pulls-report-sum"><th scope="row">{includeBacklog ? 'Event & past rewards' : 'Event rewards'}</th><td>{at && <PullResourceAmounts amounts={at.resources.rewards} useOP={useOP} />}<span>In whole pulls{!useOP ? '; OP conversion off' : ''}</span></td><td>{rewardGained}</td></tr>
             </tbody>
           </table>
         </div>
@@ -589,7 +603,7 @@ export default function PullsPage({ scheduledEvents: globalEvents, scheduledBann
             {/* The Skin Planner's own view, with this plan's OP set against it. */}
           <div className="pulls-panel-head"><p className="hint">The same plan as the <Link prefetch={false} href="/skin-planner">Skin Planner</Link>: a change here shows there, and the other way round.</p><SkinsHelp /></div>
           <SkinPlanner collections={skinCollections} today={now ? serverCalendarTime(now, server).toISOString().slice(0, 10) : null} now={now?.getTime()} catalogue={skinCatalogue} ids={skinIds} onChange={setSkinIds} owned={ownedSkins}
-            budget={{ heldOP: held.originitePrime, extraOP: readNumber(reservedOP), forecastOP: (date) => totalAt(new Date(planningDayEnd(date) - 1)).grossOP,
+            budget={{ heldOP: held.originitePrime, extraOP: readNumber(reservedOP), forecastOP: (date) => totalAt(new Date(planningDayEnd(date, server) - 1)).grossOP,
               extraField: <Field label="Extra OP reserve" unit="OP" value={reservedOP} onChange={setReservedOP} /> }} />
         </div>
       </ImportDialog>

@@ -121,7 +121,7 @@ export function PastRewards({ backlog, dropped, doneKeys, doneEvents, annihilati
           <label className="check pulls-past-check"><input type="checkbox" checked={done} onChange={(event) => setCompleted(group, [item.id], event.target.checked)} /><span className="visually-hidden">{item.name}: claimed</span></label>
           {staged
             ? <button type="button" className="btn-bare pulls-past-name" aria-expanded={detail === key} onClick={() => setDetail(detail === key ? null : key)}>{item.name}</button>
-            : <span className="pulls-past-name">{item.name}{availability && <small className="pulls-paradox-requirement">{availability.ready === true ? 'Ready to play · ' : ''}{availability.label}</small>}</span>}
+            : <span className="pulls-past-name">{item.name}{availability && <small className="pulls-paradox-requirement">{done ? 'Claimed · ' : availability.ready === true ? 'Ready to play · ' : ''}{availability.label}</small>}</span>}
           <span className="pulls-past-amount">{done ? '✓' : item.certs && !item.amount ? `${item.certs} yellow certs` : <>
             {layout === 'page' ? <RewardAmount iconOnly resource={group.unit === 'OP' ? 'op' : 'orundum'} amount={item.amount} /> : `${formatNumber(item.amount)} ${group.unit}`}
             {layout === 'page' && group.unit === 'OP' && (sanity === null ? <small title="Some stage costs are missing">Sanity unknown</small> : <RewardAmount iconOnly resource="sanity" amount={sanity} />)}

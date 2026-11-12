@@ -92,7 +92,7 @@ test('initialization and request failures are not retried or replaced by cleanup
  * WASM loader. Only the network WebSocket is simulated; no TLS or account data. */
 function realWisp() {
   const require = createRequire(import.meta.url);
-  assert.equal(JSON.parse(readFileSync('node_modules/libcurl.js/package.json', 'utf8')).version, '0.7.4');
+  assert.equal(JSON.parse(readFileSync('node_modules/libcurl.js/package.json', 'utf8')).version, '0.7.5');
   const source = readFileSync(require.resolve('libcurl.js'), 'utf8');
   const start = source.indexOf('const packet_types ='), end = source.indexOf('function logger(type, text)');
   assert.ok(start > 0 && end > start, 'Review Wisp lifecycle tests after a dependency change');

@@ -83,8 +83,8 @@ function plan() {
     try {
       const base = git('cat-file', '-p', 'HEAD').match(/^parent ([a-f0-9]{40})$/m)?.[1];
       if (!base) throw new Error(mainPush ? 'Missing main parent' : 'Missing PR merge parent');
-      git('fetch', '--no-tags', '--quiet', '--depth=50', 'origin', base);
-      const ancestors = git('log', '--first-parent', '--max-count=25', '--format=%H %T', base)
+      git('fetch', '--no-tags', '--quiet', '--depth=250', 'origin', base);
+      const ancestors = git('log', '--first-parent', '--max-count=200', '--format=%H %T', base)
         .split('\n').map(line => { const [commit, tree] = line.split(' '); return { commit, tree }; });
       baseline = fullBaselineAncestor(ancestors, repository, baseRef, { query: api });
       if (!baseline) throw new Error('No trusted full-browser ancestor in bounded history');

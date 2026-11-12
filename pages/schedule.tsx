@@ -43,6 +43,7 @@ import StickyControls from '@/components/ui/StickyControls';
 import { useSwitchHold } from '@/components/ui/useSwitchHold';
 import StyledSelect from '@/components/ui/StyledSelect';
 import { renderMonthValue, steadyValue } from '@/components/schedule/CalendarMonthValue';
+import CalendarSubscription from '@/components/schedule/CalendarSubscription';
 import ScrollRow from '@/components/ui/ScrollRow';
 import { getEventColor } from '@/lib/schedule/eventColors';
 import { parsePrices, formatPrices } from '@/lib/skins/skinPrice';
@@ -160,6 +161,7 @@ export default function SchedulePage({ events: globalEvents, operators: exported
   const viewHold = useSwitchHold('schedule');
   const [year, setYear] = useState(today.year);
   const [showBirthdays, setShowBirthdays] = useState(false);
+  const [syncOpen, setSyncOpen] = useState(false);
   const [showOfficialEvents, setShowOfficialEvents] = useState(true);
   const [month, setMonth] = useState(today.month); // 0-11
   const [selectedEvent, setSelectedEvent] = useState<ScheduleEvent | null>(null);
@@ -301,6 +303,7 @@ export default function SchedulePage({ events: globalEvents, operators: exported
         eyebrow="Rhodes Island // Schedule"
         title={view === 'calendar' ? 'Calendar' : 'Events'}
       />
+      {syncOpen && <CalendarSubscription server={server} birthdays={showBirthdays} onClose={() => setSyncOpen(false)} />}
 
       <main>
       {/* Both views stay mounted, and CSS shows one.
@@ -326,6 +329,7 @@ export default function SchedulePage({ events: globalEvents, operators: exported
                   void router.replace({ pathname: '/schedule', query: period === 'past' ? { past: '1' } : {} }, undefined, { shallow: true, scroll: false });
                 }}
               />
+              <button type="button" className="ghost" aria-label="Sync calendar / .ics" aria-haspopup="dialog" onClick={() => setSyncOpen(true)}>Sync<span className="schedule-sync-detail"> calendar / .ics</span></button>
               <p className="hint">{showPast ? `${pastEvents.length} events · newest first` : `${eventRows.length} events · soonest first`}</p>
             </StickyControls>
           {showPast ? <>
@@ -472,7 +476,8 @@ export default function SchedulePage({ events: globalEvents, operators: exported
 
           {/* What the grid shows, on the other end of the same line: these say what is
               drawn, not where you are, so they belong apart from the date controls. */}
-          <div className="cal-head-shows" role="group" aria-label="Show on the calendar">
+          <div className="cal-head-shows" role="group" aria-label="Calendar controls">
+            <button type="button" className="ghost" aria-haspopup="dialog" onClick={() => setSyncOpen(true)}>Sync calendar / .ics</button>
             <button
               type="button"
               className="filter-chip"

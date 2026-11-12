@@ -500,10 +500,9 @@ export interface RerunOptions {
 /**
  * What scheduled events pay by a given moment, including bannerless events.
  *
- * An event's Originite counts once the event has FINISHED, not once it has
- * started. That is the conservative reading and the honest one for a question
- * of the form "can I afford it": an event running on the day you pull is not
- * money you can count on having cleared.
+ * Forecast completed clears through the event's last playable instant. A banner
+ * ending at the same instant must be able to use those rewards before it closes.
+ * Earlier forecasts still do not assume that every stage has been cleared.
  *
  * A banner whose event is already in the back catalogue is skipped rather than
  * counted, because the back catalogue holds every event you can still play and
@@ -522,7 +521,7 @@ export function bannerHaul(
   const wishWalls: PullEventReward[] = [];
   const shops: PullEventReward[] = [];
   for (const b of banners) {
-    const ended = planningWindowEnd(b) <= by.getTime();
+    const ended = planningWindowEnd(b) - 1 <= by.getTime();
     if (!ended) continue;
 
     /* The Wishing Wall is checked FIRST and on its own terms. It pays Orundum

@@ -89,3 +89,13 @@ test('moved main and no held issue never start another content build', async () 
   assert.equal((await resumePilotContent(late)).action, 'obsolete');
   assert.deepEqual(late.calls, []);
 });
+
+test('scheduled completion does not queue duplicate content builds', async () => {
+  const busy = fixture(); busy.isBusy = async () => true;
+  assert.equal((await resumePilotContent(busy)).action, 'already-running');
+  assert.deepEqual(busy.calls, []);
+  const raced = fixture(); let reads = 0;
+  raced.isBusy = async () => ++reads > 1;
+  assert.equal((await resumePilotContent(raced)).action, 'already-running');
+  assert.deepEqual(raced.calls, []);
+});

@@ -14,6 +14,8 @@ export interface NativeState {
   changes: Record<string, PreferenceEdit>; error: string;
 }
 export interface NativeAudioPlugin {
+  /** Optional: iOS 0.3.1+ supplies real PCM-derived logarithmic spectrum levels. */
+  getSpectrum?(): Promise<{ trackId: string; available: boolean; bands: number[] }>;
   getState(): Promise<NativeState>;
   configure(options: { tracks: NativeTrack[]; repeat: string; favourites: string[]; blocked: string[]; revision: number }): Promise<NativeState>;
   loadTrack(options: { track: NativeTrack; seconds: number; play: boolean }): Promise<NativeState>;

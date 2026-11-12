@@ -5,7 +5,7 @@ on:
   workflow_dispatch:
     inputs:
       source:
-        description: Full source SHA to publish to the isolated redesign Preview
+        description: Full checked source SHA to publish to isolated Preview
         type: string
         required: true
 
@@ -17,26 +17,45 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  build:
+  authorize:
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      actions: read
+      pull-requests: read
     steps:
-      - name: Validate immutable source
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: '24'
+      - name: Require successful exact-source Check
         env:
           SOURCE: ${{ inputs.source }}
-        run: '[[ "$SOURCE" =~ ^[a-f0-9]{40}$ ]]'
-      - uses: actions/checkout@v7
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/deploy/preview-source-gate.mjs
+
+  build:
+    needs: authorize
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    outputs:
+      artifact: ${{ steps.bundle.outputs.artifact-id }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           ref: ${{ inputs.source }}
           persist-credentials: false
       - name: Use disk-backed temporary storage
         run: echo "TMPDIR=$RUNNER_TEMP" >> "$GITHUB_ENV"
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
           node-version: '24'
       - run: npm ci
-      # Game records live in arkpedia-data; this repository keeps code only. The live release's
-      # records, the ones www serves (scripts/content/pull-data.mjs).
       - name: Pull the live game records
         run: node scripts/content/pull-data.mjs
       - name: Check Preview isolation and internal self-calls
@@ -46,60 +65,65 @@ jobs:
           ARKPEDIA_WORKER: '1'
           ARKPEDIA_CONTENT_CHANNEL: live
           ARKPEDIA_DEPLOYMENT_ROLE: staging
-          # Match production: Node 24's default heap is too small for this typecheck.
           NODE_OPTIONS: --max-old-space-size=4096
         run: node node_modules/@opennextjs/cloudflare/dist/cli/index.js build --config wrangler.preview.jsonc --openNextConfigPath open-next.preview.config.ts
       - name: Package immutable Preview
+        env:
+          SOURCE: ${{ inputs.source }}
         run: |
           node scripts/deploy/check-public-assets-ready.mjs
           node -e 'const b=require("./public/build-info.json");if(b.commit!==process.env.SOURCE||b.dirty||b.deploymentRole!=="staging")throw Error("Unexpected Preview build")'
-          tar --exclude=.open-next/cache -czf "$RUNNER_TEMP/arkpedia-preview.tgz" .open-next wrangler.preview.jsonc scripts/deploy/preview-worker.mjs scripts/deploy/preview-security.mjs public/build-info.json
-          cd "$RUNNER_TEMP"
-          sha256sum arkpedia-preview.tgz > arkpedia-preview.sha256
-        env:
-          SOURCE: ${{ inputs.source }}
-      # The bundle crosses to the publish job through the Actions cache, not artifact storage: the organisation's
-      # artifact quota filled on 2026-11-11 and GitHub recounts it only every 6-12 hours, which stopped every
-      # Preview publish meanwhile. The cache has its own allowance and evicts its oldest entries by itself.
-      - name: Stage the bundle for the publish job
-        run: |
-          mkdir -p preview-artifact
-          cp "$RUNNER_TEMP/arkpedia-preview.tgz" "$RUNNER_TEMP/arkpedia-preview.sha256" preview-artifact/
-      - uses: actions/cache/save@v6
+          tar --exclude=.open-next/cache -czf "$RUNNER_TEMP/arkpedia-preview.tgz" .open-next public/build-info.json migrations/accounts
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        id: bundle
         with:
-          path: preview-artifact
-          key: arkpedia-preview-${{ inputs.source }}-${{ github.run_id }}-${{ github.run_attempt }}
+          name: preview-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/arkpedia-preview.tgz
+          if-no-files-found: error
+          retention-days: 1
+
   publish:
-    needs: build
+    needs: [authorize, build]
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    permissions:
+      contents: read
+      actions: read
+      pull-requests: read
     steps:
-      - uses: actions/checkout@v7
+      # Publisher scripts, dependencies and binding configuration come only from
+      # the main commit that dispatched this workflow, never the candidate source.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          ref: ${{ inputs.source }}
+          ref: ${{ github.sha }}
+          fetch-depth: 0
           persist-credentials: false
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
           node-version: '24'
       - run: npm ci
-      - uses: actions/cache/restore@v6
-        with:
-          path: preview-artifact
-          key: arkpedia-preview-${{ inputs.source }}-${{ github.run_id }}-${{ github.run_attempt }}
-          fail-on-cache-miss: true
-      - name: Verify build and extract
-        run: |
-          cd preview-artifact
-          sha256sum -c arkpedia-preview.sha256
-          cd ..
-          tar -xzf preview-artifact/arkpedia-preview.tgz
-          node --test scripts/tests/test-native-preview.mjs
-          node -e 'const b=require("./public/build-info.json");if(b.commit!==process.env.SOURCE||b.dirty||b.deploymentRole!=="staging")throw Error("Unexpected Preview build")'
+      - name: Revalidate exact-source Check before publication
         env:
           SOURCE: ${{ inputs.source }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          node scripts/deploy/preview-source-gate.mjs
+          git cat-file -e "$SOURCE^{commit}"
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          artifact-ids: ${{ needs.build.outputs.artifact }}
+          path: preview-artifact
+          merge-multiple: true
+      - name: Verify build and extract
+        env:
+          SOURCE: ${{ inputs.source }}
+        run: |
+          python3 scripts/deploy/extract-preview.py preview-artifact/arkpedia-preview.tgz .
+          node --test scripts/tests/test-native-preview.mjs
+          node scripts/deploy/check-build-identity.mjs preview-local
       - name: Verify recovery and apply isolated Preview account migrations
         env:
-          # Worker publication credentials deliberately have no database permissions.
           CLOUDFLARE_API_TOKEN: ${{ secrets.ARKPEDIA_PREVIEW_D1_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: 1ff51c10571eaa9934bc451e1bfdb361
           WRANGLER_SEND_METRICS: 'false'
@@ -109,10 +133,15 @@ jobs:
           node node_modules/wrangler/bin/wrangler.js d1 migrations apply arkpedia-preview-accounts --config "$RUNNER_TEMP/preview-accounts.json" --remote
       - name: Publish the native Preview only
         env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.ARKPEDIA_PRODUCTION_API_TOKEN || secrets.ARKPEDIA_PILOT_API_TOKEN }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.ARKPEDIA_PREVIEW_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: 1ff51c10571eaa9934bc451e1bfdb361
           WRANGLER_SEND_METRICS: 'false'
           OPEN_NEXT_DEPLOY: 'true'
-        run: node node_modules/wrangler/bin/wrangler.js preview --config wrangler.preview.jsonc --worker-name arkpedia --name arkpedia --message "Redesign Preview ${{ inputs.source }}"
+          SOURCE: ${{ inputs.source }}
+        run: |
+          test -n "$CLOUDFLARE_API_TOKEN"
+          node node_modules/wrangler/bin/wrangler.js preview --config wrangler.preview.jsonc --worker-name arkpedia --name arkpedia --message "Redesign Preview $SOURCE"
       - name: Verify the served Preview source
+        env:
+          SOURCE: ${{ inputs.source }}
         run: node scripts/deploy/check-build-identity.mjs preview

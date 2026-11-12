@@ -51,7 +51,7 @@ test('the pull planner goal row and its footer are on one line', async ({ page }
     const input = el.querySelector('input[type="number"]')!.getBoundingClientRect();
     const centre = (input.top + input.bottom) / 2;
     // On a phone the date is a line of its own above the figures, so it is left out.
-    const values = Array.from(el.querySelectorAll(phone ? '[class*="figure"] > b' : '[class*="date"] > b, [class*="figure"] > b')).map((b) => {
+    const values = Array.from(el.querySelectorAll(phone ? '[class*="figure"] > b, [class*="figure"] > button > b' : '[class*="date"] > b, [class*="figure"] > b, [class*="figure"] > button > b')).map((b) => {
       const r = b.getBoundingClientRect();
       return { text: b.textContent, off: Math.round(((r.top + r.bottom) / 2 - centre) * 10) / 10 };
     });

@@ -60,6 +60,28 @@ test('spending dates set order and earlier budgets reduce later savings', () => 
   assert.equal(rows[1].shortfall, 40);
   assert.equal(rows[1].remaining, -40);
 });
+test('same-day budgets follow actual closes, independent of the order they were added', () => {
+  const early = { ...a, name: 'Early', endAt: '2026-09-15T11:00:00Z' };
+  const late = { ...a, name: 'Late', endAt: '2026-09-15T19:00:00Z' };
+  const rows = planBudgets([{banner: late.name, spendOn: late.end, pulls: 20}, {banner: early.name, spendOn: early.end, pulls: 30}], [late, early], now,
+    date => date < new Date(early.endAt) ? 50 : 70);
+  assert.deepEqual(rows.map(row => row.goal.banner), ['Early', 'Late']);
+  assert.deepEqual(rows.map(row => row.available), [50, 40]);
+  assert.equal(rows.at(-1)!.remaining, 20);
+});
+test('a banner can use its event first clears and permits at their shared closing deadline', async () => {
+  const { bannerHaul, pullsFrom, incomeBetween } = await import('../../lib/pulls/pulls');
+  const { planningDeadline } = await import('../../lib/pulls/planningWindows');
+  const event: PullEventReward = { ...a, name: 'Thunder', event: 'Thunder', op: 29, inBacklog: false, rerun: false, hasShop: true, shopPermits: 3 };
+  const deadline = planningDeadline(a, a.end);
+  const haul = bannerHaul([event], deadline, {cleared: new Set()});
+  assert.equal(haul.op, 29);
+  assert.equal(haul.permits, 3);
+  const emptyIncome = incomeBetween(now, now);
+  assert.equal(pullsFrom({orundum: 0, originitePrime: haul.op, permits: haul.permits}, emptyIncome).pulls, 11);
+  assert.equal(pullsFrom({orundum: 0, originitePrime: 0, permits: haul.permits}, emptyIncome).pulls, 3, 'OP conversion off leaves permits');
+  assert.equal(bannerHaul([event], new Date(deadline.getTime() - 1), {cleared: new Set()}).op, 0);
+});
 test('negative balances are carried forward instead of inventing savings', () => {
   const rows = planBudgets([{banner: a.name, spendOn: a.end, pulls: 120}, {banner: b.name, spendOn: b.end, pulls: 50}], [a,b], now, () => 100);
   assert.equal(rows[1].available, -20);
@@ -435,6 +457,7 @@ test('planner banner windows are the shared banner records, and unconfirmed ones
   const { resolvePullBannerWindows } = await import('../../lib/pulls/bannerWindows');
   const { getAllHeadhuntingBanners } = await import('../../lib/gacha/headhuntingBannerData');
   const banners=getAllHeadhuntingBanners(), planned=getPullSchedule();
+  const resolved=new Map(resolvePullBannerWindows(banners).map(banner=>[banner.name,banner.global_date]));
   let confirmed=0;
   for (const plan of planned) {
     const shared=banners.find(b=>b.name===plan.name);
@@ -443,7 +466,7 @@ test('planner banner windows are the shared banner records, and unconfirmed ones
     // unconfirmed one is always flagged.
     if (!shared.global_window?.timingSource) assert.equal(plan.datesEstimated, true, plan.name);
     // A confirmed window is used as it is; an estimate follows the shared calendar.
-    const expected=shared.global_window?.timingSource ? (confirmed++, shared.global_date) : resolvePullBannerWindows([shared])[0].global_date;
+    const expected=shared.global_window?.timingSource ? (confirmed++, shared.global_date) : resolved.get(shared.name);
     if (expected) assert.equal(`${plan.start}–${plan.end}`.replace(/-/g,'/'), expected, plan.name);
   }
   assert.ok(confirmed > 0, 'the schedule holds banners with a confirmed Global window');
@@ -502,7 +525,8 @@ test('event rewards include bannerless reruns and custom exchanges by the event 
   assert.equal(cleared.op, haul.op - (rerun.inBacklog ? 0 : rerun.op));
   assert.equal(cleared.permits, haul.permits);
   const rerunEnd = new Date(rerun.endAt!);
-  assert.equal(bannerHaul([rerun], new Date(rerunEnd.getTime() - 1), {cleared:new Set()}).op, 0);
+  assert.equal(bannerHaul([rerun], new Date(rerunEnd.getTime() - 2), {cleared:new Set()}).op, 0);
+  assert.equal(bannerHaul([rerun], new Date(rerunEnd.getTime() - 1), {cleared:new Set()}).op, rerun.inBacklog ? 0 : rerun.op);
   assert.equal(bannerHaul([rerun], rerunEnd, {cleared:new Set()}).op, rerun.inBacklog ? 0 : rerun.op);
 });
 

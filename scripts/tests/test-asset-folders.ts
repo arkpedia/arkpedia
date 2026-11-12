@@ -19,6 +19,8 @@ import { FOLDER_MODES, folderDriftByKind, folderMode, folderVerdict, manifestFol
 const require = createRequire(import.meta.url);
 const config = require('../../next.config.js')('test') as { redirects: () => Promise<{ source: string; destination: string }[]>; images: { remotePatterns: { hostname: string }[] } };
 const REPOSITORIES = ['arkpedia-skin-assets', 'arkpedia-image-assets'] as const;
+const mediaMaps = fs.existsSync('.cache/native-media-delivery.json')
+  ? JSON.parse(fs.readFileSync('.cache/native-media-delivery.json', 'utf8')) : {};
 
 test('the site and the deploy redirects map every folder to the repository the config names', async () => {
   const release = { release: 'r', baseUrl: 'https://example.org/r', assets: { 'arkpedia-skin-assets': 'a'.repeat(40), 'arkpedia-image-assets': 'b'.repeat(40) } };
@@ -27,7 +29,9 @@ test('the site and the deploy redirects map every folder to the repository the c
     for (const folder of assetFolders[repository]) {
       assert.match(contentUrl(`/${folder}/x.webp`, release), new RegExp(`/${repository}/${release.assets[repository]}/${folder}/x\\.webp$`), folder);
       const rule = redirects.find(r => r.source === `/${folder}/:path*`);
-      assert.ok(rule?.destination.includes(`/${repository}/${bundledRevisions[repository]}/${folder}/`), `${folder}: ${rule?.destination}`);
+      // Unchanged files reuse the published base snapshot; per-file overrides precede this fallback.
+      const deliveryRevision = mediaMaps[repository]?.[bundledRevisions[repository]]?.baseRevision || bundledRevisions[repository];
+      assert.ok(rule?.destination.includes(`/${repository}/${deliveryRevision}/${folder}/`), `${folder}: ${rule?.destination}`);
     }
   }
   // Neither file keeps a list of its own.

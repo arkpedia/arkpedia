@@ -401,9 +401,9 @@ export default function EventDetailPage({
               {/* One card: the banner's name and tag, its art beside its rate-up and returning
                   limited lineups, then a line per operator the event gives (welfare, free). Every
                   operator opens the operator preview. */}
-              <div className="panel event-banner-card">
+              <div className="panel event-section-card event-banner-card">
                 {bannerName && <>
-                  <div className="event-banner-head">
+                  <div className="event-section-head">
                     <h3 className="entity-title entity-title-name">{bannerTitle.title}</h3>
                     {bannerTitle.tag && <span className="event-banner-tag">[{bannerTitle.tag}]</span>}
                   </div>
@@ -450,80 +450,94 @@ export default function EventDetailPage({
 
           {activeSection === 'rewards' && (
             <section className="op-section" {...tabPanelProps('event-section', 'rewards')}>
-              {rewardNote && <p className="hint event-reward-note">{rewardNote}</p>}
-              <Tabs
-                label="Reward store"
-                id="event-store"
-                className="event-rewards-tabs"
-                value={activeRewardTab}
-                onChange={changeRewardTab}
-                options={rewardTabs}
-              />
-              <div {...tabPanelProps('event-store', activeRewardTab)}>
-                {activeRewardTab === ALL_TAB ? (
-                  summary && summary.rows.length ? <RewardSummaryCard eventName={name} summary={summary} /> : <RewardTotalsRow totals={rewardTotals} />
-                ) : activeRewardTab === EXTRA_TABS.packs ? (
-                  <EventPacks groups={extras.packs} />
-                ) : activeRewardTab === EXTRA_TABS.furniture ? (
-                  <EventFurniture sets={extras.furniture} />
-                ) : activeRewardTab === EXTRA_TABS.notices ? (
-                  <EventNotices notices={extras.notices} />
-                ) : (
-                  activeStores.length > 1
-                    ? activeStores.map((store) => (
-                      <div key={store.name} className="event-reward-block">
-                        <h3 className="event-reward-block-title">{store.name}</h3>
-                        {loginDetails[store.name]?.days.length
-                          ? <EventLoginDays details={loginDetails[store.name]} />
-                          : <>{loginDetails[store.name]?.description && <p className="hint">{loginDetails[store.name].description}</p>}<RewardStorePanelGrid items={store.items} /></>}
-                      </div>
-                    ))
-                    : <RewardStorePanelGrid items={activeStores[0]?.items ?? []} />
-                )}
+              <div className="panel event-section-card">
+                <div className="event-section-head"><h3 className="entity-title entity-title-name">Rewards</h3></div>
+                {/* Older prepared releases coupled the CN reward notice to date confirmation.
+                    The page header owns date status; this note describes reward provenance. */}
+                {rewardNote && <p className="hint event-reward-note">{rewardNote.replace('Global dates and rewards await confirmation', 'Global rewards await confirmation')}</p>}
+                <Tabs
+                  label="Reward store"
+                  id="event-store"
+                  className="event-rewards-tabs"
+                  value={activeRewardTab}
+                  onChange={changeRewardTab}
+                  options={rewardTabs}
+                />
+                <div {...tabPanelProps('event-store', activeRewardTab)}>
+                  {activeRewardTab === ALL_TAB ? (
+                    summary && summary.rows.length ? <RewardSummaryCard eventName={name} summary={summary} artwork={shownImages[0] ?? regionalArt(regionalWindow, poster, server) ?? shownBannerImage} rewardNote={rewardNote?.replace('Global dates and rewards await confirmation', 'Global rewards await confirmation')} /> : <RewardTotalsRow totals={rewardTotals} />
+                  ) : activeRewardTab === EXTRA_TABS.packs ? (
+                    <EventPacks groups={extras.packs} />
+                  ) : activeRewardTab === EXTRA_TABS.furniture ? (
+                    <EventFurniture sets={extras.furniture} />
+                  ) : activeRewardTab === EXTRA_TABS.notices ? (
+                    <EventNotices notices={extras.notices} />
+                  ) : (
+                    activeStores.length > 1
+                      ? activeStores.map((store) => (
+                        <div key={store.name} className="event-reward-block">
+                          <h3 className="event-reward-block-title">{store.name}</h3>
+                          {loginDetails[store.name]?.days.length
+                            ? <EventLoginDays details={loginDetails[store.name]} />
+                            : <>{loginDetails[store.name]?.description && <p className="hint">{loginDetails[store.name].description}</p>}<RewardStorePanelGrid items={store.items} /></>}
+                        </div>
+                      ))
+                      : <RewardStorePanelGrid items={activeStores[0]?.items ?? []} />
+                  )}
+                </div>
               </div>
             </section>
           )}
 
           {activeSection === 'skins' && (
             <section className="op-section" {...tabPanelProps('event-section', 'skins')}>
-              {globalPredicted && <p className="hint">CN outfit inventory; Global availability awaits confirmation.</p>}
-              <div className="event-detail-skins">
-                {skins.map((skin) => {
-                  const prices = parsePrices(skin.howToObtain);
-                  return (
-                    <button
-                      type="button"
-                      key={skin.name}
-                      className="btn-bare event-detail-skin-item"
-                      onClick={() => setActiveSkin(skin)}
-                    >
-                      {skin.image && (
-                        <Image src={skin.image} alt={skin.name} width={120} height={160} style={{ objectFit: 'cover' }} />
-                      )}
-                      <span>{skin.model ? `${skin.model} - ${skin.name}` : skin.name}</span>
-                      {prices.length > 0 ? (
-                        <span className="hint">
-                          <PriceDisplay prices={prices} />
-                        </span>
-                      ) : skin.howToObtain ? (
-                        <span className="hint">{skin.howToObtain}</span>
-                      ) : null}
-                    </button>
-                  );
-                })}
+              <div className="panel event-section-card">
+                <div className="event-section-head"><h3 className="entity-title entity-title-name">Skins</h3></div>
+                {globalPredicted && <p className="hint">CN outfit inventory; Global availability awaits confirmation.</p>}
+                <div className="event-detail-skins">
+                  {skins.map((skin) => {
+                    const prices = parsePrices(skin.howToObtain);
+                    return (
+                      <button
+                        type="button"
+                        key={skin.name}
+                        className="btn-bare event-detail-skin-item"
+                        onClick={() => setActiveSkin(skin)}
+                      >
+                        {skin.image && (
+                          <Image src={skin.image} alt={skin.name} width={120} height={160} style={{ objectFit: 'cover' }} />
+                        )}
+                        <span>{skin.model ? `${skin.model} - ${skin.name}` : skin.name}</span>
+                        {prices.length > 0 ? (
+                          <span className="hint">
+                            <PriceDisplay prices={prices} />
+                          </span>
+                        ) : skin.howToObtain ? (
+                          <span className="hint">{skin.howToObtain}</span>
+                        ) : null}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
             </section>
           )}
 
           {activeSection === 'news' && (
             <section className="op-section" {...tabPanelProps('event-section', 'news')}>
-              <EventNews news={news} board={board} />
+              <div className="panel event-section-card">
+                <div className="event-section-head"><h3 className="entity-title entity-title-name">News</h3></div>
+                <EventNews news={news} board={board} />
+              </div>
             </section>
           )}
 
           {activeSection === 'pvs' && (
             <section className="op-section" {...tabPanelProps('event-section', 'pvs')}>
-              <EventVideos videos={videos} run={isRerun(name) ? 'rerun' : 'launch'} />
+              <div className="panel event-section-card">
+                <div className="event-section-head"><h3 className="entity-title entity-title-name">PVs</h3></div>
+                <EventVideos videos={videos} run={isRerun(name) ? 'rerun' : 'launch'} />
+              </div>
             </section>
           )}
 
@@ -620,7 +634,7 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/ev
   const rewardNote = fromOriginal
     ? `Missions, first clears and furniture are the original run's (${eventTitle(rewardEntry!.inheritsFrom!)}) until this rerun's own are in the game data: a rerun repeats them. Its store is its own. First-clear rewards are once per account: a stage cleared before gives none again.`
     : fromCn
-      ? 'Rewards marked CN come from this run’s CN game data. Global dates and rewards await confirmation; first clears remain once per account.'
+      ? 'Rewards marked CN come from this run’s CN game data. Global rewards await confirmation; first clears remain once per account.'
       : isRerun(event.name) && (rewardEntry?.groups ?? []).some((g) => g.kind === 'first-clear')
         ? 'First-clear rewards are once per account: a stage cleared in the original run gives none in the rerun.'
         : null;
@@ -661,7 +675,7 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/ev
   const roster = tableRewards.length || rawStores.some((store) => store.items.length) ? getAllOperators() : [];
   const tableIcon = (item: import('@/lib/events/tableRewards').TableRewardItem) => {
     if (item.kind === 'operator') {
-      const op = roster.find((o) => o.name.toLowerCase() === item.name.toLowerCase());
+      const op = roster.find((o) => o.internalName === item.id) ?? roster.find((o) => o.name.toLowerCase() === item.name.toLowerCase());
       return op ? getOperatorIconPath(op) : null;
     }
     // A daily free roll is a headhunting roll: the permit's picture.

@@ -3,4 +3,4 @@
 # arkpedia-data's importer/scripts/content/requirements.txt, which its Dependabot watches.
 -r ../requirements.txt
 # Metadata-only historical discovery, pinned to the importer’s existing yt-dlp version.
-yt-dlp==2026.8.19
+yt-dlp==2026.10.26
