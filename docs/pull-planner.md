@@ -16,9 +16,11 @@ The page opens with the shared page header (the eyebrow, the title and the **Exp
 2. **Pull calculation.** The forecast for one date, set by the **Until** date field: available now, plus income, plus event rewards, equals the pulls before spending. The skin reserve is already taken out.
 3. **Your banners.** The **+ Add banner** button opens the banner picker. Each planned banner is one row: the banner (its art, name and a goals toggle), until when, the pulls budget, the pulls available, all goals, and the pulls left, with a borderless × to remove it. The row's values sit on one line with the budget field; captions such as *Estimated* hang below without moving them.
    - Under a banner, **Operator goals** picks operators and copies and shows individual and combined chances. Its help panel's "pull budget" link goes to that banner's budget field.
-   - Each row's footer shows the banner's free pulls, what comes from savings, and what is left after earlier banners. The section's footer shows how far the budgets are covered and the savings after the plan.
+   - The **Available** count opens a breakdown for that banner's deadline: current resources, recurring income, event/past rewards, skin reservations, earlier paid budgets, and banner-only free pulls. The terms reconcile with the clicked count, independently of the Income popup's selected forecast date. The caption **Banner free** identifies exclusive pulls; these do not carry over. The goals editor does not repeat the budget breakdown. The section's footer shows how far the budgets are covered and the savings after the plan.
 
 Phones stack the same sections in one column; the triggers and the banner rows reflow, and no content moves out of reach.
+
+Income uses a wider desktop dialog. Income and Available keep their full source details on phones by placing the working below each source and amount, without horizontal scrolling. Both use the shared dialog's close, Escape, focus restoration and vertical scrolling behavior.
 
 Past Events opens one category at a time. Tick completed chapters, events, resource stages and Annihilation maps, then enable their remaining rewards. Individual first clears are projected from the existing reward pools by `node scripts/build-pull-first-clears.mjs`; generation fails if those lists do not reconcile with the old totals. Old all-cleared resource/Annihilation flags keep their meaning and expand into individual IDs only when that category is edited.
 

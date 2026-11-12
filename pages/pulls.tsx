@@ -1,7 +1,7 @@
 import { useRegionalTime } from '@/lib/time/useRegionalTime';
 import PageMeta from '@/components/layout/PageMeta';
 import { regionalPullBanners, regionalPullEvents, regionalSkinCollections, withLightRegionalTable } from '@/lib/time/regional';
-import { planningWindowEnd, planningDayEnd } from '@/lib/pulls/planningWindows';
+import { planningWindowEnd, planningDayEnd, planningDeadline } from '@/lib/pulls/planningWindows';
 import { useReaderValue } from '@/lib/time/readerClock';
 import { serverCalendarTime, serverOffsetLabel } from '@/lib/time/servers.mjs';
 import NumberInput from '@/components/ui/NumberInput';
@@ -9,6 +9,7 @@ import { withPullPlannerDynamicArt, loadDynamicArtIndex } from '@/lib/skins/dyna
 import { skinDynamicArt } from '@/lib/skins/dynamicArt';
 import BannerPicker from '@/components/pulls/BannerPicker';
 import PullBannerRow from '@/components/pulls/PullBannerRow';
+import AvailablePullsDialog from '@/components/pulls/AvailablePullsDialog';
 import workspace from '@/styles/pulls/pulls-workspace.module.css';
 import { RewardAmount } from "@/components/pulls/RewardAmount";
 import DataLink from '@/components/account/DataLink';
@@ -123,6 +124,7 @@ type PullsProps = { skinCollections: SkinCollection[]; bannerOdds: Record<string
 export default function PullsPage({ scheduledEvents: globalEvents, scheduledBanners: globalBanners, skinCatalogue, skinCollections: globalCollections, bannerOdds, backlogSources }: PullsProps) {
   const router = useRouter();
   const [incomeOpen, setIncomeOpen] = useState(false);
+  const [availableBanner, setAvailableBanner] = useState<string | null>(null);
   const [skinsOpen, setSkinsOpen] = useState(false);
   const [choosingBanner, setChoosingBanner] = useState(false);
   const [editingBanner, setEditingBanner] = useState<string | null>(null);
@@ -379,6 +381,8 @@ export default function PullsPage({ scheduledEvents: globalEvents, scheduledBann
     const result = totalAt(date);
     return result.pulls.pulls - result.free;
   }, server) : [], [goals, scheduledBanners, now, totalAt, server]);
+  const availableRow = budgetRows.find(row => row.goal.banner === availableBanner && !row.issue);
+  const availableAt = availableRow?.banner ? totalAt(planningDeadline(availableRow.banner, availableRow.goal.spendOn)) : null;
   const forecastSavings = total.pulls - (at?.free ?? 0);
   /* The banner plan is judged through its own last banner, not the Pull calculation's date: the
      savings left once every planned banner has been paid for, at the last one's spending date. */
@@ -480,7 +484,7 @@ export default function PullsPage({ scheduledEvents: globalEvents, scheduledBann
       <section className={`op-section ${workspace.plan}`} aria-label="Your banner plan">
         <div className={workspace.planHeading}><h2>Your banners <span>{goals.length}</span></h2><button className={`primary btn-sm ${workspace.add}`} type="button" aria-haspopup="dialog" onClick={() => setChoosingBanner(true)}>+ Add banner</button></div>
         <div className={workspace.columns}><span>Operators / banner</span><span>Until</span><span>Pulls</span><span>Available</span><span>All goals</span><span>Left</span><span /></div>
-        {budgetRows.map(row => <PullBannerRow key={row.goal.banner} row={row} rules={bannerOdds[row.goal.banner]} expanded={editingBanner===row.goal.banner} onExpand={() => setEditingBanner(editingBanner===row.goal.banner ? null : row.goal.banner)} onChange={goal=>setGoals(prev=>prev.map(g=>g.banner===goal.banner?goal:g))} onRemove={()=>setGoals(prev=>prev.filter(g=>g.banner!==row.goal.banner))} />)}
+        {budgetRows.map(row => <PullBannerRow key={row.goal.banner} row={row} rules={bannerOdds[row.goal.banner]} expanded={editingBanner===row.goal.banner} onExpand={() => setEditingBanner(editingBanner===row.goal.banner ? null : row.goal.banner)} onAvailable={() => setAvailableBanner(row.goal.banner)} onChange={goal=>setGoals(prev=>prev.map(g=>g.banner===goal.banner?goal:g))} onRemove={()=>setGoals(prev=>prev.filter(g=>g.banner!==row.goal.banner))} />)}
         {!goals.length && <div className={workspace.empty}>Add a banner to start planning.</div>}
         <footer className={workspace.planFooter}><span>{!goals.length ? 'No planned spending' : totalShortfall ? 'Budget needs attention' : 'Budgets covered'}<small>Through {planThrough ? formatDayMonthYear(planThrough) : 'today'}{goals.length > 1 ? ', the last banner' : ''}</small></span><span>Savings after your plan <strong className={savingsAfterPlan < 0 ? workspace.negative : ''}>{savingsAfterPlan}<small> pulls</small></strong></span></footer>
         {/* Whether the Skin wishlist eats into these budgets, in so many words: its OP comes off
@@ -495,6 +499,11 @@ export default function PullsPage({ scheduledEvents: globalEvents, scheduledBann
       </section>
       </div>
     </main>
+    {availableRow && availableAt && <AvailablePullsDialog row={availableRow} holdings={availableNow}
+      income={availableAt.recurringOnlyUnreserved - availableNow}
+      rewards={availableAt.unreservedPulls - availableAt.free - availableAt.recurringOnlyUnreserved}
+      reserved={availableAt.unreservedPulls - availableAt.pulls.pulls}
+      includePast={includeBacklog} onClose={() => setAvailableBanner(null)} />}
     {incomeOpen && (
       <ImportDialog title="Income" className="pulls-income-dialog" onClose={() => setIncomeOpen(false)}>
         <div className="pulls-income-body">

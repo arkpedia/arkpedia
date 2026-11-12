@@ -183,6 +183,7 @@ test('between a phone and the full row the triggers take two lines, each a contr
   for (const width of [760, 860]) {
     await page.setViewportSize({ width, height: 900 });
     await page.goto("/pull-planner");
+    await expect(page.locator('#tab-income')).toBeVisible();
     const [income, past, skins] = await page.evaluate(() => ['tab-income', 'tab-past', 'tab-skins'].map((id) => {
       const r = document.getElementById(id)!.getBoundingClientRect();
       return { top: r.top, bottom: r.bottom, h: Math.round(r.height * 10) / 10 };
