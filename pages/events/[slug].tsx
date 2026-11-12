@@ -461,7 +461,7 @@ export default function EventDetailPage({
               />
               <div {...tabPanelProps('event-store', activeRewardTab)}>
                 {activeRewardTab === ALL_TAB ? (
-                  summary && summary.rows.length ? <RewardSummaryCard eventName={name} summary={summary} /> : <RewardTotalsRow totals={rewardTotals} />
+                  summary && summary.rows.length ? <RewardSummaryCard eventName={name} summary={summary} artwork={regionalArt(regionalWindow, poster, server) ?? shownImages[0] ?? shownBannerImage} rewardNote={rewardNote} /> : <RewardTotalsRow totals={rewardTotals} />
                 ) : activeRewardTab === EXTRA_TABS.packs ? (
                   <EventPacks groups={extras.packs} />
                 ) : activeRewardTab === EXTRA_TABS.furniture ? (

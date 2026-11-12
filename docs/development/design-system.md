@@ -312,6 +312,12 @@ a real representative record; empty tools need a populated state as well as the 
 
 ## Ownership and maintenance
 
+Saved event reward images use the page's theme and reward totals, with muted event
+art behind the title. Category panels carry large game icons, full item names and
+aligned quantities. Keep sources and reward provenance in the image so it remains
+useful when shared outside the site. The export has the same resolution on phones
+and desktop; unavailable artwork must not remove an item or block downloading.
+
 - Product patterns and this route inventory: this document.
 - Exact tokens, component APIs, interaction rules and exceptions: [UI primitives](ui-primitives.md).
 - Shared appearance: `styles/core/`; reusable behavior: `components/ui/`.
