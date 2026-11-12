@@ -58,13 +58,17 @@ jobs:
           sha256sum arkpedia-preview.tgz > arkpedia-preview.sha256
         env:
           SOURCE: ${{ inputs.source }}
-      - uses: actions/upload-artifact@v7
+      # The bundle crosses to the publish job through the Actions cache, not artifact storage: the organisation's
+      # artifact quota filled on 2026-11-11 and GitHub recounts it only every 6-12 hours, which stopped every
+      # Preview publish meanwhile. The cache has its own allowance and evicts its oldest entries by itself.
+      - name: Stage the bundle for the publish job
+        run: |
+          mkdir -p preview-artifact
+          cp "$RUNNER_TEMP/arkpedia-preview.tgz" "$RUNNER_TEMP/arkpedia-preview.sha256" preview-artifact/
+      - uses: actions/cache/save@v6
         with:
-          name: arkpedia-preview-${{ inputs.source }}
-          path: |
-            ${{ runner.temp }}/arkpedia-preview.tgz
-            ${{ runner.temp }}/arkpedia-preview.sha256
-          retention-days: 3
+          path: preview-artifact
+          key: arkpedia-preview-${{ inputs.source }}-${{ github.run_id }}-${{ github.run_attempt }}
   publish:
     needs: build
     runs-on: ubuntu-latest
@@ -78,10 +82,11 @@ jobs:
         with:
           node-version: '24'
       - run: npm ci
-      - uses: actions/download-artifact@v8
+      - uses: actions/cache/restore@v6
         with:
-          name: arkpedia-preview-${{ inputs.source }}
           path: preview-artifact
+          key: arkpedia-preview-${{ inputs.source }}-${{ github.run_id }}-${{ github.run_attempt }}
+          fail-on-cache-miss: true
       - name: Verify build and extract
         run: |
           cd preview-artifact
