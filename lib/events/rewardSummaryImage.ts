@@ -100,13 +100,15 @@ export async function drawRewardSummary({ title, summary, artwork, rewardNote, r
   ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
   const banner = artwork ? images.get(artwork) : null;
   if (banner) {
-    const height = W * banner.naturalHeight / banner.naturalWidth;
-    ctx.globalAlpha = 0.24;
-    ctx.drawImage(banner, 0, 0, W, height);
+    // Cover the complete export so the lower reward groups have artwork behind them too.
+    const scale = Math.max(W / banner.naturalWidth, H / banner.naturalHeight);
+    const width = banner.naturalWidth * scale, height = banner.naturalHeight * scale;
+    ctx.globalAlpha = 0.36;
+    ctx.drawImage(banner, (W - width) / 2, (H - height) / 2, width, height);
     ctx.globalAlpha = 1;
-    const fade = ctx.createLinearGradient(0, 0, 0, Math.max(headerHeight + 80, height));
+    const fade = ctx.createLinearGradient(0, H * 0.75, 0, H);
     fade.addColorStop(0, 'transparent'); fade.addColorStop(1, bg);
-    ctx.fillStyle = fade; ctx.fillRect(0, 0, W, Math.max(headerHeight + 80, height));
+    ctx.fillStyle = fade; ctx.fillRect(0, 0, W, H);
   }
   ctx.textBaseline = 'top';
   ctx.fillStyle = amber; ctx.fillRect(PAD, 34, 44, 4);
@@ -119,7 +121,10 @@ export async function drawRewardSummary({ title, summary, artwork, rewardNote, r
   sourceLines.forEach((line, i) => ctx.fillText(line, PAD, 80 + titleLines.length * 48 + i * 26));
 
   for (const card of cards) {
+    ctx.save();
+    ctx.globalAlpha = banner ? 0.74 : 1;
     ctx.fillStyle = panel; ctx.fillRect(card.x, card.y, card.w, card.h);
+    ctx.restore();
     ctx.strokeStyle = border; ctx.strokeRect(card.x + 0.5, card.y + 0.5, card.w - 1, card.h - 1);
     ctx.fillStyle = amber; ctx.fillRect(card.x, card.y, 3, HEAD);
     ctx.fillStyle = text; ctx.font = `700 22px ${display}`;
