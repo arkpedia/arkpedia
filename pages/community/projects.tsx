@@ -1,3 +1,5 @@
+import { withContentPage } from '@/lib/content/server';
+import { useReleaseTable } from '@/lib/content/context';
 import PageMeta from '@/components/layout/PageMeta';
 import PageHeader from '@/components/ui/PageHeader';
 import PROJECT_ART from '@/config/community-project-art.json';
@@ -7,64 +9,13 @@ import dynamic from 'next/dynamic';
 import type { ChibiModel } from '@/lib/operators/chibi';
 const DesktopChibisArt = dynamic(() => import('@/components/community/DesktopChibisArt'), { ssr: false });
 
-const projects = [
-  {
-    id: 'chibis', category: 'Desktop companion', name: 'Arkpedia Desktop Chibis',
-    description: 'Bring operators and enemies to your desktop, with outfits, animations and an offline model library.',
-    platform: 'Windows · macOS · Linux', href: 'https://github.com/arkpedia/arkpedia-desktop-chibis/releases/latest', action: 'Get desktop chibis',
-    source: 'https://github.com/arkpedia/arkpedia-desktop-chibis',
-  },
-  {
-    id: 'stronghold', category: 'Browser game · English', name: 'Stronghold Protocol',
-    description: 'Play the community remake of Stronghold Protocol: Alliance, solo or with friends. English server hosted by Yuri.',
-    platform: 'stronghold-en.dev', href: 'https://stronghold-en.dev/', action: 'Play Stronghold Protocol',
-    source: 'https://github.com/YuriRestia/Stronghold-Protocol-EN-translation',
-    mark: '/mode-marks/stronghold-protocol.webp',
-  },
-  {
-    id: 'timo', category: 'Story reader', name: 'Timo’s Arknights Story Reader',
-    description: 'Read main stories, side stories and operator records, with a story map, reading order and progress tracking.',
-    platform: 'arknights.timo.beer', href: 'https://arknights.timo.beer/', action: 'Read the stories',
-    art: '/story-map/timo-main_17-3e77ce8108.webp',
-  },
-  {
-    id: 'amiya', logo: PROJECT_ART.files.amiya, category: 'Minigames · Utilities', name: 'Amiya.io',
-    description: 'Play Arknights guessing games and puzzles, browse operators and track your pulls.',
-    platform: 'amiya.io', href: 'https://www.amiya.io/', action: 'Visit Amiya.io',
-  },
-  {
-    id: 'penguin-statistics', logo: PROJECT_ART.files.penguinStatistics, category: 'Drop rates · Farming data', name: 'Penguin Statistics',
-    description: 'Compare community-reported material drop rates and stage efficiency to plan your farming.',
-    platform: 'penguin-stats.io', href: 'https://penguin-stats.io/', action: 'Visit Penguin Statistics',
-  },
-  {
-    id: 'myrtle', logo: PROJECT_ART.files.myrtle, category: 'Companion tools', name: 'Myrtle.moe',
-    description: 'Explore operator data, synced player profiles, calculators and base planning tools.',
-    platform: 'myrtle.moe', href: 'https://myrtle.moe/', action: 'Visit Myrtle.moe',
-  },
-  {
-    id: 'krooster', logo: PROJECT_ART.files.krooster, category: 'Roster · Upgrade planner', name: 'Krooster',
-    description: 'Track and share your operator roster, plan upgrades and check recruitment options.',
-    platform: 'krooster.com', href: 'https://www.krooster.com/', action: 'Visit Krooster',
-  },
-  {
-    id: 'sanity-gone', logo: PROJECT_ART.files.sanityGone, category: 'Guides · Operator database', name: 'Sanity Gone',
-    description: 'Find operator guides, reviews, detailed stats and recruitment tools.',
-    platform: 'sanitygone.help', href: 'https://sanitygone.help/', action: 'Visit Sanity Gone',
-  },
-  {
-    id: 'arknights-wiki', logo: PROJECT_ART.files.arknightsWiki, category: 'Wiki · English', name: 'Arknights wiki',
-    description: 'Look up operators, events, game mechanics and the world of Terra on the English wiki.',
-    platform: 'arknights.wiki.gg', href: 'https://arknights.wiki.gg/', action: 'Visit Arknights wiki',
-  },
-  {
-    id: 'prts', logo: PROJECT_ART.files.prts, category: 'Wiki · Chinese', name: 'PRTS',
-    description: 'Browse the Chinese Arknights wiki for operator data, stages, mechanics and stories.',
-    platform: 'prts.wiki', href: 'https://prts.wiki/', action: 'Visit PRTS',
-  },
-];
+
+
+interface CommunityProject { id: string; category: string; name: string; description: string; platform?: string; href?: string; wiki?: string; action: string; source?: string; mark?: string; art?: string; logo?: string }
 
 export default function CommunityProjectsPage({ chibis }: { chibis: { name: string; model: ChibiModel }[] }) {
+  const record = useReleaseTable<{ projects: CommunityProject[] }>('community-projects');
+  const projects = record.projects.map(project => ({ ...project, href: project.href ?? project.wiki!, platform: project.platform ?? new URL(project.wiki!).hostname }));
   return <>
     <PageMeta title="Community projects" description="Fan-made Arknights tools, wikis, games, story readers and desktop companions." path="/community/projects" />
     <PageHeader eyebrow="Rhodes Island // Community projects" title="Community projects" sub={<>Tools, wikis, games and more from the Arknights community. <InfoPopover label="About community projects"><p>These independent fan projects are maintained by their own creators. External sites and downloads have their own privacy information, terms and support.</p></InfoPopover></>} />
@@ -91,8 +42,8 @@ export default function CommunityProjectsPage({ chibis }: { chibis: { name: stri
   </>;
 }
 
-export async function getStaticProps() {
+export const getStaticProps = withContentPage('/community/projects', async () => {
   // Only these two pinned showcase models belong to the code-owned directory.
   // Importing the full catalogue adds 3.16 MB to every Worker cold start.
   return { props: { chibis: PROJECT_ART.companions } };
-}
+}, { bundledWhenUnpublished: true, tables: { 'community-projects': async () => (await import('@/data/community-projects.json')).default } });

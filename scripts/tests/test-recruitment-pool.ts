@@ -5,42 +5,18 @@ import { getAllOperators } from '../../lib/operators/operators';
 import { getGlobalRecruitmentOperators } from '../../lib/gacha/recruitmentPool';
 import { getRecruitmentPageProps } from '../../lib/gacha/recruitmentPageData';
 import { getRecruitmentGameData } from '../../lib/minigames/recruitmentData';
-// @ts-expect-error The updater also runs directly in the refresh workflow.
-import { buildRecruitmentPool, validateLocalOperators } from '../sync/sync-recruitment.mjs';
-
-const characters = Object.fromEntries(Array.from({ length: 6 }, (_, i) => [`char_${i + 1}`, {
-  name: `Recruit ${i + 1}`, rarity: `TIER_${i + 1}`, profession: 'CASTER', position: 'RANGED', tagList: ['DPS'],
-}]));
-const gacha = { gachaTags: [{ tagName: 'DPS' }], recruitDetail: 'Rules\n' + Array.from({ length: 6 }, (_, i) => `${'★'.repeat(i + 1)}\n<@rc.eml>Recruit ${i + 1}</>\n--------------------`).join('\n') };
-
-test('the importer reads only explicitly listed recruits and resolves harmless name quotes by ID', () => {
-  const extra = { ...characters, char_extra: { ...characters.char_4, name: 'Gallus²' }, char_1: { ...characters.char_1, name: "'Recruit 1'" } };
-  const pool = buildRecruitmentPool(gacha, extra);
-  assert.equal(pool.length, 6);
-  assert.equal(pool[0].id, 'char_1');
-  assert.ok(pool.every((operator: { id: string }) => operator.id !== 'char_extra'));
-});
-
-test('incomplete, duplicate, ambiguous or unrecognized recruitment data is rejected', () => {
-  assert.throws(() => buildRecruitmentPool({ ...gacha, recruitDetail: '★\nRecruit 1' }, characters), /Incomplete/);
-  assert.throws(() => buildRecruitmentPool({ ...gacha, recruitDetail: gacha.recruitDetail.replace('Recruit 1', 'Unknown') }, characters), /Unresolved/);
-  assert.throws(() => buildRecruitmentPool({ ...gacha, recruitDetail: gacha.recruitDetail.replace('Recruit 1', 'Recruit 1 / Recruit 1') }, characters), /Duplicate/);
-  assert.throws(() => buildRecruitmentPool(gacha, { ...characters, char_duplicate: characters.char_1 }), /ambiguous/);
-  assert.throws(() => buildRecruitmentPool(gacha, { ...characters, char_1: { ...characters.char_1, tagList: ['Unknown tag'] } }), /Invalid recruitment fields/);
-  assert.throws(() => buildRecruitmentPool(gacha, { ...characters, char_1: { ...characters.char_1, rarity: 'TIER_6' } }), /Invalid recruitment fields/);
-});
-
-test('new recruits need complete local records and matching recruitment fields', () => {
-  const pool = buildRecruitmentPool(gacha, characters);
-  const local = pool.map((operator: { id: string }) => ({ ...operator, internalName: operator.id }));
-  assert.doesNotThrow(() => validateLocalOperators(pool, local));
-  assert.throws(() => validateLocalOperators(pool, local.slice(1)), /Missing/);
-  assert.throws(() => validateLocalOperators(pool, [...local, local[0]]), /duplicate/);
-  assert.throws(() => validateLocalOperators(pool, [{ ...local[0], tags: ['Summon'] }, ...local.slice(1)]), /differs/);
-});
 
 test('both recruitment tools use the same reviewed Global roster and tags', async () => {
-  validateLocalOperators(snapshot.operators, getAllOperators());
+  // The roster is written by arkpedia-data's importer (its scripts/sync/sync-recruitment.mjs),
+  // which refuses to file a recruit whose fields differ from the English game data. The same
+  // comparison here is what catches the site's own operator records drifting from it.
+  const operatorsById = new Map(getAllOperators().map(operator => [operator.internalName, operator]));
+  for (const recruit of snapshot.operators) {
+    const operator = operatorsById.get(recruit.id);
+    assert.ok(operator, `No local operator for ${recruit.id}`);
+    for (const field of ['rarity', 'class', 'position'] as const) assert.equal(operator[field], recruit[field], `${operator.name}: ${field}`);
+    assert.deepEqual([...(operator.tags || [])].sort(), recruit.tags, `${operator.name}: tags`);
+  }
   assert.equal(new Set(snapshot.operators.map(operator => operator.id)).size, snapshot.operators.length);
   const result = await getRecruitmentPageProps({});
   assert.ok('props' in result);

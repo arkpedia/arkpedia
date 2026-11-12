@@ -3,9 +3,11 @@
 .account-card { position: relative; display: grid; grid-template-columns: minmax(200px, 1.13fr) minmax(0, 1fr); gap: 20px; min-height: 420px; padding: 20px; overflow: hidden; border: 1px solid var(--line-soft); border-radius: var(--radius-frame); background: var(--panel); color: var(--scrim-ink); }
 .account-card-bg { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; z-index: 0; }
 /* Compact friend cards keep the imported name-card art in both site themes. */
-.profile-strip { --text-dim: var(--scrim-ink); --text-faint: var(--scrim-ink); --control-border: var(--scrim-control-border); --teal: var(--scrim-teal); position: relative; isolation: isolate; overflow: hidden; color: var(--scrim-ink); }
+.profile-strip { --text-dim: var(--scrim-ink); --text-faint: var(--scrim-ink); --control-border: var(--scrim-control-border); --teal: var(--scrim-teal); --action-popover-ground: rgba(0, 0, 0, .72); position: relative; isolation: isolate; overflow: hidden; color: var(--scrim-ink); }
 .profile-strip-background { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: center; z-index: -2; }
-.profile-strip::before { content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none; background: linear-gradient(90deg, rgba(0, 0, 0, .3), rgba(0, 0, 0, .05) 60%, rgba(0, 0, 0, .4)); }
+.profile-strip::before { content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none; background: linear-gradient(90deg, rgba(0, 0, 0, .65), rgba(0, 0, 0, .45) 60%, rgba(0, 0, 0, .65)); }
+/* Controls over name-card art need the same dark plate in both site themes. */
+.profile-strip button.ghost { background: var(--action-popover-ground); }
 /* The game's 16:9, as a floor rather than the card's own aspect-ratio: with overflow hidden that
    fixes the height and cuts off whatever the columns hold below it. This empty item spans the
    row, so the row is 16:9 or as tall as its columns, whichever is more. */
@@ -220,7 +222,31 @@
   .account-card-medals { --medal-unit: 6px; }
   .account-card-name b { font-size: 18px; }
 }
-.account-card-empty { display: grid; place-items: center; }
+/* No account: the namecard frame needs a namecard's art. Without one it drew a grey
+   wash across 420px with an 11px instruction on it -- a failed image in both themes,
+   and in the light theme --text-faint sat on its own grey. The empty state keeps the
+   height the profile card will need, but is a plain panel with a title, the next step
+   and the action itself, in theme ink. */
+.account-card.account-card-empty {
+  display: grid;
+  place-items: center;
+  background: var(--panel-grad);
+  border: 1px solid var(--line);
+  color: var(--text);
+}
+.account-card.account-card-empty::before,
+.account-card.account-card-empty::after { content: none; }
+.account-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  max-width: 440px;
+  text-align: center;
+}
+.account-empty h2 { margin: 0; }
+.account-empty-note { margin: 0; }
+.account-empty-action { margin-top: 6px; }
 
 /* --- Pull History (components/account/PullHistory.tsx) ---------------------------------
    The totals as four quiet tiles, then each banner and each press as rows on soft rules, the

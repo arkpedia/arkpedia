@@ -20,7 +20,8 @@ test('client rejects malformed, expired and future data while accepting a real z
   const data = { updatedAt: new Date(START).toISOString(), likes: { [id(1)]: 0 } };
   assert.equal(validYouTubeLikes(data, START), true);
   assert.equal(validYouTubeLikes(data, START + YOUTUBE_LIKES_MAX_AGE), false);
-  assert.equal(validYouTubeLikes(data, START - 1), false);
+  assert.equal(validYouTubeLikes(data, START - 500), true);
+  assert.equal(validYouTubeLikes(data, START - 60_001), false);
   for (const likes of [[], null, { bad: 1 }, { [id(1)]: -1 }, { [id(1)]: '10' }, { [id(1)]: 1.5 }]) {
     assert.equal(validYouTubeLikes({ ...data, likes }, START), false);
   }

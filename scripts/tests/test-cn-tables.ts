@@ -244,7 +244,9 @@ test('the readers that fetch a CN table by URL fetch it from the mirror and comm
   const clean = Object.fromEntries(Object.entries(process.env).filter(([name]) => !name.startsWith('ARKPEDIA_') && name !== 'GITHUB_ACTIONS')) as NodeJS.ProcessEnv;
   const said: Record<string, string> = {};
   const read = (settled: object | null) => Object.fromEntries([
-    ['sync/sync-content-inventory.mjs', 'node'], ['build/build-operator-voices.mjs', 'node'], ['sync/sync-event-windows.mjs', 'node'], ['imports/import-reward-icons.py', 'python3'],
+    // The readers this repository keeps; arkpedia-data's import holds its own to the same
+    // (importer/scripts/tests/test-cn-tables.ts).
+    ['sync/sync-content-inventory.mjs', 'node'], ['build/build-operator-voices.mjs', 'node'],
   ].map(([script, runtime]) => {
     fs.rmSync(log, { force: true });
     said[script] = spawnSync(runtime, [...(runtime === 'node' ? ['--import', preload] : []), path.resolve('scripts', script)], { cwd, encoding: 'utf8',

@@ -1,0 +1,50 @@
+.stats { display: grid; gap: 12px; }
+.compact { font-size: 13px; gap: 10px; }
+.stats h2, .stats p { margin: 0; }
+.statsHeader { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
+.statsControls { display: flex; align-items: center; gap: 8px; margin-left: auto; }
+.metrics { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 12px 16px; margin: 0; }
+.metrics dt { display: flex; align-items: center; min-height: 32px; color: var(--text-dim); }
+.metrics dd { margin: 4px 0 0; font-weight: 600; }
+.filters { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+.results { display: grid; align-content: start; align-items: start; grid-auto-rows: max-content; gap: 16px; }
+.range { display: flex; align-items: center; gap: 8px; }
+.range input { width: 76px; }
+.charts { display: grid; gap: 16px; }
+.chartSection { display: grid; grid-template-columns: minmax(80px, .7fr) minmax(0, 2fr) auto; gap: 8px 12px; }
+.chartSection > .distribution { grid-column: 1 / -1; grid-template-columns: subgrid; }
+.chartHeading { grid-column: 1 / -1; display: flex; align-items: baseline; flex-wrap: wrap; justify-content: space-between; gap: 4px 12px; color: var(--text-dim); }
+.chartHeading h3 { margin: 0; }
+.chartHeading span, .barCaption, .barLegend, .barValue span { font-size: 13px; color: var(--text-dim); }
+.distribution { display: grid; grid-template-columns: minmax(80px, .7fr) minmax(0, 2fr) auto; align-items: center; gap: 4px 12px; }
+.rowLabel { display: flex; align-items: center; gap: 8px; }
+.bar { display: flex; height: 10px; overflow: hidden; background: color-mix(in srgb, var(--text-faint) 40%, var(--panel)); outline: 1px solid var(--text-faint); border-radius: var(--radius); }
+.bar > span { flex-shrink: 0; }
+.bar > span + span { border-left: 1px solid var(--panel); }
+.barValue { display: grid; justify-items: end; min-width: 58px; }
+.barLegend { grid-column: 2; display: flex; flex-wrap: wrap; gap: 6px 8px; margin: 0; }
+.barLegend > span { display: flex; align-items: center; gap: 4px; }
+.barTrigger { display: flex; align-items: center; width: 100%; min-height: var(--control-h); }
+.barTrigger .bar { width: 100%; }
+.barDetails { display: grid; gap: 8px; margin: 8px 0 0; }
+.barDetails > div { display: grid; grid-template-columns: auto 1fr; align-items: center; gap: 8px; }
+.barDetails dt { display: flex; align-items: center; gap: 6px; }
+.barDetails dd { margin: 0; text-align: right; }
+.barDetails dd span { color: var(--text-dim); }
+.activeSegment { font-weight: 700; }
+.swatch { width: 8px; height: 8px; flex-shrink: 0; }
+.barCaption { grid-column: 2 / -1; }
+@media (max-width: 600px) {
+  .distribution, .chartSection { grid-template-columns: minmax(0, 1fr) auto; }
+  .rowLabel { grid-column: 1; }
+  .barValue { grid-column: 2; grid-row: 1; }
+  .bar, .barTrigger { grid-row: 2; grid-column: 1 / -1; }
+  .barLegend, .barCaption { grid-column: 1 / -1; }
+}
+
+.sharing { display: grid; gap: 12px; margin-top: 12px; }
+.sharing p, .sharing h3 { margin: 0; }
+
+.supportToolbar { width: 100%; min-width: 0; }
+.supportSearches { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; width: 100%; min-width: 0; }
+@media (max-width: 640px) { .supportSearches { grid-template-columns: 1fr; } }

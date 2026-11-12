@@ -23,6 +23,10 @@ export const NOT_RECORDS = new Set([
   'data/optimizer-results.json',
   'data/whole-base-optimizer-results.json',
   'data/selector-catalogue.json',
+  'data/community-operator-catalogue.json',
+  'data/community-poll-catalogue.json',
+  'data/account-catalogue.json',
+  'data/community-stage-catalogue.json',
 ]);
 
 const walk = dir => !fs.existsSync(dir) ? [] : fs.readdirSync(dir, { withFileTypes: true })

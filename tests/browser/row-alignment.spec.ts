@@ -104,7 +104,7 @@ test('the pull planner panels are on one line', async ({ page }) => {
  * it as a min-height with small vertical padding, so each measures exactly the token,
  * and a flip moves them all -- a primitive with a literal height, or padding that
  * outgrows a smaller token, is left behind and fails here. Measured on /operators (its
- * real search field and StyledSelect trigger) with the other primitives added beside
+ * real search field and StyledSelect checkbox trigger) with the other primitives added beside
  * them; min-height decides, not the font, so this is the same on CI's Linux fonts.
  */
 test('every row primitive is one control height, and follows the token', async ({ page }) => {
@@ -138,7 +138,7 @@ test('every row primitive is one control height, and follows the token', async (
     const out: Record<string, { h: number; w: number } | null> = {};
     for (const el of Array.from(bench.children)) out[el.outerHTML.slice(0, 48)] = box(el);
     out['search field'] = box(document.querySelector('#page-content .search-input'));
-    out['StyledSelect trigger'] = box(document.querySelector('#page-content [role="combobox"]'));
+    out['StyledSelect checkbox trigger'] = box(document.querySelector('#page-content button[aria-haspopup="dialog"][aria-label="Filter by subclass"]'));
     return out;
   });
   for (const [base, expected] of [[null, width > 720 ? 36 : 40], [32, width > 720 ? 32 : 36]] as const) {
@@ -200,6 +200,8 @@ test("the Terminal bar's menu button is one control height, and follows the toke
  * was (0.5px). Box edges only, the same on any font.
  */
 test("the calendar's head holds still through a year of months", async ({ page }) => {
+  // Cross into a year beyond both the event snapshot and the next-year option.
+  await page.clock.setFixedTime(new Date('2026-11-01T12:00:00Z'));
   const width = await censusWidth(page);
   const widths = width === 1440 ? [1440] : [360, 390, 460];
   await readOnly(page);
@@ -215,6 +217,7 @@ test("the calendar's head holds still through a year of months", async ({ page }
     for (let step = 0; step < 13; step += 1) {
       await page.getByRole('button', { name: 'Next month' }).click();
       const month = await page.locator('.cal-head-title').getByRole('combobox', { name: 'Month' }).innerText();
+      await expect(page.getByRole('combobox', { name: 'Year', exact: true })).toContainText(step < 12 ? '2027' : '2028');
       const now = await boxes();
       const moved = now.filter((box, i) => {
         const [a, b] = [box, first[i]].map((entry) => entry.split(' ').pop()!.split('+').map(Number));

@@ -13,8 +13,17 @@ for (const theme of ['dark', 'light']) {
     if (process.env.ARKPEDIA_QA_CAPTURE) await page.screenshot({path:`${process.env.ARKPEDIA_QA_CAPTURE}/privacy-choices-${theme}-${info.project.name}.png`});
     await analytics.check(); await page.getByRole('button', {name:'Save privacy choices', exact:true}).click();
     await expect(analytics).toBeChecked(); await expect(media).not.toBeChecked();
+    await media.check(); await page.getByLabel('Background Music', {exact:true}).check();
+    await page.getByRole('button', {name:'Save privacy choices', exact:true}).click();
+    await expect(media).toBeChecked(); await expect(page.getByLabel('Background Music', {exact:true})).toBeChecked();
+    await expect(page.getByLabel('Event Music', {exact:true})).not.toBeChecked();
+    await page.getByLabel('Event Music', {exact:true}).check();
+    await page.getByRole('button', {name:'Save privacy choices', exact:true}).click();
+    await expect(page.getByLabel('Event Music', {exact:true})).toBeChecked();
     await page.getByRole('button', {name:'Use necessary only', exact:true}).click();
-    await expect(analytics).not.toBeChecked();
+    await expect(analytics).not.toBeChecked(); await expect(media).not.toBeChecked();
+    await expect(page.getByLabel('Background Music', {exact:true})).not.toBeChecked();
+    await expect(page.getByLabel('Event Music', {exact:true})).not.toBeChecked();
     await page.goto('/privacy'); await expect(page.getByRole('link', {name:'jungermin@arkpedia.net', exact:true})).toHaveAttribute('href', 'mailto:jungermin@arkpedia.net');
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     if (process.env.ARKPEDIA_QA_CAPTURE) await page.screenshot({path:`${process.env.ARKPEDIA_QA_CAPTURE}/privacy-notice-${theme}-${info.project.name}.png`});
@@ -35,6 +44,10 @@ test(`YouTube loads only after external media permission and stays off after wit
   await expect(page.getByRole('dialog', {name:'Allow external media?', exact:true})).not.toBeVisible();
   expect(await youtube(page)).toBeNull();
   await page.goto('/operators/Thorns');
+  const firstVisit = page.getByRole('region', {name:'Music playback choice', exact:true});
+  await expect(firstVisit).toBeVisible();
+  await firstVisit.getByRole('button', {name:'No thanks, close media prompt', exact:true}).click();
+  expect(await youtube(page)).toBeNull();
   await page.getByRole('button', {name:'Play EP', exact:true}).click();
   const prompt = page.getByRole('dialog', {name:'Allow external media?', exact:true});
   await expect(prompt).toBeVisible(); expect(await youtube(page)).toBeNull();
@@ -42,7 +55,7 @@ test(`YouTube loads only after external media permission and stays off after wit
   const teal = await page.evaluate(() => { const probe = document.createElement('span'); probe.style.color = 'var(--teal)'; document.body.append(probe); const color = getComputedStyle(probe).color; probe.remove(); return color; });
   await expect(privacyLink).toHaveCSS('color', teal);
   if (process.env.ARKPEDIA_QA_CAPTURE) await page.screenshot({path:`${process.env.ARKPEDIA_QA_CAPTURE}/media-permission-${theme}-${info.project.name}.png`});
-  await prompt.getByRole('button', {name:'Keep disabled', exact:true}).click();
+  await prompt.getByRole('button', {name:'No thanks', exact:true}).click();
   expect(await youtube(page)).toBeNull();
   await page.getByRole('button', {name:'Play EP', exact:true}).click();
   await prompt.getByRole('button', {name:'Allow external media', exact:true}).click();

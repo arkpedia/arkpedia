@@ -1,0 +1,9 @@
+# Walking chibi scale audit, 2026-11-02
+
+Rosmontis An Airy Dream (char_391_rosmon_sale_16) has a visible picture attachment far left of the body in the native setup pose. Its full bounds are 1054.66 by 547.80 units; the connected character parts occupy 293.76 by 448.80. The old reference camera used the full width, shrinking and shifting the character.
+
+The renderer now measures connected groups of visible attachments, uses the group with the most parts for its reference frame when detached geometry inflates either dimension by more than 50%, and retains the complete animation envelope for rendering. Ordinary detached equipment below that threshold keeps the previous frame. No asset bytes or import records change. This generic runtime correction also applies to newly imported outfits.
+
+Reproduce the inventory check with `npm run audit:chibi-scale -- /path/to/arkpedia-sd-assets`. The audit reads local native skeletons using the actual Spine reader and the shared framing helper. All 943 walking models in the local manifest were readable. The two initial failures (char_285_medic2/default and char_376_therex/default) came from passing Node file Buffers to a runtime which ignores their byte offset. Copying into a fresh Uint8Array, as the browser does, fixes the audit; neither model needs asset changes or a framing correction. The audit now exits unsuccessfully if any model is unreadable. Four models have materially inflated geometry: Dur-nar default (1.96x), Rosmontis sale_16 (3.59x), Mlynar epoque_28 (2.01x), Beehunter kitchen_4 (7.89x). Ratios describe geometry, not measured on-screen size. Other models kept their original reference frame.
+
+Focused framing, atlas and routine tests: 21 passed. Component/helper ESLint and diff whitespace checks passed. Browser verification is tracked separately; geometry checks alone do not prove final appearance. Production has not been changed.

@@ -70,316 +70,7 @@ export interface OpeningBand {
   blocks: OpeningBlock[];
 }
 
-export const OPENING: OpeningBand[] = [
-  {
-    tier: 'I',
-    rounds: '1-2',
-    picks: [
-      { operator: 'Podenco', for: [{ alliance: 'Aid', note: 'Good Stacker' }] },
-      /* Victoria, not Aid. She does not help Aid stack, so the thumbs-up she wore in
-         Aid's roster was telling the player to buy her for the wrong alliance. */
-      { operator: 'Vendela', for: [{ alliance: 'Victoria', note: 'Good Stacker' }] },
-      { operator: 'Texas', for: [{ note: 'Timed refresh, good to use' }] },
-      { operator: 'Insider', for: [{ alliance: 'Swift', note: 'Early Trigger' }] },
-      { operator: 'Wild Mane', for: [{ alliance: 'Swift', note: 'Early Trigger' }] },
-      { operator: 'Liskarm', for: [{ alliance: 'Resilient', note: 'Good Stacker' }] },
-      { operator: 'Greyy', for: [{ note: 'Funds carry over' }] },
-      { operator: 'Indigo', for: [] },
-    ],
-    fallback: ['Underflow', 'Leizi', 'Caper', 'Gummy', 'Matterhorn', 'Estelle', 'Utage', 'Provence'],
-    blocks: [],
-  },
-  {
-    tier: 'II',
-    rounds: '2-5',
-    picks: [
-      { operator: 'Tippi', for: [{ alliance: 'Swift', note: 'Good Stacker' }, { alliance: 'Agile', note: 'Good Stacker' }] },
-      { operator: 'Perfumer', for: [{ alliance: 'Aid', note: 'Good Stacker' }, { note: 'And into whatever is most stacked' }] },
-      { operator: 'Humus', for: [{ alliance: 'Raid', note: 'Good Stacker' }] },
-      { operator: 'Lappland', for: [{ alliance: 'Siracusa', note: 'Good Stacker', commit: 'leaning' }] },
-      { operator: 'Grain Buds', for: [{ alliance: 'Yan', note: 'Good Stacker', commit: 'leaning' }] },
-      { operator: 'Executor', for: [{ alliance: 'Laterano', note: 'Good Stacker', commit: 'leaning' }, { alliance: 'Precision', note: 'Good Stacker', commit: 'leaning' }] },
-      { operator: 'Specter', for: [{ alliance: 'Ægir', note: 'Good Stacker', commit: 'leaning' }] },
-      { operator: 'Gravel', for: [{ alliance: 'Kazimierz', note: 'Good Stacker', commit: 'leaning' }, { alliance: 'Resilient', note: 'Good Stacker', commit: 'leaning' }] },
-      { operator: 'Vetochki', for: [{ alliance: 'Durable', note: 'Good Stacker', commit: 'leaning' }] },
-      { operator: 'Papyrus', for: [{ alliance: 'Sargon', note: 'Good Stacker', commit: 'leaning' }] },
-      { operator: 'Silence', for: [{ alliance: 'Foresight', note: 'Fund Investment' }, { alliance: 'Foresight', note: 'Good Stacker' }] },
-    ],
-    fallback: ['Rockrock', 'Tin Man', 'Ashlock', 'Harold', 'Bubble'],
-    blocks: [],
-  },
-  {
-    tier: 'III',
-    rounds: '4-7',
-    picks: [
-      { operator: 'Ayerscarpe', for: [{ alliance: 'Agile', note: 'Good Stacker' }, { note: 'Free choice, Good Stacker' }] },
-      /* Not a lock-down. kukki's call: she stacks Laterano well and that is all she
-         does -- Mostima is the farmer that actually decides the run. */
-      { operator: 'Archetto', for: [{ alliance: 'Agile', note: 'Good Stacker' }, { alliance: 'Laterano', note: 'Good Stacker' }, { note: 'Free choice, Good Stacker' }] },
-      { operator: 'Vigil', for: [{ alliance: 'Siracusa', note: 'Good Stacker', commit: 'lockdown' }, { alliance: 'Marvel', note: 'Good Stacker' }] },
-      { operator: 'Bagpipe', for: [{ alliance: 'Foresight', note: 'Good Stacker' }] },
-      { operator: 'Philae', for: [{ alliance: 'Sargon', note: 'Good Stacker', commit: 'lockdown' }] },
-      { operator: 'Mint', for: [{ alliance: 'Victoria', note: 'Good Stacker', commit: 'lockdown' }] },
-      { operator: 'Blemishine', for: [{ alliance: 'Kazimierz', note: 'Good Stacker', commit: 'lockdown' }, { alliance: 'Raid', note: 'Good Stacker' }] },
-      { operator: 'Skadi', for: [{ alliance: 'Raid', note: 'Good Stacker' }, { alliance: 'Ægir', note: 'Good Stacker', commit: 'leaning' }, { alliance: 'Durable', note: 'Good Stacker', commit: 'leaning' }] },
-      /* And Cuora, which leaves Durable with no lock-down unit at all. That is the
-         honest state: an add-on is not somewhere a run commits, and isLockedIn only
-         ever answered yes for Durable because this tag said so. */
-      { operator: 'Cuora', for: [{ alliance: 'Durable', note: 'Good Stacker' }, { alliance: 'Resilient', note: 'Fills a slot' }] },
-      { operator: 'Minimalist', for: [{ note: 'Costs 1 Fund' }] },
-      { operator: 'Exusiai', for: [{ note: 'Funds carry over' }] },
-      { operator: 'Swire', for: [{ note: 'Funds carry over' }] },
-      { operator: 'Pinecone', for: [{ note: 'Strategic Tier I / V refresh' }] },
-      { operator: 'Vulpisfoglia', for: [{ alliance: 'Siracusa', note: 'Good Stacker' }] },
-    ],
-    fallback: [],
-    blocks: [
-      {
-        alliance: 'Siracusa',
-        because: ['Lappland', 'Vigil'],
-        picks: [
-          { operator: 'Vulpisfoglia', note: 'Additional stacking' },
-          { operator: 'Texas', note: 'If Siracusa is not triggered yet' },
-          { operator: 'Provence', note: 'If Siracusa is not triggered yet' },
-          { operator: 'Exusiai', note: 'Marvel pairing, for free refreshes' },
-          { operator: 'Kazemaru', note: 'Marvel pairing, for free refreshes' },
-        ],
-      },
-      {
-        alliance: 'Kazimierz',
-        because: ['Blemishine'],
-        picks: [
-          { operator: 'Meteor', note: 'If Kazimierz is not triggered yet' },
-          { operator: 'Wild Mane', note: 'If Kazimierz is not triggered yet' },
-          { operator: 'Ashlock', note: 'If Kazimierz is not triggered yet' },
-          { operator: 'Liskarm', note: 'For Resilient Gravel later' },
-        ],
-      },
-      {
-        alliance: 'Yan',
-        because: ['Grain Buds'],
-        picks: [
-          { operator: 'Leizi', note: 'If Yan is not triggered yet' },
-          { operator: 'Swire', note: 'If Yan is not triggered yet' },
-          { operator: 'Swire the Elegant Wit', note: 'Combine Investor with Yan for more stacking' },
-          { operator: 'Tin Man', note: 'Combine Investor with Yan for more stacking' },
-        ],
-      },
-      {
-        alliance: 'Victoria',
-        because: ['Mint'],
-        picks: [
-          { operator: 'Harold', note: 'Lets Mint stack' },
-          { operator: 'Vendela', note: 'Lets Mint stack' },
-          { operator: 'Rockrock', note: 'Lets Mint stack' },
-        ],
-      },
-      {
-        alliance: 'Sargon',
-        because: ['Philae'],
-        picks: [
-          { operator: 'Estelle', note: 'If Sargon is not triggered yet' },
-          { operator: 'Bubble', note: 'If Sargon is not triggered yet' },
-          { operator: 'Papyrus', note: 'If Sargon is not triggered yet' },
-          { operator: 'Minimalist', note: 'If Sargon is not triggered yet' },
-        ],
-      },
-      {
-        alliance: 'Kjerag',
-        because: [],
-        picks: [
-          { operator: 'Pramanix', note: 'Leaning in' },
-          { operator: 'Kjera', note: 'Leaning in' },
-          { operator: 'Snow Hunter', note: 'Leaning in' },
-          { operator: 'Swire the Elegant Wit', note: 'Then Investor' },
-          { operator: 'Tin Man', note: 'Then Investor' },
-        ],
-      },
-      {
-        alliance: 'Ægir',
-        because: [],
-        picks: [{ operator: 'Lucilla', note: 'Leaning in' }],
-      },
-    ],
-  },
-  {
-    tier: 'IV',
-    rounds: '6-11',
-    picks: [
-      { operator: 'Leonhardt', for: [{ alliance: 'Swift', note: 'Good Stacker' }] },
-      { operator: 'Gavial the Invincible', for: [{ alliance: 'Sargon', note: 'Good Stacker', commit: 'lockdown' }] },
-      { operator: 'Fartooth', for: [{ alliance: 'Kazimierz', note: 'Good Stacker', commit: 'lockdown' }] },
-      { operator: 'Flametail', for: [{ alliance: 'Kazimierz', note: 'Good Stacker' }] },
-      { operator: 'SilverAsh', for: [{ alliance: 'Kjerag', note: 'Good Stacker', commit: 'lockdown' }] },
-      { operator: 'Aroma', for: [{ alliance: 'Siracusa', note: 'Good Stacker', commit: 'lockdown' }] },
-      { operator: 'Gladiia', for: [{ alliance: 'Ægir', note: 'Good Stacker', commit: 'lockdown' }] },
-      { operator: 'Mostima', for: [{ alliance: 'Laterano', note: 'Good Stacker', commit: 'lockdown' }] },
-      { operator: 'Ines', for: [{ alliance: 'Foresight', note: 'Good Stacker' }] },
-      { operator: 'Kroos the Keen Glint', for: [{ alliance: 'Precision', note: 'Good Stacker' }] },
-      { operator: 'Hoshiguma', for: [{ alliance: 'Yan', note: 'Good Stacker' }] },
-      { operator: 'Gnosis', for: [{ alliance: 'Kjerag', note: 'Good Stacker' }] },
-      { operator: 'Catherine', for: [{ alliance: 'Victoria', note: 'Good Stacker' }] },
-      { operator: 'Texas the Omertosa', for: [{ alliance: 'Siracusa', note: 'Good Stacker' }] },
-      { operator: 'Pramanix', for: [{ alliance: 'Kjerag', note: 'Good Stacker' }] },
-      { operator: 'Civilight Eterna', for: [{ note: 'Pair with Mostima, Titi, Pramanix or Specter the Unchained' }] },
-      { operator: 'Ptilopsis', for: [{ note: 'Pair with Texas the Omertosa, Gladiia, Archetto, Silence, Santalla, Suzuran, Pepe or Yu' }] },
-      { operator: 'Mudrock', for: [{ note: 'Funds carry over' }] },
-    ],
-    fallback: [],
-    blocks: [
-      {
-        alliance: 'Kazimierz',
-        because: ['Fartooth', 'Blemishine', 'Gravel'],
-        picks: [
-          { operator: 'Gravel', note: 'Rightmost of Fartooth to benefit' },
-          { operator: 'Liskarm', note: 'Triggers Resilient' },
-          { operator: 'Bagpipe', note: 'Triggers Resilient' },
-          { operator: 'Blemishine', note: 'Rightmost of Fartooth to benefit' },
-          { operator: 'Flametail', note: 'More stacks via Wild Mane and Ashlock' },
-        ],
-      },
-      {
-        alliance: 'Siracusa',
-        because: ['Lappland', 'Vigil', 'Aroma'],
-        picks: [
-          { operator: 'Warfarin', note: 'Stack harder on Marvel' },
-          { operator: 'Texas', note: 'Free refreshes' },
-          { operator: 'Texas the Omertosa', note: 'Free refreshes' },
-        ],
-      },
-      {
-        alliance: 'Ægir',
-        because: ['Gladiia'],
-        picks: [
-          { operator: 'Mizuki', note: 'Main damage dealer' },
-          { operator: 'Skadi', note: 'Triggers it' },
-          { operator: 'Specter', note: 'Triggers it' },
-          { operator: 'Underflow', note: 'Triggers it' },
-        ],
-      },
-      {
-        alliance: 'Laterano',
-        because: ['Mostima'],
-        picks: [
-          { operator: 'Insider', note: 'Surround Mostima to mega stack' },
-          { operator: 'Sankta Miksaparato', note: 'Surround Mostima to mega stack' },
-          { operator: 'Civilight Eterna', note: 'Surround Mostima to mega stack' },
-          { operator: 'Archetto', note: 'Trigger it, or run for six Lateranos' },
-          { operator: 'Executor', note: 'Trigger it, or run for six Lateranos' },
-          { operator: 'Exusiai', note: 'Trigger it, or run for six Lateranos' },
-        ],
-      },
-      {
-        alliance: 'Kjerag',
-        because: ['SilverAsh'],
-        picks: [
-          { operator: 'Pramanix', note: 'Trigger it, or run for six Kjerags' },
-          { operator: 'Kjera', note: 'Trigger it, or run for six Kjerags' },
-          { operator: 'Snow Hunter', note: 'Trigger it, or run for six Kjerags' },
-          { operator: 'Matterhorn', note: 'Trigger it, or run for six Kjerags' },
-          { operator: 'Harold', note: 'Trigger it, or run for six Kjerags' },
-          { operator: 'Swire the Elegant Wit', note: 'Prepare for Investor' },
-          { operator: 'Tin Man', note: 'Prepare for Investor' },
-        ],
-      },
-      {
-        alliance: 'Victoria',
-        because: ['Mint'],
-        picks: [{ operator: 'Catherine', note: 'Spawns the items that beef their ATK' }],
-      },
-      {
-        alliance: 'Sargon',
-        because: ['Gavial the Invincible', 'Philae', 'Papyrus'],
-        picks: [
-          { operator: 'Estelle', note: 'Trigger it, or run for six Sargonians' },
-          { operator: 'Bubble', note: 'Trigger it, or run for six Sargonians' },
-          { operator: 'Papyrus', note: 'Trigger it, or run for six Sargonians' },
-          { operator: 'Minimalist', note: 'Trigger it, or run for six Sargonians' },
-          { operator: 'Carnelian', note: 'Trigger it, or run for six Sargonians' },
-        ],
-      },
-      {
-        alliance: 'Yan',
-        because: ['Grain Buds'],
-        picks: [
-          { operator: 'Leizi', note: 'Trigger it, or run for six Yanese' },
-          { operator: 'Grain Buds', note: 'Trigger it, or run for six Yanese' },
-          { operator: 'Swire', note: 'Trigger it, or run for six Yanese' },
-          { operator: 'Swire the Elegant Wit', note: 'Trigger it, or run for six Yanese' },
-          { operator: 'Hoshiguma', note: 'Trigger it, or run for six Yanese' },
-        ],
-      },
-      {
-        alliance: 'Foresight',
-        because: ['Ines'],
-        picks: [
-          { operator: 'Bagpipe', note: 'Triggers it' },
-          { operator: 'Swire', note: 'Triggers it' },
-          { operator: 'Pramanix', note: 'Triggers it' },
-          { operator: 'Silence', note: 'Triggers it' },
-        ],
-      },
-    ],
-  },
-  {
-    tier: 'V',
-    rounds: '8-15',
-    /*
-     * By Tier V the question has changed -- the player has locked something in, and
-     * the board below answers "can what I have locked share a field". But the shop is
-     * still selling, and these two bands used to answer "which of these six" with
-     * nothing at all: the row went on recommending the Tier IV units bought eight
-     * rounds ago because there was no later advice to replace them.
-     *
-     * These picks are the economy read of each unit's Stronghold attribute -- who
-     * puts stacks on the board and who pays for the next purchase. The combat
-     * self-scalers are deliberately absent (Mlynar, Ulpianus, Entelechia, Qiubai and
-     * the rest): they make a strong operator stronger, which is a fine reason to
-     * field one and not a reason for the shopping list to name it.
-     */
-    picks: [
-      { operator: 'Angelina', for: [{ alliance: 'Siracusa', note: 'Good Stacker', commit: 'lockdown' }] },
-      { operator: 'Surtr', for: [{ alliance: 'Raid', note: 'Good Stacker' }] },
-      { operator: 'Nymph', for: [{ alliance: 'Swift', note: 'Good Stacker' }] },
-      { operator: 'Santalla', for: [{ alliance: 'Foresight', note: 'Good Stacker' }] },
-      { operator: 'Executor the Ex Foedere', for: [{ alliance: 'Laterano', note: 'Good Stacker' }, { alliance: 'Foresight', note: 'Good Stacker' }] },
-      { operator: 'Dusk', for: [{ alliance: 'Yan', note: 'Good Stacker', commit: 'lockdown' }, { alliance: 'Arcane', note: 'Good Stacker' }] },
-      { operator: 'Swire the Elegant Wit', for: [{ alliance: 'Yan', note: 'Good Stacker', commit: 'lockdown' }] },
-      { operator: 'Titi', for: [{ alliance: 'Sargon', note: 'Good Stacker', commit: 'lockdown' }, { alliance: 'Precision', note: 'Good Stacker' }] },
-      { operator: 'Specter the Unchained', for: [{ alliance: 'Ægir', note: 'Good Stacker', commit: 'lockdown' }, { alliance: 'Resilient', note: 'Good Stacker' }] },
-      { operator: 'Thorns the Lodestar', for: [{ alliance: 'Swift', note: 'Good Stacker' }, { alliance: 'Marvel', note: 'Good Stacker' }, { note: 'Also feeds whoever stands one tile ahead' }] },
-      { operator: 'Mountain', for: [{ alliance: 'Investor', note: 'Good Stacker' }] },
-      { operator: 'SilverAsh the Reignfrost', for: [{ alliance: 'Kjerag', note: 'Good Stacker', commit: 'lockdown' }] },
-      { operator: 'Horn', for: [{ alliance: 'Victoria', note: 'Good Stacker', commit: 'lockdown' }, { note: 'Into whatever is most stacked' }] },
-      { operator: 'Blaze the Igniting Spark', for: [{ alliance: 'Yan', note: 'Good Stacker, stacks without the alliance active' }, { alliance: 'Victoria', note: 'Good Stacker, stacks without the alliance active' }] },
-      { operator: 'Record Keeper', for: [{ alliance: 'Yan', note: 'Good Stacker, stacks without the alliance active' }, { alliance: 'Marvel', note: 'Good Stacker, stacks without the alliance active' }] },
-      { operator: 'Suzuran', for: [{ note: 'Re-fires the obtained bonus of the unit ahead' }] },
-      { operator: 'Saria', for: [{ note: 'Copies the Rest Phase bonus of the unit ahead' }] },
-    ],
-    fallback: [],
-    blocks: [],
-  },
-  {
-    tier: 'VI',
-    rounds: '10-15',
-    picks: [
-      { operator: 'Degenbrecher', for: [{ alliance: 'Kjerag', note: 'Good Stacker', commit: 'lockdown' }, { alliance: 'Kazimierz', note: 'Good Stacker', commit: 'lockdown' }, { alliance: 'Swift', note: 'Good Stacker' }] },
-      { operator: 'Lappland the Decadenza', for: [{ alliance: 'Siracusa', note: 'Good Stacker', commit: 'lockdown' }] },
-      { operator: 'Astgenne the Lightchaser', for: [{ alliance: 'Agile', note: 'Good Stacker' }, { alliance: 'Arcane', note: 'Good Stacker' }] },
-      { operator: 'Vina Victoria', for: [{ alliance: 'Victoria', note: 'Good Stacker' }, { alliance: 'Marvel', note: 'Good Stacker' }] },
-      { operator: 'Lemuen', for: [{ alliance: 'Laterano', note: 'Good Stacker' }, { alliance: 'Precision', note: 'Good Stacker' }] },
-      { operator: 'Lumen', for: [{ note: 'Feeds every alliance sitting on the bench' }] },
-      { operator: 'Eyjafjalla the Hvít Aska', for: [{ note: 'Into whatever is most stacked' }] },
-      { operator: 'Virtuosa', for: [{ note: 'Into whatever is most stacked' }] },
-      { operator: 'Exusiai the New Covenant', for: [{ note: 'Extra Funds next Rest Phase' }] },
-      { operator: 'Muelsyse', for: [{ note: 'Hands you a Damazti Isomorph' }] },
-      { operator: 'Pepe', for: [{ note: 'Coins and Teaspressos every Rest Phase' }] },
-      { operator: 'Yu', for: [{ note: 'A free operator from your biggest alliance' }] },
-    ],
-    fallback: [],
-    blocks: [],
-  },
-];
+
 
 /**
  * Alliances that pay off without commitment, and what it takes.
@@ -427,7 +118,7 @@ const LATE_LOCKDOWNS: Record<string, string[]> = {};
  * Stacker is an add-on word (it pays per stack). The caller decides which applies
  * by looking at the alliance's kind, so the two stay distinguishable here.
  */
-export function nudgeMap(): Map<string, { operator: string; kind: 'leaning' | 'stacker' }[]> {
+export function nudgeMap(OPENING: OpeningBand[]): Map<string, { operator: string; kind: 'leaning' | 'stacker' }[]> {
   const out = new Map<string, { operator: string; kind: 'leaning' | 'stacker' }[]>();
   const add = (alliance: string, operator: string, kind: 'leaning' | 'stacker') => {
     const list = out.get(alliance) ?? [];
@@ -447,7 +138,7 @@ export function nudgeMap(): Map<string, { operator: string; kind: 'leaning' | 's
   return out;
 }
 
-export function lockdownMap(): Map<string, string[]> {
+export function lockdownMap(OPENING: OpeningBand[]): Map<string, string[]> {
   const out = new Map<string, string[]>();
   const add = (alliance: string, op: string) => {
     const list = out.get(alliance) ?? [];
@@ -473,7 +164,7 @@ export function lockdownMap(): Map<string, string[]> {
  * "Free choice, Good Stacker" with no alliance is praise for the operator,
  * not a claim about any one roster.
  */
-export function goodStackerMap(): Map<string, string[]> {
+export function goodStackerMap(OPENING: OpeningBand[]): Map<string, string[]> {
   const out = new Map<string, string[]>();
   for (const band of OPENING) {
     for (const p of band.picks) {
@@ -708,7 +399,7 @@ export const GUIDE: {
 };
 
 /** Every operator name the guide mentions, for the build-time check. */
-function namesInOpening(): string[] {
+function namesInOpening(OPENING: OpeningBand[]): string[] {
   const out: string[] = [];
   for (const band of OPENING) {
     for (const p of band.picks) out.push(p.operator);
@@ -727,15 +418,15 @@ function namesInOpening(): string[] {
 /**
  * Fails the build rather than the run.
  *
- * The guide is the largest hand-written thing in this codebase and every line of it is
+ * The reviewed data/stronghold-opening.json guide is hand-written and every line of it is
  * a name. A misspelling would not throw; it would simply never match, and the pick
  * would go missing from a list nobody knew was one short.
  */
-export function assertOpening(data: StrongholdData): void {
+export function assertOpening(data: StrongholdData, OPENING: OpeningBand[]): void {
   const ops = new Set(data.operators.map((o) => foldName(o.operator)));
   const alliances = new Set(data.alliances.map((a) => foldName(a.alliance)));
   const bad: string[] = [];
-  for (const n of namesInOpening()) {
+  for (const n of namesInOpening(OPENING)) {
     if (!ops.has(foldName(n))) bad.push(`operator "${n}"`);
   }
   for (const band of OPENING) {

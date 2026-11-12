@@ -172,6 +172,29 @@ export function getMechanicType(banner: HeadhuntingBanner): BannerType {
   return isLimitedCrossover ? 'crossover' : PULL_TYPE_TO_MECHANIC[banner.pull_type] || 'standard';
 }
 
+// Use the regional client's rule ID when available. Date fallbacks cover older
+// archive records without IDs. CN selection rollout: ak.hypergryph.com/news/3064.html.
+function sixStarGuarantee(banner: HeadhuntingBanner, mechanic: BannerType): BannerConfig['sixStarGuarantee'] {
+  const cn = banner.timingServer === 'cn' || !banner.global_date;
+  const pool = cn ? banner.cnPoolId : banner.globalPoolId;
+  const start = (banner.global_date || banner.cn_date || '').slice(0, 10);
+  if (mechanic === 'limited') return start >= (cn ? '2024/05/01' : '2024/10/31') ? 'limitedBonus' : undefined;
+  if (mechanic === 'featured') {
+    const focused = pool ? pool.startsWith('SINGLE_') : start >= (cn ? '2023/04/06' : '2023/10/24');
+    return focused ? 'focused' : undefined;
+  }
+  if (mechanic === 'crossover') {
+    // The original Monster Hunter run and its rerun have different rules
+    // (ak.hypergryph.com/news/2023033630 and /news/9699).
+    return (banner.cn_date ?? '').slice(0, 10) >= '2026/06/01' ? 'every120' : 'first120';
+  }
+  const standard = banner.pull_type === 'standard';
+  if (!standard && (mechanic !== 'kernel' || !/^Kernel #/.test(banner.name))) return undefined;
+  const first = cn ? (standard ? '2025/03/13' : '2025/03/20') : (standard ? '2025/08/29' : '2025/09/09');
+  const selection = pool ? /^(?:CLASSIC_)?DOUBLE_/.test(pool) : start >= first;
+  return selection ? 'selection' : undefined;
+}
+
 export function buildRealBannerConfig(
   banner: HeadhuntingBanner,
   pools: GachaIconPools,
@@ -321,6 +344,7 @@ export function buildRealBannerConfig(
   const base = {
     label: banner.name,
     description: '',
+    sixStarGuarantee: sixStarGuarantee(banner, mechanicType),
     sixStarFeatured,
     fiveStarFeatured: fiveStarFeaturedFinal,
     fourStarFeatured: fourStarFeatured.length > 0 ? fourStarFeatured : undefined,
@@ -350,17 +374,15 @@ export function buildRealBannerConfig(
       // category for Celebration at all, so the "others" pool being
       // populated is the only way ANY five-star is obtainable -- they
       // all share the chance equally amongst themselves.
-      return { ...base, type: mechanicType, otherSixStarPool: [], otherFiveStarPool };
+      return { ...base, type: mechanicType, otherSixStarPool: [], otherFiveStarPool,
+        celebrationFullPool: excludeSet.size ? banner.six_stars.map(name => findIcon(name, pools.six)) : undefined };
     case 'limited':
       return { ...base, type: mechanicType, otherSixStarPool, otherFiveStarPool, rateUpSixStars, limitedExclusiveSixStar };
     case 'crossover':
       return { ...base, type: mechanicType, otherSixStarPool, otherFiveStarPool };
     case 'trio':
-      // The Front That Was series: exactly 3 featured six-stars and 3
-      // featured five-stars, no player choice, fully self-contained --
-      // no other pool at all, and no guarantee beyond the universal
-      // first-10 one (no 150/120/300-pull system in play here).
-      return { ...base, type: mechanicType, otherSixStarPool: [], otherFiveStarPool: [] };
+      // Only the 6★ roster is exclusive. The three featured 5★ share 60%.
+      return { ...base, type: mechanicType, otherSixStarPool: [], otherFiveStarPool };
     default:
       return { ...base, type: mechanicType, otherSixStarPool, otherFiveStarPool };
   }
@@ -397,12 +419,9 @@ export function simulatorBannerConfig(
   const eligibleFour = buildEligiblePool(pools.four, howToObtainLookup, releaseLookup, kernelLookup, run, isKernelMechanic, featuredFourNames);
   const eligibleThree = buildEligiblePool(pools.three, howToObtainLookup, releaseLookup, kernelLookup, run, isKernelMechanic);
 
-  // These mechanic types have NO "other" 6★/5★ pool at all -- the
-  // featured roster IS the entire 6★/5★ chance, full stop. Preserve
-  // buildRealBannerConfig's already-correctly-emptied values instead
-  // of letting the general eligibility override below repopulate them.
-  const noOtherPoolTypes = new Set(['orienteering', 'joint', 'celebration', 'trio']);
-  const hasNoOtherPool = noOtherPoolTypes.has(mechanicType);
+  // Preserve the curated rosters for formats with exclusive 6★ pools.
+  // The Front That Was still includes ordinary off-banner 5★ operators.
+  const fixedRoster = ['orienteering', 'joint', 'celebration'].includes(mechanicType);
 
   // For Limited banners specifically, base.otherSixStarPool/otherFiveStarPool
   // (from buildRealBannerConfig's series-matching logic) and
@@ -422,8 +441,8 @@ export function simulatorBannerConfig(
 
   return {
     ...base,
-    otherSixStarPool: hasNoOtherPool ? base.otherSixStarPool : mergeByName(base.otherSixStarPool, eligibleOtherSix),
-    otherFiveStarPool: hasNoOtherPool ? base.otherFiveStarPool : mergeByName(base.otherFiveStarPool, eligibleOtherFive),
+    otherSixStarPool: fixedRoster || mechanicType === 'trio' ? base.otherSixStarPool : mergeByName(base.otherSixStarPool, eligibleOtherSix),
+    otherFiveStarPool: fixedRoster ? base.otherFiveStarPool : mergeByName(base.otherFiveStarPool, eligibleOtherFive),
     fourStarPool: eligibleFour,
     threeStarPool: eligibleThree,
   };

@@ -37,12 +37,11 @@ const MAIN_SECTIONS: { key: MainSection; label: string }[] = [
   { key: 'welfare', label: 'Welfare' },
 ];
 
-function OperatorCard({ op, note, index }: { op: RosterOperator; note?: string | null; index: number }) {
+function OperatorCard({ op, note }: { op: RosterOperator; note?: string | null }) {
   return (
     <Link prefetch={false}
       href={operatorHref(op.name, null)}
-      className="card roster-card roster-card-enter"
-      style={{ animationDelay: `${Math.min(index * 25, 600)}ms` }}
+      className="card roster-card rise-in"
     >
       <div className="avatar">
         <Image src={getOperatorIconPath(op)} alt={op.name} fill sizes="160px" />
@@ -71,8 +70,8 @@ function OperatorGrid({ operators, getNote }: { operators: RosterOperator[]; get
 
   return (
     <div className="grid roster-grid">
-      {operators.map((op, i) => (
-        <OperatorCard key={op.name} op={op} note={getNote ? getNote(op) : null} index={i} />
+      {operators.map((op) => (
+        <OperatorCard key={op.name} op={op} note={getNote ? getNote(op) : null} />
       ))}
     </div>
   );
@@ -100,7 +99,7 @@ export default function ObtainMethodPage({ operators, limitedBannerInfo, celebra
     const rarityFirst = [...operators].sort((a, b) => (b.rarity ?? 0) - (a.rarity ?? 0));
 
     for (const op of rarityFirst) {
-      const methods = obtainMethodsOf(op.howToObtain, op.rarity);
+      const methods = obtainMethodsOf(op.howToObtain);
       if (methods.includes('limited')) limited.push(op);
       if (methods.includes('standard')) standard.push(op);
       if (methods.includes('kernel')) kernel.push(op);
@@ -113,9 +112,7 @@ export default function ObtainMethodPage({ operators, limitedBannerInfo, celebra
     // 6-star anyway).
     limited.sort((a, b) => releaseDateValue(b) - releaseDateValue(a));
 
-    // Standard/Kernel: rarity first (moot right now since both are
-    // already filtered to 6-star only above, but keeps this correct if
-    // that filter ever changes), release date as the tiebreak.
+    // Standard/Kernel: rarity first, release date as the tiebreak.
     const rarityThenDate = (a: RosterOperator, b: RosterOperator) => {
       const r = (b.rarity ?? 0) - (a.rarity ?? 0);
       return r !== 0 ? r : releaseDateValue(b) - releaseDateValue(a);

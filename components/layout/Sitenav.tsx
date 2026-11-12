@@ -1,3 +1,4 @@
+import BetaLabel from '@/components/ui/BetaLabel';
 import { ICONS } from './NavIcons';
 export { ICONS } from './NavIcons';
 import Link from 'next/link';
@@ -113,7 +114,7 @@ export default function SiteNav({ mobileNav }: { mobileNav?: MobileNavOverride }
               <span className="site-brand-mark">A</span>
             )}
             <span className="site-brand-text">ARKPEDIA</span>
-            <span className="site-brand-beta">Beta</span>
+            <BetaLabel className="site-brand-beta" />
           </Link>
 
           <div className="site-nav-links">

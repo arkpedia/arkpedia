@@ -17,7 +17,7 @@ test('People, A People: its window, its name, and its packs with their stated co
   assert.equal(postEventName(people.title), 'PEOPLE, A PEOPLE');
   assert.deepEqual(postWindow(people.lines), { start: '2026-09-16T15:00:00.000Z', end: '2026-10-07T10:59:00.000Z' });
   const packs = packsOf(4635);
-  assert.deepEqual(packs[0], { name: 'Rage of the Many Headhunting Pack', start: '2026-09-16T15:00:00.000Z', end: '2026-09-30T06:59:00.000Z', contents: [{ name: 'Rage of the Many Headhunting Permit', count: 2 }] });
+  assert.deepEqual(packs[0], { name: 'Rage of the Many Headhunting Pack', start: '2026-09-16T15:00:00.000Z', end: '2026-09-30T07:00:00.000Z', contents: [{ name: 'Rage of the Many Headhunting Permit', count: 2 }] });
   assert.ok(packs.some((p: { name: string }) => p.name === 'Rage of the Many Headhunting Bundle'));
 });
 
@@ -86,4 +86,14 @@ test("a post's pictures are kept as where they stand and their address on the we
     { url: 'https://webusstatic.yo-star.com/b.jpg?x=1&y=2', line: 3 },
   ]);
   assert.deepEqual(newsSections(newsLines(html)).map((s: { at: number }) => s.at), [0, 3]);
+});
+
+
+test('yearless official durations use their post year and the same exclusive interval for packs', () => {
+  const published = Date.parse('2026-11-03T03:00:00Z');
+  const line = 'DURATION: November 5, 08:00 - November 19, 03:59 (UTC-7)';
+  assert.equal(parseDuration(line), null);
+  assert.equal(parseDuration(line, published).start, '2026-11-05T15:00:00.000Z');
+  const [pack] = parsePacks({ lines: [line, 'Test Pack', 'CONTENTS: Originite Prime * 18'] }, published);
+  assert.equal(pack.end, '2026-11-19T11:00:00.000Z');
 });

@@ -26,7 +26,7 @@
 import fs from 'fs';
 import { collabTicketGrants, type TicketGrant } from '../../lib/pulls/collabTickets';
 import path from 'path';
-import { resolvePullBannerWindows } from '../../lib/pulls/bannerWindows';
+import { resolveGachaSimulatorBanners } from '../../lib/gacha/gachaBannerWindows';
 import type { HeadhuntingBanner } from '../../lib/gacha/headhuntingBanners';
 import { STAGE_KINDS, stageKindsOf, type StageKind } from '../../lib/pulls/stageKinds';
 
@@ -593,7 +593,9 @@ function upcomingBanners(
     /** Whether the event shipping with this banner has a token shop. */
     hasShop: boolean;
   }
-  const raw = resolvePullBannerWindows(JSON.parse(fs.readFileSync(BANNERS, 'utf8')) as HeadhuntingBanner[]);
+  // Derive the same forecast windows the planner uses before collecting client
+  // mechanics and free pulls; a new CN-only pool must not miss this enrichment.
+  const raw = resolveGachaSimulatorBanners(JSON.parse(fs.readFileSync(BANNERS, 'utf8')) as HeadhuntingBanner[]);
   const cnOp = cnOriginiteByActivity();
   const cnGacha = JSON.parse(fs.readFileSync(CN_GACHA, 'utf8')) as Parameters<typeof freePullsByPool>[0];
   const freeByPool = freePullsByPool(cnGacha);

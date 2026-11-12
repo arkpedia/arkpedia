@@ -17,12 +17,14 @@ import { openMusicMenu } from './music-navigation-helpers';
 export type AutoplayPolicy = 'allow' | 'refuse' | 'refuse-silently';
 
 const stub = (policy: AutoplayPolicy) => `(() => {
-  const S = window.__yt = { calls: [], state: -1, videoId: '', start: 0, startedAt: 0, players: 0, refused: 0, policy: ${JSON.stringify(policy)} };
-  S.time = () => S.state === 1 ? S.start + (Date.now() - S.startedAt) / 1000 : S.start;
+  const initial = window.__yt = { calls: [], state: -1, videoId: '', start: 0, startedAt: 0, players: 0, refused: 0, policy: ${JSON.stringify(policy)} };
+  initial.time = () => initial.state === 1 ? initial.start + (Date.now() - initial.startedAt) / 1000 : initial.start;
   // A press in this document (a browser counts its own, not one carried over from the last).
-  S.pressedAt = 0;
-  for (const type of ['pointerdown', 'keydown']) window.addEventListener(type, () => { S.pressedAt = Date.now(); }, true);
+  let pressedAt = 0;
+  for (const type of ['pointerdown', 'keydown']) window.addEventListener(type, () => { pressedAt = Date.now(); }, true);
   function Player(el, opts) {
+    const S = el.id === 'arkpedia-page-audio' ? (window.__pageYt = { ...initial, calls: [], state: -1, videoId: '', start: 0, startedAt: 0, players: 0 }) : initial;
+    S.time = () => S.state === 1 ? S.start + (Date.now() - S.startedAt) / 1000 : S.start;
     S.players += 1;
     // As YouTube's: the size it is given, no border, the element's id.
     const frame = document.createElement('iframe');
@@ -39,7 +41,7 @@ const stub = (policy: AutoplayPolicy) => `(() => {
     const emit = (state) => { S.state = state; setTimeout(() => events.onStateChange && events.onStateChange({ data: state, target: player }), 10); };
     S.finish = () => emit(0);
     const video = (arg) => typeof arg === 'string' ? { videoId: arg, startSeconds: 0 } : { videoId: arg.videoId, startSeconds: arg.startSeconds || 0 };
-    const mayPlay = () => S.policy === 'allow' || Date.now() - S.pressedAt < 5000;
+    const mayPlay = () => S.policy === 'allow' || Date.now() - pressedAt < 5000;
     const play = () => {
       if (!S.videoId || S.state === 1) return;
       if (!mayPlay()) {
@@ -62,7 +64,7 @@ const stub = (policy: AutoplayPolicy) => `(() => {
       getPlayerState() { return S.state; },
       getVideoData() { return { video_id: S.videoId, title: 'Stub ' + S.videoId }; },
       getPlaylist() { return []; },
-      setVolume(v) { S.volume = v; }, mute() {}, unMute() {},
+      setVolume(v) { S.volume = v; }, mute() {}, unMute() {}, destroy() { S.state = 2; S.destroyed = true; frame.remove(); },
     };
     setTimeout(() => { Object.assign(player, methods); if (events.onReady) events.onReady({ target: player }); }, 50);
   }
@@ -142,6 +144,11 @@ export function sameDocument(page: Page): Promise<boolean> {
 /** Explicitly choose the whole catalogue for regressions that need a populated queue.
  * Fresh visits themselves now have an empty queue. This uses the real playlist action. */
 export async function playAllSongs(page: Page) {
+  const queueOpen = new URL(page.url()).searchParams.get('view') === 'queue' || new URL(page.url()).searchParams.get('panel') === 'queue';
+  if (new URL(page.url()).searchParams.get('view') === 'queue') {
+    await expect(page).not.toHaveURL(/view=queue/);
+    await expect(page.getByRole('dialog', { name: 'Playback queue' })).toBeVisible();
+  }
   await openMusicMenu(page);
   await page.getByRole('button', { name: 'Playlists', exact: true }).click();
   const dialog = page.getByRole('dialog', { name: 'Music playlists', exact: true });
@@ -150,5 +157,9 @@ export async function playAllSongs(page: Page) {
   await expect(dialog.getByRole('status')).toContainText('Playing all songs');
   await expect.poll(async () => (await youtube(page))?.state).toBe(1);
   await dialog.getByRole('button', { name: 'Close Music playlists', exact: true }).click();
-  if (new URL(page.url()).searchParams.get('view') === 'queue') await expect(page.locator('[data-song-list] .music-queue-row.current')).toBeVisible();
+  if (queueOpen) {
+    const queue = page.getByRole('dialog', { name: 'Playback queue' });
+    if (!await queue.isVisible()) await page.locator('#music-transport-queue').click();
+    await expect(queue.locator('.music-queue-row.current')).toBeVisible();
+  }
 }

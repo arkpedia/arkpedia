@@ -4,12 +4,14 @@ import path from 'node:path';
 import { createHash } from 'node:crypto';
 import { createServer } from 'node:http';
 import { spawn } from 'node:child_process';
+import { tmpdir } from 'node:os';
 import { pageFilePath } from '../../lib/content/pagePaths.mjs';
 import assetCdn from '../../config/asset-delivery.json' with { type: 'json' };
 // How a pinned revision appears inside a delivered address, taken from the same template the
 // site builds URLs from, so a delivery-network change cannot turn this check red while the site is right.
 const pinnedRevision = (revision) => assetCdn.template.split('{repository}')[1].split('{path}')[0].replace('{revision}', revision);
 import { chromium, devices } from '@playwright/test';
+import { CROSSOVER_PAGE_MUSIC } from '../../lib/music/crossoverPageMusic.ts';
 const root = path.resolve(process.argv[2] || '.cache/content-export/release');
 const sha = bytes => createHash('sha256').update(bytes).digest('hex');
 const initial = JSON.parse(fs.readFileSync(path.join(root, 'manifest.json')));
@@ -81,7 +83,7 @@ await new Promise(resolve => source.listen(3204, '127.0.0.1', resolve));
 const buildFile = path.join(process.env.NEXT_DIST_DIR || '.next', 'BUILD_ID');
 const buildId = fs.readFileSync(buildFile, 'utf8');
 const refreshSecret = 'local-runtime-refresh-fixture';
-const log = fs.openSync('/tmp/arkpedia-content-runtime-server.log', 'w');
+const log = fs.openSync(path.join(tmpdir(), 'arkpedia-content-runtime-server.log'), 'w');
 const server = spawn(process.execPath, ['node_modules/next/dist/bin/next', 'start', '-p', '3193'], {
   env: { ...process.env, ARKPEDIA_CONTENT_URL: 'http://127.0.0.1:3204', ARKPEDIA_CONTENT_TEST: '1', ARKPEDIA_CONTENT_DISABLED: '0', ARKPEDIA_RELEASE_REFRESH_SECRET: refreshSecret, ARKPEDIA_YOUTUBE_FEED_FIXTURE: 'tests/fixtures/youtube-feeds.xml' }, stdio: ['ignore', log, log],
 });
@@ -166,22 +168,41 @@ try {
       await page.getByRole('listbox', { name: 'Banner category' }).getByRole('option', { name: /^Standard$/ }).click();
     }
     const sidebarItem = bannerName => page.locator(`.gacha-banner-sidebar-item[title="${bannerName.replace(/\s*\(Global\)\s*$/i, '')}"]`);
+    const revealBanner = async bannerName => {
+      const sidebar = page.getByRole('region', { name: 'Banners', exact: true });
+      // Historical fixtures can fall beyond the sidebar's initially mounted rows.
+      await sidebar.evaluate(el => new Promise(resolve => {
+        el.scrollTop = 0;
+        requestAnimationFrame(() => requestAnimationFrame(resolve));
+      }));
+      await waitFor(async () => {
+        if (await sidebarItem(bannerName).count()) return true;
+        await sidebar.evaluate(el => { el.scrollTop += Math.max(1, el.clientHeight); });
+        return false;
+      }, `${name} sidebar mounts ${bannerName}`, 30_000);
+    };
+    await revealBanner(shownBanner);
     await sidebarItem(shownBanner).click();
     await page.locator('.gacha-roster-section .gacha-featured-chip').first().waitFor({ timeout: 10_000 });
     const before = await page.evaluate(() => { window.scrollTo(0, document.documentElement.scrollHeight); return { height: document.documentElement.scrollHeight, y: Math.round(scrollY) }; });
     // Clicked in place, so reaching the button does not scroll the page first.
+    await revealBanner(pendingBanner);
     await sidebarItem(pendingBanner).evaluate(button => button.click());
     await page.locator('.gacha-roster-section', { hasText: 'Lineup to be confirmed.' }).waitFor({ timeout: 10_000 });
     const after = await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(() =>
       resolve({ height: document.documentElement.scrollHeight, y: Math.round(scrollY) })))));
     assert.ok(after.height >= before.height, `${name} choosing the pending banner shortened the page from ${before.height} to ${after.height}px`);
     assert.equal(after.y, before.y, `${name} choosing the pending banner moved the reader's scroll`);
+    // Establish publication, then let one visit finish its asynchronous detail
+    // load. Repeated goto() calls can keep cancelling that request on a slow phone.
     await waitFor(async () => {
-      await page.goto('http://localhost:3193/stages/browse?s=runtime-stage');
-      // Rendered text, in any case: the stage name is also the page's h1, which the site
-      // sets in capitals (innerText follows text-transform).
-      return (await page.locator('body').innerText()).toLowerCase().includes('runtime stage b');
-    }, `${name} new stage`, 75_000);
+      const response = await fetch(`http://localhost:3193/_next/data/${buildId}/stages/browse.json`);
+      if (!response.ok) return false;
+      const data = await response.json();
+      return data.pageProps?.__contentRelease?.release === states.b.manifest.release;
+    }, `${name} stage page from release B`, 75_000);
+    await page.goto('http://localhost:3193/stages/browse?s=runtime-stage');
+    await page.getByRole('heading', { level: 1 }).filter({ hasText: /runtime stage b/i }).waitFor({ timeout: 75_000 });
     const servedNow = await page.evaluate(() => window.__NEXT_DATA__.props.pageProps.now);
     assert.ok(Math.abs(servedNow - Date.now() / 1000) < 120, `${name} runtime stage clock is stale`);
     // The Library's song count and search, and the player's queue, come from the release's
@@ -189,9 +210,11 @@ try {
     // track -- a YouTube video, or a Monster Siren song (cid) with no upload -- since the catalogue
     // may list an upload twice; release B adds one new video. Endfield's songs are left out, as the
     // Library leaves them out until the reader turns Endfield music on (lib/music/songFilter.ts).
-    const songs = new Set(JSON.parse(fs.readFileSync(path.join(root, 'public/music-catalogue.json'))).songs
-      .filter(song => song.game !== 'endfield')
-      .map(song => song.videoId || `msr:${song.cid}`)).size;
+    const songs = new Set([
+      ...JSON.parse(fs.readFileSync(path.join(root, 'public/music-catalogue.json'))).songs
+        .filter(song => song.game !== 'endfield').map(song => song.videoId || `msr:${song.cid}`),
+      ...CROSSOVER_PAGE_MUSIC.map(entry => entry.song.id),
+    ]).size;
     const catalogueRequests = [];
     const noteCatalogue = request => { if (request.url().includes('/public/music-catalogue.json')) catalogueRequests.push(request.url()); };
     page.on('request', noteCatalogue);
@@ -206,13 +229,13 @@ try {
       const data = await response.json();
       return data.pageProps?.__contentRelease?.release === states.b.manifest.release;
     }, `${name} music page from release B`, 75_000);
+    await page.goto('http://localhost:3193/music?view=library');
     await waitFor(async () => {
-      await page.goto('http://localhost:3193/music?view=library');
       assert.ok((await page.locator('#music-library-heading').innerText({ timeout: 10_000 })).includes(`${songs + 1} songs`),
         `Expected ${songs + 1} songs, got ${await page.locator('#music-library-heading').innerText()}`);
       return true;
     }, `${name} music library from release B`, 75_000);
-    // By role and name, not class: the Library's and the queue's searches are the shared SearchInput.
+    // Search the new release's Library, then confirm the chosen track in the queue popup.
     await page.getByRole('searchbox', { name: 'Search all songs' }).fill('Runtime Song B');
     await page.locator('.music-all-songs-list .music-song-row', { hasText: 'Runtime Song B' }).first().waitFor({ timeout: 10_000 });
     // Choosing the new song adds it to Your queue; browsing the release does not.
@@ -223,8 +246,8 @@ try {
     } else await newSong.getByRole('button', { name: /^Add to queue:/ }).click();
     if (name === 'mobile') await page.getByRole('button', { name: 'Music menu', exact: true }).click();
     await page.getByRole('navigation', { name: 'Music' }).getByRole('link', { name: /^Queue/ }).click();
-    await page.getByRole('searchbox', { name: 'Search the queue' }).fill('Runtime Song B');
-    await page.locator('[data-song-list] .music-queue-row', { hasText: 'Runtime Song B' }).first().waitFor({ timeout: 10_000 });
+    const drawer = page.getByRole('dialog', { name: 'Playback queue' });
+    await drawer.locator('.music-queue-row[data-song-id="RuntimeSngB"]', { hasText: 'Runtime Song B' }).waitFor({ timeout: 10_000 });
     assert.ok(catalogueRequests.some(url => url.startsWith(`http://127.0.0.1:3204/${'b'.repeat(40)}/release/public/`)), `${name} music catalogue was not read from release B: ${catalogueRequests.join(', ')}`);
     page.off('request', noteCatalogue);
     active = 'a';

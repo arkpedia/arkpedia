@@ -1,6 +1,6 @@
 # Privacy surfaces and release review
 
-The privacy work lives with PR778; it has not been released. The source records
+The privacy surfaces are maintained on main; new account/community changes still require Preview acceptance before production. The source records
 JungerMin as current maintainer and privacy contact, using the
 user-provided jungermin@arkpedia.net address. Kukkikaze is credited as founder.
 Do not infer a legal name, postal address or country from usernames or machine data.
@@ -22,10 +22,10 @@ Implemented:
   The choices page supplies the same controls without a duplicate floating prompt.
 
 Before a public release, confirm the responsible operator's legal identity/contact
-requirements and jurisdiction (country has not been supplied), provider agreements
+requirements (the maintainer lives in Switzerland and the founder in Singapore), provider agreements
 and international-transfer arrangements, and the actual hosting/relay log and D1
 backup retention settings. Do not describe this source review as GDPR certification.
-The notice states retention criteria rather than inventing unverified fixed periods.
+The maintainer selected a maximum 30-day recovery-backup period on 2 November 2026. See account-backup-retention.md for the storage boundary and restore procedure.
 Check the deployed network/cookie journey for a fresh browser, both analytics
 providers, sign-in, consent refusal/withdrawal, media playback and remembered import.
 This is especially important before the Vercel → Cloudflare domain cutover.

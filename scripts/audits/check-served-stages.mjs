@@ -23,7 +23,12 @@ async function pageProps(origin, route, fetch) {
 }
 
 export async function checkServedStages({ origin, manifest, examples = [], fetch = globalThis.fetch }) {
-  const props = await pageProps(origin, '/stages/browse', fetch);
+  // Start every public page's normal background regeneration together. Waiting
+  // for browse before requesting the examples gives each route a separate stale window.
+  const [props, ...contentPages] = await Promise.all([
+    pageProps(origin, '/stages/browse', fetch),
+    ...examples.map(example => pageProps(origin, `/stages/content/${encodeURIComponent(example.id)}`, fetch)),
+  ]);
   const served = props?.__contentRelease;
   if (served?.release !== manifest.release) throw new Error(`${origin}: stale stage page, expected ${manifest.release}, served ${served?.release ?? 'bundled fallback'}`);
   // Read the same immutable index URL the page gives the client; verify the bytes
@@ -40,9 +45,9 @@ export async function checkServedStages({ origin, manifest, examples = [], fetch
   if (bytes.length !== file.bytes || digest(bytes) !== file.sha256) throw new Error('Served stage index differs from prepared release');
   const index = JSON.parse(bytes.toString());
   if (!Array.isArray(index) || !index.length) throw new Error('Served stage index is empty');
-  for (const example of examples) {
+  for (const [index, example] of examples.entries()) {
     const route = `/stages/content/${encodeURIComponent(example.id)}`;
-    const content = await pageProps(origin, route, fetch);
+    const content = contentPages[index];
     if (content?.__contentRelease?.release !== manifest.release || content?.release !== example.release_date) {
       throw new Error(`${origin}${route}: stale stage content/date`);
     }
@@ -50,7 +55,9 @@ export async function checkServedStages({ origin, manifest, examples = [], fetch
   return { origin, release: served.release, stages: index.length, sha256: file.sha256 };
 }
 
-export async function verifyServedStages({ manifest, examples = [], deployments, fetch, sleep = ms => new Promise(resolve => setTimeout(resolve, ms)), attempts = 13, log = console.log }) {
+// Clock pages revalidate after 300 s. Cloudflare uses public GET-triggered ISR,
+// so allow that window plus a minute for the regional/front copies to adopt it.
+export async function verifyServedStages({ manifest, examples = [], deployments, fetch, sleep = ms => new Promise(resolve => setTimeout(resolve, ms)), attempts = 37, log = console.log }) {
   if (!deployments.length) throw new Error('No live deployment for this content channel');
   const results = [];
   for (const { url } of deployments) {

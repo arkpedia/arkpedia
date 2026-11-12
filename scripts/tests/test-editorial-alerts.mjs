@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { failedSources, recordBody, recoveryPlan } from '../content/release-failure.mjs';
-import { isBusy, unpublishedPlan, UNPUBLISHED_AFTER_HOURS } from '../content/editorial-watch.mjs';
+import { importsPlan, isBusy, unpublishedPlan, UNPUBLISHED_AFTER_HOURS } from '../content/editorial-watch.mjs';
 
 // 2026-10-13: an editorial commit failed three main compiles; a run of data main that did not
 // contain it succeeded and closed "Content release failing" as Recovered, and the edit and two
@@ -52,6 +52,16 @@ test('editorial edits not in data main for over two hours raise "Editorial edits
   const fresh = { status: 'ahead', commits: [commit(later, '2026-10-13T17:30:00Z', 'Just pushed')] };
   assert.deepEqual(unpublishedPlan(fresh, now), { open: false, waiting: true }, 'an edit minutes old is still on its way');
   for (const status of ['identical', 'behind']) assert.deepEqual(unpublishedPlan({ status }, now), { open: false }, 'published: close');
+});
+
+test('a patch import is compiled at once; a nightly import waits for the nightly compile', () => {
+  const at = (status, subject) => ({ status, commits: [{ sha: 'a'.repeat(40), commit: { message: `${subject}\n\nbody` } }] });
+  assert.equal(importsPlan(at('diverged', 'Import game records (2026-10-30, patch)')).request, true);
+  assert.equal(importsPlan(at('ahead', 'Import game records (2026-10-30, patch)')).request, true);
+  assert.equal(importsPlan(at('diverged', 'Import game records (2026-10-30)')).request, false);
+  assert.equal(importsPlan(at('diverged', 'Import game records (2026-10-30, patch)'), true).request, false, 'not while main prepares');
+  for (const status of ['identical', 'behind']) assert.equal(importsPlan(at(status, 'Import game records (2026-10-30, patch)')).request, false, `${status}: already compiled`);
+  assert.equal(importsPlan(null).request, false, 'no imports branch');
 });
 
 test('the run that asked the watcher to look again is not counted as busy', () => {

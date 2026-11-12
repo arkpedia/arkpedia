@@ -1,5 +1,9 @@
 # Public GitHub assets on R2
 
+Native CDN migration (isolated sample canary active; production unchanged):
+[native asset delivery](native-asset-delivery.md). The current Worker-backed reader
+below remains the production owner until full publication and cutover pass.
+
 Source remains upstream game repositories → reviewed Arkpedia GitHub repositories.
 Delivery is GitHub commit → verified R2 objects and indexes → `assets.arkpedia.net`.
 GitHub remains the release authority and rollback source, not the normal media origin.

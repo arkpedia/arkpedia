@@ -1,3 +1,5 @@
+import { mailboxIds, welcomeMailClaims } from './welcomeMail';
+
 /**
  * Reading a Global (Yostar) Arknights account, as the game client signs in, from the
  * reader's own browser (issue #94).
@@ -287,10 +289,62 @@ export interface AccountOptions {
   network: Network;
   /** Told as each step starts, for a progress list. */
   onStep?: (step: ImportStep) => void;
+  /** Optional in-memory continuation. Never serialize or upload this capability. */
+  onReplaySession?: (session: ReplaySession) => void;
+  /** One count-only social request during a manual import; failure never breaks the import. */
+  readFriendSlots?: boolean;
+  /** Read retained Global newbie mail without receiving, deleting or changing it. */
+  readWelcomeMail?: boolean;
+}
+
+export interface ReplaySession { uid: string; readReplay: (stageId: string) => Promise<string> }
+export class ReplayRequestError extends Error {
+  constructor(message: string, readonly retryAfter = 60, readonly reconnect = true) { super(message); }
+}
+
+/** Reads only saved replays; there is deliberately no generic authenticated request API. */
+export function createReplaySession(transport: Transport, gs: string, uid: string, secret: string, lastSequence = 2): ReplaySession {
+  let sequence = lastSequence, busy = false, valid = true;
+  return { uid, async readReplay(stageId) {
+    if (!/^[a-zA-Z0-9_-]{1,100}$/.test(stageId)) throw new Error('Invalid stage.');
+    if (!valid) throw new ReplayRequestError('Import your game account again to reconnect.');
+    if (busy) throw new ReplayRequestError('Another replay request is running.');
+    busy = true;
+    try {
+      // Replay retrieval uses quest even for camp_ (Annihilation) stages.
+      // The Global game server has no campaign/getBattleReplay route (HTTP 404).
+      const response = await transport(`${gs}/quest/getBattleReplay`, {
+        method: 'POST', headers: { ...CLIENT_HEADERS, secret, uid, seqnum: String(++sequence) }, body: JSON.stringify({ stageId }),
+      });
+      if (response.status === 429) {
+        const header = response.headers?.find(([name]) => name.toLowerCase() === 'retry-after')?.[1];
+        const seconds = header && /^\d+$/.test(header) ? Number(header) : header ? Math.ceil((Date.parse(header) - Date.now()) / 1000) : 60;
+        throw new ReplayRequestError('Yostar asked us to wait. Import again after the cooldown to resume.', Number.isFinite(seconds) ? Math.max(60, seconds) : 60);
+      }
+      const data = object(response.json);
+      if (response.status !== 200) {
+        const status = Number.isInteger(response.status) && response.status >= 100 && response.status <= 599 ? ` (HTTP ${response.status})` : '';
+        throw new ReplayRequestError(`The auto-deploy request for ${stageId} failed${status}. Import again before resuming.`);
+      }
+      if (data.result !== undefined && data.result !== 0) {
+        // Expose only a bounded numeric code, never provider messages or response bodies.
+        const result = Number.isSafeInteger(data.result) && Math.abs(data.result) <= 999999 ? ` (result ${data.result})` : '';
+        throw new ReplayRequestError(`The game refused the auto-deploy request${result}. Import again before resuming.`);
+      }
+      if (typeof data.battleReplay !== 'string') {
+        throw new ReplayRequestError('The game response contained no auto-deploy. Import again before resuming.');
+      }
+      return data.battleReplay;
+    } catch (error) {
+      // An uncertain response may have consumed the sequence number. Never relogin/retry automatically.
+      valid = false;
+      throw error instanceof ReplayRequestError ? error : new ReplayRequestError('The replay connection stopped. Import again to resume; saved auto-deploys are safe.');
+    } finally { busy = false; }
+  } };
 }
 
 /** Steps 3 to 5: the account's game data, as syncData sends it (its `user`). */
-export async function readAccount({ transport, direct, deviceId, network, onStep = () => {} }: AccountOptions, account: YostarAccount): Promise<Record<string, any>> {
+export async function readAccount({ transport, direct, deviceId, network, onStep = () => {}, onReplaySession, readFriendSlots = false, readWelcomeMail = false }: AccountOptions, account: YostarAccount): Promise<Record<string, any>> {
   onStep('game-token');
   const fields: Record<string, string | number> = {
     appId: '1', platform: 1, channelId: YOSTAR_CHANNEL, subChannel: YOSTAR_CHANNEL, worldId: YOSTAR_CHANNEL,
@@ -321,7 +375,41 @@ export async function readAccount({ transport, direct, deviceId, network, onStep
   onStep('account');
   const data = await post(transport, 'account', `${network.gs}/account/syncData`, { ...CLIENT_HEADERS, secret: login.secret, seqnum: '2', uid: String(login.uid) }, { platform: 1 });
   if (data.result !== 0 || !data.user) throw new ImportError('account', `the game server sent no account (result ${data.result ?? 'none'})`);
-  return object(data.user);
+  const user=object(data.user);
+  let sequence = 2, replayAvailable = true, socialAvailable = true;
+  if(readFriendSlots){
+    try {
+      const friends=await post(transport,'account',`${network.gs}/social/getSortListInfo`,{...CLIENT_HEADERS,secret:login.secret,seqnum:String(++sequence),uid:String(login.uid)},{type:1,sortKeyList:['level','infoShare'],param:{}});
+      // Never retain friends' IDs, aliases or profiles; only the returned list length.
+      if(Array.isArray(friends.result)&&friends.result.length<=1000) user.social={...object(user.social??{}),arkpediaFriendCount:friends.result.length};
+    }catch{ socialAvailable = false; /* Unknown capacity stays unknown. The account import still succeeds. */ }
+  }
+  if (readWelcomeMail) {
+    try {
+      if (!socialAvailable) throw new Error('Optional account read unavailable');
+      // Read-only mailbox routes. Never call receiveMail/receiveAllMail or any removal route.
+      const read = (path: string, body: Record<string, unknown>) => post(transport, 'account', `${network.gs}/mail/${path}`,
+        { ...CLIENT_HEADERS, secret: login.secret, seqnum: String(++sequence), uid: String(login.uid) }, body);
+      const meta = await read('getMetaInfoList', { from: Math.floor(Date.now() / 1000) });
+      const ids = mailboxIds(meta.result);
+      if (!ids) throw new Error('Unsupported mailbox metadata');
+      const rows: unknown[] = [];
+      for (let offset = 0; offset < Math.max(ids.mailIdList.length, ids.sysMailIdList.length); offset += 50) {
+        const batch = await read('listMailBox', { mailIdList: ids.mailIdList.slice(offset, offset + 50), sysMailIdList: ids.sysMailIdList.slice(offset, offset + 50) });
+        if (batch.result !== undefined && batch.result !== 0 || !Array.isArray(batch.mailList) || batch.mailList.length > 100) throw new Error('Unsupported mailbox response');
+        rows.push(...batch.mailList);
+      }
+      user.arkpediaMailClaims = welcomeMailClaims(rows);
+      user.arkpediaMailStatus = { status: 'read', retained: rows.length };
+    } catch {
+      // Keep the successful account snapshot. An uncertain optional read is never retried,
+      // and its session is not handed to the replay queue with a guessed sequence number.
+      replayAvailable = false;
+      user.arkpediaMailStatus = { status: 'unavailable', retained: 0 };
+    }
+  }
+  if (onReplaySession && replayAvailable && login.uid != null) onReplaySession(createReplaySession(transport, network.gs, String(login.uid), login.secret, sequence));
+  return user;
 }
 
 /* Yostar's Account Center, where the reader's headhunting history is (Game Info > Headhunting

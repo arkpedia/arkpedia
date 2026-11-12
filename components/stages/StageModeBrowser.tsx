@@ -172,7 +172,7 @@ export default function StageModeBrowser({ cards, counts, now }: Props) {
         {visible.map((card) => {
           const live = card.start && card.end && clock >= card.start && clock <= card.end;
           return (
-            <ContentCardLink key={card.id} id={card.id} mapless={card.mapless} className="stage-mode-card">
+            <ContentCardLink key={card.id} id={card.id} mapless={card.mapless} className="stage-mode-card rise-in">
               <span className="stage-mode-art">
                 {card.art ? (
                   <Image

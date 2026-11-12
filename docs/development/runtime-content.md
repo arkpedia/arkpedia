@@ -8,7 +8,7 @@ Content and bundled-page builders use compiled-in imports so they also work in d
 
 ## Update flow
 
-1. `Prepare content release` checks daily at 19:57 UTC (8h 57m after the 11:00 UTC Global reset), or runs manually. The public image, skin and voice syncs are scheduled earlier (16:07-16:31 UTC), but GitHub starts scheduled runs 2-4 hours late, so a scheduled release first waits, up to 30 minutes, until each sync has finished its run of the day (`scripts/content/asset-syncs.mjs`); a manual run does not wait. The daily job compares upstream revisions and reuses a successful preparation when nothing changed, avoiding dependency installation and compilation on unchanged days. Manual runs always run. Changed inputs load public source records, refresh supported importers, then compile page JSON without running a Next.js build.
+1. `Prepare content release` checks daily at 19:57 UTC (8h 57m after the 11:00 UTC Global reset), or runs manually. arkpedia-data's nightly import runs first: it waits for the public image, skin and voice syncs (16:07-16:31 UTC) and pins what they reached. GitHub starts every scheduled run hours late, by different amounts, so a scheduled release first waits, up to 30 minutes, until that import has finished its run of the day (`scripts/content/asset-syncs.mjs --sync arkpedia-data/import.yml`); a manual run does not wait. The daily job compares upstream revisions and reuses a successful preparation when nothing changed, avoiding dependency installation and compilation on unchanged days. Manual runs always run. Changed inputs load public source records, refresh supported importers, then compile page JSON without running a Next.js build.
 2. A deploy key scoped only to arkpedia-data pushes the validated release straight to its `main` as a fast-forward. No pull request is opened and nobody reviews the release first, so the checks in this job are the only gate.
 3. The push runs that repository's `Content release` workflow, which validates the commit again and publishes it through the `live` pointer. Existing website pages adopt it during background revalidation; newly added operator, event and stage-content URLs generate on demand. The job then polls the `live` branch for about five minutes and opens a `Content release not live` issue if the pointer did not move to what it pushed (`scripts/content/await-live.mjs`).
 
@@ -126,7 +126,8 @@ Store confirmed opening and closing instants as timezone-qualified ISO strings:
 `startAt` and `endAt` on an event's `global`/`cn` block, or a banner's
 `global_window`/`cn_window`. `endAt` is exclusive; `timingSource` records the
 announcement or game table URL. Keep the existing date ranges for calendar labels.
-`npm run events:sync` preserves exact client times even if the dates did not change.
+The import's event-windows step preserves exact client times even if the dates did not
+change.
 Date-only legacy entries use server-time estimates; confirmed hours always override
 those estimates. The homepage countdown changes state in the browser at each boundary.
 
@@ -154,8 +155,8 @@ calendar day instead of declaring availability at the reader's midnight.
 
 The calculator, pop-out and guesser use one reviewed Global roster in
 `data/recruitment-global.json`. Its source records include immutable English game
-table URLs and SHA-256 hashes. `node scripts/sync/sync-recruitment.mjs` prepares an
-update during the existing daily refresh, and the release publishes it with no review,
+table URLs and SHA-256 hashes. `importer/scripts/sync/sync-recruitment.mjs` prepares an
+update in arkpedia-data's nightly import, and the release publishes it with no review,
 so the importer's own checks are the gate. A mirrored game table can contain preloaded
 changes: if a new recruitment batch is not active on Global yet, correct the roster in
 arkpedia-data's `source/` and release that correction.
@@ -474,3 +475,37 @@ comparison, fallback behavior, supported old-client retention window and expecte
 monthly account-level cost have been reviewed. The initial USD 0–5 planning estimate
 is not a spend cap or permission to buy additional capacity. Production retention,
 cleanup and any media migration require their own accepted policy and evidence.
+
+### Time-window authority
+
+The `arkpedia-data` importer pins one revision per regional client, then builds
+`regional-schedules.json` from that pin and the region’s official notices. EN
+stage/content and farming compatibility records project that same snapshot.
+Weekly supplies, force-open campaigns, Annihilation, SSS, activities and gacha use
+their own client windows; outfit shops, packs and reward sections keep their own
+explicit notice windows. A shop deadline must never be borrowed from stage closure.
+
+English notice readers share `scripts/build/official-news.mjs` (the importer owns
+the active production ingestion; retained application helpers use the same API).
+Yearless dates resolve against the notice’s publication time. Interval consumers
+use `parseNoticeWindow` for fixed UTC-7 and an exclusive close. For example, the
+Masses’ Travels rerun notice 5045 closes stages on November 15, 2026, but sells
+Caelum Aeternum until November 19. Both begin November 5 at 08:00 server time.
+
+Pages read the same immutable release, not separate live upstream feeds. The
+home carousel and `/skins` both use `computeSkinCountdowns` / `availableSkins`;
+`/skin-planner` reconciles collections against the same regional shop inventory.
+`lib/time/servers.mjs` owns server offsets/resets, and `contentPageClock` with
+`useReaderClock` decides live/upcoming state at request/view time. Export guards
+reject frozen countdown fields. Preview consumes the same `live` content pointer
+while retaining its isolated application/account environment.
+
+Timed skin windows have no browser-bundled emergency override. The gallery and
+homepage use their published windows and regional table; the current official
+notice replaces conflicting earlier windows for the same outfit and sale. The
+client data guard rejects `skin-availability-windows.json` in browser code.
+
+Native storage publication can take more than five minutes. Prepare content waits
+up to twenty minutes for the approved live pointer before refreshing the clock
+pages; the confirmation step and job budgets include this wait. A completed Git
+push alone must not skip the post-publication refresh.

@@ -4,10 +4,11 @@
  */
 export const FARMING_STRINGS = {
   label: 'Farming method',
-  heading: 'Count what events give',
-  lead: 'Set a date, and the free materials of every event open by then count as coming, so they leave "Still needed".',
-  untilLabel: 'Count events until',
+  heading: 'Expected rewards',
+  lead: 'Choose an event cutoff or count only permanent rewards. Off excludes all expected rewards.',
+  untilLabel: 'Which rewards to count',
   off: 'Off',
+  permanentOnly: 'Permanent only',
   byBanner: 'A banner',
   byDate: 'A date',
   bannerLabel: 'Banner to count until',
@@ -33,7 +34,7 @@ export const FARMING_STRINGS = {
   countingPermanent: (modes: string, materials: number) => `Counting ${materials.toLocaleString('en-US')} materials from unclaimed ${modes} rewards.`,
   counting: (materials: number, events: number, until: string) =>
     `Counting ${materials.toLocaleString('en-US')} materials from ${events} ${events === 1 ? 'event' : 'events'} until ${until}, not in your depot yet.`,
-  fromEvents: (count: number) => `${count.toLocaleString('en-US')} expected from events and shops`,
+  fromEvents: (count: number) => `${count.toLocaleString('en-US')} expected from rewards and shops`,
   fromUnlimited: (count: number) => `${count.toLocaleString('en-US')} from a shop with no limit`,
   toCollect: 'to collect',
   by: (date: string) => `by ${date}`,

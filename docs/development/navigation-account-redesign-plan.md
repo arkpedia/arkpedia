@@ -43,7 +43,7 @@ expectations together after visual acceptance.
 
 Desktop order:
 
-`Brand | Database · Guides · Planner · Community · About · Schedule | Search | Settings | Server time | Account`
+`Brand | Database · Guides · Planner · Community · Extras · Schedule · About | Search | Settings | Server time | Account`
 
 Preserve the current destinations and grouping unless explicitly moved below.
 Search moves immediately to the left of server time. The clock remains stable as
@@ -51,7 +51,7 @@ its numbers change. Settings and Account have separate jobs and stable hit areas
 
 | Surface | Target behavior |
 | --- | --- |
-| Community menu | Keep **Community projects** and existing community destinations; personal account and Friends links live in the profile dropdown |
+| Community menu | Start with **Polls**, **Community Stats**, and **Find support units**; a divider separates **Community projects** and **World**. Music and Games live in **Extras**. Personal account shortcuts open its tabs. |
 | Planner menu | Keep planning tools; move My account to the profile dropdown |
 | Database menu | Ensure Techniques, Synergies and Obtain method are real destinations in the shared desktop/mobile registry |
 | Gear button | Open a labeled Settings dropdown containing Import / export and Appearance |
@@ -82,7 +82,7 @@ targets. Do not solve crowding with several extra floating buttons.
 
 Show a clear identity/loading state with Profile, Pull history, Operators, Skins and Friends.
 Profile opens `/account`; collection shortcuts open that page's corresponding tab.
-Friends opens `/friends`. Keep both account and Friends discoverable in global search.
+Friends opens `/account?panel=friends`; `/friends` bookmarks redirect there. Keep both account and Friends discoverable in global search.
 
 Signed-out readers get a Login action where providers are configured. Local imports,
 archives and collections stay available without cloud login.
@@ -90,11 +90,11 @@ archives and collections stay available without cloud login.
 ## 3. Account page and pull history
 
 Use one inline content area with **Profile**, **Pull history**, **Operators** and
-**Skins** tabs, in that order. The Profile tab contains the imported game profile.
-URL-backed selection (`/account?panel=pulls|operators|skins`) supports direct links,
+**Skins** and **Friends** tabs, in that order. The Profile tab contains the imported game profile.
+URL-backed selection (`/account?panel=pulls|operators|skins|friends`) supports direct links,
 reload and browser Back/Forward. Switching tabs never reloads the document or stops music.
 Collections reuse FriendCollection's filters and cards in an inline mode; friends keep
-their existing collection dialogs. Operator detail previews remain dialogs.
+their existing collection dialogs inside the Friends tab. The Friends info popover explains that sharing currently requires manually importing an exported friend file. Operator detail previews remain dialogs.
 
 Place **Import / export** and **Account settings** together in the page header.
 These are overlays of the current page: opening and closing them preserves its URL,
@@ -243,3 +243,7 @@ journeys pass. Implementation is not a claim of release or full-site acceptance.
 The next music revision implements the approved full workspace direction, inspired
 by Navidrome while retaining Arkpedia's style and existing playback/data contracts.
 See [Music workspace](music-workspace.md) for its navigation, player and verification scope.
+
+## Future account-based friends
+
+The requested friend-request flow from Find support units, with active requests above the friend list in the Friends tab, is recorded in [the future plan](../plans/arkpedia-account-friends.md). It is not included in the manual Friends tab work.

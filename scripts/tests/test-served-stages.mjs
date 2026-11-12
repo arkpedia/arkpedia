@@ -43,3 +43,23 @@ test('publication examples skip excluded modes and check newest real content pag
   await assert.rejects(checkServedStages({ origin: 'https://dev.example', manifest, examples, fetch: async url => url.includes('/stages/content/') ? new Response('', { status: 404 }) : fake(context)(url) }), /HTTP 404/);
   await assert.rejects(checkServedStages({ origin: 'https://dev.example', manifest, examples, fetch: async url => url.includes('/stages/content/') ? new Response(page(context)) : fake(context)(url) }), /stale stage content\/date/);
 });
+
+// A published pointer does not invalidate the public page caches. Their 300 s ISR
+// interval can outlast the old two-minute verification window.
+test('public pages warm together and a full ISR cache interval can pass before adoption', async () => {
+  let elapsed = 0;
+  const asked = [];
+  const examples = [{ id: 'episode17', release_date: '2026-10-14' }];
+  const fetch = async url => {
+    asked.push({ url, elapsed });
+    if (url.endsWith('/stages-index.json')) return new Response(bytes);
+    const body = { __contentRelease: elapsed < 300000 ? { ...context, release: 'old' } : context };
+    if (url.includes('/stages/content/')) body.release = examples[0].release_date;
+    return new Response(`<script id="__NEXT_DATA__" type="application/json">${JSON.stringify({ props: { pageProps: body } })}</script>`);
+  };
+  const results = await verifyServedStages({ manifest, examples, deployments: [{ url: 'https://dev.example' }], fetch,
+    sleep: async ms => { elapsed += ms; }, log: () => {} });
+  assert.equal(results.length, 1);
+  assert.equal(elapsed, 300000);
+  assert.ok(asked.some(call => call.url.endsWith('/stages/content/episode17') && call.elapsed === 0), 'detail regeneration starts while browse is still stale');
+});

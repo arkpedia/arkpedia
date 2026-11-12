@@ -1,3 +1,4 @@
+import MusicVisualizerSetting from '@/components/music/MusicVisualizerSetting';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { ICONS } from './NavIcons';
@@ -5,6 +6,7 @@ import { useAccountActions } from '@/components/account/AccountActions';
 import { PROFILE_LINKS } from '@/lib/nav/navLinks';
 import ActionPopover from '@/components/ui/ActionPopover';
 import ThemeToggle from './ThemeToggle';
+import BackgroundMusicSetting from '@/components/music/BackgroundMusicSetting';
 import ServerClock from './ServerClock';
 import { SiteSearchTrigger, type SiteSearchControl } from './SiteSearch';
 import { useCloudSync } from '@/lib/cloud-account/SyncProvider';
@@ -27,18 +29,19 @@ export default function HeaderUtilities({ search, mobile = false, onOpen }: { se
       <button type="button" className="btn-bare site-nav-popitem" onClick={() => actions.open('settings')}>{icon('profile')}Account settings</button>
       <Link prefetch={false} className="site-nav-popitem" href="/cookies">{icon('privacy')}Privacy choices</Link>
       <p className="label-tag">Appearance</p><ThemeToggle menu />
+      <p className="label-tag">Audio</p><BackgroundMusicSetting /><MusicVisualizerSetting menu />
     </ActionPopover>
     </div>
     <ServerClock variant={mobile ? 'mobile' : 'bar'} />
     <div className="header-utility-actions">
     <ActionPopover navigation label={label} onOpen={onOpen} trigger={<ProfileAvatar size={36} fallbackSize={20} />} className="profile-avatar-trigger">
       <p className="label-tag">{sync.remote?.profile?.username ?? label}</p>
-      {sync.status === 'signed-out' && <Link prefetch={false} className="site-nav-popitem" href="/account">{icon('profile')}Log in</Link>}
+      {sync.status === 'signed-out' && <button type="button" className="btn-bare site-nav-popitem" onClick={() => actions.open('settings')}>{icon('profile')}Log in</button>}
       {accountLink('profile', 'Profile', 'profile')}
       {accountLink('pulls', 'Pull history', 'history')}
       {accountLink('operators', 'Operators', 'roster')}
       {accountLink('skins', 'Skins', 'skins')}
-      <Link prefetch={false} className={`site-nav-popitem${router.pathname === '/friends' ? ' active' : ''}`} href={PROFILE_LINKS[1].href}>{icon('friends')}Friends</Link>
+      {accountLink('friends', 'Friends', 'friends')}
     </ActionPopover>
     </div>
   </div>;

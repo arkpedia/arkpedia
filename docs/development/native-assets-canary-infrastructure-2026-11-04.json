@@ -1,0 +1,41 @@
+{
+  "observedAt": "2026-11-04T14:58:02.164754+00:00",
+  "domain": {
+    "domain": "assets-native.arkpedia.net",
+    "status": {
+      "ssl": "active",
+      "ownership": "active"
+    },
+    "zoneId": "3765378b374f124c6f06cffdcd3ac01e",
+    "zoneName": "arkpedia.net",
+    "enabled": true
+  },
+  "developmentUrlEnabled": false,
+  "preExistingRoutesUnchanged": true,
+  "sourceBucketPrivate": true,
+  "productionAssetWorkerDomainUnchanged": true,
+  "zonePlan": "Free Website",
+  "zonePlanPrice": 0,
+  "canaryDataRoutes": [
+    {
+      "id": "5ee71763f0094949a0ee71c8ad8bc2eb",
+      "pattern": "assets-native.arkpedia.net/arkpedia/arkpedia-data/*",
+      "script": "arkpedia-assets",
+      "request_limit_fail_open": false
+    },
+    {
+      "id": "a8840d8795234195a4801dc2e3e89801",
+      "pattern": "assets-native.arkpedia.net/__ready/arkpedia-data/*",
+      "script": "arkpedia-assets",
+      "request_limit_fail_open": false
+    }
+  ],
+  "knownCanaryRules": {
+    "cache": "4401fb80b9e04823acb1a46dac1fc5e4",
+    "queryRewrite": "3261f2468a274508bbb0879077877772",
+    "headers": "0fdcd75758674fae8caec50f9a4f4533",
+    "errors": "Arkpedia native canary errors; verified by live no-store 404"
+  },
+  "mediaWorkerBypass": true,
+  "sourceDevelopmentUrlEnabled": false
+}

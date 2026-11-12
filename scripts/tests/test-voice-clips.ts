@@ -80,21 +80,11 @@ test('an outfit set folder is listed at the adopted revision with its # encoded 
   assert.deepEqual([...await listLegacyClips([outfit], { revisions: {}, token: '', fetcher: async () => { throw new Error('not asked'); } })], []);
 });
 
-/* The release job's asset-revisions stage adopts the day's pins and checks the files at
-   them (update-asset-revisions.mjs runs check-published-assets.mjs). The voice lines are
-   rebuilt against those pins by the voices stage, later in the same run, so a check of the
-   lines inside the asset stage judged yesterday's lines: in a rehearsal of the first run
-   after the builder learnt to narrow legacy packs, it failed on the 18 clips the voices
-   stage was about to leave out, and the day's asset pins were thrown away with it. */
-test('the voice lines are checked after the voices stage rebuilds them, never in the asset-revisions stage', () => {
+/* The lines are rebuilt from the day's pins by arkpedia-data's importer, whose asset and
+   voices stages are ordered by its own test beside them. What is left here is which check
+   runs where: app CI fails on a missing clip, while the release holds it back. */
+test('app CI fails on a missing clip where the release holds it back', () => {
   const workflow = fs.readFileSync('.github/workflows/prepare-content.yml', 'utf8');
-  const at = (pattern: RegExp) => {
-    const match = workflow.match(pattern);
-    assert.ok(match, `${pattern} is not in prepare-content.yml`);
-    return match.index!;
-  };
-  assert.ok(at(/stage asset-revisions -- npm run assets:update\n/) < at(/stage voices /));
-  assert.ok(at(/stage voices /) < at(/\n\s*npm run check:published-assets:release\n/), 'the Validate step checks what the refresh wrote');
   const scripts = JSON.parse(fs.readFileSync('package.json', 'utf8')).scripts;
   // App CI stays strict; the release holds a missing clip back instead of failing.
   assert.match(scripts['check:published-assets'], /node scripts\/audits\/check-voice-clips\.mjs$/);
@@ -102,19 +92,8 @@ test('the voice lines are checked after the voices stage rebuilds them, never in
   assert.match(scripts['check:published-assets:release'], /^node scripts\/audits\/check-published-assets\.mjs --quarantine && node scripts\/audits\/check-voice-clips\.mjs --quarantine$/);
   assert.doesNotMatch(workflow, /\n\s*npm run check:published-assets\n/, 'the release job never runs the strict clip check');
   assert.match(fs.readFileSync('.github/workflows/check.yml', 'utf8'), /npm run check:published-assets\n/, 'app CI runs the strict one');
-  assert.equal(scripts['assets:update'], 'node scripts/sync/update-asset-revisions.mjs');
-  // Everything the asset stage runs, through the scripts it starts.
-  const reached = new Set<string>();
-  const queue = ['scripts/sync/update-asset-revisions.mjs'];
-  for (let file = queue.pop(); file; file = queue.pop()) {
-    if (reached.has(file)) continue;
-    reached.add(file);
-    for (const [, script] of fs.readFileSync(file, 'utf8').matchAll(/['"](scripts\/[\w/.-]+\.(?:mjs|cjs|js))['"]/g)) queue.push(script);
-  }
-  assert.ok(reached.has('scripts/audits/check-published-assets.mjs'), 'not vacuous: the asset stage checks the files at its pins');
-  for (const file of reached) {
-    assert.doesNotMatch(fs.readFileSync(file, 'utf8'), /operator-voice-lines\.json|voiceRecording\.mjs|check-voice-clips/, `${file} runs in the asset-revisions stage, before the voices stage rebuilds the lines`);
-  }
+  // The release checks what it published, at the pins it adopted.
+  assert.match(workflow, /\n\s*npm run check:published-assets:release\n/, 'the Validate step checks what the refresh wrote');
 });
 
 /* The check against a made-up tree: Exusiai's shape, a fake host that answers per clip, and

@@ -37,7 +37,7 @@
       "why": "a picture card: the separate Plan button keeps --card-inset, aligned with the artwork caption above the flush art (/skin-planner, and the Pull Planner's Outfits panel)"
     },
     {
-      "parent": "a.stage-mode-card",
+      "parent": "a.stage-mode-card.rise-in",
       "child": "span.stage-mode-meta",
       "why": "a picture card: the text keeps --card-inset from the flush banner (/stages/all)"
     },

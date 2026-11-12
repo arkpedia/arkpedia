@@ -4,26 +4,18 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 // @ts-expect-error Node scripts are plain JavaScript.
 import { boardArt, boardEventItems, MAX_ART_BYTES, regionalPoolId, templatePictures, withBoardArt } from '../sync/regional-board.mjs';
-// @ts-expect-error Node scripts are plain JavaScript.
-import { assertEventRewards, regionalBoardGroups } from '../build/build-event-rewards.mjs';
-import { eventExtras, type TableRewardGroup } from '../../lib/events/tableRewards';
 import { webEventServer } from '../../lib/community/worldDirectory';
 import { regionalArt, regionalBanners, regionalEvents, regionalGameEvents, regionalPullBanners, type RegionalSchedule } from '../../lib/time/regional';
 
 /*
  * JP's and KR's in-game boards joined to the site's events and banners (scripts/sync/regional-board.mjs),
- * on a slice of the real boards and schedules of 2026-10-19 (fixtures/regional-board.json).
+ * on a slice of the real boards and schedules of 2026-10-19 (fixtures/regional-board.json). The News
+ * groups they are built into are arkpedia-data's importer (its scripts/tests/test-regional-board.ts).
  */
 const fixture = JSON.parse(fs.readFileSync('scripts/tests/fixtures/regional-board.json', 'utf8'));
 const CPT = '[Celebration] Critical Phase Transition';
 const SWT = '[Celebration] Sealed With Time';
 const DUEL = 'Duel Channel: Ivy Vine';
-const events = [{ name: CPT }, { name: DUEL }, { name: '[Side Story] People, A People' }];
-const banners = [
-  { name: SWT, globalPoolId: 'LIMITED_EN_42_0_1', linked_event: CPT },
-  { name: 'Standard Pool #177 (Global)', globalPoolId: 'DOUBLE_EN_41_0_9', linked_event: null },
-  { name: 'Kernel #63 (Global)', globalPoolId: 'CLASSIC_DOUBLE_EN_41_0_4', linked_event: null },
-];
 
 test('a Global pool id is the regional client pool by the server code', () => {
   assert.equal(regionalPoolId('LIMITED_EN_42_0_1', 'jp'), 'LIMITED_JP_42_0_1');
@@ -96,8 +88,6 @@ test("KR's own art: the official site's headline for its event, and the host's s
   // The same picture as a board item of another title is a template, here as on the board.
   const template = fixture.boards.kr.bulletins.find((item: { id: string }) => item.id === '6889').image;
   assert.equal(withHeadline({ image: template }), undefined);
-  // Headlines are art only: the News tab is the board's.
-  assert.ok(!regionalBoardGroups(events, banners, fixture.schedules.kr, fixture.boards.kr, 'kr')[CPT].some((group: { id: string }) => group.id.startsWith('site:')));
 });
 
 test("the regional schedule's windows carry JP's own art, and lose one the board no longer gives", () => {
@@ -108,31 +98,6 @@ test("the regional schedule's windows carry JP's own art, and lose one the board
   const stale = { events: { [CPT]: { ...fixture.schedules.jp.events[CPT], art: { url: 'https://example.invalid/old.png', sha1: 'c'.repeat(40) } } }, banners: {} };
   assert.equal(withBoardArt(stale, { bulletins: [] }).events[CPT].art, undefined);
   assert.equal(fixture.schedules.jp.events[CPT].art, undefined, 'the windows handed in are left alone');
-});
-
-test("each event's News gets JP's and KR's own items, tagged with the server and named in English", () => {
-  const jp = regionalBoardGroups(events, banners, fixture.schedules.jp, fixture.boards.jp, 'jp');
-  assert.deepEqual(jp[CPT].map((group: { subject: string; name: string; source: string }) => [group.subject, group.name, group.source]), [
-    ['event', CPT, 'https://ark-jp-static-online.yo-star.com/announce/Android/announcement/1427.html'],
-    ['banner', SWT, 'https://ark-jp-static-online.yo-star.com/announce/Android/announcement/1431.html'],
-  ]);
-  assert.ok(jp[CPT].every((group: { server: string; kind: string }) => group.server === 'jp' && group.kind === 'board'));
-  const kr = regionalBoardGroups(events, banners, fixture.schedules.kr, fixture.boards.kr, 'kr');
-  // Two KR items titled alike on one event pass the duplicate check: they are told apart by id.
-  const twice = [...kr[CPT], { ...kr[CPT][0], id: '9999' }];
-  assert.doesNotThrow(() => assertEventRewards({ [CPT]: { groups: twice } }));
-  assert.throws(() => assertEventRewards({ [CPT]: { groups: [...kr[CPT], kr[CPT][0]] } }), /two "board@kr: 6889"/);
-  // The page's shape: the English name, and the board's picture where it may be loaded.
-  const extras = eventExtras(kr[CPT] as TableRewardGroup[], () => null).board;
-  assert.deepEqual(extras.map(item => [item.server, item.name]), [['kr', CPT], ['kr', SWT]]);
-  const huge = regionalBoardGroups([{ name: 'Std' }], [{ name: 'Standard Pool #177 (Global)', linked_event: 'Std' }], fixture.schedules.kr, fixture.boards.kr, 'kr');
-  assert.match(huge.Std[0].image, /\?imageMogr2\/format\/webp$/, "an oversize picture is its host's smaller copy");
-  const noCopy = { ...fixture.boards.kr, bulletins: fixture.boards.kr.bulletins.map((item: { image?: { small?: unknown } }) => (item.image?.small ? { ...item, image: { ...item.image, small: null } } : item)) };
-  const left = regionalBoardGroups([{ name: 'Std' }], [{ name: 'Standard Pool #177 (Global)', linked_event: 'Std' }], fixture.schedules.kr, noCopy, 'kr');
-  assert.equal(left.Std[0].image, undefined, 'an oversize picture with no smaller copy is left out');
-  assert.equal(eventExtras(left.Std as TableRewardGroup[], () => null).board[0].image, null, 'and the notice still listed');
-  assert.throws(() => regionalBoardGroups(events, banners, fixture.schedules.jp, fixture.boards.jp, 'en'), /not a regional board/);
-  assert.deepEqual(regionalBoardGroups(events, banners, undefined, undefined, 'jp'), {});
 });
 
 test("a web event is its region's server's, and one naming no region is every server's", () => {

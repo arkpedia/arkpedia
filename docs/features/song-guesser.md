@@ -16,7 +16,7 @@ Choices are saved on this device under `arkpedia-song-guesser-settings-v1`. Unkn
 
 ## Coverage and sources
 
-`lib/music-guesser/associations.ts`, `mainStory.ts` and `eventExpansion.ts` contain server-only metadata projected onto the game catalogue at build time. The reviewed in-game associations cover **343 recordings**, covering **51 regular/anniversary events**, **14 mini-events**, **Chapters 4–17**, and **CC1–CC12 / CCB1–CCB4**. The underlying library contains **897 songs**, before the quiz excludes instrumental versions. Clues use the official MSR song ID, so a video ID is optional.
+`data/music-guesser-event-music.json`, `music-guesser-main-story.json` and `music-guesser-event-expansion.json` hold the reviewed associations; `lib/music-guesser/associations.ts`, `mainStory.ts` and `eventExpansion.ts` read them on the server and project them onto the game catalogue at build time. The reviewed in-game associations cover **343 recordings**, covering **51 regular/anniversary events**, **14 mini-events**, **Chapters 4–17**, and **CC1–CC12 / CCB1–CCB4**. The underlying library contains **897 songs**, before the quiz excludes instrumental versions. Clues use the official MSR song ID, so a video ID is optional.
 
 After a round, **Listen to the full song** stops the clue, starts the selected track through Arkpedia's shared player, and opens `/music` in the same tab. This also works when the player has not been initialized yet. Tracks without a video ID are unavailable in the shared player and instead show an explicitly labeled **Listen on Monster Siren Records** link.
 

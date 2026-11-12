@@ -1,24 +1,28 @@
 import { GetStaticProps } from 'next';
 import PageMeta from '@/components/layout/PageMeta';
-import { useState } from 'react';
 import { enrichWithLiveStatus, YouTubeVideo } from '@/lib/music/youtube';
 import { getLatestVideos } from '@/lib/music/youtubeFeedsServer';
-import { YOUTUBE_CHANNELS, VIDEOS_PER_CHANNEL } from '@/lib/music/youtubeConfig';
-import { filterArknightsVideos } from '@/lib/music/contentFilter';
-import { CommunityEyebrow, VideoCard } from '@/components/community/StreamCards';
-import LoadOnScroll from '@/components/ui/LoadOnScroll';
+import { youtubeChannels, VIDEOS_PER_CHANNEL } from '@/lib/music/youtubeConfig';
+import { filterDiscoveryVideos } from '@/lib/music/youtubeDiscovery';
+import { loadVideoArchive } from '@/lib/music/youtubeArchiveServer';
+import { loadVideoDiscoveryContext } from '@/lib/music/youtubeContextServer';
+import type { VideoDiscoveryContext } from '@/lib/music/youtubeRelevance';
+import { useReaderClock } from '@/lib/time/readerClock';
+import { CommunityEyebrow } from '@/components/community/StreamCards';
+import YouTubeVideoGallery from '@/components/community/YouTubeVideoGallery';
+import SearchInput from '@/components/ui/SearchInput';
+import { useQueryState } from '@/lib/hooks/useQueryState';
 import PageHeader from '@/components/ui/PageHeader';
-
-/** Cards per batch: six rows of four in the frame. The whole feed was 61 cards and
- *  16,886px tall on a phone; the rest arrive as the reader scrolls. */
-const PAGE = 24;
 
 interface Props {
   videos: YouTubeVideo[];
+  videoContext: VideoDiscoveryContext;
+  now: number;
 }
 
-export default function VideosPage({ videos }: Props) {
-  const [shown, setShown] = useState(PAGE);
+export default function VideosPage({ videos, videoContext, now }: Props) {
+  const [query, setQuery] = useQueryState('q');
+  const clock = useReaderClock(now, { tickMs: 60_000, onFocus: true });
   return (
     <>
       <PageMeta title="Videos" description="The latest Arknights videos from official and community YouTube channels." path="/community/videos" />
@@ -26,30 +30,20 @@ export default function VideosPage({ videos }: Props) {
       <PageHeader eyebrow={<CommunityEyebrow />} title="Videos" sub={`${videos.length} videos from the configured channels.`} />
 
       <main>
-        {videos.length === 0 ? (
-          <div className="waiting-box">
-            <h2>No videos found</h2>
-          </div>
-        ) : (
-          <>
-            <div className="video-grid">
-              {videos.slice(0, shown).map((v) => (
-                <VideoCard key={v.videoId} v={v} />
-              ))}
-            </div>
-            <LoadOnScroll shown={shown} total={videos.length} onMore={() => setShown((n) => n + PAGE)} />
-          </>
-        )}
+        <SearchInput label="Search videos or creators" placeholder="Video or creator" value={query} onChange={setQuery} />
+        <YouTubeVideoGallery videos={videos} query={query} now={clock} context={videoContext} grouped={false} />
       </main>
     </>
   );
 }
 
-export const getStaticProps: GetStaticProps<Props> = async () => {
-  const rawVideos = await getLatestVideos(YOUTUBE_CHANNELS, VIDEOS_PER_CHANNEL);
+export const getStaticProps: GetStaticProps<Props> = async (context) => {
+  const rawVideos = await getLatestVideos(await youtubeChannels(), VIDEOS_PER_CHANNEL, context);
   const youtubeApiKey = process.env.YOUTUBE_API_KEY;
   const enriched = await enrichWithLiveStatus(rawVideos, youtubeApiKey);
-  const videos = filterArknightsVideos(enriched.filter((v) => !v.isLivestream));
+  const now = Date.now();
+  const [archived, videoContext] = await Promise.all([loadVideoArchive(), loadVideoDiscoveryContext(now)]);
+  const videos = filterDiscoveryVideos([...enriched, ...archived].filter((v) => !v.isLivestream));
 
-  return { props: { videos }, revalidate: 1500 };
+  return { props: { videos, videoContext, now }, revalidate: 1500 };
 };

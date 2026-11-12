@@ -1,4 +1,6 @@
 import DataLink from '@/components/account/DataLink';
+import { useReleaseTable } from '@/lib/content/context';
+import type { SuperMetaOperator } from '@/lib/selectors/scoring';
 import { useCallback, useEffect, useState } from 'react';
 import SegmentedControl from '@/components/ui/SegmentedControl';
 import { DEFAULT_SELECTOR_PREFERENCES, pointLabel, ratingPoints, selectorCoverage, type SelectorCandidate, type SelectorPreferences } from '@/lib/selectors/scoring';
@@ -36,12 +38,13 @@ export default function SelectorPersonalization({ candidates, ownedNames, prefer
   preferences: SelectorPreferences;
   onChange: (next: SelectorPreferences) => void;
 }) {
-  const automatic = selectorCoverage(candidates, ownedNames);
+  const { operators: superMeta } = useReleaseTable<{ operators: SuperMetaOperator[] }>('selector-super-meta');
+  const automatic = selectorCoverage(candidates, ownedNames, superMeta);
   const [showScoring, setShowScoring] = useState(false);
   const coverageRows = [
     { key: 'arts', label: 'Lack Arts damage dealers', points: '+0.5', note: 'Account default: three or fewer owned 6★ Casters / Supporters combined.' },
     { key: 'trueDamage', label: 'Lack True damage dealers', points: '+0.5', note: 'Account default: no owned 6★ True damage dealer.' },
-    { key: 'gameDestroyer', label: 'Lack super-meta operators', points: '+1', note: 'Includes Kukkikaze ratings of 7.0+ plus Ines, Ela, Lemuen, Eyjafjalla the Hvít Aska, Ascalon, Lappland the Decadenza, Logos, Yu, Ulpianus, Exusiai the New Covenant, Wiš\'adel and Tragodia.' },
+    { key: 'gameDestroyer', label: 'Lack super-meta operators', points: '+1', note: `Includes Kukkikaze ratings of 7.0+${superMeta.length ? ` plus ${new Intl.ListFormat('en', { type: 'conjunction' }).format(superMeta.map(op => op.name))}` : ''}.` },
     { key: 'reveal', label: 'Lack invisibility reveal', points: '+0.25', note: 'Base talents only; skills and module upgrades are excluded.' },
   ] as const;
   return <div className="selector-personalization">

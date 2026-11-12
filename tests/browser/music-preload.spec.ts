@@ -67,6 +67,13 @@ test('one upcoming track is ready before the end and starts on the same element 
   const gap = await page.evaluate(() => { const w = window as unknown as { __ended: number; __started: number }; return w.__started - w.__ended; });
   expect(gap).toBeGreaterThanOrEqual(0);
   expect(gap, 'the prepared file starts without waiting for an audio request').toBeLessThan(800);
+  // Once consumed, the finished file can play again in this tab even if its
+  // network route is now unavailable.
+  await select(page, first, true);
+  await page.route(`**/api/music-audio/${second.cid}`, route => route.abort());
+  await select(page, second, true);
+  await expect(audio(page)).toHaveAttribute('src', /^blob:/);
+  expect(siren.resolves.filter(cid => cid === second.cid)).toHaveLength(1);
 });
 
 test('Play next replaces a prepared file, and only the newly selected song plays', async ({ page }) => {
@@ -130,6 +137,7 @@ test('a failed preload leaves playback alone and the next song uses ordinary str
 
 test('an unfinished direct download never delays Next, and old relay preferences cannot affect preloading', async ({ page }) => {
   await page.addInitScript(() => {
+    if (window.top !== window) return;
     localStorage.setItem('arkpediaAudioRelay', String(Date.now() + 60000));
     localStorage.setItem('musicFavorites', JSON.stringify(['msr:697616']));
   });
@@ -178,9 +186,7 @@ test('shuffle prepares its actual next row; Repeat one discards it and Repeat al
   await clickMusicControl(page, 'Shuffle');
   await clickMusicControl(page, 'Repeat: one');
   // Play next inserted third before second, so second is the end of the unshuffled queue.
-  await page.getByRole('searchbox', { name: 'Search the queue' }).fill(second.altTitle || second.title);
   await page.locator(`.music-queue-row[data-song-id="${second.videoId}"] .music-song-row-main`).click();
-  await page.getByRole('searchbox', { name: 'Search the queue' }).fill('');
   await expect.poll(() => audio(page).evaluate(el => (el as HTMLAudioElement).currentTime)).toBeGreaterThan(3);
   await expect.poll(() => upcoming(page)).toHaveLength(1);
   const wrapped = (await upcoming(page))[0];
@@ -206,7 +212,7 @@ test('Autoplay prepares the same next library song that plays after the chosen q
   const { siren, songs: [first, second] } = await setup(page);
   await select(page, first, true);
   await chooseMusicView(page, /^Queue/);
-  await page.getByRole('region', { name: 'Autoplay from library' }).getByRole('checkbox', { name: 'On', exact: true }).check();
+  await page.getByRole('region', { name: 'Autoplay from library' }).getByRole('checkbox', { name: 'Autoplay from library', exact: true }).check();
   await expect.poll(() => prepared(page)).toHaveLength(1);
   expect([...new Set(siren.resolves)]).toEqual([first.cid, second.cid]);
   await finish(page);

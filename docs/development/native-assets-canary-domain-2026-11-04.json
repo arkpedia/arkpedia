@@ -1,0 +1,10 @@
+{
+  "success": true,
+  "errors": [],
+  "messages": [],
+  "result": {
+    "domain": "assets-native.arkpedia.net",
+    "enabled": true,
+    "zoneId": "3765378b374f124c6f06cffdcd3ac01e"
+  }
+}

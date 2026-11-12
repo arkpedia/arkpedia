@@ -3,6 +3,7 @@ import BaseSkillText from '@/components/operators/BaseSkillText';
 import { ContentImg } from '@/components/content/ContentImage';
 import { useEffect, useRef, useState } from 'react';
 import { buildGachaOperatorPreview, type GachaOperatorPreview, type OperatorPreviewSource } from '@/lib/gacha/operatorPreviewData';
+import type { SupportUnit } from '@/lib/account/accountStore';
 import type { Owned } from '@/lib/planner/roster';
 import type { PulledItem } from '@/lib/gacha/gachaTypes';
 import Rarity, { rarityLevel } from '@/components/ui/Rarity';
@@ -14,7 +15,7 @@ import SkillRank from './SkillRank';
 import PreviewArtwork from './PreviewArtwork';
 import { StatReadout } from './OperatorStatsPanel';
 
-export type OperatorPreviewItem = Pick<PulledItem, 'name' | 'icon'> & { rarity: number; build?: Owned; rosterContext?: boolean };
+export type OperatorPreviewItem = Pick<PulledItem, 'name' | 'icon'> & { rarity: number; build?: Owned; rosterContext?: boolean; support?: SupportUnit; initialSkill?: number };
 
 /* A tab panel that keeps the tallest height it has had for this operator (the Anti-Page
    Jump rule's floor, reset per logical page): the preview scrolls inside itself, and a
@@ -69,7 +70,7 @@ export function OperatorPreview({ item, onClose, nativeModal = false }: { item: 
     const controller = new AbortController();
     setDetails(null);
     setLoadError(false);
-    setSelectedSkill(0);
+    setSelectedSkill(item.initialSkill??0);
     fetch(`/api/gacha-operator/${encodeURIComponent(item.name)}${item.build ? '?progression=1' : ''}`, { signal: controller.signal })
       .then((response) => { if (!response.ok) throw new Error('Operator details unavailable'); return response.json() as Promise<GachaOperatorPreview | OperatorPreviewSource>; })
       .then((data) => {
@@ -82,7 +83,7 @@ export function OperatorPreview({ item, onClose, nativeModal = false }: { item: 
       })
       .catch((error: unknown) => { if (!(error instanceof Error && error.name === 'AbortError')) setLoadError(true); });
     return () => controller.abort();
-  }, [item.name, item.build]);
+  }, [item.name, item.build, item.initialSkill]);
   const artFolder = ({1:'one',2:'two',3:'three',4:'four',5:'five',6:'six'} as Record<number, string>)[item.rarity] ?? 'six';
   const art = `/${artFolder}-star-skins/${encodeURIComponent(`${item.name} - Base.webp`)}`;
   const selectedModuleData = details?.modules[selectedModule];
@@ -100,6 +101,12 @@ export function OperatorPreview({ item, onClose, nativeModal = false }: { item: 
             <Link className="gacha-preview-link" href={operatorHref(item.name, null)}>View operator page ↗</Link>
           </div>
           <div className="gacha-preview-data" role="region" aria-label={`${item.name} operator details`} tabIndex={0}>
+            {item.support&&<section className="gacha-preview-section" aria-label="Equipped support build">
+              <h3>Equipped support</h3>
+              <p>E{item.support.elite} Lv{item.support.level}{item.support.potential?` · Potential ${item.support.potential}`:''}</p>
+              <p>{item.support.skill?`Skill ${item.support.skill}`:'Skill unknown'} · {item.support.skillMastery==null?'Mastery unknown':`M${item.support.skillMastery}`}{item.support.module?` · Module level ${item.support.moduleLevel??'unknown'}`:' · No module equipped'}</p>
+              {!item.build&&<p className="hint">Reference details below show maximum upgrades.</p>}
+            </section>}
             {item.rosterContext && !item.build && <p className="hint">Build not recorded. Showing reference maximums.</p>}
             {!details && !loadError && <p className="gacha-preview-loading" role="status">Loading operator details…</p>}
             {loadError && <p className="gacha-preview-loading" role="status">Details are unavailable right now. The operator page is still linked beside the artwork.</p>}

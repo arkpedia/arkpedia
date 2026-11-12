@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
-import { pageFilePath } from '../../lib/content/pagePaths.mjs';
+import { pageFilePath, matchingPagePaths } from '../../lib/content/pagePaths.mjs';
 import { PAGE_TABLES, missingPageTables } from '../../lib/content/tables.mjs';
 import { contentInput, releaseInput } from './release-input.mjs';
 import { cnTablesRecord } from './pin-upstream.mjs';
@@ -190,9 +190,12 @@ check([...(pullsProps.backlogSources?.chapters ?? []), ...(pullsProps.backlogSou
 // (lib/content/tables.mjs). Without it the page serves the deployment's copy, which
 // lags every release until a redeploy.
 for (const route of Object.keys(PAGE_TABLES)) {
-  check(m.pages[route], `Missing page that carries game tables: ${route}`);
-  const missing = missingPageTables(route, JSON.parse(fs.readFileSync(path.join(root, 'release', m.pages[route].path))).props);
-  check(!missing.length, `The ${route} page does not carry this release's ${missing.join(', ')} (__contentTables)`);
+  const paths = matchingPagePaths(route, Object.keys(m.pages));
+  check(paths.length, `Missing page that carries game tables: ${route}`);
+  for (const page of paths) {
+    const missing = missingPageTables(route, JSON.parse(fs.readFileSync(path.join(root, 'release', m.pages[page].path))).props);
+    check(!missing.length, `The ${page} page does not carry this release's ${missing.join(', ')} (__contentTables)`);
+  }
 }
 check(Object.keys(m.pages).filter(route => route.startsWith('/operators/')).length > 100, 'Operator catalogue is incomplete');
 // music-catalogue.json is the music player's queue: without it, songs the release adds

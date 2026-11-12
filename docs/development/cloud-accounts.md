@@ -1,19 +1,19 @@
 # Arkpedia accounts
 
-The accepted account implementation uses Better Auth 1.7.12, Google/Discord and a
-native Cloudflare D1 binding. It is being integrated selectively into main from
-Cloudflare source `de829d1e`; this document does not claim a completed main release.
-Vercel and isolated staging have no account binding: APIs return private/no-store
-503 and browser-only imports, plans, backups and music remain available.
+Current deployment boundary and recommendation: [2026-10-30 cost/security review](account-cost-security-review.md). Accounts are Preview-only on the native Cloudflare staging deployment, with isolated account storage. The pilot and staging-disabled configuration descriptions below are historical migration notes; they are not instructions to re-enable the retired pilot or bind Preview to production data. The current `accountsEnv()` implementation and `AGENTS.md` own the deployment gate.
 
-The existing pilot is on `arkpedia-cf.mocchibird.com`. Its D1 migrations 001–003
-have already been applied. Do not reset that database or rerun its ALTER statements.
+The account implementation uses Better Auth 1.7.12, Google/Discord and a
+native Cloudflare D1 binding. Preview binds only `arkpedia-preview-accounts`
+(`7d9cdfb2-2203-4708-bad5-f357d2c105b2`) under `previews.d1_databases` in
+`wrangler.preview.jsonc`, with `https://preview.arkpedia.net` as the auth origin.
+Its existing account tables and provider secret names were verified on 2026-10-31;
+restoring the missing binding requires no new database, migration or secret rotation.
+Production rejects account APIs even when bindings and credentials are present.
+Browser-only imports, plans, backups and music remain available everywhere.
+
+The retired pilot used `arkpedia-cf.mocchibird.com`. Preserve its retained database,
+identities and secrets; never attach that database to Preview or copy its users.
 R2 page/audio caches never store account records or credentials.
-
-For PR #770, accounts stay on that pilot. Main integration does not enable accounts
-on `www.arkpedia.net` or move pilot users. No new D1 database, OAuth application,
-callback registration, secret or DNS change is required for this integration.
-Production hostname and database migration remain separate decisions.
 
 ## Saving and privacy
 
@@ -30,6 +30,24 @@ Never include account data in public content releases, static payloads or analyt
 New users explicitly choose a unique username. Google/Discord names and pictures
 are not their public profile. An imported Doctor name is only an explicit suggestion;
 optional friend tag/server data is private and does not prove game-account ownership.
+AccountActions owns the single login/setup/settings popup. Sign-in returns to the
+originating same-site route, preserving its filters and anchor. A new user chooses
+a username, then must confirm the three independent saving choices before any
+snapshot or pull-archive upload. All categories start unchecked; saving nothing
+is a valid choice. `cloud_save.syncReviewed` persists completion on the server,
+so a fresh tab, reload or another device cannot bypass the required popup. Escape,
+backdrop clicks and route changes cannot dismiss this step. Failed confirmation
+keeps the choices visible and uploads blocked; the explicit Save choices action
+commits all categories atomically with the current owner/revision. The API rejects
+premature uploads, including requests from older tabs. Consent withdrawal and
+account/data deletion remain available. A paused save stays paused.
+
+Migration 0005 preserves existing profiles' choices and data, while unfinished
+and newly created accounts require review. Optional friend tags and pictures stay
+in later settings. After consent, normal account-switch and save-conflict rules
+apply before selected browser data is uploaded. Google/Discord login never starts
+a Yostar import or fetches game replays.
+
 Provider linking requires an existing account and cannot remove the last login.
 Deletion requires typed confirmation and a fresh provider session.
 
@@ -53,10 +71,10 @@ or committed files. `.dev.vars.example` lists local names without real credentia
 Register each exact `/api/auth/callback/google` and `/api/auth/callback/discord`
 URL with its provider. A different hostname's cookies do not transfer sessions.
 
-The main production Worker config and production D1 choice are separate reviewed
-hosting work. Do not add accounts to `wrangler.preview.jsonc`: it deliberately
-isolates writable resources and disables login. An authenticated alternate host
-needs its own reviewed role and noindex policy.
+Production accounts remain disabled. `wrangler.preview.jsonc` allows only the
+fixed isolated Preview database; the isolation checks reject any other database
+and any service binding. Keep the staging role and noindex policy. Publish only
+with the native Preview workflow, never `wrangler deploy` with this config.
 
 For a reviewed account-enabled configuration with an empty D1 array, the helper
 prepares only its non-secret binding and origin:
@@ -90,3 +108,89 @@ Real OAuth/login/link/restore/delete acceptance on the exact candidate hostname,
 old/new clients and rollback safety remain required before production promotion.
 See [the promotion review](account-main-promotion-review.md) and
 [the migration plan](system-simplification-plan.md) for the remaining gates.
+
+## Preview hardening — 2026-11-01
+
+`server.ts` requires a session created within five minutes for `/link-social` and
+`/revoke-other-sessions`, checked against server-side session storage. The existing
+fresh-session requirements for unlinking/deletion remain. Account settings offers
+**Sign out other devices** and directs stale sessions to an already linked provider.
+A provider return does not automatically perform the requested sensitive action.
+
+Native Preview ingress rejects excessive account traffic before calling the app:
+6,000 requests/minute per Cloudflare location overall and 300/minute per individual
+Cloudflare-supplied IP. Cross-zone Worker requests share a Cloudflare IP and use only
+the aggregate cap. These Cloudflare limits are approximate and are not a global
+spending cap. Never trust a client-supplied forwarded IP to bypass the aggregate cap.
+Only Preview binds the dedicated `2026110101` and `2026110102` rate namespaces.
+
+Authenticated custom APIs additionally use atomic D1 limits across all locations
+and devices: 120 cloud reads, 60 cloud writes, 30 profile operations and 10 removals
+per account per minute. Removal has its own allowance. Counters are bounded to four
+rows per account and cascade on account deletion. Responses include `Retry-After`;
+cloud sync waits before retrying throttled/unavailable requests. Existing 15-second
+successful polling is unchanged; revision-only polling remains a cost improvement.
+
+Migration `0004_account_protection.sql` adds the counters and archive usage tracking.
+Archive growth is bounded to 64 game-account namespaces, 100,000 draws and 16 MiB of
+accounted row content (including a fixed per-row allowance), whichever is reached
+first. This is a payload quota, not total D1 disk usage including indexes. The
+900 KB snapshot/upload limits remain. Triggers maintain usage transactionally;
+quota failure rolls back the full save batch, including its revision. Re-importing
+known rows does not consume duplicate quota. Consent withdrawal/deletion reclaims
+space. Existing over-quota records survive migration unchanged; new growth is
+refused and the reader can export before deleting cloud data. No old migration is
+rerun and no existing identity, provider link or secret is replaced.
+
+Preview responses enforce a seven-day HSTS policy without `includeSubDomains` or
+preload, plus CSP restrictions on objects, framing, base URLs and form targets.
+Script restrictions are **report-only**, observed during browser QA; they are not
+an enforced XSS barrier yet. No CSP reports or reader URLs are sent to a third party.
+Do not enforce the script policy until inline bootstrap scripts and external players
+have been checked across the static/ISR site. The wrapper preserves `no-referrer`
+on auth endpoints, including after Next's shared headers.
+
+### Recovery and acceptance
+
+The Preview publication workflow verifies a D1 Time Travel bookmark through its dedicated API endpoint before applying
+pending migrations to the fixed isolated Preview database, then publishes the same
+checked source. The bookmark stays in the runner's temporary recovery file; do not
+log account data or credentials. A temporary migration-only configuration exposes exactly the verified Preview binding to Wrangler, whose migration command does not read nested `previews` bindings. If recovery verification fails, migration and
+publication stop. Inspect the provider's current Time Travel retention before an
+incident; do not assume backups last forever.
+
+A code rollback may leave the additive schema in place. Do not restore the active
+database merely to roll back code: doing so can discard later saves. An intentional
+incident restore needs a chosen recovery point and preservation of subsequent data.
+Keep the auth encryption secret available; replacing it can invalidate sessions or
+make stored provider tokens unreadable. Do not copy Preview data into production.
+
+The SQLite/D1-adapter tests exercise limits, quota rollback, preservation of old data,
+session expiry/revocation and restoration of a synthetic database backup with its
+identities, provider links, session and saves. They do not prove a hosted restore
+or a real provider login. Complete Google/Discord round trips, link/unlink and
+cross-device restore/deletion on disposable accounts remain manual acceptance.
+
+### Optional auto-deploy archive
+
+Explicit auto-deploy sync uses the nested `/api/cloud-account/auto-deploys`
+API. Its separate opt-in is available only with reviewed imported-game-data consent;
+normal account sign-in never starts game traffic. Migration `0006_auto_deploys.sql`
+adds bounded, per-user replay rows and quota accounting. Consent withdrawal and
+account deletion reclaim these rows. Server-side compare-and-swap and monotonic
+stage-counter checks reject stale writes; credential fields are rejected before
+storage. See [the transport contract](account-import-transport.md#optional-auto-deploy-sync)
+for queue pacing, retention, limitations and separate export behavior.
+
+### Profile pictures
+
+Account pictures are catalogue IDs in `arkpedia_profile.avatarId` (migration 0013),
+updated through the authenticated, same-origin, owner-bound profile PATCH. Apply
+the migration before serving the new application. The API accepts only catalogue
+IDs and null for the default; pictures are validated again before rendering.
+
+This is profile identity, separate from cloud-save categories and their replacement
+contract. Old clients changing a username or uploading a cloud snapshot preserve it.
+Deleting the account removes the profile row; deleting cloud saves does not.
+Guest pictures remain in `arkpedia:profile-avatar-v1` and are never automatically
+adopted by a signed-in account. Select a picture while signed in to save it there.

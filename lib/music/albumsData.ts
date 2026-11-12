@@ -10,7 +10,9 @@ import albumsData from '@/data/albums.json';
 // Siren's: every album there says game "endfield". Guarded like albums.json (next.config.js).
 import endfieldAlbumsData from '@/data/endfield-albums.json';
 import { msrTrackId } from './trackId';
+import { hasMusicClaimRisk } from './claimRisk';
 import type { MusicGame } from './songFilter';
+import { findSongVersion, isInstrumentalVersion } from './songVersions';
 
 export interface RawCredit {
   role: string;
@@ -79,6 +81,7 @@ export interface MonsterSirenSong {
   copyright: boolean; // true = copyrighted -- excluded when stream-safe mode is on
   length: string;
   lyricFilename: string | null; // just the filename -- actually READING it needs fs, see albumsDataServer.ts
+  lyricTrackId?: string; // The track that supplies an instrumental’s lyric file.
   hasLyrics: boolean; // cheap flag (just Boolean(lyricFilename)) -- lets any component show a Lyrics button and fetch the actual text on demand, without needing the text itself preloaded
 }
 
@@ -100,14 +103,13 @@ let cachedMonsterSirenOnly: MonsterSirenSong[] | null = null;
 // lets the instrumental still be used karaoke-style, rather than
 // showing "no lyrics available" for a song that clearly has words,
 // just not sung on this particular take.
-const INSTRUMENTAL_SUFFIX = / \(Instrumental\)$/i;
+const versionedSong = (song: RawSong) => ({ ...song, id: song.songId, title: song.songName, altTitle: song.songAltName, album: song.albumId });
 
-function resolveLyricFilename(song: RawSong, albumSongs: RawSong[]): string | null {
-  if (song.lyricFilename) return song.lyricFilename;
-  if (!INSTRUMENTAL_SUFFIX.test(song.songName)) return null;
-  const vocalTitle = song.songName.replace(INSTRUMENTAL_SUFFIX, '');
-  const vocalSibling = albumSongs.find((s) => s.songName === vocalTitle && s.lyricFilename);
-  return vocalSibling?.lyricFilename || null;
+function lyricSource(song: RawSong, albumSongs: RawSong[]): RawSong | undefined {
+  if (!isInstrumentalVersion(versionedSong(song))) return song.lyricFilename ? song : undefined;
+  const matched = findSongVersion(versionedSong(song), albumSongs.map(versionedSong))?.song;
+  const vocal = matched?.lyricFilename ? matched : undefined;
+  return song.lyricFilename && song.lyricFilename !== vocal?.lyricFilename ? song : vocal;
 }
 
 /** The game an album is from. Only the two values: an unknown one is a data error, refused
@@ -207,7 +209,8 @@ function flattenSongs(albums: readonly RawAlbum[], include: (song: RawSong) => b
     const albumSongs = album.songs || [];
     for (const song of albumSongs) {
       if (!include(song)) continue;
-      const lyricFilename = resolveLyricFilename(song, albumSongs);
+      const source = lyricSource(song, albumSongs);
+      const lyricFilename = source?.lyricFilename || null;
       songs.push({
         trackId: song.videoId || msrTrackId(song.songId),
         videoId: song.videoId || '',
@@ -225,9 +228,10 @@ function flattenSongs(albums: readonly RawAlbum[], include: (song: RawSong) => b
         albumName: album.albumAltName || album.albumName,
         albumOriginalName: album.albumName,
         coverPath,
-        copyright: song.copyright === 'yes',
+        copyright: hasMusicClaimRisk({ copyright: song.copyright === 'yes', credits: song.credits }),
         length: song.length || '',
         lyricFilename,
+        ...(source && isInstrumentalVersion(versionedSong(song)) ? { lyricTrackId: source.videoId || msrTrackId(source.songId) } : {}),
         hasLyrics: Boolean(lyricFilename),
       });
     }

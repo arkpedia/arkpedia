@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { applyPendingWrites, landedValue, leavesPage, pathOf } from '../../lib/hooks/useQueryState';
 
-test('a pending URL write is dropped only by a navigation to another page', () => {
+test('page changes are distinct from query and hash changes', () => {
   // Discover's search, then the nav's Library link: the write must not send the reader back.
   assert.equal(leavesPage('/music/discover?q=a', '/music?view=library'), true);
   assert.equal(leavesPage('/operators?q=amiy', '/operators/Amiya'), true);

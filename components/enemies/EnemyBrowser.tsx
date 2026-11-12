@@ -163,14 +163,32 @@ export default function EnemyBrowser({ seed, contents, selectedSlug, children }:
   // enemy leaves the thing you picked below the fold. Scroll it up under the nav so
   // it fills the screen. Only on a selection CHANGE -- landing on a page directly
   // should not fling you past the grid you have not seen yet.
+  //
+  // `selectedSlug` is a prop, and on a direct visit it arrives a beat after mount
+  // (the page resolves it from the address once the router is ready), so the
+  // firstRender guard below did not catch it: /enemies opened 581px down on a phone,
+  // past its own heading and the whole grid. A change only scrolls once the reader
+  // has actually acted -- any pointer or key event is the signal, and a tile pick is
+  // both.
   const detailRef = useRef<HTMLDivElement | null>(null);
   const firstRender = useRef(true);
+  const interacted = useRef(false);
+  useEffect(() => {
+    const mark = () => { interacted.current = true; };
+    window.addEventListener('pointerdown', mark, { capture: true, once: true });
+    window.addEventListener('keydown', mark, { capture: true, once: true });
+    return () => {
+      window.removeEventListener('pointerdown', mark, { capture: true });
+      window.removeEventListener('keydown', mark, { capture: true });
+    };
+  }, []);
   useEffect(() => {
     if (firstRender.current) {
       firstRender.current = false;
       return;
     }
     if (typeof window === 'undefined') return;
+    if (!interacted.current) return;
     if (window.matchMedia('(min-width: 901px)').matches) return;  // both panes already visible
     const pane = detailRef.current;
     if (!pane) return;
@@ -387,6 +405,10 @@ export default function EnemyBrowser({ seed, contents, selectedSlug, children }:
                 ) : (
                   <span className="enemy-tile-art blank" aria-hidden="true" />
                 )}
+                {/* The name, on the same fixed scrim ink as the code badge: the badge
+                    alone made the picker unscannable -- every tile said "B1", "A8" or
+                    "01", and the one thing a reader knows lived in a title tooltip. */}
+                <span className="enemy-tile-name">{e.name}</span>
               </Link>
             ))}
           </div>

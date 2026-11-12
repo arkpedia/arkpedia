@@ -8,10 +8,17 @@ assert.equal(config.name, 'arkpedia');
 assert.equal(config.main, 'scripts/deploy/preview-worker.mjs');
 assert.equal(config.previews.vars.ARKPEDIA_DEPLOYMENT_ROLE, 'staging');
 assert.equal(config.previews.vars.ARKPEDIA_CONTENT_CHANNEL, 'live');
+assert.equal(config.previews.vars.ARKPEDIA_AUTH_URL, 'https://preview.arkpedia.net');
+  assert.equal(config.ratelimits, undefined);
+  assert.deepEqual(config.previews.ratelimits, [
+    { name: 'ACCOUNT_TRAFFIC_LIMIT', namespace_id: '2026110101', simple: { limit: 6000, period: 60 } },
+    { name: 'ACCOUNT_IP_LIMIT', namespace_id: '2026110102', simple: { limit: 300, period: 60 } },
+  ]);
+assert.deepEqual(config.previews.d1_databases, [{binding:'ARKPEDIA_ACCOUNTS_DB',database_name:'arkpedia-preview-accounts',database_id:'7d9cdfb2-2203-4708-bad5-f357d2c105b2',migrations_dir:'migrations/accounts'}]);
 assert.deepEqual(config.previews.r2_buckets, [{binding:'NEXT_INC_CACHE_R2_BUCKET',bucket_name:'arkpedia-preview-cache'}]);
 for (const key of ['services', 'd1_databases', 'routes', 'queues', 'env']) {
   assert.equal(config[key], undefined);
-  assert.equal(config.previews[key], undefined);
+  if (key !== 'd1_databases') assert.equal(config.previews[key], undefined);
 }
 if (action === 'check') { console.log('Native Preview isolation verified'); process.exit(0); }
 const env = {...process.env, ARKPEDIA_WORKER:'1', ARKPEDIA_CONTENT_CHANNEL:'live', ARKPEDIA_DEPLOYMENT_ROLE:'staging'};

@@ -5,12 +5,48 @@ import { accountFromGame, parseAccount } from '../../lib/account/accountStore';
 import { mergeImportedProgress } from '../../lib/pulls/importedProgress';
 import { parsePastProgress, type PastProgress } from '../../lib/pulls/pastProgress';
 import { backlogFromAccount, type BacklogSources } from '../../lib/pulls/pulls';
-import { buildFreeRewards } from '../build/build-free-rewards.mjs';
-import { allFreeRewards, freeRewardsForAccount, freeRewardTotals } from '../../lib/pulls/freeRewards';
+import { freeRewardsForAccount, freeRewardTotals, type FreeReward } from '../../lib/pulls/freeRewards';
 
-// Synthetic protocol fixtures. Field shapes: Torappu PlayerCheckIn, PlayerActivity,
-// PlayerOpenServer and PlayerGiftProgressPerData at bc6e6155ccb61f8028b1b09209919052e8a9704c.
+/* Synthetic protocol fixtures. Field shapes: Torappu PlayerCheckIn, PlayerActivity,
+   PlayerOpenServer and PlayerGiftProgressPerData at bc6e6155ccb61f8028b1b09209919052e8a9704c.
+   The reward catalogue is the one arkpedia-data's importer builds out of the client tables
+   (its scripts/tests/test-reward-account-completion.ts holds it to them), inlined as a release
+   carries it: both beginner programmes, the sign-ins, the gift and the free pack. */
 const map = { version: 1 as const, chars: {}, beginnerPrograms: [{ id: 'old', startTs: 100 }, { id: 'current', startTs: 200 }] };
+const catalogue = [
+  { id: 'free:current_task', group: 'Beginner rewards', name: 'Replacement mission', rewards: [{ id: '4003', name: 'Orundum', count: 100, orundum: 100 }], beginner: { id: 'current', startTs: 200, current: true }, forecast: true },
+  { id: 'free:current:checkInData:1', group: 'Beginner rewards', name: 'Cumulative sign-in · Day 1', rewards: [{ id: '4003', name: 'Orundum', count: 100, orundum: 100 }], beginner: { id: 'current', startTs: 200, current: true }, forecast: true },
+  { id: 'free:current:checkInData:2', group: 'Beginner rewards', name: 'Cumulative sign-in · Day 2', rewards: [{ id: '4003', name: 'Orundum', count: 100, orundum: 100 }], beginner: { id: 'current', startTs: 200, current: true }, forecast: true },
+  { id: 'free:current:chainLoginData:1', group: 'Beginner rewards', name: 'Consecutive sign-in · Day 1', rewards: [{ id: '4003', name: 'Orundum', count: 100, orundum: 100 }], beginner: { id: 'current', startTs: 200, current: true }, forecast: true },
+  { id: 'free:current:chainLoginData:2', group: 'Beginner rewards', name: 'Consecutive sign-in · Day 2', rewards: [{ id: '4003', name: 'Orundum', count: 100, orundum: 100 }], beginner: { id: 'current', startTs: 200, current: true }, forecast: true },
+  { id: 'free:welcome-mail', group: 'Beginner rewards', name: 'Welcome mail', rewards: [{ id: '4003', name: 'Orundum', count: 3800, orundum: 3800 }], forecast: true },
+  { id: 'free:milestone', group: 'Sign-in milestones', name: '30 sign-in days · Doctor Lv.10', rewards: [{ id: '4003', name: 'Orundum', count: 100, orundum: 100 }], forecast: false },
+  { id: 'free:signin_test:1', group: 'Monthly sign-in', name: 'Monthly · Day 1', rewards: [{ id: '4003', name: 'Orundum', count: 100, orundum: 100 }], startAt: 1000, endAt: 10000000, forecast: false },
+  { id: 'free:signin_test:2', group: 'Monthly sign-in', name: 'Monthly · Day 2', rewards: [{ id: '4003', name: 'Orundum', count: 100, orundum: 100 }], startAt: 1000, endAt: 10000000, forecast: false },
+  { id: 'free:event_a:1', group: 'Event sign-in and gifts', name: 'A · Day 1', rewards: [{ id: '4003', name: 'Orundum', count: 100, orundum: 100 }], startAt: 1000, endAt: 10000000, forecast: false },
+  { id: 'free:event_a:2', group: 'Event sign-in and gifts', name: 'A · Day 2', rewards: [{ id: '4003', name: 'Orundum', count: 100, orundum: 100 }], startAt: 1000, endAt: 10000000, forecast: false },
+  { id: 'free:event_b:1', group: 'Event sign-in and gifts', name: 'B · Day 1', rewards: [{ id: '4003', name: 'Orundum', count: 100, orundum: 100 }], startAt: 1000, endAt: 10000000, forecast: false },
+  { id: 'free:event_b:2', group: 'Event sign-in and gifts', name: 'B · Day 2', rewards: [{ id: '4003', name: 'Orundum', count: 100, orundum: 100 }], startAt: 1000, endAt: 10000000, forecast: false },
+  { id: 'free:gift', group: 'Event sign-in and gifts', name: 'Gift', rewards: [{ id: '4003', name: 'Orundum', count: 100, orundum: 100 }], startAt: 1000, endAt: 10000000, forecast: false },
+  { id: 'free:GP_freeL_5', group: 'Free level-up packs', name: 'Free pack', rewards: [{ id: 'GP_freeL_5', name: 'Free pack', count: 1 }], forecast: false },
+  { id: 'free:old_task', group: 'Beginner rewards', name: 'Old programme mission', rewards: [{ id: '4003', name: 'Orundum', count: 100, orundum: 100 }], beginner: { id: 'old', startTs: 100, current: false }, forecast: true },
+  { id: 'free:old:checkInData:1', group: 'Beginner rewards', name: 'Cumulative sign-in · Day 1', rewards: [{ id: '4003', name: 'Orundum', count: 100, orundum: 100 }], beginner: { id: 'old', startTs: 100, current: false }, forecast: true },
+  { id: 'free:old:checkInData:2', group: 'Beginner rewards', name: 'Cumulative sign-in · Day 2', rewards: [{ id: '4003', name: 'Orundum', count: 100, orundum: 100 }], beginner: { id: 'old', startTs: 100, current: false }, forecast: true },
+  { id: 'free:old:chainLoginData:1', group: 'Beginner rewards', name: 'Consecutive sign-in · Day 1', rewards: [{ id: '4003', name: 'Orundum', count: 100, orundum: 100 }], beginner: { id: 'old', startTs: 100, current: false }, forecast: true },
+  { id: 'free:old:chainLoginData:2', group: 'Beginner rewards', name: 'Consecutive sign-in · Day 2', rewards: [{ id: '4003', name: 'Orundum', count: 100, orundum: 100 }], beginner: { id: 'old', startTs: 100, current: false }, forecast: true },
+] as unknown as FreeReward[];
+/* The Paradox Simulations of the same build: one per operator the handbook lists a stage for. */
+const paradox = [
+  { operatorId: 'char_bad', id: 'paradox:mem_bad', name: 'char_bad · bad', amount: 200 },
+  { operatorId: 'char_done', id: 'paradox:mem_done', name: 'char_done · done', amount: 200 },
+  { operatorId: 'char_null', id: 'paradox:mem_null', name: 'char_null · null', amount: 200 },
+  { operatorId: 'char_pass', id: 'paradox:mem_pass', name: 'char_pass · pass', amount: 200 },
+  { operatorId: 'char_played', id: 'paradox:mem_played', name: 'char_played · played', amount: 200 },
+  { operatorId: 'char_story', id: 'paradox:mem_story', name: 'char_story · story', amount: 200 },
+  { operatorId: 'char_unknown', id: 'paradox:mem_unknown', name: 'char_unknown · unknown', amount: 200 },
+  { operatorId: 'char_unlocked', id: 'paradox:mem_unlocked', name: 'char_unlocked · unlocked', amount: 200 },
+];
+
 const fixture = {
   status: { registerTs: 250, level: 120, uid: 'fixture' },
   checkIn: { checkInGroupId: 'signin_test', checkInRewardIndex: 20, canCheckIn: 1, checkInHistory: [1, 0, 2, '1'], longTermRecvRecord: { milestone: 1 } },
@@ -42,33 +78,18 @@ test('beginner programmes use the account registration schedule; missing evidenc
   assert(!rewardClaimsFromGame(fixture, [{ id: 'ended', startTs: 100, endTs: 199 }, { id: 'future', startTs: 300 }]).known.some(id => /:(checkInData|chainLoginData):/.test(id)), 'a gap between programme windows stays unknown');
 });
 
-test('every supported imported claim resolves to an identity emitted by the reward catalogue producer', () => {
-  const item = { id: '4003', count: 100 };
-  const days = [{ order: 1, itemList: [item] }, { order: 2, itemList: [item] }];
-  const info = (name: string) => ({ name, startTime: 1, rewardEndTime: 9999 });
-  const built = buildFreeRewards({ handbook: { handbookStageData: {} }, characters: {}, items: { items: { '4003': { name: 'Orundum' } } },
-    missions: { missions: {}, missionGroups: {} },
-    openServer: { schedule: map.beginnerPrograms, dataMap: { old: { openServerMissionData: [{ id: 'old_task', description: 'Old programme mission', rewards: [item] }],
-      checkInData: days.map(day => ({ order: day.order, item })), chainLoginData: days.map(day => ({ order: day.order, item })) }, current: { openServerMissionData: [{ id: 'current_task', description: 'Replacement mission', rewards: [item] }],
-      checkInData: days.map(day => ({ order: day.order, item })), chainLoginData: days.map(day => ({ order: day.order, item })) } },
-      constant: { firstDiamondShardMailCount: 3800 }, longTermCheckInData: { groupList: [{ groupId: 'milestone', days: 30, level: 10, rewardList: [item] }] } },
-    checkin: { groups: { signin_test: { groupId: 'signin_test', title: 'Monthly', items: [item, item], signStartTime: 1, signEndTime: 9999 } } },
-    activity: { activity: { CHECKIN_ONLY: { event_a: { checkInList: days } }, CHECKIN_ALL_PLAYER: { event_b: { checkInList: days } }, LOGIN_ONLY: { gift: { itemList: [item] } } },
-      basicInfo: { event_a: info('A'), event_b: info('B'), gift: info('Gift') } },
-    shops: { shopGPDataDict: { GP_freeL_5: { displayName: 'Free pack' } } } });
-  const all = allFreeRewards(built);
-  const ids = new Set(all.map(reward => reward.id));
+test('every supported imported claim resolves to a row the reward catalogue carries', () => {
+  const ids = new Set(catalogue.map(reward => reward.id));
   for (const id of rewardClaimsFromGame(fixture, map.beginnerPrograms).claimed) assert(ids.has(id), `Imported claim has no catalogue row: ${id}`);
   const older = { ...fixture, status: { ...fixture.status, registerTs: 150 }, mission: { missions: { OPENSERVER: { old_task: { state: 3 } } } } };
   for (const id of rewardClaimsFromGame(older, map.beginnerPrograms).claimed) assert(ids.has(id), `Older account claim has no catalogue row: ${id}`);
   const oldAccount = accountFromGame(older, map, 'en');
-  const visible = freeRewardsForAccount(all, oldAccount);
+  const visible = freeRewardsForAccount(catalogue, oldAccount);
   assert(visible.some(reward => reward.id === 'free:old:checkInData:1'));
   assert(!visible.some(reward => reward.id.startsWith('free:current:')));
   assert(visible.some(reward => reward.id === 'free:old_task'));
   assert(!visible.some(reward => reward.id === 'free:current_task'));
   assert(oldAccount.rewardClaims?.claimed.includes('free:old_task'));
-  assert(!built.rewards.some(reward => reward.id.startsWith('free:old:')), 'older readers still receive only the current default collection');
   const oldSignins = visible.filter(reward => reward.beginner);
   assert.equal(freeRewardTotals(oldSignins, new Set(oldAccount.rewardClaims?.claimed), 0).orundum, 200, 'only the two explicitly unreceived old-programme days remain');
 });
@@ -77,6 +98,7 @@ test('first-clear rewards require three stars, while ordinary account clears ret
   const account = accountFromGame({ ...fixture, dungeon: { stages: { partial: { state: 2 }, complete: { state: 3 }, mem_trial: { state: 3 }, unopened: { state: 0 } } } }, map, 'en');
   assert.deepEqual(account.cleared, ['complete', 'mem_trial', 'partial']);
   assert.deepEqual(account.rewardCleared, ['complete', 'mem_trial']);
+  assert.deepEqual(account.recordedStages, ['complete', 'mem_trial', 'partial', 'unopened']);
   assert.deepEqual(parseAccount(JSON.stringify(account)), account);
   const sources = { chapters: [{ id: 'chapter', op: 2, stages: ['partial', 'complete'] }], playable: [], resources: [], annihilation: [],
     paradox: [{ id: 'paradox:mem_trial', amount: 200 }], originiteByStageType: {}, annihilationOrundum: 0 } as unknown as BacklogSources;
@@ -84,6 +106,9 @@ test('first-clear rewards require three stars, while ordinary account clears ret
   assert.equal(remaining.sources.chapters[0].op, 1);
   assert(!remaining.doneKeys.has('chapter')); assert(remaining.doneKeys.has('paradox:mem_trial'));
   assert.equal(accountFromGame({}, map, 'en').rewardCleared, undefined);
+  assert.equal(accountFromGame({}, map, 'en').recordedStages, undefined);
+  assert.deepEqual(accountFromGame({ dungeon: { stages: { valid: { state: 0 }, malformed: { state: '3' }, unknown: { state: 9 }, missing: {} } } }, map, 'en').recordedStages, ['valid']);
+  assert.equal(parseAccount(JSON.stringify({ ...account, recordedStages: [1] }))?.recordedStages, undefined);
 });
 
 test('real handbook addon nesting imports Paradox completion into catalogue rewards and preserves manual progress', () => {
@@ -98,12 +123,7 @@ test('real handbook addon nesting imports Paradox completion into catalogue rewa
   assert.deepEqual(imported.cleared, ['mem_done', 'mem_pass']);
   assert.deepEqual(imported.rewardCleared, ['mem_done']);
   assert.deepEqual(parseAccount(JSON.stringify(imported)), imported);
-  const ids = ['done', 'unlocked', 'played', 'pass', 'bad', 'unknown', 'null', 'story'];
-  const built = buildFreeRewards({ handbook: { handbookStageData: Object.fromEntries(ids.map(id => [id,
-    { stageId: `mem_${id}`, charId: `char_${id}`, name: id, rewardItem: [{ id: '4003', count: 200 }] }])) }, characters: {}, items: { items: {} },
-    missions: { missions: {}, missionGroups: {} }, openServer: { schedule: [], dataMap: {}, constant: { firstDiamondShardMailCount: 3800 } }, checkin: { groups: {} },
-    activity: { activity: {}, basicInfo: {} }, shops: { shopGPDataDict: {} } });
-  const sources = { chapters: [], playable: [], resources: [], annihilation: [], paradox: built.paradox,
+  const sources = { chapters: [], playable: [], resources: [], annihilation: [], paradox,
     originiteByStageType: {}, annihilationOrundum: 0 } as unknown as BacklogSources;
   const completed = backlogFromAccount(sources, new Set(imported.rewardCleared), null);
   assert.deepEqual([...completed.doneKeys], ['paradox:mem_done']);
@@ -117,6 +137,25 @@ test('real handbook addon nesting imports Paradox completion into catalogue rewa
   const duplicate = accountFromGame({ ...raw, dungeon: { stages: { mem_done: { state: 3 } } } }, map, 'en');
   assert.deepEqual(duplicate.rewardCleared, ['mem_done']);
   for (const addon of [null, [], 'bad', { bad: { stage: null } }]) assert.equal(accountFromGame({ troop: { addon } }, map, 'en').rewardCleared, undefined);
+});
+
+test('reported Global handbook clears count despite state 1; Jaye and Minimalist remain unfinished', () => {
+  // Reconstructed from the owner's count-only November 6 report, without account data.
+  const ids = ['mem_cgbird_1', 'mem_tomimi_1', 'mem_skgoat_1', 'mem_crow_1'];
+  const addon = Object.fromEntries(ids.map((id, index) => [`char_fixture_${index}`, { stage: { [id]: { state: 1, completeTimes: 1 } } }]));
+  const raw = { dungeon: { stages: { main_attempt: { state: 1, completeTimes: 1 } } }, troop: { addon } };
+  const imported = accountFromGame(raw, map, 'en');
+  assert.deepEqual(imported.rewardCleared, [...ids].sort());
+  assert.deepEqual(imported.cleared, [...ids].sort());
+  const allIds = [...ids, 'mem_strong_1', 'mem_malist_1'];
+  const sources = { chapters: [], playable: [], resources: [], annihilation: [], paradox: allIds.map(id => ({ id: `paradox:${id}`, amount: 200 })),
+    originiteByStageType: {}, annihilationOrundum: 0 } as unknown as BacklogSources;
+  const done = backlogFromAccount(sources, new Set(imported.rewardCleared), null);
+  assert.deepEqual([...done.doneKeys].sort(), ids.map(id => `paradox:${id}`).sort());
+  for (const completeTimes of [0, -1, 1.5, '1', NaN, Infinity]) {
+    const snapshot = accountFromGame({ troop: { addon: { char_test: { stage: { mem_test: { state: 1, completeTimes, fts: 100, rts: 100 } } } } } }, map, 'en');
+    assert.deepEqual(snapshot.rewardCleared, [], String(completeTimes));
+  }
 });
 
 const progress: PastProgress = { doneKeys: ['manual-chapter', 'free:welcome-mail', 'free:event_a:2'], doneEvents: ['manual-event'], annihilationDone: true, ticksFrom: '' };

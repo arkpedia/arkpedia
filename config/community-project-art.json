@@ -1,15 +1,6 @@
 {
   "repository": "arkpedia-image-assets",
   "revision": "6c280c33ca24acdd863a7e1926232043fbd41222",
-  "files": {
-    "myrtle": "essential-icons/community-projects/myrtle.png",
-    "sanityGone": "essential-icons/community-projects/sanity-gone.png",
-    "prts": "essential-icons/community-projects/prts.png",
-    "arknightsWiki": "essential-icons/community-projects/arknights-wiki.png",
-    "krooster": "essential-icons/community-projects/krooster.webp",
-    "amiya": "essential-icons/community-projects/amiya.png",
-    "penguinStatistics": "essential-icons/community-projects/penguin-statistics.png"
-  },
   "companions": [
     {
       "name": "Amiya",

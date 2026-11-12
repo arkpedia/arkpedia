@@ -1,4 +1,5 @@
 import { chooseMusicView, musicViewLink } from './music-navigation-helpers';
+import { stubYouTube } from './youtube-stub';
 import { chromium, expect, test, type Page } from '@playwright/test';
 
 /*
@@ -21,7 +22,33 @@ async function artistCards(page: Page) {
   })));
 }
 
+test('search results leave the search field and Back button fully clickable', async ({ page }) => {
+  await page.goto('/music/discover');
+  const search = page.getByRole('searchbox', { name: 'Search songs, characters, artists, albums' });
+  const back = page.getByRole('button', { name: 'Back to browse' });
+  await search.fill('f');
+  await expect(page.locator('.music-discover-song-row').first()).toBeVisible();
+  const heading = page.locator('.music-discover-results .music-discover-section-heading').first();
+  const headingTop = await heading.evaluate(el => el.getBoundingClientRect().top);
+  // Start on Back, then Tab to search and Shift+Tab back, as when editing a query.
+  await back.focus();
+  for (const [key, control] of [['Tab', search], ['Shift+Tab', back]] as const) {
+    await page.keyboard.press(key);
+    await expect(control).toBeFocused();
+    const ringBottom = await control.evaluate(el => {
+      const style = getComputedStyle(el);
+      return el.getBoundingClientRect().bottom + parseFloat(style.outlineOffset) + parseFloat(style.outlineWidth);
+    });
+    expect(headingTop).toBeGreaterThanOrEqual(ringBottom);
+  }
+  const box = (await back.boundingBox())!;
+  await back.click({ position: { x: box.width / 2, y: box.height - 2 } });
+  await expect(search).toHaveValue('');
+  await expect(back).toHaveCount(0);
+});
+
 test('Featured artists: one card per artist, most songs first, and a card lists that artist\'s songs', async ({ page }) => {
+  await stubYouTube(page);
   await page.goto('/music/discover?browse=artists');
   const grid = page.locator('#discover-artists.music-discover-grid');
   await expect(grid).toBeVisible();
@@ -46,7 +73,7 @@ test('Featured artists: one card per artist, most songs first, and a card lists 
   const artist = cards.find((c) => c.name === 'Matthew Carl Earl')!;
   expect(artist, 'Matthew Carl Earl has a card of his own').toBeTruthy();
   await page.locator('#discover-artists .music-discover-artist-card', { hasText: 'Matthew Carl Earl' }).click();
-  await expect(page.locator('.music-discover-active-facet')).toHaveText(' · Matthew Carl Earl');
+  await expect(page.getByRole('heading', { name: 'Matthew Carl Earl', exact: true })).toBeVisible();
   await expect(page.locator('.music-discover-song-row')).toHaveCount(artist.count);
   await expect(page.locator('.music-discover-song-row', { hasText: 'Sterling Maffe and Matthew Carl Earl' }).first()).toBeVisible();
 });

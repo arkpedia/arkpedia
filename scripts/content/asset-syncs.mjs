@@ -1,19 +1,20 @@
 #!/usr/bin/env node
 /**
- * The public asset repositories' daily syncs, which the content release pins at whatever
- * commit each has reached.
+ * The public asset repositories' daily syncs, which arkpedia-data's nightly import pins at
+ * whatever commit each has reached (its asset-revisions and staged-art stages), and the waits
+ * that keep the nightly order: the syncs, then the import, then the application's compile.
  *
  *   node scripts/content/asset-syncs.mjs list                       one per line, repo/workflow
- *   node scripts/content/asset-syncs.mjs wait [--timeout-minutes 30]
+ *   node scripts/content/asset-syncs.mjs wait [--timeout-minutes 30] [--sync repo/workflow ...]
  *
- * `wait` holds a scheduled release until every sync has finished its run of the day. Their
- * crons (16:07-16:31 UTC) come three and a half hours before the release's, but GitHub starts
- * every scheduled run 2-4 hours late, so on 09-16..09-24 the last sync finished only 1.2-2.5
- * hours before the release started: an order kept by the clock, not by design. A sync counts
- * as done when its newest run (scheduled or started by hand) is less than 20 hours old and has
- * finished, whatever its conclusion; the 'Asset sync failing' report deals with failures. After
- * the timeout the release goes ahead with the commits the syncs have reached, and says which
- * it did not wait for. It never fails. Reads the GitHub API with GETs (GH_TOKEN).
+ * `wait` holds a scheduled run until every sync -- or each workflow named with --sync, such as
+ * arkpedia-data/import.yml for the compile -- has finished its run of the day. GitHub starts
+ * every scheduled run hours late, and by different amounts (the syncs' 16:07-16:31 UTC crons
+ * started at 20:35-21:15 on 10-27..10-29), so an order kept by the clock is not kept. A workflow
+ * counts as done when its newest run (scheduled or started by hand) is less than 20 hours old and
+ * has finished, whatever its conclusion; the 'Asset sync failing' and 'Import failing' reports
+ * deal with failures. After the timeout the run goes ahead with what they have reached, and says
+ * which it did not wait for. It never fails. Reads the GitHub API with GETs (GH_TOKEN).
  */
 import { pathToFileURL } from 'node:url';
 
@@ -71,11 +72,14 @@ export async function awaitSyncs({ syncs = ASSET_SYNCS, read, now = () => Date.n
 
 async function main([command, ...args]) {
   if (command === 'list') { console.log(ASSET_SYNCS.join('\n')); return; }
-  if (command !== 'wait') throw new Error('usage: asset-syncs.mjs list | wait [--timeout-minutes N]');
+  if (command !== 'wait') throw new Error('usage: asset-syncs.mjs list | wait [--timeout-minutes N] [--sync repo/workflow ...]');
   const at = args.indexOf('--timeout-minutes');
   const minutes = at >= 0 ? Number(args[at + 1]) : 30;
+  const named = args.flatMap((arg, i) => arg === '--sync' ? [args[i + 1]] : []);
+  if (named.some(sync => !/^[\w.-]+\/[\w.-]+\.ya?ml$/.test(sync ?? ''))) throw new Error('--sync takes repo/workflow.yml, a repository of arkpedia');
   const token = process.env.GH_TOKEN;
   const { pending } = await awaitSyncs({
+    syncs: named.length ? named : ASSET_SYNCS,
     read: sync => readRuns(sync, { token }),
     sleep: ms => new Promise(resolve => setTimeout(resolve, ms)),
     timeoutMs: minutes * 60_000,
@@ -84,8 +88,8 @@ async function main([command, ...args]) {
   });
   if (pending.size) {
     const list = [...pending].map(([sync, detail]) => `${sync} (${detail})`).join(', ');
-    console.log(`::warning title=Asset syncs not finished::Released without waiting longer for ${list}; the release pins the commits they have reached.`);
-  } else console.log('Every asset sync has finished its run of the day.');
+    console.log(`::warning title=Runs not finished::Went ahead without waiting longer for ${list}; this run takes what they have reached.`);
+  } else console.log(`${named.length ? named.join(', ') : 'Every asset sync'} finished ${named.length === 1 ? 'its run' : 'their runs'} of the day.`);
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {

@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { Operator } from './operatorTypes';
-import { getScheduledOperatorDebut } from './operatorReleaseSchedule';
+import { resolveOperatorDebut } from './operatorReleaseSchedule';
 import { getCurrentOperatorVoiceCredits } from './operatorVoices';
 import { isPortraitPending } from './operatorPortrait';
 
@@ -142,12 +142,7 @@ export function getAllOperators(): Operator[] {
     // Decided here, where the release's asset index is, and carried with the record:
     // the browser renders the placeholder from the flag instead of loading the index.
     if (isPortraitPending(op)) op = { ...op, portraitPending: true };
-    const debut = getScheduledOperatorDebut(op);
-    if (!debut) return op;
-    const releaseAt = debut.startAt;
-    return { ...op, releaseAt, ...(debut.availableUntil ? { availableUntil: debut.availableUntil } : {}), characterInfo: {
-      ...op.characterInfo, 'Release Date': releaseAt.slice(0, 10).replace(/-/g, '/'),
-    } };
+    return resolveOperatorDebut(op);
   }).sort((a, b) => a.name.localeCompare(b.name));
   return cachedOperators;
 }

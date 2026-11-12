@@ -180,14 +180,14 @@ export default function PullsPage({ scheduledEvents: globalEvents, scheduledBann
      says so. Before this the planner only knew the ticks a reader made in this dialog, and an
      imported account saw every rerun of its cleared events counted again (2026-10-28). The
      dialog's own ticks (clearedReruns, saved with the plan) stay for what the tracker cannot know. */
-  /* The account's medals: an event's all-stages medal outlives the stage records the game's
-     save drops once the event closes (the owner's import, 2026-10-28: 2,391 clears, none of
-     four cleared events), so a rerun of a medalled event is ticked from it. */
+  /* Use the imported stage records while present; medals stand in once the game's save
+     drops a closed event's stages. Keep uncleared records so an old medal cannot override them. */
   const ownedMedals = useMemo(() => (account?.profile?.medalCollection ? new Set(account.profile.medalCollection.map(medal => medal.id)) : null), [account]);
+  const recordedStages = useMemo(() => account?.recordedStages ? new Set(account.recordedStages) : null, [account]);
   /* For an event with no medal set (A Flurry to the Flame), owning its operator stands for the clear. */
   const ownedOperators = useMemo(() => (account ? rosterOperatorIds(account) : null), [account]);
-  const tickedReruns = useMemo(() => rerunsClearedByTicks(scheduledEvents, backlogSources.playable, past.doneEvents, past.cleared, backlogSources.stageSanity, ownedMedals, ownedOperators),
-    [scheduledEvents, backlogSources, past.doneEvents, past.cleared, ownedMedals, ownedOperators]);
+  const tickedReruns = useMemo(() => rerunsClearedByTicks(scheduledEvents, backlogSources.playable, past.doneEvents, past.cleared, backlogSources.stageSanity, ownedMedals, ownedOperators, recordedStages),
+    [scheduledEvents, backlogSources, past.doneEvents, past.cleared, ownedMedals, ownedOperators, recordedStages]);
   const clearedAll = useMemo(() => new Set([...clearedReruns, ...tickedReruns]), [clearedReruns, tickedReruns]);
   const [walletFrom, setWalletFrom] = useState('');
   // Locked by default while the resources are the import's (useLock); the reader's choice stays.

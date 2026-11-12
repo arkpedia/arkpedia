@@ -2,6 +2,13 @@ import { expect, test } from '@playwright/test';
 import { makeFriendFile } from '../../lib/account/friendFile';
 import type { AccountRecord } from '../../lib/account/accountStore';
 
+// These cases exercise selector dialogs; the independent privacy prompt must not cover their controls.
+test.beforeEach(async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem('arkpedia:privacy:v1', JSON.stringify({ version: 1, savedAt: Date.now(), analytics: false, externalMedia: false, externalMediaChosen: true, analyticsChosen: true }));
+  });
+});
+
 test('all ticket pools show signed, colored ratings and preserve the nested operator popup', async ({ page }) => {
   await page.goto('/selector-tickets');
   await expect(page.getByText('Kukkikaze ratings are pending.', { exact: false })).toHaveCount(0);

@@ -25,7 +25,7 @@ test('friend import, nested preview, skin collection and reload leave the own ac
   await expect(page.getByText('Shared files contain your profile, operators and skins.', {exact:false})).toBeVisible();
   await page.keyboard.press('Escape');
   await page.getByLabel('Friend account file').setInputFiles(file);
-  await expect(page.getByRole('status')).toContainText('Imported Friend Doctor#2222');
+  await expect(page.getByRole('tabpanel',{name:'Friends',exact:true}).getByRole('status')).toContainText('Imported Friend Doctor#2222');
   await page.getByRole('button',{name:"Show Friend Doctor#2222's operators",exact:true}).click();
   const collection=page.getByRole('dialog',{name:'Friend Doctor#2222 · Operators',exact:true});
   await collection.getByRole('combobox',{name:'Operator rarity',exact:true}).click();
@@ -86,7 +86,7 @@ test('export shares the own profile and build data without resources; damaged im
   expect(shared.roster.Angelina).toEqual(roster.Angelina);
   expect(shared.account.wallet).toBeUndefined();
   await page.getByLabel('Friend account file').setInputFiles(file);
-  await expect(page.getByRole('status')).toContainText('Imported Friend Doctor');
+  await expect(page.getByRole('tabpanel',{name:'Friends',exact:true}).getByRole('status')).toContainText('Imported Friend Doctor');
   await page.getByLabel('Friend account file').setInputFiles({name:'damaged.json',mimeType:'application/json',buffer:Buffer.from('{')});
   await expect(page.getByRole('alert').filter({hasText:'That file is not valid JSON.'})).toBeVisible();
   await expect(page.getByText('Friend Doctor#2222',{exact:true}).last()).toBeVisible();
@@ -116,7 +116,7 @@ test('own profile opens shared operator and outfit dialogs with own server build
   const outfit = skins.getByRole('button', {name:'Angelina Summer Flower FA017', exact:true});
   await outfit.click();
   await expect(skins.getByRole('img', {name:'Angelina — Summer Flower FA017', exact:true})).toBeVisible();
-  await skins.getByRole('button', {name:'← Skins', exact:true}).click();
+  await skins.getByRole('dialog', {name:'Angelina — Summer Flower FA017 artwork', exact:true}).getByRole('button', {name:'Close', exact:true}).click();
   await expect(outfit).toBeFocused();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.getByRole('tab', {name:'Profile', exact:true}).click();
@@ -143,8 +143,8 @@ test(`own Nian preview follows the account build in ${theme} theme`, async ({pag
     await preview.getByRole('tab',{name:new RegExp(`^S${skill}`)}).click();
     await expect(preview.getByRole('tabpanel',{name:new RegExp(`^S${skill}`)}).getByRole('img',{name:'Mastery 3',exact:true})).toBeVisible();
   }
-  for (const module of ['PRO-X','PRO-Y']) {
-    await preview.getByRole('tab',{name:new RegExp(module)}).click();
+  for (const moduleName of ['PRO-X','PRO-Y']) {
+    await preview.getByRole('tab',{name:new RegExp(moduleName)}).click();
     await expect(preview.getByRole('group',{name:'Module stage',exact:true}).getByRole('button',{pressed:true})).toHaveText('Stage 3');
   }
   expect(await preview.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true);
@@ -179,7 +179,7 @@ test(`friend sharing help uses themed links without an imported account (${theme
   await expect(help).toHaveCSS('border-top-width', '0px');
   await expect(help.locator('svg circle')).toHaveCount(2);
   await help.click();
-  const importTools = page.getByRole('button', {name:'Import / export', exact:true});
+  const importTools = page.getByRole('region',{name:'Friend sharing details',exact:true}).getByRole('button', {name:'Import / export', exact:true});
   await expect(importTools).toBeVisible();
   await expect(importTools).toHaveAttribute('aria-haspopup', 'dialog');
   if (process.env.ARKPEDIA_QA_CAPTURE) await page.screenshot({path:`${process.env.ARKPEDIA_QA_CAPTURE}/friend-help-${theme}-${info.project.name}.png`});

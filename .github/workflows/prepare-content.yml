@@ -6,12 +6,14 @@ on:
     - cron: '57 19 * * *'
   workflow_dispatch:
     inputs:
+      # Blank: a refresh compiles arkpedia-data's imports branch (its nightly import) merged with
+      # main, and a run without one compiles main.
       data_ref:
-        description: 'Public data branch/ref to compile (main normally, or a correction branch)'
-        default: main
+        description: 'Public data branch/ref to compile (blank = imports when refreshing, else main; or a correction branch)'
+        default: ''
         type: string
       refresh_upstream:
-        description: Refresh supported upstream game data and asset revisions
+        description: Run the steps that stay here (pull sources, story pages, checks) on the imported records
         default: true
         type: boolean
       # Set by the editorial watcher (scripts/content/editorial-watch.mjs): every daily refresh
@@ -38,22 +40,20 @@ concurrency:
 jobs:
   prepare:
     if: github.ref_name == 'main'
-    # ARKPEDIA_RUNNER (a repository variable) names the self-hosted runner's label, e.g.
-    # arkpedia-vps; unset, jobs run on GitHub's hosted runners. See docs/development/ci-runner.md.
-    runs-on: ${{ vars.ARKPEDIA_RUNNER || 'ubuntu-latest' }}
-    # Up to 30 of these minutes may go to waiting for the asset syncs (below), and up to 14 after
+    runs-on: ubuntu-latest
+    # Up to 30 of these minutes may go to waiting for the asset syncs (below), and up to 20 for native publication and 14 after
     # a publish to the page refresh's wait for the pointer (its step's own timeout): a job timeout
     # there would report a release that went out as failed, and skip the heartbeat.
-    timeout-minutes: ${{ vars.ARKPEDIA_RUNNER && 105 || 85 }}
+    timeout-minutes: 120
     steps:
       - uses: actions/checkout@v7
+      - name: Use disk-backed temporary storage
+        run: echo "TMPDIR=$RUNNER_TEMP" >> "$GITHUB_ENV"
       - uses: actions/setup-node@v7
         with:
           node-version: '22'
-          # Self-hosted runner homes persist: downloading ~484 MB over that local
-          # npm cache costs more than npm ci. Fresh hosted runners still restore it.
-          cache: ${{ runner.environment == 'github-hosted' && 'npm' || '' }}
-          package-manager-cache: ${{ runner.environment == 'github-hosted' }}
+          cache: npm
+          package-manager-cache: true
       # Only main publishes data main and live. Feature Previews consume live content.
       - name: Choose the content channel
         id: channel
@@ -67,20 +67,20 @@ jobs:
       # stops now instead of after the compile; the report at the end says why.
       - name: Hold the release while production runs other code
         run: node scripts/content/deploy-gate.mjs --ref HEAD --held-file "$RUNNER_TEMP/release-held.md"
-      # The release pins each asset repository at the commit its sync has reached. The syncs'
-      # crons come three and a half hours before this one, but GitHub starts every scheduled
-      # run 2-4 hours late, so that order held by a margin, not by design. A scheduled release
-      # waits, up to 30 minutes, until each sync has finished its run of the day
-      # (scripts/content/asset-syncs.mjs); a dispatched one does not wait. Before the upstream
-      # probe, so its fingerprint sees what the syncs committed. Never fails the run: after the
-      # wait the release pins what the syncs have reached, and the report below names a failure.
-      - name: Wait for the asset syncs' runs of the day
+      # The release compiles the imports branch that arkpedia-data's nightly import leaves, and that
+      # import waits for the asset repositories' syncs before it pins them. GitHub starts every
+      # scheduled run hours late, by different amounts, so the order is kept by waits, not by the
+      # crons: a scheduled release waits, up to 30 minutes, until the import has finished its run
+      # of the day (scripts/content/asset-syncs.mjs --sync); a dispatched one does not wait. Before
+      # the imports branch is read for the reuse key. Never fails the run: after the wait the
+      # release compiles what the branch holds, and the import's own issue names a failure.
+      - name: Wait for the day's import
         if: github.event_name == 'schedule'
         continue-on-error: true
         timeout-minutes: 35
         env:
           GH_TOKEN: ${{ github.token }}
-        run: node scripts/content/asset-syncs.mjs wait --timeout-minutes 30
+        run: node scripts/content/asset-syncs.mjs wait --timeout-minutes 30 --sync arkpedia-data/import.yml
       # The probe falls back to each repository's last known commit when it cannot reach
       # one, so an outage of any single source never stops the day's run.
       - name: Load the last known upstream revisions
@@ -102,19 +102,29 @@ jobs:
         with:
           path: .cache/refresh-fingerprint
           key: refresh-fingerprint-${{ github.run_id }}
+      # The nightly import runs in arkpedia-data (its importer/, import.yml, docs/importer.md) and
+      # leaves its records on the imports branch; a refresh compiles that branch merged with main,
+      # running here only the steps that stay (scripts/content/run-stage.mjs importedStages). The
+      # branch's head is part of the reuse key: new imports are always compiled.
+      - name: Read the imported records
+        id: imports
+        if: github.event_name == 'schedule'
+        run: echo "head=$(git ls-remote https://github.com/arkpedia/arkpedia-data.git refs/heads/imports | cut -f1)" | tee -a "$GITHUB_OUTPUT"
       - name: Reuse a successfully prepared input set
         id: prepared
         if: github.event_name == 'schedule'
         uses: actions/cache@v6
         with:
           path: .cache/prepared-inputs
-          key: prepared-content-v1-${{ steps.upstream.outputs.fingerprint }}
+          key: prepared-content-v1-${{ steps.upstream.outputs.fingerprint }}${{ steps.imports.outputs.head && format('-imports-{0}', steps.imports.outputs.head) || '' }}
       - name: Load public source records
         id: source
         if: github.event_name != 'schedule' || steps.prepared.outputs.cache-hit != 'true'
         env:
-          DATA_REF: ${{ inputs.data_ref || 'main' }}
-          MERGE_MAIN: ${{ inputs.merge_main && 'true' || '' }}
+          DATA_REF: ${{ inputs.data_ref || ((github.event_name == 'schedule' || inputs.refresh_upstream) && 'imports') || 'main' }}
+          # The imports branch is rebuilt from main by each import, and editorial edits reach main
+          # after it: always merged.
+          MERGE_MAIN: ${{ (inputs.merge_main || inputs.data_ref == 'imports' || (!inputs.data_ref && (github.event_name == 'schedule' || inputs.refresh_upstream))) && 'true' || '' }}
         run: |
           set -euo pipefail
           [[ "$DATA_REF" =~ ^[A-Za-z0-9][A-Za-z0-9_./-]*$ ]]
@@ -160,38 +170,23 @@ jobs:
           python-version: '3.12'
       - run: npm ci
         if: github.event_name != 'schedule' || steps.prepared.outputs.cache-hit != 'true'
-      # The Python the refresh's stages use, pinned in scripts/content/requirements.txt, which
-      # Dependabot watches: UnityPy and lz4 read the client's theme bundles
-      # (scripts/imports/import-namecard-styles.py), and yt-dlp lists a trusted creator's channel
-      # for the guide-videos stage, with no API key (scripts/sync/sync-guide-videos.mjs).
+      # The Python the steps here use, pinned in scripts/content/requirements.txt, which Dependabot
+      # watches.
       - run: python -m pip install -r scripts/content/requirements.txt
         if: github.event_name != 'schedule' || steps.prepared.outputs.cache-hit != 'true'
-      # flatc for the official-tables shadow (arkprts decodes the client's tables through it),
-      # pinned by version and checksum. A failed install only costs that stage.
-      - name: Install flatc
-        if: github.event_name != 'schedule' || steps.prepared.outputs.cache-hit != 'true'
-        continue-on-error: true
-        run: |
-          set -euo pipefail
-          dir="$RUNNER_TEMP/flatc"; mkdir -p "$dir"
-          curl --fail --silent --show-error --location --retry 3 -o "$dir/flatc.zip" \
-            "https://github.com/google/flatbuffers/releases/download/v25.12.19/Linux.flatc.binary.g%2B%2B-13.zip"
-          echo "9f87066dc5dfa7fe02090b55bab5f3e55df03e32c9b0cdf229004ade7d091039  $dir/flatc.zip" | sha256sum --check --status
-          unzip -o -q "$dir/flatc.zip" -d "$dir" && chmod +x "$dir/flatc"
-          "$dir/flatc" --version
-          echo "$dir" >> "$GITHUB_PATH"
       - name: Refresh supported upstream records
         id: refresh
         if: (github.event_name != 'schedule' || steps.prepared.outputs.cache-hit != 'true') && (github.event_name == 'schedule' || inputs.refresh_upstream)
         env:
           GH_TOKEN: ${{ github.token }}
-          # The art repositories' write keys, for main's run only: they are production's, shared
-          # by every channel, and the dev channel publishes no art (publish-catalogue-assets.sh
-          # stops on its channel before it asks for a key).
+          # The image repository's write key, for the story covers (main's run only: it is
+          # production's, and the dev channel publishes no art). The import publishes all other art.
           CATALOGUE_IMAGE_DEPLOY_KEY: ${{ github.ref_name == 'main' && secrets.CATALOGUE_IMAGE_DEPLOY_KEY || '' }}
-          CATALOGUE_SKIN_DEPLOY_KEY: ${{ github.ref_name == 'main' && secrets.CATALOGUE_SKIN_DEPLOY_KEY || '' }}
           # refresh-stage-data.sh adds its stages to this run instead of starting its own.
           ARKPEDIA_STAGE_RUN: '1'
+          # The importer's step lists, in the data checkout: the holds its steps left in the
+          # quarantine file are kept (run-stage.mjs declaredStages), and none of them runs again here.
+          ARKPEDIA_IMPORTED_FROM: ${{ format('{0}/arkpedia-data/importer', runner.temp) }}
           ARKPEDIA_ALLOW_SHRINK: ${{ inputs.allow_shrink }}
         run: |
           set -euo pipefail
@@ -210,110 +205,21 @@ jobs:
           # One commit per upstream mirror for the whole run, in data/upstream.lock.json.
           stage pin-upstream -- node scripts/content/pin-upstream.mjs
           # The CN tables, every one from the same mirror at one commit (Kengxxiao, else
-          # yuanyan3060), before anything reads them: the catalogue, voices and inventory here
-          # fetch theirs from the mirror this settles on, the stages of refresh-stage-data.sh
-          # read its checkout (scripts/content/cn-tables.mjs).
+          # yuanyan3060), before anything reads them: the stages of refresh-stage-data.sh read its
+          # checkout (scripts/content/cn-tables.mjs).
           stage upstream-cn --invariant --timeout-minutes 30 -- node scripts/content/cn-tables.mjs
-          # Each region's live client version (data/client-versions.json), after the pins: whether
-          # the mirror the tables come from has caught up with the game is read at the pinned commit
-          # (scripts/sync/watch-client-versions.mjs). It reports a mirror behind; it blocks nothing.
-          stage client-versions -- node scripts/sync/watch-client-versions.mjs
-          supplemental_charwords="$RUNNER_TEMP/en-supplemental-charwords.json"
-          stage charwords --output "$supplemental_charwords" -- curl --fail --silent --show-error --location --retry 3 \
-            "$(node scripts/content/pin-upstream.mjs raw-url PuppiizSunniiz/ArknightsGameData_YoStar en_US/gamedata/excel/charword_table.json)" \
-            --output "$supplemental_charwords"
-          # Adopts each asset repository's head, even past a folder this code does not map yet
-          # (check-published-assets.mjs --adopting); Validate holds that folder below.
-          stage asset-revisions -- npm run assets:update
-          # Before the catalogue: a skill or base skill the game spells differently gets its icon in
-          # this run's media plan, not the next night's (sync-operator-english.mjs main()).
-          # The supplement only adds voice credits here, so without it the English refresh
-          # still runs, reading an empty table and keeping each record's current credits.
-          supplement="$supplemental_charwords"
-          if [ ! -s "$supplement" ]; then supplement="$RUNNER_TEMP/no-supplemental-charwords.json"; echo '{}' > "$supplement"; fi
-          stage operator-english -- env ARKPEDIA_EN_SUPPLEMENTAL_CHARWORDS="$supplement" node scripts/sync/sync-operator-english.mjs
-          # The official CN announcements (data/official-news/cn), before the catalogue: an event or
-          # banner announced on CN is published that day, a week before the client carries it.
-          stage cn-news -- node scripts/sync/sync-cn-news.mjs
-          # The in-game notice boards of every region (data/official-bulletins.json): banners by pool
-          # id with their official art's hash, events and notices, as derived facts only
-          # (scripts/sync/sync-official-bulletins.mjs).
-          stage official-bulletins -- node scripts/sync/sync-official-bulletins.mjs
-          stage catalogue -- node scripts/sync/sync-catalogue.mjs
-          # Publishes the media plan the catalogue stage wrote in this run, never an older one.
-          stage catalogue-assets --needs catalogue -- bash scripts/sync/publish-catalogue-assets.sh
-          stage media-pins -- node scripts/sync/refresh-media-pins.mjs
+          # The EN tables, and the story chapters and covers (their source refuses GitHub's
+          # runners, so arkpedia-data's import cannot read it).
           bash scripts/sync/refresh-stage-data.sh
-          # Shadow mode, publishing nothing: the CN, Global, JP and KR game tables decoded from the
-          # official servers ourselves (arkprts + flatc), compared by content with the mirror copies
-          # this run read (scripts/imports/shadow-official-tables.py). After the stage refresh, which
-          # checks out the CN and EN tables; the stage checks out the JP and KR ones itself.
-          stage official-tables --timeout-minutes 30 -- python3 scripts/imports/shadow-official-tables.py
+          # The story covers those staged under .cache/, published to arkpedia-image-assets
+          # (config/staged-art.json); then story-covers runs again, so its record points at them.
+          # With nothing staged, a no-op. A cover published re-pins the asset repositories
+          # (assets:update), as the import's own staged-art stage does. Its holds go under
+          # story-art, not staged-art, which the import's run owns.
+          stage story-art -- env STAGED_ART_STAGE=story-art bash scripts/sync/publish-catalogue-assets.sh --staged
+          # The pull planner's sources and first clears, built with its own code (lib/pulls) from
+          # the records the import left and the EN tables.
           stage pulls -- npm run pulls:refresh
-          # Every operator's costs -- promotions, skill levels, masteries, module stages -- written
-          # over whatever the record had, from the Global tables or, for a CN-only operator, the CN
-          # ones (scripts/sync/sync-operator-costs.mjs). Then it reads every record back and fails
-          # on a cost that still disagrees with the tables. After the English refresh and the
-          # catalogue, which write some of them, and the stage refresh, which checks out the EN
-          # tables; before the material catalogue, which reads the records' costs.
-          stage operator-costs -- node scripts/sync/sync-operator-costs.mjs
-          # The planner's material catalogue, from the operator records as they now stand (after
-          # the English refresh renames their costs), the recipes, the depot order and the item
-          # tables the stage refresh synced. Then the other planners' item ids for it: a
-          # catalogue with a material the aliases lack fails /planner's export, so if the
-          # aliases cannot be rebuilt the catalogue goes back to yesterday's with them (--output).
-          stage material-catalogue -- node scripts/build/build-material-catalogue.mjs
-          stage import-aliases --needs material-catalogue --output data/material-catalogue.json -- npx tsx scripts/build/build-import-aliases.ts
-          # The game's character and module ids, for importing an account into the planner: from
-          # the operator records as they now stand and the EN client's tables. A record that no
-          # longer lines up with the client fails it, and yesterday's map stays.
-          # Each profile card theme's colours, from the client's own theme bundles on Yostar's
-          # CDN (no table carries them); only a changed bundle is fetched. Before the id map,
-          # which carries them to the account page.
-          stage namecard-styles -- python3 scripts/imports/import-namecard-styles.py
-          stage game-account-map -- npx tsx scripts/build/build-game-account-map.ts
-          stage medal-layouts -- python3 scripts/imports/import-medal-layouts.py
-          # Shadow mode, publishing nothing: the CN client's own avatar and skill-icon sprites compared
-          # with the mirror files arkpedia-image-assets publishes (scripts/imports/shadow-client-art.py),
-          # and any operator whose avatar the client ships while the site has no icon for them yet.
-          stage client-art -- python3 scripts/imports/shadow-client-art.py
-          stage medal-catalogue -- node scripts/build/build-medal-catalogue.mjs
-          # Each event's all-stages medal out of that catalogue, for the Pull Planner's rerun ticks.
-          stage rerun-clear-medals --needs medal-catalogue -- node scripts/build/build-rerun-clear-medals.mjs
-          stage reward-names -- node scripts/sync/sync-reward-names.mjs
-          # The voice lines take newly released operators' English text from the supplement:
-          # without it they keep yesterday's lines rather than fall back to Chinese. The skin
-          # table says which outfits bring a voice set of their own (CN's is fetched by URL).
-          stage voices --needs charwords -- env ARKPEDIA_EN_CHARWORDS=.cache/upstream/en-gamedata/en/gamedata/excel/charword_table.json \
-            ARKPEDIA_EN_SKINS=.cache/upstream/en-gamedata/en/gamedata/excel/skin_table.json \
-            ARKPEDIA_EN_SUPPLEMENTAL_CHARWORDS="$supplemental_charwords" npm run voices:refresh
-          # Monster Siren's new albums and songs, before the lyrics that key on them.
-          stage albums -- npm run albums:refresh
-          # Arknights: Endfield's albums and songs, from its label's YouTube channel
-          # (data/endfield-albums.json, scripts/sync/sync-endfield-albums.mjs).
-          stage endfield-albums -- npm run endfield-albums:refresh
-          # Each event's PVs and official videos (data/event-videos.json), from the official YouTube
-          # channels' uploads (data/official-videos.json): after the albums, whose operator EPs it
-          # reads. Feeds on main's run only (scripts/sync/sync-official-videos.mjs).
-          stage official-videos -- npm run official-videos:refresh
-          stage lyrics -- npm run lyrics:refresh
-          # The art the importers above staged under .cache/ instead of publishing -- a new
-          # event's stage renders, drop and reward icons, crests, CC/IS/RA renders, album
-          # covers (config/staged-art.json) -- published to arkpedia-image-assets with the same
-          # deploy key and publisher as the catalogue's media; then those importers run again,
-          # so their records point at the files and their quarantine entries clear today.
-          # After the last importer that stages art, before anything that reads the records.
-          stage staged-art -- bash scripts/sync/publish-catalogue-assets.sh --staged
-          # The palette game's five swatches for every Base and Elite 2 artwork, read from
-          # arkpedia-skin-assets at the commit data/assets/revisions.json pins once staged-art,
-          # the last stage that moves the pins (its assets:update re-pins every asset repository),
-          # has run: the commit the release publishes. Only new or changed art is downloaded.
-          # Art without a review or recipe gets an automatic palette and a hold; the completeness
-          # stage holds any released operator still without one (test-stage-runner.ts keeps
-          # every --revisions reader after every stage that moves the pins).
-          stage palettes -- python3 scripts/palettes/build-color-palettes.py --revisions data/assets/revisions.json
-          stage content-inventory -- node scripts/sync/sync-content-inventory.mjs
-          stage event-farming -- node scripts/sync/sync-event-farming.mjs
           # A scheduled limited, crossover or Orienteering banner whose announcement nobody has
           # read shows no odds in the pull planner. Each is listed in the daily issue until its
           # rules are in data/pull-odds-rules.json (scripts/content/check-pull-odds.ts). It reads
@@ -337,15 +243,38 @@ jobs:
         run: python3 scripts/palettes/build-color-palettes.py --revisions data/assets/revisions.json --if-stale
       # The same for the event pages' PVs: an override added on the editorial branch
       # (data/event-video-overrides.json) is filed with the catalogue as it stands, reading nothing
-      # from YouTube (scripts/sync/sync-official-videos.mjs --offline).
+      # from YouTube (scripts/sync/sync-official-videos.mjs --offline). Also after a refresh: the
+      # import filed the videos with main's overrides as they were when it ran, and an edit
+      # published since then comes in with main's merge.
       - name: File the official videos into events
-        if: steps.refresh.outcome == 'skipped' && (github.event_name != 'schedule' || steps.prepared.outputs.cache-hit != 'true')
+        if: github.event_name != 'schedule' || steps.prepared.outputs.cache-hit != 'true'
         run: npx tsx scripts/sync/sync-official-videos.mjs --offline
+
+      - name: Restore the public YouTube discovery archive
+        if: github.event_name != 'schedule' || steps.prepared.outputs.cache-hit != 'true'
+        uses: actions/cache/restore@v6
+        with:
+          path: .cache/youtube-discovery/archive.json
+          key: youtube-discovery-${{ github.run_id }}
+          restore-keys: youtube-discovery-
+      - name: Refresh videos relevant to current Global content
+        if: (github.event_name != 'schedule' || steps.prepared.outputs.cache-hit != 'true') && (github.event_name == 'schedule' || inputs.refresh_upstream)
+        timeout-minutes: 6
+        run: node --import tsx scripts/sync/sync-youtube-discovery.ts
+      - name: Keep the public YouTube discovery archive
+        if: github.event_name != 'schedule' || steps.prepared.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v6
+        with:
+          path: .cache/youtube-discovery/archive.json
+          key: youtube-discovery-${{ github.run_id }}
 
       - name: Validate and compile data (no website build)
         if: github.event_name != 'schedule' || steps.prepared.outputs.cache-hit != 'true'
         env:
           ARKPEDIA_CONTENT_DISABLED: '1'
+          # Hydration reads this checkout, rather than pull-data.mjs's default cache.
+          # The unused-record check needs its Git tree to recognize data-first arrivals.
+          ARKPEDIA_DATA_CACHE: ${{ format('{0}/arkpedia-data', runner.temp) }}
           NODE_ENV: production
           ARKPEDIA_ALLOW_SHRINK: ${{ inputs.allow_shrink }}
           # check:published-assets:release lists every outfit voice folder with the contents API.
@@ -355,6 +284,8 @@ jobs:
           npx tsx scripts/build/build-operator-search.ts
           # Hydration removes this derived fallback; selector pages/tests import it before export.
           npx tsx scripts/build/build-selector-catalogue.ts
+          # Community ranking tests import this derived catalogue after hydration too.
+          npx tsx scripts/build/build-community-stage-catalogue.ts
           # check:published-assets, except that a legacy voice clip an operator page offers
           # but the pinned voice repository lacks (a day the voices stage failed, or a newly
           # adopted voice revision that dropped one) holds back that clip, and a folder an asset
@@ -451,14 +382,17 @@ jobs:
       # data main either way, and the issue says what is missing. Once live has moved, await-live
       # names the commit it serves as this step's `revision` output, for the page refresh below:
       # the pushed one, or a later data main commit that superseded it.
+      # Native publication has taken 11 minutes; the former five-minute wait skipped page
+      # refreshes even when storage publication succeeded. Keep the wait inside its step budget.
       - name: Confirm the release went live
         id: live
         if: steps.publish.outputs.pushed != ''
         continue-on-error: true
-        timeout-minutes: 8
+        timeout-minutes: 22
         env:
           GH_TOKEN: ${{ github.token }}
           PUSHED: ${{ steps.publish.outputs.pushed }}
+          ARKPEDIA_LIVE_TIMEOUT_SECONDS: '1200'
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           set -euo pipefail
@@ -504,7 +438,7 @@ jobs:
       # an explicit failed run, not a green import with an old served catalogue.
       - name: Verify served stage catalogue
         if: steps.live.outcome == 'success'
-        timeout-minutes: 5
+        timeout-minutes: 10
         run: node scripts/audits/check-served-stages.mjs "$RUNNER_TEMP/prepared-content/release/manifest.json"
       # Asset pins take whatever each repository's HEAD is, so a red sync never shows up
       # here on its own. Report it, but never hold back the day's content over it: this
@@ -571,28 +505,6 @@ jobs:
           elif [ "$state" = clear ] && [ "$JOB_STATUS" = success ]; then
             node scripts/content/alert-issue.mjs close "${alert[@]}" --comment "Nothing is quarantined and every refresh stage ran: $RUN_URL"
           fi
-      # One open issue while the guide-videos stage has suggestions waiting for a person: videos by
-      # the trusted creators that name an operator but were not added to its guides by themselves
-      # (scripts/sync/sync-guide-videos.mjs). Rewritten by every run from data/guide-videos-state.json;
-      # its body holds no date, so a run with the same list edits nothing, and it is commented on at
-      # most once a day, only when the list changed. Closed when nothing is waiting. Main's only: the
-      # Production uses the checked canonical source.
-      - name: Report guide suggestions
-        if: ${{ !cancelled() && steps.prepared.outputs.cache-hit != 'true' && github.ref_name == 'main' }}
-        continue-on-error: true
-        timeout-minutes: 3
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-          report="$RUNNER_TEMP/guide-suggestions"
-          state=$(npx tsx scripts/sync/sync-guide-videos.mjs --report "$report")
-          alert=(--alert guide-suggestions --title 'Guide suggestions')
-          if [ "$state" = alert ]; then
-            node scripts/content/alert-issue.mjs open "${alert[@]}" --rewrite --body-file "$report/body.md" --comment-file "$report/comment.md"
-          elif [ "$state" = clear ]; then
-            node scripts/content/alert-issue.mjs close "${alert[@]}" --comment 'No guide suggestion is waiting.'
-          fi
       - name: Keep discovery evidence on failure
         if: failure()
         uses: actions/upload-artifact@v7
@@ -631,9 +543,8 @@ jobs:
           JOB_STATUS: ${{ job.status }}
           SOURCE_HEAD: ${{ steps.source.outputs.head }}
         run: |
-          # Failed before the checkout or setup-node: no alert-issue.mjs, or no node to run it (the
-          # NAS runners' image keeps its Node off PATH, infra/runners/nas/Dockerfile; setup-node
-          # puts one there). Said with gh alone, under the marker that script finds the issue by
+          # A failure before checkout or setup-node may leave no reporting script or runtime.
+          # Fall back to gh alone, under the marker that the normal reporter finds the issue by
           # (marker(), scripts/content/alert-issue.mjs), so the next good run's close step closes
           # it; an issue already open for the alert gets nothing more.
           if [ ! -f scripts/content/alert-issue.mjs ] || ! command -v node > /dev/null; then
@@ -703,7 +614,7 @@ jobs:
   notify-editorial:
     needs: prepare
     if: ${{ !cancelled() && github.ref_name == 'main' && needs.prepare.result == 'success' }}
-    runs-on: ${{ vars.ARKPEDIA_LIGHT_RUNNER || vars.ARKPEDIA_RUNNER || 'ubuntu-latest' }}
+    runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
       contents: read

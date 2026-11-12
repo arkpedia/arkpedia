@@ -1,3 +1,4 @@
+import { allowAccountRequest, accountLimited, archiveQuotaError } from './limits';
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { fromNodeHeaders } from 'better-auth/node';
 import { accountAuth, accountsEnv, type AccountsEnv } from './server';
@@ -6,7 +7,7 @@ import { archiveStatements, readArchives } from './archive';
 import type { AccountProfile } from './profile';
 import { legacyArchives, mergePullArchives, parsePullArchives } from '@/lib/account/pullArchive';
 
-export interface CloudSave { revision: number; archiveRevision: number; gameSync: number; historySync: number; personalSync: number; paused: number; payload: string; updatedAt: string }
+export interface CloudSave { syncReviewed: number; revision: number; archiveRevision: number; gameSync: number; historySync: number; personalSync: number; paused: number; payload: string; updatedAt: string }
 export function createCloudAccountHandler(resolveEnv: () => AccountsEnv | null = accountsEnv) {
 return async function handler(req: NextApiRequest, res: NextApiResponse) {
   res.setHeader('Cache-Control', 'private, no-store'); res.setHeader('Vary', 'Cookie');
@@ -19,8 +20,10 @@ return async function handler(req: NextApiRequest, res: NextApiResponse) {
     const providers = [env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET ? 'google' : null, env.DISCORD_CLIENT_ID && env.DISCORD_CLIENT_SECRET ? 'discord' : null].filter(Boolean);
     if (!session) return res.status(401).json({ error: 'Sign in to Arkpedia to continue.', providers });
     const db = env.ARKPEDIA_ACCOUNTS_DB, userId = session.user.id;
-    await db.prepare('INSERT INTO cloud_save (userId, updatedAt) VALUES (?, ?) ON CONFLICT(userId) DO NOTHING').bind(userId, new Date().toISOString()).run();
-    let row = await db.prepare('SELECT revision, archiveRevision, gameSync, historySync, personalSync, paused, payload, updatedAt FROM cloud_save WHERE userId = ?').bind(userId).first<CloudSave>();
+    const limit = await allowAccountRequest(db, userId, req.method === 'GET' ? 'read' : req.method === 'DELETE' ? 'remove' : 'write');
+    if (!limit.allowed) return accountLimited(res, limit.retryAfter);
+    await db.prepare('INSERT INTO cloud_save (userId, personalSync, updatedAt) VALUES (?, 0, ?) ON CONFLICT(userId) DO NOTHING').bind(userId, new Date().toISOString()).run();
+    let row = await db.prepare('SELECT syncReviewed, revision, archiveRevision, gameSync, historySync, personalSync, paused, payload, updatedAt FROM cloud_save WHERE userId = ?').bind(userId).first<CloudSave>();
     if (!row) throw new Error('Missing save');
     // Capture imports written by an older Worker between migration and deployment.
     // A snapshot is projected only after its history is durably merged in the same transaction.
@@ -31,16 +34,16 @@ return async function handler(req: NextApiRequest, res: NextApiResponse) {
         const mutationId = crypto.randomUUID(), updatedAt = new Date().toISOString();
         const projected = validateCloudData(snapshot, true, !!row.personalSync);
         const results = await db.batch([
-          db.prepare('UPDATE cloud_save SET payload = ?, mutationId = ?, revision = revision + 1, archiveRevision = archiveRevision + 1, updatedAt = ? WHERE userId = ? AND revision = ?').bind(JSON.stringify(projected), mutationId, updatedAt, userId, row.revision),
+          db.prepare('UPDATE cloud_save SET payload = ?, mutationId = ?, revision = revision + 1, archiveRevision = archiveRevision + 1, updatedAt = ? WHERE userId = ? AND revision = ? RETURNING userId').bind(JSON.stringify(projected), mutationId, updatedAt, userId, row.revision),
           ...archiveStatements(db, userId, mutationId, legacy),
         ]);
-        if (results[0].meta.changes !== 1) return res.status(409).json({ error: 'Another device updated your archive. Retry sync; existing pulls are safe.' });
+        if (results[0].results.length !== 1) return res.status(409).json({ error: 'Another device updated your archive. Retry sync; existing pulls are safe.' });
         row = { ...row, payload: JSON.stringify(projected), revision: row.revision + 1, archiveRevision: row.archiveRevision + 1, updatedAt };
       }
     }
-    const profile = await db.prepare('SELECT username, friendTag, friendServer FROM arkpedia_profile WHERE userId = ?').bind(userId).first<AccountProfile>();
+    const profile = await db.prepare('SELECT username, friendTag, friendServer, avatarId FROM arkpedia_profile WHERE userId = ?').bind(userId).first<AccountProfile>();
     const saved = async (revision: number, archiveRevision: number, data: CloudData, personalSync: boolean, historySync: boolean, gameSync: boolean, paused: boolean, unchanged = false) =>
-      ({ revision, archiveRevision, data, personalSync, historySync, gameSync, paused, ...(unchanged ? { archivesUnchanged: true } : { archives: historySync ? await readArchives(db, userId) : [] }) });
+      ({ syncReviewed: !!row.syncReviewed, revision, archiveRevision, data, personalSync, historySync, gameSync, paused, ...(unchanged ? { archivesUnchanged: true } : { archives: historySync ? await readArchives(db, userId) : [] }) });
     if (req.method === 'GET') {
       const linkedAccounts = (await db.prepare('SELECT id, providerId FROM account WHERE userId = ?').bind(userId).all<{ id: string; providerId: string }>()).results;
       return res.json({ user: { id: userId, name: profile?.username ?? '' }, profile, linkedAccounts,
@@ -49,8 +52,13 @@ return async function handler(req: NextApiRequest, res: NextApiResponse) {
           req.headers['x-arkpedia-archive-owner'] === userId && req.headers['x-arkpedia-archive-revision'] === String(row.archiveRevision)) });
     }
     if (req.body?.owner !== userId) return res.status(409).json({ error: 'Your signed-in account changed. Reload before syncing.' });
+    const reviewing = req.method === 'PATCH' && req.body.syncReviewed === true;
+    if (reviewing && (req.body.savingVersion !== 2 || ['personalSync', 'historySync', 'gameSync'].some(key => typeof req.body[key] !== 'boolean') || req.body.data !== undefined || req.body.archives !== undefined)) {
+      return res.status(400).json({ error: 'Confirm all three saving choices before continuing.' });
+    }
     const withdrawing = req.method === 'PATCH' && ['gameSync', 'historySync', 'personalSync'].some(key => req.body[key] === false) && !['gameSync', 'historySync', 'personalSync'].some(key => req.body[key] === true);
-    if (!profile && req.method !== 'DELETE' && !withdrawing) return res.status(428).json({ error: 'Choose your Arkpedia username before syncing.' });
+    if (!row.syncReviewed && !reviewing && req.method !== 'DELETE' && (!withdrawing || req.body.data !== undefined || req.body.archives !== undefined)) return res.status(428).json({ error: 'Choose what to sync before saving data to your account.' });
+    if (!profile && req.method !== 'DELETE' && (reviewing || !withdrawing)) return res.status(428).json({ error: 'Choose your Arkpedia username before syncing.' });
     if (!Number.isSafeInteger(req.body?.revision) || req.body.revision < 0) return res.status(400).json({ error: 'A save revision is required.' });
     if (req.body.revision !== row.revision) return res.status(409).json({ error: 'Your cloud save changed on another device. Retry with its latest revision.' });
     let personalSync = !!row.personalSync, historySync = !!row.historySync, gameSync = !!row.gameSync;
@@ -89,11 +97,16 @@ return async function handler(req: NextApiRequest, res: NextApiResponse) {
       } catch (error) { return res.status(400).json({ error: (error as Error).message }); }
     }
     const archiveRevision = row.archiveRevision + (archiveInput !== undefined || historySync !== !!row.historySync || req.method === 'DELETE' ? 1 : 0);
-    statements.unshift(db.prepare('UPDATE cloud_save SET payload = ?, personalSync = ?, historySync = ?, gameSync = ?, paused = ?, mutationId = ?, revision = revision + 1, archiveRevision = ?, updatedAt = ? WHERE userId = ? AND revision = ?')
-      .bind(JSON.stringify(data), personalSync ? 1 : 0, historySync ? 1 : 0, gameSync ? 1 : 0, paused ? 1 : 0, mutationId, archiveRevision, updatedAt, userId, row.revision));
+    statements.unshift(db.prepare('UPDATE cloud_save SET payload = ?, personalSync = ?, historySync = ?, gameSync = ?, paused = ?, syncReviewed = ?, mutationId = ?, revision = revision + 1, archiveRevision = ?, updatedAt = ? WHERE userId = ? AND revision = ? RETURNING userId')
+      .bind(JSON.stringify(data), personalSync ? 1 : 0, historySync ? 1 : 0, gameSync ? 1 : 0, paused ? 1 : 0, reviewing ? 1 : row.syncReviewed, mutationId, archiveRevision, updatedAt, userId, row.revision));
     const results = await db.batch(statements);
-    if (results[0].meta.changes !== 1) return res.status(409).json({ error: 'Your cloud save changed on another device. Retry with its latest revision.' });
+    // Consent withdrawal can cascade into replay deletions and quota updates.
+    // Only the directly updated cloud_save row determines whether this CAS won.
+    if (results[0].results.length !== 1) return res.status(409).json({ error: 'Your cloud save changed on another device. Retry with its latest revision.' });
+    if (reviewing) row.syncReviewed = 1;
     return res.json({ ...await saved(row.revision + 1, archiveRevision, data, personalSync, historySync, gameSync, paused), updatedAt });
-  } catch { return res.status(503).json({ error: 'Your cloud save is temporarily unavailable. Your browser data has not been changed.' }); }
+  } catch (error) {
+    if (archiveQuotaError(error)) return res.status(413).json({ error: 'Your cloud pull archive has reached its storage limit. Export a backup before clearing cloud history; existing saves and browser data are unchanged.' });
+    return res.status(503).json({ error: 'Your cloud save is temporarily unavailable. Your browser data has not been changed.' }); }
 };
 }

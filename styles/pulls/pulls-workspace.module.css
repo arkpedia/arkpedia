@@ -303,3 +303,15 @@
 /* The banner cell and the three disclosure rows are large pressable surfaces: the
    quieter --card-border at rest, the teal hover of any control (ui-primitives rule 2). */
 .bannerIdentity:not(:hover), .utilities button:not([aria-expanded=true]):not(:hover) { border-color: var(--card-border); }
+
+/* The wishlist frame's summary is wider than the column it gets on a phone -- 218px of
+   text in a 196px span at 390 -- so "0 OP reserved" lost its end and the frame read
+   "0 OP RES...". It wraps instead; the frames sit on their own rows there, so the second
+   line costs nothing. */
+@media (max-width: 700px) {
+  /* Two normal text lines fit the shared control height without extra vertical padding. */
+  .utilities button { padding-block: 0; }
+  .pastUtility > button > span:first-child { white-space: normal; }
+  /* "0 OP reserved" moves to the second line whole, rather than breaking after "OP". */
+  .utilities button small { white-space: nowrap; }
+}

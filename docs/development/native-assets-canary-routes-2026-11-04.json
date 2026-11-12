@@ -1,0 +1,14 @@
+[
+  {
+    "id": "5ee71763f0094949a0ee71c8ad8bc2eb",
+    "pattern": "assets-native.arkpedia.net/arkpedia/arkpedia-data/*",
+    "script": "arkpedia-assets",
+    "request_limit_fail_open": false
+  },
+  {
+    "id": "a8840d8795234195a4801dc2e3e89801",
+    "pattern": "assets-native.arkpedia.net/__ready/arkpedia-data/*",
+    "script": "arkpedia-assets",
+    "request_limit_fail_open": false
+  }
+]

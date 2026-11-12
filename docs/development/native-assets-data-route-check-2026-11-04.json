@@ -1,0 +1,21 @@
+{
+  "checkedAt": "2026-11-04T15:00:28.488Z",
+  "scope": "Generated JSON remains on the original reader on both hosts",
+  "checks": [
+    {
+      "origin": "https://assets.arkpedia.net",
+      "status": 200,
+      "bytes": 3105505,
+      "sha256": "553df48d999c59601b7a63da61abd5a39495ab41979afda01dccf1cb672671c3",
+      "reader": "R2-HIT"
+    },
+    {
+      "origin": "https://assets-native.arkpedia.net",
+      "status": 200,
+      "bytes": 3105505,
+      "sha256": "553df48d999c59601b7a63da61abd5a39495ab41979afda01dccf1cb672671c3",
+      "reader": "R2"
+    }
+  ],
+  "readiness": 200
+}

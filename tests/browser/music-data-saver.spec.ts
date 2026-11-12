@@ -1,4 +1,4 @@
-import { chooseMusicView } from './music-navigation-helpers';
+import { chooseMusicView, openPlayerActions } from './music-navigation-helpers';
 import { expect, test, type Page } from '@playwright/test';
 import { stubMonsterSiren, WAV_SECONDS } from './monster-siren-stub';
 import { DATA_SAVER_KEY, stubYouTube, youtube, type StubCall } from './youtube-stub';
@@ -87,7 +87,8 @@ test('a song on YouTube that has a Monster Siren id plays from Monster Siren by 
   await expect.poll(() => page.evaluate(() => navigator.mediaSession?.playbackState)).toBe('playing');
   // It still links to its YouTube page (Now playing), as every song on YouTube does.
   await chooseMusicView(page, /^Now playing/);
-  const source = page.getByRole('link', { name: 'Open in YouTube', exact: true });
+  await openPlayerActions(page);
+  const source = page.getByRole('dialog', { name: 'Player actions' }).getByRole('link', { name: 'Open on YouTube' });
   await expect(source).toBeVisible();
   await expect(source).toHaveAttribute('href', `https://www.youtube.com/watch?v=${song.videoId}`);
 });
@@ -191,12 +192,15 @@ test('Data saver is kept across a reload, and a song with no YouTube upload stil
   await playFromLibrary(page, msrOnly, `msr:${msrOnly.cid}`);
   await expect.poll(async () => (await audio(page))?.paused).toBe(false);
   const menu = await openMenu(page);
+  // With Data saver off, the paired recording may already have loaded.
+  const loadedBeforeSaving = [...siren.resolves];
+  expect(loadedBeforeSaving).toContain(msrOnly.cid);
   await menu.getByRole('checkbox', { name: 'Data saver', exact: true }).check();
   // No YouTube version: nothing to move to, it plays on.
   await page.waitForTimeout(500);
   expect((await audio(page))!.paused).toBe(false);
   expect(youtubeLoads((await youtube(page))?.calls ?? [])).toEqual([]);
-  await expect.poll(() => siren.resolves).toEqual([msrOnly.cid]);
+  expect(siren.resolves).toEqual(loadedBeforeSaving);
 
   await page.reload();
   await expect.poll(() => page.evaluate((key) => localStorage.getItem(key), DATA_SAVER_KEY)).toBe('true');
@@ -289,7 +293,8 @@ test('hidden, a next song YouTube would not start waits, shown and paused, once 
   expect((await youtube(page))!.videoId).toBe(second.videoId);
 });
 
-test('the ⋯ menu holds Data saver, and its ⓘ explains it in a note that Escape, a press outside and × close', async ({ page }) => {
+for (const theme of ['dark', 'light']) test(`the ⋯ menu holds Data saver and its ⓘ floats without moving the menu (${theme})`, async ({ page }) => {
+  await page.addInitScript(theme => localStorage.setItem('theme', theme), theme);
   await stubYouTube(page, 'allow', { dataSaver: false });
   await page.goto('/music');
   await chooseMusicView(page, 'Now playing');
@@ -304,6 +309,8 @@ test('the ⋯ menu holds Data saver, and its ⓘ explains it in a note that Esca
   const infoBox = (await info.boundingBox())!;
   expect(Math.min(infoBox.width, infoBox.height), 'the ⓘ is a 24px target at least').toBeGreaterThanOrEqual(24);
 
+  const menuBefore = await menu.boundingBox();
+  const saverBefore = await saver.boundingBox();
   await info.click();
   const note = page.getByRole('dialog', { name: 'About data saver', exact: true });
   await expect(note).toBeVisible();
@@ -312,11 +319,16 @@ test('the ⋯ menu holds Data saver, and its ⓘ explains it in a note that Esca
   await expect(note).toContainText('Data saver plays songs from YouTube instead, where background play may not work properly');
   await expect(note).toContainText('Data saver plays songs from YouTube instead');
   await expect(note.getByRole('button', { name: 'Close about data saver', exact: true })).toBeFocused();
-  // Its text sits inside the menu, all of it in view.
-  const menuBox = (await menu.boundingBox())!;
+  // The floating note stays in view without moving or resizing the menu.
+  expect(await menu.boundingBox()).toEqual(menuBefore);
+  expect(await saver.boundingBox()).toEqual(saverBefore);
   const noteBox = (await note.boundingBox())!;
-  expect(noteBox.x).toBeGreaterThanOrEqual(menuBox.x - 1);
-  expect(noteBox.x + noteBox.width).toBeLessThanOrEqual(menuBox.x + menuBox.width + 1);
+  expect(noteBox.x).toBeGreaterThanOrEqual(0);
+  expect(noteBox.x + noteBox.width).toBeLessThanOrEqual(page.viewportSize()!.width);
+  expect(noteBox.y).toBeGreaterThanOrEqual(0);
+  expect(noteBox.y + noteBox.height).toBeLessThanOrEqual(page.viewportSize()!.height);
+
+  await page.screenshot({ path: test.info().outputPath('music-setting-popup.png'), scale: 'css' });
 
   // Escape closes the note only, and gives focus back to the ⓘ.
   await page.keyboard.press('Escape');
@@ -331,10 +343,11 @@ test('the ⋯ menu holds Data saver, and its ⓘ explains it in a note that Esca
   await expect(note).toHaveCount(0);
   await expect(info).toBeFocused();
 
-  // A press elsewhere (the menu's heading): the note closes, the menu stays.
+  // A press in the parent setting row closes the note and leaves the menu open.
   await info.click();
   await expect(note).toBeVisible();
-  await menu.locator('.music-song-playlist-heading > b').click();
+  const row = (await menu.locator('.music-setting-row').first().boundingBox())!;
+  await page.mouse.click(row.x + row.width - 2, row.y + row.height / 2);
   await expect(note).toHaveCount(0);
   await expect(menu).toBeVisible();
   await expect(saver).not.toBeChecked();

@@ -1,0 +1,143 @@
+{
+  "observedAt": "2026-11-04T14:12:19.735Z",
+  "scope": "Selected live/bundled/animation pins only; excludes other historical revisions and does not inventory deduplicated source storage",
+  "revisions": 22,
+  "files": 270504,
+  "bytes": 30709991641,
+  "decimalGB": 30.709991641,
+  "standardStorageUsdPerMonthBeforeAllowances": 0.46499999999999997,
+  "receipts": [
+    {
+      "repository": "arkpedia-image-assets",
+      "revision": "6c280c33ca24acdd863a7e1926232043fbd41222",
+      "bytes": 435260918,
+      "files": 15992
+    },
+    {
+      "repository": "arkpedia-image-assets",
+      "revision": "8388a11a06076a42f3e73feb439a37465e328fa4",
+      "bytes": 436594503,
+      "files": 16097
+    },
+    {
+      "repository": "arkpedia-skin-assets",
+      "revision": "a3be6fb9c2c1254eae9f1952ff606fa9bcb24584",
+      "bytes": 4569567166,
+      "files": 10934
+    },
+    {
+      "repository": "arkpedia-color-palette",
+      "revision": "35165bb8e07f4d2296c31d4ff5e0b12c87677573",
+      "bytes": 1066,
+      "files": 2
+    },
+    {
+      "repository": "arkpedia-voice-japanese",
+      "revision": "ead2680d907b55749022ab055c31d8cc5d5b2c87",
+      "bytes": 1481956087,
+      "files": 17327
+    },
+    {
+      "repository": "arkpedia-voice-mandarin",
+      "revision": "b8edd168adafff1940fbeed2b955271ed205e92f",
+      "bytes": 1099194457,
+      "files": 16523
+    },
+    {
+      "repository": "arkpedia-voice-english",
+      "revision": "72ea44d190920189e3e20f4a821a2ac4d02627e0",
+      "bytes": 1173321195,
+      "files": 15985
+    },
+    {
+      "repository": "arkpedia-voice-korean",
+      "revision": "90d4a3c83d19a2970f24b98a51534d71a036a932",
+      "bytes": 1342495311,
+      "files": 15731
+    },
+    {
+      "repository": "arkpedia-voice-regional",
+      "revision": "66e3d039e0044b91f8ec81b240be8cf359926f3f",
+      "bytes": 167881877,
+      "files": 2280
+    },
+    {
+      "repository": "arkpedia-image-assets",
+      "revision": "d9ef287134cbc502c07e29192cf2f08957efe8f7",
+      "bytes": 439273081,
+      "files": 16166
+    },
+    {
+      "repository": "arkpedia-skin-assets",
+      "revision": "792389c3bb4284ec821f0bef372c156c058335c7",
+      "bytes": 4659908717,
+      "files": 11070
+    },
+    {
+      "repository": "arkpedia-voice-japanese",
+      "revision": "04de2676a71aa0e0f25a0c81cc1150ebc5ed908a",
+      "bytes": 1530861967,
+      "files": 17593
+    },
+    {
+      "repository": "arkpedia-voice-mandarin",
+      "revision": "b3d17a9991d9ea5ba73219d0ac3ef36c8b7931ca",
+      "bytes": 1135782549,
+      "files": 16789
+    },
+    {
+      "repository": "arkpedia-voice-english",
+      "revision": "2def2b90b306f554890d2d34ddd0aafe240f2f68",
+      "bytes": 1155855375,
+      "files": 15985
+    },
+    {
+      "repository": "arkpedia-voice-korean",
+      "revision": "121ed0d59e19e0cbaa6914bf6bddec767eb16b9b",
+      "bytes": 1322905007,
+      "files": 15731
+    },
+    {
+      "repository": "arkpedia-voice-regional",
+      "revision": "ec13821f50e9b692a71adbb1c96519f1caa47bf9",
+      "bytes": 200617408,
+      "files": 2508
+    },
+    {
+      "repository": "arkpedia-data",
+      "revision": "020625b51222ec102895fa49b5bcfca780a64011",
+      "bytes": 267269904,
+      "files": 8987
+    },
+    {
+      "repository": "arkpedia-l2d-assets",
+      "revision": "7721354d79f1821a7b17546e91dc9a505a2dcda0",
+      "bytes": 1783461295,
+      "files": 12648
+    },
+    {
+      "repository": "arkpedia-sd-assets",
+      "revision": "6f3cfd431aeb1475e7654cb9c019e176b238c01a",
+      "bytes": 1905476214,
+      "files": 10133
+    },
+    {
+      "repository": "arkpedia-sd-assets",
+      "revision": "456cb5aaa3888d8af92966a5b955657ee0d065a7",
+      "bytes": 1837192788,
+      "files": 8968
+    },
+    {
+      "repository": "arkpedia-l2d-assets",
+      "revision": "8c12ccd9ae38c13626a66d090587fba965a6dd32",
+      "bytes": 1821248063,
+      "files": 12823
+    },
+    {
+      "repository": "arkpedia-sd-assets",
+      "revision": "d105e64639e4e8a28880a476c365fa43b67abeaa",
+      "bytes": 1943866693,
+      "files": 10232
+    }
+  ]
+}

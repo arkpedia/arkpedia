@@ -9,13 +9,15 @@ import { archivesForOwner, claimArchives, collectPullArchives, restorePullArchiv
 interface Remote {
   user: { id: string; name: string }; profile: AccountProfile | null; linkedProviders: string[];
   linkedAccounts: { id: string; providerId: string }[];
-  revision: number; archiveRevision?: number; gameSync: boolean; personalSync?: boolean; historySync?: boolean; archives?: PullArchive[]; paused: boolean; data: CloudData; providers: string[]; updatedAt?: string;
+  syncReviewed: boolean; revision: number; archiveRevision?: number; gameSync: boolean; personalSync?: boolean; historySync?: boolean; archives?: PullArchive[]; paused: boolean; data: CloudData; providers: string[]; updatedAt?: string;
 }
 const MARKER = 'arkpedia:cloud-sync-v1';
-type Status = 'loading' | 'unavailable' | 'signed-out' | 'setup' | 'choice' | 'ready' | 'paused' | 'error';
+type Status = 'loading' | 'unavailable' | 'signed-out' | 'setup' | 'consent' | 'choice' | 'ready' | 'paused' | 'error';
 interface SyncState { status: Status; remote: Remote | null; providers: string[]; message: string }
 interface SyncContext extends SyncState {
+  saveAvatar: (avatarId: string | null) => Promise<void>;
   refresh: () => Promise<void>; choose: (source: 'browser' | 'cloud') => Promise<void>;
+  reviewChoices: (choices: { personalSync: boolean; historySync: boolean; gameSync: boolean }) => Promise<boolean>;
   consent: (enabled: boolean, category?: 'gameSync' | 'historySync' | 'personalSync') => Promise<void>; erase: () => Promise<void>;
   pause: () => void; resume: () => Promise<void>;
 }
@@ -26,10 +28,16 @@ function readMarker(): SyncMarker | null {
 function mark(remote: Remote, data: CloudData) {
   localStorage.setItem(MARKER, JSON.stringify({ userId: remote.user.id, revision: remote.revision, fingerprint: fingerprint(data) }));
 }
+let retryAt = 0;
 async function request(method = 'GET', body?: unknown, known?: Remote | null) {
+  if (Date.now() < retryAt) throw new Error('Cloud saving is waiting before retrying. Your browser data is unchanged.');
   const archiveHeaders: Record<string, string> = known?.archiveRevision === undefined ? {} : { 'X-Arkpedia-Archive-Owner': known.user.id, 'X-Arkpedia-Archive-Revision': String(known.archiveRevision) };
   const response = await fetch('/api/cloud-account', { method, credentials: 'same-origin', cache: 'no-store',
     headers: { ...archiveHeaders, ...(body === undefined ? {} : { 'Content-Type': 'application/json' }) }, ...(body === undefined ? {} : { body: JSON.stringify(body) }) });
+  if (response.status === 429 || response.status >= 500) {
+    const delay = Number(response.headers.get('retry-after') || 60);
+    retryAt = Date.now() + Math.min(300, Math.max(1, Number.isFinite(delay) ? delay : 60)) * 1000;
+  } else retryAt = 0;
   const data = await response.json();
   if (data.archivesUnchanged) {
     if (!known || data.user?.id !== known.user.id || data.archiveRevision !== known.archiveRevision) throw new Error('Archive identity changed. Refresh your account.');
@@ -40,7 +48,8 @@ async function request(method = 'GET', body?: unknown, known?: Remote | null) {
 
 const DISABLED: SyncContext = {
   status: 'unavailable', remote: null, providers: [], message: '',
-  refresh: async () => {}, choose: async () => {}, consent: async () => {},
+  saveAvatar: async () => { throw new Error('Sign in to save a profile picture.'); },
+  refresh: async () => {}, choose: async () => {}, reviewChoices: async () => true, consent: async () => {},
   erase: async () => {}, pause: () => {}, resume: async () => {},
 };
 
@@ -53,7 +62,10 @@ function EnabledCloudSyncProvider({ children, onRestore }: { children: ReactNode
   const [state, setState] = useState<SyncState>({ status: 'loading', remote: null, providers: [], message: '' });
   const busy = useRef(false), paused = useRef(false), stateRef = useRef(state);
   stateRef.current = state;
-  const show = useCallback((remote: Remote, status: Status, message: string) => setState({ remote, status, providers: remote.providers, message }), []);
+  const show = useCallback((remote: Remote, status: Status, message: string) => {
+    const next = { remote, status, providers: remote.providers, message };
+    stateRef.current = next; setState(next);
+  }, []);
   const restore = useCallback((remote: Remote) => {
     restorePullArchives(remote.historySync ? remote.archives ?? [] : []);
     restoreCloudData(remote.data, remote.gameSync, localStorage, remote.personalSync ?? true);
@@ -69,7 +81,7 @@ function EnabledCloudSyncProvider({ children, onRestore }: { children: ReactNode
     mark(saved, local); show(saved, 'ready', 'Up to date');
   }, [show]);
   const syncArchives = useCallback(async (initial: Remote): Promise<Remote> => {
-    if (!initial.historySync || initial.paused || !initial.profile) return initial;
+    if (!initial.syncReviewed || !initial.historySync || initial.paused || !initial.profile) return initial;
     const local = archivesForOwner(collectPullArchives(localStorage), initial.user.id);
     const chunks = archiveUploadChunks(local, initial.archives ?? []);
     let remote = initial;
@@ -108,6 +120,8 @@ function EnabledCloudSyncProvider({ children, onRestore }: { children: ReactNode
       if (response.status === 503) { setState(s => ({ ...s, status: s.remote ? 'error' : 'unavailable', message: data.error })); return; }
       if (!response.ok) throw new Error(data.error);
       const received = data as Remote, previous = readMarker();
+      if (!received.profile) { show(received, 'setup', 'Choose your Arkpedia username.'); return; }
+      if (!received.syncReviewed) { show(received, 'consent', 'Choose what to sync to your account.'); return; }
       const browserArchives = collectPullArchives(localStorage);
       if (previous && previous.userId !== received.user.id && browserArchives.length && received.profile && !received.paused) {
         claimArchives(browserArchives, previous.userId);
@@ -145,6 +159,7 @@ function EnabledCloudSyncProvider({ children, onRestore }: { children: ReactNode
         show(remote, 'choice', 'The cloud copy changed again. Review your choice and try once more.'); return;
       }
       if (!remote.profile) { show(remote, 'setup', 'Choose your Arkpedia username.'); return; }
+      if (!remote.syncReviewed) { show(remote, 'consent', 'Choose what to sync to your account.'); return; }
       const previous = readMarker();
       if (previous && previous.userId !== remote.user.id && source === 'browser') claimArchives(collectPullArchives(localStorage), remote.user.id, true);
       const chosen = remote;
@@ -157,6 +172,28 @@ function EnabledCloudSyncProvider({ children, onRestore }: { children: ReactNode
       else await upload(remote, collectCloudData(localStorage, remote.gameSync, remote.personalSync ?? true));
     } catch (error) { setState(s => ({ ...s, status: 'error', message: error instanceof Error ? error.message : 'Could not sync.' })); }
     finally { busy.current = false; }
+  }
+
+  async function reviewChoices(choices: { personalSync: boolean; historySync: boolean; gameSync: boolean }) {
+    const remote = stateRef.current.remote;
+    if (busy.current || !remote || paused.current) throw new Error('Sync is busy. Try again in a moment.');
+    busy.current = true;
+    try {
+      const result = await request('PATCH', { owner: remote.user.id, revision: remote.revision, savingVersion: 2, syncReviewed: true, ...choices });
+      if (!result.response.ok) {
+        if (result.response.status === 409) { busy.current = false; await refresh(); }
+        throw new Error(result.data.error);
+      }
+      const previous = readMarker();
+      const saved = { ...remote, ...result.data };
+      // Consent increments the revision without uploading data. A genuinely new
+      // empty save can now receive this browser's selected data. Never bypass an
+      // existing owner's conflict or claim that the local data is already saved.
+      if (remote.revision === 0 && Object.keys(remote.data).length === 0 && (!previous || previous.userId === remote.user.id)) mark(saved, remote.data);
+      show(saved, result.data.paused ? 'paused' : 'ready', 'Saving choices confirmed.');
+    } finally { busy.current = false; }
+    await refresh();
+    return stateRef.current.status !== 'choice' && stateRef.current.status !== 'error';
   }
 
   async function mutate(method: 'PATCH' | 'DELETE', enabled?: boolean, category = 'gameSync') {
@@ -173,10 +210,21 @@ function EnabledCloudSyncProvider({ children, onRestore }: { children: ReactNode
     finally { busy.current = false; }
     if (method === 'PATCH') await refresh();
   }
+  async function saveAvatar(avatarId: string | null) {
+    const owner = stateRef.current.remote?.user.id;
+    if (!owner || !stateRef.current.remote?.profile) throw new Error('Finish account setup before choosing a picture.');
+    const response = await fetch('/api/account-profile', { method: 'PATCH', credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ owner, avatarId }) });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error ?? 'Your picture could not be saved. Try again.');
+    const current = stateRef.current;
+    if (current.remote?.user.id !== owner) throw new Error('Your signed-in account changed. Reopen account settings.');
+    show({ ...current.remote, profile: result.profile }, current.status, current.message);
+  }
   // Retain the previous owner so another account cannot silently inherit these saves.
   function pause() { paused.current = true; }
   async function resume() { paused.current = false; await refresh(); }
-  return <Context.Provider value={{ ...state, refresh, choose, consent: (enabled, category) => mutate('PATCH', enabled, category), erase: () => mutate('DELETE'), pause, resume }}>{children}</Context.Provider>;
+  return <Context.Provider value={{ ...state, saveAvatar, refresh, choose, reviewChoices, consent: (enabled, category) => mutate('PATCH', enabled, category), erase: () => mutate('DELETE'), pause, resume }}>{children}</Context.Provider>;
 }
 
 export function useCloudSync() {

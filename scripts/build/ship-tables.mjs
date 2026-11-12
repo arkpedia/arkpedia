@@ -7,7 +7,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-export const SHIPPED = ['regional-schedules.json'];
+export const SHIPPED = ['regional-schedules.json','community-operator-catalogue.json','community-stage-catalogue.json','community-poll-catalogue.json','account-catalogue.json'];
 
 export function shipTables(root = process.cwd()) {
   const out = path.join(root, 'public/_tables');

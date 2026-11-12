@@ -1,5 +1,6 @@
 import { withContentPage } from '@/lib/content/server';
 import PageMeta from '@/components/layout/PageMeta';
+import { filterValues, toggleFilter } from '@/lib/operators/rosterFilters';
 import { sortClasses } from '@/lib/operators/classOrder';
 import { GetStaticProps } from 'next';
 import path from 'path';
@@ -39,6 +40,7 @@ import { operatorHref } from '@/lib/operators/operatorHref';
 
 interface Props {
   operators: RosterOperator[];
+  releaseScheduleResolved?: boolean;
   /** The Limited operators' banner appearances and the Celebration dates, for the Obtain
    *  filter's Limited notes (days until a rerun), worked out at render from the clock. */
   limitedBannerInfo?: Record<string, LimitedOperatorInfo>;
@@ -72,9 +74,15 @@ export default function OperatorsIndex({ operators, limitedBannerInfo = NO_LIMIT
   // preferences below: it is a question asked of the list, not a view the reader keeps.
   const [obtainRaw, setObtainRaw] = useQueryState('obtain', '');
   const [obtainTypeRaw, setObtainType] = useQueryState('obtain-type', 'all');
-  const obtain = obtainFilter(obtainRaw);
-  const obtainType = obtain === 'limited' && LIMITED_SUBTYPES.some((t) => t === obtainTypeRaw) ? obtainTypeRaw
-    : obtain === 'welfare' && WELFARE_SUBTYPES.some((s) => s.label === obtainTypeRaw) ? obtainTypeRaw : 'all';
+  const rarityValues = useMemo(() => filterValues(rarityFilter), [rarityFilter]);
+  const classValues = useMemo(() => filterValues(classFilter), [classFilter]);
+  const branchValues = useMemo(() => filterValues(branchFilter), [branchFilter]);
+  const factionValues = useMemo(() => filterValues(factionFilter), [factionFilter]);
+  const obtainValues = useMemo(() => filterValues(obtainRaw).filter(value => OBTAIN_METHODS.some(method => method.key === value)), [obtainRaw]);
+  const subtypeValues = useMemo(() => filterValues(obtainTypeRaw)
+    .map(value => value.includes(':') ? value : LIMITED_SUBTYPES.some(type => type === value) ? `limited:${value}` : `welfare:${value}`)
+    .filter(value => LIMITED_SUBTYPES.some(type => value === `limited:${type}`) || WELFARE_SUBTYPES.some(source => value === `welfare:${source.label}`)), [obtainTypeRaw]);
+  const obtain = obtainValues.length === 1 ? obtainFilter(obtainValues[0]) : null;
   // Owned or not, by the imported account (lib/account/accountStore); ignored without one.
   const [ownedRaw, setOwned] = useQueryState('owned', 'all');
   const owned = ownedFilter(ownedRaw);
@@ -119,9 +127,9 @@ export default function OperatorsIndex({ operators, limitedBannerInfo = NO_LIMIT
   // Branch options narrow to whichever class is currently selected, so the
   // list doesn't show irrelevant branches once a class filter is active.
   const branches = useMemo(() => {
-    const pool = classFilter === 'all' ? operators : operators.filter((op) => op.class === classFilter);
+    const pool = classValues.length === 0 ? operators : operators.filter((op) => classValues.includes(op.class ?? '') || branchValues.includes(op.branch ?? ''));
     return Array.from(new Set(pool.map((op) => op.branch).filter((b): b is string => !!b))).sort();
-  }, [operators, classFilter]);
+  }, [operators, classValues, branchValues]);
   const factions = useMemo(
     () =>
       Array.from(
@@ -139,7 +147,7 @@ export default function OperatorsIndex({ operators, limitedBannerInfo = NO_LIMIT
   // in that case, both for filtering and the "coming soon" sort boost).
   function daysUntilRelease(op: RosterOperator): number | null {
     const release = operatorRelease(op);
-    if (!release) return null;
+    if (!release || (release.estimated && clock >= release.at)) return null;
     return (release.at - clock) / (24 * 60 * 60 * 1000);
   }
   const COMING_SOON_WINDOW_DAYS = 10;
@@ -157,7 +165,7 @@ export default function OperatorsIndex({ operators, limitedBannerInfo = NO_LIMIT
   // three tiers being mixed together in whatever order they'd
   // otherwise sort in.
   function factionMatchRank(op: RosterOperator, filterFaction: string): number {
-    const equivalents = expandFactionAliases(filterFaction);
+    const equivalents = filterValues(filterFaction).flatMap(expandFactionAliases);
     if (op.faction && equivalents.includes(op.faction)) return 0;
     if ((op.umbrellaFactions || []).some((f) => equivalents.includes(f))) return 1;
     if ((op.connectedFactions || []).some((f) => equivalents.includes(f))) return 2;
@@ -183,24 +191,25 @@ export default function OperatorsIndex({ operators, limitedBannerInfo = NO_LIMIT
         return days <= COMING_SOON_WINDOW_DAYS; // already released, or releasing within the window
       });
     }
-    if (rarityFilter !== 'all') list = list.filter((op) => String(op.rarity) === rarityFilter);
-    if (classFilter !== 'all') list = list.filter((op) => op.class === classFilter);
-    if (branchFilter !== 'all') list = list.filter((op) => op.branch === branchFilter);
-    if (factionFilter !== 'all') {
-      list = list.filter((op) => operatorBelongsToFaction(op, factionFilter));
-    }
-    if (obtain) {
-      list = list.filter((op) => op.obtain?.methods.includes(obtain));
-      if (obtainType !== 'all') {
-        if (obtain === 'limited') list = list.filter((op) => limitedBannerInfo[op.name]?.type === obtainType);
-        if (obtain === 'welfare') list = list.filter((op) => welfareMatches(op.obtain?.welfare, obtainType));
-      }
-    }
+    if (rarityValues.length) list = list.filter((op) => rarityValues.includes(String(op.rarity)));
+    if (classValues.length) list = list.filter((op) => classValues.includes(op.class ?? ''));
+    if (branchValues.length) list = list.filter((op) => branchValues.includes(op.branch ?? ''));
+    if (factionValues.length) list = list.filter(op => factionValues.some(faction => operatorBelongsToFaction(op, faction)));
+    if (obtainValues.length) list = list.filter(op => obtainValues.some(method => {
+      if (!op.obtain?.methods.includes(method as typeof OBTAIN_METHODS[number]['key'])) return false;
+      const types = subtypeValues.filter(value => value.startsWith(`${method}:`)).map(value => value.slice(method.length + 1));
+      const legacy = subtypeValues.filter(value => !value.includes(':'));
+      const selected = [...types, ...legacy];
+      if (!selected.length) return true;
+      if (method === 'limited') return selected.includes(limitedBannerInfo[op.name]?.type ?? '');
+      if (method === 'welfare') return selected.some(type => welfareMatches(op.obtain?.welfare, type));
+      return true;
+    }));
     if (search.trim()) {
       list = list.filter((op) => matchesSearch(op.name, search));
     }
     return list;
-  }, [operators, showUnreleased, rarityFilter, classFilter, branchFilter, factionFilter, obtain, obtainType, limitedBannerInfo, search, clock]);
+  }, [operators, showUnreleased, rarityValues, classValues, branchValues, factionValues, obtainValues, subtypeValues, limitedBannerInfo, search, clock]);
   const ownedCounts = useMemo(() => countOwned(matching, (op) => ownedNames.has(op.name)), [matching, ownedNames]);
 
   const filtered = useMemo(() => {
@@ -282,16 +291,19 @@ export default function OperatorsIndex({ operators, limitedBannerInfo = NO_LIMIT
   // and a hold over the list so a filter pressed in the sheet cannot clamp the reader.
   const hold = useSwitchHold('operators');
   const activeFilters: ActiveFilter[] = [
-    ...(rarityFilter !== 'all' ? [{ key: 'rarity', label: `${rarityFilter}★`, remove: () => setRarityFilter('all') }] : []),
-    ...(classFilter !== 'all' ? [{ key: 'class', label: classFilter, remove: () => { setClassFilter('all'); setBranchFilter('all'); } }] : []),
-    ...(branchFilter !== 'all' ? [{ key: 'branch', label: branchFilter, remove: () => setBranchFilter('all') }] : []),
-    ...(factionFilter !== 'all' ? [{ key: 'faction', label: factionFilter, remove: () => setFactionFilter('all') }] : []),
+    ...rarityValues.map(value => ({ key: `rarity:${value}`, label: `${value}★`, remove: () => setRarityFilter(toggleFilter(rarityFilter, value)) })),
+    ...classValues.map(value => ({ key: `class:${value}`, label: value, remove: () => setClassFilter(toggleFilter(classFilter, value)) })),
+    ...branchValues.map(value => ({ key: `branch:${value}`, label: value, remove: () => setBranchFilter(toggleFilter(branchFilter, value)) })),
+    ...factionValues.map(value => ({ key: `faction:${value}`, label: value, remove: () => setFactionFilter(toggleFilter(factionFilter, value)) })),
+    ...obtainValues.map(value => ({ key: `obtain:${value}`, label: OBTAIN_METHODS.find(method => method.key === value)?.label ?? value, remove: () => setObtainRaw(filterValues(toggleFilter(obtainRaw, value)).join(',')) })),
+    ...subtypeValues.map(value => ({ key: `subtype:${value}`, label: value.slice(value.indexOf(':') + 1), remove: () => setObtainType(subtypeValues.filter(type => type !== value).join(',') || 'all') })),
     ...(showUnreleased ? [{ key: 'cn', label: 'Show CN', remove: () => setShowUnreleased(false) }] : []),
     ...(account && owned !== 'all' ? [{ key: 'owned', label: owned === 'owned' ? 'Owned' : 'Not owned', remove: () => setOwned('all') }] : []),
   ];
   /** The sheet's Reset: every filter a chip shows (the search keeps its own ×). */
   function resetSheet() {
-    for (const filter of activeFilters) filter.remove();
+    setRarityFilter('all'); setClassFilter('all'); setBranchFilter('all'); setFactionFilter('all');
+    setObtainRaw(''); setObtainType('all'); setShowUnreleased(false); setOwned('all');
   }
 
   function resetFilters() {
@@ -324,22 +336,28 @@ export default function OperatorsIndex({ operators, limitedBannerInfo = NO_LIMIT
   const savedPrefsAppliedRef = useRef(false);
   useEffect(() => {
     if (!router.isReady || savedPrefsAppliedRef.current) return;
-    savedPrefsAppliedRef.current = true;
-    try {
-      const saved = localStorage.getItem('operatorsFilters');
-      if (!saved) return;
-      const parsed = JSON.parse(saved);
-      const inUrl = (key: string) => typeof router.query[key] === 'string' && router.query[key] !== '';
-      if (!inUrl('rarity') && parsed.rarityFilter) setRarityFilter(parsed.rarityFilter);
-      if (!inUrl('class') && parsed.classFilter) setClassFilter(parsed.classFilter);
-      if (!inUrl('branch') && parsed.branchFilter) setBranchFilter(parsed.branchFilter);
-      if (!inUrl('faction') && parsed.factionFilter) setFactionFilter(parsed.factionFilter);
-      if (!inUrl('dir') && parsed.sortDir) setSortDir(parsed.sortDir);
-      if (!inUrl('sort') && parsed.sortField) setSortField(parsed.sortField);
-      if (!inUrl('cn') && typeof parsed.showUnreleased === 'boolean') setShowUnreleased(parsed.showUnreleased);
-    } catch {
-      // Corrupted or unavailable -- just fall back to defaults.
-    }
+    // A client navigation can mount this page before routeChangeComplete.
+    // useQueryState consumes that landing event; restore saved choices after
+    // it, so the bare roster link cannot overwrite them with its defaults.
+    const timer = window.setTimeout(() => {
+      savedPrefsAppliedRef.current = true;
+      try {
+        const saved = localStorage.getItem('operatorsFilters');
+        if (!saved) return;
+        const parsed = JSON.parse(saved);
+        const inUrl = (key: string) => typeof router.query[key] === 'string' && router.query[key] !== '';
+        if (!inUrl('rarity') && parsed.rarityFilter) setRarityFilter(parsed.rarityFilter);
+        if (!inUrl('class') && parsed.classFilter) setClassFilter(parsed.classFilter);
+        if (!inUrl('branch') && parsed.branchFilter) setBranchFilter(parsed.branchFilter);
+        if (!inUrl('faction') && parsed.factionFilter) setFactionFilter(parsed.factionFilter);
+        if (!inUrl('dir') && parsed.sortDir) setSortDir(parsed.sortDir);
+        if (!inUrl('sort') && parsed.sortField) setSortField(parsed.sortField);
+        if (!inUrl('cn') && typeof parsed.showUnreleased === 'boolean') setShowUnreleased(parsed.showUnreleased);
+      } catch {
+        // Corrupted or unavailable -- just fall back to defaults.
+      }
+    }, 0);
+    return () => window.clearTimeout(timer);
     // The setters from useQueryState are stable; router.query is read
     // fresh on the run that matters (the one where isReady flips).
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -392,8 +410,8 @@ export default function OperatorsIndex({ operators, limitedBannerInfo = NO_LIMIT
                   key={r}
                   className="filter-chip"
                   aria-label={`${r}-star`}
-                  aria-pressed={rarityFilter === String(r)}
-                  onClick={() => setRarityFilter(rarityFilter === String(r) ? 'all' : String(r))}
+                  aria-pressed={rarityValues.includes(String(r))}
+                  onClick={() => setRarityFilter(toggleFilter(rarityFilter, String(r)))}
                 >
                   {r}★
                 </button>
@@ -409,11 +427,8 @@ export default function OperatorsIndex({ operators, limitedBannerInfo = NO_LIMIT
                     key={c}
                     className="filter-chip roster-icon-chip"
                     aria-label={c}
-                    aria-pressed={classFilter === c}
-                    onClick={() => {
-                      setClassFilter(classFilter === c ? 'all' : c);
-                      setBranchFilter('all'); // branch list changes with class, reset to avoid an invalid combo
-                    }}
+                    aria-pressed={classValues.includes(c)}
+                    onClick={() => setClassFilter(toggleFilter(classFilter, c))}
                   >
                     {iconPath && <OperatorGameIcon src={iconPath} label={c} size={24} />}
                   </button>
@@ -422,42 +437,28 @@ export default function OperatorsIndex({ operators, limitedBannerInfo = NO_LIMIT
             </div>
           </div>
 
-          {classFilter !== 'all' && branches.length > 0 && (
-            <div className="roster-button-group roster-branch-row" role="group" aria-label="Branch">
-              {branches.map((b) => {
-                const iconPath = getBranchIconPath(b);
-                return (
-                  <button
-                    type="button"
-                    key={b}
-                    className="filter-chip"
-                    aria-label={b}
-                    aria-pressed={branchFilter === b}
-                    onClick={() => setBranchFilter(branchFilter === b ? 'all' : b)}
-                  >
-                    {iconPath && <OperatorGameIcon src={iconPath} label={b} size={20} />}
-                    <span>{b}</span>
-                  </button>
-                );
-              })}
-            </div>
-          )}
-
           {/* Filters on the left, the order on the right: the same row on the skins gallery
               and the Skin Planner, with the owned filter in the same place. */}
           <div className="roster-filter-row">
-          <StyledSelect className="roster-faction" label="Filter by faction" value={factionFilter} onChange={setFactionFilter}
-            options={[{ value: 'all', label: 'All factions' }, ...factions.map((f) => ({ value: f, label: f }))]} />
+          <StyledSelect multiple className="roster-branch" label="Filter by subclass" value={branchValues}
+            onChange={values => setBranchFilter(values.join(',') || 'all')} placeholder="All subclasses"
+            options={branches.map(branch => ({ value: branch, label: branch, group: operators.find(op => op.branch === branch)?.class ?? '' }))
+              .sort((a, b) => classes.indexOf(a.group) - classes.indexOf(b.group) || a.label.localeCompare(b.label))}
+            renderOption={option => <>{getBranchIconPath(option.value) && <span aria-hidden="true"><OperatorGameIcon src={getBranchIconPath(option.value)!} label={option.label} size={20} /></span>}<span>{option.label}</span></>} />
 
-          {hasObtain && <StyledSelect className="roster-obtain" label="Filter by how obtained" value={obtain || 'all'}
-            onChange={(value) => { setObtainRaw(value === 'all' ? '' : value); setObtainType('all'); }}
-            options={[{ value: 'all', label: 'Any way obtained' }, ...OBTAIN_METHODS.map((m) => ({ value: m.key, label: m.label }))]} />}
-          {hasObtain && (obtain === 'limited' || obtain === 'welfare') && (
-            <StyledSelect className="roster-obtain" label={obtain === 'limited' ? 'Limited banner type' : 'Welfare source'} value={obtainType}
-              onChange={setObtainType}
-              options={obtain === 'limited'
-                ? [{ value: 'all', label: 'Any banner type' }, ...LIMITED_SUBTYPES.map((t) => ({ value: t, label: t }))]
-                : [{ value: 'all', label: 'Any source' }, ...WELFARE_SUBTYPES.map((s) => ({ value: s.label, label: s.label }))]} />
+          <StyledSelect multiple className="roster-faction" label="Filter by faction" value={factionValues}
+            onChange={values => setFactionFilter(values.join(',') || 'all')} placeholder="All factions"
+            options={factions.map(f => ({ value: f, label: f }))} />
+          {hasObtain && <StyledSelect multiple className="roster-obtain" label="Filter by how obtained" value={obtainValues}
+            onChange={values => setObtainRaw(values.join(','))} placeholder="Any way obtained"
+            options={OBTAIN_METHODS.map(method => ({ value: method.key, label: method.label }))} />}
+          {hasObtain && obtainValues.some(value => value === 'limited' || value === 'welfare') && (
+            <StyledSelect multiple className="roster-obtain" label="Banner type or welfare source" value={subtypeValues}
+              onChange={values => setObtainType(values.join(',') || 'all')} placeholder="Any type or source"
+              options={[
+                ...(obtainValues.includes('limited') ? LIMITED_SUBTYPES.map(type => ({ value: `limited:${type}`, label: type, group: 'Limited banner type' })) : []),
+                ...(obtainValues.includes('welfare') ? WELFARE_SUBTYPES.map(source => ({ value: `welfare:${source.label}`, label: source.label, group: 'Welfare source' })) : []),
+              ]} />
           )}
 
           <button
@@ -505,12 +506,11 @@ export default function OperatorsIndex({ operators, limitedBannerInfo = NO_LIMIT
         ) : (
           <>
             <div className="grid roster-grid">
-              {shown.slice(0, visibleCount).map((op, i) => (
+              {shown.slice(0, visibleCount).map((op) => (
                 <Link prefetch={false}
                   key={op.name}
                   href={operatorHref(op.name, null)}
-                  className="card roster-card roster-card-enter"
-                  style={{ animationDelay: `${Math.min(i * 25, 600)}ms` }}
+                  className="card roster-card rise-in"
                 >
                   <div className={`avatar${op.rarity ? ` tier-${rarityLevel(op.rarity)}` : ''}`}>
                     <Image src={getOperatorIconPath(op)} alt={op.name} fill sizes="(max-width: 600px) 33vw, 160px" />
@@ -546,7 +546,7 @@ export default function OperatorsIndex({ operators, limitedBannerInfo = NO_LIMIT
                           <p className="hint roster-faction-match-tag">
                             <b>
                               {(() => {
-                                const equivalents = expandFactionAliases(factionFilter);
+                                const equivalents = factionValues.flatMap(expandFactionAliases);
                                 if (op.faction && equivalents.includes(op.faction)) return 'Main Faction';
                                 if ((op.umbrellaFactions || []).some((f) => equivalents.includes(f))) return 'Umbrella Faction';
                                 if ((op.connectedFactions || []).some((f) => equivalents.includes(f))) return 'Connected Faction';
@@ -605,7 +605,7 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/op
     howToObtain: null,
     ...(() => {
       // The Obtain filter's answer, so the record itself need not travel.
-      const methods = obtainMethodsOf(op.howToObtain, op.rarity);
+      const methods = obtainMethodsOf(op.howToObtain);
       const welfare = welfareSourceOf(op.howToObtain);
       return methods.length ? { obtain: { methods, ...(welfare ? { welfare } : {}) } } : {};
     })(),
@@ -613,6 +613,7 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/op
     ...portraitStatus(op),
     ...(op.sourceRegion ? { sourceRegion: op.sourceRegion } : {}),
     ...(op.releaseAt ? { releaseAt: op.releaseAt } : {}),
+    ...(op.releaseEstimate ? { releaseEstimate: op.releaseEstimate } : {}),
     ...(op.availableUntil ? { availableUntil: op.availableUntil } : {}),
     characterInfo: op.characterInfo ? { 'Release Date': op.characterInfo['Release Date'] || '' } : null,
   }));
@@ -654,5 +655,11 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/op
   const banners = getAllHeadhuntingBanners();
   const limitedBannerInfo = getLimitedBannerInfoLookup(banners);
   const celebrationBannerDates = getCelebrationBannerDates(banners);
-  return { props: { operators, limitedBannerInfo, celebrationBannerDates } };
-});
+  return { props: { operators, limitedBannerInfo, celebrationBannerDates, releaseScheduleResolved: true } };
+}, { finalize: async props => {
+  // Older content releases lack the calendar provenance marker. Resolve those
+  // records once on the server; newly compiled releases already carry it.
+  if (props.releaseScheduleResolved) return props;
+  const { resolveOperatorDebut } = await import('@/lib/operators/operatorReleaseSchedule');
+  return { ...props, operators: props.operators.map(op => resolveOperatorDebut(op)), releaseScheduleResolved: true };
+} });

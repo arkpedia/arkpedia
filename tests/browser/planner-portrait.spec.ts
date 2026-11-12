@@ -4,7 +4,7 @@ for (const theme of ['dark', 'light']) {
   test(`full planner art keeps one size across cost views and operators (${theme})`, async ({ page }, info) => {
     await page.addInitScript(theme => {
       localStorage.setItem('theme', theme);
-      localStorage.setItem('arkpedia:privacy:v1', JSON.stringify({ version: 1, analytics: false, externalMedia: false, savedAt: Date.now() }));
+      localStorage.setItem('arkpedia:privacy:v1', JSON.stringify({ version: 1, analytics: false, externalMedia: false, externalMediaChosen: true, savedAt: Date.now() }));
       const state = { elite: 2, level: 90, skillLevel: 7, masteryTargets: { 0: 3, 1: 3, 2: 3 }, moduleStageTargets: { 0: 3 },
         startingElite: 0, startingLevel: 1, startingSkillLevel: 1, startingMasteryLevels: {}, startingModuleStages: {} };
       localStorage.setItem('plannerState', JSON.stringify({ selectedNames: ['Surtr', 'Thorns', 'Executor'],

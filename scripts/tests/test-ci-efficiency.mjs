@@ -10,15 +10,22 @@ import { pythonTests, runPythonTests } from './run-python-tests.mjs';
 const workflow = name => yaml.load(fs.readFileSync(`.github/workflows/${name}.yml`, 'utf8'));
 const steps = workflow('check').jobs.check.steps;
 
+test('browser pages, catalogues and shipped tables are generated from the same pinned revision', () => {
+  const pin = steps.findIndex(step => step.name === 'Pull the pinned game records for the browser specs');
+  const prepare = steps.findIndex(step => step.name === 'Prepare pinned browser build inputs');
+  const build = steps.findIndex(step => step.name === 'Build');
+  assert.ok(pin >= 0 && prepare > pin && build > prepare);
+  assert.ok(steps.slice(prepare + 1, build).every(step => !/pull-data\.mjs/.test(step.run ?? '')), 'no later data pull can invalidate generated inputs');
+  assert.equal(steps[prepare].run, 'npm run prebuild');
+  assert.deepEqual(steps[prepare].env, { NODE_ENV: 'production', ARKPEDIA_CONTENT_DISABLED: '1' });
+  assert.ok(steps.findIndex(step => step.name === 'Typecheck') < pin, 'live-data type validation remains before the browser pin');
+});
+
 test('Python discovery includes every current suite and nested new suites, without helpers', t => {
   const files = pythonTests('scripts').map(file => file.replaceAll('\\', '/'));
   for (const file of [
-    'scripts/imports/test-degrading-importers.py',
-    'scripts/imports/test-namecard-styles.py',
-    'scripts/imports/test-story-map.py',
     'scripts/palettes/test-color-palettes.py',
     'scripts/sync/test-publish-catalogue-assets.py',
-    'scripts/tests/test-medal-layouts.py',
   ]) assert.ok(files.includes(file), file);
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'python-inventory-'));
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
@@ -144,15 +151,15 @@ test('only fresh hosted runners restore npm archives; every profile has one lock
     const ownsInstall = step => name === 'deploy' ? step.name === 'Build' && step.run?.includes('vercel@') && step.run.includes(' build ') : step.run === 'npm ci';
     const installers = jobs.filter(job => job.steps?.some(ownsInstall));
     const cached = jobs.flatMap(job => job.steps ?? []).filter(step => step.uses === 'actions/setup-node@v7' && step.with?.cache);
-    assert.equal(installers.length, name === 'check' ? 2 : 1, name);
+    assert.equal(installers.length, name === 'check' ? 3 : 1, name);
     assert.equal(cached.length, installers.length, 'only clean-install jobs configure the npm cache');
     for (const job of installers) {
       assert.equal(job.steps.filter(ownsInstall).length, 1, 'one dependency install owner per selected job');
       if (name === 'deploy') assert.equal(job.steps.filter(step => step.run === 'npm ci').length, 0, 'Vercel must not repeat an outer install');
       const setups = job.steps.filter(step => step.uses === 'actions/setup-node@v7' && step.with?.cache);
       assert.equal(setups.length, 1, 'each selected profile installs once with its own cache policy');
-      assert.equal(setups[0].with.cache, "${{ runner.environment == 'github-hosted' && 'npm' || '' }}");
-      assert.equal(setups[0].with['package-manager-cache'], "${{ runner.environment == 'github-hosted' }}");
+      assert.equal(setups[0].with.cache, 'npm');
+      assert.equal(setups[0].with['package-manager-cache'], true);
     }
   }
 });

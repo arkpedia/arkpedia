@@ -121,10 +121,17 @@ function Sheet({ children, onClose, onReset, resetDisabled, hold, returnTo }: {
   }, [returnTo]);
   return (
     <dialog ref={ref} className="account-dialog filter-sheet" aria-labelledby="filter-sheet-title" tabIndex={-1}
-      onCancel={(event) => { event.preventDefault(); onClose(); }}
+      onCancel={(event) => { event.preventDefault(); event.stopPropagation(); onClose(); }}
       // Before any control inside changes a filter: the page keeps its height for the
       // reader's position, in the same render as the narrower list.
-      onClickCapture={() => hold.capture()}
+      // A native checkbox toggles before click capture. Capturing the page's
+      // layout then flushes its old checked prop back before React sees change.
+      // Snapshot physical/keyboard input before that default action instead.
+      onPointerDownCapture={() => hold.capture()}
+      onClickCapture={event => {
+        if (event.target instanceof HTMLInputElement && event.target.type === 'checkbox') return;
+        hold.capture();
+      }}
       onKeyDownCapture={(event) => { if (event.key === 'Enter' || event.key === ' ') hold.capture(); }}
       // Tab wraps inside the sheet: a modal dialog makes the page inert, but past its last
       // control Chromium hands focus to the browser's own toolbar, out of the page.

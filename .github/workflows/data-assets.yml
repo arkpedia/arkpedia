@@ -1,0 +1,30 @@
+name: Verify isolated unified data reader
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: unified-data-reader
+  cancel-in-progress: false
+jobs:
+  verify:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: public-assets
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      # Existing deploy tokens are service-scoped. Deployment uses the approved
+      # local Cloudflare login; CI needs only public HTTP inputs to verify it.
+      - name: Verify isolated new-bucket data reader against immutable GitHub release
+        run: node scripts/deploy/data-assets-worker.mjs --verify-only
+      - uses: actions/upload-artifact@v7
+        with:
+          name: unified-data-reader-${{ github.run_id }}
+          path: .cache/data-assets-deployment.json
+          include-hidden-files: true
+          if-no-files-found: error

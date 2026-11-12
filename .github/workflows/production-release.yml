@@ -34,7 +34,7 @@ jobs:
       (github.event_name == 'workflow_dispatch' ||
       (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push' &&
       github.event.workflow_run.head_branch == 'main' && github.event.workflow_run.head_repository.full_name == github.repository))
-    runs-on: [self-hosted, Linux, X64, arkpedia-nas-build]
+    runs-on: ubuntu-latest
     timeout-minutes: 45
     env:
       NEXT_TELEMETRY_DISABLED: '1'
@@ -55,6 +55,8 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: node scripts/deploy/pilot-release-gate.mjs "$RELEASE_CHECK" "$RELEASE_SOURCE"
+      - name: Use disk-backed temporary storage
+        run: echo "TMPDIR=$RUNNER_TEMP" >> "$GITHUB_ENV"
       - name: Install pinned dependencies without deployment credentials
         run: npm ci
       # Game records live in arkpedia-data; this repository keeps code only. The live release's
@@ -88,7 +90,7 @@ jobs:
   resume-content:
     needs: release
     if: success()
-    runs-on: ${{ vars.ARKPEDIA_LIGHT_RUNNER || 'ubuntu-latest' }}
+    runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
       contents: read

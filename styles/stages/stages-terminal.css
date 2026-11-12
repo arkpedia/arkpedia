@@ -64,6 +64,15 @@
    reachable, and the bar keeps its one-row height through the swap.
    tests/browser/terminal-pages.spec.ts loads the Terminal with the webfonts blocked. */
 .terminal-tabs { flex-wrap: nowrap; }
+/* The seven sections span the bar's width (maintainer, 2026-11-05): the row is the
+   page's section spine, not a short strip ending two thirds along it. The spare width
+   goes between the tabs, not into equal columns -- a seventh of the frame at 1040 is
+   141px, which ellipsised "Long-term exploration", and a label that names a section
+   should not be cut to fill a grid. Space-between keeps every label at its natural
+   width and puts the last tab on the frame's right edge. */
+@media (min-width: 1040px) {
+  .terminal-tabs { justify-content: space-between; }
+}
 /* The bar's own height (the underline sits on its bottom hairline), and a tab may be
    narrower than its label. */
 .terminal-tabs > * { min-height: 40px; min-width: 0; }
@@ -422,12 +431,17 @@
   letter-spacing: 0.06em;
   color: var(--text-dim);
 }
+/* Two lines, not one. The name sits beside the stage code in a 132px column, where a
+   single line ellipsised every long title to the same stump ("Hortus de Escap",
+   "I Portatori del Vell") and two entries could not be told apart. */
 .score-node-name {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
   font-size: 13px;
   line-height: 1.25;
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  white-space: normal;
 }
 .score-node:hover .score-node-name { color: var(--teal); }
 .score-node-meta {

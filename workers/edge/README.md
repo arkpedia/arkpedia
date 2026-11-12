@@ -1,6 +1,9 @@
 # The site's front Worker
 
-A Worker of a few kilobytes in front of the site Worker `arkpedia` on arkpedia-cf.mocchibird.com.
+A small front Worker on `www.arkpedia.net`, with `SITE` bound to the production application `arkpedia`.
+It also redirects the apex and forwards `preview.arkpedia.net` to the isolated native Preview.
+The canonical `/_next/static/*` route goes directly to the application's native asset handler;
+it does not invoke this front Worker. See [static routing](../../docs/development/static-asset-routing.md).
 It answers pages from Cloudflare's cache in the data centre the reader reached. The site Worker
 runs only on a miss, or in the background to refresh a stale copy.
 
@@ -63,50 +66,34 @@ The site Worker's own requests from here carry `x-arkpedia-edge: miss` or `refre
 |---|---|
 | `edge.mjs` | Every decision above, with no Cloudflare imports, so the site's tests run it in Node (`scripts/tests/test-edge-worker.ts`). |
 | `worker.mjs` | The Worker: hands `edge.mjs` `caches.default` and the `SITE` binding. |
-| `wrangler.jsonc` | The Worker `arkpedia-edge`: the route `arkpedia-cf.mocchibird.com/*` and the service binding `SITE` to `arkpedia`. It has no workers.dev address. |
+| `wrangler.jsonc` | The Worker `arkpedia-edge`: canonical, apex and Preview catch-all routes, and the production `SITE` binding. The more-specific static route is managed separately. It has no workers.dev address. |
 
-## Deployment ownership and migration
+## Deployment ownership and routing
 
-Current status, 2026-10-26: the application Worker is owned by the enabled
-checked-main GitHub release workflow; its old native build owner is disabled.
-The edge Worker still requires an explicit owner/publication. Public-domain
-preparation and the route-only rollback are in
-[the cutover handoff](../../docs/development/cloudflare-cutover.md).
-The following provider inventory describes the earlier observation, not current
-application release ownership.
+The application is owned by the checked-main release workflow. The edge Worker and the
+more-specific static route are explicit infrastructure operations, not application releases.
+Do not add a second build owner or change the production source branch.
 
-The provider inventory on 2026-10-25 found the existing `arkpedia-edge` Worker **without a
-Git-connected Workers Builds project**. The site Worker `arkpedia` still builds from the
-preserved `cloudflare` branch. Files in this directory do not establish automatic deployment.
+The production static route is `www.arkpedia.net/_next/static/*` → `arkpedia`.
+Matching files use native asset-first serving. Missing files fall through to the application,
+so missing-file responses can still invoke it. Other paths keep the catch-all `arkpedia-edge`
+route. Preview retains its isolated upstream and must not receive this production route.
 
-The agreed target is one application codebase on `main`, with explicit isolated feature
-previews. Keep one deployment owner for each Worker. Do not connect a second build system or
-change the production branch as part of a feature preview. The main-based candidate must pass
-the parity, account, cache, cost and rollback gates in
-[the simplification plan](../../docs/development/system-simplification-plan.md) first.
+Keep the static route out of this edge Worker's Wrangler routes: those entries all point to
+`arkpedia-edge`. It is managed with `scripts/deploy/static-asset-routes.mjs`; see the linked
+runbook for preflight, verification and rollback. Application Wrangler has no routes field;
+normal application deploys preserve this separately managed route. If that changes, review
+routing ownership before deployment.
 
-If Workers Builds is selected for the edge Worker after those gates, use repository
-`arkpedia/arkpedia`, branch `main`, root `workers/edge`, no build command, deploy command
-`npx wrangler deploy`, and watch only `workers/edge/*`. Disable non-production branch builds.
-This is the intended configuration, not a claim that the connection already exists.
+Do **not** install a no-script exclusion: the live inventory on 2026-11-03 showed no application
+Custom Domain beneath the front router. Do not remove the canonical catch-all as a rollback.
+Rollback of this optimization removes only the recorded static route, restoring the previous
+front-router → SITE path without changing application versions, DNS or stored data.
 
-The application candidate is checked with `npm run cf:check` and built with `npm run cf:build`
-from the repository root. These commands do not deploy. They retain the pilot's existing
-database, ISR bucket, self-reference and queue, while using main's live data contract.
-
-The site Worker keeps arkpedia-cf.mocchibird.com as its custom domain. A Worker on a route runs
-in front of a custom domain's Worker on the same hostname, and reaches it here through the
-binding.
-
-**Rollback:** after recording the current route and Worker versions, removing only the edge
-route makes readers reach the site Worker directly. Retain the edge Worker and its source so
-the route can be restored. Do not delete the Worker as part of a rollback rehearsal.
-
-**Cost evidence:** the original pilot measured 0–2 ms of CPU for a fresh hit on 2026-10-23.
-That historical observation does not establish main's production cost. The front Worker also
-receives static requests, so record total requests, cache hit/miss and refresh rates, CPU and
-storage operations over a comparable traffic window before approving the public-domain move.
-Provider billing inventory and current remaining gates are recorded in the simplification plan.
+**Cost evidence:** native matching assets avoid the front Worker invocation; caching inside
+that Worker still invokes it. This does not establish a percentage reduction in the total
+bill. Compare Worker requests and charges over comparable traffic windows. R2 custom-domain
+delivery remains a separate migration.
 
 **Emptying the cache:** nothing needs to. A deploy turns the old build's pages into misses. A
 content release reaches a data centre's copy once it is stale (after the page's revalidate time,

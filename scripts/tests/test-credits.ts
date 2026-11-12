@@ -40,6 +40,13 @@ function referenced(): Map<string, string> {
       }
     }
   };
+  // Community projects still credit their upstream after the directory moved to a release record.
+  const directory = 'data/community-projects.json';
+  if (fs.existsSync(directory)) {
+    for (const pattern of PATTERNS) for (const match of fs.readFileSync(directory, 'utf8').matchAll(pattern)) {
+      found.set(`${match[1]}/${match[2].replace(/\.git$/, '')}`, directory);
+    }
+  }
   for (const root of ROOTS) if (fs.existsSync(root)) walk(root);
   return found;
 }
@@ -56,9 +63,16 @@ test('every GitHub repository the code takes data or art from is on the Credits 
     'credit these in lib/credits/sources.ts: a name and the repository link');
 });
 
+/* Sources the site's data comes from that only arkpedia-data's import reads (its importer/), so no
+   code here names them: still credited. */
+const READ_BY_THE_IMPORT = new Set([
+  'thesadru/ArkPRTS', 'MooncellWiki/OpenArknightsFBS', 'ArknightsAssets/ArknightsFlatbuffers', 'google/flatbuffers', // the official tables' shadow
+]);
+
 test('the Credits page names no repository the code no longer uses', () => {
   const found = referenced();
-  assert.deepEqual([...credited].filter((repository) => !found.has(repository)), []);
+  assert.deepEqual([...credited].filter((repository) => !found.has(repository) && !READ_BY_THE_IMPORT.has(repository)), []);
+  for (const repository of READ_BY_THE_IMPORT) assert.ok(credited.has(repository) && !found.has(repository), `${repository}: still credited, and read only by the import`);
 });
 
 test('every credited link is https, written short, and the nav links the page', () => {

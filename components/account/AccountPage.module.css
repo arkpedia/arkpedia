@@ -1,0 +1,4 @@
+.contentTabs { overflow:clip; overflow-clip-margin:4px; }
+@media (max-width:720px) {
+  .contentTabs { column-gap:10px; }
+}

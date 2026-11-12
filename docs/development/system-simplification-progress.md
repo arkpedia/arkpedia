@@ -374,7 +374,7 @@ timing orders. No account implementation files were changed.
   three NAS runners were idle. `ARKPEDIA_LIGHT_RUNNER` now uses the existing
   `arkpedia-self` VPS/NAS label pool. Heavy Check and deployment labels, tests and
   release gates are unchanged. This improves scheduling capacity; measured feedback
-  percentiles still need collection. [Runner details and rollback](ci-runner.md).
+  percentiles still need collection. The former runner notes have been retired.
 - [CI optimization #746](https://github.com/arkpedia/arkpedia/pull/746), head
   `b0055182`, lets automatic integration opt into existing exact-tree proof on its
   disposable branch. Normal manual checks default to full; failed/missing proof

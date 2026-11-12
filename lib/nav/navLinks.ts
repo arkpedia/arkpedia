@@ -23,6 +23,9 @@ export const LINKS: NavLink[] = [
   { href: '/synergies', label: 'Synergies', icon: 'synergies' },
   { href: '/obtain-method', label: 'Obtain method', icon: 'obtain' },
   { href: '/community/projects', label: 'Community projects', icon: 'projects' },
+  { href: '/community/statistics', label: 'Community Stats', icon: 'statistics' },
+  { href: '/polls', label: 'Polls', icon: 'polls' },
+  { href: '/community/support-units', label: 'Find support units', icon: 'roster' },
   { href: '/operators', label: 'Operators', icon: 'roster' },
   { href: '/artists', label: 'Artists', icon: 'palette' },
   { href: '/voice-actors', label: 'Voice Actors', icon: 'microphone' },
@@ -49,7 +52,7 @@ export const LINKS: NavLink[] = [
   { href: "/pull-planner", label: 'Pull Planner', icon: 'calculator' },
   { href: '/skin-planner', label: 'Skin Planner', icon: 'skins' },
   { href: "/world", label: 'World', icon: 'world' },
-  { href: '/friends', label: 'Friends', icon: 'roster' },
+  { href: '/account?panel=friends', label: 'Friends', icon: 'roster' },
   { href: "/gacha-simulator", label: 'Gacha Simulator', icon: 'gacha' },
   { href: '/recruitment', label: 'Recruitment', icon: 'recruitment' },
   { href: '/selector-tickets', label: 'Selector Tickets', icon: 'selector' },
@@ -65,17 +68,9 @@ export const LINKS: NavLink[] = [
 ];
 
 /**
- * The bar's own shape: five menus and one bare link.
- *
- * Seventeen links measured 1707px of buttons inside a 1040px bar, so they had always
- * wrapped onto a second row, and the collapse existed to get that row back off the
- * screen. Grouping is what removes the need for it. The names below are the reader's
- * grouping, not a taxonomy invented here, and they are only an array: moving an entry
- * between menus is a line move.
- *
- * Support sits outside the menus because it is one destination and nothing groups with
- * it. Rules is what myrtle.moe does with Tier Lists, and it is right: a menu holding a
- * single item is a click in front of a link.
+ * One shared grouping for the desktop menus and mobile drawer. Community's
+ * participation links lead its menu; Music and Games have their own Extras menu.
+ * Personal destinations open tabs of My account through the profile shortcuts.
  */
 export interface NavGroup {
   /** Stable: the menu's key and its data-menu, whatever its label reads. */
@@ -100,7 +95,8 @@ export const GROUPS: NavGroup[] = [
   ] },
   { id: 'guides', label: 'Guides', items: [at('/farming'), at('/base'), at('/recruitment'), at("/gacha-simulator"), at('/selector-tickets'), at("/game-modes")] },
   { id: 'own', label: 'Planner', items: [at("/operator-planner"), at("/pull-planner"), at('/skin-planner'), at("/reward-tracker")] },
-  { id: 'community', label: 'Community', items: [at('/community/projects'), at("/world"), at("/polls/power-scale"), at('/music'), at('/games')] },
+  { id: 'community', label: 'Community', dividersAfter: ['/community/support-units'], items: [at('/polls'),at('/community/statistics'),at('/community/support-units'),at('/community/projects'),at('/world')] },
+  { id: 'extras', label: 'Extras', items: [at('/music'),at('/games')] },
   /* The owner asked for the two views as a menu instead of tabs on the page (2026-10-29). */
   { id: 'schedule', label: 'Schedule', icon: 'timeline', items: [at('/schedule'), at('/schedule?view=calendar')] },
   /* About stays last (the owner, 2026-10-29). */
@@ -125,14 +121,14 @@ export const LOOSE: NavLink[] = [];
  * Derived, not written out again. A second hand-maintained list is a second thing to
  * forget when an entry moves between menus.
  */
-export const PROFILE_LINKS = [at('/account'), at('/friends')];
+export const PROFILE_LINKS = [at('/account'), at('/account?panel=friends')];
 export const NAV_ORDER: NavLink[] = [...GROUPS.flatMap((g) => g.items), ...LOOSE, ...PROFILE_LINKS];
 
 /* Rows that are in LINKS on purpose while appearing in neither nav. Events is the only
    one: the events LIST is a view of the Schedule page now, and this row survives so
    isActiveLink can light Schedule on the /events/<slug> detail pages that still exist. */
 // Privacy documents remain reachable from privacy settings and existing bookmarks.
-const NOT_IN_NAV = new Set<string>(['/events', '/privacy', '/cookies']);
+const NOT_IN_NAV = new Set<string>(['/events', '/privacy', '/cookies', '/polls/power-scale']);
 
 /* A row that is in no menu, no loose slot and not named above renders nowhere at all,
    in either nav, and nothing else would say so. Same reasoning as at() above: fail the
@@ -155,6 +151,7 @@ if (orphanLinks.length > 0) {
  * disagreed with the desktop nav about which entry was lit.
  */
 export function isActiveLink(link: NavLink, pathname: string, asPath?: string): boolean {
+  if (link.href === '/account?panel=friends') return pathname === '/account' && /[?&]panel=friends(?:&|#|$)/.test(asPath ?? '');
   if (link.href === "/world") return pathname === "/world";
   /* The Schedule menu's entries are one route with two views: the view is in the query,
      so the URL (asPath) decides which is lit. Without it only the route is known, and

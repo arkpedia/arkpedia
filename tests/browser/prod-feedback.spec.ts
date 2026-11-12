@@ -84,7 +84,7 @@ test('An owned outfit is fulfilled across the gallery and shared plan', async ({
     localStorage.setItem('arkpediaSkinPlan', JSON.stringify([`${skin.model} / ${skin.name}`, 'Unknown / Preserved']));
   }, skin);
   await page.goto(`/skins?skin=${encodeURIComponent(skin.name)}`);
-  await expect(page.locator('.skin-modal').getByRole('button', { name: '✓ Owned', exact: true })).toBeDisabled();
+  await expect(page.locator('.skin-modal').getByRole('button', { name: 'Owned', exact: true })).toBeDisabled();
   await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem('arkpediaSkinPlan')!))).toEqual(['Unknown / Preserved']);
 });
 

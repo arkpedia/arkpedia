@@ -10,7 +10,8 @@ import ProfileAvatar from './ProfileAvatar';
 const DataDialog = dynamic(() => import('./DataDialog'), { ssr: false });
 const AvatarPicker = dynamic(() => import('./AvatarPicker'), { ssr: false });
 const CloudAccountPanel = dynamic(() => import('./CloudAccountPanel'), { ssr: false });
-type Action = 'import' | 'settings';
+const MenuMusicSettings = dynamic(() => import('@/components/music/MenuMusicSettings'), { ssr: false });
+type Action = 'import' | 'settings' | 'menu-music';
 const Context = createContext<{ open: (action: Action) => void }>({ open: () => {} });
 export const useAccountActions = () => useContext(Context);
 
@@ -21,11 +22,38 @@ export default function AccountActions({ children }: { children: ReactNode }) {
   const [error, setError] = useState('');
   const [attempt, setAttempt] = useState(0);
   const opener = useRef<HTMLElement | null>(null);
-  const [settingsWasRemote, setSettingsWasRemote] = useState(false);
+  const [settingsTab, setSettingsTab] = useState<'community' | 'profile' | 'saving' | 'logins' | 'data'>('profile');
+  const setupOwner = useRef<string | null>(null);
   const tables = useContext(ContentTablesContext), release = useContext(ContentContext);
   const sync = useCloudSync(), router = useRouter();
-  const close = () => { setAction(null); requestAnimationFrame(() => { if (opener.current?.isConnected) opener.current.focus({ preventScroll: true }); }); };
-  useEffect(() => { const dismiss = () => setAction(null); router.events.on('routeChangeStart', dismiss); return () => router.events.off('routeChangeStart', dismiss); }, [router.events]);
+  const onboarding = !!sync.remote?.profile && !sync.remote.syncReviewed;
+  const requested = router.query.confirm === 'delete' ? 'data' :
+    ['profile', 'community', 'saving', 'logins'].includes(String(router.query.settings)) ? String(router.query.settings) :
+    router.query.account === 'welcome' || router.query.signin === 'failed' ? 'profile' : '';
+  useEffect(() => {
+    if (!router.isReady || !requested) return;
+    setSettingsTab(requested as typeof settingsTab); setAction('settings');
+  }, [router.isReady, router.pathname, requested]);
+  useEffect(() => {
+    const remote = sync.remote;
+    if (!remote) { setupOwner.current = null; return; }
+    if (!remote.profile) {
+      if (setupOwner.current === remote.user.id) return;
+      setupOwner.current = remote.user.id;
+      setSettingsTab('profile'); setAction('settings');
+    }
+  }, [sync.remote]);
+  const close = () => {
+    setAction(null);
+    const query = { ...router.query };
+    for (const key of ['account', 'settings', 'confirm', 'signin']) delete query[key];
+    if (requested) void router.replace({ pathname: router.pathname, query, hash: router.asPath.split('#')[1] ?? '' }, undefined, { shallow: true, scroll: false });
+    requestAnimationFrame(() => { if (opener.current?.isConnected) opener.current.focus({ preventScroll: true }); });
+  };
+  useEffect(() => {
+    const dismiss = (_url: string, { shallow }: { shallow: boolean }) => { if (!shallow) setAction(null); };
+    router.events.on('routeChangeStart', dismiss); return () => router.events.off('routeChangeStart', dismiss);
+  }, [router.events]);
   const localTables = ['game-account-map', 'import-aliases', 'material-catalogue'].every(name => tables[name] != null);
   useEffect(() => {
     if (action !== 'import' || localTables || loaded) return;
@@ -47,9 +75,12 @@ export default function AccountActions({ children }: { children: ReactNode }) {
     const active = document.activeElement as HTMLElement | null;
     const menu = active?.closest('.action-popover');
     opener.current = menu ? [...document.querySelectorAll<HTMLElement>('[aria-controls]')].find(element => element.getAttribute('aria-controls') === menu.id) ?? active : active;
-    setError(''); setSettingsWasRemote(!!sync.remote); setAction(value); } }}>
+    setError(''); setSettingsTab(onboarding ? 'saving' : 'profile'); setAction(value); } }}>
     {children}
-    {action === 'import' && (localTables || loaded ? <ContentContext.Provider value={localTables ? release : loaded!.release}><ContentTablesContext.Provider value={localTables ? tables : loaded!.tables}><DataDialog onClose={close} /></ContentTablesContext.Provider></ContentContext.Provider> : <ImportDialog title="Import / export" onClose={close}><p role={error ? 'alert' : 'status'}>{error || 'Loading import tools…'}</p>{error && <button type="button" onClick={() => setAttempt(value => value + 1)}>Retry</button>}</ImportDialog>)}
-    {action === 'settings' && (sync.remote ? <CloudAccountPanel settingsOnly initialSettings="profile" pictureContent={avatar} onSettingsClose={close} onOpenData={() => setAction('import')} /> : settingsWasRemote ? null : <ImportDialog title="Account settings" onClose={close}>{avatar}<CloudAccountPanel /></ImportDialog>)}
+    {!onboarding && action === 'menu-music' && <ImportDialog title="Choose Background Music" onClose={close}><MenuMusicSettings /></ImportDialog>}
+    {!onboarding && action === 'import' && (localTables || loaded ? <ContentContext.Provider value={localTables ? release : loaded!.release}><ContentTablesContext.Provider value={localTables ? tables : loaded!.tables}><DataDialog onClose={close} /></ContentTablesContext.Provider></ContentContext.Provider> : <ImportDialog title="Import / export" onClose={close}><p role={error ? 'alert' : 'status'}>{error || 'Loading import tools…'}</p>{error && <button type="button" onClick={() => setAttempt(value => value + 1)}>Retry</button>}</ImportDialog>)}
+    {(onboarding || action === 'settings') && (sync.status === 'unavailable'
+      ? <ImportDialog title="Account settings" onClose={close}>{avatar}</ImportDialog>
+      : <CloudAccountPanel key={`${settingsTab}:${onboarding}`} settingsOnly initialSettings={onboarding ? 'saving' : settingsTab} onboarding={onboarding} pictureContent={avatar} onSettingsClose={close} onOpenData={() => { close(); setAction('import'); }} />)}
   </Context.Provider>;
 }

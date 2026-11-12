@@ -9,11 +9,11 @@ test('a blocked real relay socket produces a login-free copyable report', async 
     u8: 'https://as.arknights.global', gs: 'https://gs.arknights.global:8443', hv: 'https://hv.example.invalid/{0}/version',
   } } } }) }) }));
   let sockets = 0;
-  await page.routeWebSocket(relay.url, socket => {
+  await page.routeWebSocket(url => [relay.url, relay.previewUrl].includes(url.href), socket => {
     sockets++;
     socket.close({ code: 1008, reason: 'Private fixture relay blocked' });
   });
-  await page.goto('/account', { waitUntil: 'domcontentloaded' });
+  await page.goto('/account?importDiagnostics=1', { waitUntil: 'domcontentloaded' });
   await page.locator('.page-header').getByRole('button', { name: 'Import / export', exact: true }).click();
   const dialog = page.locator('dialog.data-dialog');
   await dialog.getByPlaceholder('Yostar email').fill('sensitive-address@example.invalid');
@@ -46,7 +46,7 @@ test('a real Wisp upstream refusal is distinguished from browser-to-relay loss',
   await readOnly(page);
   await page.route('**/api/account-import/network?server=*', route => route.fulfill({ status: 503, body: '{}' }));
   // A protocol fixture terminates every tunnel before any TLS or login data can pass.
-  await page.routeWebSocket(relay.url, socket => {
+  await page.routeWebSocket(url => [relay.url, relay.previewUrl].includes(url.href), socket => {
     socket.send(Buffer.from([3, 0, 0, 0, 0, 8, 0, 0, 0]));
     socket.onMessage(data => {
       const packet = Buffer.from(data as Buffer);
@@ -54,7 +54,7 @@ test('a real Wisp upstream refusal is distinguished from browser-to-relay loss',
       socket.send(Buffer.from([4, ...packet.subarray(1, 5), 68]));
     });
   });
-  await page.goto('/account', { waitUntil: 'domcontentloaded' });
+  await page.goto('/account?importDiagnostics=1', { waitUntil: 'domcontentloaded' });
   await page.locator('.page-header').getByRole('button', { name: 'Import / export', exact: true }).click();
   const dialog = page.locator('dialog.data-dialog');
   // Focusing the email field reads only public settings; no code request is needed.

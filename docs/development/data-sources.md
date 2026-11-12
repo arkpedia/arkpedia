@@ -16,6 +16,9 @@ provenance, use stable game IDs, and compare disputed values with the extracted
 tables before publishing a correction. Reviews and recommendations are editorial,
 not game-dump facts.
 
+Except where this page says otherwise, the refresh steps named below run in arkpedia-data's
+nightly import, at the same relative paths under its `importer/` (its `docs/importer.md`).
+
 | Source | What it provides | Used by |
 | --- | --- | --- |
 | [ArknightsAssets/ArknightsGamedata](https://github.com/ArknightsAssets/ArknightsGamedata) (`en/gamedata/excel`) | The EN client's own tables — `activity_table`, `gacha_table`, `character_table`, `stage_table`, `item_table`, `building_data`, `charword_table`, `skin_table` (which outfits bring a voice set of their own). Authoritative for anything global has shipped. | `sync-event-windows.mjs`, `build-content-windows.mjs`, `import-reward-icons.py`, `build-operator-voices.mjs` |
@@ -31,7 +34,7 @@ not game-dump facts.
 
 Confirmed official announcement times take priority; client tables reconcile
 estimated windows when no confirmed announcement time is recorded:
-`sync-event-windows.mjs` overwrites estimated windows in `data/events/events_*.json`
+the import's `importer/scripts/sync/sync-event-windows.mjs` overwrites estimated windows in `data/events/events_*.json`
 and `data/headhunting_banners.json` once `activity_table`/`gacha_table` ship a real
 one, which is also what the skins page's availability countdowns are computed from.
 
@@ -39,9 +42,9 @@ For Closure Wiki operation references, use `https://closure.wiki/operations/<sta
 with the exact client stage ID, rather than a translated stage code or event name.
 The checked YW-8 page contains CN text: a page's presence does not confirm Global
 availability. Compare its reference data with the matching regional client tables
-before making a correction. `scripts/lib/closure-wiki.mjs` verifies the page's raw
+before making a correction. `importer/scripts/lib/closure-wiki.mjs` verifies the page's raw
 stage ID and level ID against the client's stage before downloading its matching
-map preview. The nightly stage-render importer consults it only after the published
+map preview. The import's stage-render step consults it only after the published
 asset inventory and client-art mirror have no render, including when the art mirror
 is unavailable. At most 20 missing layouts are checked per run, in a rotating UTC-day
 batch, with request timeouts and response size limits. Failures preserve the stage
@@ -82,10 +85,10 @@ official regional announcements and extracted regional client tables keep priori
 
 ## Reward Tracker free rewards
 
-`scripts/build/build-free-rewards.mjs` reads the EN client's `handbook_info`,
-`mission`, `open_server`, `checkin`, `activity`, `item`, `character` and
-`shop_client` tables during `pulls:refresh`. It writes `data/free-rewards.json`,
-seeded into `arkpedia-data/source` by content hydration. Stable client IDs preserve
+The import's `importer/scripts/build/build-free-rewards.mjs` reads the EN client's
+`handbook_info`, `mission`, `open_server`, `checkin`, `activity`, `item`, `character` and
+`shop_client` tables. It writes `data/free-rewards.json`, which arrives with the rest of
+the imported records. Stable client IDs preserve
 claim flags as catalogues refresh. The Reward Tracker receives current and upcoming
 claims; expired sign-in windows are excluded at page finalization.
 
@@ -111,7 +114,7 @@ sign-ins stay in its existing scheduled income model, avoiding double counting.
 
 - Every material an operator's upgrades cost -- each promotion (with its LMD from
   `gamedata_const`), skill level 2 to 7, mastery and module stage -- is written from the
-  game's tables on every refresh by `sync-operator-costs.mjs` (stage `operator-costs`),
+  game's tables on every import by `importer/scripts/sync/sync-operator-costs.mjs` (stage `operator-costs`),
   over whatever the record had: `character_table` (or `char_patch_table`) and
   `uniequip_table` of the Global client for an operator Global has, else of the CN
   client. Material names come from `scripts/lib/material-items.mjs`: the EN client's,
@@ -126,9 +129,9 @@ sign-ins stay in its existing scheduled income model, avoiding double counting.
   with the tables, so a hand edit to a cost is overwritten the next night, and a cost
   that cannot be made to agree is named in the daily issue. A correction belongs in the
   game tables' reading or in `data/material-names.json`, not in the record.
-- `node scripts/sync/sync-operator-costs.mjs --check` (with `ARKPEDIA_EN` and
-  `ARKPEDIA_CN` pointing at the tables) writes nothing and lists every cost that
-  disagrees: the sweep.
+- `node scripts/sync/sync-operator-costs.mjs --check`, run from arkpedia-data's `importer/`
+  (with `ARKPEDIA_EN` and `ARKPEDIA_CN` pointing at the tables), writes nothing and lists
+  every cost that disagrees: the sweep.
 
 Keep one editable canonical record. Generated page payloads, search indexes and
 bundled fallback snapshots are intentional derived copies; regenerate them from

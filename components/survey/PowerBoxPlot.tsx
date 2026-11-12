@@ -7,46 +7,48 @@ interface Props {
   showLabel?: boolean;
   showGridlines?: boolean;
   showScaleEnds?: boolean;
+  scale?: {min:number;max:number;step:number};
 }
 
 const SCALE_MIN = 5.8;
 const SCALE_MAX = 7.2;
 const STEP = 0.1;
 
-function scaleX(value: number, width: number, padding: number): number {
+function scaleX(value: number, width: number, padding: number, min:number, max:number): number {
   const usable = width - padding * 2;
-  const t = (value - SCALE_MIN) / (SCALE_MAX - SCALE_MIN);
+  const t = (value - min) / (max - min);
   return padding + t * usable;
 }
 
-function gridlineValues(): number[] {
+function gridlineValues(min:number,max:number,step:number): number[] {
   const values: number[] = [];
-  for (let v = SCALE_MIN; v <= SCALE_MAX + 1e-9; v += STEP) {
+  for (let v = min; v <= max + 1e-9; v += step) {
     values.push(Math.round(v * 10) / 10);
   }
   return values;
 }
 
-export default function PowerBoxPlot({ row, width = 160, height = 46, showLabel = false, showGridlines = false, showScaleEnds = false }: Props) {
+export default function PowerBoxPlot({ row, width = 160, height = 46, showLabel = false, showGridlines = false, showScaleEnds = false, scale = {min:SCALE_MIN,max:SCALE_MAX,step:STEP} }: Props) {
   const padding = 6;
+  const coordinate=(value:number)=>scaleX(value,width,padding,scale.min,scale.max);
   const needsLabelSpace = showGridlines || showScaleEnds;
   const gridLabelSpace = needsLabelSpace ? 16 : 0;
   const plotHeight = height - gridLabelSpace;
   const midY = showLabel ? plotHeight - 14 : plotHeight / 2;
   const boxHeight = showLabel ? 14 : 16;
 
-  const xWhiskerLow = scaleX(row.p5, width, padding);
-  const xWhiskerHigh = scaleX(row.p95, width, padding);
-  const xQ1 = scaleX(row.q1, width, padding);
-  const xQ3 = scaleX(row.q3, width, padding);
-  const xMedian = scaleX(row.median, width, padding);
-  const xMean = scaleX(row.mean, width, padding);
+  const xWhiskerLow = coordinate(row.p5);
+  const xWhiskerHigh = coordinate(row.p95);
+  const xQ1 = coordinate(row.q1);
+  const xQ3 = coordinate(row.q3);
+  const xMedian = coordinate(row.median);
+  const xMean = coordinate(row.mean);
 
   return (
-    <svg viewBox={`0 0 ${width} ${height}`} width="100%" height={height} className="power-boxplot-svg">
+    <svg viewBox={`0 0 ${width} ${height}`} width="100%" height={height} className="power-boxplot-svg" role="img" aria-label={`${row.operator_name}: average ${row.mean.toFixed(2)}, median ${row.median.toFixed(2)}, middle half ${row.q1.toFixed(2)} to ${row.q3.toFixed(2)}, 5th to 95th percentile ${row.p5.toFixed(2)} to ${row.p95.toFixed(2)}`}>
       {showGridlines &&
-        gridlineValues().map((v) => {
-          const x = scaleX(v, width, padding);
+        gridlineValues(scale.min,scale.max,scale.step).map((v) => {
+          const x = coordinate(v);
           return (
             <g key={v}>
               <line
@@ -62,31 +64,31 @@ export default function PowerBoxPlot({ row, width = 160, height = 46, showLabel 
                 x={x}
                 y={height - 3}
                 textAnchor="middle"
-                fontSize={8}
+                fontSize={scale.step>=1?11:8}
                 fill="var(--text-faint)"
                 style={{ fontFamily: 'var(--font-mono)' }}
               >
-                {v.toFixed(1)}
+                {scale.step>=1?String(v):v.toFixed(1)}
               </text>
             </g>
           );
         })}
 
       {showScaleEnds &&
-        [SCALE_MIN, SCALE_MAX].map((v) => {
-          const x = scaleX(v, width, padding);
+        [scale.min, scale.max].map((v) => {
+          const x = coordinate(v);
           return (
             <g key={v}>
               <line x1={x} x2={x} y1={0} y2={plotHeight} stroke="var(--text-dim)" strokeWidth={1} />
               <text
                 x={x}
                 y={height - 3}
-                textAnchor={v === SCALE_MIN ? 'start' : 'end'}
-                fontSize={8}
+                textAnchor={v === scale.min ? 'start' : 'end'}
+                fontSize={scale.step>=1?11:8}
                 fill="var(--text-faint)"
                 style={{ fontFamily: 'var(--font-mono)' }}
               >
-                {v.toFixed(1)}
+                {scale.step>=1?String(v):v.toFixed(1)}
               </text>
             </g>
           );

@@ -7,7 +7,7 @@ import {
   siteSearchIcon, siteSearchJump, siteSearchLabel, siteSearchOffSite, type SiteSearchEntry,
 } from '../../lib/search/siteSearch';
 import { buildSiteSearchEntries, buildSiteSearchFeedEntries, type SiteSearchFeeds, type SiteSearchSources } from '../../lib/search/siteSearchIndex';
-import { YOUTUBE_CHANNELS } from '../../lib/music/youtubeConfig';
+import { channels as YOUTUBE_CHANNELS } from '../../data/youtube-creators.json';
 
 const release = { release: 'a'.repeat(64), baseUrl: 'https://example.test/rev/release', assets: {} };
 
@@ -124,7 +124,7 @@ test('the index lists every curated YouTube channel, and no video', () => {
   assert.ok(creators.every((r) => r.href.startsWith('https://www.youtube.com/channel/UC') && siteSearchOffSite(r)));
   assert.ok(!rows.some((r) => r.kind === 'video' || r.kind === 'stream' || r.kind === 'streamer'),
     'a feed baked into the release would change it every export and outlive a stream');
-  assert.match(fs.readFileSync('scripts/build/build-site-search.ts', 'utf8'), /creators: YOUTUBE_CHANNELS/);
+  assert.match(fs.readFileSync('scripts/build/build-site-search.ts', 'utf8'), /creators: creators.channels/);
 });
 
 const FEEDS: SiteSearchFeeds = {
@@ -182,11 +182,13 @@ test('the feeds are the deployment\'s route, read from the pages\' own feeds and
   assert.deepEqual(requests, [SITE_SEARCH_FEEDS_PATH]);
   await assert.rejects(() => loadSiteSearchFeeds(undefined, async () => ({ ok: false, status: 500, json: async () => ({}) })), /500/);
   const route = fs.readFileSync('pages/api/search-feeds.ts', 'utf8');
-  assert.match(route, /filterArknightsVideos\(enriched\.filter\(\(v\) => !v\.isLivestream\)\)/, 'the community pages\' filter, so the search finds no video they hide');
+  assert.match(route, /rankDiscoveryVideos\(filterDiscoveryVideos\(\[\.\.\.enriched, \.\.\.archive\]\.filter\(video => !video\.isLivestream\)\), context, now\)/, 'the shared discovery filter keeps current Global relevance ranking');
   assert.match(route, /s-maxage=1500/, 'as old as the pages\' revalidate: 1500, and no older');
   const community = fs.readFileSync('pages/community.tsx', 'utf8');
   assert.match(community, /revalidate: 1500/);
-  assert.match(community, /filterArknightsVideos\(enriched\.filter\(\(v\) => !v\.isLivestream\)\)/);
+  assert.match(community, /filterDiscoveryVideos\(\[\.\.\.enriched, \.\.\.archive\]\.filter\(\(v\) => !v\.isLivestream\)\)/);
+  const gallery = fs.readFileSync('components/community/YouTubeVideoGallery.tsx', 'utf8');
+  assert.match(gallery, /rankDiscoveryVideos\(videos, context, now\)/, 'the visible gallery uses the same relevance rules');
 });
 
 test('rows carry the other names, and no duplicate or variant rows', () => {

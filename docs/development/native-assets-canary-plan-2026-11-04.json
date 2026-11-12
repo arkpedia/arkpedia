@@ -1,0 +1,227 @@
+{
+  "canaryOnly": true,
+  "observedAt": "2026-11-04T14:31:52.906928+00:00",
+  "identities": [],
+  "samples": [
+    {
+      "repository": "arkpedia-image-assets",
+      "revision": "8388a11a06076a42f3e73feb439a37465e328fa4",
+      "path": "six-star-icons/Kal'tsit - Base.webp",
+      "sha": "cd62f3d37032f3315eb6d88af8db91e2042ba2fa",
+      "bytes": 12162,
+      "contentType": "image/webp"
+    },
+    {
+      "repository": "arkpedia-image-assets",
+      "revision": "8388a11a06076a42f3e73feb439a37465e328fa4",
+      "path": "six-star-icons/Surtr - Base.webp",
+      "sha": "28d842320c8cb680da93015928852be19e47d597",
+      "bytes": 10604,
+      "contentType": "image/webp"
+    },
+    {
+      "repository": "arkpedia-skin-assets",
+      "revision": "a3be6fb9c2c1254eae9f1952ff606fa9bcb24584",
+      "path": "six-star-skins/Aak - Base.webp",
+      "sha": "71997451a954011cedf9afe8469c5c34c1dfac9a",
+      "bytes": 93838,
+      "contentType": "image/webp"
+    },
+    {
+      "repository": "arkpedia-voice-english",
+      "revision": "72ea44d190920189e3e20f4a821a2ac4d02627e0",
+      "path": "current/char_350_surtr/cn_001.mp3",
+      "sha": "6473320ed3ebddcd63dce30848788860f09ff7e8",
+      "bytes": 34290,
+      "contentType": "audio/mpeg"
+    },
+    {
+      "repository": "arkpedia-voice-english",
+      "revision": "72ea44d190920189e3e20f4a821a2ac4d02627e0",
+      "path": "current/char_350_surtr/cn_042.mp3",
+      "sha": "aeaf8db1ce16c0e9d06ee11c32de46d9c035eaf6",
+      "bytes": 11511,
+      "contentType": "audio/mpeg"
+    },
+    {
+      "repository": "arkpedia-voice-japanese",
+      "revision": "ead2680d907b55749022ab055c31d8cc5d5b2c87",
+      "path": "current/char_350_surtr/cn_001.mp3",
+      "sha": "63b7929d9e51b70ae001e9a465e157a8fd37665a",
+      "bytes": 50591,
+      "contentType": "audio/mpeg"
+    },
+    {
+      "repository": "arkpedia-voice-japanese",
+      "revision": "ead2680d907b55749022ab055c31d8cc5d5b2c87",
+      "path": "current/char_350_surtr/cn_042.mp3",
+      "sha": "9ea7c4fe9a1c2059ff51f9e40873dfb07caba514",
+      "bytes": 18199,
+      "contentType": "audio/mpeg"
+    },
+    {
+      "repository": "arkpedia-sd-assets",
+      "revision": "6f3cfd431aeb1475e7654cb9c019e176b238c01a",
+      "path": "models/operator/char_285_medic2/default/front/d0b5af0b004b044d322397ce5ae79632b6d9fcdd/char_285_medic2.atlas",
+      "sha": "9a557ea754dde0aa75bdecde06ca02a1ed57208d",
+      "bytes": 2994,
+      "contentType": "text/plain; charset=utf-8"
+    },
+    {
+      "repository": "arkpedia-sd-assets",
+      "revision": "6f3cfd431aeb1475e7654cb9c019e176b238c01a",
+      "path": "models/operator/char_285_medic2/default/front/d0b5af0b004b044d322397ce5ae79632b6d9fcdd/char_285_medic2.png",
+      "sha": "ad40143a3512b9fbb40e9b17cbd53c53202c17b8",
+      "bytes": 139543,
+      "contentType": "image/png"
+    },
+    {
+      "repository": "arkpedia-sd-assets",
+      "revision": "6f3cfd431aeb1475e7654cb9c019e176b238c01a",
+      "path": "models/operator/char_285_medic2/default/front/d0b5af0b004b044d322397ce5ae79632b6d9fcdd/char_285_medic2.skel",
+      "sha": "4b9de3b6da8850feeec7ad70c93cc2412ed331c6",
+      "bytes": 39098,
+      "contentType": "application/octet-stream"
+    },
+    {
+      "repository": "arkpedia-l2d-assets",
+      "revision": "7721354d79f1821a7b17546e91dc9a505a2dcda0",
+      "path": "models/char_1012_skadi2_2/0049b8e70964/layer0.webp",
+      "sha": "b4892a168d8223fc54ad54ea948b5fa536b8abed",
+      "bytes": 8812,
+      "contentType": "image/webp"
+    },
+    {
+      "repository": "arkpedia-l2d-assets",
+      "revision": "7721354d79f1821a7b17546e91dc9a505a2dcda0",
+      "path": "models/char_1012_skadi2_2/0049b8e70964/layer1.webp",
+      "sha": "48b74c95988e3116afe436b8e688c44c6d2f4e34",
+      "bytes": 9288,
+      "contentType": "image/webp"
+    },
+    {
+      "repository": "arkpedia-l2d-assets",
+      "revision": "7721354d79f1821a7b17546e91dc9a505a2dcda0",
+      "path": "models/char_1012_skadi2_2/0049b8e70964/layer2.webp",
+      "sha": "df2a64f3380a4fc998bf8b0bee6f6379c45e5a1d",
+      "bytes": 23878,
+      "contentType": "image/webp"
+    },
+    {
+      "repository": "arkpedia-l2d-assets",
+      "revision": "7721354d79f1821a7b17546e91dc9a505a2dcda0",
+      "path": "models/char_1012_skadi2_2/0049b8e70964/layer3.webp",
+      "sha": "40e0ae36d61a9f2dd7d358394fdc515dd55030b5",
+      "bytes": 44212,
+      "contentType": "image/webp"
+    },
+    {
+      "repository": "arkpedia-l2d-assets",
+      "revision": "7721354d79f1821a7b17546e91dc9a505a2dcda0",
+      "path": "models/char_1012_skadi2_2/0049b8e70964/layer4.webp",
+      "sha": "0a8c3780028f8f0992d053fba7112b67dcec74f3",
+      "bytes": 3000,
+      "contentType": "image/webp"
+    },
+    {
+      "repository": "arkpedia-l2d-assets",
+      "revision": "7721354d79f1821a7b17546e91dc9a505a2dcda0",
+      "path": "models/char_1012_skadi2_2/0049b8e70964/layer5.webp",
+      "sha": "42da0add98888f0464a37adb16d11f195044fd45",
+      "bytes": 6032,
+      "contentType": "image/webp"
+    },
+    {
+      "repository": "arkpedia-l2d-assets",
+      "revision": "7721354d79f1821a7b17546e91dc9a505a2dcda0",
+      "path": "models/char_1012_skadi2_2/0049b8e70964/layer6.webp",
+      "sha": "d826d2bfe2bdfbe4dcfdcce923699ffaac23b2b3",
+      "bytes": 1260,
+      "contentType": "image/webp"
+    },
+    {
+      "repository": "arkpedia-l2d-assets",
+      "revision": "7721354d79f1821a7b17546e91dc9a505a2dcda0",
+      "path": "models/char_1012_skadi2_2/0049b8e70964/layer7.webp",
+      "sha": "f4911c5c451cbb337ac0aba28fd82735f03c90a7",
+      "bytes": 2394,
+      "contentType": "image/webp"
+    },
+    {
+      "repository": "arkpedia-l2d-assets",
+      "revision": "7721354d79f1821a7b17546e91dc9a505a2dcda0",
+      "path": "models/char_1012_skadi2_2/0049b8e70964/layer8.webp",
+      "sha": "f8d8cbefa5ba1b3bf87f41dcd0584886f9cad24f",
+      "bytes": 28910,
+      "contentType": "image/webp"
+    },
+    {
+      "repository": "arkpedia-l2d-assets",
+      "revision": "7721354d79f1821a7b17546e91dc9a505a2dcda0",
+      "path": "models/char_1012_skadi2_2/0049b8e70964/layer9.webp",
+      "sha": "7f4c5f093db431fa5f33815411a2e7dda50dd472",
+      "bytes": 3332,
+      "contentType": "image/webp"
+    },
+    {
+      "repository": "arkpedia-l2d-assets",
+      "revision": "7721354d79f1821a7b17546e91dc9a505a2dcda0",
+      "path": "models/char_1012_skadi2_2/0049b8e70964/layerParticles.json",
+      "sha": "3f47468cc78365a864634d81ee19b45f545c25cb",
+      "bytes": 32839,
+      "contentType": "application/json; charset=utf-8"
+    },
+    {
+      "repository": "arkpedia-l2d-assets",
+      "revision": "7721354d79f1821a7b17546e91dc9a505a2dcda0",
+      "path": "models/char_1012_skadi2_2/0049b8e70964/layers.json",
+      "sha": "215b07999807d7850d327f35adc03f597f476e0d",
+      "bytes": 6644,
+      "contentType": "application/json; charset=utf-8"
+    },
+    {
+      "repository": "arkpedia-l2d-assets",
+      "revision": "7721354d79f1821a7b17546e91dc9a505a2dcda0",
+      "path": "models/char_1012_skadi2_2/0049b8e70964/model.json",
+      "sha": "366d5deaf32e7c04c7b55f5b86b29e39e4014c7d",
+      "bytes": 1568,
+      "contentType": "application/json; charset=utf-8"
+    },
+    {
+      "repository": "arkpedia-l2d-assets",
+      "revision": "7721354d79f1821a7b17546e91dc9a505a2dcda0",
+      "path": "models/char_1012_skadi2_2/0049b8e70964/page0.webp",
+      "sha": "d91e0b95074563999338d1c09fb0dbdd2c737eb2",
+      "bytes": 3379778,
+      "contentType": "image/webp"
+    },
+    {
+      "repository": "arkpedia-l2d-assets",
+      "revision": "7721354d79f1821a7b17546e91dc9a505a2dcda0",
+      "path": "models/char_1012_skadi2_2/0049b8e70964/skeleton.atlas",
+      "sha": "e1b124693204de9f40879a4e6494241e6b3f4d32",
+      "bytes": 23204,
+      "contentType": "text/plain; charset=utf-8"
+    },
+    {
+      "repository": "arkpedia-l2d-assets",
+      "revision": "7721354d79f1821a7b17546e91dc9a505a2dcda0",
+      "path": "models/char_1012_skadi2_2/0049b8e70964/skeleton.skel",
+      "sha": "c4ff66aa29aa929ebb949b21cca3cbc9120ef257",
+      "bytes": 701713,
+      "contentType": "application/octet-stream"
+    }
+  ],
+  "demos": {
+    "chibi": {
+      "skeleton": "https://raw.githubusercontent.com/arkpedia/arkpedia-sd-assets/6f3cfd431aeb1475e7654cb9c019e176b238c01a/models/operator/char_285_medic2/default/front/d0b5af0b004b044d322397ce5ae79632b6d9fcdd/char_285_medic2.skel",
+      "atlas": "https://raw.githubusercontent.com/arkpedia/arkpedia-sd-assets/6f3cfd431aeb1475e7654cb9c019e176b238c01a/models/operator/char_285_medic2/default/front/d0b5af0b004b044d322397ce5ae79632b6d9fcdd/char_285_medic2.atlas",
+      "textures": {
+        "char_285_medic2.png": "https://raw.githubusercontent.com/arkpedia/arkpedia-sd-assets/6f3cfd431aeb1475e7654cb9c019e176b238c01a/models/operator/char_285_medic2/default/front/d0b5af0b004b044d322397ce5ae79632b6d9fcdd/char_285_medic2.png"
+      },
+      "premultipliedAlpha": true
+    },
+    "dynamicModel": "https://raw.githubusercontent.com/arkpedia/arkpedia-l2d-assets/7721354d79f1821a7b17546e91dc9a505a2dcda0/models/char_1012_skadi2_2/0049b8e70964/model.json"
+  },
+  "bytes": 4689694
+}

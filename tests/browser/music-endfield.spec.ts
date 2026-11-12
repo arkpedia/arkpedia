@@ -1,6 +1,7 @@
 import { chooseMusicView, openMusicMenu, openPlayerActions } from './music-navigation-helpers';
 import { expect, test, type Page } from '@playwright/test';
 import { stubYouTube } from './youtube-stub';
+import { CROSSOVER_PAGE_MUSIC } from '../../lib/music/crossoverPageMusic';
 
 /*
  * Arknights: Endfield's songs (data/endfield-albums.json) are in the player's catalogue, each row
@@ -12,10 +13,13 @@ import { stubYouTube } from './youtube-stub';
 
 interface Row { videoId?: string; cid?: string; title: string; altTitle?: string; album?: string; game?: string }
 async function catalogue(page: Page): Promise<Row[]> {
-  return (await (await page.request.get('/music-catalogue.json')).json()).songs;
+  const songs: Row[] = (await (await page.request.get('/music-catalogue.json')).json()).songs;
+  // The app supplements older published catalogues with reviewed crossover recordings.
+  const ids = new Set(songs.map(idOf));
+  return [...songs, ...CROSSOVER_PAGE_MUSIC.filter(entry => !ids.has(entry.song.id)).map(entry => entry.song)];
 }
 const idOf = (row: Row) => row.videoId || `msr:${row.cid}`;
-const setting = (page: Page) => page.locator(test.info().project.name === 'mobile' ? '.music-phone-settings input[type=checkbox]' : '.page-header input[type=checkbox]');
+const setting = (page: Page) => page.locator((page.viewportSize()?.width ?? 1440) < 1000 ? '.music-phone-settings input[type=checkbox]' : '.page-header input[type=checkbox]');
 async function changeSetting(page: Page, checked: boolean) { await openMusicMenu(page); await setting(page).setChecked(checked); }
 
 test('Endfield music is off until ticked, then joins the Library, and the choice is kept', async ({ page }) => {
@@ -106,7 +110,7 @@ test('the header\'s Endfield music ⓘ says background play on phones may not wo
   await page.goto('/music/discover');
   await page.evaluate(() => document.fonts.ready);
   await openMusicMenu(page);
-  const header = page.locator(test.info().project.name === 'mobile' ? '.music-nav-dropdown' : '.page-header');
+  const header = page.locator((page.viewportSize()?.width ?? 1440) < 1000 ? '.music-nav-dropdown' : '.page-header');
   const info = header.getByRole('button', { name: 'About Endfield music', exact: true });
   await expect(info).toHaveAttribute('aria-expanded', 'false');
   const infoBox = (await info.boundingBox())!;
@@ -133,7 +137,7 @@ test('the header\'s Endfield music ⓘ says background play on phones may not wo
   await expect(setting(page)).not.toBeChecked();
 });
 
-test('the ⋯ menu\'s Endfield music ⓘ says the same, in the menu, under Data saver', async ({ page }) => {
+test('the ⋯ menu\'s Endfield music ⓘ floats without moving the menu', async ({ page }) => {
   await stubYouTube(page);
   await page.goto('/music');
   await openPlayerActions(page);
@@ -141,13 +145,14 @@ test('the ⋯ menu\'s Endfield music ⓘ says the same, in the menu, under Data 
   const info = menu.getByRole('button', { name: 'About Endfield music', exact: true });
   const saverBox = (await menu.getByRole('checkbox', { name: 'Data saver', exact: true }).boundingBox())!;
   expect((await menu.getByRole('checkbox', { name: 'Endfield music', exact: true }).boundingBox())!.y).toBeGreaterThan(saverBox.y);
+  const menuBefore = await menu.boundingBox();
   await info.click();
   const note = page.getByRole('dialog', { name: 'About Endfield music', exact: true });
   await expect(note).toHaveText(BACKGROUND_NOTE);
-  const menuBox = (await menu.boundingBox())!;
+  expect(await menu.boundingBox()).toEqual(menuBefore);
   const noteBox = (await note.boundingBox())!;
-  expect(noteBox.x).toBeGreaterThanOrEqual(menuBox.x - 1);
-  expect(noteBox.x + noteBox.width).toBeLessThanOrEqual(menuBox.x + menuBox.width + 1);
+  expect(noteBox.x).toBeGreaterThanOrEqual(0);
+  expect(noteBox.x + noteBox.width).toBeLessThanOrEqual(page.viewportSize()!.width);
   // Escape closes the note only: the menu stays.
   await page.keyboard.press('Escape');
   await expect(note).toHaveCount(0);
@@ -162,6 +167,7 @@ const popUp = (page: Page) => page.getByRole('dialog', { name: 'Endfield music o
 
 test('on a touch screen, turning Endfield music on says so in a pop-up, until Don\'t show again', async ({ page }, info) => {
   test.skip(info.project.name !== 'mobile', 'only a touch screen shows it');
+  await stubYouTube(page); // Isolate the Endfield notice from first-visit media consent.
   await page.goto('/music/discover');
   expect(await page.evaluate(() => window.matchMedia('(pointer: coarse)').matches), 'the mobile project is a touch screen').toBe(true);
   await changeSetting(page, true);

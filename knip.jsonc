@@ -11,8 +11,9 @@
     "tests/browser/**/*.spec.ts",
     // Browser script loaded by the palette review tool's HTML.
     "scripts/palettes/palette-review/review.js",
-    "scripts/stage-pipeline/{build,verify,settle-float-churn}.mjs",
-    "scripts/tests/fixtures/previous-release/refresh.mjs"
+    "scripts/tests/fixtures/previous-release/refresh.mjs",
+    // Standalone Node/tsx entry exercised by the video-context subprocess test.
+    "scripts/tests/fixtures/youtube-local-context.ts"
   ],
   "project": [
     "workers/edge/*.{mjs,mts}",
@@ -24,10 +25,13 @@
   // their runtime export names are checked separately rather than deleting them.
   "ignoreFiles": ["**/*.d.mts"],
   // System tools used by offline fixtures and manual WebP importers.
-  "ignoreBinaries": ["jq", "shasum", "cwebp"],
+  "ignoreBinaries": ["jq", "cwebp"],
   // Cloudflare provides this Worker runtime built-in; it is not an npm dependency.
   "ignoreDependencies": ["cloudflare"],
   "exclude": ["enumMembers", "duplicates"],
+  // Modules shared with arkpedia-data's importer (test-importer-copies.ts holds them equal), whose
+  // exports the import's own scripts use.
+  "ignoreIssues": { "scripts/lib/youtube-uploads.mjs": ["exports"] },
   "next": true,
   "eslint": ["eslint.config.mjs"],
   "playwright": true

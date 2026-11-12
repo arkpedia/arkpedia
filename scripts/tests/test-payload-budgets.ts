@@ -85,8 +85,9 @@ test('Check runs the budgets strictly, and the release job runs them as a stage 
   const stage = workflow.match(/^\s*stage payload-budgets (.*)$/m);
   assert.ok(stage, 'prepare-content.yml runs the budgets as a refresh stage');
   assert.equal(stage[1], '-- npm run check:payload-budgets', 'no --invariant: a payload over budget must not stop the release');
-  // After the stages that add what it measures.
-  for (const earlier of [/stage albums /, /stage catalogue /, /bash scripts\/sync\/refresh-stage-data\.sh/]) {
+  // After the stages that add what it measures: the import's (albums, the catalogue) arrive with
+  // the imports branch before any stage here; the ones that stay here run first.
+  for (const earlier of [/stage pulls /, /bash scripts\/sync\/refresh-stage-data\.sh/]) {
     const at = workflow.search(earlier);
     assert.ok(at >= 0 && at < stage.index!, `${earlier} runs before the payload-budgets stage`);
   }

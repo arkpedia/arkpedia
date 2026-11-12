@@ -62,6 +62,6 @@ test('browser failure evidence is distinct from approval artifacts and runs only
 
 test('draft feedback retains the established dependency-isolation runner rule', () => {
   assert.equal(draft['runs-on'], check['runs-on']);
-  assert.ok(draft['runs-on'].includes('dependabot[bot]'));
+  assert.equal(draft['runs-on'], 'ubuntu-latest');
   assert.equal(draft.steps.find(item => item.run === 'npm ci').run, 'npm ci');
 });

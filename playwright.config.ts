@@ -26,7 +26,7 @@ export default defineConfig({
     // services. First-visit/privacy specs explicitly request empty browser storage.
     // Storage state applies once, so clearing/reload tests still test real removal.
     storageState: { cookies: [], origins: [{ origin: 'http://127.0.0.1:3192', localStorage: [
-      { name: 'arkpedia:privacy:v1', value: JSON.stringify({ version: 1, analytics: false, externalMedia: false, savedAt: Date.now() }) },
+      { name: 'arkpedia:privacy:v1', value: JSON.stringify({ version: 1, analytics: false, externalMedia: false, externalMediaChosen: true, savedAt: Date.now() }) },
     ] }] },
   },
   projects: [

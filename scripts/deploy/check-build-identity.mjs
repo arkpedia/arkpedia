@@ -13,10 +13,11 @@ export function expectedBuildIdentity({ cwd = process.cwd(), env = process.env }
     contentChannel: contentPointer(env), deploymentRole: 'production', dirty: false };
 }
 
-export function validateBuildIdentity(build, expected) {
+export function validateBuildIdentity(build, expected, { role = 'production' } = {}) {
   if (!expected || typeof expected.commit !== 'string' || !/^[a-f0-9]{40}$/.test(expected.commit)
     || typeof expected.codeFingerprint !== 'string' || !/^[a-f0-9]{64}$/.test(expected.codeFingerprint)
-    || expected.version !== 1 || expected.dirty !== false || expected.deploymentRole !== 'production'
+    || !['production', 'staging'].includes(role)
+    || expected.version !== 1 || expected.dirty !== false || expected.deploymentRole !== role
     || !Number.isInteger(expected.contentSchema) || expected.contentSchema < 1
     || typeof expected.contentChannel !== 'string' || !/^[a-z0-9][a-z0-9-]*$/.test(expected.contentChannel)) throw new Error('Invalid expected build identity');
   for (const key of ['version', 'dirty', 'commit', 'codeFingerprint', 'contentSchema', 'contentChannel', 'deploymentRole']) {
@@ -49,17 +50,17 @@ export async function readLiveBuild(url, { fetcher = fetch } = {}) {
 }
 
 export async function waitForBuildIdentity(origin, expected, { attempts = 12, delayMs = 5_000,
-  read = readLiveBuild, wait = milliseconds => new Promise(resolve => setTimeout(resolve, milliseconds)) } = {}) {
+  read = readLiveBuild, wait = milliseconds => new Promise(resolve => setTimeout(resolve, milliseconds)), role = 'production' } = {}) {
   const url = new URL(origin);
   if (url.protocol !== 'https:' || url.username || url.password || url.search || url.hash || url.pathname !== '/') throw new Error('Expected a public HTTPS origin without credentials');
   if (!Number.isInteger(attempts) || attempts < 1 || attempts > 12 || !Number.isFinite(delayMs) || delayMs < 0 || delayMs > 5_000) throw new Error('Invalid identity retry bounds');
   // Validate the expected contract before waiting on alias propagation.
-  validateBuildIdentity(expected, expected);
+  validateBuildIdentity(expected, expected, { role });
   for (let attempt = 0; attempt < attempts; attempt++) {
     try {
       const address = new URL('/build-info.json', url);
       address.searchParams.set('identity', `${Date.now()}-${attempt}`);
-      return validateBuildIdentity(await read(address.href), expected);
+      return validateBuildIdentity(await read(address.href), expected, { role });
     } catch {
       if (attempt + 1 < attempts) await wait(delayMs);
     }
@@ -71,7 +72,10 @@ async function main() {
   const expected = expectedBuildIdentity();
   if (process.argv[2] === 'local') checkBuildFile(expected);
   else if (process.argv[2] === 'live' && process.argv[3]) await waitForBuildIdentity(process.argv[3], expected);
-  else throw new Error('Use local or live <public HTTPS origin>');
+  else if (process.argv[2] === 'preview') {
+    expected.deploymentRole = 'staging';
+    await waitForBuildIdentity('https://preview.arkpedia.net', expected, { role: 'staging' });
+  } else throw new Error('Use local, preview or live <public HTTPS origin>');
   console.log(`Verified clean build ${expected.commit.slice(0, 12)} (${expected.contentChannel}, schema ${expected.contentSchema}).`);
 }
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {

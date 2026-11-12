@@ -33,13 +33,11 @@ blob and image metadata. The initial catalogue pins these new images to their as
 commit; subsequent nightly catalogues use the usual published asset index once it
 includes them. Older catalogues without geometry still use the previous icon grid.
 
-```sh
-python3 scripts/imports/import-medal-layouts.py
-ARKPEDIA_EN=/path/to/en-gamedata node scripts/build/build-medal-catalogue.mjs
-```
-
-The existing nightly Prepare Content workflow rebuilds `public/medal-catalogue.json`
-after upstream data refresh and the medal layout importer. Bundle md5s are
+The layout importer and the catalogue build run in arkpedia-data's nightly import
+(`importer/scripts/imports/import-medal-layouts.py`,
+`importer/scripts/build/build-medal-catalogue.mjs`; its `docs/importer.md`).
+`public/medal-catalogue.json` is rebuilt there after the upstream tables and the
+medal layout importer, and arrives with the imported records. Bundle md5s are
 retained in `data/medal-set-layouts.json`, so unchanged bundles are not downloaded. A
 failed layout import leaves the previous geometry intact. Source hydration retains the initial tracked catalogue
 until the data repository carries it. The content exporter includes this public JSON;

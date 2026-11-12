@@ -1,0 +1,29 @@
+{
+  "observedAt": "2026-11-04T14:57:11.504434+00:00",
+  "scope": "Isolated diagnostic page using native R2 assets and checked-source Spine runtime/texture helpers; not the full production app journey",
+  "image": {
+    "name": "Surtr",
+    "decodedWidth": 180,
+    "decodedHeight": 180
+  },
+  "voice": {
+    "muted": true,
+    "durationSeconds": 1.38,
+    "seekSeconds": 0.9,
+    "playingAfterSeek": true
+  },
+  "chibi": {
+    "animation": "Idle",
+    "observedFrames": 6180,
+    "webglError": 0
+  },
+  "artworkSkeleton": {
+    "animation": "Idle",
+    "observedFrames": 6180,
+    "webglError": 0
+  },
+  "normalDns": true,
+  "screenshot": "native-assets-browser-canary-2026-11-04.png",
+  "productionChanged": false,
+  "subscriptionChanged": false
+}

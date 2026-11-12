@@ -152,3 +152,16 @@ test('an unclaimed permanent reward counts as available now, a claimed one does 
   // Stored ids are untrusted.
   assert.deepEqual(parseFarmingMethod({ permanent: ['is-2', 5, '../x', 'is-2', 'sss'] }).permanent, ['is-2', 'sss']);
 });
+
+test('Off stops every reward source, while legacy permanent-only choices get their own mode', () => {
+  const source = { table: { modes: [{ id: 'is-2', label: 'IS2', kind: 'is', topic: 'rogue_2', global: true, rewards: [{ id: 'one', materials: { Orirock: 4 } }] }] }, claimed: new Set<string>() };
+  const legacy = parseFarmingMethod({ until: { mode: 'off' }, permanent: ['is-2'], shop: true, unlimitedShop: true });
+  assert.equal(legacy.until.mode, 'permanent');
+  assert.deepEqual(sums(incomingFor(legacy, T, NOW, source)!.incoming), { Orirock: 4 });
+  assert.deepEqual(incomingFor(legacy, T, NOW, source)!.events, []);
+  assert.equal(incomingFor({ ...legacy, until: { mode: 'off' } }, T, NOW, source), null);
+  const stopped = parseFarmingMethod({ ...legacy, until: { mode: 'off' }, permanent: [] });
+  assert.equal(incomingFor(stopped, T, NOW, source), null);
+  assert.deepEqual(parseFarmingMethod(JSON.parse(JSON.stringify(stopped))), stopped);
+  assert.equal(parseFarmingMethod({ until: { mode: 'permanent' }, permanent: ['is-2'] }).until.mode, 'permanent');
+});

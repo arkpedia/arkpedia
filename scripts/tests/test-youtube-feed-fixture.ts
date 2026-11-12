@@ -5,7 +5,8 @@ import { test } from 'node:test';
 // @ts-expect-error js-yaml ships no types; only load() is used.
 import yaml from 'js-yaml';
 import { getLatestVideos } from '../../lib/music/youtubeFeedsServer';
-import { YOUTUBE_CHANNELS, VIDEOS_PER_CHANNEL } from '../../lib/music/youtubeConfig';
+import { VIDEOS_PER_CHANNEL } from '../../lib/music/youtubeConfig';
+import { channels as YOUTUBE_CHANNELS } from '../../data/youtube-creators.json';
 import { filterArknightsVideos } from '../../lib/music/contentFilter';
 
 /*
@@ -75,11 +76,10 @@ test('with the fixture named, the videos come from it and nothing is fetched', a
 });
 
 test('without the fixture, every configured channel is fetched live as before', async () => {
-  const { result: videos, urls } = await withEnv(undefined, () => withFetch(
+  const { urls } = await withEnv(undefined, () => withFetch(
     async () => new Response('not found', { status: 404 }),
-    () => getLatestVideos(YOUTUBE_CHANNELS, VIDEOS_PER_CHANNEL),
+    () => assert.rejects(() => getLatestVideos(YOUTUBE_CHANNELS, VIDEOS_PER_CHANNEL), /YouTube feeds unavailable/),
   ));
-  assert.deepEqual(videos, []);
   assert.deepEqual(urls.sort(), YOUTUBE_CHANNELS.map((c) => `https://www.youtube.com/feeds/videos.xml?channel_id=${c.id}`).sort());
 });
 

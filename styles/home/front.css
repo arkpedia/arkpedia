@@ -86,6 +86,15 @@ html[data-site-server="kr"] .maintenance-notice:not([data-server="kr"]) {
   min-height: calc(100vh - var(--nav-h, 150px) - 12px);
   align-items: start;
 }
+/* The hero panels share a bottom edge; the columns below stack independently.
+   Current farming has its own card so it cannot read as the selected event's drops. */
+.front-hero-row {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: 1.6fr 1fr;
+  gap: 14px;
+  align-items: stretch;
+}
 .front-page-left, .front-page-right {
   display: flex;
   flex-direction: column;
@@ -132,10 +141,17 @@ html[data-site-server="kr"] .maintenance-notice:not([data-server="kr"]) {
   transition: border-color 0.15s ease;
 }
 .front-events-main:hover { border-color: var(--teal); }
+/* The slot matches the art's own proportion, not a generic banner ratio. Event
+   posters are 1024x328 (3.12:1); in the 16/7 slot they used to arrive through
+   `object-fit: contain`, which painted 748x240 inside a 748x327 box -- 44px of
+   --panel-2 above the poster and 44px below it, on the home page's largest
+   surface, reading as a matte around the art rather than as the art's edge.
+   16/5 (3.2:1) leaves a 9px sliver at each side instead, and the panel keeps one
+   height across slides, which is what the carousel needs. */
 .front-events-poster-wrap {
   position: relative;
   width: 100%;
-  aspect-ratio: 16 / 7;
+  aspect-ratio: 16 / 5;
   border-radius: var(--radius);
   overflow: hidden;
   background: var(--panel-2);
@@ -204,16 +220,6 @@ html[data-site-server="kr"] .maintenance-notice:not([data-server="kr"]) {
   .front-events-dot::before { transition: none; }
 }
 
-/* Farmable materials, nested inside the Events panel -- shows where to
-   farm (stage code, or "Event Store"), not the material name */
-.front-events-farmable {
-  margin-top: 14px;
-  padding-top: 12px;
-  border-top: 1px solid var(--line-soft);
-}
-/* The global h3 (15px Rajdhani, dim): the sub-section voice everywhere else. */
-.front-events-farmable h3 { margin: 0 0 8px; }
-
 /* Gacha panel */
 .front-gacha-main {
   display: flex;
@@ -222,11 +228,15 @@ html[data-site-server="kr"] .maintenance-notice:not([data-server="kr"]) {
 }
 /* Poster is a <Link>, not a <div> -- needs explicit block display
    since anchors are inline by default. */
+/* Same correction as the events slot: a headhunting banner is 1024x559 (1.83:1),
+   and the 16/7 box painted 366x200 of it inside 458x200 -- 46px of --panel-2 on
+   each side of the home page's second-largest image. 16/9 is the banners' own
+   proportion to within 3%, so the art meets the frame instead of floating in it. */
 .front-gacha-poster-wrap {
   display: block;
   position: relative;
   width: 100%;
-  aspect-ratio: 16 / 7;
+  aspect-ratio: 16 / 9;
   border: 1px solid transparent;
   border-radius: var(--radius);
   overflow: hidden;
@@ -267,8 +277,10 @@ html[data-site-server="kr"] .maintenance-notice:not([data-server="kr"]) {
 }
 .front-gacha-thumb {
   position: relative;
-  width: 56px;
-  height: 56px;
+  /* Four previews fit even in the narrow desktop column; wider art needs less
+     cropping than the old squares without adding another thumbnail row. */
+  width: min(104px, calc((100% - 18px) / 4));
+  height: 64px;
   border-radius: var(--radius-control);
   overflow: hidden;
   border: 1px solid transparent;
@@ -279,8 +291,8 @@ html[data-site-server="kr"] .maintenance-notice:not([data-server="kr"]) {
 }
 .front-gacha-thumb:hover { border-color: var(--teal); }
 .front-gacha-thumb.active { border-color: var(--teal); box-shadow: inset 0 0 0 1px var(--teal); }
-/* The thumbnail's state, placed as the poster's is but in its bottom left corner: the 56px
-   box keeps its size. */
+/* The thumbnail's state, placed as the poster's is but in its bottom left corner:
+   the artwork keeps its size as the state changes. */
 .front-gacha-thumb > :is(.badge-live, .badge-upcoming) {
   position: absolute;
   left: 3px;
@@ -352,7 +364,13 @@ html[data-site-server="kr"] .maintenance-notice:not([data-server="kr"]) {
   left: 6px;
 }
 
-/* Featured Operators panel -- single row, all rarities together */
+/* Featured Operators panel -- the selected banner's rate-up operators, at a fixed
+   68px tile, wrapping. The count is the banner's, not a design constant: Standard
+   Pool #178 features five, Orienteering #7 twelve, and an upcoming banner shows
+   whatever was datamined. So the strip must wrap; a single row that shrank every
+   tile to fit turned those twelve into 47px portraits with one-letter names.
+   The last row can therefore be a short one -- that is the cost of a count this
+   variable, not a broken layout. */
 .front-featured-ops-row {
   display: flex;
   flex-wrap: wrap;
@@ -401,6 +419,9 @@ html[data-site-server="kr"] .maintenance-notice:not([data-server="kr"]) {
 /* All slides share one cell; the hidden ones still hold the panel to the tallest's height. */
 .front-community-slide { grid-area: 1 / 1; min-width: 0; visibility: hidden; }
 .front-community-slide[data-current] { visibility: visible; }
+.front-community-video-options { display: grid; }
+.front-community-video-option { grid-area: 1 / 1; min-width: 0; visibility: hidden; }
+.front-community-video-option[data-current] { visibility: inherit; }
 .front-community-item {
   display: block;
   padding: 6px;
@@ -411,6 +432,28 @@ html[data-site-server="kr"] .maintenance-notice:not([data-server="kr"]) {
   transition: border-color 0.15s ease;
 }
 .front-community-item:hover { border-color: var(--teal); }
+/* Under each card: the way from the home page into the World section that
+   collects the rest. The card itself still opens the stream or the video; this
+   is the second, quieter action, right-aligned so it does not read as a caption
+   of the card's title. Teal because the site's text links are teal. */
+.front-community-more-row {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 4px;
+  padding: 0 8px;
+}
+.front-community-more {
+  /* A standalone link, not prose inside a sentence, so it owes the 24px target
+     floor even at 12px of text. */
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  font-size: 12px;
+  color: var(--teal);
+  text-decoration: none;
+}
+.front-community-more:hover,
+.front-community-more:focus-visible { text-decoration: underline; }
 .front-community-thumb-wrap {
   position: relative;
   width: 100%;
@@ -440,6 +483,7 @@ html[data-site-server="kr"] .maintenance-notice:not([data-server="kr"]) {
 }
 .front-community-dots {
   display: flex;
+  flex-wrap: wrap;
   margin-top: 10px;
   justify-content: center;
 }
@@ -492,14 +536,16 @@ html[data-site-server="kr"] .maintenance-notice:not([data-server="kr"]) {
      panel is told to stretch. The carousel's own viewport clips at this boundary. */
   .front-home-panel { min-width: 0; }
   .front-page-left,
-  .front-page-right {
+  .front-page-right,
+  .front-hero-row {
     display: contents;
   }
   .maintenance-notice { order: 0; }
   .front-events-panel { order: 1; }
-  .front-gacha-panel { order: 2; }
-  .front-featured-ops-panel { order: 3; }
-  .front-skins-panel { order: 4; }
+  .front-farmable-panel { order: 2; }
+  .front-gacha-panel { order: 3; }
+  .front-featured-ops-panel { order: 4; }
+  .front-skins-panel { order: 5; }
   .front-community-panel { order: 6; }
 }
 

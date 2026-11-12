@@ -1,5 +1,8 @@
 export const PREFIX = 'github-v1';
 export const MAX_BYTES = 64_000_000;
+// Media is delivered natively by R2; keep generated JSON within the reader's cap.
+export const MAX_MEDIA_BYTES = 128_000_000;
+export const maxFileBytes = repository => repository === 'arkpedia-data' ? MAX_BYTES : MAX_MEDIA_BYTES;
 export const REPOSITORIES = new Set([
   'arkpedia-image-assets', 'arkpedia-skin-assets', 'arkpedia-color-palette',
   'arkpedia-voice-japanese', 'arkpedia-voice-english', 'arkpedia-voice-mandarin',
@@ -19,7 +22,7 @@ export function publicFile(repository, path) {
 // Compiled metadata can pin animation repositories independently of the main manifest.
 export function assetReferences(text) {
   const references = new Map();
-  for (const match of text.matchAll(/https:\/\/raw\.githubusercontent\.com\/arkpedia\/([a-z0-9-]+)\/([a-f0-9]{40})\//g)) {
+  for (const match of text.matchAll(/https:\/\/(?:raw\.githubusercontent\.com|assets\.arkpedia\.net)\/arkpedia\/([a-z0-9-]+)\/([a-f0-9]{40})\//g)) {
     const [, repository, revision] = match;
     if (REPOSITORIES.has(repository) && repository !== 'arkpedia-data') references.set(`${repository}/${revision}`, { repository, revision });
   }
@@ -33,6 +36,6 @@ export async function sha256(bytes) {
   return [...new Uint8Array(await crypto.subtle.digest('SHA-256', bytes))].map(byte => byte.toString(16).padStart(2, '0')).join('');
 }
 export const shardFor = path => sha256(new TextEncoder().encode(directory(path)));
-export function descriptor(value) {
-  return value && COMMIT.test(value.sha) && Number.isSafeInteger(value.bytes) && value.bytes > 0 && value.bytes <= MAX_BYTES;
+export function descriptor(value, maximum = MAX_BYTES) {
+  return value && COMMIT.test(value.sha) && Number.isSafeInteger(value.bytes) && value.bytes > 0 && value.bytes <= maximum;
 }

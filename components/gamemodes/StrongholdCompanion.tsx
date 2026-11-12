@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { useReleaseTable } from '@/lib/content/context';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
 import {
@@ -16,13 +17,13 @@ import {
   ISOMORPH_CHOICE,
   ISOMORPH_ITEM,
   NEW_PLAYER_EXTRA_ACCESS,
-  OPENING,
   SIX_STAR_OPERATORS,
   goodStackerMap,
   lockdownMap,
   nudgeMap,
   openingFor,
   type OpeningFor,
+  type OpeningBand,
 } from '@/lib/gamemodes/strongholdOpening';
 import PipWindow, { pipSupported, usePipWindow } from '@/components/ui/PipWindow';
 /* The address the New tab button points at and the phone link navigates to. Its own
@@ -819,6 +820,7 @@ function DrawnPool({ pool, needs, icon, still }: {
  * already said.
  */
 export default function StrongholdCompanion({ data, picker, standalone }: Props) {
+  const { bands: OPENING } = useReleaseTable<{ bands: OpeningBand[] }>('stronghold-opening');
   const [pools, setPools] = useState<string[]>([]);
   /**
    * Alliances ruled out for this run, which is the unit a player actually thinks in.
@@ -1197,8 +1199,8 @@ export default function StrongholdCompanion({ data, picker, standalone }: Props)
     /* An address can say ?band=anything, and a numeral the season does not have simply
        means the first band, the same answer a fresh visit gets. */
     return i < 0 ? 0 : i;
-  }, [bandTier]);
-  const setBand = useCallback((i: number) => setBandTier(OPENING[i].tier), [setBandTier]);
+  }, [bandTier, OPENING]);
+  const setBand = useCallback((i: number) => setBandTier(OPENING[i].tier), [setBandTier, OPENING]);
   /* A new band is a new round's question. Whatever bundle was open for the
      last one closes with it, rather than sitting there answering a question
      that has moved on. Not the first render: band starts wherever the URL or
@@ -1681,12 +1683,12 @@ export default function StrongholdCompanion({ data, picker, standalone }: Props)
    * all", and the glyph column on the other corner already says for whom.
    */
   const commitUnits = useMemo(
-    () => new Set([...lockdownMap().values()].flat()),
-    [],
+    () => new Set([...lockdownMap(OPENING).values()].flat()),
+    [OPENING],
   );
   const praised = useMemo(() => {
     const out = new Set<string>();
-    for (const [, entries] of nudgeMap()) {
+    for (const [, entries] of nudgeMap(OPENING)) {
       for (const e of entries) out.add(e.operator);
     }
     /* Free choice, not tied to any one alliance's note -- so they never earned
@@ -1697,12 +1699,12 @@ export default function StrongholdCompanion({ data, picker, standalone }: Props)
     out.add('Yu');
     out.add('Muelsyse');
     return out;
-  }, []);
+  }, [OPENING]);
 
   /** Who locks what down. Computed once, because it is a fact about the guide, not
  *  about the run. */
-  const lockdowns = useMemo(() => lockdownMap(), []);
-  const goodStackers = useMemo(() => goodStackerMap(), []);
+  const lockdowns = useMemo(() => lockdownMap(OPENING), [OPENING]);
+  const goodStackers = useMemo(() => goodStackerMap(OPENING), [OPENING]);
 
 
   /** An alliance's badge art, for the glyphs a face wears. */
@@ -1831,7 +1833,7 @@ export default function StrongholdCompanion({ data, picker, standalone }: Props)
     const opensAt = data.tiers.indexOf(LOOKAHEAD_FROM_TIER);
     /* Unfindable reads as "always", which is what the shelf's own check did with it. */
     return opensAt < 0 || at >= opensAt ? at + 1 : at;
-  }, [band, data.tiers]);
+  }, [band, data.tiers, OPENING]);
 
   const inReach = useCallback(
     (op: StrongholdOperator) => reachCeiling < 0
@@ -1859,7 +1861,7 @@ export default function StrongholdCompanion({ data, picker, standalone }: Props)
     /* Ahead of the band's own tier, not behind it, so the list runs strictly
        downwards: the tier above, then this one, then each tier below it. */
     return -1;
-  }, [band, data.tiers]);
+  }, [band, data.tiers, OPENING]);
 
   /**
    * Whether an operator feeds anything the marks already feed, meaning any alliance
@@ -1914,7 +1916,7 @@ export default function StrongholdCompanion({ data, picker, standalone }: Props)
       take(band + 1, (op) => commitUnits.has(op.operator) || praised.has(op.operator));
     }
     return { rows, fallback };
-  }, [data, band, banned, bannedAlliances, commitUnits, praised, reachCeiling]);
+  }, [data, band, banned, bannedAlliances, commitUnits, praised, reachCeiling, OPENING]);
 
 
   /**
@@ -3018,7 +3020,7 @@ export default function StrongholdCompanion({ data, picker, standalone }: Props)
     const text = fallback ? tipText(language, key, fallback) : null;
     if (!text) return null;
     return { key, text };
-  }, [building, kindOf, isLockedIn, settled, strip, counts, band, language]);
+  }, [building, kindOf, isLockedIn, settled, strip, counts, band, language, OPENING]);
   const tip = useMemo(
     () => (tipNow && !dismissedTips.includes(tipNow.key) ? tipNow : null),
     [tipNow, dismissedTips],

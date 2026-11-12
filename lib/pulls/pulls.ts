@@ -452,25 +452,23 @@ export function rerunOriginalStages(event: Pick<PullEventReward, 'cnAct'>, stage
   const prefix = rerunStagePrefix(event.cnAct);
   return prefix && stageSanity ? Object.entries(stageSanity).filter(([id, sanity]) => id.startsWith(prefix) && !id.includes('#') && sanity > 0).map(([id]) => id) : [];
 }
-/** The reruns whose event the account already cleared, by name, which the planner ticks itself
- *  since a rerun of a cleared event pays its Originite no second time. Four readings, any
- *  one enough: the account holds the event's all-stages medal (`medals` against the event's
- *  `clearMedal`: the game's save forgets a closed event's stage clears, the medal stays); for an
- *  event with no medal set, the account owns its `clearOperator` (`operators`, the import's
- *  character ids); the Reward Tracker's
- *  ticks (`doneEvents`: the import's clears, the reader's own) hold the event, for one the
- *  back catalogue lists; or the import's cleared stage ids (`cleared`) cover every ordinary
- *  battle stage of the event the rerun returns, for one still in the client. */
+/** Imported stage records take priority when the event's stages are present, including a
+ *  recorded stage that is still uncleared. Older imports can establish presence from clears.
+ *  Only when event records are absent do medals, operator ownership or tracker ticks stand
+ *  in for completion: the game drops closed events' stages while retaining their medals. */
 export function rerunsClearedByTicks(events: readonly PullEventReward[], playable: readonly { id: string; name: string }[], doneEvents: ReadonlySet<string>,
   cleared: ReadonlySet<string> | null = null, stageSanity: Readonly<Record<string, number>> | undefined = undefined, medals: ReadonlySet<string> | null = null,
-  operators: ReadonlySet<string> | null = null): Set<string> {
+  operators: ReadonlySet<string> | null = null, recordedStages: ReadonlySet<string> | null = null): Set<string> {
   return new Set(events.filter(event => event.rerun).flatMap(event => {
+    const stages = cleared ? rerunOriginalStages(event, stageSanity) : [];
+    if (stages.some(id => (recordedStages ?? cleared)?.has(id))) {
+      return stages.every(id => cleared!.has(id)) ? [event.name] : [];
+    }
     if (event.clearMedal && medals?.has(event.clearMedal)) return [event.name];
     if (event.clearOperator && operators?.has(event.clearOperator)) return [event.name];
     const known = rerunBacklogEvent(event, playable);
     if (known && doneEvents.has(known.id)) return [event.name];
-    const stages = cleared ? rerunOriginalStages(event, stageSanity) : [];
-    return stages.length && stages.every(id => cleared!.has(id)) ? [event.name] : [];
+    return [];
   }));
 }
 export function eventShopPermits(event: PullEventReward): number {

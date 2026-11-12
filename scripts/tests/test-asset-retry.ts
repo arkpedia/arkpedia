@@ -368,6 +368,7 @@ test('the retry script is in <head>, ahead of every image', () => {
  */
 const NOT_PUBLISHED_FILES: Record<string, string> = {
   'lib/music/youtube.ts: url': 'the YouTube Data API',
+  'lib/music/youtubeFeedCache.ts: ...args': 'the injected fetch transport for YouTube channel Atom feeds (youtube.com/feeds/videos.xml)',
   'lib/music-guesser/prepareClip.ts: url': "Monster Siren's own audio CDN (/api/music-guesser)",
   'lib/account-import/relay.ts: url: string': "the account-import transport's type (Yostar's servers)",
   'lib/account-import/relay.ts: url': "Yostar's servers, for the account import",
@@ -378,6 +379,7 @@ const NOT_PUBLISHED_FILES: Record<string, string> = {
 };
 /** Pictures and sounds made outside the page: how many each file makes, and why they need no retry. */
 const DETACHED_MEDIA: Record<string, { count: number; why: string }> = {
+  "components/music/PageAudio.tsx: createElement('audio')": { count: 1, why: "page background playback uses Monster Siren's own audio CDN, not published repository assets" },
   'components/operators/RoamingChibiProvider.tsx: new Image': { count: 1, why: 'furniture from the ArknightsAssets mirror, not an arkpedia repository' },
   'components/skins/DynamicArtwork.tsx: new Audio': { count: 2, why: 'retried with retryAssetMedia (the entrance) and on the next press (voices, assetAudioUrl)' },
   'lib/music-guesser/useSongClip.ts: new Audio': { count: 1, why: "Monster Siren's own audio CDN" },
@@ -481,10 +483,6 @@ const RAW_READERS: Record<string, Allowed[]> = {
   'scripts/deploy/check-asset-redirects.mjs': [
     { call: /^fetch\(url, \{ method: 'HEAD', redirect: 'manual'/, why: "the site's own address, whose redirect is read by hand before its target is asked through fetchAsset" },
   ],
-  'scripts/sync/sync-chibi-art.mjs': [
-    { call: /^fetcher\(`https:\/\/api\.github\.com\/repos\/\$\{REPOSITORY\}\/commits\/main`/, why: "the API's commit lookup, not a published file" },
-  ],
-  'scripts/sync/sync-dynamic-art.mjs': [],
   'scripts/sync/update-asset-revisions.mjs': [],
 };
 const RAW_LITERAL = /raw\.githubusercontent\.com\/(?:arkpedia\/|\$\{REPOSITORY\})/;

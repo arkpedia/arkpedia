@@ -9,9 +9,9 @@ Arknights reference pages, operator, skin and pull planners, a Global account im
 
 Cloudflare serves www; the apex redirects to www. Vercel hosting and its rollback role are retired; recovery uses retained Cloudflare Worker versions. See [retirement and recovery](docs/development/vercel-retirement.md). Production readers are listed in `config/production.json`; native Preview has its own isolated publication workflow. Vercel's own Git deployments are switched off (`vercel.json`): every deployment is built in CI from a commit that passed Check.
 
-Google/Discord accounts and cloud saves are Preview-only. Live keeps local imports
-and local planner data; it does not expose Arkpedia sign-in. The obsolete
-`arkpedia-cf.mocchibird.com` alias is retired; release health uses canonical www.
+Google/Discord accounts and cloud saves are available on the live site. Local
+imports and planner data also work without signing in. Preview uses separate
+accounts and storage.
 
 ## Start here
 
@@ -39,14 +39,14 @@ The cloudflare branch still preserves historical unreleased work; do not merge o
 retire it wholesale. Use retained Cloudflare versions for production recovery.
 Never use a permanent branch as a disposable PR head.
 
-Branch protection is not available on this plan, so the rule is a convention: merge only after Check passes. A change to nothing but `docs/**` or Markdown skips Check and deploys nothing (`config/docs-only-paths.json`).
+Merge only after the required checks pass and the change has been reviewed. A change to nothing but `docs/**` or Markdown skips Check and deploys nothing (`config/docs-only-paths.json`).
 
 ## Game data and media: no redeploy
 
-The site's game records are not part of the deployment. The nightly **Prepare content release** workflow (`.github/workflows/prepare-content.yml`) does the following:
-- refreshes the records from the game's tables and the public mirrors;
-- compiles every content page against them;
-- pushes the result to [arkpedia-data](https://github.com/arkpedia/arkpedia-data).
+The site's game records are not part of the deployment. [arkpedia-data](https://github.com/arkpedia/arkpedia-data) refreshes them from the game's tables and the public mirrors in its own nightly **Import game records** workflow (its `importer/`, `docs/importer.md`) and leaves them on its `imports` branch. The nightly **Prepare content release** workflow here (`.github/workflows/prepare-content.yml`) then does the following:
+- runs the few refresh steps that stay in this repository (the EN tables, the story chapters and covers, the pull sources and first clears);
+- compiles every content page against the imported records;
+- pushes the result to arkpedia-data.
 
 That repository validates the push and moves its `live` pointer. Deployed pages pick up the new release on their next revalidation. Images and voices are served straight from the public asset repositories, pinned to the commits each release names (`data/assets/revisions.json`).
 
@@ -92,4 +92,4 @@ npm run build
 
 `predev` and `prebuild` generate the JSON delivery files under `public/`. Do not commit generated media, build output, credentials or upstream caches.
 
-CI, the self-hosted runner, asset refreshes, deployment pins and free-tier limits: [Automation](docs/development/automation.md).
+See [Contributing](CONTRIBUTING.md), [Security](SECURITY.md) and [Code and content rights](RIGHTS.md).

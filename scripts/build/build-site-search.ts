@@ -7,7 +7,7 @@ import { getEventCalendar } from '../../lib/home/frontPageContent';
 import { getStageContents } from '../../lib/stages/stages';
 import { getAllAlbums, getAllPlayerSongs } from '../../lib/music/albumsData';
 import { NAV_ORDER } from '../../lib/nav/navLinks';
-import { YOUTUBE_CHANNELS } from '../../lib/music/youtubeConfig';
+import creators from '../../data/youtube-creators.json';
 import { buildSiteSearchEntries } from '../../lib/search/siteSearchIndex';
 import { romanizationCoverage, siteSearchPeople } from '../lib/credit-romanization';
 import type { SiteSearchIndex } from '../../lib/search/siteSearch';
@@ -46,7 +46,7 @@ const entries = buildSiteSearchEntries({
   // Monster Siren's albums and Endfield's (lib/music/albumsData.ts), each Endfield one marked.
   albums: getAllAlbums().map((album) => ({ albumId: album.albumId, albumName: album.albumName, albumAltName: album.albumAltName, game: album.game })),
   songs: getAllPlayerSongs(),
-  creators: YOUTUBE_CHANNELS,
+  creators: creators.channels,
   people,
 });
 

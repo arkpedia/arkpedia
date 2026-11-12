@@ -76,9 +76,6 @@
   color: var(--text);
 }
 .site-brand-beta {
-  font-style: italic;
-  font-size: 10px;
-  color: var(--text-faint);
   margin-left: 2px;
   align-self: flex-end;
 }
@@ -651,10 +648,10 @@
    the band between the phone bar and a full bar (tests/browser/nav-bar.spec.ts holds every
    width to no overlap and no clipped label). The drawer's copy is unaffected.
 
-   1054 and not 1039 because a media query measures the viewport INCLUDING the scrollbar
-   while layout gets what is left: on a platform with classic ~15px scrollbars (Windows,
-   Linux) a 1050px window passes a 1039 test and hands layout about 1035. */
-@media (max-width: 1054px) {
+   With Extras as a seventh menu, the clock fits from 1100px. Below that, reserve
+   the width for navigation labels and header actions, including the space taken by
+   a classic scrollbar. The drawer retains its clock at phone widths. */
+@media (max-width: 1099px) {
   .site-nav .site-nav-clock { display: none; }
 }
 
@@ -705,6 +702,11 @@
   .site-nav-inner { gap: 8px; }
   .site-nav-links { gap: 2px; }
   .site-nav-trigger { padding-inline: 8px; }
+}
+/* Keep the seventh menu readable just above the drawer breakpoint. The logo
+   remains labelled Arkpedia while the wordmark yields its space. */
+@media (min-width: 901px) and (max-width: 959px) {
+  .site-nav .site-brand-text { display:none; }
 }
 
 .site-nav-popitem.nav-group-end, .mobile-nav-drawer-link.nav-group-end { border-bottom: 1px solid var(--line-soft); margin-bottom: 6px; padding-bottom: 12px; }

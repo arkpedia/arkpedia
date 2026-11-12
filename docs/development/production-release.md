@@ -1,5 +1,9 @@
 # Checked-main releases to production
 
+For routine releases, follow [release execution](release-execution.md). Check now
+compiles the real production Worker with live data before merge, including its bundle
+budget. The existing checked-main workflow remains the sole production owner.
+
 Renamed 2026-10-29: the workflow is `production-release.yml` ("Release production"; it was
 `cloudflare-pilot-release.yml`, "Release Cloudflare pilot"), its switch is the repository variable
 `ARKPEDIA_PRODUCTION_RELEASES_ENABLED` (was `ARKPEDIA_PILOT_RELEASES_ENABLED`), and its deploy token
@@ -21,12 +25,17 @@ annotation was reconciled with the exact-version exceptions described below.
 It targets only the existing `arkpedia`
 Worker behind `https://www.arkpedia.net`. It does not move `arkpedia.net`,
 change DNS, create resources, apply D1 migrations, write secrets or publish data.
-The existing edge routes public www to this Worker. Its auth origin is
-`https://www.arkpedia.net` remains historical account-binding metadata, but the
-production-role guard disables accounts entirely. The obsolete physical-pilot
-hostname is retired; health checks use indexable canonical www and require live
-account APIs to remain disabled with private, no-store responses.
-Vercel remains deployed as the rollback target pending acceptance and soak.
+The existing edge routes public www to this Worker. Accounts are explicitly enabled
+with `ARKPEDIA_ACCOUNTS_ENABLED=1` and canonical auth origin
+`https://www.arkpedia.net`. Native Preview retains its separate database, auth
+origin, session secret and rate-limit namespaces. The base optimizer stays disabled
+in production builds. The production wrapper applies the same account ingress
+limits and security headers as Preview, including direct Worker requests.
+Health distinguishes old disabled-account versions from enabled-account versions,
+so code recovery can retain all database writes. Enabled health requires both
+providers, anonymous session responses, private unauthenticated save endpoints and
+working public Community reads. Real provider login and onboarding still need a
+human acceptance check after publication.
 See [the cutover record](cloudflare-cutover.md).
 
 ## Release owner and authorization
@@ -56,7 +65,11 @@ If deployment needs additional permissions, stop and review the exact denied cal
 
 The strict root configuration validator and live provider checks preserve:
 
-- Existing account D1 `f7daff77-8e8f-4ec2-998b-97fb6e4b948f`; no SQL is executed.
+- Existing production D1 `arkpedia-prod-accounts` (`f7daff77-8e8f-4ec2-998b-97fb6e4b948f`, EU); the release job executes no SQL.
+  Before the first account release, capture a private Time Travel bookmark and
+  apply the additive migrations through `0010` to this database only. Preview
+  accounts and saves are not copied. Later schema changes also require a reviewed
+  migration before code promotion.
 - Canonical www auth origin (with exact immutable pre-cutover recovery exceptions),
   five existing auth secret bindings, the approved Twitch
   client ID/secret and YouTube API key, and provider callbacks.
@@ -81,7 +94,11 @@ Health verifies public identity, five noindex pages and configured account APIs.
 Better Auth's session response uses `no-store`; Arkpedia's saved-data APIs also
 require `private`. Unbound staging tests do not prove real OAuth/D1 acceptance.
 
-## First controlled release
+## Historical initial activation
+
+These initial migration steps are historical evidence, not the routine release
+procedure. Current deployment authorization and the release execution instructions
+above govern routine releases; Vercel was subsequently retired.
 
 1. Finish the main-based hosting PR's exact CI and isolated preview acceptance.
    Preserve the original pilot version/build identity and the accounts owner's

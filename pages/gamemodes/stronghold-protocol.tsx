@@ -1293,4 +1293,4 @@ export default function StrongholdProtocolPage({ data, picker }: Props) {
 export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/gamemodes/stronghold-protocol", async () => {
   const data = strongholdData();
   return { props: { data, picker: alliancesForPicker(data) } };
-});
+}, { tables: { 'stronghold-opening': async () => (await import('@/data/stronghold-opening.json')).default } });

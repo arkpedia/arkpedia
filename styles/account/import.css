@@ -43,6 +43,7 @@
 .data-dialog-part h3 { margin: 0; }
 .data-dialog-part > p { margin: 0; }
 .data-dialog-acts { display: flex; flex-wrap: wrap; gap: 8px; }
+.replay-sync-heading { align-items: center; }
 .data-dialog-paste > summary { cursor: pointer; color: var(--text-dim); font: 11px var(--font-mono); }
 .data-dialog-paste > summary:hover { color: var(--teal); }
 .data-dialog-paste textarea { width: 100%; margin: 10px 0; box-sizing: border-box; }
@@ -50,7 +51,10 @@
 /* A saved sign-in has Import, Request code and Forget Yostar login. The opt-in spans the form. */
 .import-saved { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 12px; }
 .import-saved-identity { flex-basis: 100%; min-width: 0; overflow-wrap: anywhere; }
-.import-remember { grid-column: 1 / -1; }
+.import-remember-row { grid-column: 1 / -1; flex-wrap: nowrap; }
+.import-remember { flex: 1; min-width: 0; }
+.import-email-help { flex-wrap: nowrap; align-items: start; }
+.import-email-help > p { flex: 1; min-width: 0; }
 /* GameSignIn's first lines: the email to use is the one that is already the game account's
    Yostar login; any other makes Yostar a new, empty account (lib/account-import/yostar.ts
    isNewGameAccount). Above the email field, read before anything is typed. */
@@ -65,3 +69,13 @@
 .import-diagnostics-body { display: grid; gap: 8px; margin-top: 8px; }
 .import-diagnostics-body p { margin: 0; }
 .import-diagnostics-report { width: 100%; box-sizing: border-box; resize: vertical; }
+
+/* Optional auto-deploy controls reuse the dialog's controls and paint. */
+.replay-sync { display: grid; gap: 8px; margin-block: 12px; }
+.replay-sync p { margin: 0; }
+.replay-sync li { overflow-wrap: anywhere; }
+.replay-sync details > p { margin-top: 6px; }
+.replay-sync details > label { display: grid; gap: 6px; }
+.replay-download-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; width: calc(100% - 2 * var(--page-gutter)); max-width: calc(var(--frame-max) - 2 * var(--page-gutter)); margin: 12px auto; padding: 10px 12px; }
+.replay-download-status { flex: 1 1 240px; min-width: 0; }
+.replay-download-status p { margin: 4px 0 0; overflow-wrap: anywhere; }

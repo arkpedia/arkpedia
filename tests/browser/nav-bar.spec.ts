@@ -2,13 +2,13 @@ import { expect, test } from '@playwright/test';
 
 /*
  * The framed bar (styles/core/nav.css): capped at the page's 1040px, with about 1px of slack at
- * that cap, so search is a magnifier and Support its heart. The clock goes below 1055px and
+ * that cap, so search is a magnifier and Support its heart. The clock goes below 1100px and
  * the phone bar takes over below 901px. At every width it shows, nothing in it overlaps and no
  * link's label is clipped: the links clip their own labels instead of overflowing, so this is
  * the check that would see them squeezed.
  */
 
-const WIDTHS = [1600, 1440, 1100, 1055, 1054, 1000, 960, 901];
+const WIDTHS = [1600, 1440, 1100, 1099, 1000, 960, 959, 901];
 
 test('the bar fits at every width it shows, without a clipped label or an overlap', async ({ page }, info) => {
   test.skip(info.project.name !== 'desktop', 'widths are set here');
@@ -33,7 +33,7 @@ test('the bar fits at every width it shows, without a clipped label or an overla
   }
 });
 
-test('the clock goes below 1055px and the phone bar takes over below 901px', async ({ page }, info) => {
+test('the clock goes below 1100px and the phone bar takes over below 901px', async ({ page }, info) => {
   test.skip(info.project.name !== 'desktop', 'widths are set here');
   await page.goto('/schedule');
   const state = async (width: number) => {
@@ -43,8 +43,8 @@ test('the clock goes below 1055px and the phone bar takes over below 901px', asy
       bar: getComputedStyle(document.querySelector('.site-nav')!).display !== 'none',
     }));
   };
-  expect(await state(1055)).toEqual({ clock: true, bar: true });
-  expect(await state(1054)).toEqual({ clock: false, bar: true });
+  expect(await state(1100)).toEqual({ clock: true, bar: true });
+  expect(await state(1099)).toEqual({ clock: false, bar: true });
   expect((await state(900)).bar).toBe(false);
   await expect(page.locator('.mobile-nav-bar')).toBeVisible();
 });
@@ -59,7 +59,7 @@ test('About groups site information and Support', async ({ page }, info) => {
 
 test('long menus stay reachable in a short window and close before header utilities open', async ({ page }, info) => {
   test.skip(info.project.name !== 'desktop', 'sets desktop and phone viewports itself');
-  await page.setViewportSize({ width: 1055, height: 320 });
+  await page.setViewportSize({ width: 1100, height: 320 });
   await page.goto('/schedule');
   await page.locator('.site-nav').getByRole('button', { name: 'Database', exact: true }).click();
   const last = page.locator('.site-nav-pop').getByRole('link', { name: 'Voice Actors', exact: true });
@@ -70,7 +70,9 @@ test('long menus stay reachable in a short window and close before header utilit
   await expect(page.locator('.site-nav-menu .site-nav-pop')).toHaveCount(0);
   await expect(page.getByRole('region', { name: 'Settings', exact: true })).toBeVisible();
   await expect(page.getByRole('region', { name: 'Settings', exact: true }).getByRole('button', { name: 'Import / export', exact: true })).toBeFocused();
-  await page.getByRole('button', { name: 'Switch to light mode' }).focus();
+  await page.getByRole('button', { name: 'Choose Background Music', exact: true }).focus();
+  await page.keyboard.press('Tab');
+  await expect(page.getByRole('checkbox', { name: 'Use original visualizer waves' })).toBeFocused();
   await page.keyboard.press('Tab');
   await expect(page.locator('.site-nav .site-nav-clock button')).toBeFocused();
   await page.keyboard.press('Tab');

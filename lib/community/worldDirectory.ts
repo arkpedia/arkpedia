@@ -15,7 +15,7 @@ export function webEventServer(event: Pick<WorldWebEvent, 'region'>): 'en' | 'jp
   const code = event.region?.match(/\((EN|JP|KR)\)\s*$/)?.[1];
   return code ? (code.toLowerCase() as 'en' | 'jp' | 'kr') : null;
 }
-/** Verified release records take precedence; editorial seeds cover older releases. */
+/** Verified release records take precedence; this deployment’s record covers older releases. */
 export function mergeWebEvents(seeds: WorldWebEvent[], discovered: WorldWebEvent[]): WorldWebEvent[] {
   const events = new Map<string, WorldWebEvent>();
   for (const event of [...seeds, ...discovered]) events.set(event.url, { ...events.get(event.url), ...event });

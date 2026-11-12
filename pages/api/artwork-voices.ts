@@ -2,9 +2,9 @@ import type { NextApiRequest, NextApiResponse } from 'next';
 import type { OperatorVoiceData } from '@/lib/operators/operatorVoices';
 import { contentRoute } from '@/lib/content/types';
 import { readPublishedContentPageProps } from '@/lib/content/release';
-import { clipUrl, hasRecording } from '@/lib/operators/voiceRecording.mjs';
+import { artworkVoicePacks } from '@/lib/skins/artworkVoices';
 
-/** Only the outfit's CN recordings: its controller's choreography is timed to those lines. */
+/** Voice metadata only; audio is fetched when the reader plays a line. */
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'GET') { res.setHeader('Allow', 'GET'); return res.status(405).end(); }
   const { operator, skinId } = req.query;
@@ -18,10 +18,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const { getOperatorVoiceData } = await import('@/lib/operators/operatorVoices');
     data = getOperatorVoiceData(getOperatorByName(operator)?.internalName);
   }
-  // Outfits without their own recordings use the operator's normal voice set in game.
-  const set = data?.skinVoices?.find(s => s.skinIds.includes(skinId)) ?? data;
-  const pack = set?.packs.find(p => p.id === 'cn' && p.status === 'current');
-  const voices = pack ? set!.lines.filter(l => hasRecording(l, pack)).map(l => ({ id: l.id, title: `${l.title} (CN)`, url: clipUrl(pack.audioTemplate, l.id)! })) : [];
+  const packs = artworkVoicePacks(data, skinId);
   res.setHeader('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=120');
-  return res.status(200).json(voices);
+  // Keep the original response for already-open clients from before the language selector.
+  return res.status(200).json(req.query.languages === 'all' ? packs
+    : (packs.find(pack => pack.id === 'cn')?.voices ?? []).map(voice => ({ ...voice, title: `${voice.title} (CN)` })));
 }

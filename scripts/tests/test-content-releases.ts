@@ -100,8 +100,8 @@ test('a static route the release lacks regenerates on Vercel only when its page 
     type Props = { value: string; now?: number };
     const finalize = async (props: Props) => ({ ...props, value: `${props.value}+finalized` });
     const builder = async () => ({ props: { value: 'bundled' } as Props });
-    await assert.rejects(async () => withContentPage('/community', builder, { finalize })({ revalidateReason: 'stale' }), /Published content is missing \/community/);
-    const result = await withContentPage('/community', builder, { finalize, bundledWhenUnpublished: true })({ revalidateReason: 'stale' });
+    await assert.rejects(async () => withContentPage('/community', builder, { finalize, tables: { 'youtube-creators': async () => ({ channels: [] }) } })({ revalidateReason: 'stale' }), /Published content is missing \/community/);
+    const result = await withContentPage('/community', builder, { finalize, bundledWhenUnpublished: true, tables: { 'youtube-creators': async () => ({ channels: [] }) } })({ revalidateReason: 'stale' });
     assert.ok('props' in result);
     const props = await result.props;
     assert.equal(props.value, 'bundled+finalized');
@@ -150,7 +150,7 @@ test('a gzipped page smaller than its own gzip still loads, and the decoded size
     const result = await withContentPage('/search', async () => ({ props: {} }), { bundledWhenUnpublished: true })({ revalidateReason: 'stale' });
     assert.ok('props' in result);
     assert.ok((await result.props as { __contentRelease?: unknown }).__contentRelease, 'the release page, not the builder');
-    await assert.rejects(async () => withContentPage('/community', async () => ({ props: {} }), { bundledWhenUnpublished: true })({ revalidateReason: 'stale' }), /too large/);
+    await assert.rejects(async () => withContentPage('/community', async () => ({ props: {} }), { bundledWhenUnpublished: true, tables: { 'youtube-creators': async () => ({ channels: [] }) } })({ revalidateReason: 'stale' }), /too large/);
   } finally {
     for (const key of keys) { if (before[key] === undefined) delete process.env[key]; else process.env[key] = before[key]; }
     await new Promise<void>((resolve, reject) => server.close(error => error ? reject(error) : resolve()));

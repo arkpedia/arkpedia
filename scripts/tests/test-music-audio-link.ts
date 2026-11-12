@@ -127,7 +127,7 @@ test('on Vercel the route answers exactly as before: a fresh redirect each call,
     const reply = await callAudio({ id: '880367' }, () => href);
     assert.equal(reply.status, 302);
     assert.equal(reply.asked, 1);
-    assert.deepEqual(reply.headers, { 'Cache-Control': 'public, max-age=60, s-maxage=1800', Location: href });
+    assert.deepEqual(reply.headers, { 'Cache-Control': 'public, max-age=1800, s-maxage=1800', Location: href });
   }
 });
 
@@ -147,7 +147,7 @@ test('on the Worker the route keeps the redirect, and ?retry= asks Monster Siren
   assert.equal(again.asked, 0, 'no second trip to Monster Siren');
   assert.equal(again.headers['X-Arkpedia-Audio-Link'], 'kept');
   assert.equal(again.headers.Location, first.headers.Location);
-  assert.equal(again.headers['Cache-Control'], 'public, max-age=60, s-maxage=1800');
+  assert.equal(again.headers['Cache-Control'], 'public, max-age=1800, s-maxage=1800');
   const retried = await callAudio({ id: '048738', retry: '1' }, upstream, context);
   assert.equal(retried.asked, 1);
   assert.equal(retried.headers['X-Arkpedia-Audio-Link'], 'retry');

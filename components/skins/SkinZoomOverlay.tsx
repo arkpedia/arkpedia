@@ -21,6 +21,7 @@ interface Props {
   alternate?: string | null;
   details?: ReactNode;
   voiceOperator?: string;
+  closeLabel?: string;
   onClose: () => void;
 }
 
@@ -43,7 +44,7 @@ function writeSound(on: boolean) {
   try { window.localStorage.setItem(SOUND_KEY, on ? 'on' : 'off'); } catch { /* not remembered */ }
 }
 
-export default function SkinZoomOverlay({ image, name, dynamic: original, alternate = null, details, voiceOperator, onClose }: Props) {
+export default function SkinZoomOverlay({ image, name, dynamic: original, alternate = null, details, voiceOperator, closeLabel = 'Close', onClose }: Props) {
   const [variant, setVariant] = useState('original');
   const model = variant === 'alternate' && alternate ? alternate : original;
   const dialogRef = useRef<HTMLDivElement>(null);
@@ -153,6 +154,7 @@ export default function SkinZoomOverlay({ image, name, dynamic: original, altern
   const [request, setRequest] = useState<{ name: string; id: number } | null>(null);
   // The view opens on a click, never on the server, so the stored choice can be read at once.
   const [sound, setSound] = useState(readSound);
+  const [voiceLanguage, setVoiceLanguage] = useState('cn');
   function toggleSound() {
     setSound((on) => { writeSound(!on); return !on; });
   }
@@ -212,7 +214,7 @@ export default function SkinZoomOverlay({ image, name, dynamic: original, altern
           />
           {animated && (
             <DynamicArtwork key={model} model={model} poster={getSkinArtworkOriginal(image)} label={name} transform={transform} scale={scale} request={request}
-              sound={sound} voiceOperator={voiceOperator} onStatus={onStatus} onPlaying={setPlaying} />
+              sound={sound} voiceOperator={voiceOperator} voiceLanguage={voiceLanguage} onStatus={onStatus} onPlaying={setPlaying} />
           )}
         </div>
       </div>
@@ -222,7 +224,7 @@ export default function SkinZoomOverlay({ image, name, dynamic: original, altern
       {model !== null && (
         <div className="skin-zoom-animations" aria-live="polite">
           {ready && status?.kind === 'ready' ? (<>
-            {status.animations.length > 6 ? <StyledSelect label="Animation" value={playing ?? ''}
+            {status.animations.length > 6 ? <StyledSelect className="scrim-control" label="Animation" value={playing ?? ''}
               options={animationButtons(status.animations, status.labels).map(button => ({value:button.name,label:button.label}))}
               onChange={name => setRequest(last => ({name,id:(last?.id ?? 0) + 1}))} /> : <div role="group" aria-label="Animation" className="seg-control">
               {animationButtons(status.animations, status.labels).map((button) => (
@@ -232,6 +234,9 @@ export default function SkinZoomOverlay({ image, name, dynamic: original, altern
                 </button>
               ))}
             </div>}
+            {status.voiceLanguages.length > 0 && <StyledSelect className="scrim-control" label="Voice language" value={status.voiceLanguage ?? ''}
+              options={status.voiceLanguages} onChange={setVoiceLanguage}
+              renderValue={option => <>Voice: {option.label}</>} />}
             {/* Soundtracks and authored voice actions share the sound preference. */}
             {status.sound && (
               <button type="button" className="filter-chip" aria-pressed={sound} onClick={toggleSound}>
@@ -247,17 +252,19 @@ export default function SkinZoomOverlay({ image, name, dynamic: original, altern
       )}
 
       {details && <details className="skin-zoom-details"><summary>Outfit details</summary>{details}</details>}
-      <div className="skin-zoom-controls">
-        {alternate && <div className="skin-zoom-versions" aria-hidden={view !== 'animated'} style={{ visibility: view === 'animated' ? 'visible' : 'hidden' }}><SegmentedControl label="Illustration version" value={variant}
+      {alternate && <div className="skin-zoom-versions" aria-hidden={view !== 'animated'} style={{ visibility: view === 'animated' ? 'visible' : 'hidden' }}><SegmentedControl label="Illustration version" value={variant}
           options={[{ value: 'original', label: 'Version 1', disabled: view !== 'animated' }, { value: 'alternate', label: 'Version 2', disabled: view !== 'animated' }]}
           onChange={next => { setVariant(next); setStatus(null); setPlaying(null); setRequest(null); }} /></div>}
+      <div className="skin-zoom-controls">
         {model !== null && <SegmentedControl label="Artwork" options={VIEW_OPTIONS} value={view} onChange={pickView} />}
-        <button type="button" className="ghost" onClick={reset} disabled={scale === MIN_SCALE}>
-          Reset
-        </button>
-        <button ref={closeRef} type="button" className="primary" onClick={onClose}>
-          Close
-        </button>
+        <div className="skin-zoom-actions">
+          <button type="button" className="ghost" onClick={reset} disabled={scale === MIN_SCALE}>
+            Reset
+          </button>
+          <button ref={closeRef} type="button" className="primary" onClick={onClose}>
+            {closeLabel}
+          </button>
+        </div>
       </div>
     </div>
   );

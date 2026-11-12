@@ -11,6 +11,7 @@
      - buttons, chips and tabs give a little (scale .97) while pressed;
      - a <Tabs> strip's underline slides to the tab chosen (components/ui/Tabs.tsx);
      - an image that arrives after the page is running fades in (lib/ui/imageArrival.ts);
+     - music overlays rise or glide into place when opened;
      - the LIVE badge's dot blinks.
    The static half of the option -- the panels' soft depth (--shadow-panel), the dot
    itself -- is paint, not motion, and lives with the primitives in arkpedia-theme.css
@@ -22,6 +23,21 @@
    --dur-2 (styles/core/shared.css). */
 
 @media (prefers-reduced-motion: no-preference) {
+  /* Overlay entrances: a short rise for Queue, a lateral glide for the shared
+     player. Individual translate preserves the transport's centered transform. */
+  .music-queue-drawer { animation: music-queue-enter var(--dur-1) var(--ease); }
+  .music-player-bottombar[data-minimizable],
+  .music-floating-toggle,
+  .music-player.collapsed { animation: music-player-enter var(--dur-2) var(--ease); }
+  @keyframes music-queue-enter { from { opacity: 0; translate: 0 20px; } }
+  @keyframes music-player-enter { from { opacity: 0; translate: 28px 0; } }
+
+  .music-original-waves .music-wave { animation: music-wave-scroll 3.5s linear infinite; }
+  .music-original-waves .music-wave-2 { animation-duration: 5s; animation-direction: reverse; }
+  .music-original-waves .music-wave-3 { animation-duration: 6.5s; }
+  .music-wave-visualizer[data-playing="false"] .music-wave { animation-play-state: paused; }
+  @keyframes music-wave-scroll { to { transform: translateX(-100px); } }
+
   /* The home Community panel's slide fades in as it turns (components/home/CommunityFader.tsx). */
   .front-community-slide[data-current] { animation: front-community-fade-in 0.4s ease; }
   @keyframes front-community-fade-in { from { opacity: 0; } to { opacity: 1; } }
@@ -81,7 +97,7 @@
      (tests/browser/motion.spec.ts finds them on the page, as cards-and-headings.spec.ts
      does, and fails one that does not rise), and the content cards beside them. The
      `translate` property, not `transform`: it composes with a card's own entrance (the
-     roster's cardRiseIn holds `transform` with its fill). The shadow is on hover only,
+     shared rise-in holds `transform` with its fill). The shadow is on hover only,
      never at rest: /operators draws hundreds of these. A card whose own class is a CSS
      module's takes the global hook .lift (the /games cards). */
   :is(
@@ -323,4 +339,66 @@
 
 @media (prefers-reduced-motion: no-preference) {
   .music-view:not(.music-player-pulling) > .music-now-playing { transition: transform 0.25s ease-out; }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  /* --- rise: a batch that arrives after the first paint ------------------------------
+     Lazily appended cards float up as they arrive -- the roster's next batch, the
+     stage grid's next 24 -- so a batch is announced instead of appearing under the
+     reader's scroll position. This is the gesture cardRiseIn had for two lists only,
+     now the one entrance on the site: 12px, 0.45s, 35ms between neighbours and at
+     most eight steps, so a batch settles within 0.7s whatever its size.
+     `transform`, not `translate`: the hover lift owns `translate` and a filled
+     animation on it would hold the card down. */
+  .rise-in { animation: rise-in 0.45s var(--ease) both; }
+  .rise-in:nth-child(8n + 2) { animation-delay: 35ms; }
+  .rise-in:nth-child(8n + 3) { animation-delay: 70ms; }
+  .rise-in:nth-child(8n + 4) { animation-delay: 105ms; }
+  .rise-in:nth-child(8n + 5) { animation-delay: 140ms; }
+  .rise-in:nth-child(8n + 6) { animation-delay: 175ms; }
+  .rise-in:nth-child(8n + 7) { animation-delay: 210ms; }
+  .rise-in:nth-child(8n + 8) { animation-delay: 245ms; }
+  @keyframes rise-in {
+    from { opacity: 0; transform: translateY(12px); }
+  }
+}
+
+/* --- /community/statistics: the scenery moves (components/community/StatisticsScene.tsx) ---
+   The ranking cards come in as the reader reaches them: held at nothing while the observer is
+   live and the card not yet reached, then a short rise, staggered within a batch; without the
+   observer (no scripts, reduced motion) nothing is held. The leading operator's illustration
+   above them floats; a card's illustration leans in under the pointer and on focus. In a
+   ranking's dialog the podium's three steps rise in turn and each row's bar grows to its length. */
+@media (prefers-reduced-motion: no-preference) {
+  [data-stats-live] [data-stats-reveal]:not([data-stats-reveal="in"]) { opacity: 0; }
+  [data-stats-reveal="in"] {
+    animation: stats-card-in 0.45s var(--ease) both;
+    animation-delay: calc(var(--stats-i, 0) * 70ms);
+  }
+  @keyframes stats-card-in {
+    from { opacity: 0; transform: translateY(16px); }
+  }
+  [data-stats-hero-art] { animation: stats-float 6s ease-in-out infinite alternate; }
+  @keyframes stats-float {
+    from { transform: translateY(-4px); }
+    to { transform: translateY(5px); }
+  }
+  [data-stats-art] { transition: transform var(--dur-2) var(--ease), opacity var(--dur-2) var(--ease); }
+  .directory-card:focus-visible [data-stats-art] { transform: translateX(-6px) scale(1.04); opacity: 0.6; }
+  @media (hover: hover) {
+    .directory-card:hover [data-stats-art] { transform: translateX(-6px) scale(1.04); opacity: 0.6; }
+  }
+  [data-stats-podium] li { animation: stats-step-in var(--dur-2) var(--ease) both; }
+  [data-stats-podium] li:nth-child(2) { animation-delay: 90ms; }
+  [data-stats-podium] li:nth-child(3) { animation-delay: 180ms; }
+  @keyframes stats-step-in {
+    from { opacity: 0; transform: translateY(12px); }
+  }
+  [data-stats-bar] {
+    animation: stats-bar-in 0.6s var(--ease) both;
+    animation-delay: calc(var(--stats-i, 0) * 40ms);
+  }
+  @keyframes stats-bar-in {
+    from { transform: scaleX(0); }
+  }
 }

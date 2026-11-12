@@ -1,6 +1,7 @@
 export interface YouTubeVideo {
   videoId: string;
   title: string;
+  description?: string;
   channelLabel: string;
   publishedAt: string; // ISO date string
   thumbnail: string;
@@ -11,6 +12,10 @@ export interface YouTubeVideo {
   // or 'none' for a normal video / completed broadcast VOD.
   isLivestream: boolean;
   liveStatus: 'live' | 'upcoming' | 'none';
+  /** Public metadata recovered from the creator's archive or an indexed guide. */
+  archived?: true;
+  operatorNames?: string[];
+  topicHint?: 'operators';
 }
 
 export interface VideoOEmbedInfo {
@@ -63,6 +68,7 @@ export function parseChannelFeed(xml: string, channelLabel: string): YouTubeVide
       return {
         videoId,
         title: decodeHtmlEntities(rawTitle),
+        description: decodeHtmlEntities((entry.match(/<media:description>([\s\S]*?)<\/media:description>/) || [])[1] || '').trim().slice(0, 400),
         channelLabel,
         publishedAt: published,
         thumbnail,

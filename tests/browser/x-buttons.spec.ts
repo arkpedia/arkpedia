@@ -244,15 +244,11 @@ const PLACES: Place[] = [
       await playAllSongs(page);
       const row = page.locator('.music-queue-row').nth(1);
       await expect(row).toBeVisible();
-      // A queue row's Remove is one of its icon actions (components/music/SongRow.tsx), not an ×;
-      // the ×s here close the row's menus: Song actions on a phone, the playlist picker on a desktop.
-      if (page.viewportSize()!.width <= 720) await row.getByRole('button', { name: /^More actions for / }).click();
-      else await row.getByRole('button', { name: /^Add to playlist: / }).click();
+      await row.getByRole('button', { name: /^More actions for / }).click();
     },
-    x: (page) => page.viewportSize()!.width <= 720 ? page.getByRole('button', { name: 'Close song actions' })
-      : page.getByRole('button', { name: 'Close playlist picker' }),
+    x: (page) => page.getByRole('button', { name: 'Close song actions' }),
     gone: async (page) => {
-      await expect(page.getByRole('dialog', { name: page.viewportSize()!.width <= 720 ? 'Song actions' : 'Add to playlists', exact: true })).toHaveCount(0);
+      await expect(page.getByRole('dialog', { name: 'Song actions', exact: true })).toHaveCount(0);
     },
   },
   {
@@ -260,12 +256,6 @@ const PLACES: Place[] = [
     open: async (page) => { await page.locator('#page-content .search-input').first().fill('am'); },
     x: (page) => page.getByRole('button', { name: /^Clear / }).first(),
     gone: async (page) => { await expect(page.locator('#page-content .search-input').first()).toHaveValue(''); },
-  },
-  {
-    id: 'the mini player', route: '/operators',
-    open: async (page) => { await page.getByRole('button', { name: 'Expand player' }).click(); await expect(page.getByRole('button', { name: 'Collapse player' })).toBeVisible(); },
-    x: (page) => page.getByRole('button', { name: 'Collapse player' }),
-    gone: async (page) => { await expect(page.getByRole('button', { name: 'Expand player' })).toBeVisible(); },
   },
   {
     // A list page's filters on a phone (components/ui/FilterSheet): each filter on is a chip

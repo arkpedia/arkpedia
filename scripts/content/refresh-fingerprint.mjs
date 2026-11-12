@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
+import { ASSET_SYNCS } from './asset-syncs.mjs';
 
 // Arknights: Endfield's label's YouTube feed (scripts/sync/sync-endfield-albums.mjs FEED, written out
 // here: this probe runs before npm ci, and that module imports a package).
@@ -11,7 +12,12 @@ export const ENDFIELD_FEED = 'https://www.youtube.com/feeds/videos.xml?channel_i
 // A cheap daily probe: install dependencies and compile only when inputs moved.
 // Include corrections and asset/transcript mirrors, not just game patch dates.
 export function watchedRepositories(root = process.cwd()) {
-  return [
+  // Scheduled runs probe before loading source records. Start from the tracked
+  // sync inventory, then include any additional repositories from hydrated data.
+  let pinned = [];
+  try { pinned = Object.keys(JSON.parse(fs.readFileSync(path.join(root, 'data/assets/revisions.json'), 'utf8'))); }
+  catch (error) { if (error.code !== 'ENOENT') throw error; }
+  return [...new Set([
     'arkpedia/arkpedia-data',
     'ArknightsAssets/ArknightsGamedata',
     'yuanyan3060/ArknightsGameResource',
@@ -21,8 +27,10 @@ export function watchedRepositories(root = process.cwd()) {
     // A new animated outfit model (scripts/sync/sync-dynamic-art.mjs).
     'arkpedia/arkpedia-l2d-assets',
     'arkpedia/arkpedia-sd-assets',
-    ...Object.keys(JSON.parse(fs.readFileSync(path.join(root, 'data/assets/revisions.json'), 'utf8'))).map(repo => `arkpedia/${repo}`),
-  ];
+    'arkpedia/arkpedia-color-palette',
+    ...ASSET_SYNCS.map(sync => `arkpedia/${sync.split('/')[0]}`),
+    ...pinned.map(repo => `arkpedia/${repo}`),
+  ])];
 }
 
 // Each repository's last commit this probe saw. The release job keeps this file in the

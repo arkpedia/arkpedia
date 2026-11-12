@@ -1,9 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
-import os from 'node:os';
-import path from 'node:path';
 import { rewardIconPath } from '../../lib/events/rewardIcons';
 import { buildSkinIconIndex } from '../../lib/skins/skinIconLookup';
 // @ts-expect-error Node publication scripts are plain JavaScript.
@@ -88,7 +85,8 @@ test('a placeholder reward or an unpublished reward icon is quarantined, and the
     'Contingency Contract Obliteration reward outfit Unseen Terrain: no published outfit icon',
     'Contingency Contract Obliteration reward "": a placeholder, not an item name',
     'Contingency Contract Obliteration reward "?": a placeholder, not an item name',
-    // The unpublished files are one hold for the event, counted (import-reward-icons.py names each).
+    // The unpublished files are one hold for the event, counted (arkpedia-data's importer,
+    // scripts/imports/import-reward-icons.py, names each).
     'Contingency Contract Obliteration: 1 reward icon not published: material-icons/涤墨之旗.webp',
   ]);
   // The check and the page agree on which outfit icons exist.
@@ -175,40 +173,23 @@ test('the release holds every row the page lists without its icon that a stage c
     `${duelB} reward "Furniture not found": a placeholder, not an item name`, `${duelB} reward "?": a placeholder, not an item name`, `${duelB} reward "TBD": a placeholder, not an item name`]);
 });
 
-test('every reward icon the release holds is one import-reward-icons.py fetches or reports, and it asks for no other', () => {
-  // Two rule sets over the same rows, in two languages. The importer once asked only for the kinds
-  // the item table sorts while the release held every row the page lists: 116 files of 61 events
-  // were held, and overdue on the daily issue three days later, with nothing that could ever fetch
-  // or report them. Now neither side takes a row no source has an icon for (upware, a table reward
-  // or a pack's line of kind 'other'), and neither takes a placeholder for a file.
-  // profile-avatars/ is the image repository's own (it publishes the client's player icons); no
-  // stage here fetches it.
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'arkpedia-reward-icons-'));
-  try {
-    const write = (file: string, data: unknown) => { fs.mkdirSync(path.dirname(path.join(root, file)), { recursive: true }); fs.writeFileSync(path.join(root, file), JSON.stringify(data)); };
-    write('data/events/events_2099.json', duelEvents);
-    write('data/event-stores.json', eventStores);
-    write('data/event-rewards.json', eventRewards);
-    const run = spawnSync('python3', [path.resolve('scripts/imports/import-reward-icons.py'), '--wanted'], { cwd: root, encoding: 'utf8', env: { ...process.env, PYTHONDONTWRITEBYTECODE: '1' } });
-    assert.equal(run.status, 0, run.stdout + run.stderr);
-    const wanted = (JSON.parse(run.stdout) as string[]).sort(byCodeUnit);
-    const held = filesOf(duelEvents).filter(file => file.startsWith('material-icons/')).sort(byCodeUnit);
-    assert.equal(held.length, 8, `the fixture still reaches every rule: ${held.join(', ')}`);
-    assert.deepEqual(wanted, held);
-    // The rows nothing can source, and the placeholders, are on neither side.
-    for (const file of ['material-icons/Pastry Table.webp', 'material-icons/Gold Chip.webp', 'material-icons/Top Operator Transfer Permit.webp', 'material-icons/.webp', 'material-icons/TBD.webp']) {
-      assert.ok(!wanted.includes(file) && !held.includes(file), file);
-    }
-    // And given every file the importer asks for (and the image repository's), the release holds no reward icon.
-    const assets = new Set([...published, ...wanted, ...filesOf(duelEvents), 'five-star-icons/Scene - Unseen Terrain.webp']);
-    assert.deepEqual(reviewCompleteness(emptyCatalogue({ events: duelEvents, eventStores, eventRewards, assets })).quarantine.map((entry: { reason: string }) => entry.reason),
-      [`${duelB} reward "Furniture not found": a placeholder, not an item name`, `${duelB} reward "?": a placeholder, not an item name`, `${duelB} reward "TBD": a placeholder, not an item name`]);
-  } finally {
-    fs.rmSync(root, { recursive: true, force: true });
+test('a row no source has an icon for, and a placeholder, are asked for by neither side', () => {
+  // The release once held 116 files of 61 events that no stage could ever fetch or report, and
+  // they went overdue on the daily issue. A row no source has an icon for (upware, a table reward
+  // or a pack's line of kind 'other') and a placeholder are now on neither side; arkpedia-data's
+  // importer holds scripts/imports/import-reward-icons.py to the same rows.
+  const held = filesOf(duelEvents).filter(file => file.startsWith('material-icons/')).sort(byCodeUnit);
+  assert.equal(held.length, 8, `the fixture still reaches every rule: ${held.join(', ')}`);
+  for (const file of ['material-icons/Pastry Table.webp', 'material-icons/Gold Chip.webp', 'material-icons/Top Operator Transfer Permit.webp', 'material-icons/.webp', 'material-icons/TBD.webp']) {
+    assert.ok(!held.includes(file), file);
   }
+  // Given every file the page asks for (and the image repository's), the release holds no reward icon.
+  const assets = new Set([...published, ...filesOf(duelEvents), 'five-star-icons/Scene - Unseen Terrain.webp']);
+  assert.deepEqual(reviewCompleteness(emptyCatalogue({ events: duelEvents, eventStores, eventRewards, assets })).quarantine.map((entry: { reason: string }) => entry.reason),
+    [`${duelB} reward "Furniture not found": a placeholder, not an item name`, `${duelB} reward "?": a placeholder, not an item name`, `${duelB} reward "TBD": a placeholder, not an item name`]);
 });
 
-test('a store row finds its piece of furniture whichever quotes each source wraps the name in, in the importer and the release alike', () => {
+test('a store row finds its piece of furniture whichever quotes each source wraps the name in', () => {
   // Dorothy's Vision: building_data names the pieces 'Contemplation' and 'Tree of Life', the wiki's
   // store "Contemplation" and "Tree of Life", the rerun's store Contemplation: no piece matched, so
   // the rows were asked for and held as "Contemplation".webp (issue #59, 2026-10-13).
@@ -223,18 +204,6 @@ test('a store row finds its piece of furniture whichever quotes each source wrap
   assert.equal(furnitureKey('"Contemplation"'), 'Contemplation');
   assert.equal(furnitureKey("Rock 'n' Roll"), "Rock 'n' Roll", 'quotes inside a name stay');
   assert.equal(furnitureKey('"Mismatched\u2019'), '"Mismatched\u2019', 'only a matching pair is a wrapping');
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'arkpedia-reward-quotes-'));
-  try {
-    const write = (file: string, data: unknown) => { fs.mkdirSync(path.dirname(path.join(root, file)), { recursive: true }); fs.writeFileSync(path.join(root, file), JSON.stringify(data)); };
-    write('data/events/events_2099.json', events);
-    write('data/event-stores.json', stores);
-    write('data/event-rewards.json', rewards);
-    const run = spawnSync('python3', [path.resolve('scripts/imports/import-reward-icons.py'), '--wanted'], { cwd: root, encoding: 'utf8', env: { ...process.env, PYTHONDONTWRITEBYTECODE: '1' } });
-    assert.equal(run.status, 0, run.stdout + run.stderr);
-    assert.deepEqual((JSON.parse(run.stdout) as string[]).sort(byCodeUnit), held);
-  } finally {
-    fs.rmSync(root, { recursive: true, force: true });
-  }
 });
 
 test('an outfit reward named in Chinese finds its icon by its skin id, through the outfit records', () => {
@@ -270,20 +239,4 @@ test('an event\'s player icon is not held before the record dates its Global run
 
 test('the kinds of table reward the release checks are the kinds the page lists', () => {
   assert.deepEqual([...LISTED_REWARD_KINDS].sort(), Object.entries(TABLE_REWARD_LABEL).filter(([, label]) => label).map(([kind]) => kind).sort());
-});
-
-test('Reward Tracker stages item-ID collisions and furniture but leaves portraits and abstract claims to their own pipelines', () => {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'arkpedia-free-reward-icons-'));
-  try {
-    fs.mkdirSync(path.join(root, 'data'), { recursive: true });
-    fs.writeFileSync(path.join(root, 'data/free-rewards.json'), JSON.stringify({ rewards: [{ rewards: [
-      { id: 'permit_a', name: 'Shared Permit' }, { id: 'permit_b', name: 'Shared Permit' },
-      { id: 'voucher_a', name: 'New Starter Voucher' }, { id: 'furniM_a', name: 'Furniture' },
-      { id: 'char_a', name: 'Operator' }, { id: 'avatar_a', name: 'Avatar' },
-      { id: 'GP_freeL_5', name: 'Free pack' }, { id: 'login:choice', name: 'Choice' },
-    ] }] }));
-    const run = spawnSync('python3', [path.resolve('scripts/imports/import-reward-icons.py'), '--wanted'], { cwd: root, encoding: 'utf8', env: { ...process.env, PYTHONDONTWRITEBYTECODE: '1' } });
-    assert.equal(run.status, 0, run.stdout + run.stderr);
-    assert.deepEqual(JSON.parse(run.stdout), ['material-icons/New Starter Voucher.webp', 'material-icons/furniM_a.webp', 'material-icons/permit_a.webp', 'material-icons/permit_b.webp']);
-  } finally { fs.rmSync(root, { recursive: true, force: true }); }
 });

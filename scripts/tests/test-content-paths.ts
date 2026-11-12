@@ -2,8 +2,16 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import fs from 'node:fs';
 import path from 'node:path';
-import { pageFilePath, isContentPagePath, contentFileUrlPath } from '../../lib/content/pagePaths.mjs';
+import { pageFilePath, isContentPagePath, contentFileUrlPath, matchingPagePaths } from '../../lib/content/pagePaths.mjs';
 import { PUBLIC_RECORDS } from '../content/records.mjs';
+
+test('table validation selects every concrete dynamic page and retains exact static routes', () => {
+  const paths = ['/', '/events/one', '/events/Yet%20Another%20Wave', '/events', '/events/', '/events/one/extra', '/account', '/account/other'];
+  assert.deepEqual(matchingPagePaths('/events/[slug]', paths), ['/events/one', '/events/Yet%20Another%20Wave']);
+  assert.deepEqual(matchingPagePaths('/account', paths), ['/account']);
+  assert.deepEqual(matchingPagePaths('/', paths), ['/']);
+  assert.deepEqual(matchingPagePaths('/missing/[slug]', paths), []);
+});
 
 test('page files follow routes and preserve readable names', () => {
   assert.equal(pageFilePath('/'), 'pages/index.json');

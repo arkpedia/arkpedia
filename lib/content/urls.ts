@@ -30,7 +30,7 @@ export function contentUrl(src: string, release?: ContentRelease | null): string
     const [, repository, relative] = voice;
     const revision = release ? release.assets[repository] : bundledRevisions[repository as keyof typeof bundledRevisions];
     if (!revision) throw new Error(`Content release lacks ${repository}`);
-    return assetUrl(repository, revision, relative);
+    return assetUrl(repository, revision, relative, release?.media);
   }
   // Art a record names by its full address, pinned to whatever commit the record was
   // written against (the catalogue externalises new art that way, and bundled tables
@@ -39,10 +39,10 @@ export function contentUrl(src: string, release?: ContentRelease | null): string
   const art = src.match(PINNED_ART);
   if (art) {
     const [, repository, relative] = art;
-    return assetUrl(repository, artRevision(repository, release), encodeAssetPath(relative));
+    return assetUrl(repository, artRevision(repository, release), encodeAssetPath(relative), release?.media);
   }
   if (!src.startsWith('/') || src.startsWith('//')) {
-    return /^https:\/\/raw\.githubusercontent\.com\/arkpedia\/arkpedia-(?:sd-assets|l2d-assets|color-palette)\//.test(src) ? pinAssetUrl(src) : src;
+    return /^https:\/\/(?:raw\.githubusercontent\.com|assets\.arkpedia\.net)\/arkpedia\/arkpedia-(?:sd-assets|l2d-assets|color-palette)\//.test(src) ? pinAssetUrl(src, release?.media) : src;
   }
   const folder = src.slice(1).split('/')[0];
   let repository = SKINS.has(folder) ? 'arkpedia-skin-assets' : IMAGES.has(folder) ? 'arkpedia-image-assets' : '';
@@ -52,11 +52,11 @@ export function contentUrl(src: string, release?: ContentRelease | null): string
     relative = src.replace(/^\/skin-originals\//, 'originals/').replace(/^\/skin-variants\//, 'variants/');
   }
   if (repository) {
-    return assetUrl(repository, artRevision(repository, release), encodeAssetPath(relative));
+    return assetUrl(repository, artRevision(repository, release), encodeAssetPath(relative), release?.media);
   }
   // These are generated game records, not application/API routes.
   if (release && (/^\/(?:stage-detail|enemy-detail|planner-data|stage-guesser|lyrics)\//.test(src)
-    || /^\/(?:stages-index|enemies-index|operator-deploy|operator-search|music-catalogue|medal-catalogue|site-search)\.json(?:\?|$)/.test(src))) {
+    || /^\/(?:stages-index|enemies-index|operator-deploy|operator-search|music-catalogue|medal-catalogue|profile-avatars|site-search)\.json(?:\?|$)/.test(src))) {
     return `${release.baseUrl}/public${src}`;
   }
   return src;

@@ -98,6 +98,9 @@ test('prepare-content refreshes them right after the release is confirmed live, 
   const live = steps.findIndex((step) => step.name === 'Confirm the release went live');
   const refresh = steps.findIndex((step) => step.name === 'Refresh the pages that wait longest for a release');
   assert.equal(steps[live].id, 'live');
+  const publicationWait = Number(steps[live].env?.ARKPEDIA_LIVE_TIMEOUT_SECONDS);
+  assert.ok(publicationWait >= 15 * 60, 'native publication can exceed five minutes');
+  assert.ok(steps[live]['timeout-minutes']! * 60 > publicationWait + 60, 'the step must outlast its own wait');
   assert.equal(refresh, live + 1, 'straight after the pointer is confirmed');
   const step = steps[refresh];
   // On main it waits for what the live check found live serving (await-live.mjs's `revision`
@@ -111,8 +114,8 @@ test('prepare-content refreshes them right after the release is confirmed live, 
   // Long enough for the wait (below) and the requests after it, and the job's budget has room
   // for it: a job timeout during the wait would report a published release as failed.
   assert.ok(step['timeout-minutes']! * 60_000 > 9 * 60_000 + SERVER_REFRESH_MS + 60_000, `timeout-minutes: ${step['timeout-minutes']}`);
-  const job = fs.readFileSync('.github/workflows/prepare-content.yml', 'utf8').match(/timeout-minutes: \$\{\{ vars\.ARKPEDIA_RUNNER && (\d+) \|\| (\d+) \}\}/);
-  assert.ok(job && Number(job[1]) >= 90 + step['timeout-minutes']! && Number(job[2]) >= 70 + step['timeout-minutes']!, job?.[0]);
+  const job = fs.readFileSync('.github/workflows/prepare-content.yml', 'utf8').match(/^    timeout-minutes: (\d+)$/m);
+  assert.ok(job && Number(job[1]) >= 90 + step['timeout-minutes']! + Math.ceil((publicationWait - 300) / 60), job?.[0]);
 });
 
 /* On 2026-10-04 the refresh fired the moment the pointer moved. A server reads the pointer through

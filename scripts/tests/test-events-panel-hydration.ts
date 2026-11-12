@@ -1,7 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { createElement } from 'react';
+import { createElement, Fragment } from 'react';
 import EventsPanel from '../../components/schedule/EventsPanel';
+import FarmableMaterialsPanel from '../../components/home/FarmableMaterialsPanel';
 import type { GameEvent } from '../../lib/home/frontPageContent';
 import type { FarmingMaterial } from '../../lib/farming/farmingTypes';
 import { renderOnHost } from './host-clock';
@@ -22,9 +23,11 @@ const material = (name: string, label: string): FarmingMaterial => ({
 const farmableMaterials = [material('Fixture Aketon', 'PA-7'), material('Fixture Manganese', 'PA-6')];
 const at = (iso: string) => Date.parse(iso);
 const render = (zone: string, hostClock: string, now: number) =>
-  renderOnHost(zone, at(hostClock), createElement(EventsPanel, { ongoing, upcoming, farmableMaterials, now }));
+  renderOnHost(zone, at(hostClock), createElement(Fragment, null,
+    createElement(EventsPanel, { ongoing, upcoming, now }),
+    createElement(FarmableMaterialsPanel, { materials: farmableMaterials, now })));
 
-test('the Events panel renders the same HTML on the server and in a browser on either side of an event closing', () => {
+test('the event and farming cards render the same HTML on the server and in a browser on either side of an event closing', () => {
   const now = at('2026-09-30T10:59:00Z');
   const server = render('UTC', '2026-09-30T10:59:30Z', now);
   for (const [zone, clock] of [

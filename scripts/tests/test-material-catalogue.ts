@@ -106,15 +106,11 @@ test('pages that only sort costs carry the slice of the catalogue order they nee
   assert.deepEqual(sortMaterials(cost('Electrode Unit', 'Unknown', 'LMD'), order).map(i => i.name), ['LMD', 'Electrode Unit', 'Unknown']);
 });
 
-test('the checked-in catalogue and names are well formed, and the release job builds them', () => {
+test('the checked-in catalogue and names are well formed, and the pull brings both', () => {
   checkMaterialCatalogue(JSON.parse(fs.readFileSync('data/material-catalogue.json', 'utf8')));
   readMaterialNames(JSON.parse(fs.readFileSync('data/material-names.json', 'utf8')));
-  const workflow = fs.readFileSync('.github/workflows/prepare-content.yml', 'utf8');
-  const at = (text: string) => { const i = workflow.indexOf(text); assert.ok(i >= 0, text); return i; };
-  // After the records settle (the English refresh renames costs), before the gate reads it.
-  assert.ok(at('stage operator-english') < at('stage material-catalogue --') && at('stage material-catalogue --') < at('stage import-aliases --needs material-catalogue --output data/material-catalogue.json'));
-  assert.ok(at('stage import-aliases') < at('stage completeness'));
   // Both are records in arkpedia-data, pulled with the rest (scripts/content/pull-data.mjs).
+  // Its importer builds them; the stage order is kept there, in scripts/tests/test-material-catalogue.ts.
   for (const file of ['data/material-catalogue.json', 'data/material-names.json']) assert.ok(fs.existsSync(file), `${file} was not pulled`);
 });
 

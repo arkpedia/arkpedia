@@ -35,8 +35,16 @@ body:has(dialog[open], .action-popover, .record-popover) .statistics-prompt { di
 @media (max-width: 900px) {
   .information-layout { grid-template-columns: 1fr; gap: 32px; }
   .information-sidebar { position: static; gap: 20px; }
-  .information-pages { display: flex; flex-wrap: wrap; }
-  .information-pages a { flex: 1; justify-content: center; text-align: center; }
-  .information-contents { display: flex; flex-wrap: wrap; gap: 8px 20px; padding: 0; }
-  .information-contents p { flex-basis: 100%; }
+  /* The page switcher and the contents rail on one column. Before this, `flex: 1`
+     let the current item absorb the row's spare width, so the same control was
+     half-width in row one on /privacy and a full-width bar in row two on /cookies;
+     and the contents wrapped into two-item lines whose 20px word gap was wider
+     than the 8px line gap, which read as five confusing pairs rather than a list. */
+  .information-pages { display: grid; grid-template-columns: 1fr; }
+  .information-pages a { justify-content: center; text-align: center; }
+  .information-contents { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 20px; padding: 0; }
+  .information-contents p { grid-column: 1 / -1; }
 }
+/* A prompt's own help must remain anchored while open; other overlays still hide it. */
+body:has(.action-popover):not(:has(dialog[open], .record-popover)) .media-choice-prompt:has(.info-popover-trigger[aria-expanded="true"]) { display: block; z-index: 99; }
+.media-autoplay-choice { margin-block: 14px; }

@@ -15,6 +15,10 @@ export interface TwitchStream {
 // cache is more than enough here.
 let cachedToken: { token: string; expiresAt: number } | null = null;
 
+// Category IDs change rarely; cache this metadata separately from live results.
+const CATEGORY_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
+let cachedCategory: { name: string; id: string; expiresAt: number } | null = null;
+
 async function getAppAccessToken(clientId: string, clientSecret: string): Promise<string | null> {
   if (cachedToken && cachedToken.expiresAt > Date.now()) {
     return cachedToken.token;
@@ -59,21 +63,25 @@ export async function getLiveTwitchStreams(
     Authorization: `Bearer ${token}`,
   };
 
-  // Resolve the category/game name to Twitch's internal game_id first.
-  let gameId: string | null = null;
-  try {
-    const gameRes = await fetch(
-      `https://api.twitch.tv/helix/games?name=${encodeURIComponent(categoryName)}`,
-      { headers, cache: 'no-store', signal: AbortSignal.timeout(5000) }
-    );
-    if (!gameRes.ok) {
-      if (gameRes.status === 401) cachedToken = null;
+  // Resolve the category/game name only when its cached metadata has expired.
+  let gameId = cachedCategory?.name === categoryName && cachedCategory.expiresAt > Date.now()
+    ? cachedCategory.id : null;
+  if (!gameId) {
+    try {
+      const gameRes = await fetch(
+        `https://api.twitch.tv/helix/games?name=${encodeURIComponent(categoryName)}`,
+        { headers, cache: 'no-store', signal: AbortSignal.timeout(5000) }
+      );
+      if (!gameRes.ok) {
+        if (gameRes.status === 401) cachedToken = null;
+        return [];
+      }
+      const gameData = await gameRes.json();
+      gameId = gameData.data?.[0]?.id || null;
+      if (gameId) cachedCategory = { name: categoryName, id: gameId, expiresAt: Date.now() + CATEGORY_CACHE_TTL_MS };
+    } catch {
       return [];
     }
-    const gameData = await gameRes.json();
-    gameId = gameData.data?.[0]?.id || null;
-  } catch {
-    return [];
   }
   if (!gameId) return [];
 

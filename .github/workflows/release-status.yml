@@ -17,7 +17,7 @@ concurrency:
 
 jobs:
   report:
-    runs-on: ${{ vars.ARKPEDIA_LIGHT_RUNNER || 'ubuntu-latest' }}
+    runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
       # Read-only and always trusted main, never the workflow_run's head checkout.

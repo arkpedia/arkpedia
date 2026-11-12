@@ -63,7 +63,7 @@ test('the PVs tab lists the event\'s official videos and puts a player in only f
   const consent = page.getByRole('dialog', { name: 'Allow external media?', exact: true });
   await expect(consent).toBeVisible();
   await expect(players).toHaveCount(0);
-  await consent.getByRole('button', { name: 'Keep disabled', exact: true }).click();
+  await consent.getByRole('button', { name: 'No thanks', exact: true }).click();
   await expect(players).toHaveCount(0);
   await figures.first().getByRole('button', { name: `Play ${VIDEOS[0].title}` }).click();
   await consent.getByRole('button', { name: 'Allow external media', exact: true }).click();
