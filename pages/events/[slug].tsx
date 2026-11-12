@@ -450,7 +450,9 @@ export default function EventDetailPage({
 
           {activeSection === 'rewards' && (
             <section className="op-section" {...tabPanelProps('event-section', 'rewards')}>
-              {rewardNote && <p className="hint event-reward-note">{rewardNote}</p>}
+              {/* Older prepared releases coupled the CN reward notice to date confirmation.
+                  The page header owns date status; this note describes reward provenance. */}
+              {rewardNote && <p className="hint event-reward-note">{rewardNote.replace('Global dates and rewards await confirmation', 'Global rewards await confirmation')}</p>}
               <Tabs
                 label="Reward store"
                 id="event-store"
@@ -620,7 +622,7 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/ev
   const rewardNote = fromOriginal
     ? `Missions, first clears and furniture are the original run's (${eventTitle(rewardEntry!.inheritsFrom!)}) until this rerun's own are in the game data: a rerun repeats them. Its store is its own. First-clear rewards are once per account: a stage cleared before gives none again.`
     : fromCn
-      ? 'Rewards marked CN come from this run’s CN game data. Global dates and rewards await confirmation; first clears remain once per account.'
+      ? 'Rewards marked CN come from this run’s CN game data. Global rewards await confirmation; first clears remain once per account.'
       : isRerun(event.name) && (rewardEntry?.groups ?? []).some((g) => g.kind === 'first-clear')
         ? 'First-clear rewards are once per account: a stage cleared in the original run gives none in the rerun.'
         : null;
