@@ -18,12 +18,26 @@ test('feature CSS selects core and the affected functional family without the gl
 });
 test('shared chrome checks representative populated features and consent', () => {
   const plan = make(['styles/core/shared.css']);
-  for (const name of ['core', 'music-workspace', 'base-account', 'reward-import', 'story-progress', 'credits-games-review']) assert.ok(plan.selected.includes(`tests/browser/${name}.spec.ts`));
+  for (const name of ['core', 'account-import', 'music-navigation', 'music-workspace', 'base-account', 'reward-import', 'story-progress', 'credits-games-review']) assert.ok(plan.selected.includes(`tests/browser/${name}.spec.ts`));
+});
+test('an unrelated feature keeps navigation and consent without importing account and music suites', () => {
+  const plan = make(['styles/story/map.css']);
+  assert.equal(plan.lane, 'targeted');
+  for (const name of ['nav-bar', 'mobile-touch-nav', 'navigation-continuity', 'privacy', 'statistics-prompt', 'story-map-stability']) {
+    assert.ok(plan.selected.includes(`tests/browser/${name}.spec.ts`), name);
+  }
+  for (const name of ['account-import', 'music-navigation']) assert.ok(plan.omitted.includes(`tests/browser/${name}.spec.ts`), name);
+});
+test('direct edits to the formerly unconditional suites still select those suites', () => {
+  for (const name of ['account-import', 'music-navigation']) {
+    assert.ok(make([`tests/browser/${name}.spec.ts`]).selected.includes(`tests/browser/${name}.spec.ts`));
+  }
 });
 test('account changes retain account import and playback-resume checks', () => {
   const plan = make(['lib/account/resetData.ts']);
   assert.ok(plan.selected.includes('tests/browser/account-import.spec.ts'));
   assert.ok(plan.selected.includes('tests/browser/music-resume.spec.ts'));
+  assert.ok(plan.selected.includes('tests/browser/music-navigation.spec.ts'));
 });
 test('unknown, toolchain, fixture and deleted inputs or missing baseline keep conservative coverage', () => {
   for (const path of ['package-lock.json', 'scripts/ci/browser-lane.mjs', 'lib/unclassified/state.ts', 'tests/browser/youtube-stub.ts']) assert.equal(make([path]), full);

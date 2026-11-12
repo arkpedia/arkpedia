@@ -1,13 +1,15 @@
 // PR release checks protect reader journeys. Exhaustive visual contracts run in
 // Browser audit; omitted identities remain explicit in the existing evidence.
-const CORE = ['nav-bar', 'mobile-touch-nav', 'navigation-continuity', 'account-import', 'music-navigation'];
+// Keep the always-on set about navigating the app. Full import and playback
+// journeys belong to their affected feature families or shared-shell changes.
+const CORE = ['nav-bar', 'mobile-touch-nav', 'navigation-continuity'];
 const OPTIONAL_CORE = ['privacy', 'statistics-prompt'];
-const SHARED = ['core', 'music-navigation', 'story-progress', 'base-account', 'reward-import', 'planning-pages', 'media-community-games'];
+const SHARED = ['core', 'account-import', 'music-navigation', 'story-progress', 'base-account', 'reward-import', 'planning-pages', 'media-community-games'];
 const OPTIONAL_SHARED = ['navigation-account-redesign', 'credits-games-review', 'music-workspace'];
 const AUDIT = /^(?:layout-census(?:-after)?|motion|tabs|x-buttons|cards-and-headings|row-alignment|on-states|artwork-zoom-contrast|operator-caption-motion)\.spec\.ts$/;
 const FAMILIES = [
   [/^(?:music|song)(?:\/|[-.])/, /^(?:music|song)-/],
-  [/^(?:account|account-import|cloud-account|friends|medals)(?:\/|[-.])/, /^(?:account-|cloud-accounts|friends|medal-collection|reward-import|music-resume)/],
+  [/^(?:account|account-import|cloud-account|friends|medals)(?:\/|[-.])/, /^(?:account-|cloud-accounts|friends|medal-collection|reward-import|music-(?:resume|navigation))/],
   [/^story(?:\/|\.)/, /^story-/],
   [/^(?:schedule|events)(?:\/|\.)/, /^(?:schedule-|event-|regional-schedules|banner-forecasts|home-banner-status)/],
   [/^(?:pulls|free-op|skin-planner|planner|planning|recruitment)(?:\/|\.)/, /^(?:pulls|reward-|rewards-projects|skin-planner|planning-pages|planner-|recruitment-)/],

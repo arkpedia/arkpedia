@@ -109,3 +109,26 @@ test('missing/malformed identifiers and inputs cannot create proof', () => {
   rejects(value => { value.baseRef = ' '; });
   rejects(value => { value.repository = 'arkpedia'; });
 });
+
+test('nightly audit proves browser baseline only when explicitly requested, never a full Check', () => {
+  const input = fixture('schedule');
+  input.run.path = '.github/workflows/browser-audit.yml';
+  input.jobs[0].name = 'audit';
+  input.jobs[0].steps[0].name = 'Exhaustive desktop and mobile audit';
+  delete input.artifact;
+  assert.equal(fullBrowserBaseline(input), null);
+  const proof = fullBrowserBaseline({ ...input, allowAudit: true });
+  assert.equal(proof.event, 'schedule');
+  assert.equal(proof.artifactId, null);
+  for (const change of [
+    value => { value.run.head_branch = 'feature'; },
+    value => { value.run.head_sha = 'f'.repeat(40); },
+    value => { value.run.head_repository.full_name = 'fork/arkpedia'; },
+    value => { value.run.event = 'pull_request'; },
+    value => { value.jobs[0].steps[0].conclusion = 'skipped'; },
+    value => { value.jobs[0].conclusion = 'failure'; },
+  ]) {
+    const invalid = structuredClone(input); change(invalid);
+    assert.equal(fullBrowserBaseline({ ...invalid, allowAudit: true }), null);
+  }
+});

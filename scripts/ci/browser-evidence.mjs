@@ -6,7 +6,7 @@ export const BROWSER_POLICY = 'arkpedia-browser-v1';
 export const ARTIFACT_PREFIX = 'checked-tree-';
 export const POLICY_ARTIFACT_PREFIX = 'checked-policy-tree-';
 export const POLICY_FILES = [
-  '.github/workflows/check.yml', 'playwright.config.ts',
+  '.github/workflows/check.yml', '.github/workflows/browser-audit.yml', 'playwright.config.ts',
   ...['already-checked', 'browser-relevant', 'full-browser-baseline', 'browser-baseline',
     'browser-plan', 'release-browser-plan', 'browser-coverage', 'browser-lane', 'browser-evidence'].map(name => `scripts/ci/${name}.mjs`),
 ];
@@ -45,7 +45,7 @@ function baselineShape(baseline, record) {
   requireValue(hex(baseline.commit, SHA) && hex(baseline.tree, SHA) && hex(baseline.sourceCommit, SHA), 'baseline commits differ');
   requireValue(positiveId(baseline.runId) && positiveId(baseline.jobId), 'baseline IDs are missing');
   requireValue(baseline.repository === record.repository && baseline.baseRef === record.baseRef, 'baseline repository/branch differs');
-  requireValue(['push', 'workflow_dispatch', 'pull_request'].includes(baseline.event), 'unsupported baseline event');
+  requireValue(['push', 'workflow_dispatch', 'pull_request', 'schedule'].includes(baseline.event), 'unsupported baseline event');
   requireValue(baseline.event === 'pull_request' ? positiveId(baseline.artifactId) : baseline.artifactId === null, 'baseline artifact provenance differs');
 }
 
