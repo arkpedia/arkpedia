@@ -1,5 +1,11 @@
 # Account Base optimizer (Preview)
 
+The site's base expert's notes on how a base is run and how operators are chosen are the
+spec for the rotation and tie-break work: [base-design-notes.md](base-design-notes.md).
+
+Release boundary: Preview only. Keep this feature out of production and do not
+merge its feature pull request to main without a new explicit user instruction.
+
 Open **Base → Optimize base**. The optimizer runs in a browser Worker; imported
 rosters stay in the browser. It can be opened before choosing a manual layout.
 
@@ -10,16 +16,135 @@ Amiya forms are one physical worker.
 
 ## Search and scoring
 
-`accountOptimizer.ts` compares the imported layout and power-valid 243, 252 max-left,
-252 max-right, 153 and 342 layouts. It excludes presets requiring a downgrade of
-Reception, Office or Training. Identical layouts are searched once. Every distinct
+`accountOptimizer.ts` recommends power-valid 252 max-left and 252 max-right layouts,
+including an imported 252. The maintainer prefers 252 over 243 for production; automatic
+search spends its budget on 252 variants. Turn off **Recommend 2-5-2** to optimize any
+valid imported layout on its own, including 243, 153 or 342. It excludes presets requiring a downgrade of
+Reception, Office or Training. Equivalent production rooms are compared by kind and level, regardless of position.
+Support-room levels and effective dorm recovery must also match. The imported layout
+wins an equivalent comparison, preserving its room IDs, arrangement and recorded ambience.
+It is searched once; a reordered preset does not consume a second search budget.
+Separate time-bounded heuristic searches can still produce different staffing plans. Every distinct
 gold/EXP split by factory level is considered, including all-gold and all-EXP.
 
-Each candidate uses the existing greedy room refinement and alternating/staggered
-crew search from `baseOptimizer.ts`. The chronological `baseSimulation.ts` scores
-morale thresholds, dorm recovery, exhaustion, storage and collections over a repeating
-cycle. Non-repeating and exhausted rotations are excluded from recommendations.
-This is a heuristic best-found result, not a global optimality claim.
+A same-machine 30-second comparison on 2026-10-31 kept 252 as the winner in all
+four roster tiers before and after narrowing recommendations. Funded LMD+EXP/day
+was 49,067 → 49,067 (tiny), 58,700 → 58,727 (small), 85,787 → 85,736 (mid), and
+100,809 → 100,809 (maxed). These single time-budgeted runs are effectively flat,
+not evidence of a general yield increase. All results were repeating, owned-only,
+within room capacities and without exhaustion or duplicate placements.
+
+The search has two stages within the reader's search time (`searchSeconds`, 1/2/5/10
+minutes on the page, default 5). A search therefore runs for up to five minutes before
+it reports, which a large roster needs for the anneal to settle; **Stop** ends it at once
+and keeps the best plan found so far, and the progress line carries that plan's score
+throughout:
+
+1. **Seed.** `baseOptimizer.ts` builds a plan per layout: greedy crews, a menu of
+   rotation shapes (alternate, duty, formations, thirds; the four-change staggered
+   shape only if `MAX_ROTATION_SETUPS` ever allows four) and its repair passes. Product splits closest to one gold factory per Trading Post go first; this
+   stage stops after about a third of the time, every layout having had one split.
+2. **Anneal.** The best one or two layouts are improved by simulated annealing
+   (`annealBase.ts`) over a plan genome (`planGenome.ts`): two or three crews,
+   2 to 4 staffing changes, which crew staffs each room at each change,
+   Fiammetta's refill core, parked Morale (Dusk below 12), factory products and two
+   dorm rules. Moves: a room's whole team from its best teams (`teamBlocks.ts`, which
+   keeps synergies such as Shamare/Bibeak/Tequila or a Sui Control Center together),
+   swaps, retiming, core changes and the settings. Staffing moves are screened with the
+   snapshot calculator and only the best are simulated; a worse plan is kept with
+   probability exp(delta / T) as T cools, and the best plan seen is always kept, so the
+   result never scores below its seed.
+
+   Each annealed layout gets two walks from the same seed plan (`countSeats` in
+   `AnnealOptions`): one whose Reception Room and Office moves may seat an operator who
+   raises a base-wide count (`countFeeders.ts`), one held to the operators skilled there.
+   The wider walk finds the seats that pay and spends moves on many that do not, and the
+   walk settles in a different optimum either way: on the 21 Krooster profiles at 60 rounds
+   (2026-11-05) the wider walk alone scored below the narrower on 3 accounts (heiijuuno -784,
+   aliafso -596, shadyer -402) and above it on 8 (gita +1,164, blackgatoacer +884), and 80
+   rounds left those gaps where they were. Both walks run and the best completed plan of
+   either is kept; every improvement of a walk is completed, since one behind the other walk
+   before completion can be ahead after it. With that, all 21 scored at least the better of
+   the two walks alone (aliafso +40 above both). With `annealRounds` both walks take the
+   full budget. On the clock the second has only what the first left of the layout's slot
+   once its patience ran out, which at 120 s is nothing: halving the slot instead lost 1.4%
+   on gita (94,067 against 95,425), as rounds still pay at that length.
+
+   At the 5 minutes the page searches for, that remainder is still nothing (measured
+   2026-11-06): the first walk takes the slot whole — 2,015 rounds over 170 s of its 173 s on
+   blackgatoacer — and the second gets 3 s, or never starts. So the narrower walk, which the
+   round bench has winning on 8 of 21 rosters, hardly runs in the product, and the figures
+   above are a 60-round bench's. They do not carry to the clock: the same comparison run at
+   both budgets reorders the rosters almost completely (`base-optimizer-research.md`).
+
+   Giving the second walk a share of its own was measured at that budget over all 21 rosters,
+   the re-solve off in both walks so the split was the only change: half the slot to each
+   scored −0.58% in the mean (4 up, 16 down, 1 unchanged), and 0.7/0.3 scored −0.25% (8 up,
+   13 down). No split beat the single long walk, and 0.7 is less bad only because
+   the wider walk gets more of the time back. `DEFAULT_WALKS` therefore keeps no share: the
+   second walk still takes what the first leaves. Reach for `walks` to measure another.
+
+   `walks` also sets each walk's `lns`; the re-solve of `annealBase.ts` is on in both walks by
+   default (2026-11-06, +0.30% at this budget; see `base-optimizer-research.md`).
+
+Beside this search the page runs a second one in another Worker, when Fiammetta is owned
+and the device has four or more cores: `optimizeAccountBase({ formations: true })` builds one
+first plan per layout, then the leading layout's plan again with formations (Fiammetta's
+refill core with crews taking turns, as the reference sheets run; 20 to 40 s on a large
+roster), and anneals it for the rest of the time. Formations help some rosters and only cost
+time on others, so they never take the main search's time; the page keeps each layout's
+better plan (`accountResults.ts`) and gives the formations search up to 10 s past the
+chosen time. `scripts/bench/account-budget.ts` runs the page's whole search
+(`FORMATIONS=0|1`).
+
+The page runs one search per spare core on a desktop-class device, at most four, and one
+on a phone or tablet (`searchStarts` in `lib/base/searchStarts.ts`, which the browser spec
+reads too): each start (`start` in `AccountOptimizerInput`) seeds the
+same way and anneals from its own random seed (a start from a worse product split was
+tried and lost its minute to it), the formations
+search takes one of those workers where it runs, and `accountResults.ts` keeps each
+layout's best plan across all of them. Stopping keeps the best of every worker so far.
+`account-budget.ts` takes `START=n` for one start; several processes side by side, keeping
+the best, measure what the extra cores buy.
+
+The chronological `baseSimulation.ts` scores every plan: morale thresholds, dorm
+recovery, exhaustion, storage, collections and drones over a repeating cycle (which may
+repeat only every few cycles when a refill rotation lines up slowly). Non-repeating and
+exhausted rotations are excluded. This is a best-found result, not a global optimality
+claim. `scripts/bench/anneal-tiers.ts` compares the stages on rosters from 15 operators
+at E0 to a maxed account. `scripts/bench/account-budget.ts` runs the page's whole search
+against the reference sheets' rotations on their own operators (8 h logins, drones on),
+scored the page's way: funded LMD (gold counts only as far as it is sold) plus EXP.
+
+The 2026-10-30 continuation compared the account search against the preceding
+implementation using the same live game-data revision
+`b6ddc46e9ba00142fafaa4499040521c24bb2e66` (Node 26, 60-second budget).
+These are individual runs; time-budgeted searches can finish at different rounds.
+
+| Roster | Previous funded LMD+EXP/day | Current | Search / first plan |
+|---|---:|---:|---:|
+| 15 operators, E0 | 49,481 | 49,534 | 4.5 s / 0.1 s |
+| 40 operators, E1 | 57,352 | 60,000 | 60.0 s / 0.4 s |
+| 424 operators, few E2 | 86,602 | 88,144 | 60.0 s / 3.2 s |
+| 424 operators, maxed | 99,445 | 100,254 | 61.3 s / 4.5 s |
+
+| Sheet variant (layout) | Reference funded LMD+EXP/day | Current search, 60 seconds |
+|---|---:|---:|
+| 2-5-2 max-right | 89,401; 110 exhaustion events | 95,304 (106.6%) |
+| 3-4-2, imported layout | 87,069; feasible four-worker refill core | 84,522 (97.1%) |
+
+All six optimizer results repeat without exhaustion or duplicate placements.
+The 342 target remains unmet: its strong gold pairs leave a level 3 factory for
+EXP, and reaching that arrangement requires several factory/support changes
+together. Do not substitute weighted gold scores or a saved intermediate warm start
+for this end-to-end account-search comparison. The 252 comparison fixes max-right;
+choosing a max-left layout against that sheet would not be like-for-like.
+
+`account-acceptance.ts` checks ownership, capacity, repeating cycles, exhaustion,
+duplicate placements, funded scoring and wall time. `BASELINE_JSON` enforces
+nonregression against a saved run on the same data; `REQUIRE_REFERENCE_MATCH=1`
+fails while a selected reference is ahead. It never feeds the reference placements
+to the optimizer.
 
 For comparison, LMD is limited by the ratio of daily gold supply to daily sales demand.
 Gold supply includes an explicit optional outside-gold allowance, default zero. The
@@ -30,15 +155,27 @@ gold-factory teams; final rotation selection uses funded income.
 
 Login presets are evenly spaced (24, 12, 8 or 6 hours). First-login hour shifts the
 displayed timetable. Standard layouts assume their listed upgrades and full dorm
-ambience; the imported layout uses its recorded ambience. Drone spending, workshop
-crafts and training are excluded. Ramp skills use the existing averaged calculator.
-Gold funding is a long-run estimate, not an inventory/order-event simulation.
+ambience; the imported layout uses its recorded ambience. Workshop crafts and training
+are excluded. Ramp skills climb from the hours an operator has already worked without
+a break in the same room, not a fresh-start average. Gold funding is a long-run
+estimate, not an inventory/order-event simulation.
+
+Power Plant drones are counted by default (`drones`, on unless explicitly disabled):
+10 an hour times (1 + the staffed Plants' drone-rate bonuses), spent at each login
+where one is worth most -- 3 minutes of a Trading Post's or Factory's own BASE
+production (its rate with every skill taken out; base skills do not apply to a drone,
+matching how the game treats them). Under funded scoring a gold deficit is covered by
+Precious-Metal Factories first, and Trading Posts take drones only as far as the gold
+on hand can actually be sold; at most one item or order in progress per room per
+login. The drone stock cap (235) and storage limits on what a drone's output fills are
+not modeled.
 
 Saving appends the recommended shift setups and replaces the active timetable; the
 button's neighboring text states this. Existing saved setups and the imported account
-are preserved. The manual timetable continues using snapshot rates and does not model
-gold funding or one-off Fiammetta reseating; the optimizer's totals and notes remain
-the authority for its recommendation. Nothing is sent to the game.
+are preserved. The saved rotation carries what the optimizer simulated -- each shift's
+Fiammetta refill and reseat lists, the drone weights and parked Morale -- so the Base
+page's rotation estimate recalculates to the optimizer's yields (a unit test checks
+this). Nothing is sent to the game.
 
 ## Presentation and resource limits
 
@@ -50,10 +187,13 @@ Trading Posts, green Power Plants, and the existing support-room palette). Build
 numbers count each built facility type in floor order, independently of physical slot IDs.
 
 Searches run only in a browser Web Worker, on an explicit click. There is one active
-search per mounted optimizer, cancelled on input changes or close and forcibly stopped
-after ten minutes. Two completed results are retained in browser page memory, keyed by
-all computation inputs, so repeat clicks or reopening the modal do not repeat the same
-work. No account optimization is submitted to GitHub Actions or a server API.
+search per mounted optimizer, cancelled on input changes or close. The Worker posts the
+best result so far whenever it improves; the progress line shows it, and **Stop** keeps
+it. A Worker that never answers is stopped at the search time plus three minutes. Two
+completed results are retained in browser page memory, keyed by all computation inputs
+(including the search time, which is remembered for the page visit), so repeat clicks
+or reopening the modal do not repeat the same work. No account optimization is
+submitted to GitHub Actions or a server API.
 
 Routine CI uses small real-operator fixtures. Full-catalogue rotation benchmarks are
 lazy and skipped whenever `CI` is set, including if the opt-in flag is accidentally
@@ -61,10 +201,89 @@ inherited. Run `npm run test:base-full-roster` locally for those benchmark check
 Browser regressions verify that recommendation makes no optimizer API/Actions request,
 repeated input creates no second Worker, and a stalled Worker is terminated at the limit.
 
-The search still has the limitations described above: cross-room effects are evaluated
-for actual placements, but greedy construction does not guarantee discovery of an entire
-multi-room synergy group. Dorm support search is limited. Presentation changes do not
-expand mechanic coverage or establish a global optimum.
+The search still has limits: cross-room effects are evaluated for actual placements,
+and team blocks keep one room's synergies whole, but a synergy that spans several rooms
+is only found when the annealer reaches it. A genome expresses two or three crews over 2
+to 4 staffing changes (alternation, duty, thirds, a four-step duty and three distinct
+formations), within the preset bound below.
+
+### Testing accounts from Krooster
+
+Testers keep their collections on krooster.com. On Preview, the Base optimizer dialog has
+"Testing account from Krooster" and Import / export on the Account page "From a Krooster
+profile": the tester pastes the profile link (`kroosterUser` takes the link or the bare
+username), and the site's own route
+(`pages/api/account-import/krooster.ts`, `ARKPEDIA_KROOSTER_IMPORT` from next.config.js, so
+production has no such route) fetches the public lookup page, whose embedded page data
+carries the roster, and passes on only the roster and a few profile fields
+(`lib/account-import/krooster.ts`). `accountFromKrooster` makes the account record and the
+planner roster by the game-account map, with module stages and masteries; the record has
+no base layout, clears or depot, so the optimizer recommends a layout (Recommend 2-5-2).
+The Base page carries no game-account map, so the control there loads the Account page's
+props on demand, as the header's Import / export does (`components/account/AccountActions.tsx`).
+
+The dialog has no start-time control: the search knows only the hours between logins, and
+the shift clocks read the rotation's start time, which the Base page's rotation panel
+("Starts at") sets and a saved recommendation keeps.
+`scripts/tests/test-krooster-import.ts` holds the parser, the mapping and the link parsing.
+
+### Before and after the table
+
+`scripts/bench/compare-optimizer.ts <pre-table checkout>` runs the same accounts (the fixture,
+both reference sheets' maxed roster, every profile under `tests/fixtures/krooster/`) in a
+checkout of the pre-table tip (e692e12dc) and in this one and diffs the recommendations, each
+account twice: with the operators of `scripts/tests/base-skill-deviations.ts` left out, where the
+two must agree exactly, and with the whole roster. Both sides anneal for a fixed round budget
+(`annealRounds`, cooling over the rounds) and settle every compared number to 1e-9
+(`lib/base/settle.ts`): two sums of the same skill numbers can sit a last bit apart, and a
+greedy fill or an anneal that breaks a tie by that bit walks another path from then on. The
+pre-table checkout gets both through `scripts/bench/pre-table-determinism.patch`. A difference
+confined to the Reception Room, Office, Control Center and the Dormitories with every production
+crew the same is the completion pass (its support candidates rank by their own drain since
+4990c4e50), which the search's score never sees, and the report says so.
+
+### Where a minute goes
+
+Profiled on the maxed roster on 2026-11-03 (`node --cpu-prof` over 15 s of annealing): with
+the shared room-rate cache a simulation costs about 4 ms and calls the snapshot calculator
+less than once, so the simulator is a third of the time and the team-block rebuilds every
+40 rounds were about 60%, each scoring some five thousand placements with the full
+calculator. Three changes, all keeping `simulateBase` identical:
+
+- `snapshotMemo.ts` remembers the calculator's scored totals by staffing content, so a
+  placement is scored once per crew it appears in (about one call in sixteen is answered
+  from the memo on the maxed roster; it helps most where the proxy sums unchanged steps).
+- The annealer scores lean (`evaluate(g, ctx, true)`): no Morale trace or per-login Morale,
+  which the search never reads; the plan a reader sees is evaluated in full.
+- Block refreshes re-rank the blocks found, over the previous build's own ranking with a
+  shorter shortlist, and enumerate in full only every third refresh (`FULL_BUILD_EVERY`).
+
+120 annealing rounds on the maxed roster went from 18.7 s to 11.2 s (three runs each,
+same seed, 54,725 to 28,714 placements scored); at 30 s the page's search scored 390 to
+438 plans instead of 143 to 173 and finished at or above the earlier score (100,305 to
+100,505 against 100,081; the 2-5-2 sheet roster within its run-to-run band).
+`account-budget.ts` prints the memo and block counts.
+
+### Preset slots
+
+The game stores three base presets, so a rotation that needs more distinct setups cannot
+be set up in the base. `MAX_ROTATION_SETUPS` in `rotationSetups.ts` is that bound, and
+`setupKey` says when two shifts are one preset (the same placements, products and
+settings; refills and reseats are login actions). The seed search skips the staggered
+shape (four setups) and any seed plan over the bound; in its place the thirds shape is a
+seed of its own (each room's main crew rests a different one of three changes, so a third
+of the base rests at a time and every place can be staffed within three setups), both simulators score such a plan
+as unusable, the annealer screens its moves before simulating them, `genomeFromResult`
+refuses such plans, and `optimizeAccountBase` rejects any over it before it is shown
+(counted among the excluded rotations). A four-step duty (A, A, A, B) needs two presets
+when every off-duty worker rests, three when only the crew just off shift does (the seed
+duty shape), and stays allowed either way. `completeStaffing` fills a setup group as one
+and rests the worker in another group, so groups stay identical; where no other group
+has the beds, or a worker would exhaust resting one shift in three, it splits the group
+into its alternate shifts, which rest their support workers in each other. That may use a
+slot the search did not, never more than the bound. Saving creates one setup per group, and the rotation's shifts
+share it. Raising the constant is the one change needed should the game
+add a slot.
 
 ### Empty-room correction
 
@@ -112,11 +331,338 @@ promotion to main or www.
 
 ## Focused verification
 
-`node --import tsx --test scripts/tests/test-account-base-optimizer.ts scripts/tests/test-base-simulation.ts scripts/tests/test-base-rotation-optimizer.ts`
+`node --import tsx --test scripts/tests/test-account-base-optimizer.ts scripts/tests/test-base-simulation.ts scripts/tests/test-base-rotation-optimizer.ts scripts/tests/test-anneal-base.ts`
+
+`npx tsx scripts/bench/anneal-tiers.ts sheet,mid,small,tiny 120` (seed vs anneal per roster tier)
 
 `node node_modules/@playwright/test/cli.js test --config playwright.optimizer.config.ts`
 
-The latter uses localhost:3391 unless `BASE_OPTIMIZER_URL` is set. It covers real
+The latter uses localhost:3391 unless `BASE_OPTIMIZER_URL` is set. Run the browser
+specs against a staging production build (`ARKPEDIA_DEPLOYMENT_ROLE=staging npm run
+build`, then `next start`): the optimizer is Preview-only, and `next dev` reloads pages
+served as 127.0.0.1, which closes the dialog mid-test. It covers real
 Worker completion, selected-account ownership, saved presets, account preservation,
 input invalidation, cancellation and keyboard dismissal at desktop/mobile sizes,
 with dark/light screenshots. Browser fixtures are synthetic.
+
+## Completing the base
+
+Published account recommendations pass through `completeStaffing.ts`. The search
+staffs every work room, the Reception Room and Office included, since some of their
+skills raise scored output across rooms (Mulberry in HR lifts a Trading Post), but it
+may put only an operator with a skill for the room into those two: their own speed is
+not LMD, EXP or gold, so a search free to drop anyone there kept whatever its last
+random move left (testers saw Penance and Mudrock searching for clues and Bison in HR).
+The one exception is an operator whose seat raises a base-wide count another owned
+operator's skill reads (`countFeeders.ts`, from the skill table): a Rhine Lab operator
+for Nasti's Costly Construction or Muelsyse's Ecological Section Director, an Elite
+Operator for Kal'tsit Esperanta's or Mantra's per-facility bonus, a Sui member for
+Taraxacum's. The calculator counts every placed operator, so that seat scores in the
+other rooms. Most of these counts (Rhine Lab in the base, a faction in the base) take
+an operator resting in a Dormitory too, so a Reception seat helps only when the
+operator has no bed in the plan. The search scores crews without their dorms, so it
+cannot tell the two apart, and on a large roster the whole set is long (92 of the maxed
+catalogue); it seats only the operators a bed does not count (work facilities, workers
+outside the dorms, facilities with a roster member). The completion judges every seat by the full simulation and
+takes them all: it removes a support-room occupant only when the plan scores the same
+without them (Brigid's HR speed is not scored, so she goes; a count raiser stays), and
+seats an idle count raiser only when the score rises.
+
+The Workshop's and Training Room's seats count across the base the same way, and nothing
+they do in the room is scored at all (crafting is not scheduled, training is outside the
+score). They are staffed as a standby whatever the roster, so there the rule is the other
+way round: among candidates the room gains as much from, the count raiser the plan leaves
+out of a shift entirely goes in, and a seat taken for the count alone has only to cost
+nothing (`STANDBY_ROOMS`, `COUNT_SEAT_ROOMS` in `completeStaffing.ts`). A crafter with a
+Workshop skill still leads on the room's own benefit. The note names only the seats the
+score actually rose for, with the reminder that a Dormitory bed counts the same: a count
+raiser whose reader the plan never places, or whose count is already at its cap, takes the
+standby seat as a tie and is not announced as counted.
+It leaves the Workshop alone (crafting is instantaneous) and may leave low-value
+Control Center and Power Plant slots open. The completion pass fills open slots with
+remaining owned operators, skilled first by the room's own rate, then by Morale drain,
+then the operator the reader has built (an E0 copy of a skill never displaces a promoted
+one), keeps existing working placements and locked/dorm-skill residents, and finds
+recovery placements. A support room it cannot staff safely stays empty, and its note
+names the idle skilled operators the reader can run there by hand.
+A supplemental operator may cover multiple changes only when the complete simulated
+cycle remains periodic and free of exhaustion. This includes all cross-room effects;
+returned yields and saved rotations use the completed assignments. Intermediate
+results are completed too, cached per plan, with the highest completed score retained.
+
+Three refinements run around the fill (2026-11-04, after testers saw Brigid at E0 in
+HR over Haruka at E2, and a fourth Factory worker adding nothing):
+
+- **Skill rooms chosen by their own speed.** The Reception Room and Office seats the
+  search filled with whichever skilled operator its last move left (their speed is not
+  in the score, so every skilled choice ties) are given back to the fill, which ranks by
+  the room's speed, then Morale drain, then the reader's build. Only occupants who work
+  nowhere else are given back, so a cross-room choice the search made for its score
+  (Mulberry in HR for a Trading Post) stands. An operator without a skill for either
+  room is never seated there by the search (`annealBase.ts`), and by the fill only as
+  the last resort of "Every seat filled" below.
+- **Built operators first.** An Elite 0 worker in a Factory, Trading Post or Power
+  Plant gives their whole schedule to an idle built (Elite 1 or 2) operator with a skill
+  for the room when the simulated funded score falls by no more than
+  `BUILT_FIRST_MARGIN` (0.5% of itself): the output lost is a hair beside raising an
+  operator the reader has not built. The idle candidates are tried in the fill's own
+  order for the room (what each brings to it, then drain, dependency, build), so the
+  strongest comes first rather than the most promoted; a robot (rarity 1) at Elite 0 is
+  its whole build and is never replaced. The note names each swap. The operator swapped
+  in takes the beds too, after the fill's list of protected residents was made, so the
+  fill never takes a bed from anyone who works anywhere in the rotation (`putToRest`);
+  it took one before, the swapped-in worker ran out of Morale, and every candidate for
+  the seat was refused (zensher's Reception Room, 2026-11-05).
+- **Workers who add nothing.** A Factory or Trading Post worker whose removal from the
+  room, in every shift, leaves the funded score where it is (gold no post sells, orders
+  no gold fills) can be left out, and the note names them. Power Plant workers are not
+  judged this way: drone charge has uses the score does not count. A worker left out
+  gives up their beds too (unless a Dormitory skill of theirs still serves the room, or
+  the rotation protects them), and the freed beds go once more to the fill for the
+  Control Center, Power Plants, Reception Room and Office. A bed can count for a skill
+  (a Dormitory headcount: 27 LMD a day on the saved profiles), so the beds are freed
+  within `BUILT_FIRST_MARGIN` and only kept freed when the fill then seats someone.
+  Since 2026-11-11 the plan is completed both ways, with and without leaving anyone out,
+  and the one with fewer open seats is kept (then the higher score; a tie keeps every
+  worker): leaving a worker out opens a seat, so it has to seat more than it opens.
+
+### Every seat filled (2026-11-11)
+
+The owner's rule: every room but the Training Room is staffed. The Training Room's
+operator depends on the skill being trained, so the plan picks one only when the import
+carries a training target. Before, 19 of the 21 saved Krooster profiles left Reception
+Room and Office seats open (every Dormitory bed rested a worker of the plan in every
+shift, and the fill only seats a new worker who has a free bed), and a worker left out as
+adding nothing opened a Factory or Trading Post seat.
+
+After the fill, `fillEverySeat` goes over each open seat, shift by shift, cheapest in
+beds first:
+
+1. **A worker of the plan who is off in that shift**, neither working nor resting. The
+   seat costs no bed. A three-shift plan has many: about 60 workers rest once each and
+   fill some 93 seat-shifts, so a good part of them work one shift in three.
+2. **A new worker in a free bed** of another shift (the fill's own way, shift by shift).
+3. **A new worker in a bed its resident can spare**: a resident who rests in two or more
+   shifts gives one up.
+
+Each is kept only when the simulated rotation repeats, nobody runs out of Morale, it fits
+the three presets, and the funded score is no lower. The room's own skilled operators are
+tried everywhere first; the Reception Room and Office take an operator without a skill
+for them only on a second pass, where nobody skilled could be seated, and the note names
+them ("Seated so the room is not left open"): the room then runs at its base speed. The
+search itself still seats only skilled operators there.
+
+Measured with `scripts/bench/seat-gaps.ts` (30 rounds, 12-hour logins, the same plan
+before and after since only the completion differs) on the 21 saved profiles: open
+seat-shifts outside the Training Room **119 → 0**, no operator exhausted, score unchanged
+on 18 and within ±0.07% on three.
+
+### Thin rosters and the standing Control Center (2026-11-11)
+
+A thin roster at 12-hour logins still left a third of its seats open after the fill: the
+first 70 and 100 operators of a profile, 22 seat-shifts each. The fill was not the cause.
+The seed search (`baseOptimizer.ts`) had chosen two alternating teams, which the 20 beds
+cap at 20 workers a change, because its three-shift plan (`thirds`: each room's main crew
+works two changes and rests the third) exhausted one operator. The greedy teams hold only
+operators who raise the snapshot value, which leaves a thin roster's Control Center at one
+of five; without its Morale relief nobody lasts two 12-hour changes running. At 8- and
+6-hour logins the same rosters already came out fully staffed.
+
+Two seed plans are added, each kept only when the simulator scores it higher:
+
+- **Thirds with the support rooms staffed first.** The same three-shift plan, with each
+  crew's Control Center, Power Plants, Office and Reception Room filled before it is
+  simulated (`fillSupportRooms`). First 70 operators of ashie: 22 open → 0, 58,328 →
+  60,505. First 100: 22 → 0, 62,738 → 65,385.
+- **A standing Control Center** (the owner's suggestion). Ash, Frost, Tachanka and Blitz
+  each give everyone in the Control Center +0.05 Morale an hour per Team Rainbow operator;
+  with the room's own relief the four cancel the drain (`scripts/bench/rainbow-cc.ts`: any
+  fifth operator also sits at zero). The five hold the room in both crews, work every
+  shift and take no bed, so five beds a change go to other workers. It is tried when the
+  roster owns all four. First 70, 100 and 150 operators of gita plus the four: open
+  14 → 0, 22 → 0, 0 → 0 and score +5.6%, +5.7%, +4.6% against the same roster without the
+  plan; first 40: 22 → 16 open. The plan's note names the five. A shift's beds never go to
+  someone who works that shift (`withDorms`), which is what lets one team sit in both crews.
+
+Still open: a thin roster without Team Rainbow whose Control Center staff cannot last two
+changes (first 70 of gita without the four: 14 open, the staffed thirds exhausts Amiya and
+Chongyue in the Control Center), and rosters too small to have the bodies (15 and 40
+operators).
+
+Per-slot staggering (the base expert's second rotation: one or two seats of a room change
+hands while the rest of the crew works on, a weaker filler covering, and the best workers
+returning as soon as they have rested) is a seat-level override in the genome: `seatCrews`
+names, per room and seat, the crew that holds the seat at each change where it differs from
+the room's crew (`crewAtSeat`, `staffAt` in `planGenome.ts`). The decode, the collision check
+and the annealer's proxy read seats through it; a `stagger` move (weight 2 for 12-hour and
+8-hour logins, off for 24-hour logins, where whole crews swap) sets or clears one seat at one
+change; the published result carries `seatCrews` and `genomeFromResult` rebuilds the crews
+seat by seat from the saved shifts, so a staggered plan reads back exactly. The preset bound
+(`rotationSetups.ts`) counts the decoded shifts as before. The notes name each staggered seat
+and who holds it at each change.
+
+Workshop assignments are standby suggestions for the current recipe, not simulated
+crafting; craft costs and post-craft recovery still require player action. Training
+is staffed only when the user has selected an operator target. Limited rosters or
+recovery capacity can still leave gaps, named by room and shift in the search notes.
+Existing saved setups are unchanged: rerun the optimizer and use the new rotation.
+
+## The base skill table
+
+Every operator base skill the game describes is one entry in `lib/base/base-skill-effects.json`,
+keyed by the game's buff id (`building_data.json` → `buffs`), with the types and the loader in
+`lib/base/baseSkillEffects.ts`. The calculator and the optimizer read numbers from this table;
+nothing reads a skill's description text for a number. Regenerate it after a game data refresh
+that adds a buff id, or after changing a rule or an override:
+
+```bash
+npm run base:skill-effects
+```
+
+`npm run base:skill-effects -- --fetch` first fetches `building_data.json` from the EN mirror
+(ArknightsAssets/ArknightsGamedata) and the CN mirror (Kengxxiao/ArknightsGameData) into
+`.cache/gamedata/`; without it the script reads `ARKPEDIA_GAMEDATA` or the stage pipeline's cache
+(`.cache/upstream/en-gamedata`), and `ARKPEDIA_CN` or `.cache/upstream/cn-tables`. EN comes first;
+a buff id only CN describes takes its structure from CN and its English from the operator record
+in `data/`. The table is committed (`data/` is pulled and git-ignored, and the calculator imports
+the table statically), so a regeneration shows as a diff to review.
+
+Each entry carries `roomType`, `buffCategory`, `targets` (the game's F_EXP / F_GOLD / F_DIAMOND
+product targets, training classes, Workshop recipe kinds), `efficiency` (the game's headline
+percent, null where it gives none), `unlock` (the earliest promotion phase and level any operator
+unlocks it at, `unlocks` listing every distinct one when they differ), and its `shape` with
+`effects`. The description text is not in it (the operator records carry that; the table ships to
+the browser with the calculator, 17 KB gzipped):
+
+- `flat`: fixed numbers (`+30%` productivity, `+2` order limit).
+- `counted`: a base plus an amount per counted thing (`per.count`): a group roster in the base or
+  the room, a facility count, Dormitory levels, Office recruit slots, a resource pool; with an
+  optional `step`, `maxCount` and `cap`. `countedValue` in `baseSkillEffects.ts` is the arithmetic.
+- `threshold`: numbers that apply only while a condition (`when`) holds: a named operator in the
+  same room or the Control Center, alone in the Reception Room, Clue Exchange active, a count
+  reaching a value, a product being made. An operator with an alternate form (W and Wiš'adel,
+  Exusiai and Exusiai the New Covenant: the game's `char_meta_table` families) counts exactly the
+  forms the text tags, never a look-alike name. A name wrapped in a glossary term
+  (`<$cc.angel>Exusiai</>`: "Includes the following Operators: Exusiai the New Covenant, Exusiai")
+  carries the term's other forms in `forms`, and any one of them satisfies the condition once:
+  Lemuen's Amicus pays its +25% for either Exusiai, not twice for both; Tomimi's Barbecue Master
+  pays for Gavial the Invincible as for Gavial and prefers either as its target. A plain tag
+  (`<@cc.kw>W</>`) is that single form, by the string written: Hoederer's Starting From Scratch β
+  pays for W, not Wiš'adel; Pramanix the Prerita's Yearning for the Snow Realm needs SilverAsh the
+  Reignfrost, not SilverAsh. `scripts/build/base-skill-forms.ts` reads the EN and CN texts side by
+  side, joined by character id, and CN decides where they differ (the entry's note records the EN
+  reading); a term wrapping a name on a condition that cannot carry forms fails the build. Only a
+  term wrapping the name itself counts: the Glasgow Gang term around "Glasgow Gang" lists Siege
+  without meaning him. The audit's last section (`docs/development/base-skill-table-audit.md`)
+  lists every such skill with the forms it counts.
+- `pool`: every effect is on a shared quantity rather than a rate: Morale drain or recovery, order
+  limit, capacity, drone charge, a base-wide resource (Felvine, Passion, Worldly Plight).
+- `custom`: a named handler in the calculator (`custom.handler`) with its numbers in
+  `custom.params`: `ramp` (a value climbing by the hour, averaged over the window), `afterHours`,
+  the Totter pair, Bubble, Vermeil, Waai Fu, Snowsant, `perOthersOrderLimit` (Degenbrecher, Swire),
+  Jaye's pair, Gladiia's Tide Observation and Group Hunting, Młynar, and `moraleGated` (Dusk, Ling).
+
+`interaction` holds what a skill does to other skills: `overridesOthers` and `exemptFromOverride`
+(the Automation and Snegurochka family against Purestream's kind), `goldOrderTier` and `trade`
+(the Trading Post's order distribution, Proviso, Tequila, Pepe, Closure, U-Official),
+`immuneToRoomMorale`, `reclassifiesSkills` (Highmore), `cancelsSuiSelfDrain` (Ling), the
+Dormitory's `preferredTarget`, `recipientBonus` and `providerBonus`. An effect's `suppressedBy`
+names the buff id that silences it. `nonNumeric` marks the skills the game states in words only
+(which clue is likelier, a one-off Morale swap).
+
+The script's guard refuses the table when a buff id is unclassified, a rule found no number in a
+text that has one, a record skill is in neither game table, a text uses words the rules cannot
+read (a count, a condition) without an override, an override names a key no record has, or two
+overrides disagree on a buff id several operators share. The rules are the text patterns the
+calculator once ran at runtime, now in `scripts/build/build-base-skill-effects.ts`; the overrides
+are `scripts/build/base-skill-overrides.ts`, keyed by the former handler key ("Operator|Skill",
+found in the operator records under the operator's name or a former one) or by a buff id outright.
+
+### How the calculator reads it
+
+`lib/base/skillEvaluation.ts` turns an entry into a contribution against a `SkillScope`: the
+room's operators, the base's counts (`count`) and conditions (`holds`) as closures the calculator
+supplies (`scopeFor` in `calculateBase.ts`; `roomOnlyScope` in `optimizerLogic.ts` for the
+standalone room search, with the assumed base it always used). The data shapes resolve there; a
+`custom` entry comes back with its handler name and parameters, and the room runs it at its
+stage (`lib/base/customSkillHandlers.ts`): `base` for Gladiia, Młynar and the Morale-gated
+generators before any room; `factoryAggregate` for Bubble, Vermeil and Waai Fu once the room's
+other productivity is known; `tradingAggregate` and `tradingOrders` for Snowsant, Degenbrecher,
+Swire and Jaye; `moraleWindow` for the ramps and Totter once the room's Morale window is known.
+Control Center effects aimed at one room (`perTradingPostOrderEfficiency`, `perFactoryProductivity`)
+are evaluated once per target room with that room as the scope. Resource pools come from the
+table's `resource` effects (`lib/base/baseResources.ts` sums the generation and runs the
+conversions in their stages). A test or bench that needs a made-up rate gives a skill its own
+entry (`tableEntry`, `syntheticSkillEntry`) rather than description text.
+
+`scripts/tests/test-base-skill-parity.ts` held the table-driven calculator equal to the one it
+replaced (frozen under `lib/base/legacy/` for the move) room by room over the fixture account,
+the 2-5-2 and 3-4-2 reference sheets and 500 seeded random placements of a maxed roster; the
+differences are the skills the handlers or the text patterns got wrong, listed with their reasons
+in `scripts/tests/base-skill-deviations.ts` and each held to its corrected number in
+`test-base-skill-corrections.ts`. With the legacy copy gone the parity test holds a golden
+snapshot of the new numbers (`tests/fixtures/base-calculator-golden.json`): a regression lock,
+not the proof.
+
+The proof is the game's own numbers. A raw save (the import's "Save raw game data") holds, per
+room, the bonuses the game server computed for the staffing at that moment
+(`building.rooms[kind][slot].buff`): Factory productivity and capacity, Trading Post order
+efficiency and limit, Power Plant drone speed, Reception and Office speed, Dormitory recovery,
+the Control Center's base-wide effects and every operator's own Morale change.
+`scripts/bench/game-buff-check.ts` rebuilds that staffing (`baseSnapshotFromGame`), runs the
+calculator on it with each ramp at the hours the operator has worked, and prints every number
+side by side:
+
+```bash
+npx tsx scripts/bench/game-buff-check.ts <raw-save.json> [more saves] [--all]
+```
+
+How the save states them: productivity and order efficiency include the +1% each operator adds
+(the calculator's baseline); Reception speed is skills plus the Office's and Control Center's
+bonuses, without rarity and promotion; Morale is in hundredths an hour, a positive number a
+saving, each operator's `self` and the room's `all` off the room's 1/h less 0.05 for each operator
+after the first, the Control Center's `global` off every room. A raw save is the reader's own data:
+pass its path, never commit it.
+
+First run (one account, 2026-11-05, 64 numbers): two skills disagreed with the game and were
+fixed in the overrides. Shamare's Whispers raises every operator's Morale use in her Trading
+Post by 0.25 (CN 全体; the server's `all` -25), not hers alone: on the 2-5-2 reference sheet her
+gold post now lasts 26.7 h, not 36.9 h. Greyy the Lightningbearer's Line Patrol Frame counts whole
+tens of drone capacity, 23% at 235, where the reference sheets wrote 23.5% (the server gives her
+plant 0.28: 5% innate and 23%; it stores unrounded sums elsewhere, a Factory at
+1.0799999999999998, so 0.28 is not a rounded 0.285). After the two fixes all 64 agree. The check
+covers only the skills a save's staffing holds; each save with other staffing covers more.
+
+Training Room and Workshop skills are read from the table like every other room's. A training
+effect names the trainee classes it applies to (`targets`, the game's class codes) and may hold
+only at a mastery level or for a branch (`masteryLevel`, `traineeBranch`); counted ones read
+`base.roster:X` (Knights, Sami, the R6 groups, Abyssal Hunters) or `resource:worldlyPlight`;
+Zuo Le's instant Guard M1 is a `trainingTimeFactor` of 0 under `all` of mastery 1 and
+`instantTrainingReady`. `lib/base/trainingRoom.ts` sums the evaluated skills into the room's
+speed, Morale and hours. A Workshop effect names its recipe kinds (`targets`) and may be gated
+on a word in the recipe's name (`recipeFamily`: Oriron, Polyester, Crystal) or on its base Morale
+cost (`recipeCostIs`, `recipeCostAtLeast`); the kinds are `byproductChance`, `recipeMorale`
+(added), `recipeMoraleFixed` (Mudrock, Lessing), `recipeMoraleFactor` (Luo Xiaohei's quarter)
+and `recipeLmdFree` (Blemishine); the per-resident skills count `dorm.moraleAtMost:N` or
+`dorm.moraleBelow:N`. Nine-Colored Deer's counters and Thorns's refund are the custom handlers
+`causality`, `karma` and `explosionArts`, run at the `workshop` stage with the reader's settings.
+`lib/base/workshop.ts` turns the evaluated skills into the craft's chance and costs. The two
+rooms joined the table after the others: their old modules were held equal over 60,640 trainer
+and crafter cases, the differences being deviations listed with the rest (six trainers whose
+record text carries a no-break space the old mastery pattern never matched, Talulah's and
+Caleido's CN-only skills, Homebound's recipe gate).
+
+## Named pairs: tried, not kept (2026-11-11)
+
+Twenty-one tester rosters, 5-minute search, 12 h logins. The plans left most named pairs apart (Texas and Lappland in
+all 21), and `scripts/bench/combo-valuation.ts` showed why: the room-team shortlist ranks operators alone, so neither
+half of a pair is ever tried as a team. Swapping the pair into the finished plan raised the snapshot by about 1.5%.
+
+Adding every owned same-room pair to the team builder (read from the skill table) did place them: Texas and Lappland
+together in 15 of 21 plans. It did not raise income: mean +0.05%, 9 rosters up and 12 down, range -1.33% to +1.89%,
+which is the run-to-run noise. The snapshot gain was not real income: a snapshot ignores Morale, and the search had
+already found staffing worth the same over a full rotation. The change was dropped.
+
+What this settles: the search is not losing income to missed same-room pairs, so seeding from a list of known combos
+is not where the next gain is. Still unmeasured: pairs across rooms (Hoederer and Ines, Underflow and Ulpianus), which
+a per-room team cannot hold. The `deep` anchor seeds (`SYNERGY_ANCHORS`) are never switched on by the account search.

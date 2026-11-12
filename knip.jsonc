@@ -6,7 +6,7 @@
     "workers/edge/worker.mjs",
     "open-next{,.preview}.config.ts",
     "playwright.optimizer.config.ts", // Manual optimizer smoke-test entrypoint.
-    "scripts/{audits,build,content,deploy,imports,palettes,particles,sync}/**/*.{ts,mjs,cjs}",
+    "scripts/{audits,bench,build,content,deploy,imports,palettes,particles,sync}/**/*.{ts,mjs,cjs}",
     "scripts/tests/test-*.{ts,mjs}",
     "tests/browser/**/*.spec.ts",
     // Browser script loaded by the palette review tool's HTML.

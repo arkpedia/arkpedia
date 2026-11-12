@@ -11,7 +11,9 @@ import {
   DynamicContextOverrides,
   bestSkillPerSlot,
 } from './optimizerLogic';
-import { calcClueSpeed, calcOffice, calcDroneRate, calcControlCenterEffects, calcDeadTime } from './baseProductivity';
+import { calcDeadTime, type ControlCenterEffects } from './baseProductivity';
+import { skillEffectEntry } from './baseSkillEffects';
+import { evaluateSkill, type SkillContribution } from './skillEvaluation';
 import { toBaseRosters, type BaseRosters } from './baseGroupRosters';
 
 // Was `const allOperators = getAllOperators();` -- same fix as
@@ -99,11 +101,19 @@ function greedyFill(candidates: GreedyCandidate[], slots: number, used: Set<stri
   return chosen;
 }
 
+/** A skill's own contribution with nothing else placed: the table's flat numbers, every count zero and every
+ *  condition false. The greedy fills here rank by this, as they ranked by the plain text before. */
+function aloneContribution(operatorName: string, sk: BaseSkill): SkillContribution | null {
+  const entry = skillEffectEntry(sk);
+  if (!entry) return null;
+  return evaluateSkill(entry, { operatorName, roomNames: [operatorName], product: null, count: () => 0, holds: () => false, active: () => false });
+}
+
 function receptionRoomCandidates(mode: RosterMode): GreedyCandidate[] {
   const result: GreedyCandidate[] = [];
   for (const op of allOperators) {
     for (const sk of skillsFor(op.name, 'Reception Room', mode)) {
-      const value = calcClueSpeed([sk.description]);
+      const value = aloneContribution(op.name, sk)?.clueSpeed ?? 0;
       if (value > 0) result.push({ operatorName: op.name, value, description: sk.description });
     }
   }
@@ -114,7 +124,7 @@ function officeCandidates(mode: RosterMode): GreedyCandidate[] {
   const result: GreedyCandidate[] = [];
   for (const op of allOperators) {
     for (const sk of skillsFor(op.name, 'Office', mode)) {
-      const { speed } = calcOffice([sk.description]);
+      const speed = aloneContribution(op.name, sk)?.hrSpeed ?? 0;
       if (speed > 0) result.push({ operatorName: op.name, value: speed, description: sk.description });
     }
   }
@@ -125,7 +135,7 @@ function powerPlantCandidates(mode: RosterMode): GreedyCandidate[] {
   const result: GreedyCandidate[] = [];
   for (const op of allOperators) {
     for (const sk of skillsFor(op.name, 'Power Plant', mode)) {
-      const value = calcDroneRate([sk.description]);
+      const value = aloneContribution(op.name, sk)?.droneRate ?? 0;
       if (value > 0) result.push({ operatorName: op.name, value, description: sk.description });
     }
   }
@@ -138,8 +148,7 @@ function powerPlantCandidates(mode: RosterMode): GreedyCandidate[] {
 // it's about covering each bonus category once with its best AVAILABLE
 // operator, then filling remaining slots with the flat, always-stacking
 // Morale bonus.
-const CC_MORALE_PATTERN = /increase[s]? morale[^%\d]{0,60}?([+-]?\d+(?:\.\d+)?)\s*(?:per hour|\/\s*hr)/i;
-function controlCenterFill(slots: number, used: Set<string>, mode: RosterMode, forceInclude: string[] = []): { operators: string[]; effects: ReturnType<typeof calcControlCenterEffects> } {
+function controlCenterFill(slots: number, used: Set<string>, mode: RosterMode, forceInclude: string[] = []): { operators: string[]; effects: ControlCenterEffects } {
   const chosen = new Set<string>();
   for (const name of forceInclude) {
     if (chosen.size < slots && !used.has(name)) {
@@ -147,31 +156,27 @@ function controlCenterFill(slots: number, used: Set<string>, mode: RosterMode, f
       used.add(name);
     }
   }
-  const all: { operatorName: string; description: string }[] = [];
+  const all: { operatorName: string; c: SkillContribution }[] = [];
   for (const op of allOperators) {
     if (used.has(op.name) && !chosen.has(op.name)) continue;
     for (const sk of skillsFor(op.name, 'Control Center', mode)) {
-      if (sk.description) all.push({ operatorName: op.name, description: sk.description });
+      const c = aloneContribution(op.name, sk);
+      if (c) all.push({ operatorName: op.name, c });
     }
   }
-  const ORDER_EFFICIENCY_PATTERN = /order efficiency[^%]{0,40}?(-?\d+(?:\.\d+)?)%/i;
-  const CC_FACTORY_PATTERN = /factor(?:y|ies)[^%]{0,40}?productivity[^%]{0,40}?(-?\d+(?:\.\d+)?)%/i;
-  const CLUE_COLLECTION_PATTERN = /clue collection speed[^%]{0,40}?(-?\d+(?:\.\d+)?)%/i;
-  for (const pattern of [ORDER_EFFICIENCY_PATTERN, CC_FACTORY_PATTERN, CLUE_COLLECTION_PATTERN]) {
+  // Each highest-only pool once, with its best available operator; then the flat, always-stacking Morale.
+  for (const pool of ['orderEfficiency', 'factory', 'clue'] as const) {
     let best: { operatorName: string; value: number } | null = null;
     for (const c of all) {
       if (chosen.has(c.operatorName)) continue;
-      const m = c.description.match(pattern);
-      if (m) {
-        const v = Math.abs(parseFloat(m[1]));
-        if (!best || v > best.value) best = { operatorName: c.operatorName, value: v };
-      }
+      const v = Math.abs(c.c.cc[pool]);
+      if (v && (!best || v > best.value)) best = { operatorName: c.operatorName, value: v };
     }
     if (best && chosen.size < slots) chosen.add(best.operatorName);
   }
   const moraleRanked = all
-    .filter((c) => !chosen.has(c.operatorName) && CC_MORALE_PATTERN.test(c.description))
-    .map((c) => ({ operatorName: c.operatorName, value: parseFloat(c.description.match(CC_MORALE_PATTERN)![1]) }))
+    .filter((c) => !chosen.has(c.operatorName) && c.c.cc.morale)
+    .map((c) => ({ operatorName: c.operatorName, value: c.c.cc.morale }))
     .sort((a, b) => b.value - a.value);
   for (const m of moraleRanked) {
     if (chosen.size >= slots) break;
@@ -179,27 +184,27 @@ function controlCenterFill(slots: number, used: Set<string>, mode: RosterMode, f
   }
   const operators = Array.from(chosen);
   operators.forEach((name) => used.add(name));
-  const effects = calcControlCenterEffects(all.filter((c) => operators.includes(c.operatorName)).map((c) => c.description));
+  const effects: ControlCenterEffects = { tradingPostBonus: 0, factoryBonus: 0, clueCollectionBonus: 0, ccMoraleBonus: 0 };
+  for (const { operatorName, c } of all) {
+    if (!operators.includes(operatorName)) continue;
+    if (Math.abs(c.cc.orderEfficiency) > Math.abs(effects.tradingPostBonus)) effects.tradingPostBonus = c.cc.orderEfficiency;
+    if (Math.abs(c.cc.factory) > Math.abs(effects.factoryBonus)) effects.factoryBonus = c.cc.factory;
+    if (Math.abs(c.cc.clue) > Math.abs(effects.clueCollectionBonus)) effects.clueCollectionBonus = c.cc.clue;
+    effects.ccMoraleBonus += c.cc.morale;
+  }
   return { operators, effects };
 }
 
 // ==================== Dormitory ====================
-// Simplified text-pattern extraction rather than the full special-skill
-// handler system (which resolves per-operator targets and two separate
-// "highest-only" exclusivity groups) -- covers the two dominant, most
-// common phrasings directly: a flat self-recovery rate, and a flat
-// bonus to every Operator in the room.
-const SELF_RECOVERY_PATTERN = /self morale recover(?:ed)?[^%\d]{0,15}?\+?(-?\d+(?:\.\d+)?)\s*(?:per hour|\/\s*hr)/i;
-const ALL_OPERATORS_RECOVERY_PATTERN = /restores?\s*\+?(-?\d+(?:\.\d+)?)\s*morale per hour to all operators/i;
+// The two dominant shapes, a flat self-recovery rate and a flat bonus to every Operator in the room, ranked
+// alone; the full room model (per-operator targets, the highest-only groups) is the calculator's.
 
 function dormitoryCandidates(mode: RosterMode): GreedyCandidate[] {
   const result: GreedyCandidate[] = [];
   for (const op of allOperators) {
     for (const sk of skillsFor(op.name, 'Dormitory', mode)) {
-      if (!sk.description) continue;
-      const allMatch = sk.description.match(ALL_OPERATORS_RECOVERY_PATTERN);
-      const selfMatch = sk.description.match(SELF_RECOVERY_PATTERN);
-      const value = allMatch ? parseFloat(allMatch[1]) : selfMatch ? parseFloat(selfMatch[1]) : 0;
+      const c = aloneContribution(op.name, sk);
+      const value = c ? (c.recovery.all || c.recovery.self) : 0;
       if (value > 0) result.push({ operatorName: op.name, value, description: sk.description });
     }
   }

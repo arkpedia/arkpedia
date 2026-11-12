@@ -3,9 +3,11 @@ import assert from 'node:assert/strict';
 import { getAllOperators } from '../../lib/operators/operators';
 import { toBaseRosters } from '../../lib/base/baseGroupRosters';
 import { optimizeAccountBase, optimizerLayouts, productOptions } from '../../lib/base/accountOptimizer';
-import { sustainableOutput, optimizeBase } from '../../lib/base/baseOptimizer';
+import { mergeAccountResults } from '../../lib/base/accountResults';
+import { MAX_ROTATION_SETUPS, sustainableOutput, optimizeBase } from '../../lib/base/baseOptimizer';
+import { distinctSetups, setupGroups } from '../../lib/base/rotationSetups';
 import { ownedBaseRoster } from '../../lib/base/optimizerRoster';
-import { getFacilities, layoutProblems } from '../../lib/base/baseConfig';
+import { getFacilities, layoutProblems, presetLevels, presetSpots } from '../../lib/base/baseConfig';
 import type { AccountRecord } from '../../lib/account/accountStore';
 import accountData from '../../tests/fixtures/base-account.json';
 import groups from '../../data/base-group-rosters.json';
@@ -32,7 +34,7 @@ test('funded LMD uses gold once, and outside gold covers deficits without invent
 
 test('layout comparisons preserve irreversible room upgrades and remain within the power budget', () => {
   const layouts = optimizerLayouts(account.base);
-  assert(layouts.some(l => l.id === 'mine'));
+  assert(!layouts.some(l => l.id === 'mine'), '243 import is not an automatic recommendation');
   assert(layouts.some(l => l.id === '2-5-2-right'));
   assert(!layouts.some(l => l.id === '2-5-2-left'));
   for (const layout of layouts) assert.deepEqual(layoutProblems(layout.spots, layout.levels), []);
@@ -40,6 +42,56 @@ test('layout comparisons preserve irreversible room upgrades and remain within t
   const mixed = layouts.find(l => l.id === '2-5-2-right')!;
   // Two Lv3 and three Lv2 factories: every 0..2 x 0..3 gold split is distinct.
   assert.equal(productOptions(mixed).length, 12);
+});
+
+test('automatic recommendations search only 252; any valid imported layout can be searched alone', () => {
+  const shape = (spots: Record<string, string>) => ['tradingPost', 'factory', 'powerPlant'].map(k => Object.values(spots).filter(v => v === k).length).join('');
+  for (const compare of [true, false]) {
+    for (const layout of optimizerLayouts(undefined, compare)) assert.equal(shape(layout.spots), '252', layout.id);
+  }
+  for (const id of ['2-4-3', '2-5-2-left', '2-5-2-right'] as const) {
+    const snapshot = { ...account.base!, productionSpots: presetSpots(id), facilityLevels: presetLevels(id) };
+    const compared = optimizerLayouts(snapshot, true);
+    assert(compared.length > 0);
+    for (const layout of compared) assert.equal(shape(layout.spots), '252', layout.id);
+    assert.equal(compared.some(l => l.id === 'mine'), id !== '2-4-3');
+    assert.deepEqual(optimizerLayouts(snapshot, false).map(l => l.id), ['mine']);
+  }
+  const threePosts = { ...account.base!, productionSpots: { ...presetSpots('2-5-2-right'), prod8: 'tradingPost' as const }, facilityLevels: presetLevels('2-5-2-right') };
+  assert.equal(shape(threePosts.productionSpots), '342');
+  assert(!optimizerLayouts(threePosts, true).some(l => l.id === 'mine'));
+  assert.deepEqual(optimizerLayouts(threePosts, false).map(l => l.id), ['mine']);
+});
+
+test('rearranging equivalent production rooms keeps only the imported layout and its room IDs', () => {
+  const original = presetSpots('2-5-2-right'), levels = presetLevels('2-5-2-right');
+  const ids = Object.keys(original);
+  // First order reproduces the reader's screenshot; also cover reversal and rotations.
+  const orders = [[1, 6, 2, 0, 3, 7, 4, 8, 5], ids.map((_, i) => 8 - i), ...ids.map((_, offset) => ids.map((_, i) => (i + offset) % 9))];
+  for (const order of orders) {
+    const productionSpots = Object.fromEntries(ids.map((id, i) => [id, original[ids[order[i]]]]));
+    const facilityLevels = { ...levels, ...Object.fromEntries(ids.map((id, i) => [id, levels[ids[order[i]]]])) };
+    const snapshot = { ...account.base!, productionSpots, facilityLevels };
+    const result = optimizerLayouts(snapshot);
+    assert.deepEqual(result.map(l => l.id), ['mine']);
+    assert.deepEqual(result[0].spots, productionSpots);
+    assert.deepEqual(result[0].levels, facilityLevels);
+    assert.deepEqual(result, optimizerLayouts(snapshot, false), 'comparison uses the same single search input');
+    assert.deepEqual(layoutProblems(result[0].spots, result[0].levels), []);
+  }
+});
+
+test('layout equivalence preserves room-level pairs, support upgrades and actual dorm recovery', () => {
+  const snapshot = { ...account.base!, productionSpots: presetSpots('2-5-2-right'), facilityLevels: presetLevels('2-5-2-right') };
+  const alternatives = (base: typeof snapshot) => optimizerLayouts(base).map(l => l.id);
+  assert.deepEqual(alternatives(snapshot), ['mine'], 'imported ambience above the level cap equals a furnished preset');
+  assert.deepEqual(alternatives({ ...snapshot, dormitoryAmbience: {} }), ['mine'], 'missing ambience uses the same furnished default');
+  assert.deepEqual(alternatives({ ...snapshot, dormitoryAmbience: { ...snapshot.dormitoryAmbience, dormitory1: 0 } }), ['mine', '2-5-2-right']);
+  for (const room of ['office', 'receptionRoom', 'trainingRoom', 'dormitory1']) {
+    assert.deepEqual(alternatives({ ...snapshot, facilityLevels: { ...snapshot.facilityLevels, [room]: snapshot.facilityLevels[room] - 1 } }), ['mine', '2-5-2-right'], room);
+  }
+  // Same global list of levels, but a Lv3 post becomes Lv2 while a Lv2 factory becomes Lv3.
+  assert.deepEqual(alternatives({ ...snapshot, facilityLevels: { ...snapshot.facilityLevels, prod1: 2, prod7: 3 } }), ['mine', '2-5-2-right']);
 });
 
 test('selected-account progress takes precedence and class forms are one worker', () => {
@@ -77,10 +129,13 @@ test('gold and EXP factories are distinct candidate rooms even at the same level
 
 test('the standard-layout search returns the best funded score first and reports actual progress', () => {
   const roster = fixtureRoster;
-  let completed = 0;
-  const result = optimizeAccountBase({ base, roster, snapshot: account.base, loginInterval: 12, objective: 'balanced', externalGold: 9.14, compareLayouts: true }, done => { completed = done; });
-  assert.equal(completed, result.searched);
-  assert(result.recommendations.length >= 3);
+  let completed = 0, of = 0;
+  const snapshot = { ...account.base!, productionSpots: presetSpots('2-5-2-left'), facilityLevels: presetLevels('2-5-2-left') };
+  const result = optimizeAccountBase({ base, roster, snapshot, loginInterval: 12, objective: 'balanced', externalGold: 9.14, compareLayouts: true, searchSeconds: 6 }, (done, total) => { completed = done; of = total; });
+  // Progress is the share of the search time used, and reaches the end when the search does.
+  assert.equal(completed, of);
+  // An imported max-left 252 and max-right alternative remain distinct candidates.
+  assert.deepEqual(new Set(result.recommendations.map(r => r.id)), new Set(['mine', '2-5-2-right']));
   for (let i = 1; i < result.recommendations.length; i++) assert(result.recommendations[i - 1].score >= result.recommendations[i].score);
   for (const recommendation of result.recommendations) assert.equal(recommendation.score, recommendation.output.lmd + recommendation.output.exp);
 });
@@ -89,10 +144,12 @@ test('an imported account gets funded, repeatable, owned-only recommendations at
   const roster = fixtureRoster;
   for (const loginInterval of [24, 12, 8, 6]) {
     const progress: number[] = [];
-    const result = optimizeAccountBase({ base, roster, snapshot: account.base, loginInterval, objective: 'balanced', externalGold: 0, compareLayouts: false }, done => progress.push(done));
+    const result = optimizeAccountBase({ base, roster, snapshot: account.base, loginInterval, objective: 'balanced', externalGold: 0, compareLayouts: false, searchSeconds: 6 }, (done, total) => progress.push(done / total));
     assert(result.recommendations.length > 0);
-    assert.equal(progress.at(-1), result.searched);
+    assert.equal(progress.at(-1), 1);
     const recommendation = result.recommendations[0];
+    // Every recommendation can be set up as the game's presets: never more distinct setups than it has slots.
+    for (const r of result.recommendations) assert(distinctSetups(r.plan.shifts) <= MAX_ROTATION_SETUPS, `${r.label}: ${distinctSetups(r.plan.shifts)} setups`);
     assert(recommendation.plan.simulation.periodic);
     assert(!recommendation.plan.simulation.events.some(e => e.kind === 'exhausted'));
     assert(recommendation.output.goldSold <= recommendation.output.goldMade + 1e-6);
@@ -103,5 +160,93 @@ test('an imported account gets funded, repeatable, owned-only recommendations at
       for (const name of names) assert(name in roster);
       for (const room of facilities) assert((shift.assignments[room.id]?.filter(Boolean).length ?? 0) <= room.capacity);
     }
+  }
+});
+
+test('a recommendation saved as a rotation recalculates to the yields the optimizer showed', async () => {
+  // pages/base.tsx saveOptimizerRotation, reduced: one preset per distinct setup (shifts that place everyone the
+  // same way share it), and the plan carries Fiammetta's refills, drone weights and parked Morale. Without them the page re-scored a different plan (2026-10-30).
+  const { calculateRotation } = await import('../../lib/base/calculateRotation');
+  const result = optimizeAccountBase({ base, roster: fixtureRoster, snapshot: account.base, loginInterval: 12, objective: 'balanced', externalGold: 0, compareLayouts: false, searchSeconds: 6 });
+  const r = result.recommendations[0];
+  const groups = setupGroups(r.plan.shifts);
+  const presets = groups.map((group, i) => ({
+    id: `p${i}`, name: `p${i}`, savedAt: '', version: 1 as const, productionSpots: r.spots, facilityLevels: r.levels,
+    assignments: r.plan.shifts[group[0]].assignments, factoryProducts: r.plan.shifts[group[0]].factoryProducts, dormitoryAmbience: account.base?.dormitoryAmbience ?? {},
+    clueExchangeActive: false, moraleAbove12: true, swapPolicy: 'onLogin' as const, loginInterval: 12,
+    trainingTarget: { class: 'Guard', branch: '', mastery: 1, timeReductionActive: false, instantTrainingReady: false },
+    workshopSettings: { recipeId: '1', causality: 0, karma: 0, thornsFailures: 0, qualifyingDormOperators: 0 },
+  }));
+  const plan = { version: 1 as const, startHour: 8, externalGold: 0, drones: r.weights, ...(r.plan.initialMorale ? { parked: r.plan.initialMorale } : {}), ...(r.plan.refillPolicy ? { refillPolicy: r.plan.refillPolicy } : {}),
+    shifts: r.plan.shifts.map((shift, i) => ({ id: `s${i}`, presetId: presets[groups.findIndex(g => g.includes(i))].id, hours: r.plan.stepHours, ...(shift.refill ? { refill: shift.refill } : {}), ...(shift.reseat ? { reseat: shift.reseat } : {}) })) };
+  assert.ok(presets.length <= MAX_ROTATION_SETUPS, `${presets.length} saved setups`);
+  assert.equal(presets.length, distinctSetups(r.plan.shifts));
+  const rotation = calculateRotation(base, plan, presets as never, 12);
+  assert.ok(rotation.totals);
+  assert.ok(Math.abs(rotation.totals!.dailyExpGreen - r.output.exp) < 1, `EXP ${rotation.totals!.dailyExpGreen} vs ${r.output.exp}`);
+  assert.ok(Math.abs(rotation.totals!.dailyGoldWorthGreen - r.output.lmd) < 1, `LMD ${rotation.totals!.dailyGoldWorthGreen} vs ${r.output.lmd}`);
+});
+
+test('the page runs one search per spare core on a desktop, one on a phone, with the formations search beside them from four cores', async () => {
+  const { searchStarts, MAX_STARTS } = await import('../../lib/base/searchStarts');
+  assert.deepEqual(searchStarts(2, false, false), { main: 1, formations: false });
+  assert.deepEqual(searchStarts(4, false, false), { main: 3, formations: false });
+  assert.deepEqual(searchStarts(4, false, true), { main: 2, formations: true });
+  assert.deepEqual(searchStarts(12, false, true), { main: MAX_STARTS - 1, formations: true });
+  assert.deepEqual(searchStarts(12, false, false), { main: MAX_STARTS, formations: false });
+  // A phone: one plain search however many cores, the formations search only with four or more.
+  assert.deepEqual(searchStarts(8, true, false), { main: 1, formations: false });
+  assert.deepEqual(searchStarts(8, true, true), { main: 1, formations: true });
+  assert.deepEqual(searchStarts(2, true, true), { main: 1, formations: false });
+});
+
+test('starts run side by side anneal from their own seeds and merge into each layout\'s best plan', () => {
+  // The page runs one search per spare core; each start must be a complete, valid search on its own.
+  const input = { base, roster: fixtureRoster, snapshot: account.base, loginInterval: 12, objective: 'balanced' as const, externalGold: 0, compareLayouts: false, searchSeconds: 6 };
+  const starts = [0, 1, 2].map(start => optimizeAccountBase({ ...input, start }));
+  for (const r of starts) {
+    assert(r.recommendations.length > 0);
+    for (const rec of r.recommendations) { assert(rec.plan.simulation.periodic); assert(distinctSetups(rec.plan.shifts) <= MAX_ROTATION_SETUPS); }
+  }
+  const merged = mergeAccountResults(...starts)!;
+  for (const r of merged.recommendations) assert.equal(r.score, Math.max(...starts.flatMap(s => s.recommendations.filter(x => x.id === r.id).map(x => x.score))));
+  assert.equal(merged.searched, starts.reduce((n, s) => n + s.searched, 0));
+});
+
+test('the formations search, run beside the main one, merges into each layout\'s better plan', () => {
+  // Fiammetta added so formations are tried; one first plan per layout, then all the time on the leader.
+  const roster = ownedBaseRoster({ ...account, operators: ['FEater', 'Gravel', 'Spot', 'Proviso', 'Texas', 'Myrtle', 'Lancet-2', 'Perfumer', 'Fiammetta', 'Shamare'] }, known).roster;
+  const input = { base, roster, snapshot: account.base, loginInterval: 12, objective: 'balanced' as const, externalGold: 0, compareLayouts: true, searchSeconds: 6 };
+  const main = optimizeAccountBase(input);
+  const formations = optimizeAccountBase({ ...input, formations: true });
+  assert(formations.recommendations.length >= 1);
+  for (const r of formations.recommendations) {
+    assert(r.plan.simulation.periodic && !r.plan.simulation.events.some(e => e.kind === 'exhausted'));
+    for (const sh of r.plan.shifts) { const names = Object.values(sh.assignments).flatMap(s => (s ?? []).flatMap(x => x ? [x.operatorName] : [])); assert.equal(new Set(names).size, names.length); }
+  }
+  const merged = mergeAccountResults(main, null, formations)!;
+  assert.deepEqual(merged.recommendations.map(r => r.id).sort(), [...new Set([...main.recommendations, ...formations.recommendations].map(r => r.id))].sort());
+  for (const r of merged.recommendations) assert.equal(r.score, Math.max(...[...main.recommendations, ...formations.recommendations].filter(x => x.id === r.id).map(x => x.score)));
+  for (let i = 1; i < merged.recommendations.length; i++) assert(merged.recommendations[i - 1].score >= merged.recommendations[i].score);
+  assert.equal(merged.searched, main.searched + formations.searched);
+  assert.equal(mergeAccountResults(null, undefined), null);
+});
+
+
+test('dorm recovery residents stay reserved through account seeds and annealing', () => {
+  const roster = { ...fixtureRoster, Perfumer: { eliteLevel: 'Elite 1' as const, level: 60 } };
+  const result = optimizeAccountBase({ base, roster, snapshot: account.base, loginInterval: 12,
+    objective: 'balanced', externalGold: 0, compareLayouts: false, searchSeconds: 5, lockedDorm: ['Perfumer'] });
+  assert.ok(result.recommendations.length);
+  for (const recommendation of result.recommendations) {
+    const kinds = new Map(getFacilities(recommendation.spots, recommendation.levels).map(f => [f.id, f.kind]));
+    for (const shift of recommendation.plan.shifts) {
+      const placements = Object.entries(shift.assignments).flatMap(([room, slots]) =>
+        (slots ?? []).flatMap(s => s?.operatorName === 'Perfumer' ? [room] : []));
+      assert.equal(placements.length, 1);
+      assert.equal(kinds.get(placements[0]), 'dormitory');
+    }
+    assert.ok(recommendation.plan.simulation.periodic);
+    assert.ok(!recommendation.plan.simulation.events.some(e => e.kind === 'exhausted'));
   }
 });

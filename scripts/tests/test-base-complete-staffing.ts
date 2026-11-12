@@ -1,0 +1,378 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { getAllOperators } from '../../lib/operators/operators';
+import { getFacilities, presetLevels, presetSpots } from '../../lib/base/baseConfig';
+import { toBaseRosters } from '../../lib/base/baseGroupRosters';
+import { completeStaffing } from '../../lib/base/completeStaffing';
+import { countFeeders } from '../../lib/base/countFeeders';
+import { teamBlocks } from '../../lib/base/teamBlocks';
+import { simulateBase, type SimulationShift } from '../../lib/base/baseSimulation';
+import { scoreOf, type GenomeContext } from '../../lib/base/planGenome';
+import { MAX_ROTATION_SETUPS, distinctSetups } from '../../lib/base/rotationSetups';
+import type { OptimizerResult, OwnedOperator } from '../../lib/base/baseOptimizer';
+import type { FacilityDef } from '../../lib/base/baseTypes';
+import groups from '../../data/base-group-rosters.json';
+import recipes from '../../data/base-workshop-recipes.json';
+
+const template = getAllOperators()[0];
+const operators = Array.from({ length: 90 }, (_, i) => ({ ...template, name: `Worker ${String(i).padStart(2, '0')}`, baseSkills: [] }));
+const roster = Object.fromEntries(operators.map(o => [o.name, { eliteLevel: 'Elite 2', level: 60 } as OwnedOperator]));
+const facilities = getFacilities(presetSpots('2-5-2-right'), presetLevels('2-5-2-right'));
+function context(): GenomeContext {
+  return { base: { operators, facilities, rosters: toBaseRosters(groups), skillSlots: {}, workshopRecipes: recipes }, roster, loginInterval: 12, drones: true, sustainable: true };
+}
+function emptyPlan(ctx: GenomeContext, count = 3): OptimizerResult {
+  const shifts: SimulationShift[] = Array.from({ length: count }, () => ({ assignments: Object.fromEntries(ctx.base.facilities.filter(f => f.capacity).map(f => [f.id, Array(f.capacity).fill(null)])), factoryProducts: Object.fromEntries(facilities.filter(f => f.kind === 'factory').map((f, i) => [f.id, i < 2 ? 'Precious Metals' : 'Battle Records'])), logins: 1 }));
+  const simulation = simulateBase({ base: ctx.base, shifts, loginInterval: 12 });
+  return { shifts, simulation, shape: 'duty', crews: [], schedule: shifts.map((_, i) => ({ hour: i * 12, crewIn: [], resting: [] })), stepHours: 12, workHours: 24, score: 0, explanations: [], notes: [], evaluations: 0 };
+}
+const occupied = (plan: OptimizerResult) => plan.shifts.map(s => Object.values(s.assignments).flatMap(slots => slots.flatMap(x => x ? [x.operatorName] : [])));
+
+test('a three-shift 252 fills every room but the Training Room with real recovery, the skill rooms included', () => {
+  const ctx = context(), seed = emptyPlan(ctx), before = JSON.stringify(seed);
+  const plan = completeStaffing(seed, ctx);
+  assert.equal(JSON.stringify(seed), before, 'does not alter the production search seed');
+  for (const shift of plan.shifts) for (const room of facilities.filter(f => f.capacity && !['dormitory', 'trainingRoom'].includes(f.kind))) {
+    assert.equal(shift.assignments[room.id].filter(Boolean).length, room.capacity, `${room.label} is full in every shift`);
+  }
+  // Nobody in this roster has a Reception Room or Office skill: the seats are filled all the same (owner,
+  // 2026-11-11: every room but the Training Room is staffed), and the plan says they run at the base speed.
+  assert(plan.notes.some(n => n.startsWith('Seated so the room is not left open, without a skill for it:') && n.includes('Reception Room') && n.includes('Office')), plan.notes.join(' / '));
+  for (const names of occupied(plan)) {
+    assert.equal(new Set(names).size, names.length, 'no duplicate placements');
+    assert(names.every(n => n in roster));
+  }
+  assert(plan.simulation.periodic);
+  assert(!plan.simulation.events.some(e => e.kind === 'exhausted'));
+  assert.equal(plan.score, scoreOf(plan.simulation, ctx));
+  assert(plan.notes.some(n => n.includes('crafting standby')));
+  assert(plan.notes.some(n => n.includes('training target')));
+  assert(plan.shifts.every(s => !s.assignments.trainingRoom.some(Boolean)));
+  assert.deepEqual(plan.crews.map(c => Object.keys(c)), plan.schedule.map(s => s.crewIn[0].rooms));
+});
+
+test('limited roster and unavailable recovery leave explicit gaps, never invented staff or exhausted rotations', () => {
+  const ctx = context(); ctx.roster = Object.fromEntries(Object.entries(roster).slice(0, 2));
+  ctx.base = { ...ctx.base, facilities: facilities.map(f => f.kind === 'dormitory' ? { ...f, capacity: 0, level: 0 } : f) };
+  const plan = completeStaffing(emptyPlan(ctx), ctx);
+  assert(plan.notes.some(n => n.includes('No safe assignment')));
+  assert(!plan.simulation.events.some(e => e.kind === 'exhausted'));
+  for (const names of occupied(plan)) assert(names.every(n => n in ctx.roster));
+});
+
+test('locked residents and existing production assignments stay in their original slots', () => {
+  const ctx = context(); ctx.lockedDorm = ['Worker 00'];
+  const seed = emptyPlan(ctx);
+  for (const shift of seed.shifts) shift.assignments.dormitory1[0] = { operatorName: 'Worker 00', ...roster['Worker 00'] };
+  const worker = { operatorName: 'Worker 01', ...roster['Worker 01'] };
+  seed.shifts[0].assignments.prod1[0] = worker;
+  seed.shifts[1].assignments.dormitory1[1] = worker;
+  seed.simulation = simulateBase({ base: ctx.base, shifts: seed.shifts, loginInterval: 12 });
+  const plan = completeStaffing(seed, ctx);
+  assert.deepEqual(plan.shifts[0].assignments.prod1[0], worker);
+  assert.deepEqual(plan.shifts[1].assignments.dormitory1[1], worker);
+  for (const shift of plan.shifts) assert.deepEqual(shift.assignments.dormitory1[0], seed.shifts[0].assignments.dormitory1[0]);
+  assert(!plan.simulation.events.some(e => e.kind === 'exhausted'));
+});
+
+test('a duty rotation completes its support rooms within the presets the game stores', () => {
+  // A duty rotation A, A, B needs two presets. Fills go into both A shifts alike and rest in B; a worker who
+  // would exhaust resting one shift in three gets the A shifts split into alternate halves that rest in each
+  // other. Either way the rotation stays within three setups and every support room is staffed (found
+  // 2026-11-03: filling shift by shift could turn a two-preset rotation into four).
+  const ctx = context();
+  ctx.base.facilities = facilities.filter(f => ['dormitory', 'controlCenter', 'office', 'receptionRoom', 'powerPlant'].includes(f.kind) || f.id === 'prod1');
+  const seed = emptyPlan(ctx, 3);
+  const worker = { operatorName: 'Worker 01', ...roster['Worker 01'] };
+  seed.shifts[0].assignments.prod1[0] = worker;
+  seed.shifts[1].assignments.prod1[0] = worker;
+  seed.shifts[2].assignments.dormitory1[0] = worker;
+  seed.simulation = simulateBase({ base: ctx.base, shifts: seed.shifts, loginInterval: 12 });
+  assert.equal(distinctSetups(seed.shifts), 2);
+  const plan = completeStaffing(seed, ctx);
+  assert.ok(distinctSetups(plan.shifts) <= MAX_ROTATION_SETUPS, `${distinctSetups(plan.shifts)} setups`);
+  for (const shift of plan.shifts) for (const room of ctx.base.facilities.filter(f => ['controlCenter', 'powerPlant'].includes(f.kind))) {
+    assert.equal(shift.assignments[room.id].filter(Boolean).length, room.capacity, `${room.label} is full in every shift`);
+  }
+  for (const names of occupied(plan)) assert.equal(new Set(names).size, names.length);
+  assert(plan.simulation.periodic);
+  assert(!plan.simulation.events.some(e => e.kind === 'exhausted'));
+  // A full base with four alike shifts: whatever it fills, never more setups than the game stores.
+  const wide = completeStaffing(emptyPlan(context(), 4), context());
+  assert.ok(distinctSetups(wide.shifts) <= MAX_ROTATION_SETUPS, `${distinctSetups(wide.shifts)} setups on a full base`);
+});
+
+test('an explicit training target gets a trainer while the trainee stays reserved', () => {
+  const ctx = context();
+  // Isolate training eligibility from the separate, deliberately limited dorm-budget case.
+  ctx.base.facilities = facilities.filter(f => ['dormitory', 'trainingRoom'].includes(f.kind));
+  ctx.base.trainingTarget = { operatorName: 'Worker 00', class: 'Guard', branch: '', mastery: 1, timeReductionActive: false, instantTrainingReady: false };
+  const plan = completeStaffing(emptyPlan(ctx), ctx);
+  for (const shift of plan.shifts) {
+    assert.equal(shift.assignments.trainingRoom.filter(Boolean).length, 1);
+    assert(!Object.values(shift.assignments).flat().some(s => s?.operatorName === 'Worker 00'));
+  }
+  assert(!plan.simulation.events.some(e => e.kind === 'exhausted'));
+});
+
+// Real operators, for the refinements: the skill rooms choose by their own speed and the reader's build, an Elite 0
+// production worker gives way to an idle built one, and a worker who adds nothing to the funded output is left out.
+import slots from '../../data/base-skill-slots.json';
+import { BUILT_FIRST_MARGIN } from '../../lib/base/completeStaffing';
+const real = getAllOperators().filter(o => !/^Amiya \(/.test(o.name));
+function realContext(owned: Record<string, OwnedOperator>, keep: string[] = ['dormitory', 'controlCenter', 'powerPlant', 'receptionRoom', 'office', 'tradingPost', 'factory']): GenomeContext {
+  return { base: { operators: real, facilities: facilities.filter(f => keep.includes(f.kind)), rosters: toBaseRosters(groups), skillSlots: slots, workshopRecipes: recipes }, roster: owned, loginInterval: 12, drones: true, sustainable: true };
+}
+const e2 = (level = 60): OwnedOperator => ({ eliteLevel: 'Elite 2', level });
+const e0 = (level = 1): OwnedOperator => ({ eliteLevel: 'Base', level });
+const seatsOf = (plan: OptimizerResult, name: string) => plan.shifts.map(s => Object.entries(s.assignments).find(([, slots]) => slots.some(x => x?.operatorName === name))?.[0] ?? null);
+
+test('the Office takes the stronger built HR operator over an Elite 0 one the search left there', () => {
+  const ctx = realContext({ Brigid: e0(), Haruka: e2(), Ines: e2(), Penance: e2(90), Orchid: e0(30) }, ['dormitory', 'office']);
+  const seed = emptyPlan(ctx);
+  // The search's last move left Brigid (Restless Rover α, +30% and +1 Morale) in HR every shift.
+  for (const shift of seed.shifts) shift.assignments.office[0] = { operatorName: 'Brigid', ...ctx.roster.Brigid };
+  seed.simulation = simulateBase({ base: ctx.base, shifts: seed.shifts, loginInterval: 12 });
+  const plan = completeStaffing(seed, ctx);
+  // Penance's Law Is Order (+50%) leads, Haruka's Invite to the Show (+45%, no Morale) next; Brigid is not kept by inertia.
+  const office = plan.shifts.map(s => s.assignments.office[0]?.operatorName);
+  assert.ok(office.every(name => name && name !== 'Brigid'), `Office: ${office.join(', ')}`);
+  assert.ok(office.includes('Penance') || office.includes('Haruka'), `Office: ${office.join(', ')}`);
+  assert.ok(seatsOf(completeStaffing(seed, ctx, { refineSupport: false }), 'Brigid').every(seat => seat === 'office'), 'with the refinement off the search\'s choice stands');
+});
+
+/** One working shift, then two in a Dormitory, for each name: a rotation every worker sustains. */
+function workThenRest(seed: OptimizerResult, places: Record<string, [string, number]>, roster: Record<string, OwnedOperator>) {
+  Object.entries(places).forEach(([name, [room, index]], i) => {
+    seed.shifts[0].assignments[room][index] = { operatorName: name, ...roster[name] };
+    for (const k of [1, 2]) seed.shifts[k].assignments.dormitory1[i] = { operatorName: name, ...roster[name] };
+  });
+}
+
+test("the fill never takes the bed of the operator the built-first swap put to work", () => {
+  // Two shifts, one Dormitory. Spot (Elite 0) works a gold Factory in the first and rests in the second, and gives
+  // the whole schedule, bed included, to Gravel. The second shift's beds are full: Gravel, Proviso (who works the
+  // post) and three idle operators. Vigil, idle, can staff the Reception Room in the first shift only by resting in
+  // the second. Found 2026-11-05 on 19 of 21 Krooster profiles: the fill took Gravel's bed, the first one not
+  // protected, Gravel ran out of Morale, and every candidate was refused, so the seat stayed empty.
+  const owned = { Spot: e0(), Gravel: e2(), Proviso: e2(), Vigil: e2(), Melantha: e2(), Adnachiel: e2(), Catapult: e2() };
+  const ctx = realContext(owned, ['dormitory', 'tradingPost', 'factory', 'receptionRoom']);
+  ctx.base = { ...ctx.base, facilities: ctx.base.facilities.filter(f => f.kind !== 'dormitory' || f.id === 'dormitory1') };
+  const seed = emptyPlan(ctx, 2);
+  const factory = facilities.find(f => f.kind === 'factory')!, post = facilities.find(f => f.kind === 'tradingPost')!;
+  const at = (name: string) => ({ operatorName: name, ...owned[name as keyof typeof owned] });
+  for (const shift of seed.shifts) shift.factoryProducts = { ...shift.factoryProducts, [factory.id]: 'Precious Metals' };
+  seed.shifts[0].assignments[factory.id][0] = at('Spot');
+  seed.shifts[0].assignments[post.id][0] = at('Proviso');
+  seed.shifts[1].assignments.dormitory1 = ['Spot', 'Proviso', 'Melantha', 'Adnachiel', 'Catapult'].map(at);
+  seed.simulation = simulateBase({ base: ctx.base, shifts: seed.shifts, loginInterval: 12 });
+  const plan = completeStaffing(seed, ctx);
+  assert.ok(plan.notes.some(n => n.includes('Built operators first: Gravel for Spot')), plan.notes.join(' / '));
+  assert.ok(plan.shifts[1].assignments.dormitory1.some(x => x?.operatorName === 'Gravel'), `Gravel keeps the bed: ${plan.shifts[1].assignments.dormitory1.map(x => x?.operatorName).join(', ')}`);
+  assert.ok(plan.shifts[0].assignments.receptionRoom.some(Boolean), `Reception in the first shift: ${plan.notes.join(' / ')}`);
+  assert.equal(plan.simulation.events.filter(e => e.kind === 'exhausted').length, 0);
+});
+
+test('an idle built operator with a Factory skill replaces an Elite 0 worker when the output keeps within the margin', () => {
+  // Spot at Elite 0 (Metalwork α) works a gold Factory that Proviso's post sells; Gravel at Elite 2 (Metalwork β) is idle.
+  const ctx = realContext({ Spot: e0(), Gravel: e2(), Proviso: e2() }, ['dormitory', 'tradingPost', 'factory']);
+  const seed = emptyPlan(ctx);
+  const factory = facilities.find(f => f.kind === 'factory')!, post = facilities.find(f => f.kind === 'tradingPost')!;
+  for (const shift of seed.shifts) shift.factoryProducts = { ...shift.factoryProducts, [factory.id]: 'Precious Metals' };
+  workThenRest(seed, { Spot: [factory.id, 0], Proviso: [post.id, 0] }, ctx.roster);
+  seed.simulation = simulateBase({ base: ctx.base, shifts: seed.shifts, loginInterval: 12 });
+  const plan = completeStaffing(seed, ctx);
+  assert.ok(plan.shifts.every(s => !s.assignments[factory.id].some(x => x?.operatorName === 'Spot')), 'Spot gives way');
+  assert.ok(plan.shifts.some(s => s.assignments[factory.id].some(x => x?.operatorName === 'Gravel')), 'to Gravel');
+  assert.ok(plan.notes.some(n => n.includes('Built operators first: Gravel for Spot')), plan.notes.join(' / '));
+  assert.ok(plan.score >= seed.score * (1 - BUILT_FIRST_MARGIN) - 1e-6);
+});
+
+test('a Trading Post worker whose orders add nothing keeps the seat when leaving it would fill nothing', () => {
+  // One gold line and two sellers: Proviso's post sells every Precious Metal Gravel makes on his own, so Vigil's orders
+  // add nothing the base can fund. Leaving him out would only open a seat (owner, 2026-11-11: every room but the
+  // Training Room is staffed), so he stays.
+  const ctx = realContext({ Gravel: e2(), Proviso: e2(), Vigil: e2() }, ['dormitory', 'tradingPost', 'factory']);
+  const seed = emptyPlan(ctx);
+  const factory = facilities.find(f => f.kind === 'factory')!, post = facilities.find(f => f.kind === 'tradingPost')!;
+  for (const shift of seed.shifts) shift.factoryProducts = { ...shift.factoryProducts, [factory.id]: 'Precious Metals' };
+  workThenRest(seed, { Gravel: [factory.id, 0], Proviso: [post.id, 0], Vigil: [post.id, 1] }, ctx.roster);
+  seed.simulation = simulateBase({ base: ctx.base, shifts: seed.shifts, loginInterval: 12 });
+  const plan = completeStaffing(seed, ctx);
+  assert.ok(!plan.notes.some(n => n.startsWith('Left out as adding nothing')), plan.notes.join(' / '));
+  assert.ok(plan.score >= seed.score - 1e-6);
+  assert.equal(plan.shifts[0].assignments[post.id].filter(Boolean).length, 2, 'both sellers stay');
+  assert.ok(plan.simulation.periodic && !plan.simulation.events.some(e => e.kind === 'exhausted'));
+});
+
+/** Three beds; Kroos, Fang and Beagle are locked into them in `lockedShifts`, and Gravel (gold), Proviso and Vigil
+ *  (one post) work the other shifts' complement, resting in the same three beds. */
+function threeBeds(owned: Record<string, OwnedOperator>, keep: string[]) {
+  const ctx = realContext({ Gravel: e2(), Proviso: e2(), Vigil: e2(), Kroos: e0(), Fang: e0(), Beagle: e0(), ...owned }, keep);
+  const [firstDorm] = ctx.base.facilities.filter(f => f.kind === 'dormitory');
+  ctx.base = { ...ctx.base, facilities: ctx.base.facilities.map(f => f.kind !== 'dormitory' ? f : f.id === firstDorm.id ? { ...f, capacity: 3 } : { ...f, capacity: 0, level: 0 }) };
+  ctx.lockedDorm = ['Kroos', 'Fang', 'Beagle'];
+  const seed = emptyPlan(ctx);
+  const factory = facilities.find(f => f.kind === 'factory')!, post = facilities.find(f => f.kind === 'tradingPost')!;
+  for (const shift of seed.shifts) shift.factoryProducts = { ...shift.factoryProducts, [factory.id]: 'Precious Metals' };
+  return { ctx, seed, firstDorm, factory, post };
+}
+const exhausted = (plan: OptimizerResult) => plan.simulation.events.filter(e => e.kind === 'exhausted').length;
+
+test('a new worker takes a bed its resident can spare, and nobody is left out for it', () => {
+  // Gravel, Proviso and Vigil work shift 1 and sleep in shifts 2 and 3: twice a cycle, once more than they need.
+  // Orchid (Psychology) is idle and every bed is taken, so the first fill finds her nowhere to rest. She takes one
+  // of a worker's two rests and staffs the Office; before 2026-11-11 a seller was left out of the post for her bed.
+  const { ctx, seed, firstDorm, post } = threeBeds({ Orchid: e2() }, ['dormitory', 'tradingPost', 'factory', 'office']);
+  const office = facilities.find(f => f.kind === 'office')!, factory = facilities.find(f => f.kind === 'factory')!;
+  workThenRest(seed, { Gravel: [factory.id, 0], Proviso: [post.id, 0], Vigil: [post.id, 1] }, ctx.roster);
+  ['Kroos', 'Fang', 'Beagle'].forEach((name, i) => { seed.shifts[0].assignments[firstDorm.id][i] = { operatorName: name, ...ctx.roster[name] }; });
+  seed.simulation = simulateBase({ base: ctx.base, shifts: seed.shifts, loginInterval: 12 });
+  const plan = completeStaffing(seed, ctx);
+  assert.ok(plan.shifts.some(s => s.assignments[office.id].some(x => x?.operatorName === 'Orchid')), `Orchid staffs the Office: ${plan.notes.join(' / ')}`);
+  assert.ok(!plan.notes.some(n => n.startsWith('Left out as adding nothing')), plan.notes.join(' / '));
+  assert.equal(plan.shifts[0].assignments[post.id].filter(Boolean).length, 2, 'both sellers stay');
+  assert.ok(plan.shifts.every(s => s.assignments[firstDorm.id].filter(Boolean).length <= 3), 'three beds');
+  for (const names of occupied(plan)) assert.equal(new Set(names).size, names.length, 'no duplicate placements');
+  assert.ok(plan.score >= seed.score - 1e-6);
+  assert.ok(plan.simulation.periodic && exhausted(plan) === 0);
+});
+
+test('a worker of the plan who is neither working nor resting in a shift takes its open seat', () => {
+  // Proviso works the post in shift 1 and rests in shift 2; in shift 3 he is nowhere. The post's seat in shift 3 is
+  // open and no bed is free for anyone new, so he works it too: no bed needed, and the rotation still holds.
+  const { ctx, seed, firstDorm, post, factory } = threeBeds({}, ['dormitory', 'tradingPost', 'factory']);
+  const at = (name: string) => ({ operatorName: name, ...ctx.roster[name] });
+  seed.shifts[0].assignments[factory.id][0] = at('Gravel'); seed.shifts[0].assignments[post.id][0] = at('Proviso'); seed.shifts[0].assignments[post.id][1] = at('Vigil');
+  seed.shifts[1].assignments[firstDorm.id] = ['Gravel', 'Proviso', 'Vigil'].map(at);
+  seed.shifts[0].assignments[firstDorm.id] = ['Kroos', 'Fang', 'Beagle'].map(at); seed.shifts[2].assignments[firstDorm.id] = ['Kroos', 'Fang', 'Beagle'].map(at);
+  seed.simulation = simulateBase({ base: ctx.base, shifts: seed.shifts, loginInterval: 12 });
+  const plan = completeStaffing(seed, ctx);
+  const third = Object.entries(plan.shifts[2].assignments).filter(([id]) => id !== firstDorm.id).flatMap(([, slots]) => slots.flatMap(x => x ? [x.operatorName] : []));
+  assert.ok(third.some(name => ['Gravel', 'Proviso', 'Vigil'].includes(name)), `shift 3 works: ${third.join(', ')} / ${plan.notes.join(' / ')}`);
+  for (const names of occupied(plan)) assert.equal(new Set(names).size, names.length, 'no duplicate placements');
+  assert.ok(plan.score >= seed.score - 1e-6);
+  assert.ok(plan.simulation.periodic && exhausted(plan) === 0);
+});
+
+test('a robot at Elite 0 is its whole build: built-first leaves it in place', () => {
+  // Castle-3 (Automated Processing α, a robot) works a gold Factory Proviso's post sells; Gravel at Elite 2 is idle.
+  const ctx = realContext({ 'Castle-3': e0(30), Gravel: e2(), Proviso: e2() }, ['dormitory', 'tradingPost', 'factory']);
+  const seed = emptyPlan(ctx);
+  const factory = facilities.find(f => f.kind === 'factory')!, post = facilities.find(f => f.kind === 'tradingPost')!;
+  for (const shift of seed.shifts) shift.factoryProducts = { ...shift.factoryProducts, [factory.id]: 'Precious Metals' };
+  workThenRest(seed, { 'Castle-3': [factory.id, 0], Proviso: [post.id, 0] }, ctx.roster);
+  seed.simulation = simulateBase({ base: ctx.base, shifts: seed.shifts, loginInterval: 12 });
+  const plan = completeStaffing(seed, ctx);
+  assert.ok(plan.shifts[0].assignments[factory.id].some(x => x?.operatorName === 'Castle-3'), 'Castle-3 stays');
+  assert.ok(!plan.notes.some(n => n.includes('for Castle-3')), plan.notes.join(' / '));
+});
+
+test('an operator whose seat raises a base-wide count another owned skill reads is a count feeder', () => {
+  // Nasti's Costly Construction counts Rhine Lab operators in the base; Muelsyse's Ecological Section Director the
+  // other Rhine Lab operators. Ifrit and Dorothy are Rhine Lab; Gravel is not.
+  const feeders = (owned: Record<string, OwnedOperator>) => [...countFeeders(realContext(owned).base, owned)].sort();
+  assert.deepEqual(feeders({ Nasti: e2(), Ifrit: e2(), Dorothy: e2(), Gravel: e2() }), ['Dorothy', 'Ifrit']);
+  // Costly Construction is Nasti's Elite 2 skill: at Elite 0 nothing reads the count.
+  assert.deepEqual(feeders({ Nasti: e0(), Ifrit: e2(), Dorothy: e2() }), []);
+  assert.deepEqual(feeders({ Nasti: e2(), Muelsyse: e2(), Ifrit: e2() }), ['Ifrit', 'Muelsyse', 'Nasti']);
+  // The search's set: only counts a Dormitory bed does not raise. Kal'tsit Esperanta's HR skill counts facilities
+  // with an Elite Operator (Rosmontis) assigned; Nasti's Rhine Lab count takes a resting Ifrit as well.
+  const owned = { "Kal'tsit Esperanta": e2(), Rosmontis: e2(), Nasti: e2(), Ifrit: e2() };
+  assert.deepEqual(feeders(owned), ['Ifrit', 'Rosmontis']);
+  assert.deepEqual([...countFeeders(realContext(owned).base, owned, { workSeat: true })], ['Rosmontis']);
+});
+
+test("the search's team blocks seat a count feeder in the Reception Room only in the walk that allows it", () => {
+  // Kal'tsit Esperanta in the Office counts facilities with an Elite Operator; Rosmontis is one, with no Reception
+  // skill. The account optimizer runs a walk with such seats and one without (accountOptimizer.ts), and the second
+  // must stay the skilled-only search it was.
+  const owned = { "Kal'tsit Esperanta": e2(), Rosmontis: e2(), Nasti: e2(), Ifrit: e2() };
+  const ctx = realContext(owned);
+  const crew = Object.fromEntries(ctx.base.facilities.filter(f => f.capacity && f.kind !== 'dormitory').map(f => [f.id, Array(f.capacity).fill(null)]));
+  crew.office = [{ operatorName: "Kal'tsit Esperanta", ...owned["Kal'tsit Esperanta"] }];
+  const products = Object.fromEntries(ctx.base.facilities.filter(f => f.kind === 'factory').map(f => [f.id, 'Precious Metals'])) as Record<string, 'Precious Metals'>;
+  const inReception = (feeders?: ReadonlySet<string>) => (teamBlocks(ctx, crew, products, { top: 16, ...(feeders ? { feeders } : {}) }).receptionRoom ?? []).flatMap(b => b.names);
+  assert.ok(inReception().includes('Rosmontis'), `default blocks: ${inReception().join(', ')}`);
+  assert.deepEqual(inReception(new Set()).filter(n => n === 'Rosmontis'), []);
+});
+
+/** Nasti in a gold Factory two posts sell from, Ifrit (Rhine Lab, a Power Plant skill and no power plant here). */
+function nastiBase(placeIfrit: boolean) {
+  const ctx = realContext({ Nasti: e2(), Proviso: e2(), Vigil: e2(), Ifrit: e2() }, ['dormitory', 'tradingPost', 'factory', 'receptionRoom']);
+  const seed = emptyPlan(ctx);
+  const factory = facilities.find(f => f.kind === 'factory')!, [post1, post2] = facilities.filter(f => f.kind === 'tradingPost');
+  for (const shift of seed.shifts) shift.factoryProducts = { ...shift.factoryProducts, [factory.id]: 'Precious Metals' };
+  workThenRest(seed, { Nasti: [factory.id, 0], Proviso: [post1.id, 0], Vigil: [post2.id, 0], ...(placeIfrit ? { Ifrit: ['receptionRoom', 0] as [string, number] } : {}) }, ctx.roster);
+  seed.simulation = simulateBase({ base: ctx.base, shifts: seed.shifts, loginInterval: 12 });
+  seed.score = scoreOf(seed.simulation, ctx);
+  return { ctx, seed };
+}
+
+test('the completion keeps a Rhine Lab operator the search seated in the Reception Room for Nasti', () => {
+  const { ctx, seed } = nastiBase(true);
+  const plan = completeStaffing(seed, ctx);
+  assert.ok(plan.shifts[0].assignments.receptionRoom.some(x => x?.operatorName === 'Ifrit'), `Reception: ${plan.shifts.map(s => s.assignments.receptionRoom.map(x => x?.operatorName)).join(' / ')}`);
+  assert.ok(plan.score >= seed.score - 1e-6);
+  // Without Nasti nothing reads the count: Ifrit adds nothing in the room and gives the seat up (to Vigil, who has a
+  // Reception Room skill).
+  const without = realContext({ Proviso: e2(), Vigil: e2(), Ifrit: e2() }, ['dormitory', 'tradingPost', 'factory', 'receptionRoom']);
+  const lone = emptyPlan(without);
+  workThenRest(lone, { Ifrit: ['receptionRoom', 0] }, without.roster);
+  lone.simulation = simulateBase({ base: without.base, shifts: lone.shifts, loginInterval: 12 });
+  assert.ok(completeStaffing(lone, without).shifts.every(s => !s.assignments.receptionRoom.some(x => x?.operatorName === 'Ifrit')));
+});
+
+test('the fill seats an idle count feeder in an empty Reception Room when it raises the score', () => {
+  const { ctx, seed } = nastiBase(false);
+  const plan = completeStaffing(seed, ctx);
+  assert.ok(plan.shifts.some(s => s.assignments.receptionRoom.some(x => x?.operatorName === 'Ifrit')), `Reception: ${plan.shifts.map(s => s.assignments.receptionRoom.map(x => x?.operatorName)).join(' / ')}`);
+  assert.ok(plan.score > seed.score, `${plan.score} > ${seed.score}`);
+});
+
+/** Two crews alternating over one gold Factory seat and the Trading Post that sells it, so `room`'s standby seat is
+ *  the only one the fill has left and Fang and Ifrit (Rhine Lab) are the only idle operators. Neither has a skill for
+ *  the room (Gravel's Focus α would have won the Workshop on its own merit), and Fang comes first by name. `lead`
+ *  works the Factory in the first shift: Nasti, whose Costly Construction counts Rhine Lab operators in the base, or
+ *  Gravel, whom no count reaches. */
+function standbyBase(room: 'workshop' | 'trainingRoom', lead: 'Nasti' | 'Gravel' = 'Nasti', extra: Record<string, OwnedOperator> = {}) {
+  const ctx = realContext({ [lead]: e2(), Proviso: e2(), Kroos: e2(), Vigil: e2(), Ifrit: e2(), Fang: e2(), ...extra }, ['dormitory', 'tradingPost', 'factory', room]);
+  const [factory] = ctx.base.facilities.filter(f => f.kind === 'factory'), [post] = ctx.base.facilities.filter(f => f.kind === 'tradingPost');
+  const one = (f: FacilityDef) => f.id === factory.id || f.id === post.id ? { ...f, capacity: 1 } : { ...f, capacity: 0, level: 0 };
+  ctx.base = { ...ctx.base, facilities: ctx.base.facilities.map(f => ['factory', 'tradingPost'].includes(f.kind) ? one(f) : f) };
+  const seed = emptyPlan(ctx, 2);
+  const crews: [string, string][] = [[lead, 'Proviso'], ['Kroos', 'Vigil']];
+  crews.forEach(([worker, seller], step) => {
+    const a = seed.shifts[step].assignments;
+    a[factory.id][0] = { operatorName: worker, ...ctx.roster[worker] };
+    a[post.id][0] = { operatorName: seller, ...ctx.roster[seller] };
+    crews[1 - step].forEach((resting, i) => { a.dormitory1[i] = { operatorName: resting, ...ctx.roster[resting] }; });
+  });
+  for (const shift of seed.shifts) shift.factoryProducts = { [factory.id]: 'Precious Metals' };
+  seed.simulation = simulateBase({ base: ctx.base, shifts: seed.shifts, loginInterval: 12 });
+  seed.score = scoreOf(seed.simulation, ctx);
+  return { ctx, seed };
+}
+
+test('the Workshop standby seat goes to the operator Nasti counts, not the first idle body', () => {
+  const { ctx, seed } = standbyBase('workshop');
+  const plan = completeStaffing(seed, ctx);
+  assert.deepEqual(plan.shifts.map(s => s.assignments.workshop[0]?.operatorName), ['Ifrit', 'Ifrit']);
+  assert.ok(plan.score > seed.score, `${plan.score} > ${seed.score}`);
+  assert.ok(plan.notes.some(n => n.startsWith('Seated to be counted in the base, not for the room\'s own work: Ifrit in Workshop.')), plan.notes.join(' / '));
+  // Nothing reads a Rhine Lab count with Gravel in the Factory, and the seat is the plain standby it was: Fang by name.
+  const plain = standbyBase('workshop', 'Gravel');
+  const other = completeStaffing(plain.seed, plain.ctx);
+  assert.equal(other.shifts[0].assignments.workshop[0]?.operatorName, 'Fang');
+  assert.ok(!other.notes.some(n => n.startsWith('Seated to be counted')), other.notes.join(' / '));
+});
+
+test('the Training Room trainer seat goes to the operator Nasti counts', () => {
+  const { ctx, seed } = standbyBase('trainingRoom', 'Nasti', { Ansel: e2() });
+  ctx.base.trainingTarget = { operatorName: 'Ansel', class: 'Medic', branch: '', mastery: 1, timeReductionActive: false, instantTrainingReady: false };
+  const plan = completeStaffing(seed, ctx);
+  // The trainer's seat rotates like any other: Ifrit takes the shift Nasti works, where the count is read, and
+  // Fang the shift Kroos has the Factory, where it is not.
+  assert.deepEqual(plan.shifts.map(s => s.assignments.trainingRoom[0]?.operatorName), ['Ifrit', 'Fang']);
+  assert.ok(plan.notes.some(n => n.includes('Ifrit in Training Room.')), plan.notes.join(' / '));
+});

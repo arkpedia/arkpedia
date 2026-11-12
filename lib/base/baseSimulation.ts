@@ -1,6 +1,6 @@
 import { calculateBase, type BaseCalculationInput, type RoomDailyOutput } from './calculateBase';
 import { activeBaseSkills } from './activeBaseSkills';
-import { hasNamedSkill } from './specialSkillKeys';
+import { settle } from './settle';
 import type { BaseAssignments, FactoryProducts, SlotAssignment } from './baseTypes';
 
 /**
@@ -19,12 +19,20 @@ import type { BaseAssignments, FactoryProducts, SlotAssignment } from './baseTyp
  * per-4-points difference is averaged over the login window from full, like ramp skills;
  * workshop dorm counts (4/12/20 or less) change crafts, which are not simulated; the
  * 16-Morale clue guarantees are reception events. See docs/development/base-optimizer.md.
+ *
+ * Most operators' rates read none of those levels but 0, so the calculator reports which ones it read per operator
+ * (moraleLevels) and a shift's states are told apart by those alone: the simulator still steps at every level (the
+ * trace keeps its corners) but recalculates only when a level that matters is crossed. A single-target dorm skill
+ * goes to the roommate with the least Morale; it picks at each login and keeps the pick until the next, so the
+ * result does not depend on when anything else in the base happens to change.
  */
 
 /** Every Morale value at which calculateBase's rates can change. */
 export const MORALE_THRESHOLDS = [0, 12, 18, 20, 24] as const;
 const FULL = 24;
 const EPS = 1e-9;
+/** Operators whose skill climbs with continuous time worked (the handlers that read rampStartHours). */
+const RAMP_OPERATORS = new Set(['Fang', 'Kroos', 'Scene', 'Ceobe', 'Aroma', 'Mechanist', 'Spuria', 'Ines']);
 
 export interface SimulationShift {
   /** The complete staffing placed at this shift's first login. */
@@ -38,6 +46,9 @@ export interface SimulationShift {
   /** Operators the player takes out and puts back at this login although the staffing
    * keeps them in the same room. Only matters for on-assignment effects (Fiammetta). */
   reseat?: string[];
+  /** Workers who stay at their post but are taken to the dorm slot before Fiammetta and put back at this
+   * login. If Fiammetta is in a dorm at full Morale she swaps with the neediest of them (lowest Morale). */
+  refill?: string[];
 }
 
 export type SimulationBase = Omit<BaseCalculationInput, 'assignments' | 'factoryProducts' | 'importedMorale' | 'loginInterval' | 'swapPolicy'>;
@@ -54,6 +65,28 @@ export interface SimulationInput {
   maxDays?: number;
   /** Run exactly this many cycles and report the last, for inspecting the first days. */
   fixedCycles?: number;
+  /** How Fiammetta picks from a refill list when she is full: 'rotation' (default) visits it in a fixed order,
+   * wasted turns included; 'lowest' gives her Morale to whichever working member reads lowest, as a player
+   * watching the numbers would. */
+  refillPolicy?: 'rotation' | 'lowest';
+  /** Room rates to share across simulations of the same base: a search that scores many plans differing in a room
+   * or two reuses every other shift's rates. Keyed by each shift's whole staffing, so a plan never reads another's;
+   * only for simulations of one base. Cleared when it grows past RATE_CACHE_LIMIT entries. */
+  rateCache?: Map<string, unknown>;
+  /** Skip the Morale trace and per-login Morale: a search scores many plans and reads neither (the score, events
+   * and warnings are the same). */
+  lean?: boolean;
+  /** Recalculate whenever anyone crosses any Morale level, not only the levels their rates read: the old, slower way,
+   * kept for the check that both give the same results (test-base-simulation). */
+  allMoraleLevels?: boolean;
+  /** Spend the drones the Power Plants make at every login, on the staffed Trading Post or Factory where a drone is worth most.
+   * One drone removes 3 minutes of a room's BASE production time (PRTS); base skills do not apply to it. Default off. */
+  drones?: boolean;
+  /** What one unit of each output is worth when choosing where drones go. Default: 1 LMD, 1 EXP, 500 per Precious Metal made. */
+  droneWeights?: { lmd: number; exp: number; goldMade: number };
+  /** Fund the gold: drones first make up a gold deficit, and Trading Posts take them only as far as gold can be sold.
+   * `externalGold` is outside gold per day. Without this, drones go where raw weighted output is highest. */
+  droneFunding?: { externalGold: number };
 }
 
 export interface DailyOutput { exp: number; goldMade: number; goldSold: number; lmd: number; goldFreeLmd?: number }
@@ -61,7 +94,7 @@ export interface DailyOutput { exp: number; goldMade: number; goldSold: number; 
 export interface SimulationEvent {
   /** Hours since the start of the reported cycle. */
   time: number;
-  kind: 'login' | 'exhausted' | 'storageFull' | 'fiammettaSwap' | 'fiammettaSkipped';
+  kind: 'login' | 'exhausted' | 'storageFull' | 'fiammettaSwap' | 'fiammettaSkipped' | 'drones';
   room?: string;
   operators?: string[];
   detail: string;
@@ -77,9 +110,12 @@ export interface RoomSummary {
 }
 
 export interface SimulationResult {
-  /** The cycle reported below repeats exactly (Morale at its start equals Morale at its end). */
+  /** The state repeats exactly every `periodCycles` cycles (Morale and Fiammetta's refill turn). */
   periodic: boolean;
   cycleHours: number;
+  /** Cycles in one repeat: 1, unless a refill rotation lines up with the cycle only every few cycles.
+   * perDay and rooms average over all of them; the trace and moraleAtLogins show the last one. */
+  periodCycles: number;
   /** Cycles simulated before the reported one, the warm-up the first logins needed. */
   warmupCycles: number;
   perDay: DailyOutput;
@@ -98,21 +134,94 @@ export interface SimulationResult {
 interface Rates {
   /** Morale per hour, positive recovers. */
   morale: Record<string, number>;
+  /** The Morale levels these rates read, by operator (calculateBase's moraleLevels). */
+  levels: Record<string, number[]>;
+  /** Dorms whose single-target skills pick by Morale order (calculateBase's moraleOrder). */
+  order: Record<string, string[]>;
   roomPerHour: Record<string, RoomDailyOutput>;
   fullTime: Record<string, number | null>;
   /** Operators placed outside dorms and the workshop, by room. */
   workers: Record<string, string[]>;
+  /** Drones made per hour, and where one can be spent (only with SimulationInput.drones). */
+  dronesPerHour?: number;
+  droneTargets?: DroneTarget[];
+}
+/** Hours of base production one drone removes, and the most drones one login can usefully put into one room
+ * (one Pure Gold, one Battle Record or one order in progress). */
+const DRONE_HOURS = 3 / 60;
+const DRONE_ROOM_CAP = { factoryGold: 24, factoryExp: 60, tradingPost: 80 };
+
+export interface DroneTarget { room: string; exp: number; goldMade: number; goldSold: number; extraLmd: number; cap: number }
+type DroneCalc = { rooms: Record<string, { droneRate?: number | null; facilityBreakdown?: { effectiveProductivity?: number } | null } | undefined>; roomDailyOutput: Record<string, RoomDailyOutput> };
+
+/** Drones made per hour: 10, times 1 plus the drone rates of the staffed Power Plants. */
+export function dronesPerHour(result: DroneCalc, staffedPowerPlants: string[]): number {
+  return 10 * (1 + [...new Set(staffedPowerPlants)].reduce((n, room) => n + (result.rooms[room]?.droneRate ?? 0), 0));
+}
+
+/** Where a drone can go and what one gives: 3 minutes of the room's BASE throughput (its rate with the skills taken out). */
+export function droneTargets(result: DroneCalc, workedRooms: string[], kindOf: Record<string, string>, factoryProducts: Readonly<Record<string, string | null | undefined>>): DroneTarget[] {
+  return workedRooms.flatMap(room => {
+    const out = result.roomDailyOutput[room];
+    const eff = result.rooms[room]?.facilityBreakdown?.effectiveProductivity;
+    if (!out || !eff || (kindOf[room] !== 'factory' && kindOf[room] !== 'tradingPost')) return [];
+    const base = (perDay: number) => DRONE_HOURS * (perDay / 24) / eff;
+    const cap = kindOf[room] === 'tradingPost' ? DRONE_ROOM_CAP.tradingPost : factoryProducts[room] === 'Precious Metals' ? DRONE_ROOM_CAP.factoryGold : DRONE_ROOM_CAP.factoryExp;
+    return [{ room, exp: base(out.exp), goldMade: base(out.goldMade), goldSold: base(out.goldSold), extraLmd: base(out.extraLmd), cap }];
+  });
+}
+
+/** What a drone is worth in the caller's weighted units. */
+export const droneWorth = (t: { exp: number; goldMade: number; goldSold: number; extraLmd: number }, w: { lmd: number; exp: number; goldMade: number }) =>
+  (t.goldSold * 500 + t.extraLmd) * w.lmd + t.exp * w.exp + t.goldMade * w.goldMade;
+
+/**
+ * Spend `drones` across the targets. With `goldSurplus` null every drone goes where it is worth most in raw weighted
+ * output. With a number (gold made plus outside gold, less gold the Trading Posts will sell, over the window) the gold
+ * is funded: a deficit is covered first by Factories making Precious Metals, and Trading Posts take drones only as far
+ * as the surplus can be sold.
+ */
+export function allocateDrones(targets: DroneTarget[], drones: number, w: { lmd: number; exp: number; goldMade: number }, goldSurplus: number | null): { target: DroneTarget; use: number }[] {
+  const spent: { target: DroneTarget; use: number }[] = [];
+  let left = drones, surplus = goldSurplus;
+  const put = (target: DroneTarget, use: number) => { if (use > 1e-9) { spent.push({ target, use }); left -= use; surplus = surplus === null ? null : surplus + use * (target.goldMade - target.goldSold); } };
+  if (surplus === null) {
+    for (const t of [...targets].sort((x, y) => droneWorth(y, w) - droneWorth(x, w))) if (droneWorth(t, w) > 0) put(t, Math.min(left, t.cap));
+    return spent;
+  }
+  if (surplus < 0) for (const t of targets.filter(x => x.goldMade > 0).sort((x, y) => y.goldMade - x.goldMade)) {
+    if (surplus >= 0) break;
+    put(t, Math.min(left, t.cap, -surplus / t.goldMade));
+  }
+  // What a drone adds now: Trading Posts only while gold is there to sell, Factories their EXP.
+  const fundedWorth = (t: DroneTarget) => (t.goldSold > 0 || t.extraLmd > 0 ? (surplus! > 0 ? (t.goldSold * 500 + t.extraLmd) * w.lmd : 0) : t.exp * w.exp);
+  for (const t of [...targets].sort((x, y) => fundedWorth(y) - fundedWorth(x))) {
+    if (left <= 0) break;
+    if (fundedWorth(t) <= 0) continue;
+    const room = spent.filter(x => x.target.room === t.room).reduce((n, x) => n + x.use, 0);
+    const sellable = t.goldSold > 0 ? Math.max(0, surplus!) / t.goldSold : Infinity;
+    put(t, Math.min(left, t.cap - room, sellable));
+  }
+  return spent;
 }
 
 const zeroOutput = (): DailyOutput => ({ exp: 0, goldMade: 0, goldSold: 0, lmd: 0, goldFreeLmd: 0 });
 const lmdOf = (o: RoomDailyOutput) => o.goldSold * 500 + o.extraLmd + o.pepeLmd;
 
 /** Which side of every threshold a Morale value is on; equal rates share a key. */
-function moraleBin(m: number): number {
+/** Shared rate caches are cleared past this many entries, which keeps a long search's memory bounded. */
+const RATE_CACHE_LIMIT = 40000;
+
+function moraleBin(m: number, levels: readonly number[] = MORALE_THRESHOLDS): number {
   let bin = 0;
-  for (const t of MORALE_THRESHOLDS) bin = bin * 3 + (m < t ? 0 : m === t ? 1 : 2);
+  for (const t of levels) bin = bin * 3 + (m < t ? 0 : m === t ? 1 : 2);
   return bin;
 }
+/** What each shift's rates read of Morale (calculateBase's moraleLevels and moraleOrder), kept beside each cache. */
+interface MoraleReads { levels: Record<string, number[]>; order: Record<string, string[]> }
+const levelStores = new WeakMap<Map<string, unknown>, Map<string, MoraleReads>>();
+/** A dorm's names from least Morale to most; ties keep room order, as the calculator's own pick does. */
+const byMorale = (names: string[], morale: Record<string, number>) => [...names].sort((a, b) => morale[a] - morale[b]);
 
 function snap(m: number): number {
   for (const t of MORALE_THRESHOLDS) if (Math.abs(m - t) < EPS) return t;
@@ -137,11 +246,11 @@ export function simulateBase(input: SimulationInput): SimulationResult {
   const maxCycles = input.fixedCycles ?? Math.max(2, Math.ceil((input.maxDays ?? 30) * 24 / cycleHours));
   const warnings = new Set<string>();
   const caveats = new Set<string>([
-    'Skills that ramp up with time worked (for example "+1% per hour") and Totter\'s Morale-difference skills use the calculator\'s average over one login interval, starting fresh, not the hours or Morale since that operator was placed.',
-    'Workshop crafts, training, clues, recruitment and drones are not part of the simulated output.',
+    'Skills that ramp up with time worked (for example "+1% per hour") are averaged over each login window starting from the hours that operator has already worked in the same room without a break, so staying in longer is rewarded. Totter\'s Morale-difference skills still use the calculator\'s average over one login interval, starting fresh.',
+    'Workshop crafts, training, clues and recruitment are not part of the simulated output; drones are only counted when asked for.',
+    'A single-target Dormitory skill gives its recovery to the roommate with the least Morale at each login, until the next login.',
   ]);
   const operatorByName = new Map(base.operators.map(o => [o.name, o]));
-  const formerNames = new Map(base.operators.map(o => [o.name, o.aliases ?? []]));
 
   shifts.forEach((shift, i) => {
     const seen = new Set<string>();
@@ -154,47 +263,78 @@ export function simulateBase(input: SimulationInput): SimulationResult {
   });
 
   let evaluations = 0;
-  const cache = new Map<string, Rates>();
+  const shared = input.rateCache as Map<string, Rates> | undefined;
+  const cache = shared ?? new Map<string, Rates>();
+  let levelsOf = levelStores.get(cache);
+  if (!levelsOf) { levelsOf = new Map(); levelStores.set(cache, levelsOf); }
+  // Within one run a shift's index names it; across runs only its whole content does.
+  const shiftKey = shared
+    ? shifts.map(s => JSON.stringify([Object.keys(s.assignments).sort().map(room => [room, (s.assignments[room] ?? []).map(x => x ? `${x.operatorName}/${x.eliteLevel}/${x.level ?? ''}/${x.manualValue ?? ''}` : '')]), s.factoryProducts, s.settings ?? null, loginInterval, !!input.drones]))
+    : shifts.map((_, i) => String(i));
+  // Hours each operator has worked without a break in their current room; persists across cycles like Morale.
+  const worked: Record<string, number> = {};
+  // Fixed round-robin turn for each distinct refill list, so every member gets a bounded worst-case wait --
+  // a reactive "always refill whoever is lowest" can let a slower-draining member starve while attention
+  // keeps cycling to whichever of the others currently reads lowest, even though a fixed rotation would
+  // have kept everyone afloat with the same total number of refills.
+  const refillTurn = new Map<string, number>();
+  // Morale at the latest login: single-target dorm skills pick from it (see ratesFor).
+  let atLogin: Record<string, number> = {};
   function ratesFor(shiftIndex: number, morale: Record<string, number>): Rates {
     const shift = shifts[shiftIndex];
     const placed = placements(shift.assignments);
-    const key = `${shiftIndex}|${placed.map(p => moraleBin(morale[p.name])).join(',')}`;
+    const rampStart = Object.fromEntries(placed.filter(p => RAMP_OPERATORS.has(p.name) && kindOf[p.room] !== 'dormitory').map(p => [p.name, Math.round((worked[p.name] ?? 0) * 2) / 2]));
+    // Once a shift's first rates are known, only the Morale levels they read (and the order within a single-target
+    // dorm) tell its states apart; allMoraleLevels keeps every level, as before.
+    const known = levelsOf!.get(shiftKey[shiftIndex]);
+    const bins = placed.map(p => known && !input.allMoraleLevels ? moraleBin(morale[p.name], known.levels[p.name] ?? []) : moraleBin(morale[p.name]));
+    // Single-target dorm skills pick at each login, from the Morale then, and keep it to the next login.
+    const pickOrder = known ? Object.fromEntries(Object.entries(known.order).map(([dorm, names]) => [dorm, byMorale(names, atLogin)])) : undefined;
+    const order = pickOrder ? Object.values(pickOrder).map(x => x.join('>')).join(';') : '';
+    const key = `${shiftKey[shiftIndex]}|${known ? (input.allMoraleLevels ? 'all' : 'read') : 'first'}|${bins.join(',')}|${order}|${Object.entries(rampStart).map(([n, h]) => `${n}:${h}`).join(',')}`;
     const hit = cache.get(key);
-    if (hit) return hit;
+    if (hit) { if (!known) levelsOf!.set(shiftKey[shiftIndex], { levels: hit.levels, order: hit.order }); return hit; }
     // Dorm effects read each slot's own Morale; working rooms read importedMorale.
     const assignments: BaseAssignments = Object.fromEntries(Object.entries(shift.assignments).map(([room, slots]) =>
       [room, (slots ?? []).map(s => s ? { ...s, morale: morale[s.operatorName] } : null)]));
     const importedMorale = Object.fromEntries(placed.map(p => [p.name, morale[p.name]]));
-    const result = calculateBase({ ...base, ...shift.settings, assignments, factoryProducts: shift.factoryProducts, importedMorale, loginInterval, swapPolicy: 'onLogin' });
+    const result = calculateBase({ ...base, ...shift.settings, assignments, factoryProducts: shift.factoryProducts, importedMorale, rampStartHours: rampStart, loginInterval, swapPolicy: 'onLogin', dormitoryPickOrder: pickOrder });
     evaluations++;
-    const rates: Rates = { morale: {}, roomPerHour: {}, fullTime: {}, workers: {} };
+    const rates: Rates = { morale: {}, roomPerHour: {}, fullTime: {}, workers: {}, levels: result.moraleLevels, order: result.moraleOrder };
+    if (!known) levelsOf!.set(shiftKey[shiftIndex], { levels: result.moraleLevels, order: result.moraleOrder });
     for (const p of placed) {
       const kind = kindOf[p.room];
       if (kind === 'dormitory') {
         const r = result.dormitoryRecoveryByFacility[p.room]?.find(x => x.name === p.name);
-        rates.morale[p.name] = r ? r.base + r.bonus : 0;
+        rates.morale[p.name] = r ? settle(r.base + r.bonus) : 0;
       } else if (kind === 'workshop' || !kind) {
         // Workshop Morale is spent per craft, which this simulation does not schedule.
         rates.morale[p.name] = 0;
       } else {
         const room = result.rooms[p.room];
         const drain = room?.perOperatorMorale?.[p.name] ?? room?.combinedMoraleRate ?? 0;
-        rates.morale[p.name] = morale[p.name] <= 0 ? 0 : -drain;
+        rates.morale[p.name] = morale[p.name] <= 0 ? 0 : -settle(drain);
         (rates.workers[p.room] ??= []).push(p.name);
       }
     }
     for (const [room, out] of Object.entries(result.roomDailyOutput)) {
-      rates.roomPerHour[room] = { exp: out.exp / 24, goldMade: out.goldMade / 24, goldSold: out.goldSold / 24, extraLmd: out.extraLmd / 24, pepeLmd: out.pepeLmd / 24 };
+      rates.roomPerHour[room] = { exp: settle(out.exp / 24), goldMade: settle(out.goldMade / 24), goldSold: settle(out.goldSold / 24), extraLmd: settle(out.extraLmd / 24), pepeLmd: settle(out.pepeLmd / 24) };
       const full = result.rooms[room]?.fullTime;
-      rates.fullTime[room] = full !== null && full !== undefined && Number.isFinite(full) && full > 0 ? full : null;
+      rates.fullTime[room] = full !== null && full !== undefined && Number.isFinite(full) && full > 0 ? settle(full) : null;
     }
+    if (input.drones) {
+      rates.dronesPerHour = dronesPerHour(result, placed.filter(p => kindOf[p.room] === 'powerPlant').map(p => p.room));
+      rates.droneTargets = droneTargets(result, Object.keys(rates.workers), kindOf, shift.factoryProducts);
+    }
+    if (shared && cache.size >= RATE_CACHE_LIMIT) cache.clear();
     cache.set(key, rates);
     return rates;
   }
 
+  // Communal Suffering (dorm_exchangeAp[000]): swaps Morale with the previous occupant at full Morale.
   const hasFiammettaSwap = (slot: SlotAssignment) => {
     const op = operatorByName.get(slot.operatorName);
-    return !!op && hasNamedSkill(slot.operatorName, activeBaseSkills(op, 'Dormitory', slot.eliteLevel, base.skillSlots, slot.level), 'Fiammetta|Communal Suffering', formerNames.get(slot.operatorName));
+    return !!op && activeBaseSkills(op, 'Dormitory', slot.eliteLevel, base.skillSlots, slot.level).some((sk) => sk.buffId === 'dorm_exchangeAp[000]');
   };
 
   // Morale persists across cycles; storage is emptied at every login.
@@ -207,7 +347,7 @@ export function simulateBase(input: SimulationInput): SimulationResult {
   }
   function runCycle(previousRooms: Map<string, string>): { log: CycleLog; rooms: Map<string, string> } {
     const log: CycleLog = { output: {}, idleFull: {}, exhausted: {}, trace: {}, atLogins: [], events: [] };
-    const record = (time: number) => { for (const [name, m] of Object.entries(morale)) (log.trace[name] ??= []).push({ time, morale: m }); };
+    const record = input.lean ? () => {} : (time: number) => { for (const [name, m] of Object.entries(morale)) (log.trace[name] ??= []).push({ time, morale: m }); };
     let time = 0, roomOf = previousRooms;
     shifts.forEach((shift, shiftIndex) => {
       // Staffing change at this shift's first login.
@@ -227,11 +367,49 @@ export function simulateBase(input: SimulationInput): SimulationResult {
         log.events.push({ time, kind: 'fiammettaSwap', room: p.room, operators: [p.name, other], detail: `${p.name} swaps her full Morale with ${other} (${morale[other].toFixed(2)}).` });
         [morale[p.name], morale[other]] = [morale[other], morale[p.name]];
       }
+      if (shift.refill?.length) {
+        const fiammetta = placed.find(p => kindOf[p.room] === 'dormitory' && hasFiammettaSwap(p.slot));
+        const working = new Set(placed.filter(p => kindOf[p.room] !== 'dormitory').map(p => p.name));
+        const tired = (name: string) => working.has(name) && morale[name] !== undefined && morale[name] < FULL;
+        let needy: string | undefined;
+        if (input.refillPolicy === 'lowest') {
+          needy = shift.refill.filter(tired).sort((x, y) => morale[x] - morale[y])[0];
+        } else {
+          const key = shift.refill.join('|');
+          const turn = refillTurn.get(key) ?? 0;
+          // A fixed rotation through the list: each opportunity is this member's turn, in order, regardless of
+          // who currently reads lowest. The turn always advances, even when this member turns out not to need
+          // it (already full) -- that is a real wasted visit, exactly as it would be for a player on a schedule.
+          refillTurn.set(key, (turn + 1) % shift.refill.length);
+          const scheduled = shift.refill[turn % shift.refill.length];
+          needy = tired(scheduled) ? scheduled : undefined;
+        }
+        if (fiammetta && needy && morale[fiammetta.name] === FULL) {
+          caveats.add('A worker refilled in place is modeled as taken to the dorm slot before Fiammetta and put straight back at the login, so the swap costs no working time. The game text swaps with "the previous Operator assigned to that Dormitory"; that the swap fires on placement is an assumption. ' + (input.refillPolicy === 'lowest'
+            ? 'Of several workers on the same refill list, the one reading lowest gets her Morale.'
+            : 'Several workers on the same refill list are visited in a fixed rotation (not "whichever is lowest"), so each gets a bounded worst-case wait.'));
+          log.events.push({ time, kind: 'fiammettaSwap', room: fiammetta.room, operators: [fiammetta.name, needy], detail: `${fiammetta.name} swaps her full Morale with ${needy} (${morale[needy].toFixed(2)}), who goes straight back to work.` });
+          [morale[fiammetta.name], morale[needy]] = [morale[needy], morale[fiammetta.name]];
+        }
+      }
+      // Fiammetta already seated at full Morale, and someone is put into her dorm after her: the swap fires
+      // at once, with whoever arrives (the player puts the most tired in first).
+      for (const f of placed.filter(p => kindOf[p.room] === 'dormitory' && hasFiammettaSwap(p.slot))) {
+        if (morale[f.name] !== FULL || roomOf.get(f.name) !== f.room || shift.reseat?.includes(f.name)) continue;
+        const target = placed.filter(q => q.room === f.room && q.name !== f.name && roomOf.get(q.name) !== q.room && morale[q.name] < FULL).sort((x, y) => morale[x.name] - morale[y.name])[0];
+        if (!target) continue;
+        caveats.add('Fiammetta swaps Morale at once with whoever is put into her dorm while she is at full Morale, and with the operator already there when she is put in; the most tired arrival is assumed to go in first.');
+        log.events.push({ time, kind: 'fiammettaSwap', room: f.room, operators: [f.name, target.name], detail: `${f.name} swaps her full Morale with ${target.name} (${morale[target.name].toFixed(2)}), who has just been put into her dorm.` });
+        [morale[f.name], morale[target.name]] = [morale[target.name], morale[f.name]];
+      }
+      // A stint continues only in the same working room; a move, a rest or a spell unassigned starts it over.
+      for (const name of Object.keys(worked)) if (!placed.some(p => p.name === name && kindOf[p.room] !== 'dormitory' && roomOf.get(name) === p.room)) worked[name] = 0;
       roomOf = nextRoomOf;
       for (let login = 0; login < windows[shiftIndex].length; login++) {
         const windowHours = windows[shiftIndex][login];
         // Every login collects, so storage starts empty.
-        log.atLogins.push({ ...morale });
+        if (!input.lean) log.atLogins.push({ ...morale });
+        atLogin = { ...morale };
         log.events.push({ time, kind: 'login', detail: login === 0 ? `Shift ${shiftIndex + 1} goes in.` : 'Collect.' });
         record(time);
         const fill: Record<string, number> = {};
@@ -239,8 +417,10 @@ export function simulateBase(input: SimulationInput): SimulationResult {
         // resting loses nothing, and starting a window at 0 in a working room does.
         const exhaustedSeen = new Set<string>();
         let left = windowHours;
+        let lastRates: Rates | null = null;
         while (left > EPS) {
           const rates = ratesFor(shiftIndex, morale);
+          lastRates = rates;
           const segmentStart = time + windowHours - left;
           for (const [room, names] of Object.entries(rates.workers)) for (const n of names) {
             if (morale[n] === 0 && !exhaustedSeen.has(n)) {
@@ -249,6 +429,8 @@ export function simulateBase(input: SimulationInput): SimulationResult {
             }
           }
           let dt = left;
+          // Step at every level, so the Morale trace has its corners; crossing one these rates do not read finds the
+          // same cache key and costs no calculation.
           for (const [name, r] of Object.entries(rates.morale)) {
             const m = morale[name];
             if (r < 0) { const below = [...MORALE_THRESHOLDS].reverse().find(t => t < m); if (below !== undefined) dt = Math.min(dt, (m - below) / -r); }
@@ -279,41 +461,86 @@ export function simulateBase(input: SimulationInput): SimulationResult {
           left -= dt;
           record(time + windowHours - Math.max(0, left));
         }
+        if (input.drones && lastRates?.droneTargets && lastRates.dronesPerHour) {
+          // The drones made this window go in at the next login, on the rooms that are producing.
+          const w = input.droneWeights ?? { lmd: 1, exp: 1, goldMade: 500 };
+          const made = lastRates.dronesPerHour * windowHours;
+          const perHour = Object.values(lastRates.roomPerHour);
+          // Gold made less gold the Trading Posts sell over this window, plus outside gold (per day / 24 per hour).
+          const surplus = input.droneFunding ? (perHour.reduce((n, o) => n + o.goldMade - o.goldSold, 0) + input.droneFunding.externalGold / 24) * windowHours : null;
+          let spent = 0;
+          for (const { target, use } of allocateDrones(lastRates.droneTargets, made, w, surplus)) {
+            const out = (log.output[target.room] ??= { exp: 0, goldMade: 0, goldSold: 0, extraLmd: 0, pepeLmd: 0 });
+            out.exp += target.exp * use; out.goldMade += target.goldMade * use; out.goldSold += target.goldSold * use; out.extraLmd += target.extraLmd * use;
+            spent += use;
+          }
+          const drones = made - spent;
+          log.events.push({ time: time + windowHours, kind: 'drones', detail: `${made.toFixed(0)} drones made; ${(made - drones).toFixed(0)} spent.` });
+          caveats.add('Drones are spent at every login on the staffed Trading Post or Factory where each is worth most, 3 minutes of base production apiece (base skills do not apply), up to one item or order in progress per room. Trading Post drones use the room\'s average order rate; storage limits and the drone stock cap (235) are not applied.');
+        }
         time += windowHours;
+        // Everyone still on their feet has now worked this window as well.
+        for (const p of placed) if (kindOf[p.room] !== 'dormitory' && kindOf[p.room] !== 'workshop' && morale[p.name] > EPS) worked[p.name] = (worked[p.name] ?? 0) + windowHours;
       }
     });
     return { log, rooms: roomOf };
   }
 
+  // The state may repeat only every few cycles: Fiammetta visits a refill list in a fixed rotation that carries
+  // over from cycle to cycle (three core workers over two staffing changes line up again every three cycles), and
+  // refilling whoever is lowest can settle into turns that alternate across cycles. Comparing Morale one cycle
+  // apart would call such a steady plan unsettled forever (and the optimizer would reject it), so look for the
+  // shortest repeat of up to MAX_PERIOD cycles -- Morale and the rotation's position both -- and average the
+  // output over every cycle in it.
+  const MAX_PERIOD = 12;
+  const turns = () => JSON.stringify([...refillTurn.entries()].sort());
   let rooms = new Map<string, string>();
-  let start = { ...morale };
-  let cycle = 0, periodic = false, log: CycleLog | null = null;
+  const starts: { morale: Record<string, number>; turns: string }[] = [];
+  const recent: CycleLog[] = [];
+  let cycle = 0, periodic = false, period = 1;
   for (; cycle < maxCycles; cycle++) {
+    starts.push({ morale: { ...morale }, turns: turns() });
+    if (starts.length > MAX_PERIOD) starts.shift();
     const ran = runCycle(rooms);
-    log = ran.log; rooms = ran.rooms;
-    const names = Object.keys(morale);
-    periodic = names.every(n => Math.abs(morale[n] - start[n]) < 1e-7);
+    rooms = ran.rooms;
+    recent.push(ran.log);
+    if (recent.length > MAX_PERIOD) recent.shift();
+    const now = turns();
+    periodic = false;
+    for (let p = 1; p <= starts.length; p++) {
+      const ref = starts[starts.length - p];
+      if (ref.turns === now && Object.keys(morale).every(n => Math.abs(morale[n] - ref.morale[n]) < 1e-7)) { periodic = true; period = p; break; }
+    }
     // A repeat also needs the same staffing to carry into the next cycle, which holds
     // once one cycle has run (the last shift precedes the first from then on).
-    if (periodic && cycle > 0 && !input.fixedCycles) break;
-    start = { ...morale };
+    if (periodic && cycle >= period && !input.fixedCycles) break;
   }
+  const window = recent.slice(periodic ? -period : -1);
   if (cycle === maxCycles) cycle--;
   if (!periodic && !input.fixedCycles) warnings.add(`Morale did not settle into a repeating cycle within ${input.maxDays ?? 30} days; the last cycle is shown.`);
-  const final = log!;
-  const perDayFactor = 24 / cycleHours;
+  const final = window[window.length - 1];
+  const perDayFactor = 24 / (cycleHours * window.length);
   const roomSummaries: Record<string, RoomSummary> = {};
   const perDay = zeroOutput();
-  for (const room of new Set([...Object.keys(final.output), ...Object.keys(final.exhausted)])) {
-    const o = final.output[room] ?? { exp: 0, goldMade: 0, goldSold: 0, extraLmd: 0, pepeLmd: 0 };
+  for (const room of new Set(window.flatMap(l => [...Object.keys(l.output), ...Object.keys(l.exhausted)]))) {
+    const o = { exp: 0, goldMade: 0, goldSold: 0, extraLmd: 0, pepeLmd: 0 };
+    let idleFull = 0, exhausted = 0;
+    for (const l of window) {
+      const x = l.output[room];
+      if (x) { o.exp += x.exp; o.goldMade += x.goldMade; o.goldSold += x.goldSold; o.extraLmd += x.extraLmd; o.pepeLmd += x.pepeLmd; }
+      idleFull += l.idleFull[room] ?? 0;
+      exhausted += l.exhausted[room] ?? 0;
+    }
     const output = { exp: o.exp * perDayFactor, goldMade: o.goldMade * perDayFactor, goldSold: o.goldSold * perDayFactor, lmd: lmdOf(o) * perDayFactor, goldFreeLmd: o.pepeLmd * perDayFactor };
-    roomSummaries[room] = { output, idleFullHours: (final.idleFull[room] ?? 0) * perDayFactor, exhaustedHours: (final.exhausted[room] ?? 0) * perDayFactor };
+    roomSummaries[room] = { output, idleFullHours: idleFull * perDayFactor, exhaustedHours: exhausted * perDayFactor };
     perDay.exp += output.exp; perDay.goldMade += output.goldMade; perDay.goldSold += output.goldSold; perDay.lmd += output.lmd;
     perDay.goldFreeLmd! += output.goldFreeLmd;
   }
+  // The trace and log stay one cycle long (what the page draws); exhaustion in any cycle of the repeat still counts.
+  const earlierExhaustion = window.slice(0, -1).flatMap(l => l.events.filter(e => e.kind === 'exhausted'));
   return {
-    periodic, cycleHours, warmupCycles: cycle, perDay, rooms: roomSummaries,
-    moraleTrace: final.trace, moraleAtLogins: final.atLogins, events: final.events,
+    periodic, cycleHours, periodCycles: window.length, warmupCycles: cycle, perDay, rooms: roomSummaries,
+    moraleTrace: final.trace, moraleAtLogins: final.atLogins, events: [...earlierExhaustion, ...final.events],
     warnings: [...warnings], caveats: [...caveats], evaluations,
   };
 }

@@ -56,6 +56,7 @@ const CLOCK_PAGES = [
    for the .ts and .mjs scripts (125 findings, none new) is its own change, not part of this
    upgrade. */
 const SCRIPTS = ['scripts/**/*.js', 'scripts/**/*.cjs', 'scripts/content/test-runtime.mjs'];
+const TS_SCRIPTS = ['scripts/build/build-base-skill-effects.ts', 'scripts/build/base-skill-overrides.ts', 'scripts/build/base-skill-rules.ts', 'scripts/build/base-skill-forms.ts', 'scripts/bench/compare-optimizer.ts', 'scripts/bench/optimizer-run.ts'];
 
 export default [
   // The Next preset, scoped away from scripts/ (entries without `files` are global ignores and
@@ -123,6 +124,23 @@ export default [
     },
   },
   { files: ['scripts/**/*.cjs'], languageOptions: { sourceType: 'script' } },
+
+  // The TypeScript scripts that write committed data (the base skill table and its overrides) and the optimizer
+  // comparison bench: the TypeScript recommended rules, with Node's globals. The other .ts build scripts are not
+  // linted yet (scripts/build/build-pull-event-rewards.ts has ten `any`s to type first).
+  ...tseslint.configs.recommended.map((entry) => ({ ...entry, files: TS_SCRIPTS })),
+  {
+    files: TS_SCRIPTS,
+    languageOptions: { globals: { ...globals.node } },
+    rules: {
+      ...js.configs.recommended.rules,
+      'no-undef': 'off',
+      'no-unused-vars': 'off',
+      '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_', varsIgnorePattern: '^_', caughtErrorsIgnorePattern: '^_' }],
+      'no-constant-condition': ['error', { checkLoops: false }],
+      'no-redeclare': ['error', { builtinGlobals: false }],
+    },
+  },
   {
     files: ['scripts/content/test-runtime.mjs', 'scripts/palettes/palette-review/review.js'],
     languageOptions: { globals: { ...globals.node, ...globals.browser } },

@@ -4,7 +4,22 @@ export const cleanSkillName = (name: string | null | undefined) => (name ?? '').
 function extractReplacedName(name: string | null | undefined) { return name?.includes('Replaces') ? name.split('Replaces')[1].trim() : null; }
 function normalizeForComparison(description: string | null) { return (description ?? '').replace(/[+-]?\d+(?:\.\d+)?%?/g, '').replace(/\s+/g, ' ').trim(); }
 const ELITE_ORDER = ['Base', 'Elite 1', 'Elite 2'];
-export function activeBaseSkills(op: BaseOperator, facilityLabel: string, eliteLevel: string | null, skillSlots: BaseSkillSlots = {}, operatorLevel?: number): BaseSkill[] {
+// The answer depends only on the operator record, the room, promotion, level and slot table, all of which a search
+// asks about thousands of times (the base calculator looks every placed operator up on every call), so it is kept
+// per record and slot table. Callers get their own array; the skill objects are shared and never mutated.
+const EMPTY_SLOTS: BaseSkillSlots = {};
+const remembered = new WeakMap<BaseSkillSlots, WeakMap<BaseOperator, Map<string, BaseSkill[]>>>();
+export function activeBaseSkills(op: BaseOperator, facilityLabel: string, eliteLevel: string | null, skillSlots: BaseSkillSlots = EMPTY_SLOTS, operatorLevel?: number): BaseSkill[] {
+  let byOperator = remembered.get(skillSlots);
+  if (!byOperator) { byOperator = new WeakMap(); remembered.set(skillSlots, byOperator); }
+  let byQuery = byOperator.get(op);
+  if (!byQuery) { byQuery = new Map(); byOperator.set(op, byQuery); }
+  const key = `${facilityLabel}|${eliteLevel}|${operatorLevel ?? ''}`;
+  let skills = byQuery.get(key);
+  if (!skills) { skills = computeActiveBaseSkills(op, facilityLabel, eliteLevel, skillSlots, operatorLevel); byQuery.set(key, skills); }
+  return [...skills];
+}
+function computeActiveBaseSkills(op: BaseOperator, facilityLabel: string, eliteLevel: string | null, skillSlots: BaseSkillSlots, operatorLevel?: number): BaseSkill[] {
     // Level 30 is functionally the same tier as Base -- 1-star operators
     // have no Elite promotion path at all, so a slot tagged 'Level 30'
     // should resolve exactly like a Base-tier slot would.

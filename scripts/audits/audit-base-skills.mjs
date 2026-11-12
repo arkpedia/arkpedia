@@ -3,21 +3,20 @@
  *
  * WHY THIS EXISTS
  *
- * Every base skill reaches the calculation one of two ways: an entry in a
- * lib/base/*SpecialSkills.ts map keyed "Operator|SkillName", or a generic regex
- * over its English description. Both fail silently. A handler key with a quote
- * the scraped name lacks is never called; a skill matching no handler and no
- * regex is simply worth zero. Neither shows up in the UI, in tsc, or in a
- * build -- Viviana's key was wrong for as long as the handler existed, and the
- * only symptom was a number that looked plausible.
+ * Every base skill reaches the calculation through its entry in the skill table
+ * (lib/base/base-skill-effects.json, keyed by the game's buff id). A record skill
+ * without an entry, or with one that carries no number, is worth zero without a
+ * word in the UI, in tsc, or in a build.
  *
- * So this reports three things the type system cannot:
+ * So this reports what the type system cannot:
  *
  *   activation  which skills are live at each Elite tier, against the game's
  *               own slot data -- catches an Elite 2 skill that should replace
  *               its Elite 0 version but stacks with it instead
- *   dead keys   handler keys that match no real operator/skill pair
- *   coverage    skills no handler and no regex touches
+ *   coverage    record skills the table has no numbers for (and is not marked
+ *               non-numeric or custom)
+ *   dead keys   kept for the baseline's shape; the table's build refuses an
+ *               override that names no record, so this is always empty
  *
  * Known, accepted gaps live in the baseline file next to this script, so a
  * clean run means "nothing new", not "nothing at all". Add to the baseline
@@ -45,40 +44,7 @@ const GAMEDATA = process.env.ARKPEDIA_GAMEDATA
 const BASELINE = path.join(import.meta.dirname, 'base-skill-audit-baseline.json');
 const UPDATE = process.argv.includes('--update');
 
-const SPECIAL_FILES = {
-  'Control Center': 'controlCenterSpecialSkills.ts',
-  Dormitory: 'dormitorySpecialSkills.ts',
-  Factory: 'factorySpecialSkills.ts',
-  Office: 'officeSpecialSkills.ts',
-  'Power Plant': 'powerPlantSpecialSkills.ts',
-  'Reception Room': 'receptionRoomSpecialSkills.ts',
-  'Trading Post': 'tradingPostSpecialSkills.ts',
-};
-
-// The generic regexes each facility's calculation actually runs. Kept in step
-// with the *_PATTERN constants in lib/base/baseProductivity.ts -- a facility
-// absent here has no generic parser, so its skills only count when handled.
-const GENERIC = {
-  'Training Room': [/training speed/i, /morale consumed per hour/i, /next training time/i],
-  Workshop: [/byproduct/i, /Morale/i, /LMD/i],
-  Factory: [/productivity[^%]{0,40}?(-?\d+(?:\.\d+)?)%/i, /capacity[^.]{0,30}?([+-]\d+)/i,
-    /morale consumed per hour[^%\d]{0,10}?([+-]?\d+(?:\.\d+)?)/i,
-    /morale (consumed per hour|loss)[^.]{0,20}?(of operators in the|of all operators)/i],
-  'Trading Post': [/order acquisition[^%]{0,40}?(-?\d+(?:\.\d+)?)%/i, /order limit[^.\d+-]{0,10}?([+-]\d+)/i,
-    /productivity[^%]{0,40}?(-?\d+(?:\.\d+)?)%/i,
-    /morale consumed per hour[^%\d]{0,10}?([+-]?\d+(?:\.\d+)?)/i,
-    /morale (consumed per hour|loss)[^.]{0,20}?(of operators in the|of all operators)/i],
-  'Power Plant': [/(?:drone recovery rate|drone charging speed)[^%]{0,40}?(-?\d+(?:\.\d+)?)%/i,
-    /morale consumed per hour[^%\d]{0,10}?([+-]?\d+(?:\.\d+)?)/i],
-  'Control Center': [/order efficiency[^%]{0,40}?(-?\d+(?:\.\d+)?)%/i,
-    /factor(?:y|ies)[^%]{0,40}?productivity[^%]{0,40}?(-?\d+(?:\.\d+)?)%/i,
-    /clue collection speed[^%]{0,40}?(-?\d+(?:\.\d+)?)%/i,
-    /increase[s]? morale[^%\d]{0,60}?([+-]?\d+(?:\.\d+)?)\s*(?:per hour|\/\s*hr)/i],
-  'Reception Room': [/clue search speed[^%]{0,40}?(-?\d+(?:\.\d+)?)%/i],
-  Office: [/hr contacting speed[^%]{0,40}?(-?\d+(?:\.\d+)?)%/i],
-  Dormitory: [/morale consumed per hour[^%\d]{0,10}?([+-]?\d+(?:\.\d+)?)/i,
-    /morale (consumed per hour|loss)[^.]{0,20}?(of operators in the|of all operators)/i],
-};
+const TABLE = path.join(REPO, 'lib', 'base', 'base-skill-effects.json');
 
 const ROOM_TO_FACILITY = BASE_ROOMS;
 const PHASE_RANK = { PHASE_0: 0, PHASE_1: 1, PHASE_2: 2 };
@@ -107,26 +73,6 @@ function readOperators() {
     }
   }
   return out;
-}
-
-/** Handler keys a special-skills map declares, and which return only a note. */
-function specialKeys(file) {
-  const src = fs.readFileSync(path.join(REPO, 'lib', 'base', file), 'utf8');
-  const keys = new Set(); const noteOnly = new Set();
-  const re = /^[ \t]*(?:'((?:[^'\\]|\\.)*)'|"((?:[^"\\]|\\.)*)")\s*:/gm;
-  let m;
-  while ((m = re.exec(src)) !== null) {
-    const raw = m[1] !== undefined ? m[1] : m[2];
-    // TypeScript resolves \uXXXX at parse time, so the runtime key holds the
-    // real character. Unescape those and the quotes, nothing else.
-    const key = raw.replace(/\\u([0-9a-fA-F]{4})/g, (_, h) => String.fromCharCode(parseInt(h, 16)))
-      .replace(/\\'/g, "'").replace(/\\"/g, '"');
-    if (!key.includes('|')) continue;
-    keys.add(key);
-    const body = src.slice(m.index + m[0].length, m.index + m[0].length + 400).split(/\n {2}['"]/)[0];
-    if (/note:/.test(body) && !/\b(?:productivity|capacity|clue[SC]|selfMorale|ccMorale|drone|hr\w*|order\w*|dormitory\w*|training\w*|felvine|targeted\w*|perFactory\w*|perTrading\w*|factoryB\w*|tradingPostB\w*|reception\w*|allO\w*|singleT\w*|ursus\w*)\s*:/.test(body)) noteOnly.add(key);
-  }
-  return { keys, noteOnly };
 }
 
 function slotTable() {
@@ -167,58 +113,24 @@ function main() {
 
   const operators = readOperators();
   const slots = slotTable();
-  // A few skills are modelled directly in pages/base.tsx or through
-  // computeResourcePools() rather than a facility map -- Senshi's Monster
-  // Meals, Czerny's and Iris's resource conversions. They are handled, just
-  // not somewhere the two checks above can see, so match them by name.
-  // baseSkillSlots.ts is excluded deliberately: the slot table it documents
-  // (data/base-skill-slots.json) is keyed by EVERY skill name, so including it
-  // would mark everything as handled and hide real gaps.
-  let elsewhereSrc = fs.readFileSync(path.join(REPO, 'pages', 'base.tsx'), 'utf8');
-  for (const f of fs.readdirSync(path.join(REPO, 'lib', 'base')).filter((f) => f.endsWith('.ts') && f !== 'baseSkillSlots.ts')) {
-    elsewhereSrc += fs.readFileSync(path.join(REPO, 'lib', 'base', f), 'utf8');
-  }
-  // Matched either as a bare skill name or as a full "Operator|Skill" key --
-  // computeResourcePools() uses the latter form.
-  const handledElsewhere = (opName, skillName) =>
-    [`'${skillName}'`, `"${skillName}"`, `'${opName}|${skillName}'`, `"${opName}|${skillName}"`]
-      .some((probe) => elsewhereSrc.includes(probe));
-  const maps = Object.fromEntries(Object.entries(SPECIAL_FILES).map(([fac, f]) => [fac, specialKeys(f)]));
-  const realKeys = new Set(); const realByNorm = new Map();
-  for (const op of operators) {
-    for (const s of op.skills) {
-      const k = `${op.name}|${cleanName(s.name)}`;
-      realKeys.add(k); realByNorm.set(norm(k), k);
-    }
-  }
-
+  const table = JSON.parse(fs.readFileSync(TABLE, 'utf8')).entries;
   const found = { activation: [], deadKeys: [], coverage: [], unmatched: [] };
-
-  for (const [fac, { keys }] of Object.entries(maps)) {
-    for (const key of keys) if (!realKeys.has(key)) {
-      const near = realByNorm.get(norm(key));
-      found.deadKeys.push(`${fac}: ${key}${near ? `  (real name is ${near})` : '  (no similar skill exists)'}`);
-    }
-  }
 
   for (const op of operators) {
     if (!op.skills.length) continue;
     for (const s of op.skills) {
-      const fac = s.facility; const desc = s.description ?? '';
       const key = `${op.name}|${cleanName(s.name)}`;
-      const { keys } = maps[fac] ?? { keys: new Set() };
-      if (keys.has(key)) continue; // handled, or a documented note
-      if ((GENERIC[fac] ?? []).some((re) => re.test(desc))) continue;
-      if (handledElsewhere(op.name, cleanName(s.name))) continue;
-      found.coverage.push(`${fac}: ${key}`);
+      const entry = s.buffId ? table[s.buffId] : null;
+      if (entry && (entry.effects.length || entry.custom || entry.nonNumeric || entry.interaction)) continue;
+      found.coverage.push(`${s.facility}: ${key}${entry ? '' : '  (no table entry)'}`);
     }
-    const table = bd.chars[op.internalName] ? bd : cn;
-    const buffs = table?.buffs ?? {};
-    const cids = table?.chars[op.internalName] ? [op.internalName] : (byGameName.get(ALIASES[op.name] ?? op.name) ?? []).filter(c => table?.chars[c]);
+    const source = bd.chars[op.internalName] ? bd : cn;
+    const buffs = source?.buffs ?? {};
+    const cids = source?.chars[op.internalName] ? [op.internalName] : (byGameName.get(ALIASES[op.name] ?? op.name) ?? []).filter(c => source?.chars[c]);
     if (!cids.length) { found.unmatched.push(op.name); continue; }
     // An empty slot is stored as `buffData: {}`, not `[]`, so this cannot
     // assume an array -- 102 slots in the current dump look like that.
-    const chains = table.chars[cids[0]].buffChar
+    const chains = source.chars[cids[0]].buffChar
       .map((sl) => (Array.isArray(sl.buffData) ? sl.buffData : []))
       .filter((chain) => chain.length > 0);
     for (const [tier, rank] of TIERS) {

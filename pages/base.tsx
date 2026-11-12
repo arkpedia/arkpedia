@@ -4,6 +4,7 @@ import BaseSkillText from '@/components/operators/BaseSkillText';
 import ImportDialog from '@/components/account/ImportDialog';
 import dynamic from 'next/dynamic';
 import type { LayoutRecommendation } from '@/lib/base/accountOptimizer';
+import { setupGroups, setupLabel } from '@/lib/base/rotationSetups';
 import BaseOverview, { type BaseRoomSummary } from '@/components/base/BaseOverview';
 import BaseRotationPanel from '@/components/base/BaseRotationPanel';
 import BasePresetToolbar from '@/components/base/BasePresetToolbar';
@@ -65,8 +66,8 @@ import {
 import { calculateBase } from '@/lib/base/calculateBase';
 import { calculateRotation } from '@/lib/base/calculateRotation';
 import { initializeOptimizerData } from '@/lib/base/optimizerLogic';
-import { canTrainMastery, resolveTrainingTarget, TRAINING_CLASSES, type TrainingTarget } from '@/lib/base/trainingRoomSkills';
-import { type WorkshopRecipe, type WorkshopSettings } from '@/lib/base/workshopSkills';
+import { canTrainMastery, resolveTrainingTarget, TRAINING_CLASSES, type TrainingTarget } from '@/lib/base/trainingRoom';
+import { type WorkshopRecipe, type WorkshopSettings } from '@/lib/base/workshop';
 import { useReleaseTable } from '@/lib/content/context';
 import { withContentPage } from '@/lib/content/server';
 import { getOperatorIconPath } from '@/lib/operators/operatorIcon';
@@ -700,17 +701,27 @@ export default function BasePage({ operators }: Props) {
       window.localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify({ clueExchangeActive: p.clueExchangeActive, moraleAbove12: p.moraleAbove12, swapPolicy: p.swapPolicy }));
     } catch { setPresetStatus('Setup loaded for this session; browser storage is unavailable.'); }
   }
-  function saveOptimizerRotation(recommendation: LayoutRecommendation, startHour: number, externalGold: number): boolean {
+  function saveOptimizerRotation(recommendation: LayoutRecommendation, externalGold: number): boolean {
+    // The rotation keeps its start time; the rotation panel is where it is set.
+    const startHour = rotationPlan.startHour;
     const template = captureSetup('', '');
-    const presets: SavedBasePreset[] = recommendation.plan.shifts.map((shift, index) => ({
-      ...template, id: crypto.randomUUID(), name: `${recommendation.label} · optimized shift ${index + 1}`,
-      productionSpots: recommendation.spots, facilityLevels: recommendation.levels,
-      assignments: shift.assignments, factoryProducts: shift.factoryProducts,
-      dormitoryAmbience: recommendation.id === 'mine' ? account?.base?.dormitoryAmbience ?? {} : {},
-      loginInterval, swapPolicy: 'onLogin', rotationRates: undefined,
-    }));
+    // Shifts that place everyone the same way share one saved setup, as they share one preset in the game.
+    const groups = setupGroups(recommendation.plan.shifts);
+    const presets: SavedBasePreset[] = groups.map((group, index) => {
+      const shift = recommendation.plan.shifts[group[0]];
+      return {
+        ...template, id: crypto.randomUUID(), name: `${recommendation.label} · optimized setup ${setupLabel(index)}`,
+        productionSpots: recommendation.spots, facilityLevels: recommendation.levels,
+        assignments: shift.assignments, factoryProducts: shift.factoryProducts,
+        dormitoryAmbience: recommendation.id === 'mine' ? account?.base?.dormitoryAmbience ?? {} : {},
+        loginInterval, swapPolicy: 'onLogin', rotationRates: undefined,
+      };
+    });
     const nextPresets = [...savedPresets, ...presets];
-    const nextPlan: BaseRotationPlan = { version: 1, startHour, externalGold, shifts: presets.map(p => ({ id: crypto.randomUUID(), presetId: p.id, hours: recommendation.plan.stepHours })) };
+    const presetOf = (index: number) => presets[groups.findIndex(group => group.includes(index))];
+    // Fiammetta's refills, drones and parked Morale too, so the saved rotation scores what the optimizer showed.
+    const nextPlan: BaseRotationPlan = { version: 1, startHour, externalGold, drones: recommendation.weights, ...(recommendation.plan.initialMorale ? { parked: recommendation.plan.initialMorale } : {}), ...(recommendation.plan.refillPolicy ? { refillPolicy: recommendation.plan.refillPolicy } : {}),
+      shifts: recommendation.plan.shifts.map((shift, i) => ({ id: crypto.randomUUID(), presetId: presetOf(i).id, hours: recommendation.plan.stepHours, ...(shift.refill ? { refill: shift.refill } : {}), ...(shift.reseat ? { reseat: shift.reseat } : {}) })) };
     let previousPresets: string | null, previousPlan: string | null;
     try {
       previousPresets = window.localStorage.getItem(SAVED_BASE_PRESETS_KEY);
@@ -963,6 +974,7 @@ export default function BasePage({ operators }: Props) {
   }
 
   const currentCalculation = calculateBase({
+    explain: true, // the "?" panels spell out each skill's derivation
     operators, rosters, skillSlots, facilities: FACILITIES, assignments, factoryProducts,
     dormitoryAmbience, loginInterval, swapPolicy, clueExchangeActive, moraleAbove12,
     trainingTarget, workshopSettings, workshopRecipes,
@@ -1255,7 +1267,7 @@ export default function BasePage({ operators }: Props) {
     return { id: f.id, metric: workers.length || f.kind === 'dormitory' ? metric : f.level ? 'Empty room' : '', detail: f.level ? detail : '', workers, deadline };
   });
 
-  const optimizerDialog = optimizerAvailable && showOptimizer && <ImportDialog title="Base optimizer" className="base-rotation-dialog" onClose={() => setShowOptimizer(false)}><BaseAccountOptimizer account={account} base={{ operators, rosters, skillSlots, workshopRecipes, clueExchangeActive, moraleAbove12 }} loginInterval={loginInterval} onInterval={setLoginInterval} onApply={saveOptimizerRotation} /></ImportDialog>;
+  const optimizerDialog = optimizerAvailable && showOptimizer && <ImportDialog title="Base optimizer" className="base-rotation-dialog" onClose={() => setShowOptimizer(false)}><BaseAccountOptimizer account={account} base={{ operators, rosters, skillSlots, workshopRecipes, workshopSettings, clueExchangeActive, moraleAbove12, ...(resolvedTrainingTarget.operatorName ? { trainingTarget: resolvedTrainingTarget } : {}) }} loginInterval={loginInterval} startHour={rotationPlan.startHour} onInterval={setLoginInterval} onApply={saveOptimizerRotation} /></ImportDialog>;
   const rotationDialog = showRotationPlan && <ImportDialog title="Rotation" className="base-rotation-dialog" onClose={() => setShowRotationPlan(false)}><BaseRotationPanel plan={rotationPlan} onChange={updateRotationPlan} presets={savedPresets} onLoad={viewRotationShift} initialMorale={account?.base?.morale ?? {}} owned={ownedOperators ?? undefined} imported={!!account?.base} stages={rotationCalculation?.stages} /></ImportDialog>;
   if (!setupComplete) {
     return (
@@ -2147,7 +2159,7 @@ export default function BasePage({ operators }: Props) {
                   </>
                 );
               })()}
-<div><span className="base-summary-label">Estimate details</span><InfoPopover label="Production estimate limits"><p>Rotation uses the optimizer’s repeating simulation, including morale thresholds, storage and gold-funded LMD. Ramping skills are approximate. Excludes drones, crafting and training.</p></InfoPopover></div>
+<div><span className="base-summary-label">Estimate details</span><InfoPopover label="Production estimate limits"><p>Rotation uses the optimizer’s repeating simulation, including morale thresholds, storage and gold-funded LMD. Ramping skills are approximate. Drones count when the rotation came from the optimizer; crafting and training are excluded.</p></InfoPopover></div>
             </div>
             </div>
 

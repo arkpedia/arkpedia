@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { calculateBase } from '../../lib/base/calculateBase';
+import { syntheticSkillEntry } from '../../lib/base/baseSkillEffects';
 import type { BaseOperator, BaseSkill } from '../../lib/operators/operatorTypes';
 import type { SlotAssignment } from '../../lib/base/baseTypes';
 import { buildSheetCase, sheetCases } from './helpers/baseCombinationCases';
@@ -28,8 +29,8 @@ function referenceRow(row: (typeof reference.rows)[number], renamed = false) {
   const synthetic: BaseOperator[] = [];
   const addWorker = (quality?: string) => {
     const name = `Reference input ${row.row} ${synthetic.length}`;
-    const skills: Partial<BaseSkill>[] = [{name:'Reference rate',facility:'Trading Post',slot:0,phase:0,level:1,description:'When assigned to a Trading Post, order acquisition efficiency +0%.'}];
-    if (quality) skills.push({name:quality,facility:'Trading Post',slot:1,phase:0,level:1,description:'Observed order-quality distribution input.'});
+    const skills: Partial<BaseSkill>[] = [{name:'Reference rate',facility:'Trading Post',slot:0,phase:0,level:1,description:'When assigned to a Trading Post, order acquisition efficiency +0%.',tableEntry:syntheticSkillEntry('TRADING',[{kind:'orderEfficiency',value:0}])}];
+    if (quality) skills.push({name:quality,facility:'Trading Post',slot:1,phase:0,level:1,description:'Observed order-quality distribution input.',tableEntry:syntheticSkillEntry('TRADING',[],{goldOrderTier:quality.endsWith('β')?'higher':'lower'})});
     const template = input.operators.find(o=>o.name==='Jessica')!;
     synthetic.push({...template,name,baseSkills:skills as BaseSkill[]});push(name,'E0');
   };
@@ -51,6 +52,7 @@ function referenceRow(row: (typeof reference.rows)[number], renamed = false) {
     const intrinsic = row.row >=54 && row.row<=58 ? 0.1 : 0;
     const contribution = row.rate - (1 + staff.length*0.01 + 0.07 + intrinsic);
     synthetic[0].baseSkills![0].description = `When this Operator is assigned to a Trading Post, order acquisition efficiency +${(contribution*100).toFixed(8)}%.`;
+    synthetic[0].baseSkills![0].tableEntry = syntheticSkillEntry('TRADING', [{ kind: 'orderEfficiency', value: Number((contribution * 100).toFixed(8)) / 100 }]);
   }
   input.operators = [...(renamed ? renameClosure(input.operators) : input.operators),...synthetic];
   const result = calculateBase(input);

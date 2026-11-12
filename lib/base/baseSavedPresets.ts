@@ -1,6 +1,6 @@
 import type { BaseAssignments, ProductionSpots, FacilityLevels, FactoryProducts, DormitoryAmbience } from './baseTypes';
-import type { TrainingTarget } from './trainingRoomSkills';
-import type { WorkshopSettings } from './workshopSkills';
+import type { TrainingTarget } from './trainingRoom';
+import type { WorkshopSettings } from './workshop';
 import { getFacilities, PRODUCTION_SPOT_IDS, PRODUCTION_KINDS, MAX_LEVEL_BY_KIND, MAX_PRODUCTION_BY_KIND } from './baseConfig';
 export interface SavedBasePreset {
   id: string; name: string; savedAt: string; version: 1;

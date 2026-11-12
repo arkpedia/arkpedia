@@ -1,8 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { BASE_ROSTER_NAMES, checkBaseRosters, toBaseRosters, type BaseRosterData } from '../../lib/base/baseGroupRosters';
-import { CONTROL_CENTER_SPECIAL_SKILLS, type ControlCenterContext } from '../../lib/base/controlCenterSpecialSkills';
-import { RECEPTION_ROOM_SPECIAL_SKILLS, type ReceptionRoomContext } from '../../lib/base/receptionRoomSpecialSkills';
+import { evalSkill } from './skill-eval-helper';
 
 /*
  * /base counts group members from the rosters its props carry, not from Sets compiled
@@ -13,15 +12,13 @@ const empty = Object.fromEntries(BASE_ROSTER_NAMES.map(name => [name, [] as stri
 
 test('a group member only the release\'s rosters list is counted by the skills that read the group', () => {
   const release = toBaseRosters({ ...empty, TEAM_RAINBOW: ['Blitz', 'Release Recruit'], BLACKSTEEL_WORLDWIDE: ['Release Courier'] });
-  const blitz = CONTROL_CENTER_SPECIAL_SKILLS['Blitz|Team Rainbow'];
-  const cc = (rosters: ReturnType<typeof toBaseRosters>) => ({ rosters, ccOperatorNames: ['Blitz', 'Release Recruit'] }) as unknown as ControlCenterContext;
-  assert.equal(blitz(cc(release)).ccMoraleBonus, 0.1);
-  assert.equal(blitz(cc(toBaseRosters(empty))).ccMoraleBonus, 0);
+  const ccNames = ['Blitz', 'Release Recruit'];
+  assert.equal(evalSkill('Blitz', 'Team Rainbow', { rosters: release, ccNames }).cc.morale, 0.1);
+  assert.equal(evalSkill('Blitz', 'Team Rainbow', { rosters: toBaseRosters(empty), ccNames }).cc.morale, 0);
 
-  const surfer = RECEPTION_ROOM_SPECIAL_SKILLS['Surfer|Information Gathering'];
-  const room = (rosters: ReturnType<typeof toBaseRosters>) => ({ rosters, sameRoomOperatorNames: ['Surfer', 'Release Courier'], filledCountThisRoom: 2 }) as unknown as ReceptionRoomContext;
-  assert.ok(Math.abs((surfer(room(release)).clueSpeed ?? 0) - 0.3) < 1e-9);
-  assert.ok(Math.abs((surfer(room(toBaseRosters(empty))).clueSpeed ?? 0) - 0.1) < 1e-9);
+  const roomNames = ['Surfer', 'Release Courier'];
+  assert.ok(Math.abs(evalSkill('Surfer', 'Information Gathering', { rosters: release, roomNames }).clueSpeed - 0.3) < 1e-9);
+  assert.ok(Math.abs(evalSkill('Surfer', 'Information Gathering', { rosters: toBaseRosters(empty), roomNames }).clueSpeed - 0.1) < 1e-9);
 });
 
 test('a roster table that disagrees with the rosters the calculations name fails where it is read', () => {

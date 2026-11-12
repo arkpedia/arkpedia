@@ -1,6 +1,12 @@
+import { completeStaffing } from './completeStaffing';
+import { byScore } from './accountResults';
 import type { AccountRecord } from '../account/accountStore';
-import { BASE_PRESET_IDS, BASE_PRESETS, getFacilities, layoutProblems, presetLevels, presetSpots } from './baseConfig';
+import { BASE_PRESET_IDS, BASE_PRESETS, PRODUCTION_SPOT_IDS, getFacilities, layoutProblems, presetLevels, presetSpots } from './baseConfig';
 import { optimizeBase, sustainableOutput, type OptimizerResult, type OwnedOperator } from './baseOptimizer';
+import { exceedsSetups } from './rotationSetups';
+import { evaluate, genomeFromResult, genomeNotes, toOptimizerResult, type Evaluation, type Genome, type GenomeContext } from './planGenome';
+import { anneal } from './annealBase';
+import { calcDormitoryRecovery, defaultDormitoryAmbience } from './baseProductivity';
 import type { SimulationBase, DailyOutput } from './baseSimulation';
 import type { ProductionSpots, FacilityLevels, FactoryProducts } from './baseTypes';
 
@@ -13,34 +19,79 @@ export interface AccountOptimizerInput {
   objective: 'balanced' | 'lmd' | 'exp';
   externalGold: number;
   compareLayouts: boolean;
+  /** Count the Power Plants' drones, spent where each is worth most under the funded scoring. Default true. */
+  drones?: boolean;
+  /** Reserve these owned operators in dorms throughout the search. */
+  lockedDorm?: string[];
+  /** Search time in seconds, 5 to 600. Default 300. */
+  searchSeconds?: number;
+  /** Benches: anneal for this many rounds per layout instead of the time left, cooling over the rounds, so a run
+   *  repeats exactly (scripts/bench/compare-optimizer.ts). The seed phase still keeps to `searchSeconds`. */
+  annealRounds?: number;
+  /** The formations search, run beside the main one (the page starts it in a second worker): one first plan per
+   * layout, then the leading layout's plan built with formations, then all the time left annealing that. */
+  formations?: boolean;
+  /** Which of several searches run side by side this is (0, the default, is the first). Every start seeds the
+   * same way (the product-split order is the search's best guess, and a start from a worse split loses its
+   * minute to it) and anneals from its own random seed, so parallel searches walk different paths from the same
+   * plans; the page merges their results per layout (accountResults.ts). */
+  start?: number;
+  /** The walks each seed plan is annealed with, in order. `share` is the walk's fraction of the layout's slot; a
+   *  walk without one takes what the walks before it left (nothing, where an earlier walk used its whole share). */
+  walks?: readonly OptimizerWalk[];
 }
 export interface LayoutRecommendation extends LayoutOption {
   products: FactoryProducts;
+  /** The objective's weights, which drones were spent by: a saved rotation scores with the same ones. */
+  weights: { lmd: number; exp: number; goldMade: number };
   plan: OptimizerResult;
   output: DailyOutput;
   score: number;
 }
 export interface AccountOptimizerResult { recommendations: LayoutRecommendation[]; searched: number; rejected: number }
 
+export type OptimizerWalk = { countSeats: boolean; lns?: 'off' | 'move'; share?: number };
+/** One walk free to seat count raisers in the Reception Room and Office, one held to the operators skilled there.
+ *  Both run the room re-solve (`lns`), which measured +0.30% over the 21 rosters at the page's 5 minutes. Neither
+ *  takes a `share`: splitting the slot was measured at the same budget and lost (0.5/0.5 −0.58%, 0.7/0.3 −0.25%),
+ *  so the second walk still gets only what the first leaves. */
+const DEFAULT_WALKS: readonly OptimizerWalk[] = [{ countSeats: true, lns: 'move' }, { countSeats: false, lns: 'move' }];
+
+/** Automatic recommendations focus on 252: two Trading Posts, five Factories and two Power Plants.
+ * Any valid imported layout can still be optimized on its own. */
+const productionCounts = (spots: ProductionSpots) => {
+  const count = (kind: string) => Object.values(spots).filter(k => k === kind).length;
+  return `${count('tradingPost')}${count('factory')}${count('powerPlant')}`;
+};
+export const SEARCHED_LAYOUT_SHAPES = ['252'];
+/** The weight of the output an objective puts second: a tie-break between plans equal on the first. */
+export const SECONDARY_WEIGHT = 0.01;
+
 /** Respect already-upgraded right-side rooms, which cannot be downgraded in game. */
 export function optimizerLayouts(snapshot?: AccountRecord['base'], compare = true): LayoutOption[] {
-  const layouts: LayoutOption[] = snapshot ? [{ id: 'mine', label: 'Your layout', spots: snapshot.productionSpots, levels: snapshot.facilityLevels }] : [];
+  const layouts: LayoutOption[] = [];
+  // The imported layout is searched when the reader asks for it alone, or when it is itself a 252.
+  if (snapshot && (!compare || SEARCHED_LAYOUT_SHAPES.includes(productionCounts(snapshot.productionSpots)))) layouts.push({ id: 'mine', label: 'Your layout', spots: snapshot.productionSpots, levels: snapshot.facilityLevels });
   if (compare || !snapshot) for (const id of BASE_PRESET_IDS) {
+    if (!SEARCHED_LAYOUT_SHAPES.includes(productionCounts(presetSpots(id)))) continue;
     const levels = presetLevels(id);
     if (snapshot && ['office', 'receptionRoom', 'trainingRoom'].some(room => (snapshot.facilityLevels[room] ?? 0) > (levels[room] ?? 0))) continue;
     layouts.push({ id, label: BASE_PRESETS[id].label, spots: presetSpots(id), levels });
   }
-  if (compare || !snapshot) {
-    // 1-5-3 trades one post for EXP production; 3-4-2 is the reference
-    // spreadsheet's three-post layout, with the max-right power budget.
-    const onePost = { ...presetSpots('2-4-3'), prod4: 'factory' as const };
-    layouts.push({ id: '1-5-3', label: '1-5-3', spots: onePost, levels: presetLevels('2-4-3') });
-    layouts.push({ id: '3-4-2', label: '3-4-2', spots: { ...presetSpots('2-5-2-right'), prod8: 'tradingPost' }, levels: presetLevels('2-5-2-right') });
-  }
   const seen = new Set<string>();
   return layouts.filter(l => {
     if (layoutProblems(l.spots, l.levels).length) return false;
-    const key = JSON.stringify(getFacilities(l.spots, l.levels).map(f => [f.id, f.kind, f.level]));
+    const facilities = getFacilities(l.spots, l.levels);
+    // Production positions are presentation, not different buildings. Keep the
+    // imported layout (added first), so teams and saved rotations use its room IDs.
+    const production = facilities.filter(f => PRODUCTION_SPOT_IDS.includes(f.id))
+      .map(f => `${f.kind}:${f.level}`).sort();
+    const support = facilities.filter(f => !PRODUCTION_SPOT_IDS.includes(f.id)).map(f => [
+      f.id, f.kind, f.level,
+      f.kind === 'dormitory' ? calcDormitoryRecovery(f.level,
+        (l.id === 'mine' ? snapshot?.dormitoryAmbience?.[f.id] : undefined) ?? defaultDormitoryAmbience(f.level)) : null,
+    ]);
+    const key = JSON.stringify([production, support]);
     if (seen.has(key)) return false;
     seen.add(key); return true;
   });
@@ -62,31 +113,167 @@ export function productOptions(layout: LayoutOption): FactoryProducts[] {
   return result;
 }
 
-export function optimizeAccountBase(input: AccountOptimizerInput, progress?: (done: number, total: number, label: string) => void): AccountOptimizerResult {
-  if (!Object.keys(input.roster).length) throw new Error('No known owned operators were found in this import.');
+/**
+ * The account's best base within `searchSeconds` (default 300; the page offers 1, 2, 5 and 10 minutes).
+ *
+ * Seed: today's optimizer (lib/base/baseOptimizer.ts) on each layout, product splits in order of how likely
+ * they are to win (about as many gold factories as Trading Posts first), until about a third of the time is
+ * spent -- every layout gets at least one. With `formations` (a second search the page runs beside this one),
+ * only the first split per layout, then the leader is built again with formations. Anneal: the best one or two layouts
+ * are improved by simulated annealing over the plan genome (lib/base/annealBase.ts), which also tries other
+ * factory products, in two walks (with and without count-raiser seats in the Reception Room and Office), with the
+ * room re-solve on in both. The annealed plan never scores below its seed. `progress` receives the best result so
+ * far whenever it improves, so a stopped search still has one to show.
+ */
+export function optimizeAccountBase(input: AccountOptimizerInput, progress?: (done: number, total: number, label: string, best?: AccountOptimizerResult) => void): AccountOptimizerResult {
+  const roster = Object.fromEntries(Object.entries(input.roster).filter(([name]) => name !== input.base.trainingTarget?.operatorName));
+  if (!Object.keys(roster).length) throw new Error('No known owned operators were found in this import.');
   if (!Number.isFinite(input.externalGold) || input.externalGold < 0 || input.externalGold > 1000) throw new Error('External gold must be between 0 and 1000 per day.');
   const layouts = optimizerLayouts(input.snapshot, input.compareLayouts);
-  if (!layouts.length) throw new Error('The imported layout has an invalid power budget. Compare standard layouts or update your import.');
-  const candidates = layouts.flatMap(layout => productOptions(layout).map(products => ({ layout, products })));
+  if (!layouts.length) throw new Error('The imported layout has an invalid power budget. Turn on Recommend 2-5-2 or update your import.');
+  const started = Date.now();
+  const budget = Math.max(5, Math.min(600, input.searchSeconds ?? 300)) * 1000;
+  const elapsed = () => Date.now() - started;
+  const tick = (label: string, best?: AccountOptimizerResult) => progress?.(Math.min(100, Math.round(100 * elapsed() / budget)), 100, label, best);
   const recommendations: LayoutRecommendation[] = [];
-  let rejected = 0;
-  const weights = { lmd: input.objective === 'exp' ? 0 : 1, exp: input.objective === 'lmd' ? 0 : 1, goldMade: 500 };
-  candidates.forEach(({ layout, products }, index) => {
-    progress?.(index, candidates.length, layout.label);
-    const plan = optimizeBase({
-      base: { ...input.base, facilities: getFacilities(layout.spots, layout.levels), dormitoryAmbience: layout.id === 'mine' ? input.snapshot?.dormitoryAmbience : undefined },
-      roster: input.roster, loginInterval: input.loginInterval, factoryProducts: products,
-      weights, sustainable: true, externalGold: input.externalGold,
-    });
-    if (!plan.simulation.periodic || plan.simulation.events.some(e => e.kind === 'exhausted')) { rejected++; return; }
-    const output = sustainableOutput(plan.simulation.perDay, input.externalGold);
-    const score = output.lmd * weights.lmd + output.exp * weights.exp;
-    const recommendation = { ...layout, products, plan, output, score };
-    const previous = recommendations.findIndex(r => r.id === layout.id);
+  let rejected = 0, searched = 0;
+  // Balanced: LMD and EXP at par. LMD: Trading Posts and gold Factories first, EXP Factories as high as still
+  // possible, so EXP keeps a small weight that only decides between plans of equal LMD; EXP the other way round
+  // (docs/development/base-design-notes.md).
+  const weights = { lmd: input.objective === 'exp' ? SECONDARY_WEIGHT : 1, exp: input.objective === 'lmd' ? SECONDARY_WEIGHT : 1, goldMade: 500 };
+  const drones = input.drones !== false;
+  const baseFor = (layout: LayoutOption) => ({ ...input.base, facilities: getFacilities(layout.spots, layout.levels), dormitoryAmbience: layout.id === 'mine' ? input.snapshot?.dormitoryAmbience : undefined });
+  const sorted = () => recommendations.sort(byScore);
+  const completed = new WeakMap<OptimizerResult, LayoutRecommendation>();
+  const completedBest = new Map<string, LayoutRecommendation>();
+  // A plan as the reader gets it, completed (completeStaffing.ts); the best completed plan per layout is kept.
+  const keepCompleted = (r: LayoutRecommendation): LayoutRecommendation => {
+    let result = completed.get(r.plan);
+    if (!result) {
+      const ctx: GenomeContext = { base: baseFor(r), roster, loginInterval: input.loginInterval, weights, sustainable: true, externalGold: input.externalGold, drones, lockedDorm: input.lockedDorm };
+      const plan = completeStaffing(r.plan, ctx);
+      const output = sustainableOutput(plan.simulation.perDay, input.externalGold);
+      result = { ...r, plan, output, score: output.lmd * weights.lmd + output.exp * weights.exp };
+      completed.set(r.plan, result);
+    }
+    const previous = completedBest.get(r.id);
+    if (!previous || result.score > previous.score) completedBest.set(r.id, result);
+    return completedBest.get(r.id)!;
+  };
+  const snapshotResult = (): AccountOptimizerResult => ({ recommendations: sorted().map(keepCompleted).sort(byScore), searched, rejected });
+  const offer = (recommendation: LayoutRecommendation) => {
+    // The one gate every plan passes: whatever shape produced it, a rotation that needs more distinct setups
+    // than the game stores as presets cannot be set up in the base, so it is never shown.
+    if (exceedsSetups(recommendation.plan.shifts)) { rejected++; return false; }
+    const previous = recommendations.findIndex(r => r.id === recommendation.id);
     if (previous < 0) recommendations.push(recommendation);
-    else if (score > recommendations[previous].score) recommendations[previous] = recommendation;
+    else if (recommendation.score > recommendations[previous].score) recommendations[previous] = recommendation;
+    else return false;
+    return true;
+  };
+
+  // Formations (Fiammetta's refill core with crews taking turns, as hand-made sheets run) take 20-40 s on a large
+  // roster and help some rosters, not others, so they run as a second search beside the main one rather than
+  // inside it. The main worker keeps its own full search budget.
+  const walks = input.walks ?? DEFAULT_WALKS;
+  const withFormations = !!input.formations && 'Fiammetta' in roster;
+  const start = Math.max(0, Math.floor(input.start ?? 0));
+  const seedShare = withFormations ? 0 : 0.35;
+
+  // Seed. Splits close to one gold factory per Trading Post first: gold is what the posts sell.
+  const queue = layouts.map(layout => {
+    const facilities = getFacilities(layout.spots, layout.levels);
+    const posts = facilities.filter(f => f.kind === 'tradingPost' && f.capacity).length;
+    const gold = (p: FactoryProducts) => Object.values(p).filter(v => v === 'Precious Metals').length;
+    // Strong gold pairs can use a smaller room; an EXP trio needs the larger
+    // capacity. The main search tries several seeds; the formations worker keeps
+    // the original single-seed order because its construction already dominates
+    // the budget. Every split remains available to annealing in either worker.
+    const goldCapacity = (p: FactoryProducts) => facilities.filter(f => f.kind === 'factory' && p[f.id] === 'Precious Metals').reduce((sum, f) => sum + f.capacity, 0);
+    return { layout, splits: productOptions(layout).sort((x, y) => Math.abs(gold(x) - posts) - Math.abs(gold(y) - posts) || gold(x) - gold(y) || (withFormations ? 0 : goldCapacity(x) - goldCapacity(y))) };
   });
-  progress?.(candidates.length, candidates.length, 'Done');
-  recommendations.sort((a, b) => b.score - a.score || (a.id === 'mine' ? -1 : b.id === 'mine' ? 1 : a.label.localeCompare(b.label)));
-  return { recommendations, searched: candidates.length, rejected };
+  for (let round = 0; queue.some(q => q.splits.length > round); round++) {
+    for (const { layout, splits } of queue) {
+      if (round >= splits.length || (round > 0 && elapsed() > budget * seedShare)) continue;
+      tick(`${layout.label}: first plans`);
+      const products = splits[round];
+      searched++;
+      const plan = optimizeBase({ base: baseFor(layout), roster, loginInterval: input.loginInterval, factoryProducts: products, weights, sustainable: true, externalGold: input.externalGold, drones, lockedDorm: input.lockedDorm });
+      if (!plan.simulation.periodic || plan.simulation.events.some(e => e.kind === 'exhausted')) { rejected++; continue; }
+      const output = sustainableOutput(plan.simulation.perDay, input.externalGold);
+      if (offer({ ...layout, products, weights, plan, output, score: output.lmd * weights.lmd + output.exp * weights.exp })) tick(`${layout.label}: first plans`, snapshotResult());
+    }
+    if (elapsed() > budget * seedShare) break;
+  }
+  const leader = sorted()[0];
+  if (withFormations && leader) {
+    tick(`${leader.label}: formations`);
+    searched++;
+    const layout = layouts.find(l => l.id === leader.id)!;
+    const plan = optimizeBase({ base: baseFor(layout), roster, loginInterval: input.loginInterval, factoryProducts: leader.products, weights, sustainable: true, externalGold: input.externalGold, drones, lockedDorm: input.lockedDorm, formations: true });
+    if (plan.simulation.periodic && !plan.simulation.events.some(e => e.kind === 'exhausted')) {
+      const output = sustainableOutput(plan.simulation.perDay, input.externalGold);
+      if (offer({ ...layout, products: leader.products, weights, plan, output, score: output.lmd * weights.lmd + output.exp * weights.exp })) tick(`${layout.label}: formations`, snapshotResult());
+    } else rejected++;
+  }
+
+  // Anneal the best layouts in the time left: most of it to the best, the rest to the runner-up (all of it to the
+  // leader in the formations search, whose runner-up the main search covers).
+  const order = sorted().slice(0, withFormations ? 1 : 2);
+  order.forEach((seed, i) => {
+    const slotStarted = elapsed();
+    const left = budget - slotStarted;
+    if (left < 2000) return;
+    const timeMs = order.length > 1 && i === 0 ? left * 0.7 : left;
+    const ctx: GenomeContext = { base: baseFor(seed), roster, loginInterval: input.loginInterval, weights, sustainable: true, externalGold: input.externalGold, drones, lockedDorm: input.lockedDorm };
+    const genome = genomeFromResult(seed.plan, ctx);
+    if (!genome) return;
+    // Two walks from the same seed plan: one free to seat count raisers in the Reception Room and Office
+    // (countFeeders.ts), one held to the operators skilled there. The wider walk finds the seats that pay and also
+    // spends moves on many that do not, and which walk ends higher differs by roster (21 Krooster profiles at 60
+    // rounds, 2026-11-05: the wider lost on 3, the narrower on 8), so both run and the better completed plan is
+    // kept. With a round budget both take it in full. On the clock the second has only what the first left of the
+    // slot once its patience ran out: halving the slot lost up to 1.4% at 120 s, where rounds still pay.
+    //
+    // That remainder is usually nothing. At the 5 minutes the page searches for, the first walk takes the slot
+    // whole (2015 rounds of 173 s on one 324-operator roster) and the second gets 3 s, or never starts; the
+    // narrower walk the round bench says wins on 8 of 21 rosters barely runs in production. Measured 2026-11-06,
+    // and the gap between the two budgets is the bench's, not the search's: see base-optimizer-research.md.
+    //
+    // Giving the second walk a share was measured at that budget over all 21 rosters, the re-solve off in both so
+    // the split was the only change: 0.5/0.5 scored −0.58% in the mean (4 up, 16 down), 0.7/0.3 −0.25% (8 up,
+    // 13 down). No split beat the single long walk, so the default keeps no share; 0.7 is less bad only because
+    // the wider walk gets more of the time back, not because the second walk pays for it.
+    for (const walk of walks) {
+      const { countSeats } = walk;
+      // A walk with a share of its own is held to it, so a later walk still has a slot to run in; one without takes
+      // what the walks before it left. On the clock the first walk alone can use the whole slot (2015 rounds of it
+      // at 300 s), which is why a walk that has to run cannot be left to the remainder.
+      const walkMs = input.annealRounds ? timeMs : walk.share ? timeMs * walk.share : timeMs - (elapsed() - slotStarted);
+      if (walkMs < 2000) break;
+      let walkBest = -Infinity;
+      const improve = (g: Genome, e: Evaluation) => {
+        if (!e.sim.periodic || e.sim.events.some(x => x.kind === 'exhausted')) return;
+        const plan = toOptimizerResult(g, e, ctx, genomeNotes(g, e, ctx));
+        const output = sustainableOutput(e.sim.perDay, input.externalGold);
+        const recommendation = { ...seed, products: g.products, plan, output, score: output.lmd * weights.lmd + output.exp * weights.exp };
+        if (offer(recommendation)) tick(`${seed.label}: improving`, snapshotResult());
+        // Each of a walk's own improvements is completed, as an offered plan is: one that trails the other walk
+        // before completion can lead it after, and an earlier best can complete higher than a later one.
+        else if (recommendation.score > walkBest && !exceedsSetups(plan.shifts)) keepCompleted(recommendation);
+        walkBest = Math.max(walkBest, recommendation.score);
+      };
+      const r = anneal(genome, ctx, {
+        // Each start its own seed: the same seed plan, a different walk from it.
+        timeMs: walkMs, seed: 1 + i + 97 * start, countSeats, ...(walk.lns ? { lns: walk.lns } : {}), ...(input.annealRounds ? { maxRounds: input.annealRounds } : {}),
+        onProgress: ({ genome: g }) => { tick(`${seed.label}: improving`); improve(g, evaluate(g, ctx)); },
+      });
+      // The annealer scored lean (no Morale trace); the plan a reader sees is evaluated in full.
+      improve(r.genome, evaluate(r.genome, ctx));
+      searched += r.simulations;
+    }
+  });
+  // The search may stop before its time is up (nothing left to improve); it is still done.
+  progress?.(100, 100, 'Done');
+  return snapshotResult();
 }

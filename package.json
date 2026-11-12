@@ -73,7 +73,8 @@
     "release:preview": "node scripts/deploy/request-preview.mjs",
     "cf:preview:check": "node scripts/deploy/native-preview.mjs check",
     "cf:preview:build": "node scripts/deploy/native-preview.mjs build",
-    "cf:preview:deploy": "node scripts/deploy/native-preview.mjs publish"
+    "cf:preview:deploy": "node scripts/deploy/native-preview.mjs publish",
+    "base:skill-effects": "tsx scripts/build/build-base-skill-effects.ts"
   },
   "dependencies": {
     "@fontsource/inter": "5.3.0",
@@ -105,6 +106,7 @@
     "eslint": "^9.39.5",
     "eslint-config-next": "^16.4.2",
     "globals": "14.0.0",
+    "highs": "^1.15.4",
     "js-yaml": "^4.3.2",
     "knip": "6.41.0",
     "opencc-js": "1.4.2",

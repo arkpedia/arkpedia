@@ -55,16 +55,6 @@ export type FactoryProducts = Record<string, FactoryProduct | null>;
 // by default. See defaultDormitoryAmbience in baseProductivity.ts.
 export type DormitoryAmbience = Record<string, number>;
 
-export interface ProductivityResult {
-  grey: number; // e.g. 1.03 for 3 operators filled
-  yellow: number; // e.g. 0.20 for a +20% skill, can be negative for a -5% skill
-}
-
-export interface CapacityResult {
-  base: number; // 54 by default for factories
-  adjustment: number; // sum of any skill-driven +/- adjustments
-}
-
 export interface MoraleResult {
   grey: number; // base 1.00/hr, -0.05 per operator after the first
   selfYellow: Record<string, number>; // per-operator "morale consumed per hour" adjustment, keyed by operator name -- the vast majority of skills only affect the operator who has them
@@ -89,3 +79,8 @@ export interface SlotAssignment {
 // Maps each facility's id to the operator+skill currently assigned to
 // its slots (null = empty slot). Persisted to localStorage.
 export type BaseAssignments = Record<string, (SlotAssignment | null)[]>;
+
+/** Per room, per seat, the crew (index into a plan's crews) that holds the seat at each staffing change, where it
+ *  differs from the room's crew: the stagger of docs/development/base-design-notes.md, one or two seats of a room
+ *  changing hands while the rest of the crew works on. */
+export type SeatCrews = Record<string, (number[] | undefined)[]>;

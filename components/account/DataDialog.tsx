@@ -1,6 +1,7 @@
 import { clearReplays } from '@/lib/replays/store';
 import { useState } from 'react';
 import GameSignIn from '@/components/account-import/GameSignIn';
+import KroosterImport from '@/components/account-import/KroosterImport';
 import SegmentedControl from '@/components/ui/SegmentedControl';
 import { SERVER_IDS, SERVERS, type ServerId } from '@/lib/account-import/yostar';
 import { readSavedLogin } from '@/lib/account-import/savedLogin';
@@ -167,6 +168,11 @@ export default function DataDialog({ onClose, initialView = 'game' }: { onClose:
         <SegmentedControl label="Server" className="import-server" value={server} onChange={setServer}
           options={SERVER_IDS.map((id) => ({ value: id, label: SERVERS[id].label }))} />
         <GameSignIn key={server} server={server} idPrefix="data" onAccount={onAccount} />
+        {process.env.ARKPEDIA_KROOSTER_IMPORT === '1' && <>
+          <h3>From a Krooster profile</h3>
+          <p className="hint">Preview only, for testers: paste a public Krooster profile link and it becomes the account, with its operators, promotions, levels, skills, masteries and modules. It replaces the account shown here and the planner roster, like a game import, and has no base layout, clears or depot; the base optimizer recommends a layout.</p>
+          <KroosterImport map={map} onNote={setNote} idPrefix="data-krooster" />
+        </>}
         {result && (
           <p className="hint import-note" role="status">
             Imported: {importedSummary(result.imported)}.{trainingSummary(result.imported)}{pullsSummary(result.pulls)}{unheldSummary(result.imported.unknown)}

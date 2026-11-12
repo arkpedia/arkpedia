@@ -1,0 +1,416 @@
+import { WORK_KINDS } from './baseOptimizer';
+import { activeBaseSkills } from './activeBaseSkills';
+import { countFeeders } from './countFeeders';
+import { MAX_GENOME_STEPS, crewAt, decode, evaluate, hasWorkingCollision, placeGenomeOperator, snapshotValue, splitCrew, staffAt, type Evaluation, type Genome, type GenomeContext } from './planGenome';
+import { exceedsSetups } from './rotationSetups';
+import { teamBlocks, type TeamBlock } from './teamBlocks';
+import type { BaseAssignments, SlotAssignment } from './baseTypes';
+
+/**
+ * Simulated annealing over a plan genome (lib/base/planGenome.ts). Each round proposes several moves; moves that
+ * change who works where are screened with the snapshot calculator and only the best few are simulated, while
+ * moves that only change timing (crew patterns, core, parked Morale, rest rule) go straight to the simulator,
+ * since only Morale over time can tell them apart. A worse plan is kept with probability exp(delta / T), T cooling
+ * over the time budget, so the search can leave a local optimum; the best plan seen is always kept.
+ */
+export interface AnnealOptions {
+  timeMs: number;
+  seed?: number;
+  /** Moves proposed per round, and how many of the staffing ones are simulated. */
+  proposals?: number;
+  simulated?: number;
+  /** Stop early after this many rounds without a new best. */
+  patience?: number;
+  /** Stop after this many rounds whatever the time, cooling over the rounds rather than the clock, so the same seed
+   *  gives the same plan on any machine (tests and the pre/post optimizer comparison use it). */
+  maxRounds?: number;
+  /** Let the Reception Room and Office take an operator whose seat raises a base-wide count another's skill reads
+   *  (countFeeders.ts), besides those with a skill for the room. Default true. */
+  countSeats?: boolean;
+  /** Large neighbourhood search (`resolve` below) among the moves. Default off: it is worth up to 6% of output on a
+   *  roster the walk settles early on and costs noise-sized output on others (base-optimizer-research.md). */
+  lns?: 'off' | 'move';
+  onProgress?: (best: { genome: Genome; value: number }, round: number) => void;
+  /** Called between rounds; returning true stops the search with the best so far. */
+  shouldStop?: () => boolean;
+}
+export interface AnnealResult { genome: Genome; evaluation: Evaluation; rounds: number; simulations: number; improvements: string[] }
+
+/** mulberry32: small, fast and seedable, so a run can be repeated exactly. */
+function rng(seed: number) {
+  let a = seed >>> 0;
+  return () => { a = (a + 0x6d2b79f5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+}
+
+const clone = (g: Genome): Genome => ({ ...g, crews: g.crews.map(c => structuredClone(c)), assign: Object.fromEntries(Object.entries(g.assign).map(([r, a]) => [r, [...a]])), core: [...g.core], parked: { ...g.parked }, products: { ...g.products }, ...(g.seatCrews ? { seatCrews: structuredClone(g.seatCrews) } : {}) });
+const namesIn = (a: BaseAssignments) => Object.values(a).flatMap(s => (s ?? []).flatMap(x => x ? [x.operatorName] : []));
+const key = (g: Genome) => JSON.stringify([g.steps, g.k, !!g.refillLowest, Object.entries(g.assign).sort(([a], [b]) => a < b ? -1 : 1), g.core, g.parked, g.products, g.fillBeds, g.restAll, g.crews.map(c => Object.entries(c).sort(([a], [b]) => a < b ? -1 : 1).map(([r, s]) => [r, (s ?? []).map(x => x?.operatorName ?? '')])), g.seatCrews ? Object.entries(g.seatCrews).sort(([a], [b]) => a < b ? -1 : 1).map(([r, seats]) => [r, seats.map(p => p ?? null)]) : null]);
+
+type Move = { kind: string; timing: boolean; apply: (g: Genome) => Genome | null };
+const BLOCK_REFRESH = 40;
+/** Every this many refreshes a crew's blocks are enumerated in full; the refreshes between re-rank the blocks
+ * found, with the combinations over a shorter shortlist, in the crew as it now stands (about a fifth of the
+ * cost: a full build on a maxed roster scores some five thousand placements, most of them teams a refresh
+ * would rank the same). */
+const FULL_BUILD_EVERY = 3;
+
+export function anneal(seedGenome: Genome, ctx: GenomeContext, opts: AnnealOptions): AnnealResult {
+  const random = rng(opts.seed ?? 1);
+  const pick = <T,>(xs: T[]): T => xs[Math.floor(random() * xs.length)];
+  const start = Date.now();
+  const rooms = ctx.base.facilities.filter(f => f.capacity > 0 && WORK_KINDS.includes(f.kind));
+  const roomIds = rooms.map(f => f.id);
+  const capacity = (id: string) => rooms.find(f => f.id === id)!.capacity;
+  const slotOf = (name: string): SlotAssignment => ({ operatorName: name, eliteLevel: ctx.roster[name].eliteLevel, level: ctx.roster[name].level });
+  const byName = new Set(ctx.base.operators.map(o => o.name));
+  const owned = Object.keys(ctx.roster).filter(n => byName.has(n) && !(ctx.lockedDorm ?? []).includes(n));
+
+  const cache = new Map<string, Evaluation>();
+  let simulations = 0;
+  const score = (g: Genome): Evaluation => {
+    const k = key(g);
+    let e = cache.get(k);
+    // Lean: the search reads the score, events and warnings, never the Morale trace.
+    if (!e) { e = evaluate(g, ctx, true); cache.set(k, e); simulations++; }
+    return e;
+  };
+  // The snapshot proxy: every change's working staff, scored at full Morale, summed.
+  const proxy = (g: Genome) => {
+    let total = 0;
+    for (let s = 0; s < g.steps; s++) total += snapshotValue(Object.fromEntries(roomIds.map(id => [id, g.seatCrews?.[id] ? staffAt(g, id, s, capacity(id)) : g.crews[crewAt(g, id, s)][id] ?? []])), g, ctx);
+    return total;
+  };
+
+  const place = (g: Genome, c: number, room: string, i: number, name: string | null, reuseAcrossRooms = false) =>
+    placeGenomeOperator(g, c, room, i, name ? slotOf(name) : null, capacity(room), reuseAcrossRooms);
+  const unused = (g: Genome) => {
+    const inPlan = new Set([...g.crews.flatMap(namesIn), ...(g.core.length ? ['Fiammetta'] : [])]);
+    return owned.filter(n => !inPlan.has(n));
+  };
+  // The Reception Room and Office take only an operator with a skill for the room. Their own speed is not scored,
+  // so a search free to drop anyone there kept whatever its last random move left (Penance searching for clues,
+  // Bison in HR); the skills that do score (Mulberry in HR lifting a Trading Post) are still found this way. An
+  // operator who raises a base-wide count a dorm bed does not (an Elite Operator for Terra's Ark's per-facility
+  // count) may sit there too: their seat scores in the other rooms (countFeeders.ts). Counts a bed raises as well,
+  // such as Nasti's Rhine Lab operators in the base, are the completion's (completeStaffing.ts).
+  const operatorsByName = new Map(ctx.base.operators.map(o => [o.name, o]));
+  const feeders: ReadonlySet<string> = opts.countSeats === false ? new Set() : countFeeders(ctx.base, ctx.roster, { workSeat: true });
+  const skilledFor = new Map(rooms.filter(f => f.kind === 'receptionRoom' || f.kind === 'office').map(f => [f.id, new Set(owned.filter(n => feeders.has(n) || activeBaseSkills(operatorsByName.get(n)!, f.label, ctx.roster[n].eliteLevel, ctx.base.skillSlots, ctx.roster[n].level).length > 0))]));
+  const fits = (name: string, room: string) => !skilledFor.has(room) || skilledFor.get(room)!.has(name);
+
+  // A team's worth depends on the rest of the base it works beside (a Control Center for the crew it supports, a
+  // factory beside the Trading Posts of its crew), so each crew draws from blocks built in its own context, and the
+  // blocks are rebuilt every BLOCK_REFRESH rounds as the crews change (about a second each on a maxed roster) --
+  // only where the crew did change: a crew the search left alone keeps its blocks, which would come out the same.
+  const blocksFor = new Map<string, { crew: string; epoch: number; blocks: Record<string, TeamBlock[]> }>();
+  let epoch = 0;
+  const crewKey = (crew: BaseAssignments) => roomIds.map(id => (crew[id] ?? []).map(s => s?.operatorName ?? '').join(',')).join(';');
+  const blocks = (g: Genome, c: number) => {
+    const k = `${JSON.stringify(g.products)}|${c}`;
+    const crew = crewKey(g.crews[c]);
+    let b = blocksFor.get(k);
+    if (!b || (b.epoch !== epoch && b.crew !== crew)) {
+      const full = !b || epoch % FULL_BUILD_EVERY === 0;
+      b = { crew, epoch, blocks: full ? teamBlocks(ctx, g.crews[c], g.products, { top: 16, feeders }) : teamBlocks(ctx, g.crews[c], g.products, { top: 16, shortlist: 8, maxCombos: 400, known: b!.blocks, feeders }) };
+      blocksFor.set(k, b);
+    }
+    b.epoch = epoch;
+    return b.blocks;
+  };
+
+  // A block can take workers from several rooms. Give its displaced workers and a
+  // bounded set of spare candidates a chance to cover those holes in the same move.
+  const repair = (before: Genome, g: Genome, skip: (crew: number, room: string) => boolean, displaced: string[]) => {
+    for (const [c, crew] of g.crews.entries()) for (const id of roomIds) {
+      if (skip(c, id)) continue;
+      const slots = crew[id] ?? [];
+      for (let i = 0; i < slots.length; i++) {
+        if (slots[i] || !before.crews[c][id]?.[i]) continue;
+        const available = unused(g), allowed = new Set(available);
+        const candidates = [...new Set([...displaced, ...available.slice(0, 4)])].filter(n => allowed.has(n) && fits(n, id));
+        if (!candidates.length) continue;
+        const baseline = snapshotValue(crew, g, ctx);
+        let bestValue = baseline, bestName: string | null = null;
+        for (const name of candidates) {
+          crew[id]![i] = slotOf(name);
+          const value = snapshotValue(crew, g, ctx);
+          if (value >= bestValue && (value > bestValue || !bestName)) { bestValue = value; bestName = name; }
+        }
+        crew[id]![i] = null;
+        if (bestName) place(g, c, id, i, bestName);
+      }
+    }
+  };
+
+  const replaceTeam = (reuseAcrossRooms: boolean): Move => ({ kind: reuseAcrossRooms ? 'shared team' : 'team', timing: false, apply: g => {
+      const room = pick(roomIds); const c = Math.floor(random() * g.crews.length);
+      const options = (blocks(g, c)[room] ?? []).filter(b => b.names.join() !== namesIn({ x: g.crews[c][room] ?? [] }).join());
+      if (!options.length) return null;
+      const b = pick(options.slice(0, Math.max(2, Math.ceil(options.length * (0.3 + random() * 0.7)))));
+      const n = clone(g);
+      for (let i = 0; i < capacity(room); i++) place(n, c, room, i, null);
+      b.names.forEach((name, i) => place(n, c, room, i, name, reuseAcrossRooms));
+      repair(g, n, (c2, id) => id === room && c2 === c, namesIn({ x: g.crews[c][room] ?? [] }));
+      return n;
+  } });
+
+  // Large neighbourhood search: a crew's `freed` rooms emptied and staffed again together, by the best disjoint
+  // combination of their team blocks for the crew's snapshot. One room at a time (the team move) never reaches a pair
+  // of rooms that each hold the other's best worker; the column generation over the Krooster fixtures found such
+  // setups worth 0.5 to 6.6% (docs/development/base-optimizer-research.md). Each team is valued in the crew with the
+  // freed rooms empty, every combination ranked by the sum, and the best few scored whole, since rooms interact.
+  //
+  // It is off by default and what it is worth depends entirely on how long the walk runs. Over the 21 Krooster
+  // profiles at the 5 minutes the page searches for, it left 13 rosters' plans untouched, raised 5 (kokonattsuu by
+  // 6.0%, blackgatoacer by 1.8%) and cost 3 less than a change of random seed costs anyway: +0.30% in the mean. At
+  // 60 rounds it reads the other way round and takes 5% off the roster it helps most on the clock, so a round
+  // budget says nothing about it. Splitting the slot between a walk with it and a walk without loses both.
+  const RESOLVE_SCORED = 4;
+  const resolve = (g: Genome, c: number, freed: string[]): Genome | null => {
+    const crew = g.crews[c];
+    const empty: BaseAssignments = Object.fromEntries(Object.entries(crew).map(([id, s]) => [id, freed.includes(id) ? Array(capacity(id)).fill(null) : [...(s ?? [])]]));
+    const withTeam = (a: BaseAssignments, room: string, names: string[]): BaseAssignments => {
+      const out: BaseAssignments = Object.fromEntries(Object.entries(a).map(([id, s]) => [id, (s ?? []).map(x => x && names.includes(x.operatorName) ? null : x)]));
+      out[room] = [...names.map(slotOf), ...Array(Math.max(0, capacity(room) - names.length)).fill(null)];
+      return out;
+    };
+    const emptyValue = snapshotValue(empty, g, ctx);
+    const current = freed.map(room => namesIn({ x: crew[room] ?? [] }));
+    const options = freed.map((room, i) => {
+      const seen = new Set<string>();
+      return [current[i], ...(blocks(g, c)[room] ?? []).map(b => b.names)].filter(names => {
+        const key = [...names].sort().join('|');
+        if (!names.length || seen.has(key) || !names.every(n => fits(n, room))) return false;
+        seen.add(key); return true;
+      }).map(names => ({ names, gain: snapshotValue(withTeam(empty, room, names), g, ctx) - emptyValue }));
+    });
+    const combos: { teams: string[][]; sum: number }[] = [];
+    const walk = (i: number, used: Set<string>, teams: string[][], sum: number) => {
+      if (i === freed.length) { combos.push({ teams: [...teams], sum }); return; }
+      for (const o of options[i]) {
+        if (o.names.some(n => used.has(n))) continue;
+        o.names.forEach(n => used.add(n)); teams.push(o.names);
+        walk(i + 1, used, teams, sum + o.gain);
+        teams.pop(); o.names.forEach(n => used.delete(n));
+      }
+    };
+    walk(0, new Set(), [], 0);
+    let chosen: string[][] | null = null, chosenValue = -Infinity;
+    for (const combo of combos.sort((a, b) => b.sum - a.sum).slice(0, RESOLVE_SCORED)) {
+      const value = snapshotValue(combo.teams.reduce((a, names, i) => withTeam(a, freed[i], names), empty), g, ctx);
+      if (value > chosenValue + 1e-9) { chosen = combo.teams; chosenValue = value; }
+    }
+    if (!chosen || chosen.every((names, i) => [...names].sort().join() === [...current[i]].sort().join())) return null;
+    const n = clone(g);
+    freed.forEach((room, i) => {
+      for (let k = 0; k < capacity(room); k++) place(n, c, room, k, null);
+      chosen![i].forEach((name, k) => place(n, c, room, k, name));
+    });
+    repair(g, n, (c2, id) => c2 === c && freed.includes(id), current.flat());
+    return n;
+  };
+  const lns = opts.lns ?? 'off';
+
+  const moves: { weight: number; make: () => Move }[] = [
+    // Most changes keep a worker in one room; a smaller neighborhood also tries
+    // legal cross-room sharing, which often needs an accompanying rest pattern.
+    { weight: 4, make: () => replaceTeam(false) },
+    { weight: 1, make: () => replaceTeam(true) },
+    // Two places trade operators, or a place takes someone unused.
+    { weight: 4, make: () => ({ kind: 'swap', timing: false, apply: g => {
+      const n = clone(g);
+      const c = Math.floor(random() * n.crews.length), room = pick(roomIds), i = Math.floor(random() * capacity(room));
+      const here = n.crews[c][room]?.[i]?.operatorName ?? null;
+      if (random() < 0.5) {
+        const pool = unused(n).filter(name => fits(name, room)); if (!pool.length) return null;
+        place(n, c, room, i, pick(pool));
+        return n;
+      }
+      const c2 = Math.floor(random() * n.crews.length), room2 = pick(roomIds), j = Math.floor(random() * capacity(room2));
+      const there = n.crews[c2][room2]?.[j]?.operatorName ?? null;
+      if (here === there || (there && !fits(there, room)) || (here && !fits(here, room2))) return null;
+      place(n, c, room, i, null); place(n, c2, room2, j, null);
+      if (there) place(n, c, room, i, there);
+      if (here) place(n, c2, room2, j, here);
+      return n;
+    } }) },
+    // When each crew staffs a room: shift its order by a change, or give one change to another crew.
+    { weight: 3, make: () => ({ kind: 'retime', timing: true, apply: g => {
+      const n = clone(g); const room = pick(roomIds);
+      const a = n.assign[room] ?? Array(n.steps).fill(0);
+      if (random() < 0.5) n.assign[room] = a.map((_, s) => a[(s + n.steps - 1) % n.steps]);
+      else { const s = Math.floor(random() * n.steps); const others = n.crews.map((_, c) => c).filter(c => c !== a[s]); n.assign[room] = a.map((c, t) => t === s ? pick(others) : c); }
+      return n;
+    } }) },
+    // A third crew starts with each room’s original workers at the selected change, or
+    // back to two (its changes go to the second crew).
+    { weight: 1, make: () => ({ kind: 'crews', timing: true, apply: g => {
+      const n = clone(g);
+      if (n.crews.length === 2) {
+        const changes = roomIds.flatMap(room => random() < 0.4 ? [{ room, step: Math.floor(random() * n.steps) }] : []);
+        return splitCrew(n, changes);
+      } else {
+        n.crews.pop();
+        for (const room of roomIds) n.assign[room] = n.assign[room].map(c => c === 2 ? 1 : c);
+        for (const seats of Object.values(n.seatCrews ?? {})) seats.forEach((p, i) => { if (p) seats[i] = p.map(c => c === 2 ? 1 : c); });
+      }
+      return n;
+    } }) },
+    // A worker joins or leaves Fiammetta's refill core (same room in both crews).
+    { weight: 2, make: () => ({ kind: 'core', timing: true, apply: g => {
+      if (!('Fiammetta' in ctx.roster)) return null;
+      const n = clone(g);
+      if (n.core.length && random() < 0.4) {
+        const name = pick(n.core);
+        n.core = n.core.filter(x => x !== name);
+        // They stay in one crew's place and leave the others'.
+        const keep = Math.floor(random() * n.crews.length);
+        n.crews.forEach((crew, c) => { if (c !== keep) for (const [id, slots] of Object.entries(crew)) crew[id] = (slots ?? []).map(s => s?.operatorName === name ? null : s); });
+        return n;
+      }
+      const c = Math.floor(random() * n.crews.length);
+      const workers = roomIds.flatMap(id => (n.crews[c][id] ?? []).flatMap(s => s && !n.core.includes(s.operatorName) && s.operatorName !== 'Fiammetta' ? [{ id, name: s.operatorName }] : []));
+      if (!workers.length) return null;
+      const w = pick(workers);
+      // In the same room in every crew, so they work every change.
+      const kept = n.crews.map(crew => crew[w.id]);
+      n.crews.forEach((crew, cc) => {
+        if (cc === c || (crew[w.id] ?? []).some(s => s?.operatorName === w.name)) return;
+        const slots = [...(kept[cc] ?? Array(capacity(w.id)).fill(null))];
+        const free = slots.findIndex(x => !x);
+        slots[free >= 0 ? free : Math.floor(random() * slots.length)] = slotOf(w.name);
+        crew[w.id] = slots;
+      });
+      n.core = [...n.core, w.name];
+      // Fiammetta now sits in a dorm, so she cannot also work.
+      for (const crew of n.crews) for (const [id, s] of Object.entries(crew)) crew[id] = (s ?? []).map(x => x?.operatorName === 'Fiammetta' ? null : x);
+      return n;
+    } }) },
+    // A room's whole team becomes the core at once, some of the old core kept (in their rooms), the rest back to one
+    // crew's place. A bigger core only holds when all of it, and refilling the lowest first, arrive together: one
+    // member at a time, each step runs someone out of Morale (the Shamare trio with Proviso, as hand-made sheets run).
+    { weight: 1, make: () => ({ kind: 'core team', timing: true, apply: g => {
+      if (!('Fiammetta' in ctx.roster)) return null;
+      const n = clone(g);
+      const c = Math.floor(random() * n.crews.length), room = pick(roomIds);
+      const team = namesIn({ x: n.crews[c][room] ?? [] }).filter(x => x !== 'Fiammetta');
+      if (!team.length || team.every(x => n.core.includes(x))) return null;
+      const kept = n.core.filter(x => !team.includes(x) && random() < 0.5);
+      const leaving = n.core.filter(x => !team.includes(x) && !kept.includes(x));
+      n.crews.forEach((crew, cc) => { if (cc !== c) for (const [id, s] of Object.entries(crew)) crew[id] = (s ?? []).map(x => x && leaving.includes(x.operatorName) ? null : x); });
+      // The team takes the same room in every crew; whoever had those places there goes unused.
+      for (const crew of n.crews) {
+        for (const [id, s] of Object.entries(crew)) if (id !== room) crew[id] = (s ?? []).map(x => x && team.includes(x.operatorName) ? null : x);
+        crew[room] = structuredClone(n.crews[c][room]);
+      }
+      for (const crew of n.crews) for (const [id, s] of Object.entries(crew)) crew[id] = (s ?? []).map(x => x?.operatorName === 'Fiammetta' ? null : x);
+      n.core = [...kept, ...team];
+      n.refillLowest = random() < 0.7;
+      return n;
+    } }) },
+    // Stagger (docs/development/base-design-notes.md): one seat of a room takes another crew's worker at one change
+    // while the rest of the crew works on, so the best workers come back as soon as they have rested and a weaker
+    // filler covers the gap. For 12-hour and 8-hour logins; a 24-hour login swaps whole crews.
+    { weight: ctx.loginInterval <= 12 ? 2 : 0, make: () => ({ kind: 'stagger', timing: true, apply: g => {
+      const n = clone(g);
+      const room = pick(roomIds.filter(id => capacity(id) >= 2)); if (!room) return null;
+      n.seatCrews ??= {};
+      n.seatCrews[room] ??= Array(capacity(room)).fill(undefined);
+      const seat = Math.floor(random() * capacity(room));
+      if (n.seatCrews[room][seat] && random() < 0.3) { n.seatCrews[room][seat] = undefined; return n; }
+      const s = Math.floor(random() * n.steps);
+      const pattern = n.seatCrews[room][seat] ?? Array.from({ length: n.steps }, (_, t) => crewAt(n, room, t));
+      const others = n.crews.map((_, c) => c).filter(c => c !== pattern[s] && n.crews[c][room]?.[seat]);
+      if (!others.length) return null;
+      pattern[s] = pick(others);
+      n.seatCrews[room][seat] = pattern.every((c, t) => c === crewAt(n, room, t)) ? undefined : pattern;
+      return n;
+    } }) },
+    // Parked Morale (Dusk below 12), the rest rule, empty-bed filling, two to MAX_GENOME_STEPS changes, a factory's product.
+    { weight: 2, make: () => ({ kind: 'setting', timing: true, apply: g => {
+      const n = clone(g);
+      const which = Math.floor(random() * 6);
+      if (which === 0) { if (!('Dusk' in ctx.roster)) return null; if (n.parked.Dusk !== undefined) delete n.parked.Dusk; else n.parked.Dusk = 11; }
+      else if (which === 1) n.restAll = !n.restAll;
+      else if (which === 2) n.fillBeds = !n.fillBeds;
+      else if (which === 5) { if (!n.core.length) return null; n.refillLowest = !n.refillLowest; }
+      else if (which === 3) {
+        // Two to MAX_GENOME_STEPS changes; each room's pattern is carried over by position. A plan needing more
+        // presets than the game stores is screened out before it is simulated.
+        const next = pick(Array.from({ length: MAX_GENOME_STEPS - 1 }, (_, i) => i + 2).filter(x => x !== n.steps));
+        for (const id of roomIds) { const a = n.assign[id] ?? Array(n.steps).fill(0); n.assign[id] = Array.from({ length: next }, (_, s) => a[s] ?? a[a.length - 1]); }
+        for (const seats of Object.values(n.seatCrews ?? {})) seats.forEach((p, i) => { if (p) seats[i] = Array.from({ length: next }, (_, s) => p[s] ?? p[p.length - 1]); });
+        n.steps = next;
+      }
+      else {
+        const factories = Object.keys(n.products); if (!factories.length) return null;
+        const f = pick(factories);
+        const other = factories.filter(x => n.products[x] !== n.products[f]);
+        // Half the time two factories trade products (EXP to the level 3 one, gold to the level 2), which one flip
+        // at a time reaches only through a worse split.
+        if (other.length && random() < 0.5) { const g = pick(other); [n.products[f], n.products[g]] = [n.products[g], n.products[f]]; }
+        else n.products[f] = n.products[f] === 'Precious Metals' ? 'Battle Records' : 'Precious Metals';
+      }
+      return n;
+    } }) },
+    // Two or three of a crew's rooms staffed again together (resolve, above). Last, so that at weight 0 no draw picks it
+    // and the walk is the one it was without.
+    { weight: lns === 'move' ? 2 : 0, make: () => ({ kind: 'rooms', timing: false, apply: g => {
+      const c = Math.floor(random() * g.crews.length), freed: string[] = [];
+      const count = random() < 0.5 ? 2 : 3;
+      while (freed.length < Math.min(count, roomIds.length)) { const id = pick(roomIds); if (!freed.includes(id)) freed.push(id); }
+      return resolve(g, c, freed);
+    } }) },
+  ];
+  const totalWeight = moves.reduce((s, m) => s + m.weight, 0);
+  const propose = (): Move => { let r = random() * totalWeight; for (const m of moves) { r -= m.weight; if (r <= 0) return m.make(); } return moves[0].make(); };
+
+  let current = { genome: seedGenome, e: score(seedGenome) };
+  let best = current;
+  const improvements: string[] = [];
+  const t0 = Math.max(1, Math.abs(current.e.value) * 0.004), t1 = Math.max(0.1, Math.abs(current.e.value) * 0.00005);
+  const proposals = opts.proposals ?? 12, simulated = opts.simulated ?? 2, patience = opts.patience ?? (owned.length <= 20 ? 120 : 400);
+  let round = 0, sinceBest = 0;
+  while (Date.now() - start < opts.timeMs && sinceBest < patience && round < (opts.maxRounds ?? Infinity) && !opts.shouldStop?.()) {
+    round++; sinceBest++;
+    epoch = Math.floor(round / BLOCK_REFRESH);
+    const progress = Math.min(1, opts.maxRounds ? round / opts.maxRounds : (Date.now() - start) / opts.timeMs);
+    const temperature = t0 * Math.pow(t1 / t0, progress);
+    const staffing: { g: Genome; kind: string; p: number }[] = [];
+    const timing: { g: Genome; kind: string }[] = [];
+    for (let i = 0; i < proposals; i++) {
+      const m = propose();
+      const g = m.apply(current.genome);
+      if (!g || hasWorkingCollision(g, roomIds) || exceedsSetups(decode(g, ctx))) continue;
+      // A staffing change is atomic: retain an unchanged refill worker, and remove
+      // only targets who no longer work through the whole cycle.
+      if (!m.timing) g.core = current.genome.core.filter(name => Array.from({ length: g.steps }, (_, step) =>
+        roomIds.some(id => (g.crews[crewAt(g, id, step)][id] ?? []).some(slot => slot?.operatorName === name))).every(Boolean));
+      if (m.timing) timing.push({ g, kind: m.kind }); else staffing.push({ g, kind: m.kind, p: 0 });
+    }
+    for (const s of staffing) s.p = proxy(s.g);
+    const chosen = [...staffing.sort((x, y) => y.p - x.p).slice(0, simulated), ...timing.slice(0, 1)];
+    let next: { genome: Genome; e: Evaluation; kind: string } | null = null;
+    for (const c of chosen) {
+      const e = score(c.g);
+      if (!next || e.value > next.e.value) next = { genome: c.g, e, kind: c.kind };
+    }
+    if (!next) continue;
+    const delta = next.e.value - current.e.value;
+    if (delta > 0 || random() < Math.exp(delta / temperature)) current = { genome: next.genome, e: next.e };
+    if (current.e.value > best.e.value + 1e-6) {
+      improvements.push(`round ${round}: ${next.kind} -> ${current.e.value.toFixed(0)}`);
+      best = current; sinceBest = 0;
+      opts.onProgress?.({ genome: best.genome, value: best.e.value }, round);
+    }
+    // Stuck in a worse region for a while: go back to the best plan.
+    if (sinceBest > 0 && sinceBest % 60 === 0) current = best;
+  }
+  blocksFor.clear();
+  return { genome: best.genome, evaluation: best.e, rounds: round, simulations, improvements };
+}
+
+/** For tests and benchmarks: whether a genome decodes to shifts that place nobody twice. */
+export function placesNobodyTwice(g: Genome, ctx: GenomeContext): boolean {
+  return decode(g, ctx).every(sh => { const n = namesIn(sh.assignments); return n.length === new Set(n).size; });
+}
