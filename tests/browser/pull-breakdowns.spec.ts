@@ -9,6 +9,53 @@ async function fits(dialog: Locator) {
   expect(overflow, 'all dialog content fits without horizontal scrolling').toEqual([]);
 }
 
+test('banner deadline, Income, calculation and plan balance use the same rewards and OP setting', async ({ page }) => {
+  test.setTimeout(90000);
+  await page.goto('/pull-planner');
+  const data = JSON.parse((await page.locator('#__NEXT_DATA__').textContent())!).props.pageProps;
+  const event = data.scheduledEvents.find((event: {name: string; op: number; endAt: string; inBacklog: boolean}) => !event.inBacklog && event.op > 0
+    && Date.parse(event.endAt) > Date.now() && data.scheduledBanners.some((banner: {event: string; endAt: string}) => banner.event === event.name && banner.endAt === event.endAt));
+  expect(event, 'an event ending with its banner').toBeTruthy();
+  const banner = data.scheduledBanners.find((banner: {event: string}) => banner.event === event.name);
+  const plan = {version: 1, orundum: '60300', originite: '60', permits: '10', reservedOP: '18', until: banner.end,
+    manualEventDate: '', bannerName: banner.name, monthlyCard: true, includeBacklog: false, annihilationDone: false,
+    doneEvents: [], doneKeys: [], clearedReruns: [], future: {},
+    goals: [{banner: banner.name, spendOn: banner.end, bannerEndAt: banner.endAt, pulls: 40}]};
+  await page.evaluate(plan => localStorage.setItem('arkpedia.pull-plan.v1', JSON.stringify(plan)), plan);
+  await page.reload();
+  const row = page.locator('article').filter({has: page.getByRole('button', {name: `Edit ${banner.name}`, exact: true})});
+  const available = row.getByRole('button', {name: /available pulls.*show breakdown/});
+  const number = (value: string) => Number(value.replace(/[,\s]/g, '').replace('−', '-').replace(/pulls$/, ''));
+  for (const useOP of [true, false]) {
+    await page.getByRole('checkbox', {name: 'Use OP for pulls', exact: true}).setChecked(useOP);
+    await available.click();
+    const report = page.getByRole('dialog', {name: 'Available pulls', exact: true});
+    const values = (await report.locator('tbody tr td:last-child').allTextContents()).map(number);
+    expect(values.slice(0, -1).reduce((sum, value) => sum + value, 0)).toBe(values.at(-1));
+    expect(await report.locator('.pulls-breakdown-resources img').count()).toBe(9);
+    await expect(report.getByText(/Includes \d[\d,]* stage-clear OP/)).toBeVisible();
+    if (!useOP) { await expect(report.getByText(/OP is shown but not converted/)).toBeVisible(); expect(values[3]).toBe(0); }
+    await page.keyboard.press('Escape');
+    await page.locator('#tab-income').click();
+    const income = page.getByRole('dialog', {name: 'Income', exact: true});
+    const sum = (label: string) => income.locator('tr.pulls-report-sum').filter({has: page.getByRole('rowheader', {name: label, exact: true})}).locator('td').last();
+    expect(number(await sum('Income').innerText())).toBe(values[1]);
+    expect(number(await sum('Event rewards').innerText())).toBe(values[2]);
+    const eventRow = income.getByRole('row').filter({has: page.getByRole('rowheader', {name: event.name.replace(/^\[[^\]]*\]\s*/, ''), exact: true})});
+    await expect(eventRow.getByTitle('Originite Prime')).toContainText(`${event.op} OP`);
+    await page.keyboard.press('Escape');
+    const calculation = page.getByRole('region', {name: 'Pull calculation'});
+    const valueFor = (label: string) => calculation.locator('dl > div').filter({has: page.locator('dt', {hasText: new RegExp(`^${label}$`)})}).locator('dd');
+    expect(number(await valueFor('Income').innerText())).toBe(values[1]);
+    expect(number(await valueFor('Event rewards').innerText())).toBe(values[2]);
+    const beforeSpending = number(await valueFor('Before spending').innerText().then(text => text.replace('=', '')));
+    expect(beforeSpending + values[5]).toBe(values.at(-1));
+    const remaining = beforeSpending - Math.max(0, 40 - values[5]);
+    await expect(row.getByText('Left', {exact: true}).locator('..').locator('b')).toHaveText(String(remaining));
+    await expect(page.getByRole('region', {name: 'Your banner plan'}).locator('footer strong')).toContainText(String(remaining));
+  }
+});
+
 for (const theme of ['dark', 'light']) {
   test(`banner breakdown reconciles and income fits in ${theme}`, async ({ page }, info) => {
     test.setTimeout(90_000);

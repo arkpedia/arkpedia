@@ -99,6 +99,8 @@
 .pulls-income-body, .pulls-skins-body { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; min-width: 0; }
 .pulls-income-body > * { min-width: 0; }
 .pulls-breakdown-context { display: grid; gap: 6px; margin: 0; overflow-wrap: anywhere; }
+.pulls-breakdown-detail { display: grid; gap: 6px; }
+.pulls-breakdown-resources { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; }
 /* The condensed income report: one line per source -- what, its working, its pulls -- and the
    two sums the forecast adds, ruled above. */
 .pulls-report { width: 100%; table-layout: fixed; border-collapse: collapse; font: 13px var(--font-body); }
