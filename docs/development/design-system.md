@@ -318,8 +318,9 @@ a real representative record; empty tools need a populated state as well as the 
 Saved event reward images use the page's theme and reward totals, with muted event
 art at its original proportions, fading into the background at its lower edge.
 Translucent category panels carry opaque game icons, full item names and
-aligned quantities. Free operators and outfits use a larger artwork column when
-present; EXP and Headhunting panels show totals from the displayed finite rewards.
+aligned quantities. Free operators and outfits use compact, content-sized artwork cards at the top-left,
+with names directly beneath the art. Materials return to full width below them;
+larger free-reward collections use a compact gallery above the material grid; EXP and Headhunting panels show totals from the displayed finite rewards.
 Keep sources and reward provenance in the image so it remains
 useful when shared outside the site. The export has the same resolution on phones
 and desktop, with a lower canvas scale for exceptionally long lists on mobile; unavailable artwork must not remove an item or block downloading.

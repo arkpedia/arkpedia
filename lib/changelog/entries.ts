@@ -34,8 +34,8 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
-    at: '2026-11-12T21:22:00Z',
-    changed: [{ title: 'Featured free rewards in saved images', detail: 'Welfare operators and free skins get larger artwork, with total EXP and pulls on the material cards.', href: '/events' }],
+    at: '2026-11-12T23:43:24Z',
+    changed: [{ title: 'Featured free rewards in saved images', detail: 'Welfare operators and free skins get full art in compact cards, with total EXP and pulls on the material cards.', href: '/events' }],
     fixed: [{ title: 'Event rewards keep their CN fallback', detail: 'Missing shops and exchanges use CN sources until Global details become available.', href: '/events' }],
   },
   {
