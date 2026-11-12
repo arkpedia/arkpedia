@@ -15,8 +15,8 @@ export default function AvailablePullsDialog({ row, holdings, income, rewards, r
     { name: 'Income', amounts: <PullResourceAmounts amounts={resources.income} useOP={useOP} />, detail: 'Enabled missions, annihilation, monthly card and certificate shops through this banner’s deadline.', value: income },
     { name: includePast ? 'Event & past rewards' : 'Event rewards', amounts: <PullResourceAmounts amounts={resources.rewards} useOP={useOP} />,
       detail: `Includes ${formatNumber(stageClearOP)} stage-clear OP${includePast ? ' and your included, unclaimed past rewards' : ''}. Assumes completion by the event deadline.`, value: rewards },
-    { name: 'Skin wishlist', amounts: <RewardAmount resource="op" amount={reservedOP} />, detail: useOP ? 'OP reserved for your included skin wishlist.' : 'No pull deduction while OP conversion is off.', value: -reserved },
-    { name: 'Earlier banners', amounts: <RewardAmount resource="pulls" amount={row.spentBefore} />, detail: 'Planned spending from savings before this banner; banner-only pulls are excluded.', value: -row.spentBefore },
+    { name: 'Skin wishlist', amounts: <RewardAmount resource="op" amount={reservedOP} />, detail: useOP ? 'OP reserved for your included skin wishlist.' : 'No pull deduction while OP conversion is off.', value: -reserved, deduction: true },
+    { name: 'Earlier banners', amounts: <RewardAmount resource="pulls" amount={row.spentBefore} />, detail: 'Planned spending from savings before this banner; banner-only pulls are excluded.', value: -row.spentBefore, deduction: true },
     { name: 'Banner free', amounts: <RewardAmount resource="pulls" amount={row.free} />, detail: 'Exclusive to this banner. Cannot carry over to another banner.', value: row.free },
   ];
   return <ImportDialog title="Available pulls" className="pulls-available-dialog" onClose={onClose}>
@@ -26,7 +26,7 @@ export default function AvailablePullsDialog({ row, holdings, income, rewards, r
       <table className="pulls-report pulls-available-report">
         <thead><tr><th scope="col">Source</th><th scope="col">Details</th><th scope="col">Pulls</th></tr></thead>
         <tbody>
-          {sources.map(source => <tr key={source.name}><th scope="row">{source.name}</th><td><span className="pulls-breakdown-detail">{source.amounts}<span>{source.detail}</span></span></td><td>{source.value < 0 ? '−' : '+'}{formatNumber(Math.abs(source.value))}</td></tr>)}
+          {sources.map(source => <tr key={source.name}><th scope="row">{source.name}</th><td><span className="pulls-breakdown-detail">{source.amounts}<span>{source.detail}</span></span></td><td>{source.deduction || source.value < 0 ? '−' : '+'}{formatNumber(Math.abs(source.value))}</td></tr>)}
           <tr className="pulls-report-sum"><th scope="row">Available</th><td>Before spending on this banner</td><td>{formatNumber(row.available)}</td></tr>
         </tbody>
       </table>

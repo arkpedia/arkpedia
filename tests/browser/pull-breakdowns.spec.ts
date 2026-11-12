@@ -34,7 +34,8 @@ test('banner deadline, Income, calculation and plan balance use the same rewards
     expect(values.slice(0, -1).reduce((sum, value) => sum + value, 0)).toBe(values.at(-1));
     expect(await report.locator('.pulls-breakdown-resources img').count()).toBe(9);
     await expect(report.getByText(/Includes \d[\d,]* stage-clear OP/)).toBeVisible();
-    if (!useOP) { await expect(report.getByText(/OP is shown but not converted/)).toBeVisible(); expect(values[3]).toBe(0); }
+    if (!useOP) { await expect(report.getByText(/OP is shown but not converted/)).toBeVisible(); expect(values[3]).toBe(-0); }
+    await expect(report.getByRole('row').filter({has: page.getByRole('rowheader', {name:'Earlier banners', exact:true})}).locator('td').last()).toHaveText('−0');
     await page.keyboard.press('Escape');
     await page.locator('#tab-income').click();
     const income = page.getByRole('dialog', {name: 'Income', exact: true});
