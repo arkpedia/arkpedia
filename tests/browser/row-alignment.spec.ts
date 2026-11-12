@@ -61,7 +61,7 @@ test('the pull planner goal row and its footer are on one line', async ({ page }
     return { values, labels };
   }, narrow);
   expect(measured.values.length, 'the row shows its values').toBeGreaterThanOrEqual(3);
-  for (const { text, off } of measured.values) expect(Math.abs(off), `${text} is ${off}px off the input's centre`).toBeLessThanOrEqual(2);
+  for (const { text, off } of measured.values) expect(Math.abs(off), `${text} is ${off}px off the input's centre`).toBeLessThanOrEqual(1);
   if (narrow) {
     const tops = measured.labels.map((label) => label.top);
     expect(tops.length, `labels ${JSON.stringify(measured.labels)}`).toBe(4);
