@@ -95,3 +95,46 @@ test('a base skill keeps the keywords the game explains, each with the game\'s o
     'a Base term named without its tag still counts, when it is more than one word');
   assert.throws(() => reconcileBaseSkills({ name: 'Closure', internalName: 'closure', baseSkills: [] }, special, 'Global', {}, undefined), /no glossary/);
 });
+
+/* Every raw string here is a real Global building_data description, trimmed to the part that
+   misbehaves. Yostar writes the mistake; stripRichText was only removing the tag that stood in
+   for the missing space (scripts/lib/gametext.mjs normaliseBaseSkillText). */
+test("Yostar's own missing spaces in a base skill are repaired, and the keywords survive", async () => {
+  const { normaliseBaseSkillText, stripRichText } = await import('../lib/gametext.mjs');
+  const strip = raw => stripRichText(normaliseBaseSkillText(raw));
+
+  // A word running straight into the tag after it: Mr. Nothing, Dusk, Blitz, Frost, Irene.
+  assert.equal(strip('Dormitory grants<$cc.bd_b1><@cc.rem>Worldly Plight</></> <@cc.vup>+1</>'), 'Dormitory grants Worldly Plight +1');
+  assert.equal(strip('consumption by<@cc.vdown>+0.5</>'), 'consumption by +0.5');
+  assert.equal(strip('training speed<@cc.vup>+30%</>'), 'training speed +30%');
+  // A tag closing straight into the word after it: Mr. Nothing's "1point".
+  assert.equal(strip('for every <@cc.vup>1</>point'), 'for every 1 point');
+  // A term closing straight into its own value, nothing between the two: Dusk, Ch'en the Dawnstreak.
+  assert.equal(strip('<$cc.bd_a1><@cc.rem>Perception Information</></><@cc.vup>+10</>'), 'Perception Information +10');
+  // A stray '<' before a tag: Mulberry, which printed "<Worldly Plight".
+  assert.equal(strip('do not count), <<$cc.bd_b1><@cc.rem>Worldly Plight</></> <@cc.vup>+10</>'), 'do not count), Worldly Plight +10');
+  // A comma running into the tag after it: Ling, Harold.
+  assert.equal(strip('above <@cc.kw>12</>,<$cc.bd_b1><@cc.rem>Worldly Plight</></> <@cc.vup>+15</>'), 'above 12, Worldly Plight +15');
+
+  // The neighbours the table means to keep tight: a parenthesis, a second value, a hyphenated name.
+  assert.equal(strip('Plight</></> (<$cc.c.sui2_1><@cc.rem>Special Comparison Rules</></> apply'), 'Plight (Special Comparison Rules apply');
+  assert.equal(strip('efficiency <@cc.vup>+25%</>, +<@cc.vup>5%</> per Reception Room level'), 'efficiency +25%, +5% per Reception Room level');
+  assert.equal(strip('a non-<@cc.kw>Rhine Lab</> clue is collected'), 'a non-Rhine Lab clue is collected');
+  assert.equal(strip('if <@cc.kw>Lancet-2</> is assigned'), 'if Lancet-2 is assigned');
+  // Nothing to repair, and repairing twice is repairing once.
+  assert.equal(normaliseBaseSkillText('speed <@cc.vup>+20%</>'), 'speed <@cc.vup>+20%</>');
+  const once = normaliseBaseSkillText('grants<$cc.bd_b1><@cc.rem>Worldly Plight</></><@cc.vup>+1</>');
+  assert.equal(normaliseBaseSkillText(once), once);
+  assert.equal(normaliseBaseSkillText(undefined), '');
+
+  // End to end: the repaired text is what the record carries, and "Worldly Plight" is still the
+  // underlined keyword -- the page finds it by looking for the term's words in the finished text.
+  const terms = { 'cc.bd_b1': { termId: 'cc.bd_b1', termName: 'Worldly Plight', description: 'Affects Witchcraft Crystal skills' } };
+  const nothing = { chars: { nothin: { buffChar: [{ buffData: [{ buffId: 'trade_ord_spd_bd_n2[000]', cond: { phase: 'PHASE_1', level: 1 } }] }] } }, buffs: {
+    'trade_ord_spd_bd_n2[000]': { roomType: 'TRADING', buffName: "'Obvious Deception'",
+      description: 'When this Operator is assigned to a Trading Post, <@cc.kw>each</> Operator in the Dormitory grants<$cc.bd_b1><@cc.rem>Worldly Plight</></><@cc.vup>+1</>, and for every <@cc.vup>1</>point<$cc.bd_b1><@cc.rem>Worldly Plight</></>, grant <@cc.vup>+1%</> order acquisition efficiency' },
+  } };
+  const [skill] = reconcileBaseSkills({ name: 'Mr. Nothing', internalName: 'nothin', baseSkills: [] }, nothing, 'Global', {}, terms);
+  assert.equal(skill.description, 'When this Operator is assigned to a Trading Post, each Operator in the Dormitory grants Worldly Plight +1, and for every 1 point Worldly Plight, grant +1% order acquisition efficiency');
+  assert.deepEqual(skill.keywords.map(k => k.text), ['Worldly Plight']);
+});
