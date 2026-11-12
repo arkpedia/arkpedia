@@ -100,15 +100,14 @@ export async function drawRewardSummary({ title, summary, artwork, rewardNote, r
   ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
   const banner = artwork ? images.get(artwork) : null;
   if (banner) {
-    // Cover the complete export so the lower reward groups have artwork behind them too.
-    const scale = Math.max(W / banner.naturalWidth, H / banner.naturalHeight);
-    const width = banner.naturalWidth * scale, height = banner.naturalHeight * scale;
-    ctx.globalAlpha = 0.36;
-    ctx.drawImage(banner, (W - width) / 2, (H - height) / 2, width, height);
+    const height = W * banner.naturalHeight / banner.naturalWidth;
+    ctx.globalAlpha = 0.24;
+    ctx.drawImage(banner, 0, 0, W, height);
     ctx.globalAlpha = 1;
-    const fade = ctx.createLinearGradient(0, H * 0.75, 0, H);
+    // Reach the page color at the banner's lower edge, without enlarging or cropping the art.
+    const fade = ctx.createLinearGradient(0, height * 0.35, 0, height);
     fade.addColorStop(0, 'transparent'); fade.addColorStop(1, bg);
-    ctx.fillStyle = fade; ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = fade; ctx.fillRect(0, 0, W, height);
   }
   ctx.textBaseline = 'top';
   ctx.fillStyle = amber; ctx.fillRect(PAD, 34, 44, 4);
