@@ -319,7 +319,6 @@ export default function SchedulePage({ events: globalEvents, operators: exported
         <div id="schedule-events" hidden={view !== 'events'}>
           <section className="op-section" aria-label="Event listings">
             <StickyControls className="schedule-events-controls">
-              <div className="schedule-events-period">
               <SegmentedControl<'upcoming' | 'past'>
                 label="Event period"
                 options={[{ value: 'upcoming', label: 'Upcoming' }, { value: 'past', label: 'Past' }]}
@@ -330,9 +329,8 @@ export default function SchedulePage({ events: globalEvents, operators: exported
                   void router.replace({ pathname: '/schedule', query: period === 'past' ? { past: '1' } : {} }, undefined, { shallow: true, scroll: false });
                 }}
               />
+              <button type="button" className="ghost" aria-label="Sync calendar / .ics" aria-haspopup="dialog" onClick={() => setSyncOpen(true)}>Sync<span className="schedule-sync-detail"> calendar / .ics</span></button>
               <p className="hint">{showPast ? `${pastEvents.length} events · newest first` : `${eventRows.length} events · soonest first`}</p>
-              </div>
-              <button type="button" className="ghost" aria-haspopup="dialog" onClick={() => setSyncOpen(true)}>Sync calendar / .ics</button>
             </StickyControls>
           {showPast ? <>
             {pastEvents.length ? <>
