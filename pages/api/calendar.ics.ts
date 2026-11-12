@@ -32,7 +32,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     res.setHeader('ETag', etag);
     res.setHeader('X-Content-Type-Options', 'nosniff');
     if (req.headers['if-none-match'] === etag) return res.status(304).end();
-    return req.method === 'HEAD' ? res.status(200).end() : res.status(200).send(body);
+    return req.method === 'HEAD' ? res.status(200).end() : res.status(200).end(body);
   } catch {
     // Never send a successful empty calendar: subscribers could remove all events.
     return res.status(503).json({ error: 'Calendar temporarily unavailable. Please try again later.' });

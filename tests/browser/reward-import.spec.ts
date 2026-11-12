@@ -146,3 +146,47 @@ test('New Doctor mail explains unknown history and imports a retained claim with
   await expect(mail).toBeChecked(); await expect(mail).toBeDisabled();
   expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(1);
 });
+
+
+test('Paradox completion stays separate from ownership and promotion', async ({ page }) => {
+  const chars = {
+    char_009_12fce: { name: '12F', rarity: 2, modules: {} },
+    char_225_haak: { name: 'Aak', rarity: 6, modules: {} },
+    char_405_absin: { name: 'Absinthe', rarity: 5, modules: {} },
+  };
+  const account = accountFromGame({ status: { uid: 'paradox-availability-fixture' }, troop: {
+    chars: {
+      1: { charId: 'char_009_12fce', evolvePhase: 0, level: 30, mainSkillLvl: 1 },
+      2: { charId: 'char_225_haak', evolvePhase: 1, level: 80, mainSkillLvl: 7 },
+      3: { charId: 'char_405_absin', evolvePhase: 2, level: 1, mainSkillLvl: 7 },
+    }, addon: {
+      char_009_12fce: { stage: { mem_12fce_1: { state: 3, completeTimes: 1 } } },
+      char_225_haak: { stage: { mem_haak_1: { state: 0 } } },
+      char_405_absin: { stage: { mem_absin_1: { state: 0 } } },
+    },
+  } }, { version: 1, chars }, 'en');
+  // The import writes the separately parsed roster alongside accountFromGame's claims.
+  account.operatorBuilds = {
+    '12F': { elite: 0, level: 30, skillLevel: 1, masteries: {} },
+    Aak: { elite: 1, level: 80, skillLevel: 7, masteries: {} },
+    Absinthe: { elite: 2, level: 1, skillLevel: 7, masteries: {} },
+  };
+  await page.addInitScript(account => localStorage.setItem('arkpediaAccount', JSON.stringify(account)), account);
+  await page.goto('/reward-tracker');
+  await page.getByRole('tab', { name: 'Paradox Simulations', exact: true }).click();
+  await page.getByRole('button', { name: 'All', exact: true }).click();
+  const checkbox = (name: string) => page.getByRole('checkbox', { name: new RegExp(`^${name} ·`) });
+  const row = (name: string) => page.locator('.pulls-past-row').filter({ has: checkbox(name) });
+  await expect(checkbox('12F')).toBeChecked();
+  await expect(row('12F')).not.toContainText('Ready to play');
+  await expect(checkbox('Aak')).not.toBeChecked();
+  await expect(row('Aak')).toHaveClass(/is-locked/);
+  await expect(row('Aak')).toContainText('Requires E2');
+  await expect(checkbox('Absinthe')).not.toBeChecked();
+  await expect(row('Absinthe')).toContainText('Ready to play');
+  await expect(row('Absinthe')).not.toHaveClass(/is-locked/);
+  await page.getByRole('button', { name: 'Unclaimed', exact: true }).click();
+  await expect(checkbox('12F')).toHaveCount(0);
+  await expect(checkbox('Aak')).toBeVisible();
+  await expect(checkbox('Absinthe')).toBeVisible();
+});

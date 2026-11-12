@@ -30,6 +30,7 @@ for (const theme of ['dark', 'light']) {
     expect(cached.status()).toBe(304);
     const head = await request.head(selected);
     expect(head.status()).toBe(200);
+    expect(head.headers().etag).toBe(response.headers().etag);
     expect(await head.body()).toHaveLength(0);
     const download = await request.get((await dialog.getByRole('link', { name: 'Download .ics', exact: true }).getAttribute('href'))!);
     expect(download.headers()['content-disposition']).toContain('attachment; filename="arkpedia-en.ics"');
