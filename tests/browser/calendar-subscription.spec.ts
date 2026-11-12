@@ -10,7 +10,7 @@ for (const theme of ['dark', 'light']) {
     const dialog = page.getByRole('dialog', { name: 'Sync calendar', exact: true });
     await expect(dialog).toBeVisible();
     await expect(dialog.getByText('[Confirmed]', { exact: true })).toBeVisible();
-    await expect(dialog.getByText('[Predicted] … (CN estimate)', { exact: true })).toBeVisible();
+    await expect(dialog.getByText('[Predicted]', { exact: true })).toBeVisible();
     const url = dialog.getByRole('textbox', { name: 'Subscription URL', exact: true });
     const original = await url.inputValue();
     await expect(dialog.getByRole('link', { name: /Subscribe in calendar app/ })).toHaveAttribute('href', original.replace(/^https?:/, 'webcal:'));

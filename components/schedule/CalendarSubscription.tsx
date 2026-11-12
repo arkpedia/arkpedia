@@ -12,29 +12,38 @@ export default function CalendarSubscription({ server, birthdays, onClose }: { s
   const webcal = url.replace(/^https?:/, 'webcal:');
   return <ImportDialog title="Sync calendar" className="calendar-subscription-dialog" onClose={onClose}>
     <div className="calendar-subscription-body">
-      <p>Subscribe to the <strong>{serverName}</strong> schedule for automatic event and date updates. Your calendar app controls refresh timing; changes may take several hours.</p>
+      <p>Keep the <strong>{serverName}</strong> event schedule in your calendar, with automatic date updates.</p>
       <div className="calendar-subscription-options">
         <label className="check"><input type="checkbox" checked={includePredicted} onChange={event => { setIncludePredicted(event.target.checked); setCopied(''); }} />Include predicted dates</label>
         <label className="check"><input type="checkbox" checked={includeBirthdays} onChange={event => { setIncludeBirthdays(event.target.checked); setCopied(''); }} />Include operator birthdays</label>
       </div>
-      <p><strong>[Confirmed]</strong> dates are confirmed for {serverName}. <strong>[Predicted] … (CN estimate)</strong> dates come from the CN schedule and may change.{server !== 'en' && <> Dates using Global as a fallback say <strong>[Predicted] … (Global fallback)</strong>.</>}</p>
-      <p>Includes all published event dates. Turn off predictions for a confirmed-only calendar.</p>
-      <label className="calendar-subscription-url">Subscription URL
-        <input type="text" readOnly value={url} onFocus={event => event.currentTarget.select()} />
-      </label>
-      <div className="calendar-subscription-actions">
-        <a href={webcal} className="btn primary btn-sm">Subscribe in calendar app ↗</a>
-        <button type="button" className="ghost" onClick={async () => {
-          try { await navigator.clipboard.writeText(url); setCopied('Subscription URL copied.'); }
-          catch { setCopied('Select and copy the subscription URL above.'); }
-        }}>Copy subscription URL</button>
+      <div className="calendar-subscription-legend support-copy">
+        <p><strong>[Confirmed]</strong><span>Official dates for {serverName}.</span></p>
+        <p><strong>[Predicted]</strong><span>CN estimates; dates may change.</span></p>
+        {server !== 'en' && <p><strong>[Predicted] · Global fallback</strong><span>Global dates, awaiting local confirmation.</span></p>}
       </div>
-      <span role="status" className="visually-hidden">{copied}</span>
-      {copied && <p className="hint">{copied}</p>}
-      <p>Google Calendar: <strong>Other calendars → From URL</strong>. Apple Calendar / Outlook: <strong>Subscribe</strong> or <strong>From Internet</strong>. Paste the subscription URL.</p>
+      <div className="calendar-subscription-connect">
+        <label className="calendar-subscription-url">Subscription URL
+          <input type="text" readOnly value={url} onFocus={event => event.currentTarget.select()} />
+        </label>
+        <div className="calendar-subscription-actions">
+          <a href={webcal} className="btn primary btn-sm">Subscribe in calendar app ↗</a>
+          <button type="button" className="ghost" onClick={async () => {
+            try { await navigator.clipboard.writeText(url); setCopied('Subscription URL copied.'); }
+            catch { setCopied('Select and copy the subscription URL above.'); }
+          }}>Copy subscription URL</button>
+        </div>
+        <span role="status" className="visually-hidden">{copied}</span>
+        {copied && <p className="hint">{copied}</p>}
+        <div className="calendar-subscription-help support-copy">
+          <p><strong>Google Calendar</strong> · Other calendars → From URL</p>
+          <p><strong>Apple Calendar / Outlook</strong> · Subscribe or From Internet</p>
+          <p>Paste the URL above. Updates may take several hours, depending on your calendar app.</p>
+        </div>
+      </div>
       <div className="calendar-subscription-download">
         <a href={`${path}&download=1`} download={`arkpedia-${server}.ics`} className="ghost">Download .ics</a>
-        <span>A one-time copy. Importing this file does not sync future changes.</span>
+        <span className="support-copy">One-time copy. Future changes won’t sync.</span>
       </div>
     </div>
   </ImportDialog>;
