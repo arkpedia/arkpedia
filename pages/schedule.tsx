@@ -43,6 +43,7 @@ import StickyControls from '@/components/ui/StickyControls';
 import { useSwitchHold } from '@/components/ui/useSwitchHold';
 import StyledSelect from '@/components/ui/StyledSelect';
 import { renderMonthValue, steadyValue } from '@/components/schedule/CalendarMonthValue';
+import CalendarSubscription from '@/components/schedule/CalendarSubscription';
 import ScrollRow from '@/components/ui/ScrollRow';
 import { getEventColor } from '@/lib/schedule/eventColors';
 import { parsePrices, formatPrices } from '@/lib/skins/skinPrice';
@@ -160,6 +161,7 @@ export default function SchedulePage({ events: globalEvents, operators: exported
   const viewHold = useSwitchHold('schedule');
   const [year, setYear] = useState(today.year);
   const [showBirthdays, setShowBirthdays] = useState(false);
+  const [syncOpen, setSyncOpen] = useState(false);
   const [showOfficialEvents, setShowOfficialEvents] = useState(true);
   const [month, setMonth] = useState(today.month); // 0-11
   const [selectedEvent, setSelectedEvent] = useState<ScheduleEvent | null>(null);
@@ -300,7 +302,9 @@ export default function SchedulePage({ events: globalEvents, operators: exported
       <PageHeader
         eyebrow="Rhodes Island // Schedule"
         title={view === 'calendar' ? 'Calendar' : 'Events'}
+        actions={<button type="button" className="ghost" aria-haspopup="dialog" onClick={() => setSyncOpen(true)}>Sync calendar / .ics</button>}
       />
+      {syncOpen && <CalendarSubscription server={server} birthdays={showBirthdays} onClose={() => setSyncOpen(false)} />}
 
       <main>
       {/* Both views stay mounted, and CSS shows one.

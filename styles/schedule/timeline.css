@@ -499,3 +499,12 @@
   width: 100%;
   height: auto;
 }
+/* Calendar subscription uses the shared dialog; all controls wrap on phones. */
+.calendar-subscription-dialog { --dialog-w: 700px; }
+.calendar-subscription-body { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; }
+.calendar-subscription-body p { margin: 0; }
+.calendar-subscription-options, .calendar-subscription-url { display: grid; gap: 10px; }
+.calendar-subscription-url input { min-width: 0; width: 100%; }
+.calendar-subscription-actions, .calendar-subscription-download { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+.calendar-subscription-download > span { flex: 1 1 200px; }
+.calendar-subscription-actions > * { max-width: 100%; }

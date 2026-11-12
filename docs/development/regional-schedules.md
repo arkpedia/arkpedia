@@ -30,4 +30,32 @@ Server rendering does not know the selected account. Timed rewards remain in pag
 
 Exact closes are exclusive. Client final seconds are normalized to the exclusive minute boundary; a notice's final printed minute includes that whole minute. Never reinterpret a calendar date as a host-local instant.
 
+### Calendar subscriptions
+
+The Schedule header's **Sync calendar / .ics** dialog offers a subscribable URL and a
+one-time download. `/api/calendar.ics?server=en&predicted=1&birthdays=0` reads the current
+verified content release; it does not require another application deployment when
+event dates change. Supported servers are `en`, `jp`, and `kr`. The optional
+`download=1` flag adds an attachment disposition; the underlying calendar is identical.
+Calendar apps control refresh timing (the feed suggests six hours).
+
+Event titles explicitly begin with `[Confirmed]` or `[Predicted]`. CN-based forecasts
+also say `(CN estimate)`. JP/KR windows without local confirmation use `(Global
+fallback)` when based on confirmed Global dates; they never become locally confirmed
+merely because Global has a date. `predicted=0` excludes these forecasts. Confirmed
+instants are UTC; forecasts and dates without exact times use all-day entries with an
+exclusive end. Permanent mode launches occupy one day. Withdrawn/expired forecasts
+are omitted. Optional birthdays recur yearly without reminders.
+
+UIDs depend on the server and event identity, not dates or confirmation status, so
+rescheduling and confirmation update existing subscribed entries. Release timestamps
+provide stable revision metadata; HTTP ETags allow conditional refreshes. Failed
+content reads return 503 rather than an empty successful feed. Downloads are snapshots
+and do not subscribe the user's calendar. The feed is public and contains no account,
+planner budget, or personal goal data.
+
+`scripts/tests/test-calendar-feed.ts` covers date/status handling, regional fallbacks,
+stable UIDs, escaping and UTF-8 folding. `tests/browser/calendar-subscription.spec.ts`
+covers subscription options, download responses, keyboard closure and narrow dialogs.
+
 Regression coverage includes Japanese/Korean maintenance corrections, ambiguous/unnamed notices, paid-shop versus login deadlines, Saturday/Sunday daily rotation, force-open expiry, regional banner-only free pulls, manual budgets and claim IDs, truncated inputs, and SSS season boundaries. Browser tests cross JP/KR closes while Global stays open and switch the same page between account servers. Use a browser timezone different from every game server and test desktop/mobile.
