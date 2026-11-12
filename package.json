@@ -9,6 +9,7 @@
     "data:pull:specs": "node scripts/content/pull-data.mjs --pinned",
     "build": "next build --webpack",
     "cf:build": "node scripts/deploy/cloudflare-pilot.mjs build",
+    "cf:deploy": "node scripts/deploy/workers-build-release.mjs",
     "cf:check": "node scripts/deploy/cloudflare-pilot.mjs check",
     "postbuild": "npm run check:deployment-traces && npm run check:client-chunks",
     "deploy:vercel": "bash scripts/deploy/vercel-production.sh",
