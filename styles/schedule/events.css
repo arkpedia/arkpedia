@@ -231,6 +231,17 @@ button.event-banner-extra:focus-visible > .event-banner-extra-name { color: var(
   .event-banner-card .event-detail-featured-op img { width: 72px; height: 72px; }
 }
 
+/* Keep the free operator's name and unlock task readable on small phones. */
+@media (max-width: 480px) {
+  .event-banner-extras { grid-template-columns: 56px minmax(0, 1fr) max-content; }
+  .event-banner-extra { row-gap: 4px; }
+  .event-banner-extra img { grid-column: 1; grid-row: 1 / span 2; }
+  .event-banner-extra-name { grid-column: 2; grid-row: 1; }
+  .event-banner-extra > .rarity { grid-column: 3; grid-row: 1; }
+  .event-banner-sep { display: none; }
+  .event-banner-extra-how { grid-column: 2 / -1; grid-row: 2; }
+}
+
 .event-detail-skins {
   display: flex;
   flex-wrap: wrap;
