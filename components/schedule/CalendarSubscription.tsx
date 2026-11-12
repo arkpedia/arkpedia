@@ -20,7 +20,7 @@ export default function CalendarSubscription({ server, birthdays, onClose }: { s
       <div className="calendar-subscription-legend support-copy">
         <p><strong>[Confirmed]</strong><span>Official dates for {serverName}.</span></p>
         <p><strong>[Predicted]</strong><span>CN estimates; dates may change.</span></p>
-        {server !== 'en' && <p><strong>[Predicted] · Global fallback</strong><span>Global dates, awaiting local confirmation.</span></p>}
+        {server !== 'en' && <p><strong>[Predicted]</strong><span>Global fallback; awaiting local confirmation.</span></p>}
       </div>
       <div className="calendar-subscription-connect">
         <label className="calendar-subscription-url">Subscription URL

@@ -506,7 +506,8 @@
 .calendar-subscription-options { display: flex; flex-wrap: wrap; gap: 12px 24px; }
 .calendar-subscription-url, .calendar-subscription-connect { display: grid; gap: 10px; }
 .calendar-subscription-legend, .calendar-subscription-help { display: grid; gap: 6px; }
-.calendar-subscription-legend p { display: flex; flex-wrap: wrap; gap: 4px 10px; }
+.calendar-subscription-legend { grid-template-columns: max-content minmax(0, 1fr); gap: 6px 10px; }
+.calendar-subscription-legend p { display: contents; }
 .calendar-subscription-connect { padding-block: 16px; border-block: 1px solid var(--line); }
 .calendar-subscription-help { margin-top: 4px; }
 .calendar-subscription-url input { min-width: 0; width: 100%; }
