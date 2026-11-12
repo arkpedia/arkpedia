@@ -661,7 +661,7 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/ev
   const roster = tableRewards.length || rawStores.some((store) => store.items.length) ? getAllOperators() : [];
   const tableIcon = (item: import('@/lib/events/tableRewards').TableRewardItem) => {
     if (item.kind === 'operator') {
-      const op = roster.find((o) => o.name.toLowerCase() === item.name.toLowerCase());
+      const op = roster.find((o) => o.internalName === item.id) ?? roster.find((o) => o.name.toLowerCase() === item.name.toLowerCase());
       return op ? getOperatorIconPath(op) : null;
     }
     // A daily free roll is a headhunting roll: the permit's picture.
