@@ -90,7 +90,8 @@ for (const name of files) {
 test('all workflows use isolated hosted runners, including fork and Dependabot checks', () => {
   for (const name of files) {
     const workflow = load(name);
-    assert.ok(!('pull_request_target' in (workflow.on ?? {})), `${name}: untrusted PR code must not use a privileged trigger`);
+    assert.ok(workflow.on && typeof workflow.on === 'object', `${name}: triggers must be an object`);
+    assert.ok(!('pull_request_target' in workflow.on), `${name}: untrusted PR code must not use a privileged trigger`);
     for (const [id, job] of Object.entries(workflow.jobs ?? {})) {
       assert.equal(job['runs-on'], 'ubuntu-latest', `${name}/${id}: no self-hosted routing, including PR-edited runner variables`);
     }
