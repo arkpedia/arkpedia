@@ -34,6 +34,11 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    at: '2026-11-12T21:22:00Z',
+    changed: [{ title: 'Featured free rewards in saved images', detail: 'Welfare operators and free skins get larger artwork, with total EXP and pulls on the material cards.', href: '/events' }],
+    fixed: [{ title: 'Event rewards keep their CN fallback', detail: 'Missing shops and exchanges use CN sources until Global details become available.', href: '/events' }],
+  },
+  {
     at: '2026-11-12T17:59:21Z',
     fixed: [{ title: 'Aligned pull counts on phones', detail: 'The clickable Available count lines up with the Pulls input and the other banner values.', href: '/pull-planner' }],
   },

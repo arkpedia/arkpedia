@@ -1,3 +1,5 @@
+import battleRecords from '@/data/battle-records.json';
+import { withRewardRowTotal } from './rewardRowTotals';
 import { stockLimit, totalRewards, type ResolvedRewardStore } from './rewardTotals';
 
 /*
@@ -7,8 +9,8 @@ import { stockLimit, totalRewards, type ResolvedRewardStore } from './rewardTota
  * Computed on the server from the same blocks as the All totals (the store at its stock limits,
  * the sign-in, missions, first clears and gifts); packs are bought, so they are not in it.
  */
-export interface SummaryItem { name: string; count: number; iconPath: string | null }
-export interface SummaryRow { label: string; items: SummaryItem[] }
+export interface SummaryItem { name: string; count: number; iconPath: string | null; artwork?: string | null }
+export interface SummaryRow { label: string; items: SummaryItem[]; total?: { value: number; unit: string } }
 export interface RewardSummary { rows: SummaryRow[]; sources: string[] }
 
 const ROWS = [
@@ -29,6 +31,7 @@ export interface SummaryContext {
   /** The material catalogue's groups ("Tier 5", "Skills & modules", ...), for the tiers. */
   groups: { tag: string; names: string[] }[];
   operators: ReadonlySet<string>;
+  artwork?: ReadonlyMap<string, string>;
   /** Outfit and furniture names known to this event (its store types and furniture sets). */
   outfits: ReadonlySet<string>;
   furniture: ReadonlySet<string>;
@@ -69,7 +72,7 @@ export function rewardSummary(stores: ResolvedRewardStore[], context: SummaryCon
   const byRow = new Map<Row, SummaryItem[]>();
   for (const { name, total, iconPath } of totalRewards(stores)) {
     const row = rowOf(name, context);
-    byRow.set(row, [...(byRow.get(row) ?? []), { name, count: total, iconPath }]);
+    byRow.set(row, [...(byRow.get(row) ?? []), { name, count: total, iconPath, ...(context.artwork?.has(name) ? { artwork: context.artwork.get(name)! } : {}) }]);
   }
   /* Within a row, the catalogue's order, then the largest count. Not sortByMaterialOrder, which
      puts what the catalogue does not know FIRST, alphabetically: right for the flat All row, where
@@ -82,7 +85,7 @@ export function rewardSummary(stores: ResolvedRewardStore[], context: SummaryCon
     rows: ROWS.filter(row => byRow.has(row)).map(row => ({
       label: row,
       items: byRow.get(row)!.sort((a, b) => rank(a.name) - rank(b.name) || b.count - a.count || a.name.localeCompare(b.name)),
-    })),
+    })).map(row => withRewardRowTotal(row, new Map(battleRecords.map(record => [record.name, record.exp])))),
     sources: [...new Set(stores.filter(store => store.items.some(item => stockLimit(item.stock) !== null)).map(store => store.type))],
   };
 }

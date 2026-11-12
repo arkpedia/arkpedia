@@ -44,9 +44,44 @@ for (const theme of ['dark', 'light']) {
     expect(labels.filter(text => text.startsWith('×')).sort()).toEqual(expected.sort());
     expect(labels).toContain('Originite Prime');
     expect(labels).toContain('EVENT REWARDS');
+    expect(labels).toContain('FREE OPERATOR');
+    expect(labels.some(text => /^Total [\d,.]+ EXP$/.test(text))).toBe(true);
+    expect(labels.some(text => /^Total [\d,.]+ pulls/.test(text))).toBe(true);
     const images = await page.evaluate(() => (window as unknown as { rewardExportImages: string[] }).rewardExportImages);
     expect(images, 'download uses the displayed regional artwork, including Global replacements').toContain(artwork);
     expect(labels.join(' ')).not.toContain('Global dates and rewards await confirmation');
     await expect(save).toBeEnabled();
+  });
+}
+
+for (const [title, operator, skin] of [
+  ["[Side Story – Celebration] The Masses' Travels", true, true],
+  ['Positional Football Championship', false, true],
+  ['Lifestyle Aid', false, false],
+] as const) {
+  test(`reward image features only the available free rewards: ${title}`, async ({ page }) => {
+    await page.addInitScript(() => {
+      const labels: string[] = [];
+      Object.assign(window, { rewardExportLabels: labels });
+      const draw = CanvasRenderingContext2D.prototype.fillText;
+      CanvasRenderingContext2D.prototype.fillText = function (text, x, y, maxWidth) {
+        labels.push(text);
+        if (maxWidth === undefined) draw.call(this, text, x, y);
+        else draw.call(this, text, x, y, maxWidth);
+      };
+    });
+    await page.goto('/events/' + encodeURIComponent(title));
+    const tab = page.getByRole('tab', { name: 'Rewards', exact: true });
+    if (await tab.count()) await tab.click();
+    const expected = await page.locator('.reward-summary-tile b').allTextContents();
+    expect(expected.length).toBeGreaterThan(0);
+    const waiting = page.waitForEvent('download');
+    await page.getByRole('button', { name: 'Save image', exact: true }).click();
+    expect(await (await waiting).failure()).toBeNull();
+    const labels = await page.evaluate(() => (window as unknown as { rewardExportLabels: string[] }).rewardExportLabels);
+    expect(labels.includes('FREE OPERATOR')).toBe(operator);
+    expect(labels.includes('FREE SKIN')).toBe(skin);
+    expect(labels.filter(text => text.startsWith('×')).sort()).toEqual(expected.sort());
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   });
 }

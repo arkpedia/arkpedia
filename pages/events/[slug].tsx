@@ -59,6 +59,7 @@ import { EventVideos } from '@/components/events/EventVideos';
 import EventModeOverview from '@/components/events/EventModeOverview';
 import type { EventVideo, EventVideosFile } from '@/lib/events/eventVideos';
 import { RewardTile } from '@/components/events/RewardTile';
+import { rewardSkin } from '@/lib/events/rewardArtwork';
 import { rewardSummary, type RewardSummary } from '@/lib/events/rewardSummary';
 import { getAllOperators } from '@/lib/operators/operators';
 import { getOperatorIconPath } from '@/lib/operators/operatorIcon';
@@ -465,7 +466,7 @@ export default function EventDetailPage({
                 />
                 <div {...tabPanelProps('event-store', activeRewardTab)}>
                   {activeRewardTab === ALL_TAB ? (
-                    summary && summary.rows.length ? <RewardSummaryCard eventName={name} summary={summary} artwork={shownImages[0] ?? regionalArt(regionalWindow, poster, server) ?? shownBannerImage} rewardNote={rewardNote?.replace('Global dates and rewards await confirmation', 'Global rewards await confirmation')} /> : <RewardTotalsRow totals={rewardTotals} />
+                    summary && summary.rows.length ? <RewardSummaryCard welfare={welfareOperators} skins={skins} eventName={name} summary={summary} artwork={shownImages[0] ?? regionalArt(regionalWindow, poster, server) ?? shownBannerImage} rewardNote={rewardNote?.replace('Global dates and rewards await confirmation', 'Global rewards await confirmation')} /> : <RewardTotalsRow totals={rewardTotals} />
                   ) : activeRewardTab === EXTRA_TABS.packs ? (
                     <EventPacks groups={extras.packs} />
                   ) : activeRewardTab === EXTRA_TABS.furniture ? (
@@ -625,16 +626,17 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/ev
   // from the original run's: only the missions, first clears and furniture a rerun repeats are.
   // The store as the wiki lists it now (data/event-stores.json, refreshed by the event-stores
   // stage; a rerun's from its /Rerun page), else the event record's one-off wiki import.
-  const wikiStores = ((await import('@/data/event-stores.json')).default as EventStoresFile).events[event.name]?.stores;
+  const storeEntry = ((await import('@/data/event-stores.json')).default as EventStoresFile).events[event.name];
+  const wikiStores = storeEntry?.stores;
   const rawStores: EventRewardBlock[] = wikiStores?.length
-    ? wikiStoreBlocks(wikiStores)
+    ? wikiStoreBlocks(wikiStores, storeEntry?.region)
     : getEventRewards(event.name).map((store) => ({ ...store, items: store.items.map((item) => ({ ...item, name: storeNames[item.name] ?? item.name })) }));
   const fromOriginal = !!rewardEntry?.inheritsFrom && (rewardEntry.groups ?? []).some((g) => g.inherited);
-  const fromCn = rewardEntry?.region === 'CN' || (rewardEntry?.groups ?? []).some((g) => g.region === 'CN');
+  const fromCn = storeEntry?.region === 'CN' || rewardEntry?.region === 'CN' || (rewardEntry?.groups ?? []).some((g) => g.region === 'CN');
   const rewardNote = fromOriginal
     ? `Missions, first clears and furniture are the original run's (${eventTitle(rewardEntry!.inheritsFrom!)}) until this rerun's own are in the game data: a rerun repeats them. Its store is its own. First-clear rewards are once per account: a stage cleared before gives none again.`
     : fromCn
-      ? 'Rewards marked CN come from this run’s CN game data. Global rewards await confirmation; first clears remain once per account.'
+      ? 'Rewards marked CN use CN sources while Global reward details are incomplete; first clears remain once per account.'
       : isRerun(event.name) && (rewardEntry?.groups ?? []).some((g) => g.kind === 'first-clear')
         ? 'First-clear rewards are once per account: a stage cleared in the original run gives none in the rerun.'
         : null;
@@ -664,7 +666,7 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/ev
       stock: item.stock ?? '1',
       // Null while the image repository has not published the icon: the row keeps its
       // box without a broken image, and the release quarantines it (rewardIconPath).
-      iconPath: rewardIconPath({ ...item, id: item.type === 'furniture' ? furnitureIds.get(furnitureKey(item.name)) ?? null : null }, (skinName) => findSkinIconPath(skinName) || skinImageByName.get(skinName) || null, publicFileExists),
+      iconPath: rewardIconPath({ ...item, id: item.id ?? (item.type === 'furniture' ? furnitureIds.get(furnitureKey(item.name)) ?? null : null) }, (skinName) => findSkinIconPath(skinName) || skinImageByName.get(skinName) || null, publicFileExists),
     })),
   }));
   // The rewards the game tables list beyond the store: sign-in events, gifts, missions and
@@ -734,6 +736,17 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/ev
       summary: rewardSummary(rewardStores, {
         groups: catalogue.groups,
         operators: new Set(roster.map((op) => op.name)),
+        artwork: new Map([
+          ...roster.map(op => [op.name, getOperatorIconPath(op).replace('-star-icons/', '-star-skins/')] as [string, string]),
+          ...tableRewards.flatMap(group => group.items.filter(item => item.kind === 'outfit').flatMap(item => {
+            const skin = allSkins.find(s => s.skinId === item.id) ?? rewardSkin(item.name, allSkins);
+            return skin?.image ? [[item.name, skin.image] as [string, string]] : [];
+          })),
+          ...rawStores.flatMap(store => store.items.filter(item => item.type === 'skin').flatMap(item => {
+            const skin = allSkins.find(s => s.skinId === item.id) ?? rewardSkin(item.name, allSkins);
+            return skin?.image ? [[item.name, skin.image] as [string, string]] : [];
+          })),
+        ]),
         outfits: new Set([...rawStores.flatMap((s) => s.items.filter((i) => i.type === 'skin').map((i) => i.name)), ...tableRewards.flatMap((g) => g.items.filter((i) => i.kind === 'outfit').map((i) => i.name))]),
         furniture: new Set([...extras.furniture.flatMap((set) => set.pieces.map((p) => p.name)), ...(eventRewards.storeFurniture ?? []).map((n) => storeNames[n] ?? n), ...rawStores.flatMap((s) => s.items.filter((i) => i.type === 'furniture').map((i) => i.name))]),
         kinds: new Map(tableRewards.flatMap((g) => g.items.map((i) => [i.name, i.kind] as [string, string]))),
@@ -748,6 +761,11 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/ev
   // One exported before the News tab's official art has none: no board items, no pictures.
   // Each page keeps only its own event's and banner's regional windows (regionalScheduleSlice).
   finalize: async (props) => {
+    const skins = getAllSkins();
+    props = { ...props, summary: props.summary ? { ...props.summary, rows: props.summary.rows.map(row => row.label !== 'Outfits' ? row : { ...row, items: row.items.map(item => {
+      const skin = rewardSkin(item.name, skins, item.iconPath);
+      return skin?.image ? { ...item, artwork: skin.image } : item;
+    }) }) } : null };
     const ordered = await withMaterialOrder(props, (page) => page.rewardStores.flatMap((store) => store.items.map((item) => item.name)));
     return withRegionalSlice(withNewsArt(await withEventOperators({ ...ordered, skins: await withSkinArtwork(ordered.skins), mode: modeDetails(props.name) ?? props.mode ?? null })));
   },
