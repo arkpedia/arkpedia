@@ -11,10 +11,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     res.setHeader('Allow', 'GET, HEAD');
     return res.status(405).json({ error: 'Method not allowed' });
   }
-  const { server = 'en', predicted = '1', birthdays = '0', download = '0' } = req.query;
+  const { server = 'en', predicted = '1', birthdays = '0', collabs = '1', download = '0' } = req.query;
   if (typeof server !== 'string' || !['en', 'jp', 'kr'].includes(server)
     || !['0', '1'].includes(String(predicted)) || Array.isArray(predicted)
     || !['0', '1'].includes(String(birthdays)) || Array.isArray(birthdays)
+    || !['0', '1'].includes(String(collabs)) || Array.isArray(collabs)
     || !['0', '1'].includes(String(download)) || Array.isArray(download)) {
     return res.status(400).json({ error: 'Choose a supported server and calendar options.' });
   }
@@ -24,7 +25,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const data = (published as unknown as CalendarData | null)
       ?? (process.env.ARKPEDIA_WORKER === '1' ? null : await (await import('@/lib/schedule/calendarLocal')).localCalendarData());
     if (!data?.eventRows || !data.events || !data.operators) throw new Error('Schedule unavailable');
-    const body = calendarFeed(data, { server: server as CalendarServer, predicted: predicted === '1', birthdays: birthdays === '1' }, release?.manifest.generatedAt ?? localUpdatedAt);
+    const body = calendarFeed(data, { server: server as CalendarServer, predicted: predicted === '1', birthdays: birthdays === '1', collabs: collabs === '1' }, release?.manifest.generatedAt ?? localUpdatedAt);
     const etag = `"${createHash('sha256').update(body).digest('hex')}"`;
     res.setHeader('Content-Type', 'text/calendar; charset=utf-8');
     res.setHeader('Content-Disposition', `${download === '1' ? 'attachment' : 'inline'}; filename="arkpedia-${server}.ics"`);

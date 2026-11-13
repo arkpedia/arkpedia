@@ -34,6 +34,10 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    at: '2026-11-13T11:45:00Z',
+    added: [{ title: 'Collaborations in other games', detail: 'Find Arcaea, Cytus II, Muse Dash and Delta Force collaborations in the calendar and its synced feed.', href: '/schedule' }],
+  },
+  {
     at: '2026-11-13T09:35:00Z',
     changed: [
       { title: 'Wider reward images for busy events', detail: 'Large reward lists use more columns, keeping featured rewards together and reducing vertical scrolling.', href: '/events' },

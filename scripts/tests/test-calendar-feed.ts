@@ -4,7 +4,7 @@ import { calendarFeed, foldCalendarLine, type CalendarData, type CalendarOptions
 
 const updated = '2026-11-12T12:00:00Z';
 const now = Date.parse(updated);
-const options: CalendarOptions = { server: 'en', predicted: true, birthdays: false };
+const options: CalendarOptions = { server: 'en', predicted: true, birthdays: false, collabs: false };
 const data = (): CalendarData => ({
   events: [
     { name: 'Confirmed event', year: 2026, poster: null, cn: { dateRange: '2026/05/01–2026/05/15', note: null }, tw: { dateRange: null, note: null }, global: { dateRange: '2026/11/16–2026/11/30', note: null, startAt: '2026-11-16T15:00:00Z', endAt: '2026-11-30T11:00:00Z' } },
@@ -82,4 +82,29 @@ test('iCalendar text escaping and UTF-8 line folding preserve text without injec
   assert.doesNotMatch(unfold(feed), /\r\nSTATUS:CANCELLED/);
   const long = 'SUMMARY:' + 'é雷'.repeat(100);
   assert.equal(unfold(foldCalendarLine(long)), long);
+});
+
+test('external-game collabs share source dates across servers and do not become CN predictions', () => {
+  const global = blocks(calendarFeed(data(), { ...options, predicted: false, collabs: true }, updated, now));
+  const jp = blocks(calendarFeed(data(), { ...options, server: 'jp', predicted: false, collabs: true }, updated, now));
+  const collabs = global.filter(block => block.includes('CATEGORIES:External game collaborations'));
+  assert.equal(collabs.length, 6);
+  assert.deepEqual(collabs, jp.filter(block => block.includes('CATEGORIES:External game collaborations')));
+  const arcaea = collabs.find(block => block.includes('Arcaea × Arknights'))!;
+  assert.match(arcaea, /DTSTART;VALUE=DATE:20261117/);
+  assert.match(arcaea, /DTEND;VALUE=DATE:20280318/);
+  assert.match(arcaea, /STATUS:CONFIRMED/);
+  assert.match(arcaea, /URL:https:\/\/x.com\/arcaea_en\/status\//);
+  assert.doesNotMatch(arcaea, /Predicted|CN estimate|Global server/);
+  const cytus = collabs.find(block => block.includes('Cytus II ×'))!;
+  assert.match(cytus, /DTSTART;VALUE=DATE:20211216/);
+  assert.match(cytus, /DTEND;VALUE=DATE:20211217/);
+  assert.match(collabs.find(block => block.includes('Garena events'))!, /Garena service/);
+});
+
+test('existing subscriptions include collaborations by default; opting out excludes only them', () => {
+  const { collabs: _collabs, ...existingOptions } = options;
+  const defaults = blocks(calendarFeed(data(), existingOptions, updated, now));
+  assert.equal(defaults.filter(block => block.includes('CATEGORIES:External game collaborations')).length, 6);
+  assert.equal(blocks(calendarFeed(data(), options, updated, now)).length, 2);
 });

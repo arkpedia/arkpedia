@@ -5,15 +5,17 @@ import type { CalendarServer } from '@/lib/schedule/calendarFeed';
 export default function CalendarSubscription({ server, birthdays, onClose }: { server: CalendarServer; birthdays: boolean; onClose: () => void }) {
   const [includePredicted, setIncludePredicted] = useState(true);
   const [includeBirthdays, setIncludeBirthdays] = useState(birthdays);
+  const [includeCollabs, setIncludeCollabs] = useState(true);
   const [copied, setCopied] = useState('');
   const serverName = server === 'en' ? 'Global' : server === 'jp' ? 'Japan' : 'Korea';
-  const path = `/api/calendar.ics?server=${server}&predicted=${includePredicted ? '1' : '0'}&birthdays=${includeBirthdays ? '1' : '0'}`;
+  const path = `/api/calendar.ics?server=${server}&predicted=${includePredicted ? '1' : '0'}&birthdays=${includeBirthdays ? '1' : '0'}&collabs=${includeCollabs ? '1' : '0'}`;
   const url = typeof window === 'undefined' ? path : `${window.location.origin}${path}`;
   const webcal = url.replace(/^https?:/, 'webcal:');
   return <ImportDialog title="Sync calendar" className="calendar-subscription-dialog" onClose={onClose}>
     <div className="calendar-subscription-body">
       <p>Keep the <strong>{serverName}</strong> event schedule in your calendar, with automatic date updates.</p>
       <div className="calendar-subscription-options">
+        <label className="check"><input type="checkbox" checked={includeCollabs} onChange={event => { setIncludeCollabs(event.currentTarget.checked); setCopied(''); }} />Include collaborations in other games</label>
         <label className="check"><input type="checkbox" checked={includePredicted} onChange={event => { setIncludePredicted(event.target.checked); setCopied(''); }} />Include predicted dates</label>
         <label className="check"><input type="checkbox" checked={includeBirthdays} onChange={event => { setIncludeBirthdays(event.target.checked); setCopied(''); }} />Include operator birthdays</label>
       </div>
