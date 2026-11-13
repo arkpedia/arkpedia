@@ -12,12 +12,13 @@ import { useContentUrl } from '@/lib/content/context';
 interface ChibiCanvasProps {
   model: ChibiModel; label: string; animation: string; onAnimationChange: (value: string) => void;
   onAnimationsChange: (values: string[], durations?: Record<string, number>) => void; paused: boolean; moving: boolean; flipped: boolean;
-  onPointerDown: PointerEventHandler<HTMLCanvasElement>; roaming: boolean;
+  onPointerDown: PointerEventHandler<HTMLCanvasElement>; onTap?: () => void; roaming: boolean;
   activity?: ChibiActivity;
   onAnimationComplete?: (looping: boolean) => void;
   animationSequence?: number; once?: boolean; playWhilePaused?: boolean;
 }
-export default function ChibiCanvas({ model, label, animation, onAnimationChange, onAnimationsChange, paused, moving, flipped, onPointerDown, roaming, activity, animationSequence = 0, once = false, playWhilePaused = false, onAnimationComplete }: ChibiCanvasProps) {
+export default function ChibiCanvas({ model, label, animation, onAnimationChange, onAnimationsChange, paused, moving, flipped, onPointerDown, onTap, roaming, activity, animationSequence = 0, once = false, playWhilePaused = false, onAnimationComplete }: ChibiCanvasProps) {
+  const gesture = useRef<{ x: number; y: number; pointer: number } | null>(null);
   const resolveUrl = useContentUrl();
   // A new page context must not restart a roaming animation when its resources
   // still resolve to the same immutable physical files.
@@ -167,7 +168,13 @@ export default function ChibiCanvas({ model, label, animation, onAnimationChange
     return () => { stopped = true; abort.abort(); cancelAnimationFrame(frame); cleanup?.(); };
   }, [skeletonUrl, atlasUrl, textureUrls, onAnimationChange, onAnimationsChange]);
   return <div className={`chibi-viewer${roaming ? ' is-roaming' : ''}`}>
-    <canvas ref={canvasRef} aria-label={`${label} chibi`} title={roaming ? 'Tap to interact · Drag to move' : 'Drag chibi onto the page'} onPointerDown={onPointerDown} style={flipped ? { transform: 'scaleX(-1)' } : undefined} />
+    <canvas ref={canvasRef} aria-label={`${label} chibi`} title={roaming || onTap ? 'Tap to interact · Drag to move' : 'Drag chibi onto the page'}
+      role={onTap ? 'button' : undefined} tabIndex={onTap ? 0 : undefined}
+      onKeyDown={event => { if (onTap && !event.repeat && (event.key === 'Enter' || event.key === ' ')) { event.preventDefault(); onTap(); } }}
+      onClick={event => { if (event.detail === 0) onTap?.(); }}
+      onPointerDown={event => { gesture.current = event.button === 0 && event.isPrimary ? { x: event.clientX, y: event.clientY, pointer: event.pointerId } : null; onPointerDown(event); }}
+      onPointerUp={event => { const start = gesture.current; gesture.current = null; if (start?.pointer === event.pointerId && Math.hypot(event.clientX - start.x, event.clientY - start.y) <= 6) onTap?.(); }}
+      onPointerCancel={() => { gesture.current = null; }} style={flipped ? { transform: 'scaleX(-1)' } : undefined} />
     {error ? <p role="status">{error}</p> : loading ? <p role="status">Loading chibi…</p> : null}
   </div>;
 }

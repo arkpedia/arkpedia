@@ -685,6 +685,7 @@ export default function OperatorDetailPage({ chibis = {}, summons = [], epTrack,
   const sectionOrder: SectionKey[] = ['skills', 'stats', 'talents', 'community', 'mastery', 'modules', 'promotion', 'potential', 'baseSkills', 'synergy', 'characterInfo', 'files', 'voiceLines', 'guides'];
   availableSections.sort((a, b) => sectionOrder.indexOf(a.key) - sectionOrder.indexOf(b.key));
   const [activeSection, setActiveSection] = useState<OperatorSection>('overview');
+  const [voicePackRequest, setVoicePackRequest] = useState<{ id: string; request: number }>();
   const hasSection = (key: OperatorSection) => availableSections.some(section => section.key === key);
   const sectionVisible = hasSection;
   const navigationRef = useRef<HTMLDivElement>(null);
@@ -996,7 +997,7 @@ export default function OperatorDetailPage({ chibis = {}, summons = [], epTrack,
               )}
             </div>
 
-            <OperatorChibi key={operator.name} onOpen={() => setRotating(false)} models={chibis[shownAppearance?.label ?? ''] ?? null} label={`${operator.name} — ${shownAppearance?.label ?? ''}`} />
+            <OperatorChibi key={operator.name} voiceData={voiceData} appearance={shownAppearance?.label ?? 'Base'} onOpen={() => setRotating(false)} models={chibis[shownAppearance?.label ?? ''] ?? null} label={`${operator.name} — ${shownAppearance?.label ?? ''}`} />
             <div className={pageStyles.artworkCaptionRow}>
               <OperatorArtworkCaption appearances={appearances} activeIndex={shownIndex} prices={skinObtainByLabel} />
               {epTrack && <button type="button" className="ghost btn-sm" title={epTrack.title} disabled={music.excludeCopyrighted && epTrack.copyright} onClick={() => music.playFirst(epTrack.id)}>Play EP</button>}
@@ -1110,6 +1111,7 @@ export default function OperatorDetailPage({ chibis = {}, summons = [], epTrack,
                     artwork={artworkCredits[shownAppearance?.label ?? 'Base'] ?? artworkCredits.Base}
                     variants={Object.values(artworkCredits)}
                     voicePacks={voiceData?.packs}
+                    onVoiceLines={voiceData?.lines.length ? pack => { setVoicePackRequest(previous => ({ id: pack ?? '', request: (previous?.request ?? 0) + 1 })); selectView('voiceLines', true); } : undefined}
                     relatedByArtist={relatedByArtist}
                     relatedByVoiceActor={relatedByVoiceActor}
                   />
@@ -1636,7 +1638,7 @@ export default function OperatorDetailPage({ chibis = {}, summons = [], epTrack,
 
             {voiceData?.lines.length ? (
               <div id="operator-voiceLines" data-operator-section="voiceLines" tabIndex={-1} className={`op-section ${pageStyles.section}`}>
-                <OperatorVoiceLines key={`voices-${operator.internalName}`} data={voiceData} />
+                <OperatorVoiceLines key={`voices-${operator.internalName}`} data={voiceData} packRequest={voicePackRequest} />
               </div>
             ) : null}
 

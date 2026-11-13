@@ -34,6 +34,16 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    at: '2026-11-13T14:20:00Z',
+    added: [{ title: 'Story-reading guide', detail: 'Watch the Arkpedia guide from the Story page.', href: '/story?guide=1' }, { title: 'Chibi tap voices', detail: 'Tap a chibi or use Enter and Space to hear its normal and trust reactions, including outfit recordings.', href: '/operators' }],
+    changed: [{ title: 'Voice credits link to recordings', detail: 'Jump from the overview’s voice credits to voice lines, with the chosen language selected.', href: '/operators' }],
+    fixed: [
+      { title: 'Compact creator filters', detail: 'Credit and Faction menus stay one control high and use shorter scrolling lists.', href: '/artists' },
+      { title: 'Find supports without special characters', detail: 'Search for Mlynar, Wisadel or Pozemka using plain letters and find their correctly named operators.', href: '/community/support-units' },
+      { title: 'Correct music title associations', detail: 'ManiFesto, Lights and Dreams and two other tracks now keep their translations and credits with the correct recordings.', href: '/music' },
+    ],
+  },
+  {
     at: '2026-11-13T13:20:00Z',
     fixed: [{ title: 'More reliable site updates', detail: 'Fixed premature failure reports while a newly deployed update finishes becoming available.' }],
   },

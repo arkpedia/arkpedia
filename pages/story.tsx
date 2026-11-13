@@ -1,3 +1,5 @@
+import ImportDialog from '@/components/account/ImportDialog';
+import { EventVideos } from '@/components/events/EventVideos';
 import type { GetStaticProps } from 'next';
 import PageMeta from '@/components/layout/PageMeta';
 import Link from 'next/link';
@@ -40,6 +42,7 @@ export default function StoryPage({ map, chapters = {}, library = [] }: Props) {
   const view = viewQuery === 'list' ? 'list' : 'map';
   const progress = useStoryProgress();
   const [transfer, setTransfer] = useState(false);
+  const [guide, setGuide] = useQueryState('guide', '');
   // The map's picture for a chapter: its link (title, the reader's address) and its art.
   const pictures = useMemo(() => new Map(map.elements.flatMap((element) =>
     element.type === 'picture' && element.link?.story && element.link.url ? [[element.link.story, { link: element.link as StoryLink & { url: string; story: string },
@@ -72,6 +75,7 @@ export default function StoryPage({ map, chapters = {}, library = [] }: Props) {
             <a className="ghost" href={READER} target="_blank" rel="noopener noreferrer">
               Timo&apos;s Story Reader <span aria-hidden="true">↗</span>
             </a>
+            <button type="button" className="ghost" onClick={() => setGuide('1')}>How to read the story <span aria-hidden="true">▶</span></button>
           </div>
         </section>
         <section className="op-section" id="story-content" aria-labelledby="story-map">
@@ -84,7 +88,10 @@ export default function StoryPage({ map, chapters = {}, library = [] }: Props) {
           <StoryMapView map={map} chapters={opener} library={library} view={view} />
         </section>
       </main>
-      {shown && <ChapterDialog link={shown.link} image={shown.image} sections={chapters[chapter]} onClose={() => setChapter('')} />}
+      {guide === '1' && <ImportDialog title="How to read the story" className="story-guide-dialog" onClose={() => setGuide('')}>
+        <EventVideos className="story-guide-videos" run="launch" videos={[{ videoId: 'ew2htOBEyO0', title: 'Arkpedia story-reading guide', kind: 'video', published: '' }]} />
+      </ImportDialog>}
+      {shown && guide !== '1' && <ChapterDialog link={shown.link} image={shown.image} sections={chapters[chapter]} onClose={() => setChapter('')} />}
       {transfer && <StoryDataDialog onClose={() => setTransfer(false)} />}
     </>
   );

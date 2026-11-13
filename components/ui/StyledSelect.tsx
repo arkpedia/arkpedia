@@ -40,6 +40,8 @@ interface CommonProps<T extends SelectOption> {
   align?: 'start' | 'end';
   /** The menu's minimum width. It is never narrower than the trigger. */
   menuMinWidth?: number;
+  /** Bound long lists while keeping all options available by scrolling and keyboard. */
+  menuMaxHeight?: number;
   disabled?: boolean;
   className?: string;
   style?: CSSProperties;
@@ -71,7 +73,7 @@ const PAGE = 10;
  */
 export default function StyledSelect<T extends SelectOption>(props: Props<T>) {
   const { id, label, options, renderOption, renderValue, placeholder,
-    size = 'default', align = 'start', menuMinWidth = 240, disabled = false, className, style } = props;
+    size = 'default', align = 'start', menuMinWidth = 240, menuMaxHeight = 560, disabled = false, className, style } = props;
   const multiple = props.multiple === true;
   const value = props.multiple ? props.value[0] ?? '' : props.value;
   const generatedId = useId();
@@ -138,13 +140,13 @@ export default function StyledSelect<T extends SelectOption>(props: Props<T>) {
       left: Math.max(12, Math.min(wanted, window.innerWidth - width - 12)),
       ...(upward ? { bottom: window.innerHeight - rect.top + 6 } : { top: rect.bottom + 6 }),
       width,
-      maxHeight: Math.max(80, Math.min(560, upward ? above : below)),
+      maxHeight: Math.max(80, Math.min(menuMaxHeight, upward ? above : below)),
     });
   };
 
   useClientLayoutEffect(() => {
     if (open) placeRef.current();
-  }, [open, align, menuMinWidth]);
+  }, [open, align, menuMinWidth, menuMaxHeight]);
 
   useEffect(() => {
     if (!open) return;

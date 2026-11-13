@@ -627,3 +627,30 @@ test('a tapped roaming chibi keeps its size while its reaction plays', async ({ 
     await page.waitForTimeout(150);
   }
 });
+
+test('chibi taps play voice reactions, keyboard focus survives pose changes and dragging stays silent', async ({ page }) => {
+  await page.addInitScript(() => {
+    const state = { played: [] as string[] };
+    (window as unknown as { chibiVoiceTest: typeof state }).chibiVoiceTest = state;
+    HTMLMediaElement.prototype.play = function () { if (/cn_0(?:34|36)/i.test(this.src)) state.played.push(this.src); return Promise.resolve(); };
+  });
+  await openChibi(page);
+  const canvas = page.locator('.chibi-window canvas');
+  const heard = () => page.evaluate(() => (window as unknown as { chibiVoiceTest: { played: string[] } }).chibiVoiceTest.played);
+  await canvas.click();
+  await expect.poll(async () => (await heard()).length).toBe(1);
+  expect((await heard())[0]).toMatch(/cn_036/i);
+  await canvas.focus(); await page.keyboard.press('Enter');
+  await expect.poll(async () => (await heard()).length).toBe(2);
+  await expect(canvas).toBeFocused(); await page.keyboard.press('Space');
+  await expect.poll(async () => (await heard()).length).toBe(3);
+  const box = (await canvas.boundingBox())!;
+  const viewport = page.viewportSize()!;
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await page.mouse.down(); await page.mouse.move(viewport.width - 20, viewport.height - 100, { steps: 12 }); await page.mouse.up();
+  await expect(page.locator('.chibi-roaming')).toHaveCount(1);
+  expect((await heard()).length).toBe(3);
+  await expect.poll(() => page.locator('.chibi-roaming canvas').evaluate(drawnPixels)).toBeGreaterThan(0);
+  await page.locator('.chibi-roaming canvas').click();
+  await expect.poll(async () => (await heard()).length).toBe(4);
+});

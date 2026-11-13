@@ -35,7 +35,8 @@ function CreditValue({ value, variants, related }: { value: string | null; varia
   </dd>;
 }
 
-export default function OperatorCredits({ artwork, variants, voicePacks, relatedByArtist = {}, relatedByVoiceActor = {} }: {
+export default function OperatorCredits({ artwork, variants, voicePacks, relatedByArtist = {}, relatedByVoiceActor = {}, onVoiceLines }: {
+  onVoiceLines?: (pack?: string) => void;
   artwork: ArtworkCredit;
   variants: ArtworkCredit[];
   voicePacks?: OperatorVoicePack[] | null;
@@ -47,7 +48,7 @@ export default function OperatorCredits({ artwork, variants, voicePacks, related
   const voiceEntries = (voicePacks ?? []).filter(pack => pack.status === 'current' && pack.actors.some(actor => actor.trim()));
   if (!hasArtist && !voiceEntries.length) return null;
   return <section className={styles.credits} aria-label="Credits">
-    <h3>Credits</h3>
+    <div className={styles.creditHeading}><h3>Credits</h3>{onVoiceLines && voiceEntries.length > 0 && <button type="button" className="ghost btn-sm" onClick={() => onVoiceLines()}>Voice lines <span aria-hidden="true">↓</span></button>}</div>
     <div className={styles.creditGroups}>
       {hasArtist && <dl>
         <div><dt><CreditIcon kind="Illustrator" /></dt><CreditValue value={artwork.illustrator} variants={variants.map(credit => credit.illustrator)} related={relatedByArtist} /></div>
@@ -55,7 +56,7 @@ export default function OperatorCredits({ artwork, variants, voicePacks, related
       </dl>}
       {voiceEntries.length > 0 && <dl>
         {voiceEntries.map(pack => <div key={pack.id}>
-          <dt title={`${pack.label} voice actor`}><CreditIcon kind="Voice actor" /><span aria-label={pack.label}>{LANGUAGE_CODES[pack.label] ?? pack.label}</span></dt>
+          <dt title={`${pack.label} voice actor`}>{onVoiceLines ? <button type="button" className="btn-bare" aria-label={`Jump to ${pack.label} voice lines`} onClick={() => onVoiceLines(pack.id)}><CreditIcon kind="Voice actor" /><span>{LANGUAGE_CODES[pack.label] ?? pack.label}</span></button> : <><CreditIcon kind="Voice actor" /><span aria-label={pack.label}>{LANGUAGE_CODES[pack.label] ?? pack.label}</span></>}</dt>
           <dd>{pack.actors.map(actor => <div key={actor}><OperatorRelationPopover label={actor} title={`Also voiced by ${actor}`} operators={relatedByVoiceActor[actor] ?? []} section="voiceLines" /></div>)}</dd>
         </div>)}
       </dl>}

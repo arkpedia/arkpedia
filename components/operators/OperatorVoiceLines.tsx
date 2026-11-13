@@ -94,7 +94,7 @@ type HeldPlace = {
   end?: number;
 };
 
-export default function OperatorVoiceLines({ data }: { data: OperatorVoiceData }) {
+export default function OperatorVoiceLines({ data, packRequest }: { data: OperatorVoiceData; packRequest?: { id: string; request: number } }) {
   const contentUrl = useContentUrl();
   const preferredPack = preferredPackOf(data);
   const skinVoices = data.skinVoices ?? [];
@@ -103,6 +103,9 @@ export default function OperatorVoiceLines({ data }: { data: OperatorVoiceData }
   const [packId, setPackId] = useState(preferredPack?.id ?? '');
   const [category, setCategory] = useState('all');
   const [query, setQuery] = useState('');
+  useEffect(() => {
+    if (packRequest?.id && data.packs.some(pack => pack.id === packRequest.id)) { setSetId(null); setPackId(packRequest.id); }
+  }, [packRequest, data.packs]);
   const [selectedId, setSelectedId] = useState(data.lines[0]?.id ?? '');
   /* A voice-set switch replaces every line's text: the sets differ in length (Civilight
      Eterna's own voice has 81 rows, Condolence 38) and in text (a Chinese-text set is far

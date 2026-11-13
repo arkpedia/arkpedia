@@ -1,3 +1,4 @@
+import { matchesSearch, normalizeForSearch, searchRelevance } from '@/lib/search/searchNormalize';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
@@ -40,12 +41,12 @@ export default function SupportUnits({operators}:Props){
   const [preview,setPreview]=useState<SupportPlayer|null>(null);
   const closePreview=useCallback(()=>setPreview(null),[]);
   const map=useReleaseTable<GameAccountMap>('game-account-map');
-  const supportUnits=(row:SupportPlayer):SupportUnit[]=>row.supports.map(s=>({name:s.operator,rarity:catalogue.get(s.operator.toLocaleLowerCase())?.rarity??null,
+  const supportUnits=(row:SupportPlayer):SupportUnit[]=>row.supports.map(s=>({name:s.operator,rarity:catalogue.get(normalizeForSearch(s.operator))?.rarity??null,
     elite:s.elite,level:s.level,potential:s.potential??0,skill:s.skill,skillMastery:s.mastery,skillLevel:s.skillLevel,skillMasteries:s.skillMasteries,module:s.module,moduleLevel:s.moduleLevel,skillId:s.skillId,skin:s.skin,allMastered:s.allMastered===true}));
   const hold=useSwitchHold('community-supports');
-  const catalogue=useMemo(()=>new Map(operators.map(op=>[op.name.toLocaleLowerCase(),op])),[operators]);
-  const selected=catalogue.get(query.trim().toLocaleLowerCase());
-  const choices=useMemo(()=>operators.filter(op=>op.name.toLocaleLowerCase().includes(tag.trim().toLocaleLowerCase())).slice(0,20),[operators,tag]);
+  const catalogue=useMemo(()=>new Map(operators.map(op=>[normalizeForSearch(op.name),op])),[operators]);
+  const selected=catalogue.get(normalizeForSearch(query.trim()));
+  const choices=useMemo(()=>[...catalogue.values()].filter(op=>matchesSearch(op.name,tag.trim())).sort((a,b)=>searchRelevance(a.name,tag.trim())-searchRelevance(b.name,tag.trim())).slice(0,20),[catalogue,tag]);
   const filters=new URLSearchParams({server,tag:tag.trim(),operator:selected?.name??'',elite,skill,mastery,minLevel,maxLevel}).toString();
   useEffect(()=>{setCursor(0);},[filters]);
   useEffect(()=>{
