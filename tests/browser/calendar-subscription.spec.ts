@@ -9,6 +9,7 @@ for (const theme of ['dark', 'light']) {
     await page.getByRole('option', { name: 'November', exact: true }).click();
     await page.getByRole('combobox', { name: 'Year', exact: true }).click();
     await page.getByRole('option', { name: '2026', exact: true }).click();
+    await page.getByRole('button', { name: 'External collabs', exact: true }).click();
     await page.getByRole('button', { name: '[Collab] Arcaea × Arknights', exact: true }).first().click();
     const collab = page.getByRole('dialog', { name: 'Arcaea × Arknights', exact: true });
     await expect(collab.getByText(/External game collaboration/)).toBeVisible();
