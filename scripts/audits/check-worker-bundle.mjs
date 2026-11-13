@@ -11,9 +11,10 @@ import path from 'node:path';
  */
 // 17.03 MB on 2026-10-30, once regional-schedules.json (3.45 MB) moved to the Worker's static
 // files (lib/content/shippedTable.ts). Builds bundle the live release's records (#883), which grow
-// with every release: a table that pushes past this moves to the static files the same way rather
-// than the ceiling rising. Kept narrow around the measurement.
-const BUDGET_BYTES = 18_000_000;
+// with every release. Prefer moving growing tables to static files. The maintainer
+// approved a narrow 18.25 MB budget on 2026-11-13 for the measured 18.02 MB bundle;
+// keep the guard and browser-only dependency exclusions in place.
+const BUDGET_BYTES = 18_250_000;
 /** Browser-only packages: next.config.js keeps them out of the server build. */
 const BROWSER_ONLY = [/\/node_modules\/libcurl\.js\//];
 
