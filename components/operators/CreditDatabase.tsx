@@ -192,12 +192,6 @@ export default function CreditDatabase({ people, uncredited, operators, now, kin
           <SearchInput className="roster-search" label={`Search ${title.toLowerCase()}`} placeholder={`${voices ? 'Actor' : 'Artist'} or operator`} value={query.q} onChange={q => change({ q })} />
           {/* On a phone everything but the page switch and the search folds into the sheet. */}
           <FilterSheet controlsClassName="roster-controls credit-controls" active={activeFilters} onReset={resetSheet} hold={hold} controls={<>
-          {voices
-            ? <StyledSelect className="credit-filter" menuMinWidth={200} menuMaxHeight={280} label="Filter by language" value={lang} onChange={value => change({ lang: value })}
-                options={[{ value: 'all', label: 'All languages' }, ...languages.map(([value, n]) => ({ value, label: `${value} (${n})` }))]} />
-            : <StyledSelect className="credit-filter" menuMinWidth={200} menuMaxHeight={280} label="Filter by credit" value={credit} onChange={value => change({ credit: value })} options={ART_CREDITS} />}
-          <StyledSelect className="credit-filter" menuMinWidth={200} menuMaxHeight={280} label="Filter by faction" value={query.faction} onChange={value => change({ faction: value })}
-            options={[{ value: 'all', label: 'All factions' }, ...factions.map(f => ({ value: f, label: f }))]} />
           <div className="roster-rarity-class-row">
             {/* Independent filter chips: pressing the lit one clears it, as on /operators. */}
             <div className="roster-button-group" role="group" aria-label="Rarity">
@@ -216,6 +210,12 @@ export default function CreditDatabase({ people, uncredited, operators, now, kin
             </div>
           </div>
           <div className="roster-filter-row">
+            {voices
+              ? <StyledSelect className="roster-branch" menuMinWidth={200} menuMaxHeight={280} label="Filter by language" value={lang} onChange={value => change({ lang: value })}
+                  options={[{ value: 'all', label: 'All languages' }, ...languages.map(([value, n]) => ({ value, label: `${value} (${n})` }))]} />
+              : <StyledSelect className="roster-branch" menuMinWidth={200} menuMaxHeight={280} label="Filter by credit" value={credit} onChange={value => change({ credit: value })} options={ART_CREDITS} />}
+            <StyledSelect className="roster-faction" menuMinWidth={200} menuMaxHeight={280} label="Filter by faction" value={query.faction} onChange={value => change({ faction: value })}
+              options={[{ value: 'all', label: 'All factions' }, ...factions.map(f => ({ value: f, label: f }))]} />
             <SegmentedControl label="Server" value={query.server === 'global' || query.server === 'cn' ? query.server : 'all'} onChange={server => change({ server })}
               options={[{ value: 'all', label: 'All' }, { value: 'global', label: 'On Global' }, { value: 'cn', label: 'CN only' }]} />
             <span className="toolbar-spacer" aria-hidden="true" />
