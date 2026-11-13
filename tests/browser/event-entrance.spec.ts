@@ -116,3 +116,20 @@ test('modified event links leave the current page without an intro', async ({ pa
   await link.click({ modifiers: ['Control'] });
   await expect(page).toHaveURL(/\/schedule$/); await unlocked(page);
 });
+
+test('unavailable SFX leaves animation and theme handoff usable without an idle audio context', async ({ page }) => {
+  await stubYouTube(page);
+  await page.addInitScript(() => {
+    localStorage.setItem('arkpedia:settings', JSON.stringify({ version: 1, values: { eventMusic: true } }));
+    const contexts: AudioContext[] = []; Object.assign(window, { __entranceContexts: contexts });
+    const resume = AudioContext.prototype.resume;
+    AudioContext.prototype.resume = function() { contexts.push(this); return resume.call(this); };
+  });
+  await media(page);
+  await page.route('**/entrance.wav', route => route.fulfill({ status: 404, body: 'unavailable' }));
+  const link = await open(page); await link.click();
+  await expect(dialog(page)).toHaveAttribute('data-phase', 'playing');
+  await expect.poll(() => page.evaluate(() => (window as unknown as { __entranceContexts: AudioContext[] }).__entranceContexts[0]?.state)).toBe('suspended');
+  await unlocked(page);
+  await expect.poll(() => page.evaluate(() => (window as unknown as { __pageYt?: { state: number } }).__pageYt?.state)).toBe(1);
+});

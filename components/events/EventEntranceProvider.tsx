@@ -180,7 +180,7 @@ export default function EventEntranceProvider({ children }: { children: ReactNod
             source.disconnect();
             if (audio.source === source) { audio.source = null; void audio.context.suspend().catch(() => {}); }
           };
-        }
+        } else if (audio) void audio.context.suspend().catch(() => {});
         const frame = (now: number) => {
           if (disposed || !player) return;
           const elapsed = (now - began) / 1000;
