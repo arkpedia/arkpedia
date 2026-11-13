@@ -27,7 +27,7 @@ function lines(ctx: CanvasRenderingContext2D, text: string, width: number): stri
   return result;
 }
 
-export async function drawRewardSummary({ title, summary, artwork, rewardNote, resolve, welfare = [] }: Options): Promise<{ blob: Blob; width: number }> {
+export async function drawRewardSummary({ title, summary, artwork, rewardNote, resolve, welfare = [] }: Options): Promise<{ blob: Blob; width: number; height: number }> {
   summary = { ...summary, rows: summary.rows.map(row => ({ ...row, items: row.items.map(item => row.label === 'Operators' && !item.artwork && item.iconPath?.includes('-star-icons/') ? { ...item, artwork: item.iconPath.replace('-star-icons/', '-star-skins/') } : item) })) };
   const css = getComputedStyle(document.documentElement);
   const token = (name: string) => css.getPropertyValue(name).trim();
@@ -218,5 +218,5 @@ export async function drawRewardSummary({ title, summary, artwork, rewardNote, r
   noteLines.forEach((line, i) => ctx.fillText(line, PAD, y + 10 + i * 26));
   ctx.font = `700 20px ${display}`;
   ctx.fillText('ARKPEDIA.NET  /  EVENT REWARDS', PAD, H - 34);
-  return new Promise((resolve, reject) => canvas.toBlob(blob => blob ? resolve({ blob, width: W }) : reject(new Error('Empty image')), 'image/png'));
+  return new Promise((resolve, reject) => canvas.toBlob(blob => blob ? resolve({ blob, width: W, height: H }) : reject(new Error('Empty image')), 'image/png'));
 }
