@@ -678,11 +678,12 @@ test('chibi taps play voice reactions, keyboard focus survives pose changes and 
   const heard = () => page.evaluate(() => (window as unknown as { chibiVoiceTest: { played: string[] } }).chibiVoiceTest.played);
   await canvas.click();
   await expect.poll(async () => (await heard()).length).toBe(1);
-  expect((await heard())[0]).toMatch(/cn_036/i);
+  expect((await heard())[0]).toMatch(/cn_034/i);
   await canvas.focus(); await page.keyboard.press('Enter');
   await expect.poll(async () => (await heard()).length).toBe(2);
   await expect(canvas).toBeFocused(); await page.keyboard.press('Space');
   await expect.poll(async () => (await heard()).length).toBe(3);
+  expect((await heard()).every(url => /cn_034/i.test(url))).toBe(true);
   const box = (await canvas.boundingBox())!;
   const viewport = page.viewportSize()!;
   await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
@@ -692,4 +693,5 @@ test('chibi taps play voice reactions, keyboard focus survives pose changes and 
   await expect.poll(() => page.locator('.chibi-roaming canvas').evaluate(drawnPixels)).toBeGreaterThan(0);
   await page.locator('.chibi-roaming canvas').click();
   await expect.poll(async () => (await heard()).length).toBe(4);
+  expect((await heard())[3]).toMatch(/cn_036/i);
 });
