@@ -23,6 +23,12 @@
    --dur-2 (styles/core/shared.css). */
 
 @media (prefers-reduced-motion: no-preference) {
+  /* A click-triggered original game entrance. Only the modal media frame moves;
+     the event page and its banner keep their normal document layout. */
+  .event-entrance[open]::backdrop { animation: event-entrance-black 160ms linear; transition: background-color 180ms linear; }
+  .event-entrance-stage { transition: transform 560ms var(--ease), opacity 180ms linear; }
+  .event-entrance[data-phase="playing"] .event-entrance-stage { transition: none; }
+  @keyframes event-entrance-black { from { background-color: transparent; } to { background-color: #000; } }
   /* Overlay entrances: a short rise for Queue, a lateral glide for the shared
      player. Individual translate preserves the transport's centered transform. */
   .music-queue-drawer { animation: music-queue-enter var(--dur-1) var(--ease); }
