@@ -35,7 +35,7 @@ export interface ChangelogEntry {
 export const CHANGELOG: ChangelogEntry[] = [
   {
     at: '2026-11-13T16:20:00Z',
-    changed: [{ title: 'Optional collaborations in other games', detail: 'Use Other games in the calendar to show outside collaborations; they stay hidden by default.', href: '/schedule?view=calendar' }],
+    changed: [{ title: 'Optional collaborations in other games', detail: 'Use External collabs in the calendar to show outside collaborations; they stay hidden by default.', href: '/schedule?view=calendar' }],
   },
   {
     at: '2026-11-13T13:20:00Z',

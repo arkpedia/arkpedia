@@ -501,9 +501,10 @@ export default function SchedulePage({ events: globalEvents, operators: exported
               type="button"
               className="filter-chip"
               aria-pressed={showOtherGames}
+              title="Arknights collaborations hosted in other games"
               onClick={() => setShowOtherGames((v) => !v)}
             >
-              Other games
+              External collabs
             </button>
             <button
               type="button"

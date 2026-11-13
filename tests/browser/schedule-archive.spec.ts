@@ -8,7 +8,7 @@ for (const theme of ['dark', 'light']) test(`outside collaborations are opt-in a
     await page.getByRole('option', { name: value, exact: true }).click();
   }
   const controls = page.getByRole('group', { name: 'Calendar controls', exact: true });
-  const otherGames = controls.getByRole('button', { name: 'Other games', exact: true });
+  const otherGames = controls.getByRole('button', { name: 'External collabs', exact: true });
   const events = controls.getByRole('button', { name: 'Events', exact: true });
   const collabs = page.locator('.schedule-bar').filter({ hasText: 'Arcaea' });
   await expect(otherGames).toHaveAttribute('aria-pressed', 'false');
