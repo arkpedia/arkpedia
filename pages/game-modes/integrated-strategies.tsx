@@ -92,6 +92,6 @@ export default function IntegratedStrategies({ themes }: { themes: Theme[] }) {
   </main></>;
 }
 export const getStaticProps: GetStaticProps = async () => {
-  const fs = await import('node:fs/promises');
-  return { props: { themes: JSON.parse(await fs.readFile('public/_is/manifest.json', 'utf8')) } };
+  const { readPublicJson } = await import('@/lib/content/shippedTable');
+  return { props: { themes: await readPublicJson('_is/manifest.json') } };
 };

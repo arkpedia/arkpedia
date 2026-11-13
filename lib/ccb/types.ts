@@ -34,3 +34,8 @@ export interface OperatorBuildData { name: string; rarity: number | null; classN
 export type CombatStats = Record<string, number | null>;
 export interface BattleplanEnemy { id: string; slug: string; name: string; icon: string | null; stats: CombatStats; conditional: boolean; hiddenGroups: string[] }
 export interface MapDetails { enemies: BattleplanEnemy[]; variants: BattleplanEnemy[]; preview: string | null; battle: CombatStats }
+export interface BattleplanData {
+  seasons: (Omit<BattleplanSeason, 'maps'> & { maps: (BattleplanMap & { details: MapDetails })[] })[];
+  operators: string[];
+  source: string;
+}

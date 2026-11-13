@@ -118,3 +118,5 @@ __pycache__/
 
 # Generated, pinned Integrated Strategies reference
 /public/_is/
+
+/public/_ccb/

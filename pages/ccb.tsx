@@ -12,16 +12,10 @@ import OperatorComparison from '@/components/ccb/OperatorComparison';
 import ContractBoard from '@/components/ccb/ContractBoard';
 import StatComparison from '@/components/ccb/StatComparison';
 import { activeModifierSummaries, board, modifiedStats, replacementId, resolvedDescription, toggleContract } from '@/lib/ccb/modifiers';
-import type { BattleplanMap, BattleplanSeason, Contract, MapDetails } from '@/lib/ccb/types';
+import type { BattleplanData, Contract } from '@/lib/ccb/types';
 import styles from '@/components/ccb/Battleplan.module.css';
 
-interface Props {
-  seasons: (Omit<BattleplanSeason, 'maps'> & { maps: (BattleplanMap & { details: MapDetails })[] })[];
-  operators: string[];
-  source: string;
-}
-
-export default function BattleplanPage({ seasons, operators, source }: Props) {
+export default function BattleplanPage({ seasons, operators, source }: BattleplanData) {
   const [seasonId, setSeason] = useState(seasons[0].id);
   const season = seasons.find(row => row.id === seasonId) ?? seasons[0];
   const [mapId, setMap] = useState(seasons[0].maps.find(row => row.main)!.id);
@@ -98,13 +92,7 @@ export default function BattleplanPage({ seasons, operators, source }: Props) {
   </>;
 }
 
-export const getStaticProps: GetStaticProps<Props> = async () => {
-  const { archive, mapDetails } = await import('@/lib/ccb/server');
-  const { getAllOperators } = await import('@/lib/operators/operators');
-  const seasons = [...archive.seasons].reverse().map(season => ({ ...season, maps: season.maps.map(map => {
-    const details = mapDetails(map.stage);
-    if (!details) throw new Error(`CCB archive lacks stage ${map.stage}`);
-    return { ...map, details };
-  }) }));
-  return { props: { seasons, operators: getAllOperators().map(row => row.name).sort((a, b) => a.localeCompare(b)), source: archive.source } };
+export const getStaticProps: GetStaticProps<BattleplanData> = async () => {
+  const { readPublicJson } = await import('@/lib/content/shippedTable');
+  return { props: await readPublicJson<BattleplanData>('_ccb/catalogue.json') };
 };

@@ -33,6 +33,10 @@ The input directory holds `ccb-raw-1.json` through `ccb-raw-4.json` (from the pi
 paths above) and, optionally, `ccb-seasons.json` from HellaAPI. Builds and browser
 visits perform no game login or game-server requests. `/ccb` is compiled as a Preview-only static page, outside production content publication. Its compact archive and map baselines
 travel in page props together, so map changes are instant and do not mix releases.
+`build-ccb-catalogue.ts` prepares `public/_ccb/catalogue.json` before the page build.
+Cold Workers read that snapshot through their `ASSETS` binding, just as the IS page
+reads its shipped theme manifest, so neither page depends on local source files or
+a previously populated page cache.
 
 ## Calculation boundary
 
