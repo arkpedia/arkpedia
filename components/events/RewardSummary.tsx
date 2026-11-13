@@ -1,14 +1,15 @@
-import { getOperatorIconPath } from '@/lib/operators/operatorIcon';
 import type { EventWelfareOperator } from '@/lib/pulls/freeRewards';
-import { rewardSkin } from '@/lib/events/rewardArtwork';
 import type { Skin } from '@/lib/skins/skinTypes';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { RewardClick } from './RewardDetails';
 import Image from '@/components/content/ContentImage';
 import { eventTitle } from '@/lib/events/eventName.mjs';
 import type { RewardSummary as Summary, SummaryItem } from '@/lib/events/rewardSummary';
-import { downloadBlob } from '@/lib/ui/downloadBlob';
-import { useContentUrl } from '@/lib/content/context';
+import RewardImageDialog from './RewardImageDialog';
+
+const EMPTY_SKINS: Skin[] = [];
+const EMPTY_WELFARE: EventWelfareOperator[] = [];
+const IMAGE_HASH = '#rewards/image';
 
 /* The page and saved infographic share the same reward totals. */
 const fmt = (n: number) => n.toLocaleString('en-US');
@@ -27,42 +28,18 @@ function Tile({ item }: { item: SummaryItem }) {
   );
 }
 
-export function RewardSummaryCard({ eventName, summary, artwork, rewardNote, skins = [], welfare = [] }: { welfare?: EventWelfareOperator[]; skins?: Skin[]; eventName: string; summary: Summary; artwork?: string | null; rewardNote?: string | null }) {
-  const url = useContentUrl();
-  const [note, setNote] = useState<string | null>(null);
-  // One picture at a time: each press started another round of icon loads and another download.
-  const [drawing, setDrawing] = useState(false);
-  // The event's short title ("People, A People"), for the picture's heading and its file name.
+export function RewardSummaryCard({ eventName, summary, artwork, rewardNote, skins = EMPTY_SKINS, welfare = EMPTY_WELFARE }: { welfare?: EventWelfareOperator[]; skins?: Skin[]; eventName: string; summary: Summary; artwork?: string | null; rewardNote?: string | null }) {
+  const [imageOpen, setImageOpen] = useState(false);
   const title = eventTitle(eventName);
-
-  async function copyLink() {
-    const url = `${window.location.origin}${window.location.pathname}#rewards`;
-    try {
-      await navigator.clipboard.writeText(url);
-      setNote('Link copied');
-    } catch {
-      setNote(url);
-    }
-  }
-
-  async function saveImage() {
-    if (drawing) return;
-    setDrawing(true);
-    setNote('Drawing…');
-    try {
-      const { drawRewardSummary } = await import('@/lib/events/rewardSummaryImage');
-      const enriched = { ...summary, rows: summary.rows.map(row => row.label !== 'Outfits' ? row : { ...row, items: row.items.map(item => {
-        const skin = rewardSkin(item.name, skins, item.iconPath);
-        return skin?.image ? { ...item, artwork: skin.image } : item;
-      }) }) };
-      const blob = await drawRewardSummary({ title, summary: enriched, welfare: welfare.map(op => { const iconPath = getOperatorIconPath(op); return { name: op.name, iconPath, artwork: iconPath.replace('-star-icons/', '-star-skins/') }; }), artwork: artwork ? url(artwork) : null, rewardNote, resolve: url });
-      downloadBlob(blob, `${title.replace(/[\\/:*?"<>|]/g, '')} rewards.png`);
-      setNote(null);
-    } catch {
-      setNote('The picture could not be drawn in this browser.');
-    } finally {
-      setDrawing(false);
-    }
+  useEffect(() => {
+    const follow = () => setImageOpen(window.location.hash === IMAGE_HASH);
+    follow();
+    window.addEventListener('hashchange', follow);
+    return () => window.removeEventListener('hashchange', follow);
+  }, [eventName]);
+  function showImage(open: boolean) {
+    window.history.replaceState(window.history.state, '', `${window.location.pathname}${window.location.search}${open ? IMAGE_HASH : '#rewards'}`);
+    setImageOpen(open);
   }
 
   return (
@@ -70,11 +47,11 @@ export function RewardSummaryCard({ eventName, summary, artwork, rewardNote, ski
       <div className="reward-summary-actions">
         <span className="hint">Free rewards: {summary.sources.join(' + ')}</span>
         <span className="reward-summary-buttons">
-          <button type="button" className="btn" onClick={copyLink}>Copy link</button>
-          <button type="button" className="btn" onClick={saveImage} disabled={drawing}>Save image</button>
+          <button type="button" className="btn btn-icon" onClick={() => showImage(true)} aria-label="View rewards image fullscreen" title="View rewards image fullscreen" aria-haspopup="dialog">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><path d="M8 3H3v5m13-5h5v5M3 16v5h5m13-5v5h-5" /></svg>
+          </button>
         </span>
       </div>
-      {note && <p className="hint" role="status">{note}</p>}
       <div className="reward-summary-table">
         {packed(summary.rows).map((row) => (
           <div key={row.label} className="panel reward-summary-row">
@@ -83,6 +60,7 @@ export function RewardSummaryCard({ eventName, summary, artwork, rewardNote, ski
           </div>
         ))}
       </div>
+      {imageOpen && <RewardImageDialog title={title} summary={summary} artwork={artwork} rewardNote={rewardNote} skins={skins} welfare={welfare} onClose={() => showImage(false)} />}
     </div>
   );
 }
