@@ -1,0 +1,103 @@
+{
+  "source": "https://raw.githubusercontent.com/ArknightsAssets/ArknightsGamedata/b1031d1035e8df3042f601e33d5c1dfab8345d59/en/gamedata/excel/building_data.json",
+  "reason": "Reviewed rendering corrections: preserve word spacing around rich-text tags and remove a stray markup bracket. Gameplay text and values are unchanged. Both the previous live rendering and corrected import remain valid during publication.",
+  "records": [
+    {
+      "operator": "Blitz",
+      "buffId": "hire_spd_blitz[000]",
+      "legacyDescription": "When this Operator is assigned to the HR Office, HR contacting speed+20%; every 1 points of Intelligence Reserve adds extra contacting speed +5%; every 1 bottles of Ursus Specialty Beverage, adds extra contacting speed +5%",
+      "description": "When this Operator is assigned to the HR Office, HR contacting speed +20%; every 1 points of Intelligence Reserve adds extra contacting speed +5%; every 1 bottles of Ursus Specialty Beverage, adds extra contacting speed +5%",
+      "legacySha256": "e4bf8190282e75f1ddb4e4f0eb7672b7558849165f2ba742107c5f33b153d235",
+      "sha256": "a4dd903c2623e78e7f6dbff7c027c6e0342c1275fbe21ec03f96c11f5b04ae57"
+    },
+    {
+      "operator": "Frost",
+      "buffId": "workshop_formula_frost[000]",
+      "legacyDescription": "When this Operator is assigned to a Workshop to process any material, the production rate of byproduct increases by 50%, and for every1 Intelligence Reserve, increases extra 5%; if the number of Ursus Specialty Beverages reaches 4 bottles, increases extra 15%",
+      "description": "When this Operator is assigned to a Workshop to process any material, the production rate of byproduct increases by 50%, and for every 1 Intelligence Reserve, increases extra 5%; if the number of Ursus Specialty Beverages reaches 4 bottles, increases extra 15%",
+      "legacySha256": "7abac481c036c3103ab9c6f3e7fefb168e0cbf4f3e2a6618061941dacbe9b50c",
+      "sha256": "34e203ea5847d1641704dd9a3b2f7ebc2949428a4481b56dd51c4176811f035f"
+    },
+    {
+      "operator": "Harold",
+      "buffId": "meet_team&char[000]",
+      "legacyDescription": "When this Operator is assigned to the Reception Room,increases the likelihood of finding clues related to the faction of the other Operator in Reception (no effect if there is no other Operator)",
+      "description": "When this Operator is assigned to the Reception Room, increases the likelihood of finding clues related to the faction of the other Operator in Reception (no effect if there is no other Operator)",
+      "legacySha256": "d5e63eaca86d906d16a01e1f5d79429d61b81abccaaa811449611741575a097d",
+      "sha256": "0aaa5c512b05d87970188ea8ca0976938835fcbc05cb0a3a765417bfb455f653"
+    },
+    {
+      "operator": "Mr. Nothing",
+      "buffId": "trade_ord_spd_bd_n2[000]",
+      "legacyDescription": "When this Operator is assigned to a Trading Post, each Operator in the Dormitory grantsWorldly Plight+1, and for every 1pointWorldly Plight, grant +1% order acquisition efficiency",
+      "description": "When this Operator is assigned to a Trading Post, each Operator in the Dormitory grants Worldly Plight +1, and for every 1 point Worldly Plight, grant +1% order acquisition efficiency",
+      "legacySha256": "9c06293c59019a84e998388847be077628b910e1a004f83a7bca45af2dc41150",
+      "sha256": "3d757efd6a8f3b727f1328e22a030748d0eeab8713d6b1c81224884059694fe4"
+    },
+    {
+      "operator": "Mulberry",
+      "buffId": "hire_spd_bd_n1_n1[200]",
+      "legacyDescription": "When this Operator is assigned to the HR Office, for every Recruit slot (Default slots do not count), <Worldly Plight +10",
+      "description": "When this Operator is assigned to the HR Office, for every Recruit slot (Default slots do not count), Worldly Plight +10",
+      "legacySha256": "c3c757662d3872706b6947058998ede0acf4a6d476ebc543d0394b06aa915993",
+      "sha256": "0871720020e645946eb2e0eb2e69aa51adfed7cb9c2bf7f5db22e0e8e4641a28"
+    },
+    {
+      "operator": "Tachanka",
+      "buffId": "control_mp_bd[010]",
+      "legacyDescription": "When this Operator is assigned to the Control Center, for each Ursus Student Self-government Group Operator, Ursus Specialty Beverage+1",
+      "description": "When this Operator is assigned to the Control Center, for each Ursus Student Self-government Group Operator, Ursus Specialty Beverage +1",
+      "legacySha256": "a02d4ee92cab818dfc133b0b5ba2d3f7cb4abd675768495ddd8740d569af767b",
+      "sha256": "f3d4c83bcf7fa09d42f53983f2955f8c12aae644c3067d9cf22b7c5f2ab43b60"
+    },
+    {
+      "operator": "Ash",
+      "buffId": "control_mp_bd[000]",
+      "legacyDescription": "When this Operator is assigned to the Control Center, for each Team Rainbow Operator, Intelligence Reserve+1",
+      "description": "When this Operator is assigned to the Control Center, for each Team Rainbow Operator, Intelligence Reserve +1",
+      "legacySha256": "66cf3d362b9f66ba7ff1eb42de487a7da860ef70fe152302ee2c4bcb81cde3b1",
+      "sha256": "501bd9e1c581ead7c811ae966e75a12e9a6da0f1736fe39d4cd3ddb135be6278"
+    },
+    {
+      "operator": "Chongyue",
+      "buffId": "control_mp_cost&bd_up[000]",
+      "legacyDescription": "When this Operator is assigned to the Control Center, self Morale loss per hour +0.5; for each Sui Operator assigned to buildings other than Dormitories and Activity Rooms, Worldly Plight+5 (max 5)",
+      "description": "When this Operator is assigned to the Control Center, self Morale loss per hour +0.5; for each Sui Operator assigned to buildings other than Dormitories and Activity Rooms, Worldly Plight +5 (max 5)",
+      "legacySha256": "a8466f531c27f5f979fb369e6111f1136baea6e0ff67f09604a43d688d4b32b0",
+      "sha256": "1753e39abc7fb7624a506361c1f9d86982d6cac90b99a1cbe6964a2ba2322474"
+    },
+    {
+      "operator": "Dusk",
+      "buffId": "control_mp_cost&bd1[000]",
+      "legacyDescription": "When this Operator is assigned to the Control Center, increases Morale of all Operators in the Control Center by +0.05 per hour; and when self Morale is below 12, Worldly Plight+15",
+      "description": "When this Operator is assigned to the Control Center, increases Morale of all Operators in the Control Center by +0.05 per hour; and when self Morale is below 12, Worldly Plight +15",
+      "legacySha256": "725fa6340100fdae98e4457f33f218ad6cb5d1388a388e029faa635fa47299f5",
+      "sha256": "436e6463e11b0339b83ef6402aa40dde6bfaf8adccc6a8fe4393631d0a034a43"
+    },
+    {
+      "operator": "Dusk",
+      "buffId": "control_mp_cost&bd2[000]",
+      "legacyDescription": "When this Operator is assigned to the Control Center, decreases own morale consumption by+0.5; and when self morale is above12, Perception Information+10",
+      "description": "When this Operator is assigned to the Control Center, decreases own morale consumption by +0.5; and when self morale is above 12, Perception Information +10",
+      "legacySha256": "a1f69d5ef4537a2183878f2972e23b61a8f58377dba33959955d0bb59e5ca382",
+      "sha256": "572547f36d57ed6485b49be6fc7e5d070a3b1e9479f93f2a051207dbd187a304"
+    },
+    {
+      "operator": "Irene",
+      "buffId": "train_spd_doubleProf[000]",
+      "legacyDescription": "When this Operator is assigned to be the Trainer in the Training Room, Guard and Sniper Operators' Specialization training speed+30%",
+      "description": "When this Operator is assigned to be the Trainer in the Training Room, Guard and Sniper Operators' Specialization training speed +30%",
+      "legacySha256": "c2c4c7b8024266c8a2bce390468d27bcbb143e50eeaaa0f5c4db5426ead32007",
+      "sha256": "949c58ba95dfce807a137bbb59014c5952b1799a143356847a1f387b95b90c66"
+    },
+    {
+      "operator": "Ling",
+      "buffId": "control_costToBD[000]",
+      "legacyDescription": "When this Operator is assigned to the Control Center and own Morale is above 12,Worldly Plight +15; When own Morale is below12, Perception Information +10 instead",
+      "description": "When this Operator is assigned to the Control Center and own Morale is above 12, Worldly Plight +15; When own Morale is below 12, Perception Information +10 instead",
+      "legacySha256": "8e30b892eda55e54ee3c51f4f06000be650fd96cb056d121ffd1f1f2f49a2df0",
+      "sha256": "8b6e0ddd3401ffa9a3815e96f1fccd62154bb5f8b872ddd10fc2ac0ef8b3b993"
+    }
+  ],
+  "sourceSha256": "9d07cdbcd1ba466e6329756d9500cc1af9405b55b5d31e797a13b8857fcd8ef1"
+}
