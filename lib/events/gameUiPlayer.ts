@@ -1,4 +1,6 @@
 /** Original Unity UI curves and GLES3 programs, in a reviewed data-only scene. */
+import { fetchAsset } from '../assets/githubRetry.mjs';
+
 type Vec = number[];
 type Key = [number, number, number | null, number | null, number, number, number];
 type ImageData = {
@@ -167,7 +169,7 @@ export class GameUiPlayer {
     await Promise.all(this.scene.textures.map(async (t, index) => {
       let blob = blobs?.[index];
       if (!blob) {
-        const response = await fetch(new URL(t.file, base), { signal });
+        const response = await fetchAsset(new URL(t.file, base).href, { signal });
         if (!response.ok) throw new Error('Event texture unavailable');
         blob = await response.blob();
       }
@@ -267,7 +269,7 @@ export class GameUiPlayer {
 }
 
 export async function loadGameUiPlayer(canvas: HTMLCanvasElement, url: string, signal: AbortSignal): Promise<GameUiPlayer> {
-  const response = await fetch(url, { signal });
+  const response = await fetchAsset(url, { signal });
   if (!response.ok) throw new Error('Event entrance unavailable');
   const scene: GameUiScene = await response.json();
   if (scene.schemaVersion !== 1) throw new Error('Unsupported event entrance');

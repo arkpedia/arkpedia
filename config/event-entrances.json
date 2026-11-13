@@ -1,6 +1,6 @@
 {
   "note": "Code-owned support list: only player packs reviewed with this renderer belong here. Game event records and recovered sources remain in their data/asset repositories.",
-  "baseUrl": "https://assets.arkpedia.net/arkpedia/arkpedia-l2d-assets/3a623dde0d874e6cc6435f88c7c90906095c8144/",
+  "baseUrl": "https://assets.arkpedia.net/arkpedia/arkpedia-l2d-assets/122170e3f3ffb0d7eebd3620685a639904d19ee7/",
   "entries": [
     { "id": "act42side", "server": "en", "title": "The Masses' Travels", "rerun": false, "folder": "event-transitions/players/en/act42side/d5558b1bd102" },
     { "id": "act42sre", "server": "en", "title": "The Masses' Travels", "rerun": true, "folder": "event-transitions/players/en/act42sre/37ff509bbdff" }

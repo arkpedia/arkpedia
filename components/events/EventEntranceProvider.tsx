@@ -4,6 +4,7 @@ import { useSiteServer } from '@/lib/time/siteServer';
 import { useSiteSetting } from '@/lib/settings/useSiteSetting';
 import { usePrivacyChoice } from '@/lib/privacy/preferences';
 import { useMusicPlayer } from '@/lib/music/musicPlayerContext';
+import { fetchAsset } from '@/lib/assets/assetRetry';
 import { MAIN_AUDIO_START } from '@/lib/music/pageMusic';
 import { EventEntranceContext } from '@/lib/events/eventEntranceContext';
 import { entranceAsset, entranceForUrl, type EventEntrance } from '@/lib/events/eventEntrance';
@@ -47,15 +48,15 @@ export default function EventEntranceProvider({ children }: { children: ReactNod
     cache.current?.abort.abort();
     const abort = new AbortController(), url = entranceAsset(entry, 'scene.json');
     const promise = (async () => {
-      const response = await fetch(url, { signal: abort.signal });
+      const response = await fetchAsset(url, { signal: abort.signal });
       if (!response.ok) throw new Error('Entrance unavailable');
       const scene: GameUiScene = await response.json();
       if (scene.schemaVersion !== 1) throw new Error('Unsupported entrance scene');
       const base = new URL('.', url);
       const soundBytes = preferences.current.audioAllowed && scene.sound
-        ? fetch(new URL(scene.sound.file, base), { signal: abort.signal }).then(r => r.ok ? r.arrayBuffer() : null).catch(() => null) : null;
+        ? fetchAsset(new URL(scene.sound.file, base).href, { signal: abort.signal }).then(r => r.ok ? r.arrayBuffer() : null).catch(() => null) : null;
       const textures = await Promise.all(scene.textures.map(async t => {
-        const r = await fetch(new URL(t.file, base), { signal: abort.signal });
+        const r = await fetchAsset(new URL(t.file, base).href, { signal: abort.signal });
         if (!r.ok) throw new Error('Entrance artwork unavailable');
         return r.blob();
       }));
@@ -157,7 +158,7 @@ export default function EventEntranceProvider({ children }: { children: ReactNod
       const audio = sound.current;
       // Hover may have warmed the art before the reader enabled Event Music.
       if (preferences.current.audioAllowed && audio && prepared.scene.sound && !prepared.sound) {
-        prepared.sound = fetch(new URL(prepared.scene.sound.file, new URL('.', prepared.url)), { signal: abort.signal })
+        prepared.sound = fetchAsset(new URL(prepared.scene.sound.file, new URL('.', prepared.url)).href, { signal: abort.signal })
           .then(r => r.ok ? r.arrayBuffer() : null).catch(() => null);
       }
       if (preferences.current.audioAllowed && audio && prepared.sound) {

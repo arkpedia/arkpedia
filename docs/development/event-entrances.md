@@ -46,3 +46,10 @@ bounded by a short load budget; it skips instead of leaving a blocking black
 screen on an unavailable or slow connection. Fullscreen art covers the viewport
 without stretching; unusual aspects crop its edges, revealing the full frame as
 it docks into the 16:9 hero.
+
+For local frame review, run
+`node scripts/audits/event-entrance-review.mjs <asset-repo>/event-transitions/players`.
+Open `http://127.0.0.1:3212`, choose a pack and scrub its native timeline. The
+1280×720 canvas and `window.draw(seconds)` / `window.ready` hooks allow repeatable
+final-frame captures with Playwright at device scale factor 1. This local tool
+uses the exact application renderer and does not provide a production fallback.
