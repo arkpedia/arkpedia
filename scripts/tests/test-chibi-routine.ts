@@ -10,6 +10,12 @@ const base = [
   { name: 'Sit', duration: 4 }, { name: 'Sleep', duration: 2 },
 ];
 const sequence = (...values: number[]) => () => { assert.ok(values.length); return values.shift()!; };
+test('boxed chibis never choose a trust reaction, even on their first tap', () => {
+  const both = [...base, { name: 'Special', duration: 3 }];
+  assert.equal(chooseChibiTap(both, true, () => 0, false)?.activity, 'tap');
+  assert.equal(chooseChibiTap(both, true, () => 0, false)?.clip, 'Interact');
+  assert.equal(chooseChibiTap([{ name: 'Special', duration: 3 }], true, () => 0, false), null);
+});
 
 test('first tap guarantees the native trust reaction without drawing random odds', () => {
   const clips = [...base, { name: 'Special', duration: 6.766666889190674 }];

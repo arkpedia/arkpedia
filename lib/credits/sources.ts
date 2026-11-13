@@ -21,6 +21,7 @@ export const CREDIT_GROUPS: CreditGroup[] = [
       { name: 'Arknights (Global)', links: ['https://www.arknights.global'] },
       { name: 'Arknights (CN)', links: ['https://ak.hypergryph.com'] },
       { name: 'Monster Siren Records', links: ['https://monster-siren.hypergryph.com'] },
+      { name: 'Arknights sound effects', links: ['https://github.com/ThiagoVsky/arknights-sound'] },
       { name: 'ArknightsGamedata', links: ['https://github.com/ArknightsAssets/ArknightsGamedata'] },
       { name: 'ArknightsAssets2', links: ['https://github.com/ArknightsAssets/ArknightsAssets2'] },
       { name: 'ArknightsGameData', links: ['https://github.com/Kengxxiao/ArknightsGameData', 'https://github.com/Kengxxiao/ArknightsGameData_YoStar'] },

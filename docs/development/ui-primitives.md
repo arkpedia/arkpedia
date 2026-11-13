@@ -698,3 +698,20 @@ state; do not add a mutually exclusive “All” item to a multi-select list. Op
 filters match any selected value within a category and intersect categories.
 
 `BetaLabel` reuses the site brand’s small, italic, sentence-case Beta label for account setup. Keep it beside a title; do not turn it into a badge or button. `ImportDialog.titleSuffix` adds a visual title annotation without changing the dialog’s accessible name.
+
+### Volume feedback
+
+Use `useVolumeFeedback(percentage)` for every application volume slider. Spread its
+`events` on the range input, call `show()` when changing volume or mute, and render
+`output`. The shared `.volume-feedback` readout stays centered above artwork viewers,
+remains visible during dragging, and disappears 800 ms after release or a key change.
+It does not capture pointer input or shift the surrounding controls. Keep the slider's
+accessible label and percentage `aria-valuetext`; the large visual readout is decorative.
+Music, operator voices, the music guesser, chibis and animated artwork share it.
+
+Chibi sound has its own persisted volume (20% initially) and tap language. The compact
+viewer places these below its single Play/Pause button. Only walking chibis receive
+trust taps; clicking the boxed viewer uses normal tap audio and reactions. Original
+base click/trust effects and spoken lines follow the same volume. Animated artwork
+has a separate persisted volume (20% initially) for both entrance soundtracks and
+spoken actions, alongside its existing Sound switch.

@@ -117,6 +117,9 @@
 .skin-zoom-canvas-surface { display: block; width: 100%; height: 100%; }
 .skin-zoom-canvas-veil { position: absolute; inset: 0; pointer-events: none; }
 .skin-zoom-animations { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 12px; min-height: var(--control-h); margin-top: 8px; padding: 0 16px; }
+.skin-zoom-volume { display: flex; align-items: center; gap: 6px; width: 110px; min-height: var(--control-h); }
+.skin-zoom-volume svg { flex-shrink: 0; }
+.skin-zoom-volume input { width: 100%; min-width: 0; margin: 0; }
 .skin-zoom-status { color: var(--scrim-ink-dim); font-size: 13px; }
 
 @media (max-width: 1100px) {
