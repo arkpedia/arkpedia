@@ -18,7 +18,7 @@ async function media(page: Page, fail: boolean | 'slow' = false) {
   await page.route('**/event-transitions/players/**', async route => {
     const file = new URL(route.request().url()).pathname.split('/').at(-1)!;
     requests.push(file);
-    if (file === 'menu.webp') return route.fulfill({ contentType: 'image/png', body: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aL1cAAAAASUVORK5CYII=', 'base64') });
+    if (file === 'menu.webp' && fail !== true) return route.fulfill({ contentType: 'image/png', body: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aL1cAAAAASUVORK5CYII=', 'base64') });
     if (fail === 'slow') await new Promise(resolve => setTimeout(resolve, 2500));
     if (fail) return route.fulfill({ status: 404, body: 'unavailable' });
     if (file === 'scene.json') return route.fulfill({ json: scene });
@@ -75,6 +75,7 @@ test('missing entrance assets leave a usable event page', async ({ page }) => {
   await media(page, true); const link = await open(page); await link.click();
   await expect(page).toHaveURL(/\/events\//); await unlocked(page);
   await expect(page.getByRole('heading', { level: 1 })).toContainText("Masses' Travels");
+  await expect(page.locator('.event-detail-image-wrap img')).not.toHaveAttribute('src', /menu.webp/);
 });
 test('Back and a reduced-motion change cancel an active entrance', async ({ page }) => {
   await media(page); const link = await open(page); await link.click();

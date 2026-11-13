@@ -241,7 +241,8 @@ export default function EventDetailPage({
      set stays: the board's art stands in for the poster only. */
   const modeImages = mode?.poster ? [mode.poster] : images;
   const entrance = eventEntrance(name, server);
-  const menuArt = entrance ? entranceAsset(entrance, 'menu.webp') : null;
+  const [failedMenu, setFailedMenu] = useState<string | null>(null);
+  const menuArt = entrance && failedMenu !== entrance.id ? entranceAsset(entrance, 'menu.webp') : null;
   const shownArtAspect = menuArt ? CG_ASPECT : artAspect;
   const regionalImages = artAspect === POSTER_ASPECT && server !== 'en' ? [regionalArt(regionalWindow, modeImages[0] ?? null, server)].filter((src): src is string => !!src) : modeImages;
   const shownImages = menuArt ? [menuArt, ...regionalImages] : regionalImages;
@@ -372,8 +373,9 @@ export default function EventDetailPage({
             beside the sections left most of the page's left side empty). At most 420px tall, so
             a 16:9 CG set does not fill the screen; a poster is full width well under that. */}
         <div className="event-detail-carousel" style={{ maxWidth: `calc(420px * ${shownArtAspect})` }}>
-          <div className="event-detail-image-wrap" data-event-entrance-art={entrance?.id} style={{ aspectRatio: shownArtAspect }}>
-            {activeImage && <Image src={activeImage} alt={name} fill sizes="(max-width: 1240px) 100vw, 1200px" style={{ objectFit: mode?.poster ? 'contain' : 'cover' }} />}
+          <div className="event-detail-image-wrap" data-event-entrance-art={menuArt ? entrance?.id : undefined} style={{ aspectRatio: shownArtAspect }}>
+            {activeImage && <Image src={activeImage} alt={name} fill sizes="(max-width: 1240px) 100vw, 1200px" style={{ objectFit: mode?.poster ? 'contain' : 'cover' }}
+              onError={() => { if (entrance && activeImage === menuArt) setFailedMenu(entrance.id); }} />}
           </div>
           {shownImages.length > 1 && (
             <div className="event-detail-carousel-dots">
