@@ -3,6 +3,8 @@ import { ContentImg } from '@/components/content/ContentImage';
 import { useCallback, useEffect, useRef, useState, MouseEvent, TouchEvent, type ReactNode } from 'react';
 import dynamic from 'next/dynamic';
 import StyledSelect from '@/components/ui/StyledSelect';
+import useVolumeFeedback from '@/components/ui/useVolumeFeedback';
+import VolumeIcon from '@/components/ui/VolumeIcon';
 import SegmentedControl from '@/components/ui/SegmentedControl';
 import { getSkinArtworkOriginal } from '@/lib/assets/skinArtwork';
 import { animationButtons } from '@/lib/skins/dynamicArt';
@@ -154,6 +156,18 @@ export default function SkinZoomOverlay({ image, name, dynamic: original, altern
   const [request, setRequest] = useState<{ name: string; id: number } | null>(null);
   // The view opens on a click, never on the server, so the stored choice can be read at once.
   const [sound, setSound] = useState(readSound);
+  const [volume, setVolume] = useState(() => {
+    try {
+      const saved = localStorage.getItem('arkpedia:animated-art-volume');
+      if (saved !== null && Number.isFinite(Number(saved))) return Math.max(0, Math.min(1, Number(saved)));
+    } catch { /* Use the quiet default without storage. */ }
+    return .2;
+  });
+  const volumeFeedback = useVolumeFeedback(Math.round(volume * 100));
+  const changeVolume = (value: number) => {
+    setVolume(value); volumeFeedback.show();
+    try { localStorage.setItem('arkpedia:animated-art-volume', String(value)); } catch { /* Playback still follows the slider. */ }
+  };
   const [voiceLanguage, setVoiceLanguage] = useState('cn');
   function toggleSound() {
     setSound((on) => { writeSound(!on); return !on; });
@@ -176,7 +190,7 @@ export default function SkinZoomOverlay({ image, name, dynamic: original, altern
     <div className="skin-zoom-overlay" ref={dialogRef} role="dialog" aria-modal="true" aria-label={`${name} artwork`}
       onKeyDown={event => {
         if (event.key !== 'Tab') return;
-        const buttons = Array.from(dialogRef.current?.querySelectorAll<HTMLButtonElement>('button:not(:disabled)') ?? []);
+        const buttons = Array.from(dialogRef.current?.querySelectorAll<HTMLElement>('button:not(:disabled), input:not(:disabled), [tabindex="0"]') ?? []).filter(element => element.getClientRects().length);
         const first = buttons[0], last = buttons[buttons.length - 1];
         if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
         else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
@@ -214,7 +228,7 @@ export default function SkinZoomOverlay({ image, name, dynamic: original, altern
           />
           {animated && (
             <DynamicArtwork key={model} model={model} poster={getSkinArtworkOriginal(image)} label={name} transform={transform} scale={scale} request={request}
-              sound={sound} voiceOperator={voiceOperator} voiceLanguage={voiceLanguage} onStatus={onStatus} onPlaying={setPlaying} />
+              sound={sound} volume={volume} voiceOperator={voiceOperator} voiceLanguage={voiceLanguage} onStatus={onStatus} onPlaying={setPlaying} />
           )}
         </div>
       </div>
@@ -239,9 +253,17 @@ export default function SkinZoomOverlay({ image, name, dynamic: original, altern
               renderValue={option => <>Voice: {option.label}</>} />}
             {/* Soundtracks and authored voice actions share the sound preference. */}
             {status.sound && (
+              <>
               <button type="button" className="filter-chip" aria-pressed={sound} onClick={toggleSound}>
                 Sound
               </button>
+              <label className="skin-zoom-volume"><span className="visually-hidden">Animation volume</span>
+                <VolumeIcon muted={volume === 0} size={16} />
+                <input type="range" min="0" max="100" step="1" value={Math.round(volume * 100)} aria-label="Animation volume" aria-valuetext={`${Math.round(volume * 100)}%`}
+                  {...volumeFeedback.events} onChange={event => changeVolume(Number(event.target.value) / 100)} />
+              </label>
+              {volumeFeedback.output}
+              </>
             )}
           </>) : animated ? (
             <span className="skin-zoom-status">Loading the animated art…</span>

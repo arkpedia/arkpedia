@@ -1,3 +1,4 @@
+import useVolumeFeedback from '@/components/ui/useVolumeFeedback';
 import { withContentPage } from '@/lib/content/server';
 import PageMeta from '@/components/layout/PageMeta';
 import GameLinks, { GamesEyebrow } from '@/components/minigames/GameLinks';
@@ -38,6 +39,7 @@ export default function SongGuesser({ songs, groups, now }: { songs: SongChoice[
   const [input, setInput] = useState('');
   const [notice, setNotice] = useState('');
   const [volume, setVolume] = useState(50);
+  const volumeFeedback = useVolumeFeedback(volume);
   const { settings, setSettings, ready } = useMusicSettings(groups);
   const { mode } = settings;
   const inputRef = useRef<HTMLInputElement>(null);
@@ -125,7 +127,7 @@ export default function SongGuesser({ songs, groups, now }: { songs: SongChoice[
             </div>
             <SegmentedControl className={styles.stages} label="Clip length" value={stage} onChange={chooseWindow}
               options={CLIP_SECONDS.map((seconds, index) => ({ value: index, label: `${seconds}s`, ariaLabel: `${seconds}-second clip` }))} />
-            <label className={styles.volume}>Volume<input type="range" min="0" max="100" value={volume} onChange={(e) => setVolume(Number(e.target.value))} /></label>
+            {volumeFeedback.output}<label className={styles.volume}>Volume<input type="range" min="0" max="100" value={volume} aria-valuetext={`${volume}%`} {...volumeFeedback.events} onChange={(e) => { setVolume(Number(e.target.value)); volumeFeedback.show(); }} /></label>
             {clip.error && <div className={styles.error} role="alert"><p>{clip.error}</p>{clip.state === 'error' && <div><button type="button" onClick={clip.retry}>Retry audio</button><button type="button" onClick={start}>Try another song</button></div>}</div>}
           </div>
 

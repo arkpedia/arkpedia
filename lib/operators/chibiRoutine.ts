@@ -22,10 +22,11 @@ export function chibiIdleAnimation(animations: readonly ChibiAnimation[]): strin
 
 /** Native base models use Interact for a tap and Special for an outfit's trust reaction.
  * Models with only one reaction share it; never substitute a static or battle pose. */
-export function chooseChibiTap(animations: readonly ChibiAnimation[], firstTap: boolean, random = Math.random): ChibiBreak | null {
+export function chooseChibiTap(animations: readonly ChibiAnimation[], firstTap: boolean, random = Math.random, allowTrust = true): ChibiBreak | null {
   const find = (name: string) => animations.find(pose => pose.duration > 0 && pose.name.toLowerCase() === name.toLowerCase())
     ?? animations.find(pose => pose.duration > 0 && new RegExp(`^${name}[_\\d]`, 'i').test(pose.name));
   const normal = find('Interact'), trust = find('Special');
+  if (!allowTrust) return normal ? { activity: 'tap', clip: normal.name, duration: normal.duration * 1000 } : null;
   if (!normal && !trust) return null;
   const trustTap = firstTap || random() < .5;
   const chosen = (trustTap ? trust ?? normal : normal ?? trust)!;

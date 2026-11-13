@@ -7,7 +7,7 @@ async function adjustVolume(page: Page, slider: Locator, touch: boolean, capture
   const bounds = (await slider.boundingBox())!;
   const y = bounds.y + bounds.height / 2;
   const x = bounds.x + bounds.width * 0.75;
-  const output = page.locator('.music-volume-percent');
+  const output = page.locator('.volume-feedback');
   const before = await page.getByRole('region', { name: 'Player', exact: true }).boundingBox();
   const session = touch ? await page.context().newCDPSession(page) : null;
   try {
@@ -124,9 +124,9 @@ for (const theme of ['dark', 'light']) {
     await slider.focus();
     await page.keyboard.press('Home');
     await page.keyboard.press('ArrowRight');
-    await expect(page.locator('.music-volume-percent')).toBeVisible();
-    await expect(page.locator('.music-volume-percent')).toHaveText('1%');
-    await expect(page.locator('.music-volume-percent')).toHaveCount(0);
+    await expect(page.locator('.volume-feedback')).toBeVisible();
+    await expect(page.locator('.volume-feedback')).toHaveText('1%');
+    await expect(page.locator('.volume-feedback')).toHaveCount(0);
     if (mobile) {
       await page.setViewportSize({ width: 360, height: 800 });
       const card = (await mini.boundingBox())!;

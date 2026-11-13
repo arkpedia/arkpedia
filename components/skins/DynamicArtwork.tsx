@@ -85,6 +85,7 @@ interface Props {
   request: { name: string; id: number } | null;
   /** Whether the entrance's soundtrack is heard (the view's Sound switch). */
   sound: boolean;
+  volume: number;
   voiceOperator?: string;
   voiceLanguage: string;
   onStatus: (status: DynamicArtworkStatus) => void;
@@ -96,6 +97,7 @@ interface Player {
   press: (name: string) => void;
   resize: () => void;
   setSound: (on: boolean) => void;
+  setVolume: (volume: number) => void;
   setVoiceLanguage: (language: string) => void;
   dispose: () => void;
 }
@@ -250,6 +252,7 @@ function readSkeleton(spine: SpineRuntime, context: SpineContext, files: Awaited
 function createPlayer(spine: SpineRuntime, host: HTMLElement, files: Awaited<ReturnType<typeof loadModel>>, options: {
   reducedMotion: boolean;
   sound: boolean;
+  volume: number;
   voiceLanguage: string;
   scale: () => number;
   onReady: (status: Extract<DynamicArtworkStatus, { kind: 'ready' }>) => void;
@@ -271,6 +274,7 @@ function createPlayer(spine: SpineRuntime, host: HTMLElement, files: Awaited<Ret
   const audio = files.audio;
   let voiceAudio: HTMLAudioElement | null = null;
   let sound = options.sound;
+  let volume = options.volume;
   let voiceTimeout: ReturnType<typeof setTimeout> | null = null;
   // The entrance camera's full-screen fades and hand-over colour, over the canvas.
   const veil = document.createElement('div');
@@ -371,7 +375,7 @@ function createPlayer(spine: SpineRuntime, host: HTMLElement, files: Awaited<Ret
     const hasEntrance = entrance !== null;
     let inEntrance = false;
     let then: { play: string; rest: string | null } | null = null;
-    if (audio) audio.muted = !options.sound;
+    if (audio) { audio.muted = !options.sound; audio.volume = volume; }
     const camera = model.entrance?.camera ?? null;
     const entranceLength = entrance?.data.findAnimation(INTRO_ANIMATION)?.duration ?? 0;
     let aspect = 1;
@@ -663,6 +667,7 @@ function createPlayer(spine: SpineRuntime, host: HTMLElement, files: Awaited<Ret
           const address = assetAudioUrl(clip.url);
           const heard = voiceAudio = new Audio(address);
           heard.muted = !sound;
+          heard.volume = volume;
           current.waiting = true;
           const silent = () => { if (speech === current && !current.heard) { current.waiting = false; heard.pause(); heard.removeAttribute('src'); heard.load(); } };
           voiceTimeout = setTimeout(silent, 8000);
@@ -721,6 +726,7 @@ function createPlayer(spine: SpineRuntime, host: HTMLElement, files: Awaited<Ret
       press,
       resize,
       setSound: (on: boolean) => { sound = on; if (audio) audio.muted = !on; if (voiceAudio) voiceAudio.muted = !on; },
+      setVolume: (next: number) => { volume = next; if (audio) audio.volume = next; if (voiceAudio) voiceAudio.volume = next; },
       setVoiceLanguage: (language: string) => {
         const next = artworkVoicePack(files.voicePacks, language);
         if (next === voicePack) return;
@@ -752,12 +758,13 @@ function createPlayer(spine: SpineRuntime, host: HTMLElement, files: Awaited<Ret
   }
 }
 
-export default function DynamicArtwork({ model, poster, label, transform, scale, request, sound, voiceOperator, voiceLanguage, onStatus, onPlaying }: Props) {
+export default function DynamicArtwork({ model, poster, label, transform, scale, request, sound, volume, voiceOperator, voiceLanguage, onStatus, onPlaying }: Props) {
   const resolveVoiceUrl = useContentUrl();
   const hostRef = useRef<HTMLDivElement>(null);
   const playerRef = useRef<Player | null>(null);
   const scaleRef = useRef(scale);
   const soundRef = useRef(sound);
+  const volumeRef = useRef(volume);
   const voiceLanguageRef = useRef(voiceLanguage);
   const handlers = useRef({ onStatus, onPlaying });
   const tap = useRef<{ x: number; y: number; at: number } | null>(null);
@@ -788,6 +795,7 @@ export default function DynamicArtwork({ model, poster, label, transform, scale,
         particles: { ready, later: pending && !ready ? pending : null },
         reducedMotion: window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false,
         sound: soundRef.current,
+        volume: volumeRef.current,
         voiceLanguage: voiceLanguageRef.current,
         scale: () => scaleRef.current,
         onReady: status => { if (!controller.signal.aborted) handlers.current.onStatus(status); },
@@ -825,6 +833,10 @@ export default function DynamicArtwork({ model, poster, label, transform, scale,
     soundRef.current = sound;
     playerRef.current?.setSound(sound);
   }, [sound]);
+  useEffect(() => {
+    volumeRef.current = volume;
+    playerRef.current?.setVolume(volume);
+  }, [volume]);
 
   // A tap on the artwork is Touch, as in the game; a drag (panning the zoomed view) is not.
   function onPointerDown(event: PointerEvent) {

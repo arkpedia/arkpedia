@@ -1,3 +1,4 @@
+import useVolumeFeedback from '@/components/ui/useVolumeFeedback';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useClientLayoutEffect } from '@/lib/ui/useClientLayoutEffect';
 import { formatSeconds } from '@/lib/ui/formatSeconds';
@@ -124,6 +125,7 @@ export default function OperatorVoiceLines({ data, packRequest }: { data: Operat
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [volume, setVolume] = useState(1);
+  const volumeFeedback = useVolumeFeedback(Math.round(volume * 100));
   const [volumeLoaded, setVolumeLoaded] = useState(false);
   const [audioError, setAudioError] = useState('');
   const audioRef = useRef<HTMLAudioElement>(null);
@@ -462,8 +464,9 @@ export default function OperatorVoiceLines({ data, packRequest }: { data: Operat
           <span className="visually-hidden">Volume</span>
           <VolumeIcon />
           <input type="range" min="0" max="1" step="0.05" value={volume}
-            onChange={event => setVolume(Number(event.target.value))}
+            {...volumeFeedback.events} onChange={event => { setVolume(Number(event.target.value)); volumeFeedback.show(); }}
             aria-label="Voice volume" aria-valuetext={`${Math.round(volume * 100)}%`} />
+          {volumeFeedback.output}
         </label>
         <input className={styles.seek} type="range" min="0" max={duration || 0} step="0.01"
           value={Math.min(currentTime, duration || 0)} onChange={event => seek(Number(event.target.value))}

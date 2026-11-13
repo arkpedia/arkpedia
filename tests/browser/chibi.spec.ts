@@ -73,7 +73,7 @@ test('facing preserves animation and pause, with facing beside the viewer title'
   await expect(select).toContainText('Attack_1');
   await expect(page.locator('.chibi-window canvas')).toHaveAttribute('data-animation', 'Attack_1');
   await expect.poll(() => page.locator('.chibi-window canvas').evaluate(drawnPixels), { message: 'the chibi is drawn' }).toBeGreaterThan(0);
-  await expect(page.locator('.chibi-controls').getByRole('button', { name: 'Pause', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.locator('.chibi-controls').getByRole('button', { name: 'Play', exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Front', exact: true }).click();
   await expect(select).toContainText('Attack_1');
   const header = await page.locator('.chibi-window-header').evaluate(element => {
@@ -150,12 +150,12 @@ test('roaming chibi survives viewer close, page navigation and browser back with
   await page.getByRole('group', { name: 'Operator outfits', exact: true }).getByRole('button', { name: 'Base', exact: true }).click();
   await page.getByRole('button', { name: 'Chibi viewer', exact: true }).press('Enter');
   await expect(page.getByRole('button', { name: 'Return to viewer', exact: true })).toBeVisible();
-  await expect(page.locator('.chibi-controls').getByRole('button', { name: 'Pause', exact: true })).toHaveAttribute('aria-pressed', 'false');
+  await expect(page.locator('.chibi-controls').getByRole('button', { name: 'Pause', exact: true })).toBeVisible();
   await revealControls(page);
   await pet.getByRole('button', { name: 'Dismiss roaming chibi', exact: true }).click();
   await expect(pet).toHaveCount(0);
   await expect(page.locator('.chibi-window canvas')).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Pause', exact: true })).toHaveAttribute('aria-pressed', 'false');
+  await expect(page.getByRole('button', { name: 'Pause', exact: true })).toBeVisible();
 });
 
 test('dragging outside the viewer drops a walking chibi at that point', async ({ page, isMobile }) => {
@@ -483,7 +483,7 @@ for (const theme of ['dark', 'light']) {
     const viewer = page.locator('.chibi-window'), canvas = viewer.locator('canvas');
     const original = await canvas.boundingBox();
     const close = await viewer.getByRole('button', { name: 'Close chibi viewer', exact: true }).boundingBox();
-    const pause = await viewer.getByRole('button', { name: 'Pause', exact: true }).boundingBox();
+    const pause = await viewer.getByRole('button', { name: 'Play', exact: true }).boundingBox();
     await page.getByRole('combobox', { name: 'Chibi animation', exact: true }).click();
     for (const name of ['Walking', 'Sitting', 'Sleeping', 'Base idle', 'Normal tap', 'Trust tap', 'Attack_1']) {
       await expect(page.getByRole('option', { name, exact: true })).toBeVisible();
@@ -496,7 +496,7 @@ for (const theme of ['dark', 'light']) {
     for (let i = 0; i < 4; i++) { await page.waitForTimeout(100); await expect(canvas).toHaveAttribute('data-framed', 'true'); }
     await viewer.getByRole('button', { name: 'Pause', exact: true }).click();
     expect(await viewer.getByRole('button', { name: 'Close chibi viewer', exact: true }).boundingBox()).toEqual(close);
-    expect(await viewer.getByRole('button', { name: 'Pause', exact: true }).boundingBox()).toEqual(pause);
+    expect(await viewer.getByRole('button', { name: 'Play', exact: true }).boundingBox()).toEqual(pause);
     const expanded = await canvas.boundingBox(), viewport = page.viewportSize()!;
     expect(expanded!.x).toBeGreaterThanOrEqual(0); expect(expanded!.y).toBeGreaterThanOrEqual(0);
     expect(expanded!.x + expanded!.width).toBeLessThanOrEqual(viewport.width);
@@ -557,7 +557,7 @@ test('a queued pose waits for playback when a base model finishes loading after 
     await chooseAnimation(page, 'Trust tap');
     await requested;
     await viewer.getByRole('button', { name: 'Play', exact: true }).click();
-    await expect(viewer.getByRole('button', { name: 'Pause', exact: true })).toHaveAttribute('aria-pressed', 'false');
+    await expect(viewer.getByRole('button', { name: 'Pause', exact: true })).toBeVisible();
     await page.clock.pauseAt(new Date(Date.now() + 1000));
     release();
     await expect(viewer.locator('[role="status"]')).toHaveCount(0);
@@ -629,7 +629,7 @@ test('viewer controls fit a short viewport', async ({ page }) => {
   const viewer = page.locator('.chibi-window');
   const bounds = await viewer.boundingBox();
   expect(bounds!.y + bounds!.height).toBeLessThanOrEqual(382);
-  await expect(viewer.getByRole('button', { name: 'Play', exact: true })).toBeInViewport();
+  await expect(viewer.getByRole('button', { name: 'Pause', exact: true })).toBeInViewport();
   await expect(viewer.getByRole('button', { name: 'Close chibi viewer', exact: true })).toBeInViewport();
 });
 
@@ -678,11 +678,12 @@ test('chibi taps play voice reactions, keyboard focus survives pose changes and 
   const heard = () => page.evaluate(() => (window as unknown as { chibiVoiceTest: { played: string[] } }).chibiVoiceTest.played);
   await canvas.click();
   await expect.poll(async () => (await heard()).length).toBe(1);
-  expect((await heard())[0]).toMatch(/cn_036/i);
+  expect((await heard())[0]).toMatch(/cn_034/i);
   await canvas.focus(); await page.keyboard.press('Enter');
   await expect.poll(async () => (await heard()).length).toBe(2);
   await expect(canvas).toBeFocused(); await page.keyboard.press('Space');
   await expect.poll(async () => (await heard()).length).toBe(3);
+  expect((await heard()).every(url => /cn_034/i.test(url))).toBe(true);
   const box = (await canvas.boundingBox())!;
   const viewport = page.viewportSize()!;
   await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
@@ -692,4 +693,5 @@ test('chibi taps play voice reactions, keyboard focus survives pose changes and 
   await expect.poll(() => page.locator('.chibi-roaming canvas').evaluate(drawnPixels)).toBeGreaterThan(0);
   await page.locator('.chibi-roaming canvas').click();
   await expect.poll(async () => (await heard()).length).toBe(4);
+  expect((await heard())[3]).toMatch(/cn_036/i);
 });
