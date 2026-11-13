@@ -363,7 +363,10 @@ for (const theme of ['dark', 'light']) test(`operator goal chances are calculate
   await editor.locator('.pulls-operator-choice').filter({ hasText: six.name }).click();
   await editor.getByRole('combobox', { name: `Copies wanted of ${six.name}`, exact: true }).click();
   await page.getByRole('option', { name: '6', exact: true }).click();
-  const chance = editor.locator('.pulls-odds-headline > strong');
+  // The compact banner row owns the visible combined figure; the editor keeps
+  // its detailed calculation mounted even when its duplicate headline is hidden.
+  const chance = page.getByText('All goals', { exact: true }).locator('..').locator('b');
+  await expect(chance).toBeVisible();
   await expect(chance).toHaveText(/\d/);
   await expect(editor.locator('.pulls-odds-headline small')).toContainText('Calculated');
   const before = parseFloat((await chance.innerText()).replace(/[<>%]/g, ''));

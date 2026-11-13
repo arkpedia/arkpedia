@@ -73,3 +73,22 @@ test('oversized combinations fail explicitly instead of silently switching to sa
   const rules: BannerOdds = { id: 'many', type: 'limited', sources: [], operators: Array.from({ length: 20 }, (_, i) => op(`Returner ${i}`, 6, .01)) };
   assert.throws(() => calculateOdds({ rules, pulls: 100, targets: rules.operators.map(op => ({ name: op.name, copies: 6 })), spark: false }), /exact calculation limit/);
 });
+
+test('Standard safety-net calculation agrees with the reference sampler after 150 pulls', () => {
+  const single: BannerOdds = { ...orchid, type: 'single', id: 'single' };
+  const input = request(single, 200, [2]);
+  const exact = calculateOdds(input);
+  const sampled = simulateOdds(input, 50000);
+  for (let n = 0; n < 6; n++) near(sampled.copies[0][n].probability, exact.copies[0][n].probability, .008);
+});
+
+test('Orienteering uses the chosen pool and roster order does not change calculated odds', () => {
+  const rules: BannerOdds = { id: 'orienteering', type: 'orienteering', sources: [], operators: [
+    ...['A', 'B', 'C'].map(name => op(name, 6, 0)), ...['D', 'E', 'F'].map(name => op(name, 5, 0)),
+  ] };
+  const input = { ...request(rules, 1, [1]), roster: rules.operators.map(op => op.name) };
+  near(calculateOdds(input).all.probability, .02 / 3);
+  assert.deepEqual(calculateOdds({ ...input, roster: [...input.roster].reverse() }), calculateOdds(input));
+  const five = { ...input, targets: [{ name: 'D', copies: 1 }] };
+  near(calculateOdds(five).all.probability, .08 * .2);
+});
