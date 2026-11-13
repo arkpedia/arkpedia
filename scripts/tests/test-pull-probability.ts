@@ -33,6 +33,68 @@ const limited: BannerOdds = {
 };
 const sum = (operators: OddsOperator[]) => operators.reduce((total, op) => total + op.share, 0);
 
+// The reported banner, fixed independently of catalogue renames and schedule dates.
+const orchid: BannerOdds = { id: 'LINKAGE_74_0_1', type: 'crossover', sources: [], operators: [
+  { name: 'Violet Mizutsune Orchid', rarity: 6, share: .5, kind: 'featured', icon: null },
+  { name: 'Zinogre S Catapult', rarity: 5, share: .5, kind: 'featured', icon: null },
+] };
+
+test('230-pull Orchid report: adding Catapult cannot improve all-goal odds or change Orchid marginals', () => {
+  const original: OddsRequest = { rules: orchid, pulls: 230, targets: [target(orchid.operators[0].name, 6)], spark: false };
+  const alone = simulateOdds(original);
+  const together = simulateOdds({ ...original, targets: [...original.targets, target(orchid.operators[1].name)] });
+  assert.ok(together.all.probability <= alone.all.probability, 'adding a goal cannot improve joint success');
+  assert.deepEqual(together.copies[0], alone.copies[0], 'unchanged goals must use identical simulated pulls');
+});
+
+test('goal order, stricter copy counts and sparking compare the same trials across banner types', () => {
+  const single: BannerOdds = { ...orchid, id: 'SINGLE_TEST', type: 'single' };
+  for (const rules of [orchid, single, limited]) {
+    const [a, b] = rules.operators;
+    const base: OddsRequest = { rules, pulls: 600, targets: [target(a.name)], spark: false };
+    const alone = simulateOdds(base, 2000);
+    const goals = [target(a.name), target(b.name)];
+    const both = simulateOdds({ ...base, targets: goals }, 2000);
+    const reversed = simulateOdds({ ...base, targets: [...goals].reverse() }, 2000);
+    assert.deepEqual(both.copies[0], alone.copies[0], rules.type);
+    assert.deepEqual(reversed.copies, [...both.copies].reverse(), rules.type);
+    assert.deepEqual(reversed.all, both.all, rules.type);
+    assert.ok(both.all.probability <= alone.all.probability, rules.type);
+    const stricter = simulateOdds({ ...base, targets: [target(a.name, 6), target(b.name, 6)] }, 2000);
+    assert.deepEqual(stricter.copies, both.copies, rules.type);
+    assert.ok(stricter.all.probability <= both.all.probability, rules.type);
+    const spark = simulateOdds({ ...base, targets: goals, spark: true }, 2000);
+    assert.ok(spark.all.probability >= both.all.probability, rules.type);
+  }
+});
+
+test('Orchid six-copy estimate agrees with an independent exact crossover recurrence at 230 pulls', () => {
+  // State: copies (0–5), pulls since featured (0–119), six-star misses (0–98).
+  // Six copies are absorbing. Five-star guarantees cannot change six-star odds.
+  const width = 120 * 99;
+  let state = new Float64Array(6 * width); state[0] = 1;
+  let exact = 0;
+  for (let pull = 0; pull < 230; pull++) {
+    const next = new Float64Array(state.length);
+    for (let copies = 0; copies < 6; copies++) for (let since = 0; since < 120; since++) for (let misses = 0; misses < 99; misses++) {
+      const mass = state[copies * width + since * 99 + misses];
+      if (!mass) continue;
+      const six = misses < 50 ? .02 : Math.min(1, .04 + (misses - 50) * .02);
+      const featured = since === 119 ? 1 : six / 2;
+      if (copies === 5) exact += mass * featured;
+      else next[(copies + 1) * width] += mass * featured;
+      if (since < 119) {
+        next[copies * width + (since + 1) * 99] += mass * six / 2;
+        if (six < 1) next[copies * width + (since + 1) * 99 + misses + 1] += mass * (1 - six);
+      }
+    }
+    state = next;
+  }
+  const sampled = simulateOdds({ rules: orchid, pulls: 230, targets: [target(orchid.operators[0].name, 6)], spark: false });
+  const margin = 4 * Math.sqrt(exact * (1 - exact) / sampled.samples);
+  assert.ok(Math.abs(sampled.all.probability - exact) < margin, `sampled ${sampled.all.probability}, exact ${exact}`);
+});
+
 test('every verified limited pool in the schedule gets its official roster, sparks and rates', () => {
   const byId = new Map(getAllOperators().map(op => [op.internalName, op.name]));
   const banners = getAllHeadhuntingBanners();

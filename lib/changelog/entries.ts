@@ -34,6 +34,10 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    at: '2026-11-13T16:40:00Z',
+    fixed: [{ title: 'Calculated pull-goal probabilities', detail: 'Exact calculations include pity and banner guarantees; adding goals no longer increases the chance of completing all goals.', href: '/pull-planner' }],
+  },
+  {
     at: '2026-11-13T13:20:00Z',
     fixed: [{ title: 'More reliable site updates', detail: 'Fixed premature failure reports while a newly deployed update finishes becoming available.' }],
   },

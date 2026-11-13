@@ -342,3 +342,36 @@ test('the planner rechecks closing windows on focus and retains the manual goal 
   const stored = await page.evaluate(() => JSON.parse(localStorage.getItem('arkpedia.pull-plan.v1')!));
   for (const key of ['orundum', 'originite', 'permits', 'reservedOP', 'until', 'goals'] as const) expect(stored[key]).toEqual(plan[key]);
 });
+
+for (const theme of ['dark', 'light']) test(`operator goal chances are calculated and adding a goal cannot improve success in ${theme}`, async ({ page }) => {
+  test.setTimeout(90000);
+  await page.addInitScript(theme => localStorage.setItem('theme', theme), theme);
+  await page.goto('/pull-planner');
+  const banner = await page.evaluate(() => {
+    const props = (window as unknown as { __NEXT_DATA__: { props: { pageProps: { bannerOdds: Record<string, { type: string; operators: { name: string; rarity: number }[] }>; scheduledBanners: { name: string; end: string; endAt?: string }[] } } } }).__NEXT_DATA__.props.pageProps;
+    const open = props.scheduledBanners.filter(b => Date.parse(b.endAt ?? `${b.end}T23:59:59Z`) > Date.now() && props.bannerOdds[b.name]?.type === 'crossover');
+    const candidate = open.find(b => props.bannerOdds[b.name].operators.length === 2) ?? open[0];
+    return candidate ? { ...candidate, operators: props.bannerOdds[candidate.name].operators } : null;
+  });
+  expect(banner, 'an upcoming verified crossover').toBeTruthy();
+  const six = banner!.operators.find(op => op.rarity === 6)!;
+  const five = banner!.operators.find(op => op.rarity === 5)!;
+  await page.goto(`/pull-planner?banner=${encodeURIComponent(banner!.name)}`);
+  const editor = page.locator('.pulls-banner-editor');
+  await expect(editor).toBeVisible();
+  await page.getByRole('spinbutton', { name: `Pull budget for ${banner!.name}`, exact: true }).fill('230');
+  await editor.locator('.pulls-operator-choice').filter({ hasText: six.name }).click();
+  await editor.getByRole('combobox', { name: `Copies wanted of ${six.name}`, exact: true }).click();
+  await page.getByRole('option', { name: '6', exact: true }).click();
+  const chance = editor.locator('.pulls-odds-headline > strong');
+  await expect(chance).toHaveText(/\d/);
+  await expect(editor.locator('.pulls-odds-headline small')).toContainText('Calculated');
+  const before = parseFloat((await chance.innerText()).replace(/[<>%]/g, ''));
+  await editor.locator('.pulls-operator-choice').filter({ hasText: five.name }).click();
+  await expect(editor.getByRole('combobox', { name: `Copies wanted of ${five.name}`, exact: true })).toBeVisible();
+  await expect(chance).toHaveText(/\d/);
+  const after = parseFloat((await chance.innerText()).replace(/[<>%]/g, ''));
+  expect(after).toBeLessThanOrEqual(before);
+  await expect(page.locator('.pulls-banner-editor').locator('.pulls-odds-headline small')).not.toContainText('Estimate');
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+});
