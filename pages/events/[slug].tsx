@@ -46,7 +46,7 @@ import InfoPopover from '@/components/ui/InfoPopover';
 import { LazyOperatorPreview } from '@/components/operators/LazyOperatorPreview';
 import type { OperatorPreviewItem } from '@/components/operators/OperatorPreview';
 import { allFreeRewards, eventRewardOperators, eventWelfareOperators, withWelfareEventLinks, type EventWelfareOperator, type FreeReward } from '@/lib/pulls/freeRewards';
-import { computeRewardTotals, type ResolvedRewardItem, type ResolvedRewardStore, type RewardTotal } from '@/lib/events/rewardTotals';
+import { computeRewardTotals, stockLimit, type ResolvedRewardItem, type ResolvedRewardStore, type RewardTotal } from '@/lib/events/rewardTotals';
 import { eventExtras, furniturePieceSource, NO_EXTRAS, tableRewardStores, type EventExtras, type EventRewardsFile } from '@/lib/events/tableRewards';
 import { ALL_TAB, eventLink, EXTRA_TABS, readEventLink, rewardTabsFor, shownRewardTab } from '@/lib/events/rewardTabs';
 import { eventTitle, isRerun } from '@/lib/events/eventName.mjs';
@@ -172,15 +172,18 @@ function RewardTotalsRow({ totals }: { totals: RewardTotal[] }) {
 
 /** Any reward block's own listing -- a store's, a sign-in's, the missions', the first clears',
  * the banner's gifts -- laid out as a 3-row horizontally-scrolling panel grid, each with its
- * per-purchase price, or 'Free' where it has none (every block but a store). The quantity
+ * per-purchase price, or its exchange status when individual draw prices do not exist. The quantity
  * (how many of the item one purchase or one claim grants) is shown as a small badge on the
  * icon's bottom-right corner, rather than as inline text next to the name. */
 function RewardStorePanelGrid({ items }: { items: ResolvedRewardItem[] }) {
   if (items.length === 0) return <p className="hint">Nothing here.</p>;
   return (
     <div className="sidescroll event-rewards-grid">
-      {items.map((item, i) => (
-        <RewardClick key={`${item.name}-${i}`} name={item.name} className="panel event-reward-panel">
+      {items.map((item, i) => {
+        const stock = stockLimit(item.stock);
+        const availability = stock !== null ? `Stock: ${stock.toLocaleString('en-US')}` : /unlimited|∞/i.test(item.stock) ? 'Unlimited stock' : 'Stock unknown';
+        const priceLabel = item.price !== null ? `${item.price} ${item.currency}` : item.currency ? 'Exchange reward' : 'Free';
+        return <RewardClick key={`${item.name}-${i}`} name={item.name} className="panel event-reward-panel">
           <div className="event-reward-icon-wrap">
             {item.iconPath && (
               <Image src={item.iconPath} alt={item.name} width={40} height={40} style={{ objectFit: 'contain' }} />
@@ -189,12 +192,13 @@ function RewardStorePanelGrid({ items }: { items: ResolvedRewardItem[] }) {
           </div>
           <div className="event-reward-panel-text">
             <span className="event-reward-panel-name">{item.name}</span>
-            <span className="event-reward-panel-meta" title={item.price !== null ? `${item.price} ${item.currency}` : undefined}>
-              {item.price !== null ? `${item.price} ${item.currency}` : 'Free'}
+            <span className="event-reward-panel-meta" title={item.currency ? `${item.price !== null ? priceLabel : item.currency} · ${availability}` : undefined}>
+              <span>{priceLabel}</span>
+              {item.currency && <span className="event-reward-panel-stock">{availability}</span>}
             </span>
           </div>
-        </RewardClick>
-      ))}
+        </RewardClick>;
+      })}
     </div>
   );
 }

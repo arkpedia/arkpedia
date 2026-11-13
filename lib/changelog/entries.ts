@@ -36,7 +36,7 @@ export const CHANGELOG: ChangelogEntry[] = [
   {
     at: '2026-11-12T23:43:24Z',
     changed: [{ title: 'Featured free rewards in saved images', detail: 'Welfare operators and free skins get full art in compact cards, with total EXP and pulls on the material cards.', href: '/events' }],
-    fixed: [{ title: 'Event rewards keep their CN fallback', detail: 'Missing shops and exchanges use CN sources until Global details become available.', href: '/events' }],
+    fixed: [{ title: 'Clearer event exchange listings', detail: 'Shop cards show stock limits, with alchemy rewards identified as exchanges.', href: '/events' }, { title: 'Event rewards keep their CN fallback', detail: 'Missing shops and exchanges use CN sources until Global details become available.', href: '/events' }],
   },
   {
     at: '2026-11-12T17:59:21Z',
