@@ -36,6 +36,7 @@ export const CHANGELOG: ChangelogEntry[] = [
   {
     at: '2026-11-13T09:35:00Z',
     changed: [
+      { title: 'Wider reward images for busy events', detail: 'Large reward lists use more columns, keeping featured rewards together and reducing vertical scrolling.', href: '/events' },
       { title: 'Daily Patreon acknowledgements', detail: 'Public supporter names and tiers refresh automatically, with the last update time shown.', href: '/support' },
       { title: 'Clearer contact details', detail: 'Contact Kukkikaze for sponsorships and other inquiries, or JungerMin for website support and privacy.', href: '/about' },
     ],

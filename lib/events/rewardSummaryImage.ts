@@ -27,7 +27,7 @@ function lines(ctx: CanvasRenderingContext2D, text: string, width: number): stri
   return result;
 }
 
-export async function drawRewardSummary({ title, summary, artwork, rewardNote, resolve, welfare = [] }: Options): Promise<Blob> {
+export async function drawRewardSummary({ title, summary, artwork, rewardNote, resolve, welfare = [] }: Options): Promise<{ blob: Blob; width: number }> {
   summary = { ...summary, rows: summary.rows.map(row => ({ ...row, items: row.items.map(item => row.label === 'Operators' && !item.artwork && item.iconPath?.includes('-star-icons/') ? { ...item, artwork: item.iconPath.replace('-star-icons/', '-star-skins/') } : item) })) };
   const css = getComputedStyle(document.documentElement);
   const token = (name: string) => css.getPropertyValue(name).trim();
@@ -53,10 +53,14 @@ export async function drawRewardSummary({ title, summary, artwork, rewardNote, r
     }));
   } finally { clearTimeout(timer); }
 
-  const W = 1440, PAD = 36, GAP = 14, INNER = W - PAD * 2;
   const features: (Omit<SummaryItem, 'count'> & { count?: number; label: string })[] = summary.rows.filter(row => ['Operators', 'Outfits'].includes(row.label)).flatMap(row => row.items.map(item => ({ ...item, label: row.label === 'Operators' ? 'FREE OPERATOR' : 'FREE SKIN' })));
   for (const op of welfare) if (!features.some(item => item.name === op.name)) features.push({ ...op, count: undefined, label: 'FREE OPERATOR' });
-  const COLS = 8, UNIT = (INNER - GAP * (COLS - 1)) / COLS;
+  // Dense celebrations need more horizontal room, with the same readable type/art
+  // sizes as small events. Five featured rewards fit in one row rather than two.
+  const materialCount = summary.rows.filter(row => !['Operators', 'Outfits'].includes(row.label)).reduce((count, row) => count + row.items.length, 0);
+  const W = features.length >= 4 ? 2400 : materialCount >= 48 ? 2160 : 1440;
+  const PAD = 36, GAP = 14, INNER = W - PAD * 2;
+  const COLS = W === 2400 ? 14 : W === 2160 ? 12 : 8, UNIT = (INNER - GAP * (COLS - 1)) / COLS;
   const ICON = 78, LABEL = 22, HEAD = 48;
   ctx.font = `700 44px ${display}`;
   const titleLines = lines(ctx, title, INNER);
@@ -74,7 +78,7 @@ export async function drawRewardSummary({ title, summary, artwork, rewardNote, r
   // form a compact gallery above them, instead of an increasingly tall sidebar.
   const rail = features.length > 0 && features.length <= 2;
   const railColumns = rail ? features.length * 2 : 0;
-  const featureColumns = Math.min(3, features.length);
+  const featureColumns = Math.min(W === 2400 ? 5 : W === 2160 ? 4 : 3, features.length);
   const featureWidth = rail ? UNIT * 2 + GAP : (INNER - GAP * (featureColumns - 1)) / featureColumns;
   let featureBottom = headerHeight;
   for (let i = 0; i < features.length;) {
@@ -133,7 +137,7 @@ export async function drawRewardSummary({ title, summary, artwork, rewardNote, r
   }
   y = Math.max(y, featureBottom + (features.length ? GAP : 0));
   const H = y + 66 + noteLines.length * 26;
-  // A fixed export size on phone and desktop, crisp when shared or zoomed.
+  // The same content-based export size on phone and desktop, crisp when zoomed.
   // Keep exceptionally long stores below mobile Safari's canvas-area limit.
   const scale = Math.min(2, Math.sqrt(15_500_000 / (W * H)));
   canvas.width = Math.floor(W * scale); canvas.height = Math.floor(H * scale);
@@ -214,5 +218,5 @@ export async function drawRewardSummary({ title, summary, artwork, rewardNote, r
   noteLines.forEach((line, i) => ctx.fillText(line, PAD, y + 10 + i * 26));
   ctx.font = `700 20px ${display}`;
   ctx.fillText('ARKPEDIA.NET  /  EVENT REWARDS', PAD, H - 34);
-  return new Promise((resolve, reject) => canvas.toBlob(blob => blob ? resolve(blob) : reject(new Error('Empty image')), 'image/png'));
+  return new Promise((resolve, reject) => canvas.toBlob(blob => blob ? resolve({ blob, width: W }) : reject(new Error('Empty image')), 'image/png'));
 }
