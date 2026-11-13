@@ -1,3 +1,5 @@
+import dynamic from 'next/dynamic';
+import { externalGameScheduleEvents } from '@/lib/schedule/externalGameCollabs';
 import { useRegionalTime } from '@/lib/time/useRegionalTime';
 import PageMeta from '@/components/layout/PageMeta';
 import { regionalArt, regionalEvents, regionalBanners, regionalRange, withLightRegionalTable } from '@/lib/time/regional';
@@ -52,6 +54,8 @@ import { Skin } from '@/lib/skins/skinTypes';
 import XButton from '@/components/ui/XButton';
 import LoadOnScroll from '@/components/ui/LoadOnScroll';
 import { operatorHref } from '@/lib/operators/operatorHref';
+
+const CollabArtViewer = dynamic(() => import('@/components/skins/SkinZoomOverlay'), { ssr: false });
 
 interface Props {
   events: ScheduleEvent[];
@@ -123,6 +127,7 @@ export default function SchedulePage({ events: globalEvents, operators: exported
     return { ...row, poster: regionalArt(time, row.poster, server), dateRange: row.modeId && time.releaseDate ? time.releaseDate : regionalRange(time, server), isPredicted: false, start: Date.parse(time.startAt), end: Date.parse(time.endAt),
       pullBanner: 'pullBanner' in row && row.pullBanner ? { ...row.pullBanner, end: Date.parse(schedule?.banners?.[row.pullBanner.name]?.endAt ?? time.endAt) } : null };
   }), [calendarRows, server, schedule]);
+  const externalEvents = useMemo(() => externalGameScheduleEvents(), []);
   const colors = useReleaseTable<typeof import('@/data/event_colors.json')>('event_colors');
   const materials = useReleaseTable<typeof import('@/data/event_materials.json')>('event_materials');
   const globalBanners = useReleaseTable<HeadhuntingBanner[]>('headhunting_banners');
@@ -170,6 +175,7 @@ export default function SchedulePage({ events: globalEvents, operators: exported
   // `selectedEvent !== null` check (used for the .open class) actually
   // controls the animation; this just avoids blank content while it plays.
   const [displayEvent, setDisplayEvent] = useState<ScheduleEvent | null>(null);
+  const [collabArt, setCollabArt] = useState<{ image: string; name: string } | null>(null);
   const [activeSkin, setActiveSkin] = useState<Skin | null>(null);
   const [showAllSkins, setShowAllSkins] = useState(false);
   const [showAllVisibleCount, setShowAllVisibleCount] = useState(20);
@@ -187,23 +193,23 @@ export default function SchedulePage({ events: globalEvents, operators: exported
      missing the thing a calendar is for. Any month can be read whether or not anything
      is scheduled in it; an empty grid is a real answer. */
   const years = useMemo(() => {
-    const ys = new Set(events.map((e) => e.year));
+    const ys = new Set([...events, ...externalEvents].flatMap(e => [e.year, Number(e.global.dateRange?.slice(-10, -6))].filter(Number.isFinite)));
     ys.add(today.year);
     ys.add(today.year + 1);
     // Month arrows can move beyond the years with known events.
     ys.add(year);
     return Array.from(ys).sort((a, b) => a - b);
-  }, [events, today, year]);
+  }, [events, externalEvents, today, year]);
   const steadyYear = useMemo(() => steadyValue(years.map(String)), [years]);
 
   const monthGrid = useMemo(() => generateMonths(new Date(year, month, 1), 1)[0], [year, month]);
 
-  const barSources: WeekEventSource[] = useMemo(() => (showOfficialEvents ? scheduleBarSources([], timelineRows, server, now) : []), [timelineRows, server, now, showOfficialEvents]);
+  const barSources: WeekEventSource[] = useMemo(() => (showOfficialEvents ? scheduleBarSources(externalEvents, timelineRows, server, now) : []), [externalEvents, timelineRows, server, now, showOfficialEvents]);
 
-  const eventByName = useMemo(() => new Map(events.map(e => {
+  const eventByName = useMemo(() => new Map([...events, ...externalEvents].map(e => {
     const row = timelineRows.find(row => row.name === e.name);
     return [e.name, row ? { ...e, global: { ...e.global, dateRange: row.dateRange, ...('start' in row && row.start < 8.64e15 ? { startAt: new Date(row.start).toISOString(), endAt: new Date(row.end).toISOString() } : {}), note: row.isPredicted ? 'Estimated; not officially confirmed' : e.global.note } } : e];
-  })), [events, timelineRows]);
+  })), [events, externalEvents, timelineRows]);
   const skinByName = useMemo(() => new Map(skins.map((s) => [s.name, s])), [skins]);
   const [showNewestOnly, setShowNewestOnly] = useState(false);
 
@@ -258,7 +264,7 @@ export default function SchedulePage({ events: globalEvents, operators: exported
   const panelRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (!selectedEvent || activeSkin) return;
+    if (!selectedEvent || activeSkin || collabArt) return;
     function handleClickOutside(e: MouseEvent) {
       const target = e.target as HTMLElement;
       if (target.closest('.schedule-bar')) return; // clicking another event is a switch, not a close -- let openEvent's own state update handle it
@@ -268,7 +274,7 @@ export default function SchedulePage({ events: globalEvents, operators: exported
     }
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [selectedEvent, activeSkin]);
+  }, [selectedEvent, activeSkin, collabArt]);
 
   function goPrevMonth() {
     if (month === 0) {
@@ -590,7 +596,7 @@ export default function SchedulePage({ events: globalEvents, operators: exported
                             }}
                             onClick={() => openEvent(eventByName.get(bar.key)!)}
                           >
-                            {bar.name}{/estimated|predicted/i.test(eventByName.get(bar.key)?.global.note ?? '') ? ' · Estimated' : ''}
+                            {eventByName.get(bar.key)?.externalGame ? '[Collab] ' : ''}{bar.name}{/estimated|predicted/i.test(eventByName.get(bar.key)?.global.note ?? '') ? ' · Estimated' : ''}
                           </button>
                         );
                       })}
@@ -615,8 +621,9 @@ export default function SchedulePage({ events: globalEvents, operators: exported
               <div className="schedule-panel">
                 <XButton className="schedule-panel-close-btn" onClick={closePanel} label="Close" />
                 {displayEvent.poster && (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <Image
+                  displayEvent.externalGame ? <button className="btn-bare" type="button" aria-label={`Enlarge ${displayEvent.name} artwork`} onClick={() => setCollabArt({ image: displayEvent.poster!, name: displayEvent.name })}>
+                    <Image src={displayEvent.poster} alt={displayEvent.name} width={1600} height={900} className="schedule-panel-poster" style={{ width: '100%', height: 'auto' }} />
+                  </button> : <Image
                     src={displayEvent.poster}
                     alt={displayEvent.name}
                     width={1600}
@@ -626,6 +633,12 @@ export default function SchedulePage({ events: globalEvents, operators: exported
                   />
                 )}
                 <h2 className="entity-title entity-title-sm schedule-panel-title">{displayEvent.name}</h2>
+                {displayEvent.externalGame ? <>
+                  <p className="hint">[Confirmed] · External game collaboration · {displayEvent.externalGame.region}</p>
+                  <p>{displayEvent.externalGame.launchOnly ? displayEvent.global.dateRange?.split('–')[0] : displayEvent.global.dateRange}{displayEvent.externalGame.launchOnly ? ' · Release day' : ' · Availability period'}</p>
+                  <p>{displayEvent.externalGame.description}</p>
+                  <a href={displayEvent.externalGame.source} target="_blank" rel="noopener noreferrer" className="ghost btn-sm schedule-panel-event-link">Official announcement ↗</a>
+                </> : <>
                 {displayEvent.modeId ? (
                   <>
                     <p className="hint">{displayEvent.global.note ? 'Predicted launch' : `${server.toUpperCase()} launch`}: {displayEvent.global.releaseDate} · Permanent mode</p>
@@ -778,6 +791,7 @@ export default function SchedulePage({ events: globalEvents, operators: exported
                   <p className="hint">{displayEvent.pullsNeeded || 'Not available yet.'}</p>
                 </>}
 
+                </>}
               </div>
             )}
           </div>
@@ -808,6 +822,7 @@ export default function SchedulePage({ events: globalEvents, operators: exported
         </div>
       )}
 
+      {collabArt && <CollabArtViewer image={collabArt.image} name={collabArt.name} dynamic={null} onClose={() => setCollabArt(null)} />}
       {activeSkin && <SkinDetailDialog skin={activeSkin} onClose={() => setActiveSkin(null)}
         footer={<Link prefetch={false} href={`/skins?skin=${encodeURIComponent(activeSkin.name)}`}>View in outfit gallery</Link>} />}
 

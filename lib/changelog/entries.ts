@@ -34,12 +34,20 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    at: '2026-11-13T13:20:00Z',
+    fixed: [{ title: 'More reliable site updates', detail: 'Fixed premature failure reports while a newly deployed update finishes becoming available.' }],
+  },
+  {
     at: '2026-11-13T13:00:00Z',
     fixed: [{ title: 'Supporter sync on Cloudflare', detail: 'Fixed a Worker runtime incompatibility that prevented the first Patreon update.', href: '/support' }],
   },
   {
     at: '2026-11-13T12:30:00Z',
     fixed: [{ title: 'Clearer supporter sync status', detail: 'An initial sync failure shows a retryable error instead of remaining in preparation.', href: '/support' }],
+  },
+  {
+    at: '2026-11-13T11:45:00Z',
+    added: [{ title: 'Collaborations in other games', detail: 'Find Arcaea, Cytus II, Muse Dash and Delta Force collaborations in the calendar and its synced feed.', href: '/schedule' }],
   },
   {
     at: '2026-11-13T11:30:00Z',

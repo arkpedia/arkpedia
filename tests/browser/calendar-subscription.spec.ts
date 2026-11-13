@@ -5,6 +5,16 @@ for (const theme of ['dark', 'light']) {
     await page.addInitScript(theme => localStorage.setItem('theme', theme), theme);
     await page.goto('/schedule?view=calendar');
     await expect(page.getByRole('heading', {name:'Calendar',exact:true})).toBeVisible();
+    await page.getByRole('combobox', { name: 'Month', exact: true }).click();
+    await page.getByRole('option', { name: 'November', exact: true }).click();
+    await page.getByRole('combobox', { name: 'Year', exact: true }).click();
+    await page.getByRole('option', { name: '2026', exact: true }).click();
+    await page.getByRole('button', { name: '[Collab] Arcaea × Arknights', exact: true }).first().click();
+    const collab = page.getByRole('dialog', { name: 'Arcaea × Arknights', exact: true });
+    await expect(collab.getByText(/External game collaboration/)).toBeVisible();
+    await expect(collab.getByRole('link', { name: 'Official announcement' })).toHaveAttribute('href', 'https://x.com/arcaea_en/status/2118493572538286182');
+    await expect(collab.getByText('Pulls Needed', { exact: true })).toHaveCount(0);
+    await collab.getByRole('button', { name: 'Close', exact: true }).click();
     const trigger = page.getByRole('button', { name: 'Sync calendar / .ics', exact: true });
     await trigger.focus();
     await page.keyboard.press('Enter');
@@ -27,6 +37,12 @@ for (const theme of ['dark', 'light']) {
     expect(body).toContain('[Confirmed]');
     expect(body).not.toContain('[Predicted]');
     expect(body).toContain('RRULE:FREQ=YEARLY');
+    expect(body).toContain('CATEGORIES:External game collaborations');
+    expect(body).toContain('[Confirmed] [Collab] Arcaea × Arknights');
+    await dialog.getByRole('checkbox', { name: 'Include collaborations in other games' }).uncheck();
+    const withoutCollabs = await request.get(await url.inputValue());
+    expect(await withoutCollabs.text()).not.toContain('CATEGORIES:External game collaborations');
+    await dialog.getByRole('checkbox', { name: 'Include collaborations in other games' }).check();
     const cached = await request.get(selected, { headers: { 'If-None-Match': response.headers().etag } });
     expect(cached.status()).toBe(304);
     const head = await request.head(selected);
@@ -48,6 +64,7 @@ for (const theme of ['dark', 'light']) {
     await expect(dialog).toHaveCount(0);
     await expect(trigger).toBeFocused();
     expect((await request.get('/api/calendar.ics?server=invalid')).status()).toBe(400);
+    expect((await request.get('/api/calendar.ics?collabs=invalid')).status()).toBe(400);
     expect((await request.post('/api/calendar.ics')).status()).toBe(405);
   });
 }

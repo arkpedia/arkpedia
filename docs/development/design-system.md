@@ -315,6 +315,12 @@ a real representative record; empty tools need a populated state as well as the 
 
 ## Ownership and maintenance
 
+External-game collaborations belong in the calendar and its subscription, separately
+from Arknights server events and resource income. Label the host game and region,
+show official sources, and distinguish release-day markers from acquisition periods.
+Confirmed external dates remain confirmed when the reader changes Arknights server.
+Use the same canonical records for the calendar bars, detail panel and calendar feed.
+
 Event reward summaries use one expand icon to open the shared fullscreen native dialog.
 Show the exported infographic there with Copy link and Save image beneath it; download
 that same rendered image. Shared `#rewards/image` links open Rewards / All and the dialog

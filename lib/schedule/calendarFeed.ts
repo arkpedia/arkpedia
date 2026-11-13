@@ -1,3 +1,4 @@
+import { EXTERNAL_GAME_COLLABS } from './externalGameCollabs';
 import { createHash } from 'node:crypto';
 import { parseGameRangeDays, parseGameWindow, type GameDay } from './gameWindow';
 import type { EventRow, EventRowView, ExportedTimelineOperator } from './eventRows';
@@ -8,7 +9,7 @@ import { serverCalendarTime } from '@/lib/time/servers.mjs';
 
 export const CALENDAR_SERVERS = { en: 'Global', jp: 'Japan', kr: 'Korea' } as const;
 export type CalendarServer = keyof typeof CALENDAR_SERVERS;
-export interface CalendarOptions { server: CalendarServer; predicted: boolean; birthdays: boolean }
+export interface CalendarOptions { server: CalendarServer; predicted: boolean; birthdays: boolean; collabs?: boolean }
 export interface CalendarData {
   events: ScheduleEvent[];
   eventRows: (EventRow | EventRowView)[];
@@ -82,6 +83,16 @@ export function calendarFeed(data: CalendarData, options: CalendarOptions, updat
       timed ? `DTEND:${stamp(end)}` : `DTEND;VALUE=DATE:${dayStamp(end)}`,
       `SUMMARY:${text(label)}`, `DESCRIPTION:${text(description)}`, `URL:${url}`,
       `STATUS:${predicted ? 'TENTATIVE' : 'CONFIRMED'}`, 'TRANSP:TRANSPARENT', 'END:VEVENT');
+  }
+  if (options.collabs !== false) for (const collab of EXTERNAL_GAME_COLLABS) {
+    const start = new Date(collab.start + 'T00:00:00Z');
+    const end = new Date(Date.parse((collab.end ?? collab.start) + 'T00:00:00Z') + DAY);
+    const description = `External game collaboration in ${collab.game}. ${collab.region}.\n${collab.description}\nOfficial source: ${collab.source}`;
+    lines.push('BEGIN:VEVENT', `UID:${uid(`external-game:${collab.id}`)}`, `DTSTAMP:${stamp(updated)}`,
+      `LAST-MODIFIED:${stamp(updated)}`, `SEQUENCE:${revision}`, `DTSTART;VALUE=DATE:${dayStamp(start)}`,
+      `DTEND;VALUE=DATE:${dayStamp(end)}`, `SUMMARY:${text(`[Confirmed] [Collab] ${collab.title}`)}`,
+      `DESCRIPTION:${text(description)}`, `URL:${collab.source}`, 'CATEGORIES:External game collaborations',
+      'STATUS:CONFIRMED', 'TRANSP:TRANSPARENT', 'END:VEVENT');
   }
   if (options.birthdays) for (const birthday of getOperatorBirthdays(data.operators)) {
     const date = new Date(Date.UTC(2000, birthday.month - 1, birthday.day));

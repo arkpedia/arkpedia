@@ -12,6 +12,8 @@ export interface ServerDateInfo {
 
 export interface ScheduleEvent {
   name: string;
+  /** Confirmed collaboration hosted in another game; separate from server schedules. */
+  externalGame?: { id: string; game: string; region: string; source: string; description: string; launchOnly: boolean };
   modeId?: string;
   /** Headhunting schedule entry, opening its banner rather than an event page. */
   bannerName?: string;
