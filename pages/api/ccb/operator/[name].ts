@@ -9,12 +9,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const name = req.query.name;
   if (typeof name !== 'string' || !name || name.length > 120 || /[/\\\x00-\x1f\x7f]/.test(name)) return res.status(400).json({ error: 'Invalid operator name' });
   let operator: Operator | undefined;
-  const deployed = process.env.ARKPEDIA_WORKER === '1' || process.env.VERCEL === '1';
   try { operator = (await readPublishedContentPageProps<{ operator: Operator }>(contentRoute('/operators/[name]', { name })))?.operator; }
-  catch { if (deployed) return res.status(503).json({ error: 'Operator data temporarily unavailable' }); }
+  catch { if (process.env.ARKPEDIA_WORKER === '1' || process.env.VERCEL === '1') return res.status(503).json({ error: 'Operator data temporarily unavailable' }); }
   // Local next start uses production mode too; its pinned browser build reads
-  // the on-disk catalogue. Hosted Workers only read verified published content.
-  if (!operator && !deployed) {
+  // the on-disk catalogue. Keep the deployment guards inline so webpack can
+  // exclude this import; hosted Workers only read verified published content.
+  if (process.env.ARKPEDIA_WORKER !== '1' && process.env.VERCEL !== '1' && !operator) {
     const { getOperatorByName } = await import('@/lib/operators/operators');
     operator = getOperatorByName(name);
   }
