@@ -31,7 +31,7 @@ export const EXTERNAL_GAME_COLLABS = [
     title: 'Muse Dash × Arknights · MSR Vol.02', start: '2025-01-26', end: '2026-01-26',
     description: 'MSR Anthology Vol.02 introduced eight songs and Wiš\'adel, while Vol.01 returned to sale. Both packs shared this announced sale period. Exact closing time was not specified.',
     source: 'https://store.steampowered.com/news/app/774171/view/1789580505397330',
-    image: null,
+    image: 'https://clan.akamai.steamstatic.com/images/31923494/135cc8bdb1b2d08f003e5ff870cb2471b848ef5d.png',
   },
   {
     id: 'delta-force-arknights-launch-2025', game: 'Delta Force', region: 'International release',
