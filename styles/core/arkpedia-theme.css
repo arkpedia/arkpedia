@@ -882,6 +882,7 @@ a.ghost.panel:focus-visible { border-color: var(--teal); }
 .account-dialog header h2 { margin: 0; }
 .account-dialog-header-actions { display: flex; align-items: center; gap: 8px; flex: none; }
 .account-dialog-body { flex: 1 1 auto; min-height: 0; padding: 18px; overflow-y: auto; overscroll-behavior: contain; }
+.account-dialog-fit .account-dialog-body { display: flex; flex-direction: column; overflow: hidden; }
 
 /* Reference directories: one surface and responsive rhythm for credits, techniques
    and synergies. Features own their contents; controls retain their own primitives. */
@@ -922,6 +923,8 @@ a.ghost.panel:focus-visible { border-color: var(--teal); }
 /* One compact toolbar per browsing context. Native sticky keeps its original space. */
 .sticky-controls { background: var(--bg); border-bottom: 1px solid var(--line-soft); padding-block: 8px; margin-top: -8px; }
 .sticky-controls[data-sticky="true"] { position: sticky; top: var(--nav-h, 60px); z-index: 30; }
+/* Cover subpixel/compositing seams beneath the fixed nav without moving controls. */
+.sticky-controls[data-sticky="true"]::before { content: ''; position: absolute; inset: -1px 0 auto; height: 1px; background: var(--bg); pointer-events: none; }
 .filter-bar { display: none; grid-column: 1 / -1; }
 .filter-sheet-inline { display: contents; }
 @media (max-width: 720px) {

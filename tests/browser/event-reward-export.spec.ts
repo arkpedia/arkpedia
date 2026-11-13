@@ -10,6 +10,37 @@ async function openImage(page: Page) {
   await expect(page.getByRole('button', { name: 'Save image', exact: true })).toBeEnabled();
 }
 
+async function overviewFits(page: Page) {
+  const dialog = page.getByRole('dialog');
+  const image = dialog.locator('.reward-image-preview img');
+  await expect(image).toBeVisible();
+  await expect.poll(() => image.evaluate(el => (el as HTMLImageElement).naturalWidth)).toBeGreaterThan(1000);
+  await image.evaluate(el => (el as HTMLImageElement).decode());
+  await expect(image).toHaveCSS('opacity', '1');
+  const layout = await dialog.evaluate(el => {
+    const preview = el.querySelector('.reward-image-preview')!;
+    const image = preview.querySelector('img')!;
+    const rect = image.getBoundingClientRect();
+    const footer = el.querySelector('.reward-image-footer')!.getBoundingClientRect();
+    return {
+      containers: [el, el.querySelector('.account-dialog-body')!, preview].map(node => ({ x: node.scrollWidth - node.clientWidth, y: node.scrollHeight - node.clientHeight })),
+      fit: getComputedStyle(image).objectFit,
+      image: { top: rect.top, bottom: rect.bottom, height: rect.height },
+      footer: { top: footer.top, bottom: footer.bottom },
+      viewport: innerHeight,
+    };
+  });
+  for (const box of layout.containers) { expect(box.x).toBeLessThanOrEqual(1); expect(box.y).toBeLessThanOrEqual(1); }
+  expect(['contain', 'scale-down']).toContain(layout.fit);
+  expect(layout.image.height).toBeGreaterThan(0);
+  expect(layout.image.top).toBeGreaterThanOrEqual(0);
+  expect(layout.image.bottom).toBeLessThanOrEqual(layout.footer.top);
+  expect(layout.footer.bottom).toBeLessThan(layout.viewport);
+  await expect(dialog.getByRole('button', { name: 'Copy link', exact: true })).toBeVisible();
+  await expect(dialog.getByRole('button', { name: 'Save image', exact: true })).toBeVisible();
+  await expect(dialog.getByRole('button', { name: /Zoom rewards|Fit rewards/ })).toHaveCount(0);
+}
+
 for (const theme of ['dark', 'light']) {
   test(`reward image preserves every displayed quantity in ${theme}`, async ({ page }) => {
     await page.addInitScript(theme => {
@@ -51,7 +82,10 @@ for (const theme of ['dark', 'light']) {
       return Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', bytes)), n => n.toString(16).padStart(2, '0')).join('');
     });
     expect(createHash('sha256').update(png).digest('hex')).toBe(previewHash);
-    expect(png.readUInt32BE(16)).toBe(2880);
+    // The exporter chooses a wider canvas as live reward lists grow. Fitting the
+    // preview must preserve those original pixels, never resize the saved PNG.
+    expect(png.readUInt32BE(16)).toBeGreaterThanOrEqual(2880);
+    expect(await page.getByRole('dialog').locator('img').evaluate(image => (image as HTMLImageElement).naturalWidth)).toBe(png.readUInt32BE(16));
     expect(png.readUInt32BE(20)).toBeGreaterThan(800);
     const labels = await page.evaluate(() => (window as unknown as { rewardExportLabels: string[] }).rewardExportLabels);
     expect(labels.filter(text => text.startsWith('×')).sort()).toEqual(expected.sort());
@@ -173,10 +207,7 @@ test('reward image links reopen the fullscreen view and Escape restores the page
   await expect(page.getByRole('dialog')).toBeVisible();
   await expect(page.getByRole('dialog').locator('img')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Save image', exact: true })).toBeEnabled();
-  await page.getByRole('button', { name: 'Zoom rewards image', exact: true }).click();
-  expect(await page.getByRole('dialog').evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true);
-  await page.getByRole('button', { name: 'Fit rewards image to width', exact: true }).click();
-  expect(await page.getByRole('dialog').evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true);
+  await overviewFits(page);
   await page.getByRole('button', { name: 'Close', exact: true }).click();
   await expect(page.getByRole('dialog')).toHaveCount(0);
 });
@@ -207,11 +238,25 @@ for (const theme of ['dark', 'light']) {
     const features = labels.filter(label => ['FREE OPERATOR', 'FREE SKIN'].includes(label.text));
     expect(features).toHaveLength(5);
     expect(new Set(features.map(label => label.y)).size, 'all five featured rewards share one row').toBe(1);
-    await page.getByRole('button', { name: 'Zoom rewards image', exact: true }).click();
-    expect(await page.getByRole('dialog').locator('img').evaluate(image => image.getBoundingClientRect().width)).toBe(2400);
+    await overviewFits(page);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   });
 }
+
+for (const theme of ['dark', 'light']) test(`the entire reward overview fits without scrolling in ${theme}`, async ({ page }) => {
+  test.setTimeout(90000);
+  await page.addInitScript(theme => localStorage.setItem('theme', theme), theme);
+  await page.goto('/events/' + encodeURIComponent('[Story Collection] Bolívar Diagnosed') + '#rewards');
+  await openImage(page);
+  await overviewFits(page);
+  await page.setViewportSize({ width: 900, height: 420 });
+  await overviewFits(page);
+  await page.setViewportSize({ width: 360, height: 640 });
+  await overviewFits(page);
+  const preview = page.locator('.reward-image-preview');
+  await preview.evaluate(el => { el.scrollTop = 1000; el.scrollLeft = 1000; });
+  expect(await preview.evaluate(el => ({ x: el.scrollLeft, y: el.scrollTop }))).toEqual({ x: 0, y: 0 });
+});
 
 for (const theme of ['dark', 'light']) {
   test(`purchasable pack contents stay accessible in ${theme}`, async ({ page }) => {

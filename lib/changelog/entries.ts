@@ -34,6 +34,11 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    at: '2026-11-13T17:22:00Z',
+    changed: [{ title: 'Full reward images at a glance', detail: 'Reward overviews fit the whole image without scrolling, while downloads keep their full resolution.', href: '/events' }],
+    fixed: [{ title: 'No gap below sticky filters', detail: 'Operator filters cover the seam under the navigation bar, so scrolling artwork stays behind them.', href: '/operators' }],
+  },
+  {
     at: '2026-11-13T16:40:00Z',
     fixed: [{ title: 'Calculated pull-goal probabilities', detail: 'Exact calculations include pity and banner guarantees; adding goals no longer increases the chance of completing all goals.', href: '/pull-planner' }],
   },
