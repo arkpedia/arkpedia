@@ -193,10 +193,10 @@ export default function CreditDatabase({ people, uncredited, operators, now, kin
           {/* On a phone everything but the page switch and the search folds into the sheet. */}
           <FilterSheet controlsClassName="roster-controls credit-controls" active={activeFilters} onReset={resetSheet} hold={hold} controls={<>
           {voices
-            ? <StyledSelect className="roster-faction" label="Filter by language" value={lang} onChange={value => change({ lang: value })}
+            ? <StyledSelect className="credit-filter" menuMinWidth={200} menuMaxHeight={280} label="Filter by language" value={lang} onChange={value => change({ lang: value })}
                 options={[{ value: 'all', label: 'All languages' }, ...languages.map(([value, n]) => ({ value, label: `${value} (${n})` }))]} />
-            : <StyledSelect className="roster-faction" label="Filter by credit" value={credit} onChange={value => change({ credit: value })} options={ART_CREDITS} />}
-          <StyledSelect className="roster-faction" label="Filter by faction" value={query.faction} onChange={value => change({ faction: value })}
+            : <StyledSelect className="credit-filter" menuMinWidth={200} menuMaxHeight={280} label="Filter by credit" value={credit} onChange={value => change({ credit: value })} options={ART_CREDITS} />}
+          <StyledSelect className="credit-filter" menuMinWidth={200} menuMaxHeight={280} label="Filter by faction" value={query.faction} onChange={value => change({ faction: value })}
             options={[{ value: 'all', label: 'All factions' }, ...factions.map(f => ({ value: f, label: f }))]} />
           <div className="roster-rarity-class-row">
             {/* Independent filter chips: pressing the lit one clears it, as on /operators. */}
