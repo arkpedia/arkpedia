@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { checkGameAccountMap, readGameAccount } from '../../lib/planner/gameAccount';
+import { checkGameAccountMap, readGameAccount, type GameAccountMap } from '../../lib/planner/gameAccount';
 import { describeTransfer } from '../../lib/planner/transfer';
+import { parseRosterExport } from '../../lib/planner/roster';
 import gameAccountMap from '../../data/game-account-map.json';
 
 test('the committed map covers every operator record and loads', () => {
@@ -29,6 +30,25 @@ const MAP = {
 
 const ALIASES = { byItemId: { 4001: 'LMD', 30012: 'Orirock Cube', 30013: 'Orirock Cluster' }, byArkgraph: {} };
 const DEPOT = ['LMD', 'Orirock Cube', 'Orirock Cluster', 'Orirock'];
+
+test('game imports preserve trust and the equipped module through account storage', () => {
+  const map = { ...(MAP as GameAccountMap), trustThresholds: Array.from({ length: 201 }, (_, percent) => percent * 10) };
+  const imported = readGameAccount({ troop: { chars: { 1: {
+    charId: 'char_300_phenxi', evolvePhase: 2, level: 60, mainSkillLvl: 7,
+    favorPoint: 1009, potentialRank: 3, currentEquip: 'uniequip_002_phenxi',
+    equip: { uniequip_002_phenxi: { locked: 0, level: 2 } },
+  } } } }, map, ALIASES, DEPOT).roster;
+  assert.equal(imported.Fiammetta.trust, 100);
+  assert.equal(imported.Fiammetta.equippedModule, 1);
+  assert.equal(imported.Fiammetta.modules?.[1], 1);
+  assert.deepEqual(parseRosterExport(JSON.stringify(imported)), imported);
+  const original = readGameAccount({ troop: { chars: { 1: { charId: 'char_300_phenxi', evolvePhase: 0, level: 1, mainSkillLvl: 1, favorPoint: 0, currentEquip: 'uniequip_001_phenxi' } } } }, map, ALIASES, DEPOT).roster;
+  assert.equal(original.Fiammetta.trust, 0);
+  assert.equal(original.Fiammetta.equippedModule, null);
+  const malformed = parseRosterExport(JSON.stringify({ Fiammetta: { ...imported.Fiammetta, trust: 201, equippedModule: 7 } }));
+  assert.equal(malformed?.Fiammetta.trust, undefined);
+  assert.equal(malformed?.Fiammetta.equippedModule, undefined);
+});
 
 test('an account becomes the roster and depot the game holds, in place of the planner\'s', () => {
   const user = {
