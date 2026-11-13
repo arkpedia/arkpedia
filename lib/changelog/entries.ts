@@ -34,6 +34,10 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    at: '2026-11-13T16:40:00Z',
+    fixed: [{ title: 'Calculated pull-goal probabilities', detail: 'Exact calculations include pity and banner guarantees; adding goals no longer increases the chance of completing all goals.', href: '/pull-planner' }],
+  },
+  {
     at: '2026-11-13T16:20:00Z',
     changed: [{ title: 'Optional collaborations in other games', detail: 'Use External collabs in the calendar to show outside collaborations; they stay hidden by default.', href: '/schedule?view=calendar' }],
   },

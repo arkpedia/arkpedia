@@ -1,4 +1,4 @@
-/** Pure probability model; runs in a cancellable Web Worker, also exercised by Node tests. */
+/** Shared probability rules and reference sampler; the planner worker uses exactProbability. */
 export interface OperatorTarget { name: string; copies: number }
 export interface OddsOperator {
   name: string; rarity: 5 | 6; icon: string | null;
@@ -15,7 +15,7 @@ export interface OddsRequest {
   roster?: string[];
 }
 export interface Chance { probability: number; certain: boolean; impossible: boolean }
-export interface OddsResult { samples: number; copies: Chance[][]; all: Chance }
+export interface OddsResult { method: 'exact' | 'simulation'; samples: number; copies: Chance[][]; all: Chance }
 export const sixStarChance = (misses: number) => Math.min(1, .02 + Math.max(0, misses - 49) * .02);
 
 /** Imported selections cannot inject rates, costs, or unavailable operators. */
@@ -37,7 +37,7 @@ export function canComplete(counts: readonly number[], targets: readonly Operato
   }
   return cost <= contracts;
 }
-function guaranteedCopies(rules: BannerOdds, op: OddsOperator, pulls: number): number {
+export function guaranteedCopies(rules: BannerOdds, op: OddsOperator, pulls: number): number {
   if (op.name === rules.bonus && pulls >= 300) return 1;
   if (op.kind === 'featured' && op.rarity === 6) {
     if (rules.type === 'crossover') return Math.floor(pulls / 120);
@@ -66,10 +66,12 @@ export function simulateOdds(request: OddsRequest, sampleOverride?: number, rand
   const guaranteed = ops.map(op => guaranteedCopies(rules, op, pulls));
   const samples = sampleOverride ?? Math.min(50000, Math.max(2000, Math.floor(20000000 / Math.max(1, pulls))));
   if (!Number.isInteger(samples) || samples < 1) throw new Error('Invalid sample count.');
-  // Stable across copy goals and spark toggles: compare the SAME simulated pulls.
+  // Stable across goal selections, copy counts and spark toggles. Each trial
+  // owns its stream: stopping a saturated trial early must not shift later
+  // trials when another operator is added to the goals.
   let seed = 1;
-  for (const char of rules.id + JSON.stringify(request.roster || [])) seed = Math.imul(seed, 31) + char.charCodeAt(0) | 0;
-  const random = randomOverride || seededRandom(seed);
+  for (const char of rules.id + JSON.stringify([...(request.roster || [])].sort())) seed = Math.imul(seed, 31) + char.charCodeAt(0) | 0;
+  let random: () => number;
   const hits = ops.map(() => Array<number>(6).fill(0));
   let allHits = 0;
   const six = rules.operators.filter(op => op.rarity === 6);
@@ -91,6 +93,7 @@ export function simulateOdds(request: OddsRequest, sampleOverride?: number, rand
     return featuredFives.at(-1)?.name;
   };
   for (let run = 0; run < samples; run++) {
+    random = randomOverride || seededRandom(seed ^ Math.imul(run + 1, 0x9E3779B1));
     const counts = ops.map(() => 0);
     // fiveSeen: a rate-up 5★ has come. owedFive: the other rate-up 5★, which the next 5★ is
     // once the first of two has come (pairDone once it has been paid).
@@ -136,6 +139,7 @@ export function simulateOdds(request: OddsRequest, sampleOverride?: number, rand
   }
   const chance = (count: number, certain: boolean, impossible: boolean): Chance => ({ probability: certain ? 1 : impossible ? 0 : count / samples, certain, impossible });
   return {
+    method: 'simulation',
     samples,
     copies: hits.map((row, i) => row.map((count, n) => chance(count,
       guaranteed[i] + (ops[i].spark ? Math.floor(contracts / ops[i].spark!) : 0) >= n + 1,
@@ -143,7 +147,7 @@ export function simulateOdds(request: OddsRequest, sampleOverride?: number, rand
     all: chance(allHits, canComplete(guaranteed, targets, ops, contracts), pulls === 0),
   };
 }
-/** A sampled 100% is not a mathematical guarantee. */
+/** Only rule-backed certainty displays 100%, including when numeric results round to one. */
 export function formatChance(chance: Chance): string {
   if (chance.certain) return '100%';
   if (chance.impossible) return '0%';
