@@ -679,7 +679,7 @@ html[data-site-server="kr"] .event-news[data-own-kr] .event-news-server[data-ser
 }
 
 /* Fit the complete reward poster inside the page frame, with visible actions. */
-.reward-image-dialog { --dialog-top: 16px; --dialog-w: var(--frame-max); height: calc(100dvh - 32px); }
+.reward-image-dialog { --dialog-top: 16px; --dialog-w: var(--frame-max); height: calc(100dvh - 32px); margin: auto; }
 .reward-image-content { flex: 1; min-height: 0; min-width: 0; display: flex; flex-direction: column; gap: 12px; }
 .reward-image-preview { flex: 1; min-height: 0; position: relative; overflow: hidden; display: grid; place-items: center; }
 .reward-image-preview img { position: absolute; inset: 0; display: block; width: 100%; height: 100%; object-fit: scale-down; }

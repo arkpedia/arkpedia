@@ -29,6 +29,9 @@ async function overviewFits(page: Page) {
       footer: { top: footer.top, bottom: footer.bottom },
       viewport: innerHeight,
       frameWidth: el.getBoundingClientRect().width,
+      centerX: el.getBoundingClientRect().left + el.getBoundingClientRect().width / 2,
+      centerY: el.getBoundingClientRect().top + el.getBoundingClientRect().height / 2,
+      viewportWidth: document.documentElement.getBoundingClientRect().width,
       pageWidth: parseFloat(getComputedStyle(el).getPropertyValue('--frame-max')),
       mobile: innerWidth <= 720,
       footerGap: el.getBoundingClientRect().bottom - footer.bottom,
@@ -39,6 +42,9 @@ async function overviewFits(page: Page) {
   for (const box of layout.containers) { expect(box.x).toBeLessThanOrEqual(1); expect(box.y).toBeLessThanOrEqual(1); }
   expect(['contain', 'scale-down']).toContain(layout.fit);
   expect(layout.frameWidth).toBeLessThanOrEqual(layout.pageWidth);
+  // The root frame excludes the reserved scrollbar gutter, matching page content.
+  expect(Math.abs(layout.centerX - layout.viewportWidth / 2), 'dialog is horizontally centered').toBeLessThanOrEqual(1);
+  expect(Math.abs(layout.centerY - layout.viewport / 2), 'dialog is vertically centered').toBeLessThanOrEqual(1);
   if (layout.mobile) {
     expect(layout.image.height, 'mobile preview has no tall empty canvas around the poster').toBeLessThanOrEqual(layout.fittedImageHeight + 1);
     expect(layout.footerGap, 'mobile dialog ends below its actions without an empty lower panel').toBeLessThanOrEqual(layout.footerInset + 1);
