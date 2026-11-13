@@ -1,3 +1,7 @@
+import { getOperatorIconPath } from '@/lib/operators/operatorIcon';
+import type { EventWelfareOperator } from '@/lib/pulls/freeRewards';
+import { rewardSkin } from '@/lib/events/rewardArtwork';
+import type { Skin } from '@/lib/skins/skinTypes';
 import { useState } from 'react';
 import { RewardClick } from './RewardDetails';
 import Image from '@/components/content/ContentImage';
@@ -23,7 +27,7 @@ function Tile({ item }: { item: SummaryItem }) {
   );
 }
 
-export function RewardSummaryCard({ eventName, summary, artwork, rewardNote }: { eventName: string; summary: Summary; artwork?: string | null; rewardNote?: string | null }) {
+export function RewardSummaryCard({ eventName, summary, artwork, rewardNote, skins = [], welfare = [] }: { welfare?: EventWelfareOperator[]; skins?: Skin[]; eventName: string; summary: Summary; artwork?: string | null; rewardNote?: string | null }) {
   const url = useContentUrl();
   const [note, setNote] = useState<string | null>(null);
   // One picture at a time: each press started another round of icon loads and another download.
@@ -47,7 +51,11 @@ export function RewardSummaryCard({ eventName, summary, artwork, rewardNote }: {
     setNote('Drawing…');
     try {
       const { drawRewardSummary } = await import('@/lib/events/rewardSummaryImage');
-      const blob = await drawRewardSummary({ title, summary, artwork: artwork ? url(artwork) : null, rewardNote, resolve: url });
+      const enriched = { ...summary, rows: summary.rows.map(row => row.label !== 'Outfits' ? row : { ...row, items: row.items.map(item => {
+        const skin = rewardSkin(item.name, skins, item.iconPath);
+        return skin?.image ? { ...item, artwork: skin.image } : item;
+      }) }) };
+      const blob = await drawRewardSummary({ title, summary: enriched, welfare: welfare.map(op => { const iconPath = getOperatorIconPath(op); return { name: op.name, iconPath, artwork: iconPath.replace('-star-icons/', '-star-skins/') }; }), artwork: artwork ? url(artwork) : null, rewardNote, resolve: url });
       downloadBlob(blob, `${title.replace(/[\\/:*?"<>|]/g, '')} rewards.png`);
       setNote(null);
     } catch {

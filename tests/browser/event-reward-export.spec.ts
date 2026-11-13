@@ -44,9 +44,94 @@ for (const theme of ['dark', 'light']) {
     expect(labels.filter(text => text.startsWith('×')).sort()).toEqual(expected.sort());
     expect(labels).toContain('Originite Prime');
     expect(labels).toContain('EVENT REWARDS');
+    expect(labels).toContain('FREE OPERATOR');
+    expect(labels.some(text => /^Total [\d,.]+ EXP$/.test(text))).toBe(true);
+    expect(labels.some(text => /^Total [\d,.]+ pulls/.test(text))).toBe(true);
     const images = await page.evaluate(() => (window as unknown as { rewardExportImages: string[] }).rewardExportImages);
     expect(images, 'download uses the displayed regional artwork, including Global replacements').toContain(artwork);
     expect(labels.join(' ')).not.toContain('Global dates and rewards await confirmation');
     await expect(save).toBeEnabled();
+  });
+}
+
+for (const [title, operator, skin] of [
+  ["[Side Story – Celebration] The Masses' Travels", true, true],
+  ['Positional Football Championship', false, true],
+  ['Lifestyle Aid', false, false],
+] as const) {
+  test(`reward image features only the available free rewards: ${title}`, async ({ page }) => {
+    await page.addInitScript(() => {
+      const labels: string[] = [];
+      Object.assign(window, { rewardExportLabels: labels });
+      const draw = CanvasRenderingContext2D.prototype.fillText;
+      CanvasRenderingContext2D.prototype.fillText = function (text, x, y, maxWidth) {
+        labels.push(text);
+        if (maxWidth === undefined) draw.call(this, text, x, y);
+        else draw.call(this, text, x, y, maxWidth);
+      };
+    });
+    await page.goto('/events/' + encodeURIComponent(title));
+    const tab = page.getByRole('tab', { name: 'Rewards', exact: true });
+    if (await tab.count()) await tab.click();
+    const expected = await page.locator('.reward-summary-tile b').allTextContents();
+    expect(expected.length).toBeGreaterThan(0);
+    const waiting = page.waitForEvent('download');
+    await page.getByRole('button', { name: 'Save image', exact: true }).click();
+    expect(await (await waiting).failure()).toBeNull();
+    const labels = await page.evaluate(() => (window as unknown as { rewardExportLabels: string[] }).rewardExportLabels);
+    expect(labels.includes('FREE OPERATOR')).toBe(operator);
+    expect(labels.includes('FREE SKIN')).toBe(skin);
+    expect(labels.filter(text => text.startsWith('×')).sort()).toEqual(expected.sort());
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  });
+}
+
+for (const theme of ['dark', 'light']) {
+  test(`Act or Die rerun features Miss.Christine's full artwork in ${theme}`, async ({ page }) => {
+    await page.addInitScript(theme => {
+      localStorage.setItem('theme', theme);
+      const draws: { src: string; x: number; y: number; width: number; height: number }[] = [];
+      const panels: { x: number; y: number; width: number; height: number }[] = [];
+      const names: number[] = [];
+      Object.assign(window, { welfareDraws: draws, welfarePanels: panels, welfareNames: names });
+      const rect = CanvasRenderingContext2D.prototype.fillRect;
+      CanvasRenderingContext2D.prototype.fillRect = function (x, y, width, height) {
+        if (x > 0 && width > 200 && width < 700 && height > 150) panels.push({ x, y, width, height });
+        return rect.call(this, x, y, width, height);
+      };
+      const text = CanvasRenderingContext2D.prototype.fillText;
+      CanvasRenderingContext2D.prototype.fillText = function (label, x, y, maxWidth) {
+        if (label === 'Miss.Christine') names.push(y);
+        return maxWidth === undefined ? text.call(this, label, x, y) : text.call(this, label, x, y, maxWidth);
+      };
+      const draw = CanvasRenderingContext2D.prototype.drawImage;
+      CanvasRenderingContext2D.prototype.drawImage = function (source: CanvasImageSource, ...coordinates: number[]) {
+        if (source instanceof HTMLImageElement && source.src.includes('five-star-skins/Miss.Christine')) {
+          draws.push({ src: source.src, x: coordinates[0], y: coordinates[1], width: coordinates.length === 8 ? coordinates[6] : coordinates[2], height: coordinates.length === 8 ? coordinates[7] : coordinates[3] });
+        }
+        return Reflect.apply(draw, this, [source, ...coordinates]);
+      };
+    }, theme);
+    // Stable dimensions prove the full-body image is drawn in the large feature slot.
+    await page.route('**/five-star-skins/Miss.Christine*', route => route.fulfill({
+      contentType: 'image/svg+xml', headers: { 'access-control-allow-origin': '*' },
+      body: '<svg xmlns="http://www.w3.org/2000/svg" width="872" height="1119"><rect width="872" height="1119" fill="teal"/></svg>',
+    }));
+    await page.goto('/events/' + encodeURIComponent('[Rerun] Act or Die Rerun'));
+    await page.getByRole('tab', { name: 'Rewards', exact: true }).click();
+    const waiting = page.waitForEvent('download');
+    await page.getByRole('button', { name: 'Save image', exact: true }).click();
+    expect(await (await waiting).failure()).toBeNull();
+    const { draws, panels, names } = await page.evaluate(() => {
+      const w = window as unknown as { welfareDraws: { src: string; x: number; y: number; width: number; height: number }[]; welfarePanels: { x: number; y: number; width: number; height: number }[]; welfareNames: number[] };
+      return { draws: w.welfareDraws, panels: w.welfarePanels, names: w.welfareNames };
+    });
+    expect(draws.length).toBeGreaterThan(0);
+    expect(draws[0].width).toBeGreaterThan(200);
+    expect(draws[0].height).toBeGreaterThan(300);
+    const feature = panels.find(panel => panel.x <= draws[0].x && panel.y <= draws[0].y && panel.x + panel.width >= draws[0].x + draws[0].width && panel.y + panel.height >= draws[0].y + draws[0].height);
+    expect(feature, 'feature art has a compact card rather than a page-height sidebar').toBeTruthy();
+    expect(feature!.height).toBeLessThan(600);
+    expect(names[0] - (draws[0].y + draws[0].height), 'name stays beside the artwork it describes').toBeLessThan(80);
   });
 }

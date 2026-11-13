@@ -69,3 +69,23 @@ test('a reward in two blocks keeps the icon one of them has, whichever comes fir
   const tile = summary.rows.flatMap(r => r.items).find(i => i.name === 'Duel Trophy')!;
   assert.deepEqual([tile.count, tile.iconPath], [2, '/material-icons/furni_enemyduel_diceAll_01.webp']);
 });
+
+test('EXP and pull totals use the displayed finite rewards, including ten-rolls and fractional OP', () => {
+  const summary = rewardSummary([store('Rewards', [['Strategic Battle Record', 10, '1'], ['Tactical Battle Record', 20, '1'], ['Orundum', 600, '1'], ['Originite Prime', 29, '1'], ['Expert Headhunting Permit (ten-roll)', 2, '1']])], context, []);
+  assert.deepEqual(summary.rows.find(row => row.label === 'EXP')!.total, {value: 40000, unit: 'EXP'});
+  assert.ok(Math.abs(summary.rows.find(row => row.label === 'Headhunting')!.total!.value - 29.7) < 1e-8);
+});
+
+test('operator selectors have no invented pull equivalent', async () => {
+  const {withRewardRowTotal} = await import('../../lib/events/rewardRowTotals');
+  const row = withRewardRowTotal({label:'Headhunting',items:[{name:'Special Event Transfer Permit',count:1,iconPath:null},{name:'Headhunting Permit',count:3,iconPath:null}]});
+  assert.equal(row.total!.value,3);
+});
+
+test('free skin names resolve to full outfit artwork across reward naming formats', async () => {
+  const {rewardSkin} = await import('../../lib/events/rewardArtwork');
+  const skin = {name:'Picnic Times',model:'Aroma',image:'/five-star-skins/Aroma - Picnic Times.webp'} as import('../../lib/skins/skinTypes').Skin;
+  assert.equal(rewardSkin('Aroma / Picnic Times',[skin]),skin);
+  assert.equal(rewardSkin('CN reward name',[skin],'/five-star-icons/Aroma%20-%20Picnic%20Times.webp'),skin);
+  assert.equal(rewardSkin('Unknown outfit',[skin]),undefined);
+});

@@ -455,6 +455,8 @@ button.event-banner-extra:focus-visible > .event-banner-extra-name { color: var(
   text-overflow: ellipsis;
 }
 
+.event-reward-panel-stock { display: block; }
+
 /* No resting frame on skin tiles (maintainer, 2026-09-26); focus matches hover. */
 .event-detail-skin-item:focus-visible { border-color: var(--teal); }
 
