@@ -34,7 +34,7 @@ test('complete paginated snapshots use the highest entitled tier and exclude mas
   const h = harness(); let calls = 0;
   const result = await syncPatreon(h.env, { now, fetch: async (input, options) => {
     const url = new URL(input); calls++;
-    assert.equal(url.origin, 'https://www.patreon.com'); assert.match(options.headers.Authorization, /^Bearer fixture-access$/); assert.match(options.headers['User-Agent'], /Arkpedia/); assert.equal(options.redirect, 'error');
+    assert.equal(url.origin, 'https://www.patreon.com'); assert.match(options.headers.Authorization, /^Bearer fixture-access$/); assert.match(options.headers['User-Agent'], /Arkpedia/); assert.equal(options.redirect, 'manual');
     if (url.pathname.endsWith('/123')) return campaign();
     assert.equal(url.searchParams.get('fields[member]'), 'full_name,patron_status');
     if (!url.searchParams.has('page[cursor]')) return page([member('1', 'Alpha', 'active_patron', ['10', '20']), member('2', 'Private'), member('3', '')], [user('1', 'Alpha'), user('2', 'Private', true), user('3', '')], 'opaque-next', 5);
