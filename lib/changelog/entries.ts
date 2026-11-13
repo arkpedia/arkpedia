@@ -34,6 +34,10 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    at: '2026-11-13T20:38:00Z',
+    changed: [{ title: 'Reward overview follows the page frame', detail: 'Reward overviews are centered, use the page width and fit their image on phones without empty space or hidden rewards.', href: '/events' }],
+  },
+  {
     at: '2026-11-13T20:01:00Z',
     changed: [{ title: 'More compact Income window', detail: 'Removed the repeated first-clear explanation and narrowed the income breakdown.', href: '/pull-planner' }],
   },
