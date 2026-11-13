@@ -34,6 +34,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    at: '2026-11-13T09:35:00Z',
+    changed: [
+      { title: 'Daily Patreon acknowledgements', detail: 'Public supporter names and tiers refresh automatically, with the last update time shown.', href: '/support' },
+      { title: 'Clearer contact details', detail: 'Contact Kukkikaze for sponsorships and other inquiries, or JungerMin for website support and privacy.', href: '/about' },
+    ],
+  },
+  {
     at: '2026-11-12T23:43:24Z',
     changed: [{ title: 'Featured free rewards in saved images', detail: 'Welfare operators and free skins get full art in compact cards, with total EXP and pulls on the material cards.', href: '/events' }],
     fixed: [{ title: 'Clearer event exchange listings', detail: 'Shop cards show stock limits, with alchemy rewards identified as exchanges.', href: '/events' }, { title: 'Event rewards keep their CN fallback', detail: 'Missing shops and exchanges use CN sources until Global details become available.', href: '/events' }],
