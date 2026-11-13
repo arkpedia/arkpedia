@@ -21,6 +21,7 @@ import { computeResourcePools, type BaseResourceState } from '../../lib/base/bas
 import { readSavedBasePresets } from '../../lib/base/baseSavedPresets';
 import { defaultProductionSpots, getFacilities } from '../../lib/base/baseConfig';
 import fixture from './fixtures/base-skill-source.json';
+import descriptionFormatting from './fixtures/base-skill-description-formatting.json';
 import rosterData from '../../data/base-group-rosters.json';
 import recipes from '../../data/base-workshop-recipes.json';
 const ops = new Map(getAllOperators().map(op => [op.name, op]));
@@ -47,7 +48,14 @@ test('all 429 game operators and 921 source steps match IDs, unlocks, facilities
     for (const [i, row] of expected.steps.entries()) {
       const actual: BaseSkill = op.baseSkills![i];
       assert.deepEqual([actual.buffId, actual.slot, actual.phase, actual.level, actual.facility], row.slice(0, 5), `${expected.name}/${i}`);
-      if (row[5]) assert.equal(createHash('sha256').update(actual.description!).digest('hex'), row[5], `${expected.name}: source description`);
+      if (row[5]) {
+        // The importer now repairs missing spaces at rich-text tag boundaries. Keep the
+        // independently audited legacy rendering valid while live content rolls forward;
+        // only the reviewed, source-pinned formatting corrections have a second hash.
+        const correction = descriptionFormatting.records.find(entry => entry.operator === expected.name && entry.buffId === actual.buffId && entry.legacySha256 === row[5]);
+        const hashes = [row[5], ...(correction ? [correction.sha256] : [])];
+        assert(hashes.includes(createHash('sha256').update(actual.description!).digest('hex')), `${expected.name}: source description`);
+      }
     }
     for (let phase = 0; phase <= 2; phase++) {
       const best = new Map<number, typeof expected.steps[number]>();
@@ -61,6 +69,17 @@ test('all 429 game operators and 921 source steps match IDs, unlocks, facilities
         assert.deepEqual(actual, [...best.values()].filter(row => row[4] === room).map(row => row[0]).sort(), `${op.name} E${phase} ${room}`);
       }
     }
+  }
+});
+
+test('reviewed description corrections change formatting only and retain the original audit', () => {
+  const hash = (text: string) => createHash('sha256').update(text).digest('hex');
+  for (const correction of descriptionFormatting.records) {
+    const original = fixture.operators.find(op => op.name === correction.operator)?.steps.find(step => step[0] === correction.buffId);
+    assert.equal(original?.[5], correction.legacySha256, `${correction.operator}: original source audit`);
+    assert.equal(hash(correction.legacyDescription), correction.legacySha256);
+    assert.equal(hash(correction.description), correction.sha256);
+    assert.equal(correction.description.replace(/\s/g, ''), correction.legacyDescription.replace(/[\s<]/g, ''), `${correction.operator}: gameplay text and values stay identical`);
   }
 });
 test('R6 defense/offense includes self and dorm staff, excludes wrong subgroup and unrelated operators, deduplicates', () => {
