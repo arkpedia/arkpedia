@@ -568,7 +568,7 @@ export default function PullsPage({ scheduledEvents: globalEvents, scheduledBann
                 );
               })}
               {haul.skipped.map((b) => (
-                <tr key={b.name}><th scope="row">{(b.event ?? b.name).replace(/^\[[^\]]*\]\s*/, '')}</th><td>First clears are managed in Past events{includeBacklog ? '; selected unclaimed rewards included' : '; not included'}. Shop permits count separately.</td><td><RewardAmount resource="permits" amount={eventShopPermits(b)} /></td></tr>
+                <tr key={b.name}><th scope="row">{(b.event ?? b.name).replace(/^\[[^\]]*\]\s*/, '')}</th><td /><td><RewardAmount resource="permits" amount={eventShopPermits(b)} /></td></tr>
               ))}
               {haul.counted.length === 0 && haul.skipped.length === 0 && <tr className="muted"><td colSpan={3}>No events end before this date.</td></tr>}
               <tr>

@@ -91,7 +91,7 @@
 .pulls-past-body { display: grid; gap: 12px; }
 .pulls-past-body .pulls-disclosure { margin-top: 0; }
 /* The Income and Skin wishlist popups (pages/pulls.tsx), in the same frame as Past events. */
-.pulls-income-dialog { --dialog-w: 1100px; }
+.pulls-income-dialog { --dialog-w: 960px; }
 .pulls-available-dialog { --dialog-w: 820px; }
 .pulls-skins-dialog { --dialog-w: 1080px; }
 /* The Add banner popup: two columns of banner cards (components/pulls/BannerPicker). */

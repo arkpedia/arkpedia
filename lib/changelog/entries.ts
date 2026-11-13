@@ -34,6 +34,10 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    at: '2026-11-13T20:01:00Z',
+    changed: [{ title: 'More compact Income window', detail: 'Removed the repeated first-clear explanation and narrowed the income breakdown.', href: '/pull-planner' }],
+  },
+  {
     at: '2026-11-13T17:22:00Z',
     changed: [{ title: 'Full reward images at a glance', detail: 'Reward overviews fit the whole image without scrolling, while downloads keep their full resolution.', href: '/events' }],
     fixed: [{ title: 'No gap below sticky filters', detail: 'Operator filters cover the seam under the navigation bar, so scrolling artwork stays behind them.', href: '/operators' }],
