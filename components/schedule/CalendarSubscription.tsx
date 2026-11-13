@@ -2,10 +2,10 @@ import { useState } from 'react';
 import ImportDialog from '@/components/account/ImportDialog';
 import type { CalendarServer } from '@/lib/schedule/calendarFeed';
 
-export default function CalendarSubscription({ server, birthdays, onClose }: { server: CalendarServer; birthdays: boolean; onClose: () => void }) {
+export default function CalendarSubscription({ server, birthdays, collabs = true, onClose }: { server: CalendarServer; birthdays: boolean; collabs?: boolean; onClose: () => void }) {
   const [includePredicted, setIncludePredicted] = useState(true);
   const [includeBirthdays, setIncludeBirthdays] = useState(birthdays);
-  const [includeCollabs, setIncludeCollabs] = useState(true);
+  const [includeCollabs, setIncludeCollabs] = useState(collabs);
   const [copied, setCopied] = useState('');
   const serverName = server === 'en' ? 'Global' : server === 'jp' ? 'Japan' : 'Korea';
   const path = `/api/calendar.ics?server=${server}&predicted=${includePredicted ? '1' : '0'}&birthdays=${includeBirthdays ? '1' : '0'}&collabs=${includeCollabs ? '1' : '0'}`;
