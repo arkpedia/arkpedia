@@ -24,6 +24,18 @@ export const MEDIA_SECRET_UPDATE = Object.freeze({
   fingerprint: 'ec5ff11e156fc580c52c60c0c623ee8ab2ee0b71294a091334a0a925fc4baf02',
 });
 const MEDIA_SECRETS = ['TWITCH_CLIENT_ID', 'TWITCH_CLIENT_SECRET', 'YOUTUBE_API_KEY'];
+const PATREON_SECRETS = ['PATREON_CAMPAIGN_ID', 'PATREON_CLIENT_ID', 'PATREON_CLIENT_SECRET', 'PATREON_CREATOR_ACCESS_TOKEN', 'PATREON_CREATOR_REFRESH_TOKEN'];
+// Maintainer-authorized dashboard secret setup on 2026-11-13. The serving build
+// still reports this checked source/fingerprint. Pin this observed version and
+// etag: dashboard updates replace release annotations, and other versions remain
+// untrusted. This does not allow arbitrary future secret-only/manual deployments.
+export const PATREON_SECRET_UPDATE = Object.freeze({
+  version: '646e6c6e-97dd-46d8-a666-80492019f37d',
+  baseline: '147c7fa5-055e-4d50-bff8-7ca548f6cc2d',
+  etag: '1cf9096c8b3157b622d0b8a17478df5820464086c0927b4926aa2f1cfb88c643',
+  source: '1d4b17710faa5003502782a057ba0b1e7218bdc5',
+  fingerprint: 'f7fd07d5b70c0b01fa4a5a3fead37357e4db8aa8c0cac6167159fe329ac77014',
+});
 // Exact serving version observed before the approved public-domain cutover.
 export const PRE_CUTOVER_VERSION = 'd2514887-c0c3-4575-997a-45a8eaa8483b';
 const UUID = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/;
@@ -43,6 +55,13 @@ export function pilotReleaseMessage(owner) {
 }
 
 function releaseOwner(version) {
+  if (version.id === PATREON_SECRET_UPDATE.version) {
+    requireValue(version.resources.script?.etag === PATREON_SECRET_UPDATE.etag
+      && version.annotations?.['workers/triggered_by'] === 'version_upload'
+      && version.annotations?.['workers/message'] === 'Updated secret: PATREON_CREATOR_REFRESH_TOKEN', 'Patreon-secret update code/provenance changed');
+    return { source: PATREON_SECRET_UPDATE.source, fingerprint: PATREON_SECRET_UPDATE.fingerprint,
+      checkRun: 43382802217, previousVersion: PATREON_SECRET_UPDATE.baseline };
+  }
   if (version.id === MEDIA_SECRET_UPDATE.version) {
     requireValue(version.resources.script?.etag === MEDIA_SECRET_UPDATE.etag
       && version.annotations?.['workers/triggered_by'] === 'secret'
@@ -62,10 +81,12 @@ export function assertPilotBindings(version) {
   const bindings = version.resources.bindings;
   const legacy = version.id === PILOT.legacyVersion;
   const accounts = bindings.some(b => b.name === 'ARKPEDIA_ACCOUNTS_ENABLED');
+  const patreon = bindings.some(b => PATREON_SECRETS.includes(b.name));
   const names = ['ARKPEDIA_ACCOUNTS_DB', 'ARKPEDIA_AUTH_URL', 'ASSETS', 'BETTER_AUTH_SECRET',
     'GOOGLE_CLIENT_ID', 'GOOGLE_CLIENT_SECRET', 'DISCORD_CLIENT_ID', 'DISCORD_CLIENT_SECRET',
     'NEXT_CACHE_DO_QUEUE', 'NEXT_INC_CACHE_R2_BUCKET', 'WORKER_SELF_REFERENCE',
     ...(legacy || version.id === MEDIA_SECRET_UPDATE.baseline ? [] : MEDIA_SECRETS),
+    ...(patreon && !legacy ? PATREON_SECRETS : []),
     ...(legacy ? [] : ['ARKPEDIA_CONTENT_CHANNEL', 'ARKPEDIA_DEPLOYMENT_ROLE']),
     ...(accounts ? ['ARKPEDIA_ACCOUNTS_ENABLED', 'ACCOUNT_TRAFFIC_LIMIT', 'ACCOUNT_IP_LIMIT'] : [])];
   requireValue(bindings.length === names.length && new Set(bindings.map(b => b.name)).size === names.length
@@ -91,6 +112,7 @@ export function assertPilotBindings(version) {
   if (!legacy && version.id !== MEDIA_SECRET_UPDATE.baseline) {
     for (const name of MEDIA_SECRETS) binding(name, 'secret_text');
   }
+  if (patreon) for (const name of PATREON_SECRETS) binding(name, 'secret_text');
   binding('ASSETS', 'assets');
   const queue = binding('NEXT_CACHE_DO_QUEUE', 'durable_object_namespace');
   requireValue(queue.namespace_id === PILOT.queue && queue.class_name === 'DOQueueHandler', 'queue changed');

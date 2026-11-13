@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { PILOT, MEDIA_SECRET_UPDATE, PRE_CUTOVER_VERSION, assertPilotBindings, assertPilotIdentity, pilotReleaseMessage, readPilotIdentity,
+import { PILOT, MEDIA_SECRET_UPDATE, PATREON_SECRET_UPDATE, PRE_CUTOVER_VERSION, assertPilotBindings, assertPilotIdentity, pilotReleaseMessage, readPilotIdentity,
   createPilotProvider } from '../deploy/pilot-release-provider.mjs';
 
 const nextVersion = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
@@ -37,6 +37,26 @@ function identity(id = PILOT.legacyVersion) {
     dirty: false, contentSchema: 2, contentChannel: id === PILOT.legacyVersion ? 'dev-live' : 'live', deploymentRole: 'production' };
 }
 const binding = (v, name) => v.resources.bindings.find(b => b.name === name);
+
+test('Patreon setup accepts only the complete secret set and exact authorized dashboard version', () => {
+  const v = enableAccounts(version(nextVersion));
+  const names = ['PATREON_CAMPAIGN_ID', 'PATREON_CLIENT_ID', 'PATREON_CLIENT_SECRET', 'PATREON_CREATOR_ACCESS_TOKEN', 'PATREON_CREATOR_REFRESH_TOKEN'];
+  v.resources.bindings.push(...names.map(name => ({ name, type: 'secret_text' })));
+  assert.equal(assertPilotBindings(v), v);
+  const partial = structuredClone(v); partial.resources.bindings.pop();
+  assert.throws(() => assertPilotBindings(partial), /unexpected pilot bindings/);
+  const exposed = structuredClone(v); binding(exposed, 'PATREON_CLIENT_SECRET').type = 'plain_text';
+  assert.throws(() => assertPilotBindings(exposed), /PATREON_CLIENT_SECRET/);
+  v.id = PATREON_SECRET_UPDATE.version;
+  v.resources.script = { etag: PATREON_SECRET_UPDATE.etag };
+  v.annotations = { 'workers/triggered_by': 'version_upload', 'workers/message': 'Updated secret: PATREON_CREATOR_REFRESH_TOKEN' };
+  assert.equal(assertPilotBindings(v), v);
+  assertPilotIdentity({ ...identity(nextVersion), commit: PATREON_SECRET_UPDATE.source, codeFingerprint: PATREON_SECRET_UPDATE.fingerprint }, v);
+  for (const mutate of [x => { x.resources.script.etag = 'changed'; }, x => { x.annotations['workers/message'] = 'manual change'; }, x => { x.id = foreignVersion; }]) {
+    const invalid = structuredClone(v); mutate(invalid);
+    assert.throws(() => assertPilotBindings(invalid), /code\/provenance changed|unrecognized pilot release owner/);
+  }
+});
 
 test('only the exact observed pre-cutover version retains the pilot auth origin', () => {
   const previous = version(PRE_CUTOVER_VERSION);

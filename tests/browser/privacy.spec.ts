@@ -27,7 +27,7 @@ for (const theme of ['dark', 'light']) {
     await page.goto('/privacy'); await expect(page.getByRole('link', {name:'jungermin@arkpedia.net', exact:true})).toHaveAttribute('href', 'mailto:jungermin@arkpedia.net');
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     if (process.env.ARKPEDIA_QA_CAPTURE) await page.screenshot({path:`${process.env.ARKPEDIA_QA_CAPTURE}/privacy-notice-${theme}-${info.project.name}.png`});
-    await page.goto('/about'); await expect(page.getByText('Arkpedia was founded by Kukkikaze.', {exact:false})).toBeVisible();
+    await page.goto('/about'); await expect(page.getByText('Kukkikaze founded and owns Arkpedia.', {exact:false})).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     if (process.env.ARKPEDIA_QA_CAPTURE) await page.screenshot({path:`${process.env.ARKPEDIA_QA_CAPTURE}/about-${theme}-${info.project.name}.png`});
     await page.goto('/community/projects');

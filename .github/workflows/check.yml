@@ -321,6 +321,7 @@ jobs:
           EVENT: ${{ github.event_name }}
           BEFORE: ${{ github.event.before }}
           BROWSER_HEAD_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name }}
+          BROWSER_EXPEDITED: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && contains(github.event.pull_request.labels.*.name, 'release:expedite') && '1' || '' }}
         run: node scripts/ci/browser-lane.mjs plan >> "$GITHUB_OUTPUT"
 
       # Fail on broken publication before the long browser suite. Its own build directory

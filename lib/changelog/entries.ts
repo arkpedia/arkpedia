@@ -38,6 +38,14 @@ export const CHANGELOG: ChangelogEntry[] = [
     added: [{ title: 'Official artwork for event packs', detail: 'View pack promotions at full size alongside their contents, with artwork refreshed from official announcements.', href: '/events' }],
   },
   {
+    at: '2026-11-13T09:35:00Z',
+    changed: [
+      { title: 'Wider reward images for busy events', detail: 'Large reward lists use more columns, keeping featured rewards together and reducing vertical scrolling.', href: '/events' },
+      { title: 'Daily Patreon acknowledgements', detail: 'Public supporter names and tiers refresh automatically, with the last update time shown.', href: '/support' },
+      { title: 'Clearer contact details', detail: 'Contact Kukkikaze for sponsorships and other inquiries, or JungerMin for website support and privacy.', href: '/about' },
+    ],
+  },
+  {
     at: '2026-11-13T08:25:00Z',
     changed: [{ title: 'Preview and share event reward images', detail: 'Open the fullscreen reward image, save it, or copy a link that opens the same view.', href: '/events' }],
   },

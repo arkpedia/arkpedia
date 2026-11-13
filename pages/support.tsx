@@ -3,9 +3,39 @@ import PageMeta from '@/components/layout/PageMeta';
 import PageHeader from '@/components/ui/PageHeader';
 import { withContentPage } from '@/lib/content/server';
 import { useReleaseTable } from '@/lib/content/context';
+import LocalTime from '@/components/ui/LocalTime';
+import { validSupporterSnapshot, type SupporterList, type SupporterSnapshot } from '@/lib/patreon/supporters';
 
 export default function SupportPage() {
-  const patreonSupporters = useReleaseTable<{ 'supporter-tier': { id: string | number; name: string; supporters: string[] }[] }>('patreon-supporters');
+  const fallbackSupporters = useReleaseTable<SupporterList>('patreon-supporters');
+  const [supporterStatus, setSupporterStatus] = useState<'loading' | 'ready' | 'fallback' | 'pending' | 'error'>('loading');
+  const [supporterSnapshot, setSupporterSnapshot] = useState<SupporterSnapshot | null>(null);
+  const [supporterAttempt, setSupporterAttempt] = useState(0);
+  useEffect(() => {
+    const controller = new AbortController();
+    let cancelled = false, polls = 0;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    setSupporterStatus('loading');
+    async function load() {
+      try {
+        const response = await fetch('/api/patreon-supporters', { signal: controller.signal });
+        if (cancelled) return;
+        if (response.status === 204) { setSupporterStatus('fallback'); return; }
+        if (response.status === 202) {
+          if (polls++ < 10) timer = setTimeout(() => { void load(); }, 3000);
+          else setSupporterStatus('pending');
+          return;
+        }
+        if (!response.ok) throw Error('Supporters unavailable');
+        const result: unknown = await response.json();
+        if (!validSupporterSnapshot(result)) throw Error('Invalid supporter list');
+        if (!cancelled) { setSupporterSnapshot(result); setSupporterStatus('ready'); }
+      } catch { if (!cancelled) setSupporterStatus('error'); }
+    }
+    void load();
+    return () => { cancelled = true; controller.abort(); if (timer) clearTimeout(timer); };
+  }, [supporterAttempt]);
+  const patreonSupporters = supporterStatus === 'ready' ? supporterSnapshot : supporterStatus === 'fallback' ? fallbackSupporters : null;
   const [showJoinModal, setShowJoinModal] = useState(false);
   const dialogRef = useRef<HTMLDialogElement>(null);
   const joinButtonRef = useRef<HTMLButtonElement>(null);
@@ -108,9 +138,13 @@ export default function SupportPage() {
         </section>
 
         <section className="op-section">
-          <h2>Thank You to My Supporters</h2>
+          <h2>Thank you to Kukkikaze’s Patreon supporters</h2>
+          {supporterStatus === 'loading' && <p className="hint" role="status">Loading supporter acknowledgements…</p>}
+          {supporterStatus === 'ready' && supporterSnapshot && <p className="hint">Updated daily · Last updated <LocalTime iso={supporterSnapshot.updatedAt} precision="minute" /></p>}
+          {(supporterStatus === 'error' || supporterStatus === 'pending') && <div><p className="hint" role="status">{supporterStatus === 'pending' ? 'The supporter list is updating. Please check back shortly.' : 'Supporter acknowledgements are temporarily unavailable.'}</p><button type="button" className="btn" onClick={() => setSupporterAttempt(value => value + 1)}>Try again</button></div>}
+          {patreonSupporters && (patreonSupporters['supporter-tier'].some(tier => tier.supporters.length) ? <>
           <div className="panel supporters-tiers">
-            {patreonSupporters['supporter-tier'].map(tier => (
+            {patreonSupporters['supporter-tier'].filter(tier => tier.supporters.length > 0).map(tier => (
               <div key={tier.id} className="supporter-tier">
                 <h3>{tier.name}</h3>
                 <ul className="supporter-list">
@@ -119,6 +153,7 @@ export default function SupportPage() {
               </div>
             ))}
           </div>
+          </> : <p className="hint">Thank you to everyone who supports Kukkikaze.</p>)}
         </section>
       </main>
 
