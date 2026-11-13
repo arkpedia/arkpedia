@@ -192,6 +192,30 @@ test('credit filters stay one control high and bounded faction lists remain keyb
     await openFilters(page);
     const label = route === '/artists' ? 'Filter by credit' : 'Filter by language';
     const control = page.getByRole('combobox', { name: label, exact: true });
+    if ((page.viewportSize()?.width ?? 1440) >= 1440) {
+      // Keep search + rarity + class together, like the operator roster. Merely
+      // checking dropdown height missed menus squeezing the chips into two rows.
+      const search = (await page.getByRole('searchbox').boundingBox())!;
+      const chips = await page.getByRole('group', { name: /^(Rarity|Class)$/ }).getByRole('button').all();
+      for (const chip of chips) {
+        const box = (await chip.boundingBox())!;
+        expect(Math.abs(box.y - search.y), `${route}: chips align with search`).toBeLessThanOrEqual(1);
+      }
+      const creditBox = (await control.boundingBox())!;
+      expect(creditBox.y - search.y - search.height, `${route}: next row is compact`).toBeGreaterThanOrEqual(8);
+      expect(creditBox.y - search.y - search.height).toBeLessThanOrEqual(16);
+      for (const item of [
+        page.getByRole('combobox', { name: 'Filter by faction', exact: true }),
+        page.getByRole('group', { name: 'Server', exact: true }),
+      ]) {
+        expect(Math.abs((await item.boundingBox())!.y - creditBox.y), `${route}: secondary controls align`).toBeLessThanOrEqual(1);
+      }
+      const lettersBox = (await page.getByRole('group', { name: 'First letter', exact: true }).boundingBox())!;
+      const sortBox = (await page.getByRole('group', { name: 'Sort by', exact: true }).boundingBox())!;
+      expect(Math.abs(sortBox.y - lettersBox.y), `${route}: sorting stays beside the alphabet`).toBeLessThanOrEqual(1);
+      expect(sortBox.y - creditBox.y - creditBox.height, `${route}: sorting is one row below filters`).toBeGreaterThanOrEqual(8);
+      expect(sortBox.y - creditBox.y - creditBox.height).toBeLessThanOrEqual(16);
+    }
     const height = await control.evaluate(element => ({ actual: element.getBoundingClientRect().height, expected: parseFloat(getComputedStyle(element).minHeight) }));
     expect(height.actual).toBeLessThanOrEqual(height.expected + 1);
     const faction = page.getByRole('combobox', { name: 'Filter by faction', exact: true });
