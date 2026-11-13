@@ -15,6 +15,8 @@ async function overviewFits(page: Page) {
   const image = dialog.locator('.reward-image-preview img');
   await expect(image).toBeVisible();
   await expect.poll(() => image.evaluate(el => (el as HTMLImageElement).naturalWidth)).toBeGreaterThan(1000);
+  await image.evaluate(el => (el as HTMLImageElement).decode());
+  await expect(image).toHaveCSS('opacity', '1');
   const layout = await dialog.evaluate(el => {
     const preview = el.querySelector('.reward-image-preview')!;
     const image = preview.querySelector('img')!;
