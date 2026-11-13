@@ -32,6 +32,7 @@ import { rewardIconPath } from '@/lib/events/rewardIcons';
 import { publicFileExists } from '@/lib/assets/publicAssets';
 import { publishedArt } from '@/lib/art/publishedArt';
 import packArt from '@/data/event-pack-art.json';
+import { resolvePackArt } from '@/lib/events/packArt.mjs';
 import { findSkinIconPath } from '@/lib/skins/skinIconLookup';
 import { materialOrderFor } from '@/lib/farming/materialSortOrder';
 import { loadMaterialCatalogue } from '@/lib/farming/materialCatalogueServer';
@@ -700,7 +701,11 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/ev
 
   const catalogue = await loadMaterialCatalogue();
   const materialOrder = materialOrderFor(catalogue, rewardStores.flatMap((store) => store.items.map((item) => item.name)));
-  const builtExtras = eventExtras(tableRewards, (itemName) => rewardIconPath({ name: itemName, type: 'material', id: null }, () => null, publicFileExists), (packName) => publishedArt((packArt as Record<string, string>)[packName]), publicFileExists);
+  const builtExtras = eventExtras(tableRewards, (itemName) => rewardIconPath({ name: itemName, type: 'material', id: null }, () => null, publicFileExists), (packName, source) => {
+    const art = resolvePackArt(packArt as Record<string, string>, source, packName);
+    const path = art && publishedArt(art.path);
+    return path ? { path, layout: art!.layout } : null;
+  }, publicFileExists);
   /* The furniture set as a checklist: each piece with where this event gives it (its missions,
      its sign-in, its store and the price there), else how the game says it is obtained (the
      furniture store). Its pieces are in the other tabs too; this says which of the set they are. */

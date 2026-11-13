@@ -1,4 +1,5 @@
-import type { JSX } from 'react';
+import { useState, type JSX } from 'react';
+import dynamic from 'next/dynamic';
 import type { EventExtras } from '@/lib/events/tableRewards';
 import { REGIONAL_MATERIAL } from '@/lib/i18n/regionalMaterial';
 import Image, { ContentImg } from '@/components/content/ContentImage';
@@ -6,6 +7,7 @@ import { PackButton } from './RewardDetails';
 import { RewardTile } from './RewardTile';
 import { packDay } from '@/lib/events/packDay';
 export { packDay } from '@/lib/events/packDay';
+const PackArtViewer = dynamic(() => import('@/components/skins/SkinZoomOverlay'), { ssr: false });
 
 /*
  * The parts of an event's Rewards that are not a list to total: the packs sold for real money,
@@ -17,28 +19,48 @@ export { packDay } from '@/lib/events/packDay';
  * the preceding sale day; the interval itself keeps its exact exclusive timestamp. */
 
 export function EventPacks({ groups }: { groups: EventExtras['packs'] }) {
-  return (
+  const [opened, setOpened] = useState<{ image: string; name: string } | null>(null);
+  const copy = (pack: EventExtras['packs'][number]['packs'][number]) => <>
+    {pack.imagePath && pack.artworkLayout !== 'promo' && <Image className="event-pack-card-image" src={pack.imagePath} alt="" width={112} height={84} />}
+    <span className="event-pack-card-copy">
+      <span className="event-pack-card-name">{pack.name}</span>
+      {pack.start && <span className="event-pack-window">{packDay(pack.start)}{pack.end ? ` – ${packDay(pack.end, { exclusiveEnd: true })}` : ''}</span>}
+      <span className="event-pack-preview">{pack.contents.slice(0, 2).map(item => `${item.name} ×${item.count.toLocaleString('en-US')}`).join(' · ')}</span>
+      <span className="event-pack-more">View contents ↗</span>
+    </span>
+  </>;
+  return <>
     <div className="event-extras">
-      {groups.map((group) => (
-        <div key={group.title + group.source} className="event-extras-group">
-          <div className="event-pack-cards">
-          {group.packs.map((pack) => (
-            <PackButton key={pack.name} pack={pack} source={group.source}>
-              {pack.imagePath && <Image className="event-pack-card-image" src={pack.imagePath} alt="" width={112} height={84} />}
-              <span className="event-pack-card-copy">
-              <span className="event-pack-card-name">{pack.name}</span>
-              {pack.start && <span className="event-pack-window">{packDay(pack.start)}{pack.end ? ` – ${packDay(pack.end, { exclusiveEnd: true })}` : ''}</span>}
-              <span className="event-pack-preview">{pack.contents.slice(0, 2).map(item => `${item.name} ×${item.count.toLocaleString('en-US')}`).join(' · ')}</span>
-              <span className="event-pack-more">View contents ↗</span>
-              </span>
-            </PackButton>
-          ))}
+      {groups.map(group => {
+        const offers: { image: string | null; packs: typeof group.packs }[] = [];
+        for (const pack of group.packs) {
+          const image = pack.artworkLayout === 'promo' ? pack.imagePath ?? null : null;
+          const previous = offers.at(-1);
+          if (previous && previous.image === image) previous.packs.push(pack);
+          else offers.push({ image, packs: [pack] });
+        }
+        return <div key={group.title + group.source} className="event-extras-group">
+          <div className="event-pack-offers">
+            {offers.map((offer, index) => {
+              const single = !!offer.image && offer.packs.length === 1;
+              const name = offer.packs.map(pack => pack.name).join(', ');
+              return <div key={index} className={single ? 'panel event-pack-offer' : 'event-pack-offer-wide'}>
+                {offer.image && <button type="button" className="btn-bare event-pack-promo-view" aria-haspopup="dialog" aria-label={`Enlarge official artwork: ${name}`} onClick={() => setOpened({ image: offer.image!, name })}>
+                  <ContentImg className="event-pack-promo-image" src={offer.image} alt={`Official promotional artwork for ${name}`} width={1560} height={500} />
+                  <span className="event-pack-art-action" aria-hidden="true">Enlarge ⤢</span>
+                </button>}
+                <div className="event-pack-cards">
+                  {offer.packs.map(pack => <PackButton key={pack.name} pack={pack} source={group.source} framed={!single}>{copy(pack)}</PackButton>)}
+                </div>
+              </div>;
+            })}
           </div>
           <p className="hint">Pack information: <a href={group.source} target="_blank" rel="noopener noreferrer">source announcement</a>. Prices differ by region.</p>
-        </div>
-      ))}
+        </div>;
+      })}
     </div>
-  );
+    {opened && <PackArtViewer image={opened.image} name={opened.name} dynamic={null} onClose={() => setOpened(null)} />}
+  </>;
 }
 
 export function EventFurniture({ sets }: { sets: EventExtras['furniture'] }) {
