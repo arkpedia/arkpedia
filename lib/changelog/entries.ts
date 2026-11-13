@@ -34,6 +34,10 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    at: '2026-11-13T11:30:00Z',
+    added: [{ title: 'Official artwork for event packs', detail: 'View pack promotions at full size alongside their contents, with artwork refreshed from official announcements.', href: '/events' }],
+  },
+  {
     at: '2026-11-13T09:35:00Z',
     changed: [
       { title: 'Wider reward images for busy events', detail: 'Large reward lists use more columns, keeping featured rewards together and reducing vertical scrolling.', href: '/events' },

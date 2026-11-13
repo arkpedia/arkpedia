@@ -321,6 +321,11 @@ that same rendered image. Shared `#rewards/image` links open Rewards / All and t
 directly. Escape and Close return to Rewards, restoring focus to the expand button.
 Keep the image in one scrolling region and the actions available below it on phones.
 
+Purchasable packs show original official promotional images without cropping. A picture
+covering several packs appears once above the matching offers. Keep the contents action
+separate from the image; opening the image uses the shared full-size artwork viewer.
+Use announcement-scoped art so reused pack names retain their own dates and prices.
+
 Saved event reward images use the page's theme and reward totals, with muted event
 art at its original proportions, fading into the background at its lower edge.
 Translucent category panels carry opaque game icons, full item names and
