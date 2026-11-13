@@ -1,4 +1,4 @@
-import Head from 'next/head';
+import PageMeta from '@/components/layout/PageMeta';
 import Link from 'next/link';
 import ModeMark from '@/components/stages/ModeMark';
 import type { GetStaticProps } from 'next';
@@ -50,7 +50,7 @@ export default function BattleplanPage({ seasons, operators, source }: Props) {
     if (target) setMap(target.id);
   }
   return <>
-    <Head><title>CCB Helper | Arkpedia</title><meta name="description" content="Select Contingency Contract Battleplan maps and contracts, then compare original and modified operator and enemy stats." /></Head>
+    <PageMeta title="CCB Helper" description="Select Contingency Contract Battleplan maps and contracts, then compare original and modified operator and enemy stats." noindex />
     <PageHeader slim eyebrow={<><ModeMark name="contingency-contract.svg" className="head-mark" />Contingency Contract // Battle preparation</>} title="CCB Helper" sub="Choose a battlefield, select contracts, and inspect their effects." />
     <main className={styles.workspace} ref={floor.ref}>
       <Link className="btn" href="/game-modes">← Game Modes</Link>
