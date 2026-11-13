@@ -1,7 +1,14 @@
-import { test, expect } from '@playwright/test';
+import { createHash } from 'node:crypto';
+import { test, expect, type Page } from '@playwright/test';
 import { readFile } from 'node:fs/promises';
 
 const event = '/events/' + encodeURIComponent('[Side Story – Crossover] Thunder in the Azure Dream') + '#rewards';
+
+async function openImage(page: Page) {
+  await page.getByRole('button', { name: 'View rewards image fullscreen', exact: true }).click();
+  await expect(page.getByRole('dialog')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Save image', exact: true })).toBeEnabled();
+}
 
 for (const theme of ['dark', 'light']) {
   test(`reward image preserves every displayed quantity in ${theme}`, async ({ page }) => {
@@ -31,6 +38,7 @@ for (const theme of ['dark', 'light']) {
     await page.evaluate(() => { (window as unknown as { rewardExportImages: string[] }).rewardExportImages.length = 0; });
     // A missing CDN image must not remove its reward, quantity or the download.
     if (theme === 'light') await page.route('**/arkpedia-image-assets/**', route => route.abort());
+    await openImage(page);
     const waiting = page.waitForEvent('download');
     const save = page.getByRole('button', { name: 'Save image', exact: true });
     await save.click();
@@ -38,6 +46,11 @@ for (const theme of ['dark', 'light']) {
     expect(await download.failure()).toBeNull();
     const png = await readFile((await download.path())!);
     expect(png.subarray(1, 4).toString()).toBe('PNG');
+    const previewHash = await page.getByRole('dialog').locator('img').evaluate(async image => {
+      const bytes = await (await fetch((image as HTMLImageElement).src)).arrayBuffer();
+      return Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', bytes)), n => n.toString(16).padStart(2, '0')).join('');
+    });
+    expect(createHash('sha256').update(png).digest('hex')).toBe(previewHash);
     expect(png.readUInt32BE(16)).toBe(2880);
     expect(png.readUInt32BE(20)).toBeGreaterThan(800);
     const labels = await page.evaluate(() => (window as unknown as { rewardExportLabels: string[] }).rewardExportLabels);
@@ -75,6 +88,7 @@ for (const [title, operator, skin] of [
     if (await tab.count()) await tab.click();
     const expected = await page.locator('.reward-summary-tile b').allTextContents();
     expect(expected.length).toBeGreaterThan(0);
+    await openImage(page);
     const waiting = page.waitForEvent('download');
     await page.getByRole('button', { name: 'Save image', exact: true }).click();
     expect(await (await waiting).failure()).toBeNull();
@@ -119,6 +133,7 @@ for (const theme of ['dark', 'light']) {
     }));
     await page.goto('/events/' + encodeURIComponent('[Rerun] Act or Die Rerun'));
     await page.getByRole('tab', { name: 'Rewards', exact: true }).click();
+    await openImage(page);
     const waiting = page.waitForEvent('download');
     await page.getByRole('button', { name: 'Save image', exact: true }).click();
     expect(await (await waiting).failure()).toBeNull();
@@ -135,3 +150,32 @@ for (const theme of ['dark', 'light']) {
     expect(names[0] - (draws[0].y + draws[0].height), 'name stays beside the artwork it describes').toBeLessThan(80);
   });
 }
+
+
+test('reward image links reopen the fullscreen view and Escape restores the page', async ({ page }) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText: async (value: string) => { Object.assign(window, { copiedRewardLink: value }); } } });
+  });
+  await page.goto(event);
+  const trigger = page.getByRole('button', { name: 'View rewards image fullscreen', exact: true });
+  await expect(page.locator('.reward-summary-actions').getByRole('button')).toHaveCount(1);
+  await openImage(page);
+  const dialog = page.getByRole('dialog');
+  await dialog.getByRole('button', { name: 'Copy link', exact: true }).click();
+  const link = await page.evaluate(() => (window as unknown as { copiedRewardLink: string }).copiedRewardLink);
+  expect(new URL(link).hash).toBe('#rewards/image');
+  await page.keyboard.press('Escape');
+  await expect(dialog).toHaveCount(0);
+  await expect(trigger).toBeFocused();
+  expect(new URL(page.url()).hash).toBe('#rewards');
+  await page.goto(link);
+  await expect(page.getByRole('dialog')).toBeVisible();
+  await expect(page.getByRole('dialog').locator('img')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Save image', exact: true })).toBeEnabled();
+  await page.getByRole('button', { name: 'Zoom rewards image', exact: true }).click();
+  expect(await page.getByRole('dialog').evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true);
+  await page.getByRole('button', { name: 'Fit rewards image to width', exact: true }).click();
+  expect(await page.getByRole('dialog').evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true);
+  await page.getByRole('button', { name: 'Close', exact: true }).click();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+});
