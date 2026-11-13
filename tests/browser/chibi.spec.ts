@@ -1,4 +1,5 @@
 import { expect, test } from './request-diagnostics';
+import { contentUrl } from '../../lib/content/urls';
 
 test.setTimeout(120000);
 
@@ -19,7 +20,7 @@ test('default and skin battle/base animations load exclusively from pinned SD as
     await expect(page.locator('.chibi-window [role="status"]')).toHaveCount(0);
     const payload = JSON.parse((await page.locator('#__NEXT_DATA__').textContent())!);
     const backTextures = (Object.values(payload.props.pageProps.chibis[outfit].back.textures) as string[])
-      .map(url => url.replace('https://raw.githubusercontent.com/arkpedia/', 'https://assets.arkpedia.net/arkpedia/'));
+      .map(url => contentUrl(url, payload.props.pageProps.__contentRelease));
     await Promise.all([
       ...backTextures.map(url => page.waitForResponse(response => response.url() === url && response.ok())),
       page.getByRole('button', { name: 'Back', exact: true }).click(),
