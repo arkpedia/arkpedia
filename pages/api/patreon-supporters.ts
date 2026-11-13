@@ -1,7 +1,7 @@
 import type { ExecutionContext } from '@cloudflare/workers-types';
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { getCloudflareContext } from '@opennextjs/cloudflare';
-import { patreonConfigured, readSupporters, syncPatreon, type PatreonEnv } from '@/lib/patreon/sync.mjs';
+import { patreonConfigured, readSupporters, syncPatreon, patreonSyncDiagnostic, type PatreonEnv } from '@/lib/patreon/sync.mjs';
 import { validSupporterSnapshot } from '@/lib/patreon/supporters';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -16,11 +16,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (!snapshot) {
       // Warm the first snapshot once after setup. D1 leases/backoff prevent public visits
       // from duplicating API calls; later visits only read the daily cron's snapshot.
-      if (req.method === 'GET') (context!.ctx as ExecutionContext).waitUntil(syncPatreon(env, { bootstrapOnly: true }).catch(() => { console.error('Patreon bootstrap failed; the daily refresh will retry.'); }));
+      if (req.method === 'GET') (context!.ctx as ExecutionContext).waitUntil(syncPatreon(env, { bootstrapOnly: true }).catch(error => { console.error('Patreon bootstrap failed.', { code: patreonSyncDiagnostic(error) }); }));
       return req.method === 'HEAD' ? res.status(202).end() : res.status(202).json({ status: 'preparing' });
     }
     if (!validSupporterSnapshot(snapshot)) throw Error('Invalid supporter projection.');
     res.setHeader('Cache-Control', 'public, max-age=60, s-maxage=300');
     return req.method === 'HEAD' ? res.status(200).end() : res.json(snapshot);
-  } catch { return res.status(503).json({ error: 'Supporter acknowledgements are temporarily unavailable.' }); }
+  } catch { res.status(503); return req.method === 'HEAD' ? res.end() : res.json({ error: 'Supporter acknowledgements are temporarily unavailable.' }); }
 }

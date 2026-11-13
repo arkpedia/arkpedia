@@ -28,3 +28,17 @@ test('supporter failures do not restore the old acknowledgement list and can be 
   await page.getByRole('button', { name: 'Try again', exact: true }).click();
   await expect(page.getByText('Public Supporter', { exact: true })).toBeVisible();
 });
+
+test('a failed initial sync leaves preparing state and can recover', async ({ page }) => {
+  let calls = 0;
+  await page.route('**/api/patreon-supporters', route => {
+    calls++;
+    return route.fulfill(calls === 1 ? { status: 202, json: { status: 'preparing' } } : calls === 2 ? { status: 503, json: { error: 'unavailable' } } : { json: snapshot });
+  });
+  await page.goto('/support');
+  await expect(page.getByText('Supporter acknowledgements are temporarily unavailable.')).toBeVisible();
+  await expect(page.locator('.supporter-list li')).toHaveCount(0);
+  await page.getByRole('button', { name: 'Try again', exact: true }).click();
+  await expect(page.getByText('Public Supporter', { exact: true })).toBeVisible();
+  expect(calls).toBe(3);
+});

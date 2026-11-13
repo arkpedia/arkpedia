@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import fs from 'node:fs';
 import { DatabaseSync } from 'node:sqlite';
-import { openTokens, sealTokens, syncPatreon, readSupporters } from '../../lib/patreon/sync.mjs';
+import { openTokens, sealTokens, syncPatreon, readSupporters, patreonSyncDiagnostic } from '../../lib/patreon/sync.mjs';
 import { refreshDailyServices } from '../deploy/daily-refresh.mjs';
 
 const now = Date.parse('2026-11-13T12:00:00Z');
@@ -112,4 +112,43 @@ test('daily statistics and Patreon refresh independently, with visible failures'
   await assert.rejects(refreshDailyServices({}, { statistics: async () => { calls.push('statistics'); throw Error('cohort failed'); }, patreon: async () => { calls.push('patreon'); } }), /Statistics: cohort failed/);
   assert.deepEqual(calls, ['statistics', 'patreon']);
   await assert.rejects(refreshDailyServices({}, { statistics: async () => {}, patreon: async () => { throw Error('HTTP 503'); } }), /Patreon: HTTP 503/);
+});
+
+
+test('failed bootstrap reports cooldown, stores only a safe code and recovers without losing tokens', async () => {
+  const h = harness();
+  const error = await syncPatreon(h.env, { now, bootstrapOnly: true, fetch: async () => new Response('PRIVATE_PROVIDER_BODY', { status: 403 }) }).catch(error => error);
+  assert.equal(patreonSyncDiagnostic(error), 'CAMPAIGN_HTTP_403');
+  assert.equal(h.state().retry_after, now + 300_000);
+  await assert.rejects(readSupporters(h.env, { now: now + 1000 }), /cooling down/);
+  const stored = h.sqlite.prepare('SELECT error_code, failed_at, recovered_at FROM patreon_sync_diagnostics').get();
+  assert.equal(stored.error_code, 'CAMPAIGN_HTTP_403'); assert.equal(stored.failed_at, now); assert.equal(stored.recovered_at, null);
+  assert(!JSON.stringify(stored).includes('PRIVATE')); assert(!JSON.stringify(stored).includes('fixture-access'));
+  let calls = 0;
+  await syncPatreon(h.env, { now: now + 299_999, bootstrapOnly: true, fetch: () => { calls++; } }); assert.equal(calls, 0);
+  await syncPatreon(h.env, { now: now + 300_001, bootstrapOnly: true, fetch: async input => new URL(input).pathname.endsWith('/123') ? campaign() : page([], []) });
+  assert((await readSupporters(h.env, { now: now + 300_001 })).updatedAt);
+  assert.equal(h.sqlite.prepare('SELECT recovered_at FROM patreon_sync_diagnostics').get().recovered_at, now + 300_001);
+  h.sqlite.close();
+});
+
+test('legacy first-sync cooldown is shortened once; last-good snapshots keep daily backoff', async () => {
+  const h = harness();
+  await assert.rejects(syncPatreon(h.env, { now, fetch: async () => new Response('', { status: 503 }) }));
+  const encrypted = h.state().token_envelope;
+  assert.equal(await readSupporters(h.env, { now: now + 300_001 }), null);
+  assert.equal(h.state().retry_after, now + 300_000);
+  assert.equal(h.state().token_envelope, encrypted);
+  h.sqlite.prepare('UPDATE patreon_supporter_sync SET snapshot_json = ?, retry_after = ?').run(JSON.stringify({ updatedAt: new Date(now).toISOString(), 'supporter-tier': [] }), now + 3600_000);
+  assert((await readSupporters(h.env, { now: now + 1000 })).updatedAt);
+  assert.equal(h.state().retry_after, now + 3600_000);
+  h.sqlite.close();
+});
+
+test('diagnostics never expose arbitrary errors or provider bodies', async () => {
+  assert.equal(patreonSyncDiagnostic(Error('PRIVATE_CREDENTIAL_VALUE')), 'SYNC_FAILED');
+  const h = harness();
+  await assert.rejects(syncPatreon(h.env, { now, bootstrapOnly: true, fetch: async () => new Response('PRIVATE_HTML', { headers: { 'Content-Type': 'text/html' } }) }));
+  assert.equal(h.sqlite.prepare('SELECT error_code FROM patreon_sync_diagnostics').get().error_code, 'RESPONSE_JSON_INVALID');
+  h.sqlite.close();
 });
