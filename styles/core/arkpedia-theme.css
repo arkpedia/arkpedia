@@ -974,3 +974,23 @@ a.ghost.panel:focus-visible { border-color: var(--teal); }
 }
 .record-popover-heading strong { min-width: 0; color: var(--text); }
 .record-popover-art { display: block; width: 100%; height: auto; object-fit: contain; }
+
+/* Shared volume feedback for music, voices and chibis. */
+.volume-feedback {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  z-index: 510;
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 20px;
+  border-radius: var(--radius-frame);
+  background: color-mix(in srgb, var(--panel) 65%, transparent);
+  backdrop-filter: blur(6px);
+  color: var(--text);
+  font: 600 30px var(--font-mono);
+  white-space: nowrap;
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+}

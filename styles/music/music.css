@@ -131,24 +131,7 @@
 .music-volume-icon:hover { color: var(--teal); }
 .music-volume-slider { position: relative; display: inline-flex; align-items: center; flex: 1; min-width: 56px; }
 .music-volume-slider > .music-volume { width: 100%; min-width: 0; height: var(--control-h); margin: 0; }
-.music-volume-percent {
-  position: fixed;
-  top: 50%;
-  left: 50%;
-  z-index: 140;
-  display: inline-flex;
-  align-items: center;
-  gap: 12px;
-  padding: 14px 20px;
-  border-radius: var(--radius-frame);
-  background: color-mix(in srgb, var(--panel) 65%, transparent);
-  backdrop-filter: blur(6px);
-  color: var(--text);
-  font: 600 30px var(--font-mono);
-  white-space: nowrap;
-  pointer-events: none;
-  transform: translate(-50%, -50%);
-}
+
 .music-transport-volume-row { display: flex; align-items: center; gap: 6px; min-width: 0; }
 .music-player-bottombar > .music-widget-background { grid-column: 1 / -1; }
 

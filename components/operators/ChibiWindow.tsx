@@ -6,6 +6,8 @@ import dynamic from 'next/dynamic';
 import SegmentedControl from '@/components/ui/SegmentedControl';
 import StyledSelect from '@/components/ui/StyledSelect';
 import XButton from '@/components/ui/XButton';
+import useVolumeFeedback from '@/components/ui/useVolumeFeedback';
+import VolumeIcon from '@/components/ui/VolumeIcon';
 import { loadChibiAnimations, chibiAnimationLabel } from '@/lib/operators/chibiAnimations';
 import { chooseChibiTap, chibiIdleAnimation } from '@/lib/operators/chibiRoutine';
 import type { ChibiAnimation, ChibiBreak } from '@/lib/operators/chibiRoutine';
@@ -31,16 +33,17 @@ export default function ChibiWindow({ config, open }: { config: ChibiViewerConfi
   const paused = previewPaused;
   const [playing, setPlaying] = useState(selected);
   const [reaction, setReaction] = useState<ChibiBreak | null>(null);
-  const firstTap = useRef(true);
-  const playVoice = useChibiVoice(config.voices, open);
+  const playVoice = useChibiVoice(config.voices, chibi, open);
+  const volumeFeedback = useVolumeFeedback(Math.round(chibi.volume * 100));
   const completed = useRef(false);
   useEffect(() => { completed.current = false; }, [playing, sequence]);
   const onAnimationComplete = useCallback((looping: boolean) => {
     // Queued poses start at the next cycle boundary, including looping clips.
     completed.current = !looping;
+    if (!looping && !reaction && playing.base === selected.base && playing.clip === selected.clip) setPreviewPaused(true);
     setReaction(null);
     setPlaying(selected);
-  }, [selected]);
+  }, [selected, playing, reaction]);
   const windowRef = useRef<HTMLDivElement>(null), position = useRef<Point>({ x: 8, y: 8 });
   const [dimensions, setDimensions] = useState<{ width: number; height: number } | null>(null);
   const resizing = useRef<{ pointer: number; edge: ChibiWindowEdge; origin: Point; rect: ChibiWindowRect } | null>(null);
@@ -123,9 +126,8 @@ export default function ChibiWindow({ config, open }: { config: ChibiViewerConfi
     setCatalogue(value => ({ ...value, [key]: names.map(name => ({ name, duration: durations?.[name] ?? 0 })) }));
   }, [playing.base, shown]);
   const tap = () => {
-    const next = chooseChibiTap(base, firstTap.current);
-    playVoice(next ? next.activity === 'trust-tap' : firstTap.current);
-    firstTap.current = false;
+    const next = chooseChibiTap(base, false, Math.random, false);
+    playVoice(false);
     if (next && config.models.walk) { setReaction(next); setPlaying({ base: true, clip: next.clip }); setSequence(value => value + 1); }
   };
   const play = () => {
@@ -166,16 +168,31 @@ export default function ChibiWindow({ config, open }: { config: ChibiViewerConfi
     {model && <div className="chibi-controls">
       <StyledSelect className="chibi-animation" label="Chibi animation" value={`${selected.base ? 'base' : 'battle'}:${selected.clip}`} options={choices}
         onChange={value => { const choice = choices.find(choice => choice.value === value); if (choice) setSelected({ base: choice.base, clip: choice.pose.name }); }} />
-      <button className="ghost btn-icon" type="button" aria-label="Play" title="Play selected animation" disabled={!selectedPose} onClick={play}>▶</button>
-      <button className="ghost btn-icon" type="button" aria-label="Pause" title="Pause" aria-pressed={paused}
-        onClick={() => setPreviewPaused(true)}>Ⅱ</button>
+      <button className="ghost btn-icon" type="button" aria-label={paused ? 'Play' : 'Pause'} title={paused ? 'Play selected animation' : 'Pause'} disabled={!selectedPose}
+        onClick={() => paused ? play() : setPreviewPaused(true)}>
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+          <path d={paused ? 'M6.5 4.2 16 10l-9.5 5.8z' : 'M5 4h3.5v12H5zm6.5 0H15v12h-3.5z'} />
+        </svg>
+      </button>
     </div>}
     {(model || roaming) && <div className="chibi-page-controls"><button className="ghost" type="button" onClick={() => {
       if (roaming) chibi.dismiss(); else { const next = nextPet(); if (next && windowRef.current) { const bounds = windowRef.current.getBoundingClientRect(); const point = bounds.left >= 168 ? { x: bounds.left - 168, y: bounds.top }
           : window.innerHeight - bounds.bottom >= 188 ? { x: 8, y: bounds.bottom + 8 }
           : bounds.top >= 188 ? { x: 8, y: bounds.top - 188 } : { x: 8, y: window.innerHeight - 180 };
         chibi.walkOnPage(next, point); } }
-    }}>{roaming ? 'Return to viewer' : 'Walk on page'}</button>{roaming && <button type="button" className="ghost" onClick={() => { const next = nextPet(); if (next) chibi.walkOnPage(next, { x: 8, y: window.innerHeight - 200 }); }}>Add another</button>}</div>}
+    }}>{roaming ? 'Return to viewer' : 'Walk on page'}</button>{roaming && <button type="button" className="ghost" onClick={() => { const next = nextPet(); if (next) chibi.walkOnPage(next, { x: 8, y: window.innerHeight - 200 }); }}>Add another</button>}
+      <div className="chibi-audio-controls">
+        {!!config.voices?.languages?.length && <StyledSelect className="chibi-language" label="Tap voice language" menuMinWidth={160} align="end"
+          value={config.voices.languages.some(pack => pack.id === chibi.language) ? chibi.language : config.voices.languages.find(pack => pack.tap?.url === config.voices?.tap?.url)?.id ?? config.voices.languages[0].id}
+          options={config.voices.languages.map(pack => ({ value: pack.id, label: pack.label }))} onChange={chibi.setLanguage} />}
+        <label className="chibi-volume"><span className="visually-hidden">Chibi volume</span>
+          <VolumeIcon muted={chibi.volume === 0} size={16} />
+          <input type="range" min="0" max="100" step="1" value={Math.round(chibi.volume * 100)} aria-label="Chibi volume" aria-valuetext={`${Math.round(chibi.volume * 100)}%`}
+            {...volumeFeedback.events} onChange={event => { chibi.setVolume(Number(event.target.value) / 100); volumeFeedback.show(); }} />
+        </label>
+      </div>
+    </div>}
+    {volumeFeedback.output}
     {error && <p className="hint" role="status">{error}</p>}
     {RESIZE_EDGES.map(edge => <button key={edge} type="button" className={`chibi-window-resize chibi-window-resize-${edge}`} tabIndex={edge === 'se' ? 0 : -1}
       aria-label={`Resize chibi viewer from ${EDGE_LABELS[edge]}`} title="Drag to resize · Arrow keys to resize"

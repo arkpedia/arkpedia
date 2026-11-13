@@ -1,4 +1,5 @@
 import type { ChibiTapVoices } from '@/lib/operators/chibiVoice';
+import { resolveChibiVoices } from '@/lib/operators/chibiVoice';
 import { useChibiVoice } from './useChibiVoice';
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import type { PointerEvent as ReactPointerEvent, ReactNode } from 'react';
@@ -31,6 +32,10 @@ interface RoamingChibiContextValue {
   size: number;
   setSize: (size: number) => void;
   dismiss: () => void;
+  language: string;
+  setLanguage: (language: string) => void;
+  volume: number;
+  setVolume: (volume: number) => void;
 }
 const RoamingChibiContext = createContext<RoamingChibiContextValue | null>(null);
 export function useRoamingChibi() {
@@ -49,7 +54,22 @@ const ignoreAnimation = () => {};
 /** Each roaming canvas owns its motion and controls; opening another viewer leaves it alive. */
 export default function RoamingChibiProvider({ children }: { children: ReactNode }) {
   const resolveUrl = useContentUrl();
-  const resolvedPet = useCallback((pet: Pet): Pet => ({ ...pet, voices: pet.voices ? Object.fromEntries(Object.entries(pet.voices).filter(([, clip]) => clip).map(([key, clip]) => [key, { ...clip!, url: resolveUrl(clip!.url) }])) : undefined, model: resolveChibiModel(pet.model, resolveUrl), models: resolveChibiFacings(pet.models, resolveUrl) }), [resolveUrl]);
+  const resolvedPet = useCallback((pet: Pet): Pet => ({ ...pet, voices: resolveChibiVoices(pet.voices, resolveUrl), model: resolveChibiModel(pet.model, resolveUrl), models: resolveChibiFacings(pet.models, resolveUrl) }), [resolveUrl]);
+  const [language, setLanguage] = useState('en');
+  const [volume, setVolume] = useState(.2);
+  const [audioReady, setAudioReady] = useState(false);
+  useEffect(() => {
+    try {
+      setLanguage(localStorage.getItem('arkpedia.chibiLanguage') || 'en');
+      const saved = localStorage.getItem('arkpedia.chibiVolume');
+      if (saved !== null && Number.isFinite(Number(saved))) setVolume(Math.max(0, Math.min(1, Number(saved))));
+    } catch { /* Keep quiet defaults when storage is unavailable. */ }
+    setAudioReady(true);
+  }, []);
+  useEffect(() => {
+    if (!audioReady) return;
+    try { localStorage.setItem('arkpedia.chibiLanguage', language); localStorage.setItem('arkpedia.chibiVolume', String(volume)); } catch { /* Audio controls still work without storage. */ }
+  }, [audioReady, language, volume]);
   const [viewer, setViewer] = useState<ChibiViewerConfig | null>(null), [viewerOpen, setViewerOpen] = useState(false);
   const [walkers, setWalkers] = useState<Walker[]>([]);
   const [size, setSize] = useState(100);
@@ -88,7 +108,7 @@ export default function RoamingChibiProvider({ children }: { children: ReactNode
   }, [size]);
   const dismiss = () => setWalkers(current => current.filter(walker => walker.pet.label !== viewer?.label));
   const pet = walkers.find(walker => walker.pet.label === viewer?.label)?.pet ?? null;
-  return <RoamingChibiContext.Provider value={{ pet, viewer, viewerOpen, openViewer, closeViewer, walkOnPage, startDrag, size, setSize, dismiss }}>
+  return <RoamingChibiContext.Provider value={{ pet, viewer, viewerOpen, openViewer, closeViewer, walkOnPage, startDrag, size, setSize, dismiss, language, setLanguage, volume, setVolume }}>
     {children}
     {viewer && <ChibiWindow config={viewer} open={viewerOpen} />}
     {walkers.map(walker => <RoamingChibi key={walker.id} initial={walker} onDismiss={() => setWalkers(current => current.filter(item => item.id !== walker.id))} />)}
@@ -96,6 +116,7 @@ export default function RoamingChibiProvider({ children }: { children: ReactNode
 }
 
 function RoamingChibi({ initial, onDismiss }: { initial: Walker; onDismiss: () => void }) {
+  const { language, volume } = useRoamingChibi();
   const [size, setSize] = useState(initial.size);
   const sizeRef = useRef(size); sizeRef.current = size;
   const dismissRef = useRef(onDismiss); dismissRef.current = onDismiss;
@@ -142,7 +163,7 @@ function RoamingChibi({ initial, onDismiss }: { initial: Walker; onDismiss: () =
     drag.current = null; setDragging(false); endRest(); dismissRef.current();
     (target?.isConnected ? target : document.getElementById('page-content'))?.focus({ preventScroll: true });
   }, [endRest]);
-  const playVoice = useChibiVoice(pet?.voices);
+  const playVoice = useChibiVoice(pet?.voices, { language, volume });
   const tap = useCallback(() => {
     const next = chooseChibiTap(animations.current, firstTap.current);
     if (!next) return;
