@@ -119,7 +119,7 @@ export function RewardDetailsProvider({ tickets, children, recommendations, reco
           }) : renderOperators(operators, VIDEOS_COMING_SOON.has(active.name))}
           <p className="hint"><a href={active.ticket.source} target="_blank" rel="noopener noreferrer">Source announcement</a></p>
         </>}</div> : <>
-          {active.pack.imagePath && <Image className="event-pack-detail-image" src={active.pack.imagePath} alt={`${active.pack.name} artwork`} width={200} height={150} />}
+          {active.pack.imagePath && <Image className={`event-pack-detail-image${active.pack.artworkLayout === 'promo' ? ' event-pack-detail-promo' : ''}`} src={active.pack.imagePath} alt={`${active.pack.name} artwork`} width={active.pack.artworkLayout === 'promo' ? 650 : 200} height={active.pack.artworkLayout === 'promo' ? 208 : 150} />}
           {active.pack.start && <p className="hint">Sale window: {packDay(active.pack.start)} – {active.pack.end ? packDay(active.pack.end, { exclusiveEnd: true }) : 'Not announced'}</p>}
           {active.pack.limit && <p className="hint">Purchase limit: {active.pack.limit}</p>}
           <div className="event-reward-totals">{active.pack.contents.map(item => <RewardTile key={item.name} {...item} />)}</div>
@@ -139,7 +139,7 @@ export function RewardClick({ name, className, children }: { name: string; class
   return <button type="button" className={`${className} btn-bare event-ticket-trigger`} title={name} aria-label={`${name}: selectable operators`} aria-haspopup="dialog" onClick={e => details!.open({ name, ticket }, e.currentTarget)}>{children}<span className="event-ticket-open" aria-hidden="true">↗</span></button>;
 }
 
-export function PackButton({ pack, source, children }: { pack: Pack; source: string; children: ReactNode }) {
+export function PackButton({ pack, source, children, framed = true }: { pack: Pack; source: string; children: ReactNode; framed?: boolean }) {
   const details = useContext(Details);
-  return <button type="button" className="btn-bare panel event-pack-card" aria-haspopup="dialog" onClick={(e: MouseEvent<HTMLButtonElement>) => details?.open({ name: pack.name, pack, source }, e.currentTarget)}>{children}</button>;
+  return <button type="button" className={`btn-bare${framed ? ' panel' : ''} event-pack-card`} aria-haspopup="dialog" onClick={(e: MouseEvent<HTMLButtonElement>) => details?.open({ name: pack.name, pack, source }, e.currentTarget)}>{children}</button>;
 }
