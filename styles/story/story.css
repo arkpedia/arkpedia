@@ -116,3 +116,6 @@ a.story-list-card:hover { border-color: var(--teal); }
 .story-library .story-list-card { min-height: 66px; }
 .story-library .story-list-card img { object-fit: contain; }
 .story-library .story-list-card.has-portrait img { height: 44px; }
+
+.story-guide-dialog { --dialog-w: 760px; }
+.story-guide-videos { grid-template-columns: minmax(0, 1fr); }

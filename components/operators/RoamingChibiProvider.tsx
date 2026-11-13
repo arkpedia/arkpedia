@@ -1,3 +1,5 @@
+import type { ChibiTapVoices } from '@/lib/operators/chibiVoice';
+import { useChibiVoice } from './useChibiVoice';
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import type { PointerEvent as ReactPointerEvent, ReactNode } from 'react';
 import { createPortal } from 'react-dom';
@@ -16,8 +18,8 @@ import type { ChibiAnimation, ChibiBreak } from '@/lib/operators/chibiRoutine';
 const ChibiCanvas = dynamic(() => import('./ChibiCanvas'), { ssr: false });
 const PET_WIDTH = 160, PET_HEIGHT = 180;
 type Point = { x: number; y: number };
-export interface Pet { models: ChibiFacings; label: string; model: ChibiModel; paused: boolean; returnFocus: HTMLButtonElement | null }
-export interface ChibiViewerConfig { label: string; models: ChibiFacings; returnFocus: HTMLButtonElement | null }
+export interface Pet { voices?: ChibiTapVoices; models: ChibiFacings; label: string; model: ChibiModel; paused: boolean; returnFocus: HTMLButtonElement | null }
+export interface ChibiViewerConfig { voices?: ChibiTapVoices; label: string; models: ChibiFacings; returnFocus: HTMLButtonElement | null }
 interface RoamingChibiContextValue {
   viewer: ChibiViewerConfig | null;
   viewerOpen: boolean;
@@ -47,7 +49,7 @@ const ignoreAnimation = () => {};
 /** Each roaming canvas owns its motion and controls; opening another viewer leaves it alive. */
 export default function RoamingChibiProvider({ children }: { children: ReactNode }) {
   const resolveUrl = useContentUrl();
-  const resolvedPet = useCallback((pet: Pet): Pet => ({ ...pet, model: resolveChibiModel(pet.model, resolveUrl), models: resolveChibiFacings(pet.models, resolveUrl) }), [resolveUrl]);
+  const resolvedPet = useCallback((pet: Pet): Pet => ({ ...pet, voices: pet.voices ? Object.fromEntries(Object.entries(pet.voices).filter(([, clip]) => clip).map(([key, clip]) => [key, { ...clip!, url: resolveUrl(clip!.url) }])) : undefined, model: resolveChibiModel(pet.model, resolveUrl), models: resolveChibiFacings(pet.models, resolveUrl) }), [resolveUrl]);
   const [viewer, setViewer] = useState<ChibiViewerConfig | null>(null), [viewerOpen, setViewerOpen] = useState(false);
   const [walkers, setWalkers] = useState<Walker[]>([]);
   const [size, setSize] = useState(100);
@@ -140,14 +142,16 @@ function RoamingChibi({ initial, onDismiss }: { initial: Walker; onDismiss: () =
     drag.current = null; setDragging(false); endRest(); dismissRef.current();
     (target?.isConnected ? target : document.getElementById('page-content'))?.focus({ preventScroll: true });
   }, [endRest]);
+  const playVoice = useChibiVoice(pet?.voices);
   const tap = useCallback(() => {
     const next = chooseChibiTap(animations.current, firstTap.current);
     if (!next) return;
+    playVoice(next.activity === 'trust-tap');
     firstTap.current = false; setMoving(false);
     cycleFinished.current = false; remaining.current = next.duration; resting.current = next; setRest(next);
     // Repeated taps can choose the same clip, which must restart from its beginning.
     setAnimationSequence(value => value + 1);
-  }, []);
+  }, [playVoice]);
   const beginDrag = useCallback((event: ReactPointerEvent<HTMLCanvasElement>, next: Pet, detached: boolean) => {
     if (event.button !== 0 || !event.isPrimary) return;
     event.preventDefault();

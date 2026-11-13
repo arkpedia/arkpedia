@@ -184,3 +184,22 @@ test('each credited person is one card: joined credits split, case variants merg
     expect(keys.filter((key, i) => keys.indexOf(key) !== i), `${route} ${search}: case-only duplicates`).toEqual([]);
   }
 });
+
+test('credit filters stay one control high and bounded faction lists remain keyboard navigable', async ({ page }) => {
+  for (const route of ['/artists', '/voice-actors']) {
+    await page.goto(route);
+    if ((page.viewportSize()?.width ?? 1440) <= 720) await expect(page.locator('.filter-bar-open').first()).toBeVisible();
+    await openFilters(page);
+    const label = route === '/artists' ? 'Filter by credit' : 'Filter by language';
+    const control = page.getByRole('combobox', { name: label, exact: true });
+    const height = await control.evaluate(element => ({ actual: element.getBoundingClientRect().height, expected: parseFloat(getComputedStyle(element).minHeight) }));
+    expect(height.actual).toBeLessThanOrEqual(height.expected + 1);
+    const faction = page.getByRole('combobox', { name: 'Filter by faction', exact: true });
+    await faction.click();
+    const menu = page.getByRole('listbox', { name: 'Filter by faction', exact: true });
+    expect((await menu.boundingBox())!.height).toBeLessThanOrEqual(281);
+    const last = (await menu.getByRole('option').last().innerText()).trim();
+    await faction.press('End'); await faction.press('Enter');
+    await expect(faction).toContainText(last);
+  }
+});

@@ -1,3 +1,4 @@
+import { useChibiVoice } from './useChibiVoice';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { resizeChibiWindow, type ChibiWindowEdge, type ChibiWindowRect } from '@/lib/operators/chibiWindowSize';
 import { createPortal } from 'react-dom';
@@ -6,8 +7,8 @@ import SegmentedControl from '@/components/ui/SegmentedControl';
 import StyledSelect from '@/components/ui/StyledSelect';
 import XButton from '@/components/ui/XButton';
 import { loadChibiAnimations, chibiAnimationLabel } from '@/lib/operators/chibiAnimations';
-import { chibiIdleAnimation } from '@/lib/operators/chibiRoutine';
-import type { ChibiAnimation } from '@/lib/operators/chibiRoutine';
+import { chooseChibiTap, chibiIdleAnimation } from '@/lib/operators/chibiRoutine';
+import type { ChibiAnimation, ChibiBreak } from '@/lib/operators/chibiRoutine';
 import { useRoamingChibi, type ChibiViewerConfig } from './RoamingChibiProvider';
 
 const ChibiCanvas = dynamic(() => import('./ChibiCanvas'), { ssr: false });
@@ -29,9 +30,17 @@ export default function ChibiWindow({ config, open }: { config: ChibiViewerConfi
   const [sequence, setSequence] = useState(0);
   const paused = previewPaused;
   const [playing, setPlaying] = useState(selected);
+  const [reaction, setReaction] = useState<ChibiBreak | null>(null);
+  const firstTap = useRef(true);
+  const playVoice = useChibiVoice(config.voices, open);
   const completed = useRef(false);
   useEffect(() => { completed.current = false; }, [playing, sequence]);
-  const onAnimationComplete = useCallback((looping: boolean) => { completed.current = !looping; setPlaying(selected); }, [selected]);
+  const onAnimationComplete = useCallback((looping: boolean) => {
+    // Queued poses start at the next cycle boundary, including looping clips.
+    completed.current = !looping;
+    setReaction(null);
+    setPlaying(selected);
+  }, [selected]);
   const windowRef = useRef<HTMLDivElement>(null), position = useRef<Point>({ x: 8, y: 8 });
   const [dimensions, setDimensions] = useState<{ width: number; height: number } | null>(null);
   const resizing = useRef<{ pointer: number; edge: ChibiWindowEdge; origin: Point; rect: ChibiWindowRect } | null>(null);
@@ -95,7 +104,7 @@ export default function ChibiWindow({ config, open }: { config: ChibiViewerConfi
   }, [place, resizeTo]);
   const shown = config.models[facing] ? facing : config.models.front ? 'front' : 'back';
   const battleModel = config.models[shown], model = playing.base ? config.models.walk : battleModel;
-  useEffect(() => { if (paused || completed.current || !model) setPlaying(selected); }, [selected, paused, model]);
+  useEffect(() => { if (!reaction && (paused || completed.current || !model)) setPlaying(selected); }, [selected, paused, model, reaction]);
   const battle = catalogue[shown] ?? EMPTY, base = catalogue.walk ?? EMPTY;
   const sharedReaction = !base.some(pose => pose.duration > 0 && /^Interact(?:[_\d].*)?$/i.test(pose.name)) || !base.some(pose => pose.duration > 0 && /^Special(?:[_\d].*)?$/i.test(pose.name));
   const choices = useMemo(() => [...battle.map(pose => ({ value: `battle:${pose.name}`, label: pose.name, pose, base: false })),
@@ -113,6 +122,12 @@ export default function ChibiWindow({ config, open }: { config: ChibiViewerConfi
     const key = playing.base ? 'walk' : shown;
     setCatalogue(value => ({ ...value, [key]: names.map(name => ({ name, duration: durations?.[name] ?? 0 })) }));
   }, [playing.base, shown]);
+  const tap = () => {
+    const next = chooseChibiTap(base, firstTap.current);
+    playVoice(next ? next.activity === 'trust-tap' : firstTap.current);
+    firstTap.current = false;
+    if (next && config.models.walk) { setReaction(next); setPlaying({ base: true, clip: next.clip }); setSequence(value => value + 1); }
+  };
   const play = () => {
     setPreviewPaused(false);
     if (paused || completed.current) { setPlaying(selected); setSequence(value => value + 1); completed.current = false; }
@@ -144,8 +159,8 @@ export default function ChibiWindow({ config, open }: { config: ChibiViewerConfi
         onChange={value => { setFacing(value); if (selected.base) setSelected({ base: false, clip: 'Idle' }); }} />}
       <XButton label="Close chibi viewer" onClick={chibi.closeViewer} />
     </div>
-    {model ? <ChibiCanvas key={model.skeleton} model={model} label={config.label} animation={playing.clip} onAnimationChange={ignoreAnimation}
-      onAnimationsChange={onAnimationsChange} onAnimationComplete={onAnimationComplete} animationSequence={sequence} paused={paused} moving={false} flipped={false} activity={furnitureActivity}
+    {model ? <ChibiCanvas model={model} label={config.label} animation={playing.clip} onAnimationChange={ignoreAnimation}
+      onAnimationsChange={onAnimationsChange} onAnimationComplete={onAnimationComplete} animationSequence={sequence} paused={paused} moving={false} flipped={false} activity={reaction?.activity ?? furnitureActivity} playWhilePaused={Boolean(reaction)} onTap={tap}
       roaming={false} onPointerDown={event => { const next = nextPet(); if (next) chibi.startDrag(event, next); }} />
       : <p className="hint" role="status">Chibi artwork for this outfit is not in the current asset catalogue.</p>}
     {model && <div className="chibi-controls">

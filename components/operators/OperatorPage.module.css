@@ -168,6 +168,7 @@
 .creditGroups dl { display: grid; align-content: start; gap: 12px; min-width: 0; margin: 0; }
 .creditGroups dl > div { display: grid; grid-template-columns: 76px minmax(0, 1fr); align-items: start; gap: 8px; font-size: 13px; line-height: 1.5; }
 .creditGroups dt { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; min-height: 28px; color: var(--text-dim); font-size: 12px; }
+.creditGroups dt > button { display: inline-flex; align-items: center; gap: 5px; }
 .creditGroups svg { flex-shrink: 0; }
 .creditGroups dd { margin: 0; overflow-wrap: anywhere; }
 /* One line (ui-primitives rule 4): the label (icon, language code, 28px tall above)
@@ -345,3 +346,6 @@
 @media (prefers-reduced-motion: reduce) {
   .gallery :global(.op-carousel-img-enter), .gallery :global(.op-carousel-img-exit) { animation: none; }
 }
+
+.creditHeading { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 8px; }
+.creditHeading h3 { margin: 0; }

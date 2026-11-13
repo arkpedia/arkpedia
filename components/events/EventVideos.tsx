@@ -26,7 +26,7 @@ function embedUrl(videoId: string): string {
 
 /** `run`: the page's own run. Where the list holds another run's videos too (a rerun's page lists
  *  its launch's trailer, PVs and EPs), each video says which run it was released for. */
-export function EventVideos({ videos, run }: { videos: EventVideo[]; run: EventVideoRun }) {
+export function EventVideos({ videos, run, className = '' }: { videos: EventVideo[]; run: EventVideoRun; className?: string }) {
   const mixed = videos.some((video) => video.run && video.run !== run);
   const music = useMusicPlayer();
   const [playing, setPlaying] = useState<string | null>(null);
@@ -49,7 +49,7 @@ export function EventVideos({ videos, run }: { videos: EventVideo[]; run: EventV
   }
 
   return (
-    <div className="event-videos">
+    <div className={`event-videos ${className}`}>
       {videos.map((video) => {
         const label = VIDEO_KIND_LABELS[video.kind] ?? VIDEO_KIND_LABELS.video;
         return (
@@ -73,7 +73,7 @@ export function EventVideos({ videos, run }: { videos: EventVideo[]; run: EventV
               )}
             </div>
             <figcaption className="event-video-copy">
-              <span className="event-video-meta">{label}{mixed ? ` · ${VIDEO_RUN_LABELS[video.run ?? run]}` : ''} · {packDay(video.published)}</span>
+              <span className="event-video-meta">{label}{mixed ? ` · ${VIDEO_RUN_LABELS[video.run ?? run]}` : ''}{video.published ? ` · ${packDay(video.published)}` : ''}</span>
               <a className="event-video-title" href={`https://www.youtube.com/watch?v=${video.videoId}`} target="_blank" rel="noopener noreferrer">{video.title}</a>
             </figcaption>
           </figure>

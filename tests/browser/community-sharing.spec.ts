@@ -305,3 +305,16 @@ test('an opted-in snapshot refreshes after import while the settings dialog is c
   await page.evaluate(()=>{const account=JSON.parse(localStorage.getItem('arkpediaAccount')!);account.importedAt='2026-11-02T12:10:00.000Z';localStorage.setItem('arkpediaAccount',JSON.stringify(account));window.dispatchEvent(new Event('arkpediaAccountChanged'));});
   await expect.poll(()=>state.writes.length).toBe(2);expect(state.writes[1].action).toBe('refresh');expect(state.writes[1].choices).toEqual({stats:true,shareTag:false,openRequests:false});
 });
+
+test('support operator search accepts plain-letter aliases in links and suggestions', async ({ page }) => {
+  const requests: string[] = [];
+  await page.route('**/api/community/supports?**', async route => { requests.push(new URL(route.request().url()).searchParams.get('operator') ?? ''); await route.fulfill({ json: { listings: [], next: null } }); });
+  await page.goto('/community/support-units?operator=wisadel');
+  await expect(page.getByRole('button', { name: "Remove operator: Wiš'adel", exact: true })).toBeVisible();
+  for (const [query, name] of [['mlynar', 'Młynar'], ['pozemka', 'Pozëmka'], ['chen', "Ch'en"]]) {
+    await page.getByRole('combobox', { name: 'Operator or in-game tag', exact: true }).fill(query);
+    await page.getByRole('option', { name, exact: true }).click();
+    await expect(page.getByRole('button', { name: `Remove operator: ${name}`, exact: true })).toBeVisible();
+    await expect.poll(() => requests.includes(name)).toBe(true);
+  }
+});
