@@ -16,6 +16,7 @@ const root = process.cwd();
    still flagged for a path that names an asset folder or an image. */
 const COMPUTED_PATHS_ALLOWED = {
   'lib/music/albumsDataServer.ts': 'writes the generated lyrics JSON files (public/lyrics/, lyricsPath)',
+  'lib/content/shippedTable.ts': 'reads the typed IS manifest and CC catalogue JSON at build time, with an ASSETS binding fallback on Workers; never reads artwork',
 };
 
 const artFolders = artFoldersFrom(JSON.parse(fs.readFileSync(path.join(root, 'config/asset-folders.json'), 'utf8')));
