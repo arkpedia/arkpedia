@@ -168,6 +168,7 @@ export default function SchedulePage({ events: globalEvents, operators: exported
   const [showBirthdays, setShowBirthdays] = useState(false);
   const [syncOpen, setSyncOpen] = useState(false);
   const [showOfficialEvents, setShowOfficialEvents] = useState(true);
+  const [showOtherGames, setShowOtherGames] = useState(false);
   const [month, setMonth] = useState(today.month); // 0-11
   const [selectedEvent, setSelectedEvent] = useState<ScheduleEvent | null>(null);
   // Keeps the last-viewed event's data around during the close animation,
@@ -204,7 +205,11 @@ export default function SchedulePage({ events: globalEvents, operators: exported
 
   const monthGrid = useMemo(() => generateMonths(new Date(year, month, 1), 1)[0], [year, month]);
 
-  const barSources: WeekEventSource[] = useMemo(() => (showOfficialEvents ? scheduleBarSources(externalEvents, timelineRows, server, now) : []), [externalEvents, timelineRows, server, now, showOfficialEvents]);
+  const barSources: WeekEventSource[] = useMemo(() => scheduleBarSources(
+    showOtherGames ? externalEvents : [],
+    showOfficialEvents ? timelineRows : [],
+    server, now,
+  ), [externalEvents, timelineRows, server, now, showOfficialEvents, showOtherGames]);
 
   const eventByName = useMemo(() => new Map([...events, ...externalEvents].map(e => {
     const row = timelineRows.find(row => row.name === e.name);
@@ -309,7 +314,7 @@ export default function SchedulePage({ events: globalEvents, operators: exported
         eyebrow="Rhodes Island // Schedule"
         title={view === 'calendar' ? 'Calendar' : 'Events'}
       />
-      {syncOpen && <CalendarSubscription server={server} birthdays={showBirthdays} onClose={() => setSyncOpen(false)} />}
+      {syncOpen && <CalendarSubscription server={server} birthdays={showBirthdays} collabs={view === 'calendar' ? showOtherGames : undefined} onClose={() => setSyncOpen(false)} />}
 
       <main>
       {/* Both views stay mounted, and CSS shows one.
@@ -491,6 +496,14 @@ export default function SchedulePage({ events: globalEvents, operators: exported
               onClick={() => setShowOfficialEvents((v) => !v)}
             >
               Events
+            </button>
+            <button
+              type="button"
+              className="filter-chip"
+              aria-pressed={showOtherGames}
+              onClick={() => setShowOtherGames((v) => !v)}
+            >
+              Other games
             </button>
             <button
               type="button"
