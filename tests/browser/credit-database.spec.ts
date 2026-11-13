@@ -207,10 +207,14 @@ test('credit filters stay one control high and bounded faction lists remain keyb
       for (const item of [
         page.getByRole('combobox', { name: 'Filter by faction', exact: true }),
         page.getByRole('group', { name: 'Server', exact: true }),
-        page.getByRole('group', { name: 'Sort by', exact: true }),
       ]) {
         expect(Math.abs((await item.boundingBox())!.y - creditBox.y), `${route}: secondary controls align`).toBeLessThanOrEqual(1);
       }
+      const lettersBox = (await page.getByRole('group', { name: 'First letter', exact: true }).boundingBox())!;
+      const sortBox = (await page.getByRole('group', { name: 'Sort by', exact: true }).boundingBox())!;
+      expect(Math.abs(sortBox.y - lettersBox.y), `${route}: sorting stays beside the alphabet`).toBeLessThanOrEqual(1);
+      expect(sortBox.y - creditBox.y - creditBox.height, `${route}: sorting is one row below filters`).toBeGreaterThanOrEqual(8);
+      expect(sortBox.y - creditBox.y - creditBox.height).toBeLessThanOrEqual(16);
     }
     const height = await control.evaluate(element => ({ actual: element.getBoundingClientRect().height, expected: parseFloat(getComputedStyle(element).minHeight) }));
     expect(height.actual).toBeLessThanOrEqual(height.expected + 1);

@@ -8,7 +8,8 @@
 
 /* The letter row is one line: it wraps on a wide screen and scrolls sideways on a
    phone, where four wrapped rows of letters would push the list a screen down. */
-.credit-letters { width: 100%; min-width: 0; padding-top: 4px; }
+.credit-index-row { align-items: flex-start; }
+.credit-letters { flex: 1 1 600px; min-width: 0; }
 .credit-letter-row { gap: 4px; }
 .credit-letter-row > * { min-width: 28px; padding: 0 6px; }
 @media (max-width: 720px) {

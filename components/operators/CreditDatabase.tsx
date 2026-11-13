@@ -218,17 +218,20 @@ export default function CreditDatabase({ people, uncredited, operators, now, kin
               options={[{ value: 'all', label: 'All factions' }, ...factions.map(f => ({ value: f, label: f }))]} />
             <SegmentedControl label="Server" value={query.server === 'global' || query.server === 'cn' ? query.server : 'all'} onChange={server => change({ server })}
               options={[{ value: 'all', label: 'All' }, { value: 'global', label: 'On Global' }, { value: 'cn', label: 'CN only' }]} />
-            <span className="toolbar-spacer" aria-hidden="true" />
-            <SegmentedControl label="Sort by" value={sort} onChange={value => change({ sort: value })}
-              options={[{ value: 'name', label: 'Name' }, { value: 'count', label: 'Most operators' }]} />
-            <button type="button" className={`ghost ${INLINE_RESET}`} onClick={reset} disabled={!filtered} title={filtered ? undefined : 'No filter to reset'}>Reset</button>
           </div>
-          <div className="credit-letters sidescroll">
-            <SegmentedControl className="credit-letter-row" label="First letter" value={letter} onChange={value => change({ letter: value })}
-              options={[{ value: 'all', label: 'All' }, ...letters.map(({ group, n }) => ({
-                value: group, label: letterGroupLabel(group), disabled: !n && group !== letter,
-                title: n ? `${plural(n, noun)} under ${letterGroupLabel(group)}` : `No ${noun}s under ${letterGroupLabel(group)} with these filters`,
-              }))]} />
+          <div className="roster-filter-row credit-index-row">
+            <div className="credit-letters sidescroll">
+              <SegmentedControl className="credit-letter-row" label="First letter" value={letter} onChange={value => change({ letter: value })}
+                options={[{ value: 'all', label: 'All' }, ...letters.map(({ group, n }) => ({
+                  value: group, label: letterGroupLabel(group), disabled: !n && group !== letter,
+                  title: n ? `${plural(n, noun)} under ${letterGroupLabel(group)}` : `No ${noun}s under ${letterGroupLabel(group)} with these filters`,
+                }))]} />
+            </div>
+            <div className="roster-button-group">
+              <SegmentedControl label="Sort by" value={sort} onChange={value => change({ sort: value })}
+                options={[{ value: 'name', label: 'Name' }, { value: 'count', label: 'Most operators' }]} />
+              <button type="button" className={`ghost ${INLINE_RESET}`} onClick={reset} disabled={!filtered} title={filtered ? undefined : 'No filter to reset'}>Reset</button>
+            </div>
           </div>
           </>} />
         </div>}
