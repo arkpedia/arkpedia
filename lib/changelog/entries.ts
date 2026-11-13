@@ -34,6 +34,10 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    at: '2026-11-13T20:28:00Z',
+    changed: [{ title: 'Reward overview follows the page frame', detail: 'The reward image, title and actions share one page-width dialog while keeping the whole image visible.', href: '/events' }],
+  },
+  {
     at: '2026-11-13T20:01:00Z',
     changed: [{ title: 'More compact Income window', detail: 'Removed the repeated first-clear explanation and narrowed the income breakdown.', href: '/pull-planner' }],
   },
