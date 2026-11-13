@@ -216,16 +216,16 @@ for (const theme of ['dark', 'light']) {
 for (const theme of ['dark', 'light']) {
   test(`purchasable pack contents stay accessible in ${theme}`, async ({ page }) => {
     await page.addInitScript(theme => localStorage.setItem('theme', theme), theme);
-    await page.goto(event);
+    await page.goto('/events/' + encodeURIComponent('[Crossover] Languid Sentiment') + '#rewards');
     await page.getByRole('tab', { name: 'Rewards', exact: true }).click();
     await page.getByRole('tab', { name: 'Packs', exact: true }).click();
-    const pack = page.locator('.event-pack-card').filter({ has: page.locator('.event-pack-card-name', { hasText: /^Minoto Art Pack$/ }) });
+    const pack = page.locator('.event-pack-card').filter({ has: page.locator('.event-pack-card-name', { hasText: /^Fluffy and Warm Pack$/ }) });
     await expect(pack).toBeVisible();
     await pack.click();
     const dialog = page.getByRole('dialog');
-    await expect(dialog.getByRole('heading', { name: 'Minoto Art Pack', exact: true })).toBeVisible();
+    await expect(dialog.getByRole('heading', { name: 'Fluffy and Warm Pack', exact: true })).toBeVisible();
     await expect(dialog.getByText('Orundum', { exact: true })).toBeVisible();
-    await dialog.getByRole('button', { name: 'Close Minoto Art Pack', exact: true }).click();
+    await dialog.getByRole('button', { name: 'Close Fluffy and Warm Pack', exact: true }).click();
     await expect(dialog).toBeHidden();
     await expect(pack).toBeFocused();
   });
