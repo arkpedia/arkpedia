@@ -315,6 +315,12 @@ a real representative record; empty tools need a populated state as well as the 
 
 ## Ownership and maintenance
 
+Event reward summaries use one expand icon to open the shared fullscreen native dialog.
+Show the exported infographic there with Copy link and Save image beneath it; download
+that same rendered image. Shared `#rewards/image` links open Rewards / All and the dialog
+directly. Escape and Close return to Rewards, restoring focus to the expand button.
+Keep the image in one scrolling region and the actions available below it on phones.
+
 Saved event reward images use the page's theme and reward totals, with muted event
 art at its original proportions, fading into the background at its lower edge.
 Translucent category panels carry opaque game icons, full item names and
