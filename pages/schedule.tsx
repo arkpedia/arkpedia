@@ -635,7 +635,7 @@ export default function SchedulePage({ events: globalEvents, operators: exported
                 <h2 className="entity-title entity-title-sm schedule-panel-title">{displayEvent.name}</h2>
                 {displayEvent.externalGame ? <>
                   <p className="hint">[Confirmed] · External game collaboration · {displayEvent.externalGame.region}</p>
-                  <p>{displayEvent.global.dateRange}{displayEvent.externalGame.launchOnly ? ' · Release day' : ' · Availability period'}</p>
+                  <p>{displayEvent.externalGame.launchOnly ? displayEvent.global.dateRange?.split('–')[0] : displayEvent.global.dateRange}{displayEvent.externalGame.launchOnly ? ' · Release day' : ' · Availability period'}</p>
                   <p>{displayEvent.externalGame.description}</p>
                   <a href={displayEvent.externalGame.source} target="_blank" rel="noopener noreferrer" className="ghost btn-sm schedule-panel-event-link">Official announcement ↗</a>
                 </> : <>
