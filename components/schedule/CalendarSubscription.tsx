@@ -24,6 +24,7 @@ export default function CalendarSubscription({ server, birthdays, onClose }: { s
         <p><strong>[Predicted]</strong><span>CN estimates; dates may change.</span></p>
         {server !== 'en' && <p><strong>[Predicted]</strong><span>Global fallback; awaiting local confirmation.</span></p>}
       </div>
+      {includeCollabs && <p className="hint">Collaboration dates follow the host game’s announced region.</p>}
       <div className="calendar-subscription-connect">
         <label className="calendar-subscription-url">Subscription URL
           <input type="text" readOnly value={url} onFocus={event => event.currentTarget.select()} />
