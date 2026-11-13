@@ -39,7 +39,8 @@ export default function GamemodesPage({ modes }: { modes: Mode[] }) {
       <main className="terminal-scene">
         <section className="panel terminal-panel wide" data-tab="Modes">
           <ul className="terminal-list">
-            {modes.map((m) => {
+            {modes.map((mode) => {
+              const m = mode.name === 'Integrated Strategies' ? { ...mode, href: '/game-modes/integrated-strategies', holds: 'Reference' } : mode;
               const inside = (
                 <>
                   <ModeMark name={m.mark} className="gm-modemark" />

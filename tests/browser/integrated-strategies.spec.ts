@@ -1,0 +1,25 @@
+import { expect, test } from '@playwright/test';
+
+test('IS reference keeps theme and tab in the URL, searches collectibles and opens stage maps', async ({ page }) => {
+  await page.goto('/game-modes');
+  await page.getByRole('link', { name: /Integrated Strategies/ }).click();
+  await page.getByRole('tab', { name: /^Items/ }).click();
+  await expect(page.getByRole('combobox', { name: 'Item category', exact: true })).toHaveText('Collectibles');
+  const search = page.getByRole('searchbox', { name: 'Search items', exact: true });
+  await search.fill('zzzznotarelic');
+  await expect(page.getByText('No matching records in this theme.', { exact: true })).toBeVisible();
+  await search.fill('');
+  await page.getByRole('combobox', { name: 'Integrated Strategies theme', exact: true }).click();
+  await page.getByRole('option', { name: /Phantom/ }).click();
+  await expect(page.getByRole('heading', { name: 'Phantom & Crimson Solitaire', exact: true })).toBeVisible();
+  await expect(page).toHaveURL(/theme=rogue_1/);
+  await page.getByRole('tab', { name: /^Stages/ }).click();
+  const map = page.getByRole('tabpanel').getByRole('link').first();
+  await expect(map).toHaveAttribute('href', /^\/stages\/browse\?s=/);
+  await expect(page).toHaveURL(/tab=stages/);
+  await map.click();
+  await expect(page).toHaveURL(/\/stages\/browse\?s=/);
+  await page.goBack();
+  await expect(page.getByRole('tab', { name: /^Stages/ })).toHaveAttribute('aria-selected', 'true');
+  await expect(page.getByRole('combobox', { name: 'Integrated Strategies theme', exact: true })).toHaveText('Phantom & Crimson Solitaire');
+});
