@@ -2,6 +2,11 @@ import { expect, test } from '@playwright/test';
 
 test('IS reference keeps theme and tab in the URL, searches collectibles and opens stage maps', async ({ page }) => {
   await page.goto('/game-modes');
+  const cc = page.getByRole('link', { name: /Contingency Contract/ });
+  await expect(cc).toHaveAttribute('href', '/stages/seasonal');
+  await cc.click();
+  await expect(page.getByRole('heading', { name: 'Contingency Contract', exact: true })).toBeVisible();
+  await page.goBack();
   await page.getByRole('link', { name: /Integrated Strategies/ }).click();
   await page.getByRole('tab', { name: /^Items/ }).click();
   await expect(page.getByRole('combobox', { name: 'Item category', exact: true })).toHaveText('Collectibles');

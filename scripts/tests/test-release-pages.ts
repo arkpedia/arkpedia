@@ -13,6 +13,7 @@ import { test } from 'node:test';
  * default.
  */
 const OUTSIDE_THE_RELEASE: Record<string, string> = {
+  'pages/game-modes/integrated-strategies.tsx': 'Preview-only reference: generated from pinned CN/Global tables on build, intentionally outside the production content publication until promotion.',
   'pages/community/projects.tsx': 'Code-owned project directory; companion metadata has immutable asset pins and ships with the UI.',
   'pages/community/twitch.tsx': 'Twitch listings fetched at ISR, no game data',
   'pages/community/videos.tsx': 'YouTube listings fetched at ISR, no game data',
