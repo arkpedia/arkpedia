@@ -5,17 +5,14 @@
 
 .credit-controls { flex: 1 1 100%; min-width: 0; }
 .credit-controls .credit-switch { width: 100%; }
-/* Filters remain one control high beside the taller rarity/class toolbar. */
-.credit-filter { align-self: flex-start; flex: 0 1 180px; min-width: 140px; }
 
 /* The letter row is one line: it wraps on a wide screen and scrolls sideways on a
    phone, where four wrapped rows of letters would push the list a screen down. */
-.credit-letters { width: 100%; min-width: 0; padding-top: 4px; }
+.credit-index-row { align-items: flex-start; }
+.credit-letters { flex: 1 1 600px; min-width: 0; }
 .credit-letter-row { gap: 4px; }
 .credit-letter-row > * { min-width: 28px; padding: 0 6px; }
 @media (max-width: 720px) {
-  /* The two menus share a line under the search. */
-  .credit-controls .credit-filter { flex: 1 1 140px; min-width: 0; }
   .credit-letters { overflow-x: auto; overflow-y: hidden; overscroll-behavior-x: contain; padding-bottom: 6px; }
   .credit-letter-row { flex-wrap: nowrap; }
   .credit-letter-row > * { flex: none; }

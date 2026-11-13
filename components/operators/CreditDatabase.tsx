@@ -192,12 +192,6 @@ export default function CreditDatabase({ people, uncredited, operators, now, kin
           <SearchInput className="roster-search" label={`Search ${title.toLowerCase()}`} placeholder={`${voices ? 'Actor' : 'Artist'} or operator`} value={query.q} onChange={q => change({ q })} />
           {/* On a phone everything but the page switch and the search folds into the sheet. */}
           <FilterSheet controlsClassName="roster-controls credit-controls" active={activeFilters} onReset={resetSheet} hold={hold} controls={<>
-          {voices
-            ? <StyledSelect className="credit-filter" menuMinWidth={200} menuMaxHeight={280} label="Filter by language" value={lang} onChange={value => change({ lang: value })}
-                options={[{ value: 'all', label: 'All languages' }, ...languages.map(([value, n]) => ({ value, label: `${value} (${n})` }))]} />
-            : <StyledSelect className="credit-filter" menuMinWidth={200} menuMaxHeight={280} label="Filter by credit" value={credit} onChange={value => change({ credit: value })} options={ART_CREDITS} />}
-          <StyledSelect className="credit-filter" menuMinWidth={200} menuMaxHeight={280} label="Filter by faction" value={query.faction} onChange={value => change({ faction: value })}
-            options={[{ value: 'all', label: 'All factions' }, ...factions.map(f => ({ value: f, label: f }))]} />
           <div className="roster-rarity-class-row">
             {/* Independent filter chips: pressing the lit one clears it, as on /operators. */}
             <div className="roster-button-group" role="group" aria-label="Rarity">
@@ -216,19 +210,28 @@ export default function CreditDatabase({ people, uncredited, operators, now, kin
             </div>
           </div>
           <div className="roster-filter-row">
+            {voices
+              ? <StyledSelect className="roster-branch" menuMinWidth={200} menuMaxHeight={280} label="Filter by language" value={lang} onChange={value => change({ lang: value })}
+                  options={[{ value: 'all', label: 'All languages' }, ...languages.map(([value, n]) => ({ value, label: `${value} (${n})` }))]} />
+              : <StyledSelect className="roster-branch" menuMinWidth={200} menuMaxHeight={280} label="Filter by credit" value={credit} onChange={value => change({ credit: value })} options={ART_CREDITS} />}
+            <StyledSelect className="roster-faction" menuMinWidth={200} menuMaxHeight={280} label="Filter by faction" value={query.faction} onChange={value => change({ faction: value })}
+              options={[{ value: 'all', label: 'All factions' }, ...factions.map(f => ({ value: f, label: f }))]} />
             <SegmentedControl label="Server" value={query.server === 'global' || query.server === 'cn' ? query.server : 'all'} onChange={server => change({ server })}
               options={[{ value: 'all', label: 'All' }, { value: 'global', label: 'On Global' }, { value: 'cn', label: 'CN only' }]} />
-            <span className="toolbar-spacer" aria-hidden="true" />
-            <SegmentedControl label="Sort by" value={sort} onChange={value => change({ sort: value })}
-              options={[{ value: 'name', label: 'Name' }, { value: 'count', label: 'Most operators' }]} />
-            <button type="button" className={`ghost ${INLINE_RESET}`} onClick={reset} disabled={!filtered} title={filtered ? undefined : 'No filter to reset'}>Reset</button>
           </div>
-          <div className="credit-letters sidescroll">
-            <SegmentedControl className="credit-letter-row" label="First letter" value={letter} onChange={value => change({ letter: value })}
-              options={[{ value: 'all', label: 'All' }, ...letters.map(({ group, n }) => ({
-                value: group, label: letterGroupLabel(group), disabled: !n && group !== letter,
-                title: n ? `${plural(n, noun)} under ${letterGroupLabel(group)}` : `No ${noun}s under ${letterGroupLabel(group)} with these filters`,
-              }))]} />
+          <div className="roster-filter-row credit-index-row">
+            <div className="credit-letters sidescroll">
+              <SegmentedControl className="credit-letter-row" label="First letter" value={letter} onChange={value => change({ letter: value })}
+                options={[{ value: 'all', label: 'All' }, ...letters.map(({ group, n }) => ({
+                  value: group, label: letterGroupLabel(group), disabled: !n && group !== letter,
+                  title: n ? `${plural(n, noun)} under ${letterGroupLabel(group)}` : `No ${noun}s under ${letterGroupLabel(group)} with these filters`,
+                }))]} />
+            </div>
+            <div className="roster-button-group">
+              <SegmentedControl label="Sort by" value={sort} onChange={value => change({ sort: value })}
+                options={[{ value: 'name', label: 'Name' }, { value: 'count', label: 'Most operators' }]} />
+              <button type="button" className={`ghost ${INLINE_RESET}`} onClick={reset} disabled={!filtered} title={filtered ? undefined : 'No filter to reset'}>Reset</button>
+            </div>
           </div>
           </>} />
         </div>}
