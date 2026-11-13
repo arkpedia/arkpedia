@@ -16,3 +16,27 @@ test('IS mechanics preserve game descriptions and stages without a catalogue mat
   assert.equal(result.sections.stages[0].href, undefined);
   assert.equal(result.sections.mechanics[0].text, 'Costs +1\n\nFlavour');
 });
+
+test('native artwork stays in its own theme and prefers Global candidates', async () => {
+  const { isIcon } = await import('../../lib/gamemodes/isArt');
+  const art = { assets: {
+    'content-art/integrated-strategies/topics/rogue_1/a/emblem.webp': { sourceRegion: 'cn' },
+    'content-art/integrated-strategies/topics/rogue_1/b/emblem.webp': { sourceRegion: 'en' },
+    'content-art/integrated-strategies/topics/rogue_2/a/emblem.webp': { sourceRegion: 'en' },
+  } };
+  assert.equal(isIcon(art, 'rogue_1', 'emblem'), 'content-art/integrated-strategies/topics/rogue_1/b/emblem.webp');
+  assert.equal(isIcon(art, 'rogue_3', 'emblem'), undefined);
+});
+
+test('projected game records keep their native icons and stage thumbnails', () => {
+  const icon = 'content-art/integrated-strategies/itempic/relic.webp';
+  const art = { assets: { [icon]: { sourceRegion: 'en' } } };
+  const table = { topics: { rogue_1: { name: 'Theme' } }, details: { rogue_1: {
+    items: { a: { id: 'a', name: 'Relic', type: 'RELIC', iconId: 'relic' } },
+    stages: { a: { id: 'a', name: 'Stage', levelId: 'level' } },
+  } } };
+  const topic = projectIs({}, table, [{ id: 'level', slug: 'map', image: 'map.webp' }], art)[0];
+  assert.equal(topic.sections.items[0].image, icon);
+  assert.equal(topic.sections.stages[0].image, '/stages-images/map.webp');
+  assert.equal(topic.sections.stages[0].imageKind, 'map');
+});

@@ -1,4 +1,5 @@
 import fs from 'node:fs/promises';
+import gameArt from '../../config/is-game-art.json';
 import { projectIs } from '../../lib/gamemodes/integratedStrategies';
 async function main() {
 const lock = JSON.parse(await fs.readFile('data/upstream.lock.json', 'utf8'));
@@ -10,7 +11,10 @@ async function load(repository: string, region: string) {
   return response.json();
 }
 const [cn, global, stages] = await Promise.all([load('Kengxxiao/ArknightsGameData', 'zh_CN'), load('PuppiizSunniiz/ArknightsGameData_YoStar', 'en_US'), fs.readFile('data/community-stage-catalogue.json', 'utf8').then(JSON.parse)]);
-const topics = projectIs(cn, global, stages);
+const artResponse = await fetch(`https://raw.githubusercontent.com/arkpedia/${gameArt.repository}/${gameArt.revision}/sources/is-game-art.json`, { signal: AbortSignal.timeout(30000) });
+if (!artResponse.ok) throw new Error('Pinned IS artwork manifest is unavailable');
+const art = await artResponse.json();
+const topics = projectIs(cn, global, stages, art);
 if (!topics.length || topics.some(t => !t.name || !t.sections.items.length || !t.sections.stages.length)) throw new Error('Incomplete IS catalogue; keeping the previous deployment');
 await fs.mkdir('public/_is', { recursive: true });
 for (const topic of topics) await fs.writeFile(`public/_is/${topic.id}.json`, JSON.stringify(topic));

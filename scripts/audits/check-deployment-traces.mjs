@@ -23,7 +23,7 @@ let largest = { route: '', count: 0 };
 for (const trace of walk(pagesDir).filter(file => file.endsWith('.js.nft.json'))) {
   const route = routeFor(trace);
   const files = JSON.parse(fs.readFileSync(trace, 'utf8')).files ?? [];
-  if (!guarded.has(route) && !route.startsWith('/api/dev/')) continue;
+  if (!guarded.has(route) && !route.startsWith('/api/dev/') && !route.startsWith('/api/ccb/operator/')) continue;
   if (files.length > largest.count) largest = { route, count: files.length };
   for (const file of files) {
     const resolved = path.resolve(path.dirname(trace), file);

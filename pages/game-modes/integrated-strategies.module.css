@@ -14,3 +14,14 @@
 .intro h2 { margin-top: 0; }
 .grid > article, .grid > details { padding: var(--card-inset); }
 @media (max-width: 720px) { .intro { grid-template-columns: minmax(0, 1fr); gap: 12px; } }
+
+.illustrated { display: grid; grid-template-columns: 80px minmax(0, 1fr); gap: 12px; align-items: start; }
+.itemArt { width: 80px; height: 80px; object-fit: contain; }
+.nodeIcon { width: 40px; height: 40px; flex: none; }
+.mapArt { width: 100%; height: auto; aspect-ratio: 2; object-fit: contain; margin-bottom: 12px; }
+.resources { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: var(--heading-gap); }
+.resources > div { display: flex; align-items: center; gap: 8px; padding: 8px 12px; }
+.resources .itemArt { width: 36px; height: 36px; }
+.page :global(.tab) .nodeIcon { width: 20px; height: 20px; }
+.grid summary { display: flex; align-items: center; gap: 12px; }
+@media (max-width: 480px) { .illustrated { grid-template-columns: 60px minmax(0, 1fr); } .itemArt { width: 60px; height: 60px; } .recordHead { flex-wrap: wrap; gap: 4px; } }

@@ -23,6 +23,8 @@ export interface GameAccountMap {
   /** Global beginner programme identity, resolved by registration date; absent in old releases.
    *  missionIds: the programme's missions (absent from a map built before them). */
   beginnerPrograms?: { id: string; startTs: number; endTs?: number; missionIds?: string[] }[];
+  /** favor_table: minimum favorPoint for each displayed trust percentage, 0–200. */
+  trustThresholds?: number[];
   /** global: the EN client has the operator, so the account page counts it. rarity: for its
    *  icon on the profile card. Absent from a map built before either was added. */
   chars: Record<string, { name: string; rarity?: number; modules: Record<string, number>; global?: true; formOf?: string; nation?: string }>;
@@ -66,10 +68,12 @@ interface GameChar {
   evolvePhase?: number;
   level?: number;
   mainSkillLvl?: number;
+  favorPoint?: number;
+  currentEquip?: string | null;
   skills?: GameSkill[];
   equip?: Record<string, GameEquip>;
   /** Amiya's forms: per form, its own skills and modules; promotion and level are shared. */
-  tmpl?: Record<string, { skills?: GameSkill[]; equip?: Record<string, GameEquip> }>;
+  tmpl?: Record<string, { skills?: GameSkill[]; equip?: Record<string, GameEquip>; currentEquip?: string | null }>;
   /** The form Amiya is in now, the one whose skills the training room trains. */
   currentTmpl?: string;
 }
@@ -101,7 +105,7 @@ const whole = (value: unknown, low: number, high: number, fallback: number) => {
   return Number.isFinite(number) ? Math.min(high, Math.max(low, number)) : fallback;
 };
 
-function owned(char: GameChar, form: { skills?: GameSkill[]; equip?: Record<string, GameEquip> }, modules: Record<string, number>): Owned {
+function owned(char: GameChar, form: { skills?: GameSkill[]; equip?: Record<string, GameEquip>; currentEquip?: string | null }, modules: Record<string, number>, thresholds?: number[]): Owned {
   const masteries: Owned['masteries'] = {};
   (Array.isArray(form.skills) ? form.skills : []).forEach((skill, index) => {
     const level = whole(skill?.specializeLevel, 0, 3, 0);
@@ -113,9 +117,17 @@ function owned(char: GameChar, form: { skills?: GameSkill[]; equip?: Record<stri
     if (!(equipId in modules) || equip?.locked) continue;
     stages[modules[equipId]] = whole(equip.level, 1, 3, 1) - 1;
   }
+  const trust = typeof char.favorPoint === 'number' && Number.isFinite(char.favorPoint) && char.favorPoint >= 0
+    && thresholds?.length === 201 && thresholds.every((point, index) => Number.isFinite(point) && point >= 0 && (!index || point > thresholds[index - 1]))
+    ? Math.max(0, thresholds.findLastIndex(point => point <= char.favorPoint!)) : undefined;
+  const equipped = form.currentEquip;
+  const equippedModule = typeof equipped === 'string' && equipped in modules && modules[equipped] in stages ? modules[equipped]
+    : equipped === null || typeof equipped === 'string' && equipped.startsWith('uniequip_001_') ? null : undefined;
   return {
     elite: whole(char.evolvePhase, 0, 2, 0),
     ...(typeof char.potentialRank === 'number' ? { potential: whole(char.potentialRank, 0, 5, 0) + 1 } : {}),
+    ...(trust !== undefined ? { trust } : {}),
+    ...(equippedModule !== undefined ? { equippedModule } : {}),
     level: whole(char.level, 1, 90, 1),
     skillLevel: whole(char.mainSkillLvl, 1, 7, 1),
     masteries,
@@ -131,7 +143,7 @@ export function readGameAccount(user: Record<string, any>, map: GameAccountMap, 
     for (const [id, form] of forms) {
       const entry = map.chars[id];
       if (!entry || !isSafeKey(entry.name)) { unknown.push(String(id)); continue; }
-      roster[entry.name] = owned(char, form ?? {}, entry.modules);
+      roster[entry.name] = owned(char, form ?? {}, entry.modules, map.trustThresholds);
     }
   }
 

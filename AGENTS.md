@@ -1,5 +1,7 @@
 # Arkpedia project guidance
 
+Game reference pages must use actual in-game icons and artwork wherever available. Reuse shared image components and publish missing assets through the asset/CDN pipeline; avoid text-only catalogues when native art exists.
+
 For any UI change, read `docs/development/design-system.md` and the relevant sections
 of `docs/development/ui-primitives.md`. Reuse shared primitives; put reusable paint in
 `styles/core/`. Content updates count as UI work: use official post imagery with
