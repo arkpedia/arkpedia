@@ -111,9 +111,8 @@ test('a slow pack cannot leave a blocking black screen', async ({ page }) => {
   await expect(dialog(page)).toBeHidden({ timeout: 2300 });
   await expect(page).toHaveURL(/\/events\//); await unlocked(page);
 });
-test('modified event links keep ordinary new-tab navigation', async ({ page }) => {
+test('modified event links leave the current page without an intro', async ({ page }) => {
   await media(page); const link = await open(page);
-  const popup = page.waitForEvent('popup'); await link.click({ modifiers: ['Control'] });
-  const other = await popup; await other.close();
+  await link.click({ modifiers: ['Control'] });
   await expect(page).toHaveURL(/\/schedule$/); await unlocked(page);
 });
