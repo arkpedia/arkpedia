@@ -245,7 +245,7 @@ export default function EventDetailPage({
   const menuArt = entrance && failedMenu !== entrance.id ? entranceAsset(entrance, 'menu.webp') : null;
   const shownArtAspect = menuArt ? CG_ASPECT : artAspect;
   const regionalImages = artAspect === POSTER_ASPECT && server !== 'en' ? [regionalArt(regionalWindow, modeImages[0] ?? null, server)].filter((src): src is string => !!src) : modeImages;
-  const shownImages = menuArt ? [menuArt, ...regionalImages] : regionalImages;
+  const shownImages = menuArt ? [menuArt, ...(artAspect === CG_ASPECT ? regionalImages : [])] : regionalImages;
   const shownBannerImage = bannerName ? regionalArt(schedule?.banners?.[bannerName], bannerImage, server) : bannerImage;
   const hasExtras = extras.packs.length + extras.furniture.length + extras.notices.length > 0;
   // A page compiled by a release from before the News tab has no `news` at all.
