@@ -25,16 +25,22 @@ API accepts only the closed names/tiers/update-time projection.
 
 The additive `0019_patreon_supporters.sql` migration stores the public snapshot and
 encrypted rotating tokens in a dedicated private D1 table, independent of Arkpedia
-accounts. The configured integration can initialize this one table idempotently;
+accounts. The configured integration can initialize its integration tables idempotently;
 it never alters existing account tables or runs unrelated pending migrations.
 A database lease serializes token rotation. New tokens are persisted before
 membership requests continue. A failed or incomplete refresh preserves the previous
 snapshot and backs off for one hour; the displayed date makes its age visible.
+The first snapshot retries after five minutes. Legacy initial one-hour cooldowns
+are shortened without changing encrypted credentials; a cooldown returns 503
+rather than reporting an indefinitely preparing snapshot.
 Keep the latest private database state through code rollback so refreshed tokens
 are not replaced with expired ones.
 
 Check `/api/patreon-supporters`: 200 means a validated snapshot, 202 means initial
 preparation, 204 means not configured and 503 means storage/validation unavailable.
-The public route never returns provider responses or credentials. For provider
-failures, inspect the Worker's safe scheduled-error message and the last update date.
+The public route never returns provider responses or credentials. The additive
+`0020_patreon_sync_diagnostics.sql` table records only a fixed failure code and
+failure/recovery timestamps. Inspect this private health record or the Worker's
+safe error code to distinguish provider HTTP errors, incomplete data and network
+failures. Raw responses and credentials are never recorded in diagnostics.
 See [Patreon's API documentation](https://docs.patreon.com/) for scopes and token renewal.
