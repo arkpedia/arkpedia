@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // Execute the existing suites proportionally; only completed coverage can become evidence.
 import fs from 'node:fs';
+import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
 import { browserPlan, dependencyIndex } from './browser-plan.mjs';
@@ -14,6 +15,42 @@ const git = (...args) => execFileSync('git', args, { encoding: 'utf8', maxBuffer
 const api = path => JSON.parse(execFileSync('gh', ['api', path], { encoding: 'utf8', maxBuffer: 16_000_000 }));
 const read = path => { try { return fs.readFileSync(path, 'utf8'); } catch { return null; } };
 const PLAN = '.cache/browser-plan.json', REPORT = '.cache/browser-results.json', EVIDENCE = '.cache/browser-evidence.json';
+
+/** Content lives outside Git now, but its validated hydrated JSON still supplies
+ * real import edges. Missing files and generated executable code remain unknown. */
+export function hydratedBrowserFiles(tracked, root = process.cwd()) {
+  const files = new Set(tracked);
+  const walk = folder => {
+    const directory = path.join(root, folder);
+    if (!fs.existsSync(directory)) return;
+    for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
+      const file = `${folder}/${entry.name}`;
+      if (entry.isDirectory()) walk(file);
+      else if (entry.isFile() && entry.name.endsWith('.json')) files.add(file);
+    }
+  };
+  for (const folder of ['data', 'public']) walk(folder);
+  return files;
+}
+
+export function expeditedChanges(changes, { scope, approved, baseline, dependencies }) {
+  if (scope !== 'pull_request' || approved !== '1' || !baseline || dependencies?.unreadable?.length || !(dependencies?.consumers instanceof Map)) return null;
+  return changes.filter(change => !POLICY_FILES.includes(change.path) && !/\.d\.(?:mts|ts)$/.test(change.path));
+}
+
+export function expeditedBrowserPlan(plan, { changes, specs }) {
+  const touched = changes.filter(change => /^tests\/browser\/.*\.spec\.ts$/.test(change.path));
+  if (!touched.length || touched.some(change => change.status?.startsWith('D') || !specs.includes(change.path))) return plan;
+  const selected = new Set(touched.map(change => change.path));
+  for (const name of ['nav-bar', 'mobile-touch-nav', 'navigation-continuity', 'privacy']) {
+    const file = specs.find(file => file.endsWith(`/${name}.spec.ts`));
+    if (!file) return plan;
+    selected.add(file);
+  }
+  if (selected.size >= specs.length) return plan;
+  return { ...plan, lane: 'targeted', releaseOnly: true, domains: [], selected: [...selected].sort(), omitted: specs.filter(file => !selected.has(file)),
+    reason: 'Approved expedited release: core navigation/consent and changed feature suites; exhaustive audit follows publication' };
+}
 
 /** The live-content build only redirects these generated type references. Any other edit stays dirty. */
 export function canonicalNextTypeRewrite(head, working) {
@@ -50,9 +87,10 @@ export function laneScope({ event, ref, headRepository, repository }) {
   return event === 'push' && ref === 'refs/heads/main' ? 'main' : null;
 }
 
-export function lanePlan({ metadata, baseline, changes, specs, relevant, dependencies, routes, readers, inventory, forceFull = false, releaseProfile = false }) {
+export function lanePlan({ metadata, baseline, changes, specs, relevant, dependencies, routes, readers, inventory, forceFull = false, releaseProfile = false, expeditedProfile = false }) {
   let plan = browserPlan({ changes, specs, relevant, dependencies, baselineVerified: !!baseline, forceFull });
   if (releaseProfile && !forceFull) plan = releaseBrowserPlan(plan, { changes, specs, baselineVerified: !!baseline, dependencies, routes, relevant, readers });
+  if (expeditedProfile && baseline && !forceFull && !dependencies?.unreadable?.length) plan = expeditedBrowserPlan(plan, { changes, specs });
   const coverage = coveragePlan(plan, inventory);
   return { schema: 1, policy: BROWSER_POLICY, ...metadata, baseline, comparisonBase: baseline?.commit ?? null,
     analysisReason: coverage.reason, coverage };
@@ -102,13 +140,16 @@ function plan() {
   } else fallbackReason = 'Manual, branch push, fork or unknown context requires full coverage';
   const inventory = JSON.parse(execFileSync(process.execPath, ['node_modules/playwright/cli.js', 'test', '--list', '--reporter=json'],
     { encoding: 'utf8', maxBuffer: 16_000_000 }));
-  const files = new Set(git('ls-files').split('\n').filter(Boolean));
+  const files = hydratedBrowserFiles(git('ls-files').split('\n').filter(Boolean));
   const specs = [...files].filter(path => /^tests\/browser\/.*\.spec\.ts$/.test(path));
-  const result = lanePlan({ metadata, baseline, changes, specs,
-    relevant: relevantFiles(files, read), dependencies: dependencyIndex(files, read), routes: specRoutes(specs, read),
+  const dependencies = dependencyIndex(files, read);
+  const expedited = expeditedChanges(changes, { scope, approved: process.env.BROWSER_EXPEDITED, baseline, dependencies });
+  const result = lanePlan({ metadata, baseline, changes: expedited ?? changes, specs,
+    relevant: relevantFiles(files, read), dependencies, routes: specRoutes(specs, read),
     readers: file => dataReaders(file, files, read), inventory, forceFull,
-    releaseProfile: scoped });
+    releaseProfile: scoped, expeditedProfile: !!expedited });
   if (fallbackReason) result.analysisReason = fallbackReason;
+  else if (expedited) result.analysisReason = `Maintainer-approved expedited release; exhaustive audit deferred. ${result.analysisReason}`;
   fs.mkdirSync('.cache', { recursive: true });
   fs.writeFileSync(PLAN, JSON.stringify(result, null, 2));
   fs.writeFileSync('.cache/browser-test-list.txt', result.coverage.testList);

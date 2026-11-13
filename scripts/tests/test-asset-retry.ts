@@ -367,6 +367,7 @@ test('the retry script is in <head>, ahead of every image', () => {
  * file fails here until it uses fetchAsset.
  */
 const NOT_PUBLISHED_FILES: Record<string, string> = {
+  'lib/patreon/sync.mjs: url': 'fixed-origin Patreon API v2 and OAuth requests, never published assets',
   'lib/music/youtube.ts: url': 'the YouTube Data API',
   'lib/music/youtubeFeedCache.ts: ...args': 'the injected fetch transport for YouTube channel Atom feeds (youtube.com/feeds/videos.xml)',
   'lib/music-guesser/prepareClip.ts: url': "Monster Siren's own audio CDN (/api/music-guesser)",

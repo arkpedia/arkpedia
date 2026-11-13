@@ -86,6 +86,7 @@ for (const [title, operator, skin] of [
     await page.goto('/events/' + encodeURIComponent(title));
     const tab = page.getByRole('tab', { name: 'Rewards', exact: true });
     if (await tab.count()) await tab.click();
+    await expect(page.locator('.reward-summary-tile b').first()).toBeVisible();
     const expected = await page.locator('.reward-summary-tile b').allTextContents();
     expect(expected.length).toBeGreaterThan(0);
     await openImage(page);
@@ -179,3 +180,35 @@ test('reward image links reopen the fullscreen view and Escape restores the page
   await page.getByRole('button', { name: 'Close', exact: true }).click();
   await expect(page.getByRole('dialog')).toHaveCount(0);
 });
+
+for (const theme of ['dark', 'light']) {
+  test(`dense celebrations export wide without losing rewards in ${theme}`, async ({ page }) => {
+    await page.addInitScript(theme => {
+      localStorage.setItem('theme', theme);
+      const labels: { text: string; y: number }[] = [];
+      Object.assign(window, { denseRewardLabels: labels });
+      const draw = CanvasRenderingContext2D.prototype.fillText;
+      CanvasRenderingContext2D.prototype.fillText = function (text, x, y, maxWidth) {
+        labels.push({ text, y });
+        return maxWidth === undefined ? draw.call(this, text, x, y) : draw.call(this, text, x, y, maxWidth);
+      };
+    }, theme);
+    await page.goto('/events/' + encodeURIComponent('[Celebration] Critical Phase Transition') + '#rewards');
+    await expect(page.locator('.reward-summary-tile b').first()).toBeVisible();
+    const expected = await page.locator('.reward-summary-tile b').allTextContents();
+    expect(expected.length).toBeGreaterThan(40);
+    await openImage(page);
+    const waiting = page.waitForEvent('download');
+    await page.getByRole('button', { name: 'Save image', exact: true }).click();
+    const png = await readFile((await (await waiting).path())!);
+    expect(png.readUInt32BE(16), 'dense rewards use a wide composition').toBeGreaterThan(png.readUInt32BE(20));
+    const labels = await page.evaluate(() => (window as unknown as { denseRewardLabels: { text: string; y: number }[] }).denseRewardLabels);
+    expect(labels.filter(label => label.text.startsWith('×')).map(label => label.text).sort()).toEqual(expected.sort());
+    const features = labels.filter(label => ['FREE OPERATOR', 'FREE SKIN'].includes(label.text));
+    expect(features).toHaveLength(5);
+    expect(new Set(features.map(label => label.y)).size, 'all five featured rewards share one row').toBe(1);
+    await page.getByRole('button', { name: 'Zoom rewards image', exact: true }).click();
+    expect(await page.getByRole('dialog').locator('img').evaluate(image => image.getBoundingClientRect().width)).toBe(2400);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  });
+}
