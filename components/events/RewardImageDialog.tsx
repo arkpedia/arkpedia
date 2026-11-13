@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type CSSProperties } from 'react';
 import ImportDialog from '@/components/account/ImportDialog';
 import { ContentImg } from '@/components/content/ContentImage';
 import { useContentUrl } from '@/lib/content/context';
@@ -14,7 +14,7 @@ export default function RewardImageDialog({ title, summary, artwork, rewardNote,
   skins: Skin[]; welfare: EventWelfareOperator[]; onClose: () => void;
 }) {
   const resolve = useContentUrl();
-  const [image, setImage] = useState<{ blob: Blob; src: string; width: number } | null>(null);
+  const [image, setImage] = useState<{ blob: Blob; src: string; width: number; height: number } | null>(null);
   const [failed, setFailed] = useState(false);
   const [attempt, setAttempt] = useState(0);
   const [note, setNote] = useState<string | null>(null);
@@ -30,13 +30,13 @@ export default function RewardImageDialog({ title, summary, artwork, rewardNote,
           const skin = rewardSkin(item.name, skins, item.iconPath);
           return skin?.image ? { ...item, artwork: skin.image } : item;
         }) }) };
-        const { blob, width } = await drawRewardSummary({ title, summary: enriched, welfare: welfare.map(op => {
+        const { blob, width, height } = await drawRewardSummary({ title, summary: enriched, welfare: welfare.map(op => {
           const iconPath = getOperatorIconPath(op);
           return { name: op.name, iconPath, artwork: iconPath.replace('-star-icons/', '-star-skins/') };
         }), artwork: artwork ? resolve(artwork) : null, rewardNote, resolve });
         if (cancelled) return;
         src = URL.createObjectURL(blob);
-        setImage({ blob, src, width });
+        setImage({ blob, src, width, height });
       } catch { if (!cancelled) setFailed(true); }
     })();
     return () => { cancelled = true; if (src) URL.revokeObjectURL(src); };
@@ -51,7 +51,7 @@ export default function RewardImageDialog({ title, summary, artwork, rewardNote,
 
   return <ImportDialog title={`${title} rewards`} className="reward-image-dialog account-dialog-fit" onClose={onClose}>
     <div className="reward-image-content">
-    <div className="reward-image-preview" aria-busy={!image && !failed}>
+    <div className="reward-image-preview" aria-busy={!image && !failed} style={image ? { '--reward-image-ratio': `${image.width} / ${image.height}` } as CSSProperties : undefined}>
       {image ? <ContentImg src={image.src} alt={`${title}: event rewards infographic`} width={image.width} />
         : failed ? <div><p role="alert">The picture could not be drawn in this browser.</p><button type="button" className="btn" onClick={() => setAttempt(value => value + 1)}>Try again</button></div>
           : <p className="hint" role="status">Preparing rewards image…</p>}

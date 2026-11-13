@@ -7,6 +7,11 @@ on:
         type: string
         required: false
         default: ''
+      animation_revision:
+        description: Optional full arkpedia-l2d-assets commit to mirror before Preview publication
+        type: string
+        required: false
+        default: ''
   schedule:
     - cron: '17 */6 * * *'
 permissions:
@@ -45,7 +50,13 @@ jobs:
         env:
           IMAGE_REVISION: ${{ inputs.image_revision }}
         run: node scripts/content/add-image-mirror-pin.mjs .cache/asset-mirror-plan.json
+      - name: Include requested immutable animation revision
+        if: inputs.animation_revision != ''
+        env:
+          ANIMATION_REVISION: ${{ inputs.animation_revision }}
+        run: node scripts/content/add-image-mirror-pin.mjs .cache/asset-mirror-plan.json
       - name: Verify and mirror public files
+        # Animation packs use the same immutable, verified publication owner.
         if: vars.ARKPEDIA_UNIFIED_ASSETS != 'true'
         run: node scripts/content/mirror-github-assets.mjs --pins=.cache/asset-mirror-plan.json --cache="$RUNNER_TOOL_CACHE/arkpedia-public-git" --report=.cache/r2-mirror-receipts.json
         env:
@@ -88,7 +99,7 @@ jobs:
           include-hidden-files: true
           if-no-files-found: error
   deploy:
-    if: github.ref == 'refs/heads/main' && inputs.image_revision == '' && vars.ARKPEDIA_ASSETS_DELIVERY != 'native'
+    if: github.ref == 'refs/heads/main' && inputs.image_revision == '' && inputs.animation_revision == '' && vars.ARKPEDIA_ASSETS_DELIVERY != 'native'
     needs: mirror
     runs-on: ubuntu-latest
     timeout-minutes: 10
