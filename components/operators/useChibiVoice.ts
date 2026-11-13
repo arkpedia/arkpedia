@@ -26,7 +26,8 @@ export function useChibiVoice(voices: ChibiTapVoices | undefined, { language, vo
     const clip = trust ? selected?.trust : selected?.tap;
     if (!enabled) return;
     stop(); for (const sound of active) sound.pause();
-    // Original base UI click/trust sounds; both follow the quiet chibi volume.
+    // Original base UI click/trust sounds from https://github.com/ThiagoVsky/arknights-sound
+    // Bundled copies, pinned paths and checksums: public/audio/SOURCES.md. Both follow this volume.
     const urls = [trust ? '/audio/chibi-trust.mp3' : '/audio/chibi-tap.mp3', ...(clip ? [resolve(clip.url)] : [])];
     const sounds = urls.map(url => {
       const address = assetAudioUrl(url), heard = new Audio(address);
