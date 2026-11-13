@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { lanePlan, laneScope, completeLane, canonicalNextTypeRewrite, unexpectedBrowserInputs, hydratedBrowserFiles, expeditedChanges } from '../ci/browser-lane.mjs';
+import { lanePlan, laneScope, completeLane, canonicalNextTypeRewrite, unexpectedBrowserInputs, hydratedBrowserFiles, expeditedChanges, expeditedBrowserPlan } from '../ci/browser-lane.mjs';
 import { dependencyIndex } from '../ci/browser-plan.mjs';
 import { coveragePlan } from '../ci/browser-coverage.mjs';
 
@@ -31,10 +31,19 @@ test('validated hydrated JSON participates in the import graph without admitting
   } finally { fs.rmSync(root, { recursive: true, force: true }); }
 });
 test('expedited policy changes require a same-repository PR scope, explicit approval, a full baseline and a complete graph', () => {
-  const changes = [{ path: 'scripts/ci/browser-lane.mjs' }, { path: 'pages/support.tsx' }];
+  const changes = [{ path: 'scripts/ci/browser-lane.mjs' }, { path: 'pages/support.tsx' }, { path: 'lib/patreon/sync.d.mts' }];
   const args = { scope: 'pull_request', approved: '1', baseline, dependencies: { consumers: new Map(), unreadable: [] } };
   assert.deepEqual(expeditedChanges(changes, args), [changes[1]]);
   for (const extra of [{ scope: null }, { scope: 'main' }, { approved: '' }, { baseline: null }, { dependencies: { consumers: new Map(), unreadable: ['missing runtime module'] } }]) assert.equal(expeditedChanges(changes, { ...args, ...extra }), null);
+});
+test('expedited coverage records omissions and runs the changed feature suites plus every required smoke suite', () => {
+  const specs = ['nav-bar', 'mobile-touch-nav', 'navigation-continuity', 'privacy', 'new-feature', 'other-feature', 'layout-census'].map(name => `tests/browser/${name}.spec.ts`);
+  const original = { lane: 'full' };
+  const changes = [{ path: specs[4], status: 'M' }];
+  const plan = expeditedBrowserPlan(original, { changes, specs });
+  assert.equal(plan.lane, 'targeted'); assert.deepEqual(plan.selected, specs.slice(0, 5).sort());
+  assert.deepEqual(plan.omitted, specs.slice(5));
+  for (const input of [{ changes: [], specs }, { changes: [{ ...changes[0], status: 'D' }], specs }, { changes, specs: specs.slice(1) }]) assert.equal(expeditedBrowserPlan(original, input), original);
 });
 
 test('only complete canonical Next live type rewrites are accepted; other dirty inputs remain guarded', () => {
