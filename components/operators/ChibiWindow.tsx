@@ -35,7 +35,12 @@ export default function ChibiWindow({ config, open }: { config: ChibiViewerConfi
   const playVoice = useChibiVoice(config.voices, open);
   const completed = useRef(false);
   useEffect(() => { completed.current = false; }, [playing, sequence]);
-  const onAnimationComplete = useCallback((looping: boolean) => { if (looping) return; completed.current = true; setReaction(null); setPlaying(selected); }, [selected]);
+  const onAnimationComplete = useCallback((looping: boolean) => {
+    // Queued poses start at the next cycle boundary, including looping clips.
+    completed.current = !looping;
+    setReaction(null);
+    setPlaying(selected);
+  }, [selected]);
   const windowRef = useRef<HTMLDivElement>(null), position = useRef<Point>({ x: 8, y: 8 });
   const [dimensions, setDimensions] = useState<{ width: number; height: number } | null>(null);
   const resizing = useRef<{ pointer: number; edge: ChibiWindowEdge; origin: Point; rect: ChibiWindowRect } | null>(null);

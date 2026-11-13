@@ -1,5 +1,36 @@
 import { expect, test } from '@playwright/test';
 
+for (const theme of ['dark', 'light']) test(`outside collaborations are opt-in and independent of events in ${theme}`, async ({ page }) => {
+  await page.goto('/schedule?view=calendar');
+  await page.evaluate(theme => { document.documentElement.dataset.theme = theme; }, theme);
+  for (const [label, value] of [['Year', '2026'], ['Month', 'November']]) {
+    await page.getByRole('combobox', { name: label, exact: true }).click();
+    await page.getByRole('option', { name: value, exact: true }).click();
+  }
+  const controls = page.getByRole('group', { name: 'Calendar controls', exact: true });
+  const otherGames = controls.getByRole('button', { name: 'External collabs', exact: true });
+  const events = controls.getByRole('button', { name: 'Events', exact: true });
+  const collabs = page.locator('.schedule-bar').filter({ hasText: 'Arcaea' });
+  await expect(otherGames).toHaveAttribute('aria-pressed', 'false');
+  await expect(collabs).toHaveCount(0);
+  await expect(page.locator('.schedule-bar').first()).toBeVisible();
+  await otherGames.focus();
+  await page.keyboard.press('Space');
+  await expect(otherGames).toHaveAttribute('aria-pressed', 'true');
+  await expect(collabs.first()).toBeVisible();
+  await events.click();
+  await expect(collabs.first()).toBeVisible();
+  await expect(page.locator('.schedule-bar').filter({ hasNotText: 'Arcaea' })).toHaveCount(0);
+  await otherGames.click();
+  await expect(page.locator('.schedule-bar')).toHaveCount(0);
+  await events.click();
+  await expect(page.locator('.schedule-bar').first()).toBeVisible();
+  await expect(collabs).toHaveCount(0);
+  await controls.getByRole('button', { name: 'Sync calendar / .ics', exact: true }).click();
+  await expect(page.getByRole('checkbox', { name: 'Include collaborations in other games', exact: true })).not.toBeChecked();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+});
+
 for (const theme of ['dark', 'light']) test(`calendar keeps its frame and page scroll across dense and sparse months in ${theme}`, async ({ page }) => {
   await page.goto('/schedule?view=calendar');
   await page.evaluate(theme => { document.documentElement.dataset.theme = theme; }, theme);

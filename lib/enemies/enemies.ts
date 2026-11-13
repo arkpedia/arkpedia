@@ -1,6 +1,6 @@
 import fs from 'fs';
 import path from 'path';
-import appearancesData from '@/data/enemy_appearances.json';
+import { readDataTable } from '@/lib/content/dataTable';
 import {
   Enemy,
   EnemyAppearance,
@@ -95,7 +95,10 @@ export function getEnemyContents(): EnemyContent[] {
 
 /** content id -> the enemy slugs it fields, from data/enemy_appearances.json. */
 export function getAppearances(): EnemyAppearance[] {
-  return appearancesData as EnemyAppearance[];
+  // Like the enemy bundles above, this index is used by local/prerender builders.
+  // Runtime pages read their published props; don't compile this growing table
+  // into the Worker that serves them.
+  return readDataTable<EnemyAppearance[]>('enemy_appearances.json');
 }
 
 /**

@@ -34,6 +34,10 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    at: '2026-11-13T16:20:00Z',
+    changed: [{ title: 'Optional collaborations in other games', detail: 'Use External collabs in the calendar to show outside collaborations; they stay hidden by default.', href: '/schedule?view=calendar' }],
+  },
+  {
     at: '2026-11-13T14:20:00Z',
     added: [{ title: 'Story-reading guide', detail: 'Watch the Arkpedia guide from the Story page.', href: '/story?guide=1' }, { title: 'Chibi tap voices', detail: 'Tap a chibi or use Enter and Space to hear its normal and trust reactions, including outfit recordings.', href: '/operators' }],
     changed: [{ title: 'Voice credits link to recordings', detail: 'Jump from the overview’s voice credits to voice lines, with the chosen language selected.', href: '/operators' }],
