@@ -686,3 +686,11 @@ html[data-site-server="kr"] .event-news[data-own-kr] .event-news-server[data-ser
 .reward-image-footer { flex: none; }
 .reward-image-footer p { margin: 0 0 8px; overflow-wrap: anywhere; }
 .reward-image-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
+
+/* On phones the frame hugs the poster instead of reserving a fullscreen canvas.
+   Flex shrinking still fits unusually tall posters below the fixed header/actions. */
+@media (max-width: 720px) {
+  .reward-image-dialog { height: fit-content; }
+  .reward-image-dialog .account-dialog-body, .reward-image-content { flex: 0 1 auto; }
+  .reward-image-preview { flex: 0 1 auto; aspect-ratio: var(--reward-image-ratio, 1); }
+}

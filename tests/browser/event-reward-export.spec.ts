@@ -28,10 +28,21 @@ async function overviewFits(page: Page) {
       image: { top: rect.top, bottom: rect.bottom, height: rect.height },
       footer: { top: footer.top, bottom: footer.bottom },
       viewport: innerHeight,
+      frameWidth: el.getBoundingClientRect().width,
+      pageWidth: parseFloat(getComputedStyle(el).getPropertyValue('--frame-max')),
+      mobile: innerWidth <= 720,
+      footerGap: el.getBoundingClientRect().bottom - footer.bottom,
+      footerInset: parseFloat(getComputedStyle(el.querySelector('.account-dialog-body')!).paddingBottom) + parseFloat(getComputedStyle(el).borderBottomWidth),
+      fittedImageHeight: Math.min(image.naturalHeight, rect.width * image.naturalHeight / image.naturalWidth),
     };
   });
   for (const box of layout.containers) { expect(box.x).toBeLessThanOrEqual(1); expect(box.y).toBeLessThanOrEqual(1); }
   expect(['contain', 'scale-down']).toContain(layout.fit);
+  expect(layout.frameWidth).toBeLessThanOrEqual(layout.pageWidth);
+  if (layout.mobile) {
+    expect(layout.image.height, 'mobile preview has no tall empty canvas around the poster').toBeLessThanOrEqual(layout.fittedImageHeight + 1);
+    expect(layout.footerGap, 'mobile dialog ends below its actions without an empty lower panel').toBeLessThanOrEqual(layout.footerInset + 1);
+  }
   expect(layout.image.height).toBeGreaterThan(0);
   expect(layout.image.top).toBeGreaterThanOrEqual(0);
   expect(layout.image.bottom).toBeLessThanOrEqual(layout.footer.top);
