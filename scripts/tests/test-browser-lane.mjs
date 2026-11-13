@@ -1,6 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { lanePlan, laneScope, completeLane, canonicalNextTypeRewrite, unexpectedBrowserInputs } from '../ci/browser-lane.mjs';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { lanePlan, laneScope, completeLane, canonicalNextTypeRewrite, unexpectedBrowserInputs, hydratedBrowserFiles, expeditedChanges } from '../ci/browser-lane.mjs';
+import { dependencyIndex } from '../ci/browser-plan.mjs';
 import { coveragePlan } from '../ci/browser-coverage.mjs';
 
 const metadata = { commit: 'a'.repeat(40), tree: 'b'.repeat(40), repository: 'arkpedia/arkpedia', baseRef: 'main',
@@ -9,6 +13,29 @@ const baseline = { coverage: 'full', commit: 'd'.repeat(40), tree: 'e'.repeat(40
   baseRef: 'main', runId: 10, jobId: 20, artifactId: 30, event: 'pull_request', sourceCommit: 'f'.repeat(40) };
 const specs = ['nav-bar.spec.ts', 'mobile-touch-nav.spec.ts', 'navigation-continuity.spec.ts', 'story-library.spec.ts',
   'layout-census.spec.ts', 'layout-census-after.spec.ts', 'other-feature.spec.ts'];
+
+test('validated hydrated JSON participates in the import graph without admitting untracked executable code', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'browser-inputs-'));
+  try {
+    fs.mkdirSync(path.join(root, 'data'), { recursive: true });
+    fs.writeFileSync(path.join(root, 'data/record.json'), '{}');
+    fs.writeFileSync(path.join(root, 'data/untracked.js'), 'export default 1');
+    const sources = { 'pages/feature.ts': "import record from '../data/record.json'", 'package.json': '{}', 'tsconfig.json': '{}' };
+    const files = hydratedBrowserFiles(Object.keys(sources), root);
+    const index = dependencyIndex(files, file => sources[file] ?? fs.readFileSync(path.join(root, file), 'utf8'));
+    assert.deepEqual(index.unreadable, []);
+    assert(index.consumers.get('data/record.json').has('pages/feature.ts'));
+    assert(!files.has('data/untracked.js'));
+    fs.rmSync(path.join(root, 'data/record.json'));
+    assert(dependencyIndex(hydratedBrowserFiles(Object.keys(sources), root), file => sources[file]).unreadable.length > 0);
+  } finally { fs.rmSync(root, { recursive: true, force: true }); }
+});
+test('expedited policy changes require a same-repository PR scope, explicit approval, a full baseline and a complete graph', () => {
+  const changes = [{ path: 'scripts/ci/browser-lane.mjs' }, { path: 'pages/support.tsx' }];
+  const args = { scope: 'pull_request', approved: '1', baseline, dependencies: { consumers: new Map(), unreadable: [] } };
+  assert.deepEqual(expeditedChanges(changes, args), [changes[1]]);
+  for (const extra of [{ scope: null }, { scope: 'main' }, { approved: '' }, { baseline: null }, { dependencies: { consumers: new Map(), unreadable: ['missing runtime module'] } }]) assert.equal(expeditedChanges(changes, { ...args, ...extra }), null);
+});
 
 test('only complete canonical Next live type rewrites are accepted; other dirty inputs remain guarded', () => {
   const head = '/// <reference types="next" />\nimport "./.next/types/routes.d.ts";\nimport "./.next/types/root-params.d.ts";\n';
