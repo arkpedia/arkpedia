@@ -533,6 +533,44 @@ for (const theme of ['dark', 'light']) {
 }
 
 
+test('a queued pose waits for playback when a base model finishes loading after Play', async ({ page }) => {
+  await page.clock.install();
+  await page.goto('/operators/Thorns');
+  await page.getByRole('group', { name: 'Operator outfits', exact: true }).getByRole('button', { name: 'Blade-cleaved Tides', exact: true }).click();
+  const payload = JSON.parse((await page.locator('#__NEXT_DATA__').textContent())!);
+  const skeleton = contentUrl(payload.props.pageProps.chibis['Blade-cleaved Tides'].walk.skeleton, payload.props.pageProps.__contentRelease);
+  let release = () => {}, loading = () => {}, requests = 0;
+  const gate = new Promise<void>(resolve => { release = resolve; });
+  const requested = new Promise<void>(resolve => { loading = resolve; });
+  // The catalogue loads first. Hold the renderer's separate request so its
+  // zero-length Default framing pose is applied only after Play was pressed.
+  await page.route(skeleton, async route => {
+    if (++requests === 2) { loading(); await gate; }
+    await route.continue();
+  });
+  try {
+    await page.getByRole('button', { name: 'Chibi viewer', exact: true }).click();
+    const viewer = page.locator('.chibi-window');
+    await expect(viewer.locator('canvas')).toHaveAccessibleName('Thorns — Blade-cleaved Tides chibi');
+    await expect(viewer.locator('[role="status"]')).toHaveCount(0);
+    await viewer.getByRole('button', { name: 'Pause', exact: true }).click();
+    await chooseAnimation(page, 'Trust tap');
+    await requested;
+    await viewer.getByRole('button', { name: 'Play', exact: true }).click();
+    await expect(viewer.getByRole('button', { name: 'Pause', exact: true })).toHaveAttribute('aria-pressed', 'false');
+    await page.clock.pauseAt(new Date(Date.now() + 1000));
+    release();
+    await expect(viewer.locator('[role="status"]')).toHaveCount(0);
+    await page.clock.runFor(100);
+    await expect(viewer.locator('canvas')).toHaveAttribute('data-animation', 'Special');
+    await chooseAnimation(page, 'Sleeping');
+    await page.clock.runFor(2000);
+    await expect(viewer.locator('canvas')).toHaveAttribute('data-animation', 'Special');
+    await page.clock.runFor(7000);
+    await expect(viewer.locator('canvas')).toHaveAttribute('data-animation', 'Sleep');
+  } finally { release(); }
+});
+
 test('a faster base catalogue cannot replace the selected battle idle while battle assets load', async ({ page }) => {
   await page.route('**/*.skel', async route => {
     if (route.request().url().includes('/front/')) await new Promise(resolve => setTimeout(resolve, 1500));

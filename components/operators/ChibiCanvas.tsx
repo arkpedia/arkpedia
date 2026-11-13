@@ -53,7 +53,6 @@ export default function ChibiCanvas({ model, label, animation, onAnimationChange
       const skeleton = new spine.Skeleton(data); skeleton.setToSetupPose(); skeleton.updateWorldTransform();
       const stateData = new spine.AnimationStateData(data); stateData.defaultMix = .15;
       const state = new spine.AnimationState(stateData);
-      state.addListener({ start: () => {}, interrupt: () => {}, end: () => {}, dispose: () => {}, event: () => {}, complete: entry => { if (entry === state.getCurrent(0)) control.current.onAnimationComplete?.(entry.loop && entry.animation.duration > 0); } });
       const names = data.animations.map(value => value.name); const initial = names.includes('Idle') ? 'Idle' : names[0];
       onAnimationsChange(names, Object.fromEntries(data.animations.map(value => [value.name, value.duration]))); setLoading(false);
       // Frame Idle, but retain the selected animation across facing/model changes.
@@ -76,6 +75,9 @@ export default function ChibiCanvas({ model, label, animation, onAnimationChange
       if (body) { origin.set(body.left, body.bottom); size.set(body.right - body.left, body.top - body.bottom); }
       skeleton.drawOrder = drawOrder;
       if (!Number.isFinite(size.x) || !Number.isFinite(size.y)) { origin.set(-100, 0); size.set(200, 300); }
+      // Framing can complete a zero-length Default pose. Only actual playback
+      // may finish the viewer's selected clip or release a roaming reaction.
+      state.addListener({ start: () => {}, interrupt: () => {}, end: () => {}, dispose: () => {}, event: () => {}, complete: entry => { if (entry === state.getCurrent(0)) control.current.onAnimationComplete?.(entry.loop && entry.animation.duration > 0); } });
       // Measure every frame of a clip before playback. Transparent effect attachments
       // do not count, but effects that become visible later must fit too.
       const envelopes = new Map<string, { left: number; bottom: number; right: number; top: number }>();
@@ -99,7 +101,8 @@ export default function ChibiCanvas({ model, label, animation, onAnimationChange
         }
         envelopes.set(name, bounds); return bounds;
       };
-      let previous = performance.now(), current = initial, sequence = 0, wasTap = false, looping = true;
+      // Start playback on the first frame even when it selects the framing pose.
+      let previous = performance.now(), current = '', sequence = 0, wasTap = false, looping = true;
       cleanup = () => { atlas.dispose(); shared.release(); };
       const render = (now: number) => {
         if (stopped) return;
