@@ -135,8 +135,9 @@ export default function EventEntranceProvider({ children }: { children: ReactNod
     const box = dialog.current, element = canvas.current, abort = new AbortController();
     let disposed = false, raf = 0, player: GameUiPlayer | null = null, docked = false;
     let timer: ReturnType<typeof setTimeout> | undefined, watchdog: ReturnType<typeof setTimeout> | undefined;
-    const overflow = document.documentElement.style.overflow, entered = performance.now();
+    const overflow = document.documentElement.style.overflow, gutter = document.documentElement.style.scrollbarGutter, entered = performance.now();
     box.showModal(); box.focus({ preventScroll: true }); document.documentElement.style.overflow = 'hidden';
+    document.documentElement.style.scrollbarGutter = 'auto';
     control.current = { stop: () => { disposed = true; abort.abort(); cancelAnimationFrame(raf); clearTimeout(timer); clearTimeout(watchdog); } };
     const updateTarget = () => {
       const art = document.querySelector<HTMLElement>(`[data-event-entrance-art="${session.entry.id}"]`);
@@ -187,6 +188,8 @@ export default function EventEntranceProvider({ children }: { children: ReactNod
           try { player.draw(Math.min(elapsed, prepared.scene.duration)); } catch { finish(); return; }
           if (elapsed >= prepared.scene.duration && !docked) {
             docked = true;
+            // Restore the normal page frame before measuring its landing art.
+            document.documentElement.style.scrollbarGutter = gutter;
             setHolding(false); // Cue the already prepared event theme at the handoff.
             const canDock = updateTarget();
             setPhase(canDock ? 'docking' : 'fading');
@@ -206,7 +209,7 @@ export default function EventEntranceProvider({ children }: { children: ReactNod
     return () => {
       disposed = true; abort.abort(); cancelAnimationFrame(raf); clearTimeout(timer); clearTimeout(watchdog);
       player?.dispose(); window.removeEventListener('resize', resize); element.removeEventListener('webglcontextlost', contextLost);
-      box.close(); document.documentElement.style.overflow = overflow;
+      box.close(); document.documentElement.style.overflow = overflow; document.documentElement.style.scrollbarGutter = gutter;
       document.getElementById('page-content')?.focus({ preventScroll: true });
     };
   }, [session, prepare, finish]);

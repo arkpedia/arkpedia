@@ -35,6 +35,7 @@ async function open(page: Page) {
 async function unlocked(page: Page) {
   await expect(dialog(page)).toBeHidden();
   await expect.poll(() => page.evaluate(() => document.documentElement.style.overflow)).not.toBe('hidden');
+  await expect.poll(() => page.evaluate(() => document.documentElement.style.scrollbarGutter)).toBe('');
 }
 for (const theme of ['dark', 'light']) {
   test(`native entrance uses the viewport, docks and leaves Back usable (${theme})`, async ({ page }) => {
@@ -47,6 +48,7 @@ for (const theme of ['dark', 'light']) {
     const viewport = page.viewportSize()!;
     expect(Math.abs(bounds!.width - viewport.width)).toBeLessThan(2);
     expect(Math.abs(bounds!.height - viewport.height)).toBeLessThan(2);
+    expect(await page.evaluate(() => document.elementFromPoint(innerWidth - 2, innerHeight / 2)?.tagName)).toBe('CANVAS');
     await expect(dialog(page)).toHaveAttribute('data-phase', 'docking');
     await unlocked(page);
     await expect(page.locator('[data-event-entrance-art="act42sre"] img')).toHaveAttribute('src', /menu.webp/);
