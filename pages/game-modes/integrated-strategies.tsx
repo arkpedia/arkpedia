@@ -23,7 +23,7 @@ const topicCache = new Map<string, IsTopic>();
 const revealed = new Map<string, number>();
 const LABELS = ['Overview', 'Stages', 'Items', 'Squads', 'Encounters', 'Special mechanics', 'Endings'];
 /** Game markup remains text: no injected HTML or internal colour tags. */
-const plain = (value: string) => value.replace(/<[^>]*>/g, '').replace(/\\n/g, '\n');
+const plain = (value: string) => value.replace(/<\/>|<\/?(?:@[^>]*|color(?:=[^>]*)?|size(?:=[^>]*)?|b|i)>/gi, '').replace(/\\n/g, '\n');
 export default function IntegratedStrategies({ themes }: { themes: Theme[] }) {
   const router = useRouter();
   const initial = (key: string, fallback: string) => typeof router.query[key] === 'string' ? router.query[key] as string : fallback;
