@@ -2,6 +2,26 @@ import { expect, test } from '@playwright/test';
 
 const routes = ['/operators', '/skins', '/artists', '/voice-actors', '/techniques', '/synergies', '/story?view=list', '/schedule?past=1', "/world?section=youtube", "/reward-tracker?view=free"];
 
+test('operator controls paint continuously beneath the navbar at normal and fractional scale', async ({ page }, info) => {
+  if (info.project.name === 'desktop') await page.setViewportSize({ width: 1920, height: 1200 });
+  await page.goto('/operators');
+  const bar = page.locator('.sticky-controls');
+  await expect(bar).toHaveAttribute('data-sticky', 'true');
+  for (const theme of ['dark', 'light']) for (const zoom of [1, 1.25]) {
+    await page.evaluate(({ theme, zoom }) => { document.documentElement.dataset.theme = theme; document.documentElement.style.zoom = String(zoom); scrollTo(0, 1000); }, { theme, zoom });
+    await expect(bar).toHaveAttribute('data-sticky', 'true');
+    await expect.poll(() => bar.evaluate(el => {
+      const nav = [...document.querySelectorAll('.site-nav, .mobile-nav-bar')].find(node => node.getBoundingClientRect().height > 0)!;
+      const paint = getComputedStyle(el, '::before');
+      const top = el.getBoundingClientRect().top + parseFloat(paint.top) * Number(document.documentElement.style.zoom || 1);
+      return nav.getBoundingClientRect().bottom - top;
+    })).toBeGreaterThanOrEqual(0);
+    const paint = await bar.evaluate(el => ({ background: getComputedStyle(el).backgroundColor, seam: getComputedStyle(el, '::before').backgroundColor, content: getComputedStyle(el, '::before').content }));
+    expect(paint.content).toBe('""');
+    expect(paint.seam).toBe(paint.background);
+  }
+});
+
 for (const route of routes) test(`${route}: compact controls stay below navigation while browsing`, async ({ page }) => {
   await page.goto(route);
   if (route.startsWith('/story')) await expect(page.getByRole('combobox', { name: 'Story category' })).toBeVisible();

@@ -1,4 +1,4 @@
-import { useEffect, useState, type CSSProperties } from 'react';
+import { useEffect, useState } from 'react';
 import ImportDialog from '@/components/account/ImportDialog';
 import { ContentImg } from '@/components/content/ContentImage';
 import { useContentUrl } from '@/lib/content/context';
@@ -18,7 +18,6 @@ export default function RewardImageDialog({ title, summary, artwork, rewardNote,
   const [failed, setFailed] = useState(false);
   const [attempt, setAttempt] = useState(0);
   const [note, setNote] = useState<string | null>(null);
-  const [zoomed, setZoomed] = useState(false);
   useEffect(() => {
     let cancelled = false;
     let src: string | undefined;
@@ -50,17 +49,15 @@ export default function RewardImageDialog({ title, summary, artwork, rewardNote,
     catch { setNote(link.href); }
   }
 
-  return <ImportDialog title={`${title} rewards`} className="reward-image-dialog" onClose={onClose}>
+  return <ImportDialog title={`${title} rewards`} className="reward-image-dialog account-dialog-fit" onClose={onClose}>
     <div className="reward-image-content">
-    <div className="reward-image-preview sidescroll" aria-busy={!image && !failed}>
-      {image ? <button type="button" className="btn-bare reward-image-zoom" style={{ '--reward-image-width': `${image.width}px` } as CSSProperties} aria-pressed={zoomed} aria-label={zoomed ? 'Fit rewards image to width' : 'Zoom rewards image'} title={zoomed ? 'Fit image to width' : 'Zoom image'} onClick={() => setZoomed(value => !value)}>
-        <ContentImg src={image.src} alt={`${title}: event rewards infographic`} width={image.width} />
-      </button>
+    <div className="reward-image-preview" aria-busy={!image && !failed}>
+      {image ? <ContentImg src={image.src} alt={`${title}: event rewards infographic`} width={image.width} />
         : failed ? <div><p role="alert">The picture could not be drawn in this browser.</p><button type="button" className="btn" onClick={() => setAttempt(value => value + 1)}>Try again</button></div>
           : <p className="hint" role="status">Preparing rewards image…</p>}
     </div>
     <div className="reward-image-footer">
-      <p className="hint">{zoomed ? 'Scroll to explore; select the image to fit.' : 'Select the image to zoom.'}</p>
+      <p className="hint">Save image keeps the original resolution.</p>
       {note && <p className="hint" role="status">{note}</p>}
       <div className="reward-image-actions">
         <button type="button" className="btn" onClick={copyLink}>Copy link</button>

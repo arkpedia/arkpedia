@@ -1,5 +1,10 @@
 # Arkpedia project guidance
 
+Event-reward infographic previews must show the entire image within the viewport,
+with no cropping or scrolling and with Copy link and Save image visible. Keep the
+full-resolution saved image unchanged; these overviews support at-a-glance reading
+and video presentation.
+
 For any UI change, read `docs/development/design-system.md` and the relevant sections
 of `docs/development/ui-primitives.md`. Reuse shared primitives; put reusable paint in
 `styles/core/`. Content updates count as UI work: use official post imagery with
