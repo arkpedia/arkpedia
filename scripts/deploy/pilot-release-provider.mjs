@@ -26,11 +26,13 @@ export const MEDIA_SECRET_UPDATE = Object.freeze({
 const MEDIA_SECRETS = ['TWITCH_CLIENT_ID', 'TWITCH_CLIENT_SECRET', 'YOUTUBE_API_KEY'];
 const PATREON_SECRETS = ['PATREON_CAMPAIGN_ID', 'PATREON_CLIENT_ID', 'PATREON_CLIENT_SECRET', 'PATREON_CREATOR_ACCESS_TOKEN', 'PATREON_CREATOR_REFRESH_TOKEN'];
 // Maintainer-authorized dashboard secret setup on 2026-11-13. The serving build
-// still reports this checked source/fingerprint. Pin this observed version and
+// still reports this checked source/fingerprint. The maintainer activated the corrected
+// secret at 11:32 UTC; pin that serving version rather than the earlier saved draft.
+// Pin this observed version and
 // etag: dashboard updates replace release annotations, and other versions remain
 // untrusted. This does not allow arbitrary future secret-only/manual deployments.
 export const PATREON_SECRET_UPDATE = Object.freeze({
-  version: '646e6c6e-97dd-46d8-a666-80492019f37d',
+  version: '714bb157-01e6-4f3b-a948-f8f1e1e441cb',
   baseline: '147c7fa5-055e-4d50-bff8-7ca548f6cc2d',
   etag: '1cf9096c8b3157b622d0b8a17478df5820464086c0927b4926aa2f1cfb88c643',
   source: '1d4b17710faa5003502782a057ba0b1e7218bdc5',
