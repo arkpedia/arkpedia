@@ -163,7 +163,7 @@ export function assertPilotIdentity(build, version) {
   return build;
 }
 
-export function createPilotProvider({ run = execFileSync, request = fetch, environment = process.env, allowLocalRecovery = false } = {}) {
+export function createPilotProvider({ run = execFileSync, request = fetch, environment = process.env, allowLocalRecovery = false, sleep = ms => new Promise(resolve => setTimeout(resolve, ms)) } = {}) {
   const invoke = (args, { json = false, timeout = 120_000 } = {}) => {
     const output = run(process.execPath, [wrangler, ...args, '--name', PILOT.worker, '--config', config,
       ...(json ? ['--json'] : [])], { encoding: 'utf8', env: providerEnvironment(environment), timeout, maxBuffer: 16_000_000 });
@@ -205,16 +205,25 @@ export function createPilotProvider({ run = execFileSync, request = fetch, envir
     }
     return { healthy: true, build };
   };
-  const deploy = owner => {
+  const deploy = async owner => {
     const message = pilotReleaseMessage(owner);
     requireValue(environment.CLOUDFLARE_API_TOKEN, 'explicit Worker-scoped deployment credential required');
     requireValue(observe().id === owner.previousVersion, 'pilot changed before upload');
     const output = invoke(['deploy', '--tag', `main-${owner.source.slice(0, 12)}`, '--message', message], { timeout: 300_000 });
     const ids = [...output.matchAll(/^Current Version ID: ([a-f0-9-]+)\s*$/gm)].map(match => match[1]);
     requireValue(ids.length === 1 && UUID.test(ids[0]), 'deploy returned no unique provider version');
-    const actual = observe();
-    requireValue(actual.id === ids[0] && actual.annotations?.['workers/message'] === message, 'deployed pilot version/owner differs');
-    return actual;
+    // Cloudflare can acknowledge activation while deployments.list still returns
+    // the previous version. Wait only on that exact baseline; a foreign version
+    // or mismatched owner still fails immediately, without another upload.
+    for (let attempt = 0; ; attempt++) {
+      const actual = observe();
+      if (actual.id === ids[0]) {
+        requireValue(actual.annotations?.['workers/message'] === message, 'deployed pilot version/owner differs');
+        return actual;
+      }
+      requireValue(actual.id === owner.previousVersion && attempt < 6, 'deployed pilot version/owner differs');
+      await sleep(5_000);
+    }
   };
   // Recover even when upload succeeded but the deploy response was lost. Read raw
   // identity first: never roll back somebody else's change or guess its version.

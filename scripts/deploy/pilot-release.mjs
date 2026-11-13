@@ -27,7 +27,7 @@ export async function publishPilotRelease({ source, checkRun, build, approve, pr
   // retries too, so a same-source rebuild can repair stale artwork redirects.
   const owner = { source, fingerprint: build.codeFingerprint, checkRun, previousVersion: previous.id };
   try {
-    const current = provider.deploy(owner);
+    const current = await provider.deploy(owner);
     // Activation can reach the service binding before every public edge serves
     // its assets. Retry only this identity mismatch, with the same owned version;
     // an exposed account route or any other health failure still fails at once.

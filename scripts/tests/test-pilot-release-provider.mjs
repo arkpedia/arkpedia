@@ -126,8 +126,10 @@ test('identity reader refuses dirty, invalid-role, redirect and oversized respon
   await assert.rejects(() => readPilotIdentity(async () => new Response(' '.repeat(70_000))), /oversized pilot identity/);
 });
 
-function harness({ token = true, badRoute = null, lostDeployResponse = false, sessionCache = 'private, no-store', savedDataCache = 'private, no-store', allowLocalRecovery = false, initialVersion = PILOT.legacyVersion, accounts = false, providers = ['google', 'discord'] } = {}) {
+function harness({ token = true, staleAfterDeploy = 0, foreignAfterDeploy = false, badRoute = null, lostDeployResponse = false, sessionCache = 'private, no-store', savedDataCache = 'private, no-store', allowLocalRecovery = false, initialVersion = PILOT.legacyVersion, accounts = false, providers = ['google', 'discord'] } = {}) {
   let current = initialVersion;
+  let staleReads = 0;
+  const waits = [];
   const versions = new Map([[PILOT.legacyVersion, version()], [nextVersion, version(nextVersion)]]);
   if (accounts) enableAccounts(versions.get(nextVersion));
   const commands = [];
@@ -138,14 +140,24 @@ function harness({ token = true, badRoute = null, lostDeployResponse = false, se
     assert.equal(options.env.GH_TOKEN, undefined);
     assert.equal(options.env.CLOUDFLARE_ACCOUNT_ID, '1ff51c10571eaa9934bc451e1bfdb361');
     const command = args[1]; commands.push(command);
-    if (command === 'deployments') return JSON.stringify([{ id: 'cccccccc-cccc-4ccc-8ccc-cccccccccccc',
-      created_on: '2026-10-25T00:00:00Z', versions: [{ version_id: current, percentage: 100 }] }]);
+    if (command === 'deployments') {
+      let observed = current;
+      if (staleReads > 0) { observed = initialVersion; staleReads--; }
+      return JSON.stringify([{ id: 'cccccccc-cccc-4ccc-8ccc-cccccccccccc',
+        created_on: '2026-10-25T00:00:00Z', versions: [{ version_id: observed, percentage: 100 }] }]);
+    }
     if (command === 'versions') return JSON.stringify(versions.get(args[3]));
     if (command === 'deploy') {
       current = nextVersion;
       versions.get(current).annotations['workers/message'] = args[args.indexOf('--message') + 1];
       if (lostDeployResponse) throw new Error('response lost after activation');
-      return `Current Version ID: ${current}\n`;
+      staleReads = staleAfterDeploy;
+      if (foreignAfterDeploy) {
+        const foreign = version(foreignVersion);
+        foreign.annotations['workers/message'] = pilotReleaseMessage({ ...owner, source: '3'.repeat(40) });
+        versions.set(foreignVersion, foreign); current = foreignVersion;
+      }
+      return `Current Version ID: ${nextVersion}\n`;
     }
     if (command === 'rollback') { current = args[2]; return 'rolled back'; }
     assert.fail(`Unexpected provider mutation: ${command}`);
@@ -165,10 +177,10 @@ function harness({ token = true, badRoute = null, lostDeployResponse = false, se
       headers: { 'cache-control': path === '/api/auth/get-session' ? sessionCache : savedDataCache } });
     return new Response('page');
   };
-  const provider = createPilotProvider({ run, request, allowLocalRecovery,
+  const provider = createPilotProvider({ run, request, allowLocalRecovery, sleep: async ms => { waits.push(ms); },
     environment: { ...(token ? { CLOUDFLARE_API_TOKEN: 'fixture-not-a-real-token' } : {}),
       BETTER_AUTH_SECRET: 'must-not-reach-provider', GH_TOKEN: 'must-not-reach-provider' } });
-  return { provider, commands, current: () => current, replace: () => {
+  return { provider, commands, waits, current: () => current, replace: () => {
     current = foreignVersion; const v = version(nextVersion); v.id = foreignVersion;
     v.annotations['workers/message'] = pilotReleaseMessage({ ...owner, source: '3'.repeat(40) });
     versions.set(current, v);
@@ -177,7 +189,7 @@ function harness({ token = true, badRoute = null, lostDeployResponse = false, se
 test('fixed pilot publication checks current resources, records owner, verifies health and can recover its version', async () => {
   const h = harness();
   await h.provider.health(h.provider.observe());
-  const published = h.provider.deploy(owner);
+  const published = await h.provider.deploy(owner);
   assert.equal(published.id, nextVersion);
   assert.equal((await h.provider.health(published)).build.commit, owner.source);
   assert.deepEqual(await h.provider.recover(owner), { action: 'rolled-back', version: PILOT.legacyVersion });
@@ -185,16 +197,16 @@ test('fixed pilot publication checks current resources, records owner, verifies 
   assert.equal(h.commands.filter(c => c === 'deploy').length, 1);
   assert.equal(h.commands.filter(c => c === 'rollback').length, 1);
 });
-test('no explicit token means no deployment; local OAuth is read-only here', () => {
+test('no explicit token means no deployment; local OAuth is read-only here', async () => {
   const h = harness({ token: false });
   h.provider.observe();
-  assert.throws(() => h.provider.deploy(owner), /explicit Worker-scoped/);
+  await assert.rejects(() => h.provider.deploy(owner), /explicit Worker-scoped/);
   assert.ok(!h.commands.includes('deploy'));
 });
 test('explicit local recovery permits only rollback and still refuses ordinary deployment', async () => {
   const h = harness({ token: false, allowLocalRecovery: true, initialVersion: nextVersion });
   assert.deepEqual(h.provider.owner(h.provider.observe()), owner);
-  assert.throws(() => h.provider.deploy(owner), /explicit Worker-scoped/);
+  await assert.rejects(() => h.provider.deploy(owner), /explicit Worker-scoped/);
   assert.equal((await h.provider.recover(owner, nextVersion)).action, 'rolled-back');
   assert.ok(!h.commands.includes('deploy'));
 });
@@ -217,13 +229,13 @@ test('health requires no-store on every account API and private on saved-data en
 });
 test('a changed pilot blocks deployment and recovery does not overwrite a foreign owner', async () => {
   const h = harness(); h.replace();
-  assert.throws(() => h.provider.deploy(owner), /pilot changed before upload/);
+  await assert.rejects(() => h.provider.deploy(owner), /pilot changed before upload/);
   await assert.rejects(() => h.provider.recover(owner), /another owner/);
   assert.ok(!h.commands.includes('deploy') && !h.commands.includes('rollback'));
 });
 test('lost upload response can recover only the exact canonical owner; unchanged upload needs no rollback', async () => {
   const h = harness({ lostDeployResponse: true });
-  assert.throws(() => h.provider.deploy(owner), /response lost/);
+  await assert.rejects(() => h.provider.deploy(owner), /response lost/);
   assert.equal((await h.provider.recover(owner)).action, 'rolled-back');
   const idle = harness();
   assert.deepEqual(await idle.provider.recover(owner), { action: 'unchanged' });
@@ -243,11 +255,37 @@ test('enabled production accounts require their exact limits and reject partial 
 test('account release verifies anonymous auth, private saves, public community and rollback to disabled accounts', async () => {
   const h = harness({ accounts: true });
   await h.provider.health(h.provider.observe());
-  const published = h.provider.deploy(owner);
+  const published = await h.provider.deploy(owner);
   await h.provider.health(published);
   assert.equal((await h.provider.recover(owner)).action, 'rolled-back');
   for (const options of [{ providers: ['google'] }, { badRoute: '/api/community/supports' }, { savedDataCache: 'public, max-age=60' }]) {
     const bad = harness({ accounts: true, initialVersion: nextVersion, ...options });
     await assert.rejects(() => bad.provider.health(bad.provider.observe()));
   }
+});
+
+
+test('activation accepts delayed control-plane propagation only from the exact previous version', async () => {
+  const h = harness({ staleAfterDeploy: 2 });
+  const published = await h.provider.deploy(owner);
+  assert.equal(published.id, nextVersion);
+  assert.deepEqual(h.waits, [5000, 5000]);
+  assert.equal(h.commands.filter(c => c === 'deploy').length, 1);
+  assert.equal(h.commands.filter(c => c === 'rollback').length, 0);
+});
+
+test('a control plane that never shows activation fails after a bounded wait without another upload', async () => {
+  const h = harness({ staleAfterDeploy: 100 });
+  await assert.rejects(() => h.provider.deploy(owner), /deployed pilot version\/owner differs/);
+  assert.equal(h.waits.length, 6);
+  assert.equal(h.commands.filter(c => c === 'deploy').length, 1);
+});
+
+test('a foreign activation is refused immediately instead of being retried as propagation', async () => {
+  const h = harness({ foreignAfterDeploy: true });
+  await assert.rejects(() => h.provider.deploy(owner), /deployed pilot version\/owner differs/);
+  assert.equal(h.waits.length, 0);
+  assert.equal(h.commands.filter(c => c === 'deploy').length, 1);
+  await assert.rejects(() => h.provider.recover(owner), /another owner/);
+  assert.equal(h.commands.filter(c => c === 'rollback').length, 0);
 });
