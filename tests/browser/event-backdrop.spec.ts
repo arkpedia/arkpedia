@@ -12,14 +12,21 @@ for (const theme of ['dark','light']) test(`event artwork fills the page behind 
   const headingBox=(await header.boundingBox())!;
   const viewport=page.viewportSize()!;
   if(viewport.width>720) {
-    expect(headingBox.width).toBeLessThanOrEqual(viewport.width*.6);
     expect((await page.locator('.event-detail-compact').boundingBox())!.width).toBeLessThanOrEqual(640);
-  } else expect(headingBox.y-box.y).toBeGreaterThan(viewport.height*.2);
+  }
+  expect(headingBox.y-box.y).toBeLessThan(40);
+  const back=(await header.locator('.back-btn').boundingBox())!;
+  const trail=(await header.locator('.eyebrow').boundingBox())!;
+  expect(Math.abs((back.y+back.height/2)-(trail.y+trail.height/2))).toBeLessThan(1);
   await expect(page.getByRole('heading',{level:1})).toHaveText("The Masses' Travels");
   await expect(page.locator('.event-detail-right.artwork-surface')).toHaveCount(0);
   const tabs=page.getByRole('tablist',{name:'Event sections'});
   const tabsBox=(await tabs.boundingBox())!;
-  expect(await header.evaluate(el=>getComputedStyle(el).backgroundColor)).toContain('0.9');
+  expect(await header.evaluate(el=>getComputedStyle(el).backgroundColor)).toBe('rgba(0, 0, 0, 0)');
+  expect(await tabs.evaluate(el=>getComputedStyle(el).backgroundColor)).toBe('rgba(0, 0, 0, 0)');
+  expect(await page.locator('.artwork-page').evaluate(el=>getComputedStyle(el,'::after').backgroundImage)).toContain('linear-gradient');
+  const card=page.locator('.event-section-card').first();
+  expect(await card.evaluate(el=>getComputedStyle(el).backgroundColor)).toContain('0.62');
   await page.getByRole('tab',{name:'Rewards',exact:true}).click();
   const nextTabs=(await tabs.boundingBox())!;
   expect(Math.abs(nextTabs.x-tabsBox.x)).toBeLessThanOrEqual(1);

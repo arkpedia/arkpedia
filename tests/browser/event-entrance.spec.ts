@@ -45,6 +45,8 @@ for (const theme of ['dark', 'light']) {
     const link = await open(page); await link.click();
     await expect(dialog(page)).toBeVisible();
     await expect(dialog(page)).toHaveAttribute('data-phase', 'playing');
+    await expect(page.locator('.artwork-heading')).toHaveCSS('opacity', '0');
+    await expect(page.locator('.event-detail-tabs')).toHaveCSS('opacity', '0');
     const bounds = await dialog(page).boundingBox();
     const viewport = page.viewportSize()!;
     expect(Math.abs(bounds!.width - viewport.width)).toBeLessThan(2);
@@ -52,6 +54,9 @@ for (const theme of ['dark', 'light']) {
     expect(await page.evaluate(() => document.elementFromPoint(innerWidth - 2, innerHeight / 2)?.tagName)).toBe('CANVAS');
     await expect(dialog(page)).toHaveAttribute('data-phase', 'docking');
     await unlocked(page);
+    await expect(page.locator('.artwork-heading')).toHaveCSS('opacity', '1');
+    await expect(page.locator('.event-detail-tabs')).toHaveCSS('opacity', '1');
+    await expect(page.getByRole('tabpanel')).toHaveCSS('opacity', '1');
     await expect(page.locator('[data-event-entrance-art="act42sre"] img')).toHaveAttribute('src', /menu.webp/);
     expect(requests).not.toContain('entrance.wav'); // Audio is opt-in.
     await page.goBack(); await expect(page).toHaveURL(/\/schedule$/); await unlocked(page);
@@ -73,6 +78,8 @@ test('reduced motion avoids the entrance and its downloads', async ({ page }) =>
   const requests = await media(page); const link = await open(page); await link.click();
   await expect(page).toHaveURL(/\/events\//); await unlocked(page);
   expect(requests).not.toContain('scene.json');
+  await expect(page.locator('.artwork-heading')).toHaveCSS('opacity', '1');
+  expect(await page.locator('.artwork-heading').evaluate(el=>el.getAnimations().length)).toBe(0);
 });
 test('missing entrance assets leave a usable event page', async ({ page }) => {
   await media(page, true); const link = await open(page); await link.click();

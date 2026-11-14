@@ -661,15 +661,6 @@ html[data-site-server="kr"] .event-news[data-own-kr] .event-news-server[data-ser
 /* Event menu artwork occupies the viewport behind the normal page frame. */
 .event-page { display: flow-root; position: relative; isolation: isolate; min-height: calc(100dvh - var(--nav-h, 54px)); }
 .event-page-art { position: fixed; inset: var(--nav-h, 54px) 0 0; z-index: -1; pointer-events: none; overflow: hidden; }
-.event-page-heading {
-  width: min(620px, 100%);
-  margin: 24px auto 0 max(0px, calc((100% - var(--frame-max)) / 2));
-}
 .event-detail-compact { max-width: 640px; }
-.artwork-page .event-detail-tabs { width: fit-content; max-width: 100%; padding-block: 6px; }
-@media (max-width: 720px) {
-  /* The portrait crop's faces stay visible above the title and details. */
-  .event-page-heading { margin-top: clamp(200px, 30svh, 300px); }
-}
 .reward-image-zoom { display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 8px; }
 .reward-image-zoom output { min-width: 4ch; text-align: center; font-family: var(--font-mono); }

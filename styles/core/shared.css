@@ -544,6 +544,7 @@ header,
 .page-header.page-header-slim { padding-top: 16px; padding-bottom: 12px; }
 .page-header.page-header-slim h1 { margin-bottom: 4px; }
 .page-header > .sub { margin: 0; }
+.page-header-trail { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
 /* Controls that belong to the page as a whole (search, filters, a primary action)
    sit under the title, inside the header's frame. */
 .page-header-actions {

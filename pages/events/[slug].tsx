@@ -340,7 +340,7 @@ export default function EventDetailPage({
         <Image src={activeImage} alt="" fill sizes="100vw" style={{ objectFit: 'cover' }}
           onError={() => { if (entrance && activeImage === menuArt) setFailedMenu(entrance.id); }} />
       </div>}
-      <PageHeader slim={!!activeImage} className={activeImage ? 'event-page-heading artwork-surface' : undefined}
+      <PageHeader slim={!!activeImage} inlineTrail={!!activeImage} className={activeImage ? 'artwork-heading' : undefined}
         back={{ href: '/schedule', label: 'Events' }}
         eyebrow={<><Link prefetch={false} href="/schedule">Events</Link>{activeImage && eventKind ? ` // ${eventKind}` : ''}</>}
         title={activeImage ? displayTitle : name}
@@ -355,7 +355,7 @@ export default function EventDetailPage({
             <Tabs<SectionKey>
               label="Event sections"
               id="event-section"
-              className={`event-detail-tabs${activeImage ? ' artwork-surface' : ''}`}
+              className="event-detail-tabs"
               value={activeSection}
               onChange={changeSection}
               options={sections.map((section) => ({ value: section.key, label: section.label }))}

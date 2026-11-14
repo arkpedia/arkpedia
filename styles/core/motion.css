@@ -29,6 +29,17 @@
   .event-entrance-stage { transition: transform 560ms var(--ease), opacity 180ms linear; }
   .event-entrance[data-phase="playing"] .event-entrance-stage { transition: none; }
   @keyframes event-entrance-black { from { background-color: transparent; } to { background-color: #000; } }
+  /* Reveal event controls only after the native overlay has finished docking.
+     Opacity leaves text, tab geometry and scroll restoration in place. */
+  .artwork-page > .page-header,
+  .artwork-page .event-detail-tabs,
+  .artwork-page .event-detail-right > [role="tabpanel"] { animation: event-ui-reveal 420ms var(--ease) backwards; }
+  .artwork-page .event-detail-tabs { animation-delay: 60ms; }
+  .artwork-page .event-detail-right > [role="tabpanel"] { animation-delay: 120ms; }
+  html:has(.event-entrance[open]) .artwork-page > .page-header,
+  html:has(.event-entrance[open]) .artwork-page .event-detail-tabs,
+  html:has(.event-entrance[open]) .artwork-page .event-detail-right > [role="tabpanel"] { animation: none; opacity: 0; }
+  @keyframes event-ui-reveal { from { opacity: 0; } to { opacity: 1; } }
   /* Overlay entrances: a short rise for Queue, a lateral glide for the shared
      player. Individual translate preserves the transport's centered transform. */
   .music-queue-drawer { animation: music-queue-enter var(--dur-1) var(--ease); }

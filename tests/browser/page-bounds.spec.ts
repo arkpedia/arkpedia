@@ -31,9 +31,9 @@ test('an artwork header keeps real text and controls inside the content frame', 
   await page.emulateMedia({reducedMotion:'reduce'});
   await page.goto('/events/Duel%20Channel%3A%20Ivy%20Vine');
   await fontsSettled(page);
-  await expect(page.locator('.page-header.artwork-surface')).toBeVisible();
+  await expect(page.locator('.page-header.artwork-heading')).toBeVisible();
   expect((await settled(page)).offences).toEqual([]);
-  // A permitted full-frame header surface must not exempt its actual controls.
+  // The bare artwork header must keep its actual controls in the frame.
   await page.addStyleTag({content: '.page-header .back-btn { transform: translateX(-500px) !important; }'});
   expect((await settled(page)).offences).toContain('frame');
 });
