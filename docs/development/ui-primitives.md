@@ -726,3 +726,8 @@ Reward infographic viewers open fitted with their complete image and download/li
 actions visible. `.image-viewport` and `useImageViewport` contain wheel, pinch,
 pointer drag and keyboard zoom/pan inside the image area. Keep controls outside that
 area, bound panning to the image, and offer Fit image. Saving always uses the original blob.
+
+An artwork header retains PageHeader's outer frame and gutters. Its background
+surface follows that frame; its title, text and controls still align with the
+inset body content. Bounds checks measure those contents separately from the
+header's background band, just as for its shared sticky-action extension.

@@ -3,7 +3,7 @@ import path from 'node:path';
 import { expect, test } from '@playwright/test';
 import { sectionCensus } from './section-census';
 import { fontsSettled } from './census-routes';
-import { baseline, BOUNDS_EXCLUDED as EXCLUDED, BOUNDS_SAMPLES as SAMPLES, boundsRoutes as routes } from './layout-checks';
+import { baseline, BOUNDS_EXCLUDED as EXCLUDED, BOUNDS_SAMPLES as SAMPLES, boundsRoutes as routes, settled } from './layout-checks';
 
 /*
  * Every page sits in the same frame as the nav: 1040px wide with a 24px gutter, so its
@@ -26,6 +26,17 @@ const WIDTHS = [
   { key: 'd1440', use: { viewport: { width: 1440, height: 900 }, reducedMotion: 'reduce' } },
   { key: 'd390', use: { viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, deviceScaleFactor: 2, reducedMotion: 'reduce' } },
 ] as const;
+
+test('an artwork header keeps real text and controls inside the content frame', async ({page}) => {
+  await page.emulateMedia({reducedMotion:'reduce'});
+  await page.goto('/events/Duel%20Channel%3A%20Ivy%20Vine');
+  await fontsSettled(page);
+  await expect(page.locator('.page-header.artwork-surface')).toBeVisible();
+  expect((await settled(page)).offences).toEqual([]);
+  // A permitted full-frame header surface must not exempt its actual controls.
+  await page.addStyleTag({content: '.page-header .back-btn { transform: translateX(-500px) !important; }'});
+  expect((await settled(page)).offences).toContain('frame');
+});
 
 /* r9: a state the route list never shows -- the planner's operator dossier, which stacks
    its portrait band above the build at 640px and under (its content sat 16px in from the
