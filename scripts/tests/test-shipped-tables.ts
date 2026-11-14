@@ -4,7 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
 import { build } from 'esbuild';
-import { SHIPPED_TABLES, readShippedTable } from '../../lib/content/shippedTable';
+import { SHIPPED_TABLES, readPublicJson, readShippedTable } from '../../lib/content/shippedTable';
 import { SHIPPED, shipTables } from '../build/ship-tables.mjs';
 
 /* The Worker reads these tables from its static files rather than compiling them into handler.mjs
@@ -30,6 +30,23 @@ test('a shipped table is read from data/ where it is on disk, and from the stati
   assert.deepEqual(asked, ['/_tables/regional-schedules.json']);
   const missing = { fetch: async () => new Response('', { status: 404 }) };
   await assert.rejects(readShippedTable('regional-schedules.json', { root: worker, assets: missing }), /HTTP 404/);
+});
+
+test('reference page data survives a cold Worker without local public or source files', async () => {
+  const empty = tempRoot({});
+  const asked: string[] = [];
+  for (const file of ['_is/manifest.json', '_ccb/catalogue.json'] as const) {
+    const value = { catalogue: file };
+    const disk = tempRoot({ [`public/${file}`]: JSON.stringify(value) });
+    const assets = { fetch: async (request: Request) => {
+      asked.push(new URL(request.url).pathname);
+      return Response.json(value);
+    } };
+    assert.deepEqual(await readPublicJson(file, { root: disk, assets }), value);
+    assert.deepEqual(await readPublicJson(file, { root: empty, assets }), value);
+    await assert.rejects(readPublicJson(file, { root: empty, assets: { fetch: async () => new Response('', { status: 404 }) } }), /HTTP 404/);
+  }
+  assert.deepEqual(asked, ['/_is/manifest.json', '/_ccb/catalogue.json']);
 });
 
 test('the build copies exactly the tables the reader names into public/_tables, which git ignores', () => {

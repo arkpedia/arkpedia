@@ -91,6 +91,7 @@ const nextConfig = {
     '/api/dev/**': ['data/**/*', 'public/**/*', '.cache/**/*', '.env*'],
     // Artwork voices read the published operator page; local catalogue readers are dev-only.
     '/api/artwork-voices': ['data/**/*', 'public/**/*', '.env*'],
+    '/api/ccb/operator/**': ['data/**/*', 'public/**/*', '.env*'],
   },
   async redirects() {
     // /enemies used to be a redirect to the first enemy's own page, because the

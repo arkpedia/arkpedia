@@ -477,6 +477,7 @@ test('the content release is read through fetchAsset on the server too', () => {
  */
 type Allowed = { call: RegExp; why: string };
 const RAW_READERS: Record<string, Allowed[]> = {
+  'scripts/build/build-is-catalogue.ts': [],
   'scripts/audits/check-published-assets.mjs': [],
   'scripts/audits/check-voice-clips.mjs': [],
   'scripts/build/adopt-release-asset-pins.mjs': [

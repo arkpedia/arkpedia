@@ -1,0 +1,90 @@
+.workspace { display: grid; gap: 20px; }
+.workspace > a { justify-self: start; }
+.statIcon { width: 20px; height: 20px; flex: none; }
+.toolbar, .row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.toolbar > :first-child { flex: 1; min-width: 240px; }
+.row { justify-content: space-between; }
+.row h2, .row h3 { margin: 0; }
+.archiveLabel, .note, .mapOriginal { color: var(--text-dim); font-size: 11px; }
+.maps { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 10px; }
+.mapCard { display: flex; align-items: center; gap: 12px; text-align: left; padding: 8px; background: var(--panel-grad); border: 1px solid transparent; border-radius: var(--radius); background-clip: padding-box; }
+.mapCard img { width: 120px; height: auto; aspect-ratio: 16 / 9; object-fit: cover; }
+.mapCard > span { display: grid; gap: 4px; }
+.mapCard strong { font-family: var(--font-display); font-size: 18px; }
+.mapCard[aria-pressed="true"] { border-color: var(--teal); background: var(--teal-dim); }
+.mapCard:hover, .mapCard:focus-visible { border-color: var(--teal); }
+.mapArea { font-family: var(--font-mono); font-size: 10px; color: var(--text-dim); }
+.battlefield { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+.contractPanel, .activePanel, .comparison { padding: var(--card-inset); min-width: 0; }
+.contractPanel > .row, .activePanel > .row { margin-bottom: var(--heading-gap); }
+.groups { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px 12px; padding-left: 14px; border-left: 2px solid var(--cat-red); }
+.groupTrigger { width: 100%; display: flex; align-items: center; gap: 10px; padding: 10px; text-align: left; border: 1px solid var(--card-border); border-radius: var(--radius); background: var(--row-grad); }
+.groupTrigger > span:nth-child(2) { flex: 1; display: grid; gap: 2px; }
+.groupTrigger:hover, .groupTrigger:focus-visible { border-color: var(--teal); }
+.groupIcon { color: var(--cat-red); font-size: 22px; }
+.groupScore { font-family: var(--font-mono); font-size: 12px; }
+.groupScore > span { color: var(--text-dim); }
+.groupTrigger strong { font-family: var(--font-display); font-size: 18px; }
+.nodeGraph { position: relative; margin: 14px auto; width: 100%; background: var(--well); border-radius: var(--radius); }
+.graphViewport { max-height: 420px; overflow-y: auto; align-items: flex-start; }
+.connections { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.connections path { fill: none; stroke: var(--card-border); stroke-width: 3; vector-effect: non-scaling-stroke; }
+.connections .connected { stroke: var(--cat-red); }
+.contractNode { position: absolute; transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; justify-content: center; aspect-ratio: 1; min-height: var(--control-h); gap: 4px; padding: 5px; border: 1px solid var(--control-border); background: var(--panel-2); border-radius: var(--radius); cursor: pointer; }
+.contractNode input { position: absolute; top: 4px; right: 4px; margin: 0; }
+.selectedNode { background: color-mix(in srgb, var(--cat-red) 24%, var(--panel)); border-color: var(--cat-red); }
+.nodeName { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; font-size: 10px; line-height: 1.2; text-align: center; }
+.nodeDescription { margin: 0; min-height: 2em; font-size: 12px; }
+.points { flex-shrink: 0; font-family: var(--font-mono); font-size: 11px; color: var(--text-bright); white-space: nowrap; }
+.score { font-family: var(--font-display); font-size: 30px; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--cat-red); }
+.activeList { list-style: none; padding: 0; margin: 0; max-height: 440px; overflow-y: auto; }
+.activeList > li { display: flex; gap: 10px; padding: 10px 0; border-top: 1px solid var(--line-soft); font-size: 12px; }
+.activeList small { display: block; margin-top: 4px; }
+.empty { color: var(--text-dim); padding: 18px 0; font-size: 13px; }
+.source { font-size: 11px; color: var(--text-dim); margin-top: 16px; }
+.source summary { cursor: pointer; }
+.source p { margin: 10px 0; }
+.source li { margin: 8px 0; }
+.comparisons { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; align-items: start; }
+.comparison { display: grid; gap: var(--heading-gap); }
+.comparison > h2 { margin-bottom: 0; }
+.note { margin: 0; line-height: 1.6; }
+.fields { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+.fields label { display: flex; flex-direction: column; justify-content: space-between; gap: 6px; font-size: 11px; color: var(--text-dim); min-width: 0; }
+.fields input, .inlineField input { width: 100%; min-height: var(--control-h); }
+.wide { grid-column: span 2; }
+.inlineField { display: flex; align-items: center; gap: 8px; font-size: 11px; color: var(--text-dim); }
+.inlineField input { width: 64px; }
+.stats { width: 100%; border-collapse: collapse; font-size: 12px; font-variant-numeric: tabular-nums; }
+.stats th, .stats td { padding: 9px 6px; border-bottom: 1px solid var(--line-soft); text-align: right; }
+.stats th:first-child { text-align: left; padding-left: 0; }
+.stats td:last-child { padding-right: 0; }
+.stats thead { color: var(--text-dim); font-size: 11px; }
+.stats tbody th { font-weight: 500; }
+.stats td { font-family: var(--font-mono); }
+.higher { color: var(--cat-green); }
+.lower { color: var(--cat-red); }
+.enemyName { display: flex; align-items: center; gap: 12px; }
+.enemyName img { object-fit: contain; }
+.enemyName h3 { margin: 0; }
+.warning { color: var(--amber); font-size: 12px; margin: 0; }
+@media (max-width: 900px) {
+  .battlefield { grid-template-columns: minmax(0, 1fr); }
+  .activeList { max-height: 240px; }
+  .comparisons { grid-template-columns: minmax(0, 1fr); }
+  .maps { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .mapCard { flex-direction: column; align-items: stretch; }
+  .mapCard img { width: 100%; }
+  .mapCard:only-child { grid-column: 1 / -1; flex-direction: row; align-items: center; }
+  .mapCard:only-child img { width: 120px; }
+}
+@media (max-width: 480px) {
+  .toolbar > :first-child { min-width: 0; flex-basis: 100%; }
+  .groupTrigger { gap: 6px; padding: 8px 6px; }
+  .groupTrigger strong { font-size: 15px; }
+  .fields { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .stats { font-size: 11px; }
+  .stats th, .stats td { padding: 9px 3px; }
+}
+
+.statLabel { display: inline-flex; align-items: center; gap: 6px; }
