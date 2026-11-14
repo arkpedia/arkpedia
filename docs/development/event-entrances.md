@@ -67,3 +67,26 @@ Open `http://127.0.0.1:3212`, choose a pack and scrub its native timeline. The
 1280×720 canvas and `window.draw(seconds)` / `window.ready` hooks allow repeatable
 final-frame captures with Playwright at device scale factor 1. This local tool
 uses the exact application renderer and does not provide a production fallback.
+
+## Published recovery and validation
+
+The November 14 recovery release pins asset revision
+`bcd0bde60902bd1058cfa6f28fd9057f1c7b1817`: 18 sealed player packs,
+including 16 newly reviewed CN packs. Fifteen additions have matching site event
+records, giving 17 enabled original/rerun variants. The future CN menu without a
+site record stays archived. Fourteen new packs have recovered native SFX cues.
+
+Asset-only publication verified all 982 runtime files and the sealed manifest
+against their recorded hashes, sizes, MIME types and CORS responses; all 16 MP3s
+passed range checks. The build loader includes the independent event pin when
+bundling native media maps. Unchanged Global packs resolve through their physical
+reuse revision; consumers must not construct URLs at the logical revision alone.
+The asset-only workflow did not promote a different live content release.
+
+[Full application CI](https://github.com/arkpedia/arkpedia/actions/runs/43578263193)
+passed for the expanded renderer, catalogue and audio handoff. The existing
+Masses' Travels rerun also passed real production playback: its SFX starts at the
+recorded 0.016667-second cue and official Monster Siren music reaches playing,
+without provider mocks. Desktop dark and mobile light checks passed fullscreen,
+docking, Back/Forward, Escape, reduced motion and media opt-out. The expanded
+catalogue still requires its own checked-source Preview and deployed acceptance.
