@@ -18,9 +18,9 @@ const BLACK_MS = 160, DOCK_MS = 560, FADE_MS = 180, LOAD_BUDGET_MS = 1800;
 export default function EventEntranceProvider({ children }: { children: ReactNode }) {
   const router = useRouter(), server = useSiteServer();
   const enabled = useSiteSetting('eventMusic'), consent = usePrivacyChoice('externalMedia');
-  const { isPlaying, starting, buffering, volume } = useMusicPlayer();
+  const { isPlaying, starting, buffering, volume, pauseForEvent } = useMusicPlayer();
   const audioAllowed = enabled && consent && !isPlaying && !starting && !buffering && volume > 0;
-  const preferences = useRef({ server, audioAllowed, volume }); preferences.current = { server, audioAllowed, volume };
+  const preferences = useRef({ server, audioAllowed, volume, eventAudioEnabled: enabled && consent }); preferences.current = { server, audioAllowed, volume, eventAudioEnabled: enabled && consent };
   const [session, setSession] = useState<Session | null>(null), [phase, setPhase] = useState<Phase>('black'), [holding, setHolding] = useState(false);
   const [target, setTarget] = useState<CSSProperties>({});
   const dialog = useRef<HTMLDialogElement>(null), canvas = useRef<HTMLCanvasElement>(null);
@@ -92,7 +92,8 @@ export default function EventEntranceProvider({ children }: { children: ReactNod
       if (!entry || url.pathname === window.location.pathname) return;
       intent.current = { pathname: url.pathname, at: performance.now() };
       void prepare(entry).catch(() => {});
-      if (preferences.current.audioAllowed) {
+      if (preferences.current.eventAudioEnabled) {
+        pauseForEvent();
         try {
           stopSound();
           if (!sound.current || sound.current.context.state === 'closed') {
@@ -128,7 +129,7 @@ export default function EventEntranceProvider({ children }: { children: ReactNod
       reduced.removeEventListener('change', motion); window.removeEventListener(MAIN_AUDIO_START, stopSound);
       router.events.off('routeChangeStart', start); router.events.off('routeChangeError', cancel);
     };
-  }, [router.events, finish, prepare, stopSound]);
+  }, [router.events, finish, prepare, stopSound, pauseForEvent]);
 
   useEffect(() => {
     if (!session || !dialog.current || !canvas.current) return;

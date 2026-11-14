@@ -73,7 +73,7 @@ test("in JP mode an event's News, key art and banner art are JP's own", async ({
   await page.goto(`/events/${encodeURIComponent(CPT)}`);
   await expect(page.locator('html')).toHaveAttribute('data-site-server', 'jp');
   // The event's key art: JP's board picture, in the poster's box.
-  await expect(page.locator('.event-detail-image-wrap img')).toHaveAttribute('src', JP_EVENT_ART);
+  await expect(page.locator('.event-page-art img')).toHaveAttribute('src', JP_EVENT_ART);
   // The banner's.
   await tab(page, 'Operators').click();
   await expect(page.locator('.event-detail-banner-art-wrap img')).toHaveAttribute('src', JP_BANNER_ART);
@@ -112,7 +112,7 @@ test('in KR mode with nothing on the KR board, the News tab says so and keeps Gl
   await expect(page.locator('.event-news-server[data-server="en"]')).toBeVisible();
   await expect(page.locator('.event-news-server[data-server="jp"]')).toBeHidden();
   // KR has no art of its own here: Global's stays.
-  await expect(page.locator('.event-detail-image-wrap img')).not.toHaveAttribute('src', JP_EVENT_ART);
+  await expect(page.locator('.event-page-art img')).not.toHaveAttribute('src', JP_EVENT_ART);
 });
 
 test("in KR mode an event's key art is KR's official site headline, and its banner's KR's board picture", async ({ page }, info) => {
@@ -122,8 +122,8 @@ test("in KR mode an event's key art is KR's official site headline, and its bann
   await serve(page, 'kr', { withKrArt: true });
   await page.goto(`/events/${encodeURIComponent(CPT)}`);
   await expect(page.locator('html')).toHaveAttribute('data-site-server', 'kr');
-  await expect(page.locator('.event-detail-image-wrap img')).toHaveAttribute('src', KR_EVENT_ART);
-  await expect(page.locator('.event-detail-image-wrap img')).toBeVisible();
+  await expect(page.locator('.event-page-art img')).toHaveAttribute('src', KR_EVENT_ART);
+  await expect(page.locator('.event-page-art img')).toBeVisible();
   await tab(page, 'Operators').click();
   await expect(page.locator('.event-detail-banner-art-wrap img')).toHaveAttribute('src', KR_BANNER_ART);
   expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(0);
@@ -140,7 +140,7 @@ test('with JP/KR material off, JP mode keeps Global\'s key art, banner art and n
   await serve(page, 'jp');
   await page.goto(`/events/${encodeURIComponent(CPT)}`);
   await expect(page.locator('html')).toHaveAttribute('data-site-server', 'jp');
-  await expect(page.locator('.event-detail-image-wrap img')).not.toHaveAttribute('src', JP_EVENT_ART);
+  await expect(page.locator('.event-page-art img')).not.toHaveAttribute('src', JP_EVENT_ART);
   await tab(page, 'Operators').click();
   await expect(page.locator('.event-detail-banner-art-wrap img')).not.toHaveAttribute('src', JP_BANNER_ART);
   await tab(page, 'News').click();

@@ -26,9 +26,8 @@ test('only reviewed lobby recordings match calendar tags, punctuation and reruns
 });
 
 test('audio settings default off, reject malformed values and follow personal-sync consent', () => {
-  assert.equal(SETTINGS_DEFAULTS.backgroundMusic, false);
   assert.equal(SETTINGS_DEFAULTS.eventMusic, false);
-  const values = { backgroundMusic: true, eventMusic: false };
+  const values = { eventMusic: false };
   assert.deepEqual(parseSettings({ values: { greeting: 'owned', greetingOperator: 'Amiya' } }).values, {});
   const data = { [SETTINGS_KEY]: { version: SETTINGS_VERSION, values } };
   assert.deepEqual(validateCloudData(data, false, true)[SETTINGS_KEY], data[SETTINGS_KEY]);

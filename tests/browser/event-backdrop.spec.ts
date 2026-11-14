@@ -1,0 +1,20 @@
+import { test, expect } from '@playwright/test';
+const event='/events/'+encodeURIComponent("[Rerun] The Masses' Travels Rerun");
+for (const theme of ['dark','light']) test(`event artwork fills the page behind readable controls (${theme})`,async({page})=>{
+  await page.addInitScript(theme=>localStorage.setItem('theme',theme),theme);
+  await page.goto(event);
+  const art=page.locator('.event-page-art'); await expect(art).toBeVisible();
+  const box=(await art.boundingBox())!,width=await page.evaluate(()=>document.documentElement.getBoundingClientRect().width);
+  expect(box.x).toBe(0); expect(box.width).toBe(width); expect(box.height).toBeGreaterThan(300);
+  expect(await art.evaluate(el=>getComputedStyle(el).position)).toBe('fixed');
+  await expect(page.locator('.event-detail-carousel')).toHaveCount(0);
+  const header=page.locator('.event-page > .page-header');
+  expect(await header.evaluate(el=>getComputedStyle(el).backgroundColor)).toContain('0.9');
+  await page.getByRole('tab',{name:'Rewards',exact:true}).click();
+  await expect(page.getByRole('button',{name:'View rewards image fullscreen',exact:true})).toBeVisible();
+  await page.getByRole('button',{name:'View rewards image fullscreen',exact:true}).click();
+  await expect(page.getByRole('dialog')).toBeVisible(); await page.keyboard.press('Escape');
+  await page.locator('.page-header .back-btn').click(); await expect(page).toHaveURL(/\/schedule$/);
+  await expect(page.locator('.event-page-art')).toHaveCount(0);
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+});

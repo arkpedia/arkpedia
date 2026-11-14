@@ -1610,3 +1610,9 @@ a.primary:where(:has(~ :is(button, a).ghost)),
   letter-spacing: normal;
   white-space: nowrap;
 }
+
+/* A fitted image viewport contains pointer/wheel gestures, leaving its toolbar fixed. */
+.image-viewport { touch-action: none; cursor: grab; user-select: none; }
+.image-viewport:active { cursor: grabbing; }
+.image-viewport:focus-visible { outline: 2px solid var(--teal); outline-offset: -2px; }
+.image-viewport img { pointer-events: none; transform-origin: center; }

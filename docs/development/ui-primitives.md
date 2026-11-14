@@ -715,3 +715,14 @@ trust taps; clicking the boxed viewer uses normal tap audio and reactions. Origi
 base click/trust effects and spoken lines follow the same volume. Animated artwork
 has a separate persisted volume (20% initially) for both entrance soundtracks and
 spoken actions, alongside its existing Sound switch.
+
+Artwork-backed event pages use `.artwork-page`: theme-coloured translucent surfaces
+from `styles/core/arkpedia-theme.css`, with a fixed edge-to-edge backdrop beneath the
+site navigation. Keep text on those surfaces; leave dialogs and popovers opaque.
+The backdrop is decorative and never takes pointer events. Do not auto-cycle it
+under reading content. An event entrance lands on this backdrop instead of a hero card.
+
+Reward infographic viewers open fitted with their complete image and download/link
+actions visible. `.image-viewport` and `useImageViewport` contain wheel, pinch,
+pointer drag and keyboard zoom/pan inside the image area. Keep controls outside that
+area, bound panning to the image, and offer Fit image. Saving always uses the original blob.

@@ -994,3 +994,12 @@ a.ghost.panel:focus-visible { border-color: var(--teal); }
   pointer-events: none;
   transform: translate(-50%, -50%);
 }
+
+/* Artwork-backed pages use the current theme's panel colour with a little of the
+   art showing through; dialogs and portalled controls keep their own surfaces. */
+.artwork-page { --artwork-panel: color-mix(in srgb, var(--panel) 90%, transparent); --panel-grad: linear-gradient(0deg, color-mix(in srgb, var(--panel) 88%, transparent), color-mix(in srgb, var(--panel) 88%, transparent)); }
+.artwork-surface {
+  background: var(--artwork-panel);
+  backdrop-filter: blur(10px);
+  border-radius: var(--radius-frame);
+}

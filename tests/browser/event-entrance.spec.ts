@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { stubYouTube } from './youtube-stub';
+import { stubYouTube, youtube } from './youtube-stub';
 import { signedHeads, stubMonsterSiren } from './monster-siren-stub';
 
 const eventPath = '/events/' + encodeURIComponent("[Rerun] The Masses' Travels Rerun");
@@ -78,7 +78,7 @@ test('missing entrance assets leave a usable event page', async ({ page }) => {
   await media(page, true); const link = await open(page); await link.click();
   await expect(page).toHaveURL(/\/events\//); await unlocked(page);
   await expect(page.getByRole('heading', { level: 1 })).toContainText("Masses' Travels");
-  await expect(page.locator('.event-detail-image-wrap img')).not.toHaveAttribute('src', /menu.webp/);
+  await expect(page.locator('.event-page-art img')).not.toHaveAttribute('src', /menu.webp/);
 });
 test('Back and a reduced-motion change cancel an active entrance', async ({ page }) => {
   await media(page); const link = await open(page); await link.click();
@@ -225,4 +225,32 @@ test('native channel masks reveal artwork without drawing masks or retaining the
   await expect.poll(async () => (await pixels()).moved, { timeout: 3000 }).toEqual([0, 255, 0]);
   const final = await pixels(); expect(final.center).toEqual([0, 0, 0]); expect(final.error).toBe(0);
   await page.keyboard.press('Escape'); await unlocked(page);
+});
+
+
+test('native entrance takes audio from a playing personal song and restores it on Back', async ({page}) => {
+  await stubYouTube(page);
+  await page.addInitScript(() => {
+    localStorage.setItem('arkpedia:settings', JSON.stringify({ version: 3, values: { eventMusic: true } }));
+    Object.assign(window, { __entranceStarts: [] as number[] });
+    const start=AudioBufferSourceNode.prototype.start;
+    AudioBufferSourceNode.prototype.start=function(when=0,...rest){
+      (window as unknown as {__entranceStarts:number[]}).__entranceStarts.push(when-this.context.currentTime);
+      return start.call(this,when,...rest);
+    };
+  });
+  await media(page); await page.goto('/music?view=library');
+  await page.locator('.music-library-row .music-song-row-main').first().click();
+  await expect.poll(async()=>(await youtube(page))?.state).toBe(1);
+  const song=(await youtube(page))!.videoId;
+  await page.evaluate(()=>(window as unknown as {next:{router:{push:(path:string)=>Promise<void>}}}).next.router.push('/schedule'));
+  await page.locator(`a[href="${eventPath}"]`).first().click();
+  await expect(dialog(page)).toHaveAttribute('data-phase','playing');
+  await expect.poll(async()=>(await youtube(page))?.state).toBe(2);
+  await expect.poll(()=>page.evaluate(()=>(window as unknown as {__entranceStarts:number[]}).__entranceStarts.length)).toBe(1);
+  await unlocked(page);
+  await expect(page.locator('[data-page-audio]')).toHaveAttribute('data-page-audio','playing');
+  await page.goBack(); await expect(page).toHaveURL(/\/schedule$/);
+  await expect.poll(async()=>(await youtube(page))?.state).toBe(1);
+  expect((await youtube(page))?.videoId).toBe(song);
 });
