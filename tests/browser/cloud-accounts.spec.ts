@@ -781,7 +781,6 @@ for (const theme of ['dark', 'light']) {
     await page.goto('/account?settings=profile');
     await settings.getByRole('tab', { name: 'Audio', exact: true }).click();
     await expect(settings.getByLabel('Event Music', {exact:true})).toBeEnabled();
-    await expect(settings.getByLabel('Event Music', {exact:true})).toBeEnabled();
     await expect(settings.getByRole('status')).toContainText('External media is allowed');
     expect(await page.evaluate(() => JSON.parse(localStorage.getItem('arkpedia:privacy:v1')!).analytics)).toBe(false);
   });

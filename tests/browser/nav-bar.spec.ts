@@ -70,7 +70,8 @@ test('long menus stay reachable in a short window and close before header utilit
   await expect(page.locator('.site-nav-menu .site-nav-pop')).toHaveCount(0);
   await expect(page.getByRole('region', { name: 'Settings', exact: true })).toBeVisible();
   await expect(page.getByRole('region', { name: 'Settings', exact: true }).getByRole('button', { name: 'Import / export', exact: true })).toBeFocused();
-  await page.getByRole('checkbox', { name: 'Event Music', exact: true }).focus();
+  await expect(page.getByRole('checkbox', { name: 'Event Music', exact: true })).toBeDisabled();
+  await page.getByRole('button', { name: /Switch to (light|dark) mode/ }).focus();
   await page.keyboard.press('Tab');
   await expect(page.getByRole('checkbox', { name: 'Use original visualizer waves' })).toBeFocused();
   await page.keyboard.press('Tab');
