@@ -334,7 +334,8 @@ export async function readOnly(page: Page) {
  *  settle (network quiet, fonts in). */
 export async function openCensus(page: Page, target: string | CensusState) {
   await readOnly(page);
-  await page.goto(typeof target === 'string' ? target : target.route);
+  // The census needs the document and its UI, not completion of unrelated media.
+  await page.goto(typeof target === 'string' ? target : target.route, { waitUntil: 'domcontentloaded' });
   await page.waitForLoadState('networkidle', { timeout: 8000 }).catch(() => {});
   if (typeof target !== 'string') {
     await target.act(page);
