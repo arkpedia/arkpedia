@@ -1,6 +1,6 @@
 {
   "note": "Code-owned support list: reviewed native players only. Upcoming Global events use reviewed CN source packs when Global assets are unavailable. Game records and original recoveries remain in their data/asset repositories.",
-  "baseUrl": "https://assets.arkpedia.net/arkpedia/arkpedia-l2d-assets/bcd0bde60902bd1058cfa6f28fd9057f1c7b1817/",
+  "baseUrl": "https://assets.arkpedia.net/arkpedia/arkpedia-l2d-assets/81a3d411a6870bd711221877dab043a66e948b0f/",
   "entries": [
     {
       "id": "act42side",
@@ -120,6 +120,34 @@
       "title": "Till the Lands Become an Orange",
       "rerun": false,
       "folder": "event-transitions/players/cn/act53side/e8a3fa756b86"
+    },
+    {
+      "id": "act21mini",
+      "server": "en",
+      "title": "Bolívar Diagnosed",
+      "aliases": [
+        "Bolivar Diagnosed"
+      ],
+      "rerun": false,
+      "folder": "event-transitions/players/cn/act21mini/18d6d4b0a14c"
+    },
+    {
+      "id": "act54side",
+      "server": "en",
+      "title": "Sur le lac lune vivante",
+      "rerun": false,
+      "folder": "event-transitions/players/cn/act54side/d668e73ff648"
+    },
+    {
+      "id": "act55side",
+      "server": "en",
+      "title": "Vremya, v Put'!",
+      "aliases": [
+        "Время, в Путь!",
+        "时间啊，向前！"
+      ],
+      "rerun": false,
+      "folder": "event-transitions/players/cn/act55side/247e46c2cbd0"
     }
   ]
 }

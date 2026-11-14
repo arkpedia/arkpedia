@@ -200,3 +200,29 @@ void main(){result=vec4(_Tint.r,_Offset.x,0.0,1.0);}`;
   expect(pixels.edge[1]).toBeGreaterThan(20); expect(pixels.edge[1]).toBeLessThan(pixels.center[1] - 30);
   expect(pixels.outside.slice(0, 3)).toEqual([0, 0, 0]);
 });
+
+test('native channel masks reveal artwork without drawing masks or retaining the previous frame', async ({ page }) => {
+  await media(page);
+  const transform = { name: 'art', parent: null, active: true, alpha: 1, position: [0, 0], z: 0,
+    size: [1280, 720], pivot: [.5, .5], anchorMin: [.5, .5], anchorMax: [.5, .5], scale: [1, 1, 1], rotation: [0, 0, 0, 1] };
+  const image = (color: number[]) => ({ texture: null, rect: { x: 0, y: 0, width: 1, height: 1 }, offset: { x: 0, y: 0 }, spriteSize: [1, 1], border: [0, 0, 0, 0], color, material: null, type: 0, preserveAspect: false, fill: 1, fillMethod: 0, clockwise: true, origin: 0 });
+  await page.route('**/scene.json', route => route.fulfill({ json: { ...scene, duration: 4, nodes: [
+    { ...transform, image: image([0, 1, 0, 1]) },
+    { ...transform, name: 'invisible channel writer', size: [200, 200], image: image([1, 0, 0, 1]), stencil: { compare: 0, operation: 2, readMask: 0, writeMask: 8, colorMask: 0 } },
+    { ...transform, name: 'outside matte', image: image([0, 0, 0, 1]), stencil: { compare: 2, operation: 0, readMask: 8, writeMask: 0, colorMask: 15 } },
+    { ...transform, name: 'inside artwork', size: [60, 60], image: image([0, 0, 1, 1]), stencil: { compare: 1, operation: 0, readMask: 8, writeMask: 0, colorMask: 15 } },
+  ], textures: [], materials: [], shaders: [], curves: [{ node: 1, property: 'position.1', keys: [[0, 0, null, null, 0, 1/3, 1/3], [2, 250, null, null, 0, 1/3, 1/3]] }] } }));
+  const link = await open(page); await link.click();
+  await expect(dialog(page)).toHaveAttribute('data-phase', 'playing');
+  const pixels = () => page.locator('.event-entrance canvas').evaluate(canvas => new Promise<{ center: number[]; edge: number[]; moved: number[]; error: number }>(resolve => requestAnimationFrame(() => {
+    const element = canvas as HTMLCanvasElement, gl = element.getContext('webgl2')!, fit = Math.max(element.width / 1280, element.height / 720);
+    const read = (y: number) => { const pixel = new Uint8Array(4); gl.readPixels(Math.floor(element.width / 2), Math.round(element.height / 2 + y * fit), 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, pixel); return [...pixel].slice(0, 3); };
+    resolve({ center: read(0), edge: read(70), moved: read(250), error: gl.getError() });
+  })));
+  await expect.poll(async () => (await pixels()).center).toEqual([0, 0, 255]);
+  expect((await pixels()).edge).toEqual([0, 255, 0]);
+  expect((await pixels()).moved).toEqual([0, 0, 0]);
+  await expect.poll(async () => (await pixels()).moved, { timeout: 3000 }).toEqual([0, 255, 0]);
+  const final = await pixels(); expect(final.center).toEqual([0, 0, 0]); expect(final.error).toBe(0);
+  await page.keyboard.press('Escape'); await unlocked(page);
+});

@@ -10,7 +10,8 @@ type ImageData = {
   fill: number; fillMethod: number; clockwise: boolean; origin: number; arc?: Vec; rotated?: boolean; uvRect?: Vec;
 };
 type Node = { name: string; parent: number | null; active: boolean; alpha: number; position: Vec;
-  z: number; size: Vec; pivot: Vec; anchorMin: Vec; anchorMax: Vec; scale: Vec; rotation: Vec; localPosition?: Vec; image?: ImageData; uniforms?: Record<string, number | Vec>; rectMask?: boolean; maskSoftness?: Vec; maskPadding?: Vec; ignoreParentAlpha?: boolean };
+  z: number; size: Vec; pivot: Vec; anchorMin: Vec; anchorMax: Vec; scale: Vec; rotation: Vec; euler?: Vec; localPosition?: Vec; image?: ImageData; uniforms?: Record<string, number | Vec>; rectMask?: boolean; maskSoftness?: Vec; maskPadding?: Vec; ignoreParentAlpha?: boolean;
+  stencil?: { compare: number; operation: number; readMask: number; writeMask: number; colorMask: number } };
 type Shader = { name: string; vertex: string; fragment: string; defaults: Record<string, Vec>;
   samplers: Record<string, string>; blend: { val: number; name: string }[] };
 type Material = { name: string; shader: number; values: Record<string, number | Vec>; textures: Record<string, number | null> };
@@ -56,6 +57,13 @@ function matrix(position: Vec, rotation: Vec, scale: Vec): Vec {
     ...position, 1];
 }
 const IDENTITY = [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1];
+
+/** Unity's authored Euler channels apply Z, then X, then Y. */
+export function eulerQuaternion(angles: Vec): Vec {
+  const [x, y, z] = angles.map(v => v * Math.PI / 360);
+  const [sx, sy, sz] = [Math.sin(x), Math.sin(y), Math.sin(z)], [cx, cy, cz] = [Math.cos(x), Math.cos(y), Math.cos(z)];
+  return [sx * cy * cz + cx * sy * sz, cx * sy * cz - sx * cy * sz, cx * cy * sz - sx * sy * cz, cx * cy * cz + sx * sy * sz];
+}
 
 /** Rectangular, sliced and angular UI geometry; UVs stay in the native atlas. */
 function imageMesh(im: ImageData, size: Vec, pivot: Vec, texture: { width: number; height: number }): Vec {
@@ -132,7 +140,7 @@ export class GameUiPlayer {
   private assignments: { target: Record<string, unknown>; key: string; keys: Key[] }[];
   private disposed = false;
   constructor(private canvas: HTMLCanvasElement, readonly scene: GameUiScene) {
-    const gl = canvas.getContext('webgl2', { alpha: false, antialias: true, preserveDrawingBuffer: true });
+    const gl = canvas.getContext('webgl2', { alpha: false, antialias: true, stencil: true, preserveDrawingBuffer: true });
     if (!gl) throw new Error('WebGL2 unavailable');
     this.gl = gl;
     this.white = this.solid('white');
@@ -224,7 +232,8 @@ ${output}.a*=coverage; ${output}.rgb*=mix(1.0,coverage,arkPremultiplied); }`;
     // frame's aspect without stretching the artwork rendered inside it.
     const width = Math.max(1, Math.round(bounds.width * dpr)), height = Math.max(1, Math.round(bounds.height * dpr));
     if (this.canvas.width !== width || this.canvas.height !== height) { this.canvas.width = width; this.canvas.height = height; }
-    gl.viewport(0, 0, width, height); gl.disable(gl.SCISSOR_TEST); gl.clearColor(0, 0, 0, 1); gl.clear(gl.COLOR_BUFFER_BIT);
+    gl.viewport(0, 0, width, height); gl.disable(gl.SCISSOR_TEST); gl.colorMask(true, true, true, true); gl.stencilMask(255);
+    gl.clearColor(0, 0, 0, 1); gl.clearStencil(0); gl.clear(gl.COLOR_BUFFER_BIT | gl.STENCIL_BUFFER_BIT);
     for (const c of this.assignments) c.target[c.key] = curveValue(c.keys, Math.min(scene.duration, time));
     // Full-bleed artwork: crop the native scene at unusual viewport aspects,
     // never stretch the character art. Docking naturally reveals the full 16:9 frame.
@@ -235,7 +244,7 @@ ${output}.a*=coverage; ${output}.rgb*=mix(1.0,coverage,arkPremultiplied); }`;
       const parent = n.parent === null ? { world: IDENTITY, size: [scene.width, scene.height], pivot: [.5, .5], alpha: 1, active: true, clip: null, masks: [] } : poses[n.parent];
       const size = n.size.map((v, i) => v + parent.size[i] * (n.anchorMax[i] - n.anchorMin[i]));
       const position = n.position.map((v, i) => v + parent.size[i] * (n.anchorMin[i] + (n.anchorMax[i] - n.anchorMin[i]) * n.pivot[i] - parent.pivot[i]));
-      const pose = { world: multiply(parent.world, matrix(n.localPosition ?? [...position, n.z], n.rotation, n.scale)), size, pivot: n.pivot, alpha: (n.ignoreParentAlpha ? 1 : parent.alpha) * n.alpha, active: parent.active && !!n.active, clip: parent.clip, masks: parent.masks };
+      const pose = { world: multiply(parent.world, matrix(n.localPosition ?? [...position, n.z], n.euler ? eulerQuaternion(n.euler) : n.rotation, n.scale)), size, pivot: n.pivot, alpha: (n.ignoreParentAlpha ? 1 : parent.alpha) * n.alpha, active: parent.active && !!n.active, clip: parent.clip, masks: parent.masks };
       if (n.rectMask) {
         const padding = n.maskPadding ?? [0, 0, 0, 0];
         const corners = [[-n.pivot[0] * size[0] + padding[0], -n.pivot[1] * size[1] + padding[1]], [(1 - n.pivot[0]) * size[0] - padding[2], (1 - n.pivot[1]) * size[1] - padding[3]]];
@@ -253,6 +262,14 @@ ${output}.a*=coverage; ${output}.rgb*=mix(1.0,coverage,arkPremultiplied); }`;
         gl.enable(gl.SCISSOR_TEST);
         gl.scissor(Math.floor(pose.clip[0]), Math.floor(pose.clip[1]), Math.max(0, Math.ceil(pose.clip[2] - pose.clip[0])), Math.max(0, Math.ceil(pose.clip[3] - pose.clip[1])));
       } else gl.disable(gl.SCISSOR_TEST);
+      const stencil = n.stencil;
+      if (stencil) {
+        gl.enable(gl.STENCIL_TEST);
+        gl.stencilMask(stencil.writeMask);
+        gl.stencilFunc([gl.ALWAYS, gl.EQUAL, gl.NOTEQUAL][stencil.compare], stencil.readMask | stencil.writeMask, stencil.readMask || 255);
+        gl.stencilOp(gl.KEEP, gl.KEEP, [gl.KEEP, gl.ZERO, gl.REPLACE][stencil.operation]);
+        gl.colorMask(!!(stencil.colorMask & 8), !!(stencil.colorMask & 4), !!(stencil.colorMask & 2), !!(stencil.colorMask & 1));
+      } else { gl.disable(gl.STENCIL_TEST); gl.colorMask(true, true, true, true); }
       const im = n.image, mat = im.material === null ? null : scene.materials[im.material], shader = mat ? scene.shaders[mat.shader] : null;
       const program = this.programs[mat ? mat.shader + 1 : 0]; gl.useProgram(program.handle);
       const state = (s: { name: string; val: number }) => s.name && s.name !== '<noninit>' ? Number(mat?.values[s.name] ?? shader?.defaults[s.name]?.[0] ?? s.val) : s.val;

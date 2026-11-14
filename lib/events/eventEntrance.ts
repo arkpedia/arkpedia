@@ -3,12 +3,13 @@ import { eventTitle, isRerun } from './eventName.mjs';
 import { pinAssetUrl } from '@/lib/assets/revisions';
 
 export type EventEntrance = (typeof catalogue.entries)[number];
+const titleKey = (name: string) => eventTitle(name).replace(/\s+Rerun$/i, '').normalize('NFKC').toLowerCase().replace(/[’‘]/g, "'").replace(/\s+/g, ' ').trim();
 export function eventEntrance(name: string, server: string): EventEntrance | null {
-  const title = eventTitle(name).replace(/\s+Rerun$/i, '').normalize('NFKC').toLowerCase();
+  const title = titleKey(name);
   // These readers share the Global event catalogue. Pack provenance (including
   // reviewed CN fallbacks) is independent of the reader's reset-clock choice.
   const region = server === 'jp' || server === 'kr' ? 'en' : server;
-  return catalogue.entries.find(e => e.server === region && e.rerun === isRerun(name) && e.title.normalize('NFKC').toLowerCase() === title) ?? null;
+  return catalogue.entries.find(e => e.server === region && e.rerun === isRerun(name) && [e.title, ...(e.aliases ?? [])].some(alias => titleKey(alias) === title)) ?? null;
 }
 export function entranceForUrl(href: string, origin: string, server: string): EventEntrance | null {
   try {
