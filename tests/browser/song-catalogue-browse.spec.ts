@@ -49,6 +49,9 @@ for (const theme of ['dark', 'light']) {
     await chooseMusicView(page, 'Library');
     await expect(catalogueRows(page).first()).toBeVisible();
     await page.getByRole('searchbox', { name: 'Search all songs', exact: true }).fill(songs[2].title);
+    // Finish the debounced search navigation before opening another view whose
+    // address this test will immediately reload below.
+    await expect(page).toHaveURL(url => url.searchParams.get('q') === songs[2].title);
     const picker = await openPicker(page, ids[2]);
     await expect(picker.getByRole('checkbox', { name: 'Night music', exact: true })).toBeChecked();
     await expect(picker.getByRole('checkbox', { name: 'Other music', exact: true })).not.toBeChecked();
@@ -68,7 +71,9 @@ for (const theme of ['dark', 'light']) {
     expect(after.time).toBeGreaterThanOrEqual(before.time);
     expect(await page.locator('body').evaluate(el => el.scrollWidth <= innerWidth)).toBe(true);
     // The playing playlist remains the default after a new document restores the queue.
+    await expect(page).toHaveURL(url => url.searchParams.get('panel') === 'queue');
     await page.reload();
+    await expect(page).toHaveURL(url => url.searchParams.get('panel') === 'queue');
     await expect(queueRows(page)).toHaveCount(2);
     await expect.poll(async () => (await youtube(page))?.state).toBe(1);
     await chooseMusicView(page, 'Library');

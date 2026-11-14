@@ -77,11 +77,18 @@ for (const theme of ['dark', 'light']) {
         else draw.call(this, text, x, y, maxWidth);
       };
     }, theme);
+    // Exercise a present menu and a missing-menu regional fallback without CDN
+    // timing deciding which artwork is current when the export starts.
+    await page.route('**/event-transitions/players/**/menu.webp', route => theme === 'light'
+      ? route.fulfill({ status: 404, body: 'missing menu' })
+      : route.fulfill({ contentType: 'image/png', body: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aL1cAAAAASUVORK5CYII=', 'base64') }));
     await page.goto(event);
     await page.getByRole('tab', { name: 'Rewards', exact: true }).click();
     const expected = await page.locator('.reward-summary-tile b').allTextContents();
     expect(expected.length).toBeGreaterThan(10);
-    const artwork = await page.locator('.event-page-art img').getAttribute('src');
+    const backdrop = page.locator('.event-page-art img');
+    if (theme === 'light') await expect(backdrop).not.toHaveAttribute('src', /\/event-transitions\/players\//);
+    const artwork = await backdrop.getAttribute('src');
     expect(artwork).toBeTruthy();
     await page.evaluate(() => { (window as unknown as { rewardExportImages: string[] }).rewardExportImages.length = 0; });
     // A missing CDN image must not remove its reward, quantity or the download.
