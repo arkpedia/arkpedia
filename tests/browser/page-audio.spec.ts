@@ -142,10 +142,17 @@ test('browser-blocked page music offers Play inside Settings', async ({page}) =>
   await expect(menu.getByRole('button',{name:'Play background music',exact:true})).toHaveCount(0);
   await expect(shell(page).getByRole('button',{name:'Expand player'})).toBeVisible();
 });
-test('page themes prefer YouTube even when manual music prefers Monster Siren', async ({page}) => {
+test('page themes use official audio by default when a YouTube upload also exists', async ({page}) => {
   await stubYouTube(page,'allow',{dataSaver:false}); await enable(page);
-  const requests:string[]=[]; page.on('request',r=>{if(r.url().includes('/api/music-audio/'))requests.push(r.url());});
-  await page.goto(event); await playing(page); expect(requests).toEqual([]);
+  const siren = await stubMonsterSiren(page);
+  await page.goto(event);
+  await expect(page.locator('[data-page-audio]')).toHaveAttribute('data-page-audio',/playing|blocked/);
+  if(await page.locator('[data-page-audio]').getAttribute('data-page-audio')==='blocked') {
+    const menu=await settings(page); await menu.getByRole('button',{name:'Play background music',exact:true}).click();
+  }
+  await expect(page.locator('[data-page-audio]')).toHaveAttribute('data-page-audio','playing');
+  expect(siren.resolves).toContain('232236');
+  expect(await ambient(page)).toBeNull();
 });
 test('legacy greetings and the previous manual-pause flag cannot block page music', async ({page}) => {
   await stubYouTube(page); await enable(page,{backgroundMusic:true,greeting:'chosen',greetingOperator:'Amiya'});
@@ -188,7 +195,7 @@ test('actively playing music keeps priority on event pages', async ({page}) => {
   expect((await ambient(page))?.state).not.toBe(1);
 });
 test('upcoming Global and crossover events play released themes with no player takeover', async ({page}) => {
-  await stubYouTube(page,'allow',{dataSaver:false}); await enable(page);
+  await stubYouTube(page,'allow',{dataSaver:true}); await enable(page);
   for(const [name,id] of [
     ['[Story Collection] Bolívar Diagnosed',null],['Contingency Contract Obliteration',null],
     ['[Side Story – Crossover] Thunder in the Azure Dream','ADn4S1ajMAI'],['[Rerun] A Flurry to the Flame Rerun','p1fEV6QbCww'],

@@ -87,7 +87,7 @@ test('Back and a reduced-motion change cancel an active entrance', async ({ page
   await expect(dialog(page)).toHaveAttribute('data-phase', 'playing');
   await page.emulateMedia({ reducedMotion: 'reduce' }); await unlocked(page);
 });
-test('native SFX uses its cue and event music waits for the animation', async ({ page }) => {
+test('cold-tap SFX waits for its download, uses its cue and holds event music', async ({ page }) => {
   await stubYouTube(page, 'allow', { mediaConsent: true, dataSaver: true });
   await page.addInitScript(() => {
     localStorage.setItem('arkpedia:settings', JSON.stringify({ version: 1, values: { eventMusic: true } }));
@@ -97,7 +97,13 @@ test('native SFX uses its cue and event music waits for the animation', async ({
       starts.push(when - this.context.currentTime); return original.call(this, when, ...rest);
     };
   });
-  const requests = await media(page); const link = await open(page); await link.click();
+  const requests = await media(page);
+  await page.route('**/entrance.wav', async route => {
+    // Real cold taps can take longer than the old 120 ms sound-only deadline.
+    await new Promise(resolve => setTimeout(resolve, 350));
+    await route.fallback();
+  });
+  const link = await open(page); await link.click();
   await expect(dialog(page)).toHaveAttribute('data-phase', 'playing');
   await expect.poll(() => page.evaluate(() => (window as unknown as { __entranceStarts: number[] }).__entranceStarts.length)).toBe(1);
   expect(await page.evaluate(() => (window as unknown as { __entranceStarts: number[] }).__entranceStarts[0])).toBeCloseTo(.05, 2);

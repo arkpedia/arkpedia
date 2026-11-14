@@ -21,6 +21,9 @@ the overlay and released at the end of the native timeline, as docking begins.
 Both use the existing Event Music choice, external-media consent, volume and
 main-player priority. A cancelled intro stops its SFX; normal completion lets its
 tail finish. The optional background theme choice remains independent.
+Cold taps give the SFX the remaining entrance load budget, rather than requiring
+a hover-preloaded sound. Page themes use official Monster Siren audio where
+available, following the main player's Data saver choice for YouTube playback.
 
 ## Adding a reviewed pack
 
