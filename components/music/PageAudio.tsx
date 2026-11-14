@@ -13,6 +13,7 @@ import { useEventEntranceAudioHold } from '@/lib/events/eventEntranceContext';
 import { msrTrackId } from '@/lib/music/trackId';
 import { msrAudioAddress } from '@/lib/music/audioElement';
 import { audioLinkExpiry } from '@/lib/music/monsterSirenAudio';
+import { fetchAsset } from '@/lib/assets/assetRetry';
 
 type Status = 'loading' | 'playing' | 'paused' | 'blocked' | 'error';
 /** A separate page-owned engine: never borrows the main player's queue, song or clock. */
@@ -101,7 +102,7 @@ function PageAudioSession({ musicId, preference, allowEndfield }: { musicId: str
         if (busy.current && track.cid) {
           // Resolve the signed address under the intro, without playing or
           // borrowing the personal queue's preloader. The handoff skips the API.
-          void fetch(msrAudioAddress(track.cid), { method: 'HEAD', signal: abort.signal, credentials: 'omit' })
+          void fetchAsset(msrAudioAddress(track.cid), { method: 'HEAD', signal: abort.signal, credentials: 'omit' })
             .then(response => { if (!disposed && response.ok && usable(response.url)) preparedAddress = response.url; })
             .catch(() => { /* Ordinary streaming remains available. */ });
         }

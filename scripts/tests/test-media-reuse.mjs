@@ -1,6 +1,11 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { test } from 'node:test';
+import { mkdtemp, mkdir, writeFile, readFile, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { fileURLToPath, pathToFileURL } from 'node:url';
+import { execFileSync } from 'node:child_process';
 import { planUnifiedAssets, publishUnifiedAssets } from '../content/unified-assets.mjs';
 import { mediaGroup, mediaRevision, validateMediaDelivery } from '../../lib/assets/mediaDelivery.mjs';
 
@@ -11,6 +16,32 @@ const file = (path, text = path) => {
   const body = Buffer.from(text);
   return { path, body, bytes: body.length, sha: hash('sha1', Buffer.concat([Buffer.from(`blob ${body.length}\0`), body])) };
 };
+
+test('build loads reuse maps for independently pinned event menus', async t => {
+  const root = await mkdtemp(join(tmpdir(), 'event-media-map-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  await mkdir(join(root, 'data/assets'), { recursive: true });
+  await mkdir(join(root, 'config'), { recursive: true });
+  await writeFile(join(root, 'data/assets/revisions.json'), JSON.stringify({ [image]: a }));
+  for (const name of ['dynamic-art', 'chibi-art', 'medal-set-layouts']) await writeFile(join(root, `data/${name}.json`), '{}');
+  await writeFile(join(root, 'config/community-project-art.json'), JSON.stringify({ repository: image, revision: a }));
+  await writeFile(join(root, 'config/event-entrances.json'), JSON.stringify({ baseUrl: `https://assets.arkpedia.net/arkpedia/${art}/${b}/` }));
+  const mock = join(root, 'readiness.mjs');
+  await writeFile(mock, `globalThis.fetch = async input => {
+    const match = String(input).match(/\\/__ready\\/(arkpedia-[a-z0-9-]+)\\/([a-f0-9]{40})$/);
+    if (!match) throw Error('Unexpected network request');
+    const [, repository, revision] = match;
+    return new Response(JSON.stringify({version:1,repository,revision,files:1,
+      ...(repository===${JSON.stringify(art)} ? {native:{version:1,baseRevision:${JSON.stringify(a)},overrides:{'event-transitions/players/cn/new/pack':${JSON.stringify(b)}}}} : {})
+    }), {headers:{'content-type':'application/json'}});
+  };`);
+  execFileSync(process.execPath, ['--import', pathToFileURL(mock).href, fileURLToPath(new URL('../build/load-media-delivery.mjs', import.meta.url))], {
+    cwd: root, encoding: 'utf8', env: { ...process.env, ARKPEDIA_CONTENT_DISABLED: '0' },
+  });
+  const maps = JSON.parse(await readFile(join(root, '.cache/native-media-delivery.json'), 'utf8'));
+  assert.equal(mediaRevision(maps, art, b, 'event-transitions/players/en/old/pack/entrance.mp3'), a);
+  assert.equal(mediaRevision(maps, art, b, 'event-transitions/players/cn/new/pack/scene.json'), b);
+});
 function fixture() {
   const objects = new Map(), heads = new Map(), writes = [], reads = [], gets = [];
   const store = {
