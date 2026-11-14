@@ -43,6 +43,7 @@ import '@/styles/core/nav.css';
 import '@/styles/core/account-navigation.css';
 import '@/styles/core/information.css';
 import '@/styles/core/music-workspace.css';
+import '@/styles/core/event-entrance.css';
 import '@/styles/search/search.css';
 import '@/styles/ui/ticker.css';
 import '@/styles/base/base.css';
@@ -82,6 +83,7 @@ import '@/styles/account/account.css';
 import '@/styles/core/motion.css';
 import SiteNav from '@/components/layout/Sitenav';
 import AccountActions from '@/components/account/AccountActions';
+import EventEntranceProvider from '@/components/events/EventEntranceProvider';
 import SharingProvider from '@/lib/community/SharingProvider';
 import MusicPlayer from '@/components/music/MusicPlayer';
 import MenuAudio from '@/components/music/MenuAudio';
@@ -141,6 +143,7 @@ export default function App({ Component, pageProps }: AppProps) {
     <CloudSyncProvider onRestore={onCloudRestore}>
     <ReplayDownloadProvider>
     <MusicPlayerProvider>
+    <EventEntranceProvider>
     <RoamingChibiProvider>
     <SharingProvider>
     <AccountActions>
@@ -215,6 +218,7 @@ export default function App({ Component, pageProps }: AppProps) {
     </AccountActions>
     </SharingProvider>
     </RoamingChibiProvider>
+    </EventEntranceProvider>
     </MusicPlayerProvider>
     </ReplayDownloadProvider>
     </CloudSyncProvider>

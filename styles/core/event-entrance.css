@@ -1,0 +1,37 @@
+/* The original event entrance is an approved fullscreen media exception. */
+.event-entrance {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100dvh;
+  max-width: none;
+  max-height: none;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  overflow: hidden;
+}
+.event-entrance::backdrop { background: #000; }
+.event-entrance-stage {
+  position: absolute;
+  inset: 0 auto auto 0;
+  width: 100vw;
+  height: 100dvh;
+  transform-origin: top left;
+  overflow: hidden;
+  opacity: 0;
+}
+.event-entrance-stage canvas { display: block; width: 100%; height: 100%; }
+.event-entrance[data-phase="playing"] .event-entrance-stage,
+.event-entrance[data-phase="docking"] .event-entrance-stage { opacity: 1; }
+.event-entrance[data-phase="docking"] .event-entrance-stage,
+.event-entrance[data-phase="fading"] .event-entrance-stage {
+  transform: translate(var(--entrance-x, 0px), var(--entrance-y, 0px)) scale(var(--entrance-scale-x, 1), var(--entrance-scale-y, 1));
+}
+.event-entrance[data-phase="docking"]::backdrop,
+.event-entrance[data-phase="fading"]::backdrop { background: transparent; }
+.event-entrance-skip { position: absolute; top: var(--page-gutter); right: var(--page-gutter); z-index: 1; }
+@media (prefers-reduced-motion: reduce) {
+  .event-entrance[open]::backdrop { animation: none; }
+}

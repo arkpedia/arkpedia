@@ -9,6 +9,7 @@ import { songAllowed } from '@/lib/music/songFilter';
 import { MAIN_AUDIO_START } from '@/lib/music/pageMusic';
 import { songTitle } from '@/lib/music/musicPolish';
 import { publishPagePlayback, clearPagePlayback } from '@/lib/music/pageAudioPlayback';
+import { useEventEntranceAudioHold } from '@/lib/events/eventEntranceContext';
 
 type Status = 'loading' | 'playing' | 'paused' | 'blocked' | 'error';
 /** A separate page-owned engine: never borrows the main player's queue, song or clock. */
@@ -20,7 +21,8 @@ export default function PageAudio({ musicId, pageKey, preference, allowEndfield 
 function PageAudioSession({ musicId, preference, allowEndfield }: { musicId: string | null; preference: AudioPreference; allowEndfield: boolean }) {
   const enabled = useSiteSetting(preference), consent = usePrivacyChoice('externalMedia');
   const { isPlaying, starting, buffering, volume, excludeCopyrighted, includeEndfield } = useMusicPlayer();
-  const mainBusy = isPlaying || starting || buffering;
+  const entranceHold = useEventEntranceAudioHold();
+  const mainBusy = isPlaying || starting || buffering || entranceHold;
   const owner = useRef({});
   const busy = useRef(mainBusy), engine = useRef<PlaybackEngine | null>(null);
   const host = useRef<HTMLDivElement>(null), attempt = useRef<() => void>(() => {});
