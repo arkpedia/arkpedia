@@ -6,7 +6,7 @@ import { useAccountActions } from '@/components/account/AccountActions';
 import { PROFILE_LINKS } from '@/lib/nav/navLinks';
 import ActionPopover from '@/components/ui/ActionPopover';
 import ThemeToggle from './ThemeToggle';
-import BackgroundMusicSetting from '@/components/music/BackgroundMusicSetting';
+import EventMusicSetting from '@/components/music/EventMusicSetting';
 import ServerClock from './ServerClock';
 import { SiteSearchTrigger, type SiteSearchControl } from './SiteSearch';
 import { useCloudSync } from '@/lib/cloud-account/SyncProvider';
@@ -29,7 +29,7 @@ export default function HeaderUtilities({ search, mobile = false, onOpen }: { se
       <button type="button" className="btn-bare site-nav-popitem" onClick={() => actions.open('settings')}>{icon('profile')}Account settings</button>
       <Link prefetch={false} className="site-nav-popitem" href="/cookies">{icon('privacy')}Privacy choices</Link>
       <p className="label-tag">Appearance</p><ThemeToggle menu />
-      <p className="label-tag">Audio</p><BackgroundMusicSetting /><MusicVisualizerSetting menu />
+      <p className="label-tag">Audio</p><EventMusicSetting /><MusicVisualizerSetting menu />
     </ActionPopover>
     </div>
     <ServerClock variant={mobile ? 'mobile' : 'bar'} />

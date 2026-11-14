@@ -492,9 +492,10 @@ export async function measure(page: Page): Promise<Measurement> {
     /* Media, controls and drawn boxes (a background or a side border); a band as wide
        as the viewport is full-bleed decoration, not content. */
     for (const el of Array.from(root.querySelectorAll('*'))) {
-      // The header's sticky extension owns the same outer frame/gutters as the header.
-      // Measure all its actual text and controls, not its full-frame background band.
-      if (el === headerActions) continue;
+      // The shared header and its sticky extension own the outer frame/gutters.
+      // A glass header can paint that frame too. Its actual text and controls
+      // remain measured below; its background band is not a body-content card.
+      if (el === header || el === headerActions) continue;
       if (fixed(el) || !visible(el)) continue;
       const s = cs(el);
       const media = /^(IMG|SVG|CANVAS|VIDEO|INPUT|SELECT|BUTTON|TEXTAREA)$/i.test(el.tagName);

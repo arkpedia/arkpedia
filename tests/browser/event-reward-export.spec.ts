@@ -77,11 +77,18 @@ for (const theme of ['dark', 'light']) {
         else draw.call(this, text, x, y, maxWidth);
       };
     }, theme);
+    // Exercise a present menu and a missing-menu regional fallback without CDN
+    // timing deciding which artwork is current when the export starts.
+    await page.route('**/event-transitions/players/**/menu.webp', route => theme === 'light'
+      ? route.fulfill({ status: 404, body: 'missing menu' })
+      : route.fulfill({ contentType: 'image/png', body: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aL1cAAAAASUVORK5CYII=', 'base64') }));
     await page.goto(event);
     await page.getByRole('tab', { name: 'Rewards', exact: true }).click();
     const expected = await page.locator('.reward-summary-tile b').allTextContents();
     expect(expected.length).toBeGreaterThan(10);
-    const artwork = await page.locator('.event-detail-image-wrap img').getAttribute('src');
+    const backdrop = page.locator('.event-page-art img');
+    if (theme === 'light') await expect(backdrop).not.toHaveAttribute('src', /\/event-transitions\/players\//);
+    const artwork = await backdrop.getAttribute('src');
     expect(artwork).toBeTruthy();
     await page.evaluate(() => { (window as unknown as { rewardExportImages: string[] }).rewardExportImages.length = 0; });
     // A missing CDN image must not remove its reward, quantity or the download.
@@ -292,3 +299,47 @@ for (const theme of ['dark', 'light']) {
     await expect(pack).toBeFocused();
   });
 }
+
+for (const theme of ['dark', 'light']) test(`reward image zooms, pans and resets without moving its actions (${theme})`, async ({page}) => {
+  await page.addInitScript(theme=>localStorage.setItem('theme',theme),theme);
+  await page.goto(event); await openImage(page); await overviewFits(page);
+  const viewer=page.getByRole('group',{name:'Rewards image viewer',exact:true});
+  const image=viewer.locator('img');
+  const save=page.getByRole('button',{name:'Save image',exact:true});
+  const before=await save.boundingBox();
+  await page.getByRole('button',{name:'Zoom in',exact:true}).click();
+  await expect(viewer).toHaveAttribute('data-zoom','1.5');
+  await viewer.focus(); await page.keyboard.press('+');
+  const box=(await viewer.boundingBox())!;
+  await page.mouse.move(box.x+box.width/2,box.y+box.height/2);
+  await page.mouse.down(); await page.mouse.move(box.x+box.width/2-50,box.y+box.height/2-70,{steps:5}); await page.mouse.up();
+  const translation=await image.evaluate(el=>{const m=new DOMMatrix(getComputedStyle(el).transform);return Math.abs(m.m41)+Math.abs(m.m42)});
+  expect(translation).toBeGreaterThan(1);
+  expect(await save.boundingBox()).toEqual(before);
+  await expect(save).toBeVisible();
+  await page.getByRole('button',{name:'Fit image',exact:true}).click();
+  await expect(viewer).toHaveAttribute('data-zoom','1'); await overviewFits(page);
+  await viewer.hover(); await page.mouse.wheel(0,-200); await expect.poll(async()=>Number(await viewer.getAttribute('data-zoom'))).toBeGreaterThan(1);
+  await viewer.focus(); await page.keyboard.press('0'); await overviewFits(page);
+  await page.keyboard.press('Escape'); await expect(page.getByRole('dialog')).toBeHidden();
+});
+
+
+test('reward image accepts a two-finger pinch and touch pan',async({page},info)=>{
+  test.skip(info.project.name!=='mobile','touch device journey');
+  await page.goto(event); await openImage(page); await overviewFits(page);
+  const viewer=page.getByRole('group',{name:'Rewards image viewer',exact:true});
+  const box=(await viewer.boundingBox())!,x=box.x+box.width/2,y=box.y+box.height/2;
+  const session=await page.context().newCDPSession(page);
+  await session.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:x-30,y,id:1},{x:x+30,y,id:2}]});
+  await session.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x:x-60,y:y-15,id:1},{x:x+60,y:y+15,id:2}]});
+  await session.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
+  await expect.poll(async()=>Number(await viewer.getAttribute('data-zoom'))).toBeGreaterThan(1.5);
+  await session.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x,y,id:3}]});
+  await session.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x:x-40,y:y-60,id:3}]});
+  await session.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
+  const offset=await viewer.locator('img').evaluate(el=>{const m=new DOMMatrix(getComputedStyle(el).transform);return Math.abs(m.m41)+Math.abs(m.m42)});
+  expect(offset).toBeGreaterThan(1);
+  await page.getByRole('button',{name:'Fit image',exact:true}).click(); await overviewFits(page);
+  await expect(page.getByRole('button',{name:'Save image',exact:true})).toBeVisible();
+});

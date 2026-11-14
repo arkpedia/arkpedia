@@ -3,6 +3,8 @@ import BackLink from './BackLink';
 import StickyControls from './StickyControls';
 
 interface PageHeaderProps {
+  /** Page-specific layout or a shared surface primitive; heading structure stays shared. */
+  className?: string;
   /** The mono teal line above the title: "Rhodes Island // Personnel Archive".
    *  Required, and specific to the section -- seven pages sharing one
    *  "Rhodes Island // Terminal" eyebrow is what made them read as one page. */
@@ -27,6 +29,8 @@ interface PageHeaderProps {
   /** A detail page's Back, above the eyebrow: to the page before it in this tab, else to the
    *  list it belongs to (`href`, named by `label`). components/ui/BackLink.tsx. */
   back?: { href: string; label: string };
+  /** Compact detail trail: Back and the eyebrow share a row above the title. */
+  inlineTrail?: boolean;
 }
 
 /**
@@ -42,12 +46,17 @@ interface PageHeaderProps {
  * header nested in it starts 24px to the right of the content below
  * (tests/browser/page-bounds.spec.ts measures that edge on every route).
  */
-export default function PageHeader({ eyebrow, title, sub, actions, stickyActions = false, slim = false, compact = false, titleId, back }: PageHeaderProps) {
+export default function PageHeader({ eyebrow, title, sub, actions, stickyActions = false, slim = false, compact = false, titleId, back, inlineTrail = false, className = '' }: PageHeaderProps) {
   return (
     <>
-    <header className={`page-header${slim ? ' page-header-slim' : ''}${compact ? ' page-header-compact' : ''}${actions && stickyActions ? ' page-header-with-sticky-actions' : ''}`}>
-      {back ? <BackLink href={back.href} label={back.label} /> : null}
-      <div className="eyebrow">{eyebrow}</div>
+    <header className={`page-header${slim ? ' page-header-slim' : ''}${compact ? ' page-header-compact' : ''}${actions && stickyActions ? ' page-header-with-sticky-actions' : ''}${className ? ` ${className}` : ''}`}>
+      {inlineTrail ? <div className="page-header-trail">
+        {back ? <BackLink href={back.href} label={back.label} /> : null}
+        <div className="eyebrow">{eyebrow}</div>
+      </div> : <>
+        {back ? <BackLink href={back.href} label={back.label} /> : null}
+        <div className="eyebrow">{eyebrow}</div>
+      </>}
       <h1 id={titleId}>{title}</h1>
       {sub ? <p className="sub">{sub}</p> : null}
       {actions && !stickyActions ? <div className="page-header-actions">{actions}</div> : null}

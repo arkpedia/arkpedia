@@ -86,8 +86,6 @@ import AccountActions from '@/components/account/AccountActions';
 import EventEntranceProvider from '@/components/events/EventEntranceProvider';
 import SharingProvider from '@/lib/community/SharingProvider';
 import MusicPlayer from '@/components/music/MusicPlayer';
-import MenuAudio from '@/components/music/MenuAudio';
-import { GAME_PATHS } from '@/lib/minigames/catalogue';
 import RoamingChibiProvider from '@/components/operators/RoamingChibiProvider';
 import { MusicPlayerProvider } from '@/lib/music/musicPlayerContext';
 import { getEssentialIconPath } from '@/lib/operators/operatorIconPaths';
@@ -204,10 +202,6 @@ export default function App({ Component, pageProps }: AppProps) {
           Pages that set nothing get undefined and the bar they always had. */}
       {!hideSiteChrome && <SiteNav mobileNav={(Component as PageWithMobileNav).mobileNav} />}
       {!hideSiteChrome && <ReplayDownloadBar />}
-      {/* Keep the menu engine mounted between ordinary pages. Event details own
-          their theme; Music Guesser needs silence for its own audio clips. */}
-      {!hideSiteChrome && !router.pathname.startsWith('/events/') && router.pathname !== GAME_PATHS.music &&
-        <MenuAudio />}
       <div id="page-content" tabIndex={-1} style={{ outline: 'none' }}>
         <Component key={cloudRestoreVersion} {...pageProps} />
       </div>

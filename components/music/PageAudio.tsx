@@ -17,7 +17,7 @@ import { fetchAsset } from '@/lib/assets/assetRetry';
 
 type Status = 'loading' | 'playing' | 'paused' | 'blocked' | 'error';
 /** A separate page-owned engine: never borrows the main player's queue, song or clock. */
-type AudioPreference = 'backgroundMusic' | 'eventMusic';
+type AudioPreference = 'eventMusic';
 export default function PageAudio({ musicId, pageKey, preference, allowEndfield = false }: { musicId: string | null; pageKey: string; preference: AudioPreference; allowEndfield?: boolean }) {
   // Each page owns its engine; the enabled setting persists across navigation.
   return <PageAudioSession key={`${pageKey}:${musicId}`} musicId={musicId} preference={preference} allowEndfield={allowEndfield} />;

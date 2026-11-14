@@ -79,25 +79,20 @@ test('the site-wide store: what pages and an account will call', () => {
   assert.equal(getSetting('techniqueDetail'), false);
 });
 
-test('the old combined music choice preserves both themes, then each can change independently', () => {
+test('retired browsing choices preserve the original event opt-in without overriding a separate event choice', () => {
   assert.deepEqual(parseSettings({ version: 1, values: { backgroundMusic: true } }), {
-    version: SETTINGS_VERSION, values: { backgroundMusic: true, eventMusic: true },
+    version: SETTINGS_VERSION, values: { eventMusic: true },
   });
-  assert.deepEqual(parseSettings({ version: 1, values: { backgroundMusic: false } }).values, { backgroundMusic: false, eventMusic: false });
-  assert.deepEqual(parseSettings({ version: 1, values: {} }).values, {});
+  assert.deepEqual(parseSettings({ version: 1, values: { backgroundMusic: false } }).values, { eventMusic: false });
+  assert.deepEqual(parseSettings({ version: 2, values: { backgroundMusic: true, eventMusic: false, menuMusicSource: 'custom', menuMusicTrack: 'msr:048755' } }).values, { eventMusic: false });
+  assert.deepEqual(parseSettings({ version: 2, values: { backgroundMusic: true } }).values, {});
   const storage = memoryStorage();
   storage.setItem(SETTINGS_KEY, JSON.stringify({ version: 1, values: { backgroundMusic: true } }));
   const store = createSettingsStore(() => storage);
   assert.equal(store.get().eventMusic, true);
-  store.set('backgroundMusic', false);
-  assert.equal(store.get().eventMusic, true);
-  assert.equal(store.get().backgroundMusic, false);
-  const restoredStorage = memoryStorage();
-  const restored = createSettingsStore(() => restoredStorage);
+  store.set('eventMusic', false);
+  const restored = createSettingsStore(() => memoryStorage());
   restored.importAll(store.exportAll());
-  assert.equal(restored.get().backgroundMusic, false);
-  assert.equal(restored.get().eventMusic, true);
-  restored.set('eventMusic', false);
-  restored.set('backgroundMusic', true);
   assert.equal(restored.get().eventMusic, false);
+  assert.equal('backgroundMusic' in restored.get(), false);
 });

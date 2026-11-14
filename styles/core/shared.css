@@ -544,6 +544,7 @@ header,
 .page-header.page-header-slim { padding-top: 16px; padding-bottom: 12px; }
 .page-header.page-header-slim h1 { margin-bottom: 4px; }
 .page-header > .sub { margin: 0; }
+.page-header-trail { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
 /* Controls that belong to the page as a whole (search, filters, a primary action)
    sit under the title, inside the header's frame. */
 .page-header-actions {
@@ -1610,3 +1611,9 @@ a.primary:where(:has(~ :is(button, a).ghost)),
   letter-spacing: normal;
   white-space: nowrap;
 }
+
+/* A fitted image viewport contains pointer/wheel gestures, leaving its toolbar fixed. */
+.image-viewport { touch-action: none; cursor: grab; user-select: none; }
+.image-viewport:active { cursor: grabbing; }
+.image-viewport:focus-visible { outline: 2px solid var(--teal); outline-offset: -2px; }
+.image-viewport img { pointer-events: none; transform-origin: center; }

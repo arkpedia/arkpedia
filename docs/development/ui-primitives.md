@@ -715,3 +715,31 @@ trust taps; clicking the boxed viewer uses normal tap audio and reactions. Origi
 base click/trust effects and spoken lines follow the same volume. Animated artwork
 has a separate persisted volume (20% initially) for both entrance soundtracks and
 spoken actions, alongside its existing Sound switch.
+
+Artwork-backed event pages use `.artwork-page`: theme-coloured translucent surfaces
+from `styles/core/arkpedia-theme.css`, with a fixed edge-to-edge backdrop beneath the
+site navigation. Bare titles and tabs use the directional theme-coloured scrim;
+reading cards use translucent surfaces. Leave dialogs and popovers opaque.
+The backdrop is decorative and never takes pointer events. Do not auto-cycle it
+under reading content. An event entrance lands on this backdrop instead of a hero card.
+
+Reward infographic viewers open fitted with their complete image and download/link
+actions visible. `.image-viewport` and `useImageViewport` contain wheel, pinch,
+pointer drag and keyboard zoom/pan inside the image area. Keep controls outside that
+area, bound panning to the image, and offer Fit image. Saving always uses the original blob.
+
+An artwork header retains PageHeader's left gutter. Use `inlineTrail` to place Back
+and the eyebrow on one row above its title.
+Keep the header bare; its title, text and controls still align with the inset body
+content. Bounds checks measure those contents separately from the header frame,
+just as for its shared sticky-action extension.
+
+Event artwork is the primary visual on its detail page. Keep its title overlay and
+operator summary compact, remove surrounding panels that duplicate the content
+card's surface, and leave navigation anchored when a dense section uses more of
+the reading frame. Keep the title at the top on phones too, without a blank art spacer.
+Display the event kind separately from the title instead of repeating a rerun tag.
+
+Artwork-backed event controls fade in after the native entrance overlay closes,
+with a brief stagger from the heading to tabs to content. Tab panels also fade on
+selection. Keep this opacity-only motion in `motion.css`; reduced motion is immediate.
