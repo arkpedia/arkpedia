@@ -13,6 +13,8 @@ test('native curves preserve endpoints, Hermite slopes, weights and stepped keys
 test('reviewed entrance matches separate original/rerun and regional assets', () => {
   assert.equal(eventEntrance("[Side Story] The Masses' Travels", 'en')?.id, 'act42side');
   assert.equal(eventEntrance("[Rerun] The Masses' Travels Rerun", 'en')?.id, 'act42sre');
+  assert.equal(eventEntrance("[Rerun] The Masses' Travels Rerun", 'jp')?.id, 'act42sre');
+  assert.equal(eventEntrance("[Rerun] The Masses' Travels Rerun", 'kr')?.id, 'act42sre');
   assert.equal(eventEntrance("[Rerun] The Masses' Travels Rerun", 'cn'), null);
   assert.equal(eventEntrance('[Side Story] Another Event', 'en'), null);
   const path = '/events/' + encodeURIComponent("[Side Story] The Masses' Travels");
@@ -20,4 +22,19 @@ test('reviewed entrance matches separate original/rerun and regional assets', ()
   assert.equal(entranceForUrl('https://example.com' + path, 'https://arkpedia.net', 'en'), null);
   assert.equal(entranceForUrl('/events/%xx', 'https://arkpedia.net', 'en'), null);
   assert.equal(entranceForUrl('/schedule', 'https://arkpedia.net', 'en'), null);
+});
+
+test('upcoming events use reviewed CN packs without confusing original and rerun versions', () => {
+  for (const server of ['en', 'jp', 'kr']) {
+    const thunder = eventEntrance('[Side Story – Crossover] Thunder in the Azure Dream', server);
+    assert.equal(thunder?.id, 'act50side');
+    assert.match(thunder!.folder, /players\/cn\/act50side\//);
+    assert.equal(eventEntrance('[Rerun] A Flurry to the Flame Rerun', server)?.id, 'act24sre');
+    assert.equal(eventEntrance('[Rerun] Act or Die Rerun', server)?.id, 'act43sre');
+    assert.equal(eventEntrance('[Side Story] Ato', server)?.id, 'act44side');
+    assert.equal(eventEntrance('[Rerun] Ato Rerun', server)?.id, 'act44sre');
+  }
+  assert.equal(eventEntrance('[Side Story] A Flurry to the Flame', 'en'), null);
+  assert.equal(eventEntrance('[Side Story] Act or Die', 'en'), null);
+  assert.equal(eventEntrance('Positional Football Championship', 'en'), null);
 });

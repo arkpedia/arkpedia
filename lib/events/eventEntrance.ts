@@ -5,7 +5,10 @@ import { pinAssetUrl } from '@/lib/assets/revisions';
 export type EventEntrance = (typeof catalogue.entries)[number];
 export function eventEntrance(name: string, server: string): EventEntrance | null {
   const title = eventTitle(name).replace(/\s+Rerun$/i, '').normalize('NFKC').toLowerCase();
-  return catalogue.entries.find(e => e.server === server && e.rerun === isRerun(name) && e.title.normalize('NFKC').toLowerCase() === title) ?? null;
+  // These readers share the Global event catalogue. Pack provenance (including
+  // reviewed CN fallbacks) is independent of the reader's reset-clock choice.
+  const region = server === 'jp' || server === 'kr' ? 'en' : server;
+  return catalogue.entries.find(e => e.server === region && e.rerun === isRerun(name) && e.title.normalize('NFKC').toLowerCase() === title) ?? null;
 }
 export function entranceForUrl(href: string, origin: string, server: string): EventEntrance | null {
   try {

@@ -9,7 +9,7 @@ const maps = {};
 if (process.env.ARKPEDIA_CONTENT_DISABLED !== '1') {
   const pins = new Map(Object.entries(JSON.parse(await fs.readFile('data/assets/revisions.json', 'utf8'))));
   const refs = [...pins].map(([repository, revision]) => ({ repository, revision }));
-  for (const path of ['data/dynamic-art.json', 'data/chibi-art.json', 'data/medal-set-layouts.json', 'config/community-project-art.json']) {
+  for (const path of ['data/dynamic-art.json', 'data/chibi-art.json', 'data/medal-set-layouts.json', 'config/event-entrances.json', 'config/community-project-art.json']) {
     refs.push(...assetReferences(await fs.readFile(path, 'utf8')));
   }
   const project = JSON.parse(await fs.readFile('config/community-project-art.json', 'utf8'));

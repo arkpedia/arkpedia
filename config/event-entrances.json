@@ -1,8 +1,125 @@
 {
-  "note": "Code-owned support list: only player packs reviewed with this renderer belong here. Game event records and recovered sources remain in their data/asset repositories.",
-  "baseUrl": "https://assets.arkpedia.net/arkpedia/arkpedia-l2d-assets/122170e3f3ffb0d7eebd3620685a639904d19ee7/",
+  "note": "Code-owned support list: reviewed native players only. Upcoming Global events use reviewed CN source packs when Global assets are unavailable. Game records and original recoveries remain in their data/asset repositories.",
+  "baseUrl": "https://assets.arkpedia.net/arkpedia/arkpedia-l2d-assets/bcd0bde60902bd1058cfa6f28fd9057f1c7b1817/",
   "entries": [
-    { "id": "act42side", "server": "en", "title": "The Masses' Travels", "rerun": false, "folder": "event-transitions/players/en/act42side/d5558b1bd102" },
-    { "id": "act42sre", "server": "en", "title": "The Masses' Travels", "rerun": true, "folder": "event-transitions/players/en/act42sre/37ff509bbdff" }
+    {
+      "id": "act42side",
+      "server": "en",
+      "title": "The Masses' Travels",
+      "rerun": false,
+      "folder": "event-transitions/players/en/act42side/d5558b1bd102"
+    },
+    {
+      "id": "act42sre",
+      "server": "en",
+      "title": "The Masses' Travels",
+      "rerun": true,
+      "folder": "event-transitions/players/en/act42sre/37ff509bbdff"
+    },
+    {
+      "id": "act44side",
+      "server": "en",
+      "title": "Ato",
+      "rerun": false,
+      "folder": "event-transitions/players/cn/act44side/1b3b2a5eb38d"
+    },
+    {
+      "id": "act47side",
+      "server": "en",
+      "title": "Unrealized Realities",
+      "rerun": false,
+      "folder": "event-transitions/players/cn/act47side/3e7919746fe5"
+    },
+    {
+      "id": "act31sre",
+      "server": "en",
+      "title": "Here A People Sows",
+      "rerun": true,
+      "folder": "event-transitions/players/cn/act31sre/4f30a0cc7894"
+    },
+    {
+      "id": "act43sre",
+      "server": "en",
+      "title": "Act or Die",
+      "rerun": true,
+      "folder": "event-transitions/players/cn/act43sre/2e0aacd4fc75"
+    },
+    {
+      "id": "act41side",
+      "server": "en",
+      "title": "When Elegies Are Ashes",
+      "rerun": false,
+      "folder": "event-transitions/players/cn/act41side/a81054859b60"
+    },
+    {
+      "id": "act44sre",
+      "server": "en",
+      "title": "Ato",
+      "rerun": true,
+      "folder": "event-transitions/players/cn/act44sre/5d586ac8377c"
+    },
+    {
+      "id": "act46side",
+      "server": "en",
+      "title": "Retracing Our Steps",
+      "rerun": false,
+      "folder": "event-transitions/players/cn/act46side/0ae3278bd456"
+    },
+    {
+      "id": "act52side",
+      "server": "en",
+      "title": "Yet Another Wave",
+      "rerun": false,
+      "folder": "event-transitions/players/cn/act52side/e5358147ec6c"
+    },
+    {
+      "id": "act49side",
+      "server": "en",
+      "title": "First of A Thousand Autumns",
+      "rerun": false,
+      "folder": "event-transitions/players/cn/act49side/c6e2a2e38f24"
+    },
+    {
+      "id": "act45side",
+      "server": "en",
+      "title": "Somniloquium Serenum",
+      "rerun": false,
+      "folder": "event-transitions/players/cn/act45side/3de67ef700f0"
+    },
+    {
+      "id": "act24sre",
+      "server": "en",
+      "title": "A Flurry to the Flame",
+      "rerun": true,
+      "folder": "event-transitions/players/cn/act24sre/125ea0347c1e"
+    },
+    {
+      "id": "act50side",
+      "server": "en",
+      "title": "Thunder in the Azure Dream",
+      "rerun": false,
+      "folder": "event-transitions/players/cn/act50side/2b3fa1948340"
+    },
+    {
+      "id": "act40sre",
+      "server": "en",
+      "title": "Such is the Joy of Our Reunion",
+      "rerun": true,
+      "folder": "event-transitions/players/cn/act40sre/f56b6151f4dc"
+    },
+    {
+      "id": "act41sre",
+      "server": "en",
+      "title": "When Elegies Are Ashes",
+      "rerun": true,
+      "folder": "event-transitions/players/cn/act41sre/8063cbfa5d1b"
+    },
+    {
+      "id": "act53side",
+      "server": "en",
+      "title": "Till the Lands Become an Orange",
+      "rerun": false,
+      "folder": "event-transitions/players/cn/act53side/e8a3fa756b86"
+    }
   ]
 }
