@@ -277,6 +277,8 @@ export default function EventDetailPage({
     setLink(eventLink(next, activeRewardTab, rewardTabs));
   }
   const activeImage = shownImages[0];
+  const displayTitle = eventTitle(name).replace(/\s+Rerun$/i, '');
+  const eventKind = /^\[([^\]]+)\]/.exec(name)?.[1];
 
   const rewardTypes = Array.from(new Set(rewardStores.map((s) => s.type)));
   // One list for the Tabs and for reading a link: All only when there are blocks to total.
@@ -338,23 +340,22 @@ export default function EventDetailPage({
         <Image src={activeImage} alt="" fill sizes="100vw" style={{ objectFit: 'cover' }}
           onError={() => { if (entrance && activeImage === menuArt) setFailedMenu(entrance.id); }} />
       </div>}
-      <PageHeader className={activeImage ? 'event-page-heading artwork-surface' : undefined}
+      <PageHeader slim={!!activeImage} className={activeImage ? 'event-page-heading artwork-surface' : undefined}
         back={{ href: '/schedule', label: 'Events' }}
-        eyebrow={<>Rhodes Island // <Link prefetch={false} href="/schedule">Events</Link></>}
-        title={name}
+        eyebrow={<><Link prefetch={false} href="/schedule">Events</Link>{activeImage && eventKind ? ` // ${eventKind}` : ''}</>}
+        title={activeImage ? displayTitle : name}
         sub={`${isPredicted ? (mode ? 'Predicted launch: ' : 'Predicted release: ') : (mode ? 'Launch: ' : 'Release: ')}${dateRange}${mode ? ' · Permanent mode' : ''}`}
       />
 
       <main className="event-detail-layout">
-        {/* The event's art across the top, the sections below it (2026-10-04: a column of art
-            beside the sections left most of the page's left side empty). At most 420px tall, so
-            a 16:9 CG set does not fill the screen; a poster is full width well under that. */}
-        <div className={`event-detail-right${activeImage ? ' artwork-surface' : ''}`} ref={hold.ref} style={hold.style}>
+        {/* Compact operator information leaves the cast visible. Dense reward and
+            news sections use the full reading frame; navigation keeps its left edge. */}
+        <div className={`event-detail-right${activeImage && (activeSection === 'banner' || sections.length === 0) ? ' event-detail-compact' : ''}`} ref={hold.ref} style={hold.style}>
           {sections.length > 1 && activeSection && (
             <Tabs<SectionKey>
               label="Event sections"
               id="event-section"
-              className="event-detail-tabs"
+              className={`event-detail-tabs${activeImage ? ' artwork-surface' : ''}`}
               value={activeSection}
               onChange={changeSection}
               options={sections.map((section) => ({ value: section.key, label: section.label }))}
@@ -365,7 +366,7 @@ export default function EventDetailPage({
               <EventModeOverview mode={mode} />
             </section>
           )}
-          {sections.length === 0 && <p className="hint">No banner, reward store or skins are linked to this event yet.</p>}
+          {sections.length === 0 && <p className={activeImage ? 'notice' : 'hint'}>No banner, reward store or skins are linked to this event yet.</p>}
 
           {activeSection === 'banner' && (bannerName || extraOperators.length > 0) && (
             <section className="op-section event-detail-operators" {...tabPanelProps('event-section', 'banner')}>

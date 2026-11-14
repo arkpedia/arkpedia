@@ -9,8 +9,21 @@ for (const theme of ['dark','light']) test(`event artwork fills the page behind 
   expect(await art.evaluate(el=>getComputedStyle(el).position)).toBe('fixed');
   await expect(page.locator('.event-detail-carousel')).toHaveCount(0);
   const header=page.locator('.event-page > .page-header');
+  const headingBox=(await header.boundingBox())!;
+  const viewport=page.viewportSize()!;
+  if(viewport.width>720) {
+    expect(headingBox.width).toBeLessThanOrEqual(viewport.width*.6);
+    expect((await page.locator('.event-detail-compact').boundingBox())!.width).toBeLessThanOrEqual(640);
+  } else expect(headingBox.y-box.y).toBeGreaterThan(viewport.height*.2);
+  await expect(page.getByRole('heading',{level:1})).toHaveText("The Masses' Travels");
+  await expect(page.locator('.event-detail-right.artwork-surface')).toHaveCount(0);
+  const tabs=page.getByRole('tablist',{name:'Event sections'});
+  const tabsBox=(await tabs.boundingBox())!;
   expect(await header.evaluate(el=>getComputedStyle(el).backgroundColor)).toContain('0.9');
   await page.getByRole('tab',{name:'Rewards',exact:true}).click();
+  const nextTabs=(await tabs.boundingBox())!;
+  expect(Math.abs(nextTabs.x-tabsBox.x)).toBeLessThanOrEqual(1);
+  expect(Math.abs(nextTabs.y-tabsBox.y)).toBeLessThanOrEqual(1);
   await expect(page.getByRole('button',{name:'View rewards image fullscreen',exact:true})).toBeVisible();
   await page.getByRole('button',{name:'View rewards image fullscreen',exact:true}).click();
   await expect(page.getByRole('dialog')).toBeVisible(); await page.keyboard.press('Escape');

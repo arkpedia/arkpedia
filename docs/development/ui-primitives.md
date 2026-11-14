@@ -727,7 +727,13 @@ actions visible. `.image-viewport` and `useImageViewport` contain wheel, pinch,
 pointer drag and keyboard zoom/pan inside the image area. Keep controls outside that
 area, bound panning to the image, and offer Fit image. Saving always uses the original blob.
 
-An artwork header retains PageHeader's outer frame and gutters. Its background
-surface follows that frame; its title, text and controls still align with the
-inset body content. Bounds checks measure those contents separately from the
+An artwork header retains PageHeader's left gutter and can use a compact width.
+Its background is a header surface; its title, text and controls still align with
+the inset body content. Bounds checks measure those contents separately from the
 header's background band, just as for its shared sticky-action extension.
+
+Event artwork is the primary visual on its detail page. Keep its title overlay and
+operator summary compact, remove surrounding panels that duplicate the content
+card's surface, and leave navigation anchored when a dense section uses more of
+the reading frame. On phones, leave artwork visible above the compact title.
+Display the event kind separately from the title instead of repeating a rerun tag.

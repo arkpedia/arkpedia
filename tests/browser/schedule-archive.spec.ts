@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { eventTitle } from '../../lib/events/eventName.mjs';
 
 for (const theme of ['dark', 'light']) test(`outside collaborations are opt-in and independent of events in ${theme}`, async ({ page }) => {
   await page.goto('/schedule?view=calendar');
@@ -98,7 +99,7 @@ test('past events are newest first, shareable, and link to their event pages', a
   const name = await rows.first().locator('.events-row-name').innerText();
   await first.click();
   await expect(page).toHaveURL(new URL(href!, page.url()).href);
-  await expect(page.locator('h1')).toHaveText(name);
+  await expect(page.locator('h1')).toContainText(eventTitle(name).replace(/\s+Rerun$/i, ''));
   await page.goto('/schedule?past=1');
   await expect(page.getByRole('button', { name: 'Past', exact: true, pressed: true })).toBeVisible();
   await expect(rows.first().locator('a.events-row-main')).toHaveAttribute('href', href!);
