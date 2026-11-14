@@ -11,15 +11,16 @@ release the overlay and page-audio hold. Navigation never waits for the animatio
 The support list includes the Global original/rerun of The Masses' Travels and
 reviewed CN menus for upcoming events, reruns and past events. Global, Japan and
 Korea reset-clock choices share that event catalogue; the reader's clock does not
-restrict the pack's source region. The asset repository also holds a reviewed CN
-menu awaiting its site event record. Unlisted events retain ordinary navigation.
+restrict the pack's source region. The CN Vremya menu matches Russian, romanized and Chinese titles through explicit
+aliases; its calendar record remains data-owned. Unlisted events retain ordinary navigation.
 Recovered source availability is broader than renderer support. The UI renderer
 uses original curves, RectTransforms, sprites, rectangular/soft masks and GLES3
 programs, including animated material values and original shader keyword variants.
-Unambiguous streamed/constant Mecanim UI channels are supported; dense channels,
+Unambiguous streamed/constant Mecanim UI channels and native ZXY Euler rotation are supported; dense channels,
 unknown bindings and ambiguous Animator owners fail conversion. Game controls/text,
-ParticleSystem emitters and non-UI mesh effects are omitted. Custom stencil masks
-and runtime-populated menus that fail visual review are not enabled. Recovered game
+ParticleSystem emitters and non-UI mesh effects are omitted. Reviewed channel stencil masks support native comparisons, operations, read/write
+bits and color-write masks. Unsupported mask operations and runtime-populated
+menus that fail visual review are not enabled. Recovered game
 callbacks are never executed.
 
 Native entrance SFX starts at the recorded cue. The event theme is prepared under
@@ -33,7 +34,7 @@ available, following the main player's Data saver choice for YouTube playback.
 While an entrance holds playback, official themes resolve their signed audio
 address ahead without borrowing the personal queue's preloader. The handoff can
 start directly from the CDN; a failed/expired preparation uses ordinary streaming.
-Flurry and Act or Die's recovered entrance clips contain no serialized SFX cue;
+Flurry, Act or Die and Bolívar Diagnosed have no recovered serialized entrance SFX cue;
 their animations do not receive an invented sound association or timing.
 
 ## Adding a reviewed pack
@@ -90,3 +91,11 @@ recorded 0.016667-second cue and official Monster Siren music reaches playing,
 without provider mocks. Desktop dark and mobile light checks passed fullscreen,
 docking, Back/Forward, Escape, reduced motion and media opt-out. The expanded
 catalogue still requires its own checked-source Preview and deployed acceptance.
+
+The Till the Lands Become an Orange opening relies on an invisible stencil writer
+and an outside-only black matte. Treating that matte as an ordinary image hid the
+first four seconds. Its recovered stencil state reveals the road/landscape from
+about 0.4 seconds while preserving the original 5.167-second timeline and SFX.
+The same channel-mask support restores Sur le lac lune vivante without painting
+its mask circles over character faces. A GPU regression checks invisible mask
+writes, inside/outside comparisons and clearing masks between frames.
