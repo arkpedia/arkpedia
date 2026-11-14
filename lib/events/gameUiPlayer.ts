@@ -7,10 +7,10 @@ type ImageData = {
   texture: number | null; rect: { x: number; y: number; width: number; height: number };
   offset: { x: number; y: number }; spriteSize: Vec; border: Vec; color: Vec;
   material: number | null; type: number; preserveAspect: boolean;
-  fill: number; fillMethod: number; clockwise: boolean; origin: number; arc?: Vec; rotated?: boolean;
+  fill: number; fillMethod: number; clockwise: boolean; origin: number; arc?: Vec; rotated?: boolean; uvRect?: Vec;
 };
 type Node = { name: string; parent: number | null; active: boolean; alpha: number; position: Vec;
-  z: number; size: Vec; pivot: Vec; anchorMin: Vec; anchorMax: Vec; scale: Vec; rotation: Vec; image?: ImageData; rectMask?: boolean; ignoreParentAlpha?: boolean };
+  z: number; size: Vec; pivot: Vec; anchorMin: Vec; anchorMax: Vec; scale: Vec; rotation: Vec; localPosition?: Vec; image?: ImageData; uniforms?: Record<string, number | Vec>; rectMask?: boolean; maskSoftness?: Vec; maskPadding?: Vec; ignoreParentAlpha?: boolean };
 type Shader = { name: string; vertex: string; fragment: string; defaults: Record<string, Vec>;
   samplers: Record<string, string>; blend: { val: number; name: string }[] };
 type Material = { name: string; shader: number; values: Record<string, number | Vec>; textures: Record<string, number | null> };
@@ -119,7 +119,7 @@ gl_Position=vp*world*in_POSITION0; color=in_COLOR0; uv=in_TEXCOORD0; }`;
 const FRAGMENT = `#version 300 es
 precision highp float; in vec4 color; in vec2 uv; uniform sampler2D _MainTex; out vec4 result;
 void main() { result=texture(_MainTex,uv)*color; if(result.a<0.001)discard; }`;
-type Program = { handle: WebGLProgram; attributes: number[]; uniforms: { name: string; type: number; location: WebGLUniformLocation }[] };
+type Program = { handle: WebGLProgram; attributes: number[]; uniforms: { name: string; type: number; size: number; location: WebGLUniformLocation }[] };
 
 export class GameUiPlayer {
   private gl: WebGL2RenderingContext;
@@ -186,7 +186,23 @@ export class GameUiPlayer {
   }
   private program(vertex: string, fragment: string): Program {
     const gl = this.gl;
+    if (this.scene.nodes.some(n => n.maskSoftness?.some(value => value > 0))) {
+      const output = fragment.match(/\bout\s+(?:(?:lowp|mediump|highp)\s+)?vec4\s+(\w+)\s*;/)?.[1];
+      if (!output) throw new Error('Unsupported soft-mask shader output');
+      fragment = fragment.replace(/void\s+main\s*\(/, 'void arkNativeMain(') + `
+precision highp float; precision highp int;
+uniform vec4 arkMaskRects[8]; uniform vec4 arkMaskWidths[8]; uniform int arkMaskCount; uniform float arkPremultiplied;
+void main() { arkNativeMain(); float coverage=1.0;
+for(int i=0;i<8;i++){if(i>=arkMaskCount)break;
+vec2 edge=min(gl_FragCoord.xy-arkMaskRects[i].xy,arkMaskRects[i].zw-gl_FragCoord.xy);
+vec2 mask=clamp(edge/max(arkMaskWidths[i].xy,vec2(0.00001)),0.0,1.0); coverage*=mask.x*mask.y;}
+${output}.a*=coverage; ${output}.rgb*=mix(1.0,coverage,arkPremultiplied); }`;
+    }
     const compile = (kind: number, source: string) => {
+      // Select the original program's loose-uniform path; Unity's per-camera
+      // buffers do not exist in the browser player.
+      source = source.replace('#define HLSLCC_ENABLE_UNIFORM_BUFFERS 1', '#define HLSLCC_ENABLE_UNIFORM_BUFFERS 0');
+      source = source.replace(/^(#version[^\n]*\n)/, '$1precision highp float; precision highp int;\n');
       const s = gl.createShader(kind)!; gl.shaderSource(s, source); gl.compileShader(s);
       if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) { const error = gl.getShaderInfoLog(s); gl.deleteShader(s); throw new Error(error ?? 'Event shader compile failed'); }
       return s;
@@ -196,7 +212,7 @@ export class GameUiPlayer {
     if (!gl.getProgramParameter(handle, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(handle) ?? 'Event shader link failed');
     const uniforms: Program['uniforms'] = [];
     for (let i = 0; i < gl.getProgramParameter(handle, gl.ACTIVE_UNIFORMS); i++) {
-      const u = gl.getActiveUniform(handle, i)!; uniforms.push({ name: u.name.replace(/\[0\]$/, ''), type: u.type, location: gl.getUniformLocation(handle, u.name)! });
+      const u = gl.getActiveUniform(handle, i)!; uniforms.push({ name: u.name.replace(/\[0\]$/, ''), type: u.type, size: u.size, location: gl.getUniformLocation(handle, u.name)! });
     }
     return { handle, uniforms, attributes: ['in_POSITION0', 'in_COLOR0', 'in_TEXCOORD0'].map(n => gl.getAttribLocation(handle, n)) };
   }
@@ -214,17 +230,22 @@ export class GameUiPlayer {
     // never stretch the character art. Docking naturally reveals the full 16:9 frame.
     const fit = Math.max(width / scene.width, height / scene.height);
     const vp = [2 * fit / width, 0, 0, 0, 0, 2 * fit / height, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1];
-    const poses: { world: Vec; size: Vec; pivot: Vec; alpha: number; active: boolean; clip: Vec | null }[] = [];
+    const poses: { world: Vec; size: Vec; pivot: Vec; alpha: number; active: boolean; clip: Vec | null; masks: { rect: Vec; widths: Vec }[] }[] = [];
     for (const n of nodes) {
-      const parent = n.parent === null ? { world: IDENTITY, size: [scene.width, scene.height], pivot: [.5, .5], alpha: 1, active: true, clip: null } : poses[n.parent];
+      const parent = n.parent === null ? { world: IDENTITY, size: [scene.width, scene.height], pivot: [.5, .5], alpha: 1, active: true, clip: null, masks: [] } : poses[n.parent];
       const size = n.size.map((v, i) => v + parent.size[i] * (n.anchorMax[i] - n.anchorMin[i]));
       const position = n.position.map((v, i) => v + parent.size[i] * (n.anchorMin[i] + (n.anchorMax[i] - n.anchorMin[i]) * n.pivot[i] - parent.pivot[i]));
-      const pose = { world: multiply(parent.world, matrix([...position, n.z], n.rotation, n.scale)), size, pivot: n.pivot, alpha: (n.ignoreParentAlpha ? 1 : parent.alpha) * n.alpha, active: parent.active && !!n.active, clip: parent.clip };
+      const pose = { world: multiply(parent.world, matrix(n.localPosition ?? [...position, n.z], n.rotation, n.scale)), size, pivot: n.pivot, alpha: (n.ignoreParentAlpha ? 1 : parent.alpha) * n.alpha, active: parent.active && !!n.active, clip: parent.clip, masks: parent.masks };
       if (n.rectMask) {
-        const corners = [[-n.pivot[0] * size[0], -n.pivot[1] * size[1]], [(1 - n.pivot[0]) * size[0], (1 - n.pivot[1]) * size[1]]];
+        const padding = n.maskPadding ?? [0, 0, 0, 0];
+        const corners = [[-n.pivot[0] * size[0] + padding[0], -n.pivot[1] * size[1] + padding[1]], [(1 - n.pivot[0]) * size[0] - padding[2], (1 - n.pivot[1]) * size[1] - padding[3]]];
         const points = corners.map(([x, y]) => [(pose.world[0] * x + pose.world[4] * y + pose.world[12]) * fit + width / 2, (pose.world[1] * x + pose.world[5] * y + pose.world[13]) * fit + height / 2]);
         const box = [Math.min(points[0][0], points[1][0]), Math.min(points[0][1], points[1][1]), Math.max(points[0][0], points[1][0]), Math.max(points[0][1], points[1][1])];
         pose.clip = parent.clip ? [Math.max(box[0], parent.clip[0]), Math.max(box[1], parent.clip[1]), Math.min(box[2], parent.clip[2]), Math.min(box[3], parent.clip[3])] : box;
+        if (n.maskSoftness?.some(value => value > 0)) {
+          pose.masks = [...parent.masks, { rect: box, widths: [n.maskSoftness[0] * Math.hypot(pose.world[0], pose.world[1]) * fit / 2 + 1, n.maskSoftness[1] * Math.hypot(pose.world[4], pose.world[5]) * fit / 2 + 1, 0, 0] }];
+          if (pose.masks.length > 8) throw new Error('Too many nested native soft masks');
+        }
       }
       poses.push(pose);
       if (!pose.active || !n.image || pose.alpha < .0001 || n.image.color[3] < .0001 || size[0] <= 0 || size[1] <= 0) continue;
@@ -245,15 +266,25 @@ export class GameUiPlayer {
           gl.activeTexture(gl.TEXTURE0 + unit); gl.bindTexture(gl.TEXTURE_2D, texture ?? this.white); gl.uniform1i(u.location, unit++); continue;
         }
         const value = u.name === 'hlslcc_mtx4x4unity_ObjectToWorld' ? pose.world : u.name === 'hlslcc_mtx4x4unity_MatrixVP' ? vp
-          : u.name === '_Time' ? [time / 20, time, time * 2, time * 3] : mat?.values[u.name] ?? shader?.defaults[u.name] ?? (u.name.endsWith('_ST') ? [1, 1, 0, 0] : [1, 1, 1, 1]);
+          : u.name === 'arkMaskRects' ? [...pose.masks.flatMap(mask => mask.rect), ...Array((8 - pose.masks.length) * 4).fill(0)]
+          : u.name === 'arkMaskWidths' ? [...pose.masks.flatMap(mask => mask.widths), ...Array((8 - pose.masks.length) * 4).fill(0)]
+          : u.name === 'arkMaskCount' ? pose.masks.length : u.name === 'arkPremultiplied' ? Number((shader ? state(shader.blend[0]) : 5) === 1)
+          : u.name === '_ScreenParams' ? [width, height, 1 + 1 / width, 1 + 1 / height]
+          : u.name === '_SinTime' ? [Math.sin(time / 8), Math.sin(time / 4), Math.sin(time / 2), Math.sin(time)]
+          : u.name === '_CosTime' ? [Math.cos(time / 8), Math.cos(time / 4), Math.cos(time / 2), Math.cos(time)]
+          : u.name === '_Time' ? [time / 20, time, time * 2, time * 3] : n.uniforms?.[u.name] ?? mat?.values[u.name] ?? shader?.defaults[u.name] ?? (u.name.endsWith('_ST') ? [1, 1, 0, 0] : [1, 1, 1, 1]);
         if (u.type === gl.FLOAT) gl.uniform1f(u.location, Array.isArray(value) ? value[0] : value);
-        else if (u.type === gl.FLOAT_VEC4) gl.uniform4fv(u.location, Array.isArray(value) ? value : [value, value, value, value]);
-        else if (u.type === gl.FLOAT_VEC2) gl.uniform2fv(u.location, Array.isArray(value) ? value : [value, value]);
+        else if (u.type === gl.FLOAT_VEC4) gl.uniform4fv(u.location, Array.isArray(value) ? value.slice(0, u.size * 4) : [value, value, value, value]);
+        else if (u.type === gl.FLOAT_VEC3) gl.uniform3fv(u.location, Array.isArray(value) ? value.slice(0, u.size * 3) : [value, value, value]);
+        else if (u.type === gl.FLOAT_VEC2) gl.uniform2fv(u.location, Array.isArray(value) ? value.slice(0, u.size * 2) : [value, value]);
+        else if (u.type === gl.FLOAT_MAT4 && Array.isArray(value)) gl.uniformMatrix4fv(u.location, false, value);
+        else if (u.type === gl.INT || u.type === gl.BOOL) gl.uniform1i(u.location, Array.isArray(value) ? value[0] : value);
       }
       const color = [...im.color]; color[3] *= pose.alpha;
       const tex = im.texture === null ? { width: 1, height: 1 } : scene.textures[im.texture];
       const mesh = imageMesh(im, size, n.pivot, tex), vertices: number[] = [];
-      for (let i = 0; i < mesh.length; i += 4) vertices.push(mesh[i], mesh[i + 1], 0, 1, ...color, mesh[i + 2], mesh[i + 3]);
+      const uv = im.uvRect ?? [0, 0, 1, 1];
+      for (let i = 0; i < mesh.length; i += 4) vertices.push(mesh[i], mesh[i + 1], 0, 1, ...color, uv[0] + mesh[i + 2] * uv[2], uv[1] + mesh[i + 3] * uv[3]);
       if (!vertices.length) continue;
       gl.bindBuffer(gl.ARRAY_BUFFER, this.buffer); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.DYNAMIC_DRAW);
       for (const [i, loc] of program.attributes.entries()) if (loc >= 0) { gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, i === 2 ? 2 : 4, gl.FLOAT, false, 40, [0, 16, 32][i]); }

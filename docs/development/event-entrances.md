@@ -8,13 +8,19 @@ its final menu artwork into the event hero. The hero uses the same menu artwork.
 Skip, Escape, navigation cancellation, missing/slow assets and WebGL failure all
 release the overlay and page-audio hold. Navigation never waits for the animation.
 
-The initial reviewed coverage is the Global original and rerun of The Masses'
-Travels. Other events retain ordinary navigation. Recovered source availability is
-broader than renderer support: the asset repository contains legacy and Mecanim
-clips that still need conversion and visual review. The current UI renderer uses
-original curves, RectTransforms, sprites, masks and GLES3 programs; it omits game
-interaction/text controls and ParticleSystem emitters. It never executes recovered
-game callbacks.
+The support list includes the Global original/rerun of The Masses' Travels and
+reviewed CN menus for upcoming events, reruns and past events. Global, Japan and
+Korea reset-clock choices share that event catalogue; the reader's clock does not
+restrict the pack's source region. The asset repository also holds a reviewed CN
+menu awaiting its site event record. Unlisted events retain ordinary navigation.
+Recovered source availability is broader than renderer support. The UI renderer
+uses original curves, RectTransforms, sprites, rectangular/soft masks and GLES3
+programs, including animated material values and original shader keyword variants.
+Unambiguous streamed/constant Mecanim UI channels are supported; dense channels,
+unknown bindings and ambiguous Animator owners fail conversion. Game controls/text,
+ParticleSystem emitters and non-UI mesh effects are omitted. Custom stencil masks
+and runtime-populated menus that fail visual review are not enabled. Recovered game
+callbacks are never executed.
 
 Native entrance SFX starts at the recorded cue. The event theme is prepared under
 the overlay and released at the end of the native timeline, as docking begins.
@@ -24,6 +30,11 @@ tail finish. The optional background theme choice remains independent.
 Cold taps give the SFX the remaining entrance load budget, rather than requiring
 a hover-preloaded sound. Page themes use official Monster Siren audio where
 available, following the main player's Data saver choice for YouTube playback.
+While an entrance holds playback, official themes resolve their signed audio
+address ahead without borrowing the personal queue's preloader. The handoff can
+start directly from the CDN; a failed/expired preparation uses ordinary streaming.
+Flurry and Act or Die's recovered entrance clips contain no serialized SFX cue;
+their animations do not receive an invented sound association or timing.
 
 ## Adding a reviewed pack
 

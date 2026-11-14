@@ -12,7 +12,7 @@ export default function BackgroundMusicSetting() {
     <label className="check site-nav-popitem" title={consent ? 'Your chosen theme while browsing, except on event pages and in Music Guesser. Your music player takes priority.' : 'Allow external media in Privacy choices first.'}>
       <input type="checkbox" checked={enabled} disabled={!consent} onChange={event => setSetting('backgroundMusic', event.target.checked)} />Background Music
     </label>
-    <label className="check site-nav-popitem" title={consent ? 'An event’s lobby music while visiting its page. Your music player takes priority.' : 'Allow external media in Privacy choices first.'}>
+    <label className="check site-nav-popitem" title={consent ? 'Original entrance sound effects and the event’s lobby music. Your music player takes priority.' : 'Allow external media in Privacy choices first.'}>
       <input type="checkbox" checked={events} disabled={!consent} onChange={event => setSetting('eventMusic', event.target.checked)} />Event Music
     </label>
     <button type="button" className="btn-bare site-nav-popitem" onClick={() => actions.open('menu-music')}>Choose Background Music</button>

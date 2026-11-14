@@ -11,6 +11,8 @@ import { songTitle } from '@/lib/music/musicPolish';
 import { publishPagePlayback, clearPagePlayback } from '@/lib/music/pageAudioPlayback';
 import { useEventEntranceAudioHold } from '@/lib/events/eventEntranceContext';
 import { msrTrackId } from '@/lib/music/trackId';
+import { msrAudioAddress } from '@/lib/music/audioElement';
+import { audioLinkExpiry } from '@/lib/music/monsterSirenAudio';
 
 type Status = 'loading' | 'playing' | 'paused' | 'blocked' | 'error';
 /** A separate page-owned engine: never borrows the main player's queue, song or clock. */
@@ -94,7 +96,18 @@ function PageAudioSession({ musicId, preference, allowEndfield }: { musicId: str
       } else {
         // A distinct element prevents this fallback from touching paused main-player audio.
         const element = document.createElement('audio'); element.preload = 'none';
-        const player = createMsrAudioEngine({ onState, onError: failed, onAutoplayBlocked: blocked, onStuck: failed }, { element });
+        let preparedAddress: string | undefined;
+        const usable = (url: string | undefined) => url && (audioLinkExpiry(url, Date.now()) ?? 0) - Date.now() >= 70 * 60_000;
+        if (busy.current && track.cid) {
+          // Resolve the signed address under the intro, without playing or
+          // borrowing the personal queue's preloader. The handoff skips the API.
+          void fetch(msrAudioAddress(track.cid), { method: 'HEAD', signal: abort.signal, credentials: 'omit' })
+            .then(response => { if (!disposed && response.ok && usable(response.url)) preparedAddress = response.url; })
+            .catch(() => { /* Ordinary streaming remains available. */ });
+        }
+        const player = createMsrAudioEngine({ onState, onError: failed, onAutoplayBlocked: blocked, onStuck: failed }, {
+          element, address: (cid, fresh) => !fresh && usable(preparedAddress) ? preparedAddress! : msrAudioAddress(cid, fresh),
+        });
         release = () => { player.stop(); element.remove(); };
         ready(player);
       }

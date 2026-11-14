@@ -149,7 +149,15 @@ test('regional reward labels use the server calendar and manual claims survive c
   if (await mobileMenu.isVisible()) await mobileMenu.click();
   const planner = page.getByRole('button', { name: 'Planner', exact: true });
   if (await planner.getAttribute('aria-expanded') !== 'true') await planner.click();
+  await page.evaluate(() => {
+    Reflect.set(window, 'regionalNavigationComplete', false);
+    const events = Reflect.get(window, 'next').router.events;
+    const complete = () => { Reflect.set(window, 'regionalNavigationComplete', true); events.off('routeChangeComplete', complete); };
+    events.on('routeChangeComplete', complete);
+  });
   await page.locator('a[href="/reward-tracker"]:visible').click();
+  await page.waitForFunction(() => Reflect.get(window, 'regionalNavigationComplete') === true);
+  if (await mobileMenu.isVisible()) await expect(mobileMenu).toHaveAttribute('aria-expanded', 'false');
   await expectClock(page, '03:59');
   await page.getByRole('tab', { name: 'Free rewards', exact: true }).click();
   await page.getByRole('group', { name: 'Free rewards status' }).getByRole('button', { name: 'Claimed', exact: true }).click();
