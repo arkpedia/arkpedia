@@ -26,6 +26,14 @@ cards. Choose the pattern below first, then use its established primitives.
 
 ## Navigation and continuity
 
+Verified event entrances may use the original game animation fullscreen after an
+event link is activated (maintainer exception, 2026-11-13). Use a quick fade to black,
+then the native animation and sound cues; shrink its final menu artwork into the
+event page's hero, which may use that same menu artwork instead of the event banner.
+Respect reduced motion and the existing event-audio preference. Keep Back/Forward,
+modified links and unsupported events on their ordinary navigation path. The media
+overlay must be skippable and bounded when its assets cannot load.
+
 Public URLs use their current reader-facing names: `/reward-tracker`,
 `/operator-planner`, `/pull-planner`, `/game-modes`, `/gacha-simulator`,
 `/polls/power-scale`, `/whats-new` and `/world`. Old bookmarks redirect directly;

@@ -65,6 +65,7 @@ import { rewardSummary, type RewardSummary } from '@/lib/events/rewardSummary';
 import { getAllOperators } from '@/lib/operators/operators';
 import { getOperatorIconPath } from '@/lib/operators/operatorIcon';
 import { operatorHref } from '@/lib/operators/operatorHref';
+import { eventEntrance, entranceAsset } from '@/lib/events/eventEntrance';
 
 const CAROUSEL_INTERVAL_MS = 8000;
 const PAUSE_AFTER_CLICK_MS = 30000;
@@ -239,7 +240,12 @@ export default function EventDetailPage({
      hydration like the dates: both sit in boxes of a fixed shape, so the swap moves nothing. A CG
      set stays: the board's art stands in for the poster only. */
   const modeImages = mode?.poster ? [mode.poster] : images;
-  const shownImages = artAspect === POSTER_ASPECT && server !== 'en' ? [regionalArt(regionalWindow, modeImages[0] ?? null, server)].filter((src): src is string => !!src) : modeImages;
+  const entrance = eventEntrance(name, server);
+  const [failedMenu, setFailedMenu] = useState<string | null>(null);
+  const menuArt = entrance && failedMenu !== entrance.id ? entranceAsset(entrance, 'menu.webp') : null;
+  const shownArtAspect = menuArt ? CG_ASPECT : artAspect;
+  const regionalImages = artAspect === POSTER_ASPECT && server !== 'en' ? [regionalArt(regionalWindow, modeImages[0] ?? null, server)].filter((src): src is string => !!src) : modeImages;
+  const shownImages = menuArt ? [menuArt, ...(artAspect === CG_ASPECT ? regionalImages : [])] : regionalImages;
   const shownBannerImage = bannerName ? regionalArt(schedule?.banners?.[bannerName], bannerImage, server) : bannerImage;
   const hasExtras = extras.packs.length + extras.furniture.length + extras.notices.length > 0;
   // A page compiled by a release from before the News tab has no `news` at all.
@@ -277,6 +283,7 @@ export default function EventDetailPage({
   const [paused, setPaused] = useState(false);
   const resumeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const activeImage = shownImages[Math.min(imgIndex, shownImages.length - 1)];
+  useEffect(() => { setImgIndex(0); setPaused(false); }, [name]);
 
   const rewardTypes = Array.from(new Set(rewardStores.map((s) => s.type)));
   // One list for the Tabs and for reading a link: All only when there are blocks to total.
@@ -353,7 +360,7 @@ export default function EventDetailPage({
   return (
     <RewardDetailsProvider tickets={tickets}>
       <PageAudio musicId={eventMusicId(name, pageMusic)} pageKey={`event:${name}`} preference="eventMusic" />
-      <PageMeta title={name} description={`${name}, an Arknights event${dateRange ? ` (${dateRange})` : ''}: its banner, rewards, outfits and news.`} path={`/events/${encodeURIComponent(name)}`} image={images[0] ?? poster ?? bannerImage} />
+      <PageMeta title={name} description={`${name}, an Arknights event${dateRange ? ` (${dateRange})` : ''}: its banner, rewards, outfits and news.`} path={`/events/${encodeURIComponent(name)}`} image={menuArt ?? images[0] ?? poster ?? bannerImage} />
       <PageHeader
         back={{ href: '/schedule', label: 'Events' }}
         eyebrow={<>Rhodes Island // <Link prefetch={false} href="/schedule">Events</Link></>}
@@ -365,9 +372,10 @@ export default function EventDetailPage({
         {/* The event's art across the top, the sections below it (2026-10-04: a column of art
             beside the sections left most of the page's left side empty). At most 420px tall, so
             a 16:9 CG set does not fill the screen; a poster is full width well under that. */}
-        <div className="event-detail-carousel" style={{ maxWidth: `calc(420px * ${artAspect})` }}>
-          <div className="event-detail-image-wrap" style={{ aspectRatio: artAspect }}>
-            {activeImage && <Image src={activeImage} alt={name} fill sizes="(max-width: 1240px) 100vw, 1200px" style={{ objectFit: mode?.poster ? 'contain' : 'cover' }} />}
+        <div className="event-detail-carousel" style={{ maxWidth: `calc(420px * ${shownArtAspect})` }}>
+          <div className="event-detail-image-wrap" data-event-entrance-art={menuArt ? entrance?.id : undefined} style={{ aspectRatio: shownArtAspect }}>
+            {activeImage && <Image src={activeImage} alt={name} fill sizes="(max-width: 1240px) 100vw, 1200px" style={{ objectFit: mode?.poster ? 'contain' : 'cover' }}
+              onError={() => { if (entrance && activeImage === menuArt) setFailedMenu(entrance.id); }} />}
           </div>
           {shownImages.length > 1 && (
             <div className="event-detail-carousel-dots">
