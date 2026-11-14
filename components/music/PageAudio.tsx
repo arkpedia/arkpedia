@@ -10,6 +10,7 @@ import { MAIN_AUDIO_START } from '@/lib/music/pageMusic';
 import { songTitle } from '@/lib/music/musicPolish';
 import { publishPagePlayback, clearPagePlayback } from '@/lib/music/pageAudioPlayback';
 import { useEventEntranceAudioHold } from '@/lib/events/eventEntranceContext';
+import { msrTrackId } from '@/lib/music/trackId';
 
 type Status = 'loading' | 'playing' | 'paused' | 'blocked' | 'error';
 /** A separate page-owned engine: never borrows the main player's queue, song or clock. */
@@ -20,7 +21,7 @@ export default function PageAudio({ musicId, pageKey, preference, allowEndfield 
 }
 function PageAudioSession({ musicId, preference, allowEndfield }: { musicId: string | null; preference: AudioPreference; allowEndfield: boolean }) {
   const enabled = useSiteSetting(preference), consent = usePrivacyChoice('externalMedia');
-  const { isPlaying, starting, buffering, volume, excludeCopyrighted, includeEndfield } = useMusicPlayer();
+  const { isPlaying, starting, buffering, volume, excludeCopyrighted, includeEndfield, dataSaver } = useMusicPlayer();
   const entranceHold = useEventEntranceAudioHold();
   const mainBusy = isPlaying || starting || buffering || entranceHold;
   const owner = useRef({});
@@ -54,13 +55,17 @@ function PageAudioSession({ musicId, preference, allowEndfield }: { musicId: str
       const track = songs.find(item => (item.id === musicId || item.cid === musicId) && songAllowed({ excludeCopyrighted, includeEndfield: includeEndfield || allowEndfield }, item));
       if (disposed || !track) return;
       setSong(track);
+      // Follow the main player's source choice: official audio by default,
+      // YouTube for video-only recordings or the reader's Data saver choice.
+      const native = Boolean(track.cid && (!track.videoId || !dataSaver));
+      const playbackId = native ? msrTrackId(track.cid!) : track.id;
       const onState = (value: number) => {
         if (disposed) return;
         if (value === PLAYER_STATE.PLAYING) {
           if (!permitted()) { engine.current?.pauseVideo(); return; }
           clearWatch(); state('playing');
         } else if (value === PLAYER_STATE.ENDED && permitted()) {
-          state('loading'); engine.current?.loadVideoById(track.id); watch();
+          state('loading'); engine.current?.loadVideoById(playbackId); watch();
         } else if (value === PLAYER_STATE.PAUSED && !['blocked', 'error'].includes(statusRef.current)) state('paused');
       };
       const ready = (player: PlaybackEngine) => {
@@ -71,12 +76,12 @@ function PageAudioSession({ musicId, preference, allowEndfield }: { musicId: str
           if (!permitted()) return;
           const retry = statusRef.current === 'error';
           state('loading'); watch();
-          if (retry) player.loadVideoById(track.id); else player.playVideo();
+          if (retry) player.loadVideoById(playbackId); else player.playVideo();
         };
-        if (permitted()) { state('loading'); player.loadVideoById(track.id); watch(); }
-        else { player.cueVideoById(track.id); state('paused'); }
+        if (permitted()) { state('loading'); player.loadVideoById(playbackId); watch(); }
+        else { player.cueVideoById(playbackId); state('paused'); }
       };
-      if (track.videoId) {
+      if (!native && track.videoId) {
         await loadYouTubeApi();
         if (disposed || !container) return;
         const mount = document.createElement('div');
@@ -99,7 +104,7 @@ function PageAudioSession({ musicId, preference, allowEndfield }: { musicId: str
       window.removeEventListener(MAIN_AUDIO_START, suspend); window.removeEventListener('pagehide', onPageHide);
       container?.replaceChildren();
     };
-  }, [enabled, consent, musicId, catalogueUrl, excludeCopyrighted, includeEndfield, allowEndfield]);
+  }, [enabled, consent, musicId, catalogueUrl, excludeCopyrighted, includeEndfield, allowEndfield, dataSaver]);
   useEffect(() => {
     busy.current = mainBusy;
     if (mainBusy) engine.current?.pauseVideo();

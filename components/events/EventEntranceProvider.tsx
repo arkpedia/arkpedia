@@ -163,7 +163,10 @@ export default function EventEntranceProvider({ children }: { children: ReactNod
           .then(r => r.ok ? r.arrayBuffer() : null).catch(() => null);
       }
       if (preferences.current.audioAllowed && audio && prepared.sound) {
-        const bytes = await Promise.race([prepared.sound, new Promise<null>(resolve => { timer = setTimeout(() => resolve(null), 120); })]);
+        // Cold taps have no hover prewarm. Give their SFX the remaining load
+        // budget instead of silently dropping it after only 120 ms.
+        const soundBudget = Math.max(0, LOAD_BUDGET_MS - (performance.now() - entered) - 100);
+        const bytes = await Promise.race([prepared.sound, new Promise<null>(resolve => { timer = setTimeout(() => resolve(null), soundBudget); })]);
         clearTimeout(timer);
         if (bytes && !disposed) { try { buffer = await audio.context.decodeAudioData(bytes.slice(0)); } catch { /* silent fallback */ } }
       }
