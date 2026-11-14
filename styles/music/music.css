@@ -857,15 +857,17 @@ body:has([data-music-widget]) main { padding-bottom: calc(var(--page-gutter) + 7
   .music-lyric-line { margin-bottom: 4px; font-size: clamp(18px, 1.45vw, 22px); }
   .music-lyric-seek { width: fit-content; max-width: 100%; }
   .music-workspace-rail { max-height: max(160px, calc(100dvh - var(--nav-h, 72px) - var(--music-bar-height, 120px) - 40px)); overflow-y: auto; }
-  .music-player-bottombar { display: grid; grid-template-columns: minmax(0, 1fr) minmax(260px, 1.2fr) minmax(0, 1fr); grid-template-rows: auto auto auto; gap: 4px 24px; padding-block: 12px calc(12px + env(safe-area-inset-bottom, 0px)); }
-  .music-transport-notice { grid-column: 1 / -1; grid-row: 1; }
-  .music-transport-song-row { grid-column: 1; grid-row: 2 / 4; }
+  .music-player-bottombar { display: grid; grid-template-columns: minmax(0, 1fr) minmax(260px, 1.2fr) minmax(0, 1fr); grid-template-rows: [notice] auto [transport] auto [seek] auto [end]; gap: 4px 24px; padding-block: 12px calc(12px + env(safe-area-inset-bottom, 0px)); }
+  .music-player-bottombar:has(> .music-widget-background) { grid-template-rows: [notice] auto [background] auto [transport] auto [seek] auto [end]; }
+  .music-player-bottombar > .music-widget-background { grid-row: background; }
+  .music-transport-notice { grid-column: 1 / -1; grid-row: notice; }
+  .music-transport-song-row { grid-column: 1; grid-row: transport / end; }
   .music-player-bottombar-controls { display: contents; }
-  .music-transport-playback { grid-column: 2; grid-row: 2; }
-  .music-player-bottombar-seek { grid-column: 2; grid-row: 3; }
+  .music-transport-playback { grid-column: 2; grid-row: transport; }
+  .music-player-bottombar-seek { grid-column: 2; grid-row: seek; }
   .music-player-bottombar[data-empty] .music-player-bottombar-seek { visibility: hidden; }
-  .music-player-bottombar[data-empty] .music-transport-playback { grid-row: 2 / 4; align-self: center; }
-  .music-transport-right { grid-column: 3; grid-row: 2 / 4; align-self: center; }
+  .music-player-bottombar[data-empty] .music-transport-playback { grid-row: transport / end; align-self: center; }
+  .music-transport-right { grid-column: 3; grid-row: transport / end; align-self: center; }
   .music-transport-song-row .music-transport-fav-phone,
   .music-transport-song-row .music-dislike-btn { display: inline-flex; align-items: center; justify-content: center; width: var(--control-h); min-width: var(--control-h); height: var(--control-h); padding: 0; }
   .music-transport-song-row .music-transport-song { flex: 0 1 auto; }
