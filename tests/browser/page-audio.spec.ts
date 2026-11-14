@@ -272,3 +272,29 @@ test('a manual personal-player choice cancels the automatic resume', async ({pag
   await shell(page).getByRole('button',{name:'Pause',exact:true}).click(); await playing(page);
   await navigate(page,'/schedule'); expect((await youtube(page))?.state).toBe(2);
 });
+
+for (const readyBeforeLeaving of [true,false]) test(`event audio interrupts an initializing player and restores it (API ready before leaving: ${readyBeforeLeaving})`,async({page})=>{
+  await stubYouTube(page,'allow',{dataSaver:false}); await stubMonsterSiren(page); await enable(page);
+  let release!:()=>void; const gate=new Promise<void>(resolve=>{release=resolve});
+  await page.route('https://www.youtube.com/iframe_api',async route=>{await gate;await route.fallback().catch(()=>{})});
+  try {
+    await page.goto('/music?view=library');
+    await page.locator('.music-library-row .music-song-row-main').first().click();
+    const audio=page.locator('audio[data-music-audio]');
+    await expect.poll(()=>audio.evaluate(el=>(el as HTMLAudioElement).currentTime)).toBeGreaterThan(.1);
+    const source=await audio.getAttribute('src');
+    await navigate(page,'/schedule'); await navigate(page,event);
+    await expect.poll(()=>audio.evaluate(el=>(el as HTMLAudioElement).paused)).toBe(true);
+    const seconds=await audio.evaluate(el=>(el as HTMLAudioElement).currentTime);
+    if(readyBeforeLeaving) {
+      release(); await expect.poll(async()=>(await youtube(page))?.players).toBe(1);
+      await page.waitForTimeout(200);
+      expect(await audio.evaluate(el=>(el as HTMLAudioElement).paused)).toBe(true);
+    }
+    await navigate(page,'/schedule');
+    await expect.poll(()=>audio.evaluate(el=>(el as HTMLAudioElement).paused)).toBe(false);
+    release(); await expect.poll(async()=>(await youtube(page))?.players).toBe(1);
+    await expect.poll(()=>audio.evaluate(el=>(el as HTMLAudioElement).currentTime)).toBeGreaterThanOrEqual(seconds);
+    expect((await audio.getAttribute('src'))?.split('#')[0]).toBe(source?.split('#')[0]);
+  } finally { release(); }
+});

@@ -321,7 +321,7 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
   const [starting, setStarting] = useState(false);
   const eventMusicEnabled = useSiteSetting('eventMusic'), mediaAllowed = usePrivacyChoice('externalMedia');
   const eventAudioActive = useRef(false);
-  const eventAudioResume = useRef<string | null>(null);
+  const eventAudioResume = useRef<{ id: string; seconds: number; pending: boolean } | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [buffering, setBufferingState] = useState(false);
   const bufferingRef = useRef(false);
@@ -1164,20 +1164,25 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
               const vid = pendingVideoIdRef.current;
               pendingVideoIdRef.current = null;
               pendingPlayRef.current = false;
-              if (pendingFirstRef.current === vid) { putFirst(vid); pendingFirstRef.current = null; }
-              const idx = queueRef.current.findIndex((track) => track.id === vid);
-              if (idx !== -1) {
-                queueIndexRef.current = idx;
-                setQueueIndex(idx);
-                const pos = shuffleOrderRef.current?.indexOf(idx) ?? -1;
-                if (pos !== -1) {
-                  shufflePositionRef.current = pos;
-                  setShufflePosition(pos);
-                }
-              }
-              engine.loadVideoById(vid);
+              selectRequestedTrack(vid);
+              const cued = cuedAtRef.current;
+              cuedAtRef.current = null;
+              engine.loadVideoById(cued?.videoId === vid ? { videoId: vid, startSeconds: cued.seconds } : vid);
               setReady(true);
               setStarting(false);
+              return;
+            }
+
+            // Official audio can already be audible before the iframe API is
+            // ready. An event keeps that exact request cued, never auto-playing
+            // it underneath the event soundtrack when initialization completes.
+            const interrupted = eventAudioResume.current;
+            if (eventAudioActive.current && interrupted?.pending) {
+              selectRequestedTrack(interrupted.id);
+              cuedAtRef.current = { videoId: interrupted.id, seconds: interrupted.seconds };
+              engine.cueVideoById({ videoId: interrupted.id, startSeconds: interrupted.seconds });
+              setVideoId(interrupted.id);
+              setReady(true); setStarting(false);
               return;
             }
 
@@ -1328,6 +1333,8 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
       endResumeWatch();
     }
     playerRef.current?.pauseVideo?.();
+    // A first official-audio press primes this element before the engine exists.
+    document.querySelector<HTMLAudioElement>('audio[data-music-audio]')?.pause();
     isPlayingRef.current = false;
     setStarting(false);
     setIsPlaying(false);
@@ -1548,6 +1555,19 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
       const ids = existing.map(i => previous[i]?.id).filter(id => id && id !== videoId);
       const order = [0, ...ids.map(id => next.findIndex(track => track.id === id))];
       shuffleOrderRef.current = order; setShuffleOrder(order); shufflePositionRef.current = 0; setShufflePosition(0);
+    }
+  }
+  function selectRequestedTrack(vid: string) {
+    if (pendingFirstRef.current === vid) { putFirst(vid); pendingFirstRef.current = null; }
+    const idx = queueRef.current.findIndex((track) => track.id === vid);
+    if (idx !== -1) {
+      queueIndexRef.current = idx;
+      setQueueIndex(idx);
+      const pos = shuffleOrderRef.current?.indexOf(idx) ?? -1;
+      if (pos !== -1) {
+        shufflePositionRef.current = pos;
+        setShufflePosition(pos);
+      }
     }
   }
   function playFirst(videoId: string) {
@@ -2053,15 +2073,25 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
     if (eventAudioActive.current || !getSetting('eventMusic') || !readPrivacy().externalMedia) return;
     eventAudioActive.current = true;
     const requested = isPlayingRef.current || bufferingRef.current || pendingPlayRef.current || starting;
-    eventAudioResume.current = requested ? videoIdRef.current || pendingVideoIdRef.current : null;
+    const id = pendingVideoIdRef.current || videoIdRef.current;
+    const primed = document.querySelector<HTMLAudioElement>('audio[data-music-audio]');
+    eventAudioResume.current = requested && id ? { id,
+      seconds: playerRef.current?.getCurrentTime() ?? primed?.currentTime ?? 0,
+      pending: !playerReadyRef.current } : null;
     if (requested) pausePlayback();
   }
   function releaseEventAudio() {
     eventAudioActive.current = false;
-    const id = eventAudioResume.current;
+    const interrupted = eventAudioResume.current;
     eventAudioResume.current = null;
-    if (id && id === videoIdRef.current && readPrivacy().externalMedia && !isPlayingRef.current && !bufferingRef.current &&
-      !catalogRef.current?.some(song => song.id === id && !allowed(song))) togglePlay();
+    if (!interrupted || !readPrivacy().externalMedia || catalogRef.current?.some(song => song.id === interrupted.id && !allowed(song))) return;
+    if (interrupted.pending && !playerReadyRef.current) {
+      pendingVideoIdRef.current = interrupted.id;
+      pendingPlayRef.current = true;
+      cuedAtRef.current = { videoId: interrupted.id, seconds: interrupted.seconds };
+      setStarting(true);
+      primeAudio(interrupted.id, interrupted.seconds);
+    } else if (interrupted.id === videoIdRef.current && !isPlayingRef.current && !bufferingRef.current) togglePlay();
   }
 
   // The actions keep their identity across renders (lib/ui/useLatestActions.ts), so the value
