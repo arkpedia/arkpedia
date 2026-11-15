@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import TranslationNote from '../../components/operators/TranslationNote';
+import { applyBaseSkillGlossary, type BaseSkillGlossary } from '../../lib/operators/baseSkillGlossary';
 import { getSkillList } from '../../lib/operators/operatorTypes';
 import { getSkillIconPath, getBaseSkillIconPath } from '../../lib/operators/operatorIconPaths';
 import { translateOperator, type Translation } from '../../lib/operators/operatorTranslations';
@@ -73,6 +74,32 @@ test('elemental explanations distinguish enemies and allies and strip game marku
   assert.equal(entries[0].definition, 'Against enemies: 6000 damage and 3 stacks of Paralysis\nOn allies: Stunned for 10s');
 });
 
+test('CN shared base terms use game IDs, consistent English and the same member explanations', () => {
+  const glossary = JSON.parse(fs.readFileSync('data/base-skill-glossary.json', 'utf8')) as BaseSkillGlossary;
+  const ops = getAllOperators();
+  const orchid = ops.find(op => op.name === 'Violet Mizutsune Orchid')!;
+  const recon = ops.find(op => op.name === 'Rhodes Island Recon')!;
+  const orchidGroup = orchid.baseSkills!.flatMap(skill => skill.keywords ?? []).find(term => term.term === 'cc.tag.mh2')!;
+  const reconGroup = recon.baseSkills!.flatMap(skill => skill.keywords ?? []).find(term => term.term === 'cc.tag.mh2')!;
+  assert.deepEqual(orchidGroup, reconGroup);
+  assert.equal(orchidGroup.name, 'Bubble Kingdom Hunting Squad');
+  for (const name of ['Violet Mizutsune Orchid', 'Zinogre S Catapult', 'Rhodes Island Recon']) assert.ok(orchidGroup.definition.includes(name));
+  const helper = recon.baseSkills!.find(skill => skill.buffId === 'dorm_rec_single&tag[000]')!;
+  assert.match(helper.description!, /Monster Hunter Party/);
+  assert.doesNotMatch(helper.description!, /Monster Hunter Squad/);
+  const firstParty = helper.keywords!.find(term => term.term === 'cc.tag.mh')!;
+  assert.match(firstParty.definition, /Kirin R Yato/);
+  assert.doesNotMatch(firstParty.definition, /Violet Mizutsune Orchid/);
+  assert.notEqual(firstParty.term, reconGroup.term, 'the two Monster Hunter groups stay distinct');
+  const plain = { ...helper, buffId: 'unrelated', keywords: undefined, description: 'Monster Hunter Squad' };
+  assert.equal(applyBaseSkillGlossary([plain], glossary)![0].description, plain.description, 'similar wording without the game term ID is not enough');
+  const again = applyBaseSkillGlossary(recon.baseSkills, glossary)!;
+  assert.deepEqual(again, recon.baseSkills, 're-enrichment does not duplicate keywords');
+  assert.match(recon.review!.official!, /Bubble Kingdom/);
+  assert.doesNotMatch(recon.review!.official!, /Land of Bubbles|Aigis/);
+  assert.match(ops.find(op => op.name === 'Aegis')!.review!.official!, /Aegis/);
+});
+
 test('populated CN mechanics are English at every rank and previews retain definitions and attribution', { skip: !hasSupplement && 'Older content snapshot has no translation supplement' }, () => {
   const operators = getAllOperators();
   for (const name of ['Homebound', 'Pedro', 'de Toledo', 'Clementia', 'Mechanist', 'Jacinta']) {
@@ -123,12 +150,12 @@ test('old published operator props receive the same text enrichment as source co
   const page = { operator: raw, retained: 'other published page props' };
   const completed = await completeOperatorText(page);
   assert.equal(completed.retained, page.retained);
-  assert.equal(completed.operator.operatorTextVersion, 2);
+  assert.equal(completed.operator.operatorTextVersion, 3);
   assert.equal(getSkillList(completed.operator)[0].name, 'Erosion');
   assert.ok(completed.operator.combatKeywords?.some(term => term.name === 'Corrosion'));
   assert.equal(await completeOperatorText(completed), completed, 'already enriched published props remain authoritative');
   const legacy = await completeOperatorText({ operator: { ...raw, operatorTextVersion: 1 as const } });
-  assert.equal(legacy.operator.operatorTextVersion, 2);
+  assert.equal(legacy.operator.operatorTextVersion, 3);
   assert.doesNotMatch(legacy.operator.review?.official ?? '', /\p{Script=Han}/u, 'version 1 payloads must receive the missing overview translation');
   assert.equal(getSkillList(raw)[0].name, '冲蚀', 'the cached published object is not mutated');
 });

@@ -31,8 +31,10 @@ and SHA-256 values in `config/operator-text-source.json`. Existing hydrated reco
 win, so a newer content release does not get replaced by an older bundled snapshot.
 Prebuild, predev and pretest perform this step. `completeOperatorText` backfills old
 published operator page/API payloads server-side; newer exports carry
-`operatorTextVersion: 2` and remain authoritative. Only relevant definitions travel
+`operatorTextVersion: 3` and remain authoritative. Only relevant definitions travel
 to the browser, never the entire translation dictionary. Website presentation types
 live in `operatorTextTypes.ts`, separate from the shared game importer schema.
 
 On Workers, the compatibility supplement is served through the existing shipped-table ASSETS reader, outside the cold-start code bundle. Local development and source compilation retain their direct record reads. Failed table reads can retry; successful reads are reused within the isolate.
+
+`base-skill-glossary.json` joins canonical English labels and group definitions by the game’s term IDs and buff IDs. Alias normalization only applies to buffs that actually reference the term. Monster Hunter Party (`cc.tag.mh`) and Bubble Kingdom Hunting Squad (`cc.tag.mh2`) are distinct groups. All matching pages, Base views and compact previews share their respective keyword definitions.

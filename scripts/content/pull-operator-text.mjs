@@ -8,7 +8,8 @@ export async function pullOperatorText(root = process.cwd(), fetchImpl = fetch) 
   const pin = JSON.parse(fs.readFileSync(path.join(root, 'config/operator-text-source.json'), 'utf8'));
   if (pin.repository !== 'arkpedia/arkpedia-data' || !/^[a-f0-9]{40}$/.test(pin.revision)) throw Error('Invalid operator text source');
   const pending = [];
-  for (const name of ['operator-translations.json', 'combat-keywords.json']) {
+  for (const name of Object.keys(pin.files)) {
+    if (!['operator-translations.json', 'combat-keywords.json', 'base-skill-glossary.json'].includes(name)) throw Error('Invalid operator text record');
     const destination = path.join(root, 'data', name);
     if (fs.existsSync(destination)) continue;
     const response = await fetchImpl(`https://raw.githubusercontent.com/${pin.repository}/${pin.revision}/source/data/${name}`, { signal: AbortSignal.timeout(30000) });

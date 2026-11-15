@@ -1,3 +1,4 @@
+import type { BaseSkillGlossary } from './baseSkillGlossary';
 import fs from 'fs';
 import path from 'path';
 import { enrichOperatorText, type Translation } from './operatorTranslations';
@@ -142,7 +143,8 @@ export function getAllOperators(): Operator[] {
   };
   const translations = readSupplement<Record<string, Translation>>('operator-translations.json', {});
   const keywords = readSupplement<BaseSkillKeyword[]>('combat-keywords.json', []);
-  const released = releasedRaw.map(op => enrichOperatorText(op, translations, keywords)).map((op) => ({
+  const glossary = readSupplement<BaseSkillGlossary>('base-skill-glossary.json', { terms: [], buffs: {} });
+  const released = releasedRaw.map(op => enrichOperatorText(op, translations, keywords, glossary)).map((op) => ({
     ...op,
     characterVoices: getCurrentOperatorVoiceCredits(op.internalName, op.characterVoices),
     talents: normalizeTalents(op.talents as unknown as RawTalent[] | undefined) as unknown as Operator['talents'],

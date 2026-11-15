@@ -54,7 +54,7 @@ test('production compilation leaves community catalogues and the Preview snapsho
       bundle:true,write:false,outdir:'.cache/shipped-table-test',platform:'node',format:'esm',packages:'external',metafile:true,
       define:{'process.env.ARKPEDIA_WORKER':'"1"','process.env.ARKPEDIA_PREVIEW':JSON.stringify(preview)}});
     const inputs=Object.keys(result.metafile!.inputs);
-    assert.ok(!inputs.some(file=>/data\/(?:operator-translations|combat-keywords)\.json$/.test(file)), 'operator text supplements come from ASSETS instead of the cold-start bundle');
+    assert.ok(!inputs.some(file=>/data\/(?:operator-translations|combat-keywords|base-skill-glossary)\.json$/.test(file)), 'operator text supplements come from ASSETS instead of the cold-start bundle');
     assert.ok(!inputs.some(file=>/data\/(?:community-.*|account)-catalogue\.json$/.test(file)),'catalogues come from ASSETS');
     assert.ok(!inputs.some(file=>file.endsWith('lib/music/youtubeContextLocal.ts') || /data\/(?:skins|skin-availability-windows|skin-shop-rotations)\.json$/.test(file)), 'video relevance reads published records; local source fallbacks stay out of the Worker');
     assert.equal(inputs.some(file=>file.endsWith('config/preview-community-statistics.json')),preview==='1','only Preview compiles its snapshot');

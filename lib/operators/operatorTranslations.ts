@@ -2,6 +2,7 @@ import type { BaseSkillKeyword } from './operatorTypes';
 import { getSkillList } from './operatorTypes';
 import { getSkillIconPath } from './operatorIconPaths';
 import type { Operator } from './operatorTextTypes';
+import { applyBaseSkillGlossary, type BaseSkillGlossary } from './baseSkillGlossary';
 
 export type Translation = { translator: string; strings: Record<string, string> };
 const fields = ['review', 'trait', 'skills', 'talents', 'potential', 'modules', 'baseSkills', 'tags'] as const;
@@ -53,10 +54,10 @@ export function translateOperator(operator: Operator, translations: Record<strin
 }
 
 /** Content exports carry the compact result, so newer published data stays authoritative. */
-export function enrichOperatorText(operator: Operator, translations: Record<string, Translation>, keywords: BaseSkillKeyword[]): Operator {
+export function enrichOperatorText(operator: Operator, translations: Record<string, Translation>, keywords: BaseSkillKeyword[], glossary: BaseSkillGlossary = { terms: [], buffs: {} }): Operator {
   const translated = translateOperator(operator, translations);
   const mechanics = JSON.stringify([translated.trait, translated.skills, translated.talents, translated.modules, translated.potential]).toLowerCase();
-  return { ...translated, operatorTextVersion: 2,
+  return { ...translated, ...(translated.baseSkills ? { baseSkills: applyBaseSkillGlossary(translated.baseSkills, glossary) } : {}), operatorTextVersion: 3,
     combatKeywords: keywords.filter(keyword => mechanics.includes(keyword.text.toLowerCase())),
   };
 }
