@@ -1,8 +1,8 @@
 {
   "repository": "arkpedia/arkpedia-data",
-  "revision": "37ff76647d51ae5ecefcde394e34c42d84ee438f",
+  "revision": "b34fe34055f14b33e6d0673729432e29adfba72e",
   "files": {
-    "operator-translations.json": "8afa14092d359b44deca54ab902fb6aed0b4c5dcdce8028a6fa9b05e01af5f80",
+    "operator-translations.json": "a08b45dc719e5568aeaa541337dbc5744d2b2f88706e314890604b99031dbcce",
     "combat-keywords.json": "d9b6d90e9c153813020cd853302e40fa1c8aa96637061c2d1bdbe16977099858"
   }
 }

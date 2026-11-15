@@ -34,3 +34,5 @@ published operator page/API payloads server-side; newer exports carry
 `operatorTextVersion: 2` and remain authoritative. Only relevant definitions travel
 to the browser, never the entire translation dictionary. Website presentation types
 live in `operatorTextTypes.ts`, separate from the shared game importer schema.
+
+On Workers, the compatibility supplement is served through the existing shipped-table ASSETS reader, outside the cold-start code bundle. Local development and source compilation retain their direct record reads. Failed table reads can retry; successful reads are reused within the isolate.
