@@ -31,10 +31,10 @@
 .pips > div:first-child > button { font:700 12px var(--font-display); letter-spacing:.06em; padding:0 8px; }
 .dock { position:fixed; z-index:35; left:0; right:0; bottom:var(--music-bar-height,0px); background:var(--panel); border-top:1px solid var(--card-border); }
 .dockInner { max-width:var(--frame-max); margin:0 auto; padding:10px calc(var(--page-gutter) + 54px) 10px var(--page-gutter); display:flex; align-items:center; flex-wrap:wrap; gap:10px 14px; }
-.meter { flex:1; min-width:200px; }
+.meter { flex:1; min-width:200px; min-height:var(--control-h); display:flex; align-items:center; position:relative; }
 .meterTitle { font-family:var(--font-display); font-size:15px; font-weight:700; letter-spacing:.1em; text-transform:uppercase; }
 .mood { color:var(--amber); font-size:12px; margin-left:12px; }
-.ticks { display:flex; gap:3px; margin-top:5px; max-width:340px; }
+.ticks { position:absolute; left:0; right:0; bottom:0; display:flex; gap:3px; max-width:340px; }
 .ticks > span { flex:1; height:4px; background:var(--well); }
 .ticks [data-verdict="pull"], .ticks [data-verdict="custom"] { background:var(--teal); }
 .ticks [data-verdict="maybe"] { background:var(--amber); }
@@ -74,7 +74,8 @@
 @media (max-width:820px) {
   .banner, .resultBanner { grid-template-columns:minmax(0,1fr); }
   .banner .art { grid-row:auto; }
-  .bannerActions { grid-column:auto; padding-top:0; }
+  .bannerActions { grid-column:auto; padding:0 var(--card-inset) 12px; }
+  .identity { padding:12px var(--card-inset); }
   .bannerActions > div { flex:1; }
   .bannerActions > div > button { flex:1; }
   .details { grid-template-columns:minmax(0,1fr); }

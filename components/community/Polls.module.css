@@ -1,5 +1,6 @@
 .page { display:grid; gap:14px; }
 .page > h2 { margin:16px 0 0; }
+.page > h2:first-child { margin-top:0; }
 .feature { overflow:hidden; }
 .featureBody { display:grid; grid-template-columns:minmax(0,0.9fr) minmax(0,1.1fr); align-items:center; }
 .copy { padding:32px 0 32px 28px; position:relative; z-index:3; }
