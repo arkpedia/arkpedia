@@ -64,9 +64,22 @@ test('conflicting submissions refresh in place and keep the local draft',async({
   let navigations=0;page.on('framenavigated',()=>navigations++);await page.getByRole('button',{name:'Refresh entry'}).click();await expect(page.getByRole('button',{name:'Update entry'})).toBeEnabled();await expect(banner).toHaveAttribute('data-verdict','pull');expect(navigations).toBe(0);
 });
 
-test('share images paginate without dropping answered banners',async({page})=>{
-  test.setTimeout(45000);await setup(page,'dark');await page.goto('/polls/pull-or-skip');const banners=page.getByRole('article');await expect.poll(()=>banners.count()).toBeGreaterThanOrEqual(7);
+for(const theme of ['dark','light'])test(`one share PNG includes every answered banner (${theme})`,async({page},info)=>{
+  test.setTimeout(45000);await setup(page,theme);await page.goto('/polls/pull-or-skip');const banners=page.getByRole('article');await expect.poll(()=>banners.count()).toBeGreaterThanOrEqual(7);
   for(let i=0;i<7;i++)await banners.nth(i).getByRole('button',{name:'Pull',exact:true}).click();
   await page.getByRole('button',{name:'Save as image',exact:true}).click();const dialog=page.getByRole('dialog',{name:'My pull plan',exact:true});await expect(dialog.getByRole('button',{name:'Download PNG'})).toBeEnabled({timeout:20000});
-  await expect(dialog.getByRole('img')).toHaveAttribute('aria-label','Your pull plan share image, page 1 of 2');await dialog.getByRole('button',{name:'Next page'}).click();await expect(dialog.getByRole('button',{name:'Download PNG'})).toBeEnabled({timeout:20000});await expect(dialog.getByRole('img')).toHaveAttribute('aria-label','Your pull plan share image, page 2 of 2');
+  const image=dialog.getByRole('img');await expect(image).toHaveAttribute('aria-label','Your pull plan share image with 7 answered banners');await expect(dialog.getByRole('button',{name:/Next page|Previous page/})).toHaveCount(0);
+  expect(await image.evaluate(element=>{const canvas=element as HTMLCanvasElement,c=canvas.getContext('2d')!;return [...c.getImageData(44,canvas.height-140,1,1).data].join(',')!==[...c.getImageData(10,10,1,1).data].join(',');})).toBe(true);
+  await expect(dialog.getByRole('button',{name:'Download PNG'})).toBeInViewport();await expect(image).toBeInViewport({ratio:1});
+  const [download]=await Promise.all([page.waitForEvent('download'),dialog.getByRole('button',{name:'Download PNG'}).click()]);expect(download.suggestedFilename()).toBe('arkpedia-pull-plan.png');const file=info.outputPath('complete-plan.png');await download.saveAs(file);const png=await fs.readFile(file);expect(png.readUInt32BE(16)).toBe(1200);expect(png.readUInt32BE(20)).toBe(925);
+  if(process.env.ARKPEDIA_QA_CAPTURE)await page.screenshot({path:`${process.env.ARKPEDIA_QA_CAPTURE}/pull-poll-complete-${theme}-${info.project.name}.png`,animations:'disabled'});
+});
+for(const theme of ['dark','light'])test(`limited Pull selects featured operators only (${theme})`,async({page})=>{
+  await setup(page,theme);await page.goto('/polls/pull-or-skip');const banner=page.getByRole('article',{name:/Cinders of Snow/});
+  await banner.getByRole('button',{name:'Maybe',exact:true}).click();await banner.getByRole('button',{name:'Pull',exact:true}).click();await expect(banner).toHaveAttribute('data-verdict','pull');await expect(banner.getByRole('button',{name:'Pull',exact:true})).toHaveAttribute('aria-pressed','true');await expect(banner.getByText('Pulling!',{exact:true})).toBeVisible();
+  await banner.getByRole('button',{name:/^Choose per operator/}).click();
+  for(const name of ['Talulah','Тоска','Ольга'])await expect(banner.getByRole('button',{name:`Potential 1 for ${name}`,exact:true})).toHaveAttribute('aria-pressed','true');
+  for(const name of ['SilverAsh the Reignfrost','Exusiai the New Covenant','Lappland the Decadenza'])await expect(banner.getByRole('group',{name:new RegExp(`^Interest in ${name} on`)}).getByRole('button',{name:'Nope',exact:true})).toHaveAttribute('aria-pressed','true');
+  await banner.getByRole('button',{name:'Potential 2 for SilverAsh the Reignfrost',exact:true}).click();await expect(banner).toHaveAttribute('data-verdict','custom');await banner.getByRole('button',{name:'Pull',exact:true}).click();await expect(banner).toHaveAttribute('data-verdict','pull');await expect(banner.getByRole('button',{name:'Potential 2 for SilverAsh the Reignfrost',exact:true})).toHaveAttribute('aria-pressed','false');
+  await banner.getByRole('button',{name:'Pull',exact:true}).click();await expect(banner).toHaveAttribute('data-verdict','');
 });

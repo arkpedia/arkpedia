@@ -6,7 +6,7 @@ unmerged until the maintainer accepts the design. The supplied
 rarity-striped operator portraits, per-banner expanders, joined potential buttons,
 stamped verdicts and a fixed progress/share/submit bar.
 
-Pull wants one copy of every featured operator. Maybe means Good to have; Skip
+Pull wants one copy of every featured operator and zero copies of returning off-banner limited operators. Returning limiteds remain individually selectable; explicit planner targets are preserved. Maybe means Good to have; Skip
 means Not want. Individual choices are Nope, Nice to have and P1–P6/MAX. Selecting
 the current choice again clears it. A partly answered or customized banner is
 Picky; higher copy goals receive the mockup’s Dolphin, Whale or Leviathan stamps.
@@ -15,9 +15,9 @@ operator goals. The catalogue reuses published planner windows and simulator
 rosters, with estimates labelled.
 
 Drafts stay in browser storage. Share links encode choices in a URL fragment,
-without submitting. PNG/clipboard export renders the same 1200×675 bitmap shown
-in the fitted preview. More than six answered banners produces additional pages;
-none are silently omitted. Failed artwork retains the names and choices.
+without submitting. PNG/clipboard export renders one complete 1200px-wide bitmap shown
+in the fitted preview. Longer plans grow taller to include every answered banner
+in the same image; no pagination or silently omitted banners. Failed artwork retains the names and choices.
 
 Importing a browser or exported Pull Planner plan remains a one-time import.
 Optional **Yes, sync** links acquisition goals in both directions on this browser,

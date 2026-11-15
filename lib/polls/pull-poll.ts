@@ -11,15 +11,20 @@ export type Ballot = Record<string, Record<string, Want>>;
 export interface PollBanner {
   id: string; name: string; aliases: string[]; start: string; end: string;
   endAt: string | null; estimated: boolean; image: string | null; operators: string[]; category?:string; limited?:boolean;
+  /** Returning limited operators in the off-banner pool; selectable individually. */
+  returningOperators?: string[];
 }
 export function pollBanners(banners: UpcomingBanner[], lineups: readonly HeadhuntingBanner[] = []): PollBanner[] {
   return banners.filter(b => b.sixStars.length || b.globalLineupPending).map(b => {
     const lineup = lineups.find(row => row.name === b.name || row.aliases?.includes(b.name) || b.aliases?.includes(row.name)
       || (!!b.poolId && (row.cnPoolId === b.poolId || row.globalPoolId === b.poolId)));
+    const featured = [...b.sixStars, ...(!lineup?.globalLineupPending ? [...(lineup?.five_stars ?? []), ...(lineup?.four_stars ?? [])] : [])];
+    const limited = lineup?.pull_type === 'limited' || ['limited','crossover'].some(kind=>b.category.toLowerCase().includes(kind));
     return ({
     id: b.poolId ?? `${b.name}:${b.start}`, name: b.name, aliases: b.aliases ?? [],
     start: b.start, end: b.end, endAt: b.endAt ?? null, estimated: !!b.datesEstimated,
-    image: b.image, category:b.category, limited:['limited','crossover'].some(kind=>b.category.toLowerCase().includes(kind)), operators: b.globalLineupPending ? [] : [...new Set([...b.sixStars, ...b.alsoRatedUp, ...(!lineup?.globalLineupPending ? [...(lineup?.five_stars ?? []), ...(lineup?.four_stars ?? [])] : [])])],
+    image: b.image, category:b.category, limited, operators: b.globalLineupPending ? [] : [...new Set([...b.sixStars, ...b.alsoRatedUp, ...featured])],
+    returningOperators: b.globalLineupPending || !limited ? [] : b.alsoRatedUp.filter(name=>!featured.includes(name)),
   }); });
 }
 /** -1 is good to have; zero is an explicit skip. Missing means unanswered. */
@@ -44,11 +49,13 @@ export function bannerChoice(choices: Record<string, Want> | undefined, banner: 
   if (!choices) return '';
   const values = banner.operators.length ? banner.operators.map(name=>choices[name]) : [choices[BANNER_INTENT]];
   if (values.every(w=>w===undefined)) return '';
-  return values.every(w=>w===0) ? 'skip' : values.every(w=>w===-1) ? 'maybe' : values.every(w=>w===1) ? 'pull' : 'custom';
+  return values.every(w=>w===0) ? 'skip' : values.every(w=>w===-1) ? 'maybe'
+    : values.every((w,index)=>w===pullWant(banner,banner.operators[index]??BANNER_INTENT)) ? 'pull' : 'custom';
 }
+const pullWant = (banner:PollBanner,name:string):Want => banner.returningOperators?.includes(name) ? 0 : 1;
 export function setBannerChoice(ballot: Ballot, banner: PollBanner, choice: string): Ballot {
   const want: Want = choice === 'pull' ? 1 : choice === 'maybe' ? -1 : 0;
-  return { ...ballot, [banner.id]: Object.fromEntries((banner.operators.length?banner.operators:[BANNER_INTENT]).map(name => [name, want])) };
+  return { ...ballot, [banner.id]: Object.fromEntries((banner.operators.length?banner.operators:[BANNER_INTENT]).map(name => [name, choice==='pull'?pullWant(banner,name):want])) };
 }
 export type Stamp = 'pull'|'maybe'|'skip'|'custom'|'dolphin'|'whale'|'levi';
 export const STAMP_LABELS:Record<Stamp,string>={pull:'Pulling!',maybe:'Tempted…',skip:'Skipped',custom:'Picky',dolphin:'Dolphin',whale:'Whale!',levi:'Leviathan!!'};
@@ -75,7 +82,7 @@ export function importGoals(goals: readonly BannerGoal[], banners: readonly Poll
     const goal = goals.find(g => g.banner === banner.name || banner.aliases.includes(g.banner));
     if (!goal) continue;
     result[banner.id] = Object.fromEntries(banner.operators.map(name => [name,
-      goal.targets?.length ? goal.targets.find(t => t.name === name)?.copies ?? 0 : 1])) as Record<string, Want>;
+      goal.targets?.length ? goal.targets.find(t => t.name === name)?.copies ?? 0 : pullWant(banner,name)])) as Record<string, Want>;
   }
   return result;
 }

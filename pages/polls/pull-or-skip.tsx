@@ -151,7 +151,7 @@ function PullPoll({banners,now,owner,portraits={}}:Props&{owner:string|null}) {
       <Tabs label="Pull or Skip sections" id="pull-poll" value={results?'results':'vote'} onChange={view=>{hold.capture();setFilters({view});}} options={[{value:'vote',label:'Your picks'},{value:'results',label:'Results'}]}/>
       {results?<section {...tabPanelProps('pull-poll','results')}><PullPollResults banners={visible} portraits={portraits} ballot={ballot}/></section>:<section {...tabPanelProps('pull-poll','vote')}>
         <div className={styles.key} aria-label="How to vote">
-          <span data-choice="pull"><ContentImg src="/material-icons/Headhunting%20Permit.webp" alt="" width="22" height="22"/><b>Pull</b>I need them. One copy of everyone.</span>
+          <span data-choice="pull"><ContentImg src="/material-icons/Headhunting%20Permit.webp" alt="" width="22" height="22"/><b>Pull</b>One copy of each featured operator.</span>
           <span data-choice="maybe"><b>Maybe</b>if the pity gods allow</span>
           <span data-choice="skip"><ContentImg src="/material-icons/Orundum.webp" alt="" width="22" height="22"/><b>Skip</b>my Orundum stays home</span>
           <div className={styles.tools}><button className="ghost btn-sm" onClick={()=>setImporting(true)} disabled={!hydrated}>Import plan</button></div>

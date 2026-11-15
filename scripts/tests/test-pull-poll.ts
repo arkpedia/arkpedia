@@ -5,7 +5,9 @@ import fs from 'node:fs';
 import { DatabaseSync } from 'node:sqlite';
 import type { D1Database } from '@cloudflare/workers-types';
 import type { NextApiRequest, NextApiResponse } from 'next';
-import { bannerChoice, decodeBallot, encodeBallot, importGoals, parseBallot, setBannerChoice, type PollBanner } from '../../lib/polls/pull-poll';
+import { bannerChoice, decodeBallot, encodeBallot, importGoals, parseBallot, pollBanners, setBannerChoice, type PollBanner } from '../../lib/polls/pull-poll';
+import type { UpcomingBanner } from '../../lib/pulls/pulls';
+import type { HeadhuntingBanner } from '../../lib/gacha/headhuntingBanners';
 import { pullPoll } from '../../lib/polls/pull-poll-api';
 
 const banner:PollBanner={id:'test-pool',name:'Future banner',aliases:['Old title'],start:'2026-12-01',end:'2026-12-15',endAt:null,estimated:true,image:null,operators:['Exusiai','Texas']};
@@ -25,6 +27,26 @@ test('planner import matches aliases, preserves potentials and does not mutate p
   assert.deepEqual(importGoals(goals,banners),{[banner.id]:{Exusiai:0,Texas:4}});
   assert.equal(goals[0].targets.length,1);
   assert.deepEqual(importGoals([{banner:'Future banner',pulls:10,spendOn:'2026-12-15'}],banners),{[banner.id]:{Exusiai:1,Texas:1}});
+});
+test('limited banner Pull includes featured six/five-stars and skips returning limiteds',()=>{
+  const returning=['SilverAsh the Reignfrost','Exusiai the New Covenant','Lappland the Decadenza'];
+  const scheduled={...banner,sixStars:['Talulah','Тоска'],alsoRatedUp:returning,category:'limited',poolId:'LIMITED_79_0_1'} as unknown as UpcomingBanner;
+  const lineup={name:banner.name,pull_type:'limited',six_stars:scheduled.sixStars,five_stars:['Ольга'],four_stars:[],rate_up_six_stars:returning} as unknown as HeadhuntingBanner;
+  const limited=pollBanners([scheduled],[lineup])[0];
+  assert.deepEqual(limited.returningOperators,returning);
+  assert.equal(limited.operators.length,6);
+  const choices={Talulah:1,'Тоска':1,...Object.fromEntries(returning.map(name=>[name,0])),'Ольга':1};
+  const ballot=setBannerChoice(setBannerChoice({},limited,'maybe'),limited,'pull');
+  assert.deepEqual(ballot[limited.id],choices);
+  assert.equal(bannerChoice(ballot[limited.id],limited),'pull');
+  assert.deepEqual(decodeBallot(encodeBallot(ballot),[limited]),ballot);
+  assert.equal(bannerChoice({...ballot[limited.id],[returning[0]]:1},limited),'custom');
+  assert.equal(parseBallot({[limited.id]:{[returning[0]]:6}},[limited])[limited.id][returning[0]],6);
+  const goal={banner:limited.name,spendOn:limited.end,pulls:100};
+  assert.deepEqual(importGoals([goal],[limited])[limited.id],choices);
+  assert.equal(importGoals([{...goal,targets:[{name:returning[0],copies:3}]}],[limited])[limited.id][returning[0]],3);
+  const regular=pollBanners([{...scheduled,category:'standard'}],[])[0];
+  assert.ok(Object.values(setBannerChoice({},regular,'pull')[regular.id]).every(want=>want===1));
 });
 test('ballots reject injected operators, unknown banners, nonintegers and oversized shares',()=>{
   for(const value of [{wrong:{Texas:1}},{[banner.id]:{Unknown:1}},{[banner.id]:{Texas:7}},{[banner.id]:{Texas:1.5}},{[banner.id]:{Texas:'1'}}])assert.throws(()=>parseBallot(value,banners));
