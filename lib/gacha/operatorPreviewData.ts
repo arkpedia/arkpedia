@@ -1,4 +1,5 @@
-import type { BaseSkillKeyword, Operator, OperatorModule } from '@/lib/operators/operatorTypes';
+import type { BaseSkillKeyword } from '@/lib/operators/operatorTypes';
+import type { Operator, OperatorModule } from '@/lib/operators/operatorTextTypes';
 import type { StatValues } from '@/lib/operators/operatorStats';
 import { getSkillList } from '@/lib/operators/operatorTypes';
 import { baseSkillDisplayName, getBaseSkillIconPath, getSkillIconPath, talentDisplayName } from '@/lib/operators/operatorIconPaths';

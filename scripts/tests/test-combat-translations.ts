@@ -6,7 +6,7 @@ import { getSkillIconPath, getBaseSkillIconPath } from '../../lib/operators/oper
 import { translateOperator, type Translation } from '../../lib/operators/operatorTranslations';
 import { getAllOperators } from '../../lib/operators/operators';
 import { operatorPreviewSource, buildGachaOperatorPreview } from '../../lib/gacha/operatorPreviewData';
-import type { Operator } from '../../lib/operators/operatorTypes';
+import type { Operator } from '../../lib/operators/operatorTextTypes';
 // @ts-expect-error Shared with the nightly JavaScript importer.
 import { combatKeywords } from '../lib/combat-keywords.mjs';
 
@@ -79,4 +79,17 @@ test('CN-only modules on Global operators translate without relabeling official 
     const preview = buildGachaOperatorPreview(operatorPreviewSource(op));
     assert.deepEqual(preview.modules.map(module => module.translationCredit), op.modules?.map(module => module.translationCredit));
   }
+});
+
+test('old published operator props receive the same text enrichment as source compilation', async () => {
+  const { completeOperatorText } = await import('../../lib/operators/operatorTextServer');
+  const raw = JSON.parse(fs.readFileSync('data/operators-6star/Clementia.json', 'utf8')) as Operator;
+  const page = { operator: raw, retained: 'other published page props' };
+  const completed = await completeOperatorText(page);
+  assert.equal(completed.retained, page.retained);
+  assert.equal(completed.operator.operatorTextVersion, 1);
+  assert.equal(getSkillList(completed.operator)[0].name, 'Erosion');
+  assert.ok(completed.operator.combatKeywords?.some(term => term.name === 'Corrosion'));
+  assert.equal(await completeOperatorText(completed), completed, 'already enriched published props remain authoritative');
+  assert.equal(getSkillList(raw)[0].name, '冲蚀', 'the cached published object is not mutated');
 });

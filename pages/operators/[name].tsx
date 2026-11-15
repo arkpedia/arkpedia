@@ -1,3 +1,4 @@
+import { completeOperatorText } from '@/lib/operators/operatorTextServer';
 import TranslationNote from '@/components/operators/TranslationNote';
 import CombatText, { CombatKeywords } from '@/components/operators/CombatText';
 import { hasMasteryGuidance, hasMasteryPriority } from '@/lib/operators/skillRecommendation';
@@ -28,7 +29,8 @@ import SegmentedControl from '@/components/ui/SegmentedControl';
 import Tabs, { tabPanelProps } from '@/components/ui/Tabs';
 import Rarity, { rarityLevel } from '@/components/ui/Rarity';
 import type { SearchableOperatorRecord as SearchableOperator } from '@/lib/operators/operatorSearch';
-import { Operator, GuideEntry, SkillRecommendationEntry, SkillTechnique, getSkillList, getSkillCost, CostGroup, getWelfareInfo } from '@/lib/operators/operatorTypes';
+import type { Operator } from '@/lib/operators/operatorTextTypes';
+import { GuideEntry, SkillRecommendationEntry, SkillTechnique, getSkillList, getSkillCost, CostGroup, getWelfareInfo } from '@/lib/operators/operatorTypes';
 import { MEMBER_TO_UMBRELLA, UMBRELLA_DESCRIPTIONS, skillTechniques, talentTechniques } from '@/lib/techniques/autoTechniques';
 import { buildTechniqueGroups } from '@/lib/techniques/buildTechniqueGroups';
 import { SYNERGY_CLASS_NAMES, findSynergyMatches, isSynergyExcluded, namesContainingSynergyTerms } from '@/lib/techniques/synergyDetection';
@@ -1957,7 +1959,7 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/op
 }, {
   // A release exported before cost rows carried their order: this deployment's catalogue fills it in.
   // And one exported before animated art: this deployment's data/dynamic-art.json fills the pointers in.
-  finalize: (props) => withMaterialOrder(props, (page) => plannerCostNames(page.operator)).then(withOperatorDynamicArt).then(page => completeOperatorExtras(page, {
+  finalize: (props) => completeOperatorText(props).then(props => withMaterialOrder(props, (page) => plannerCostNames(page.operator))).then(withOperatorDynamicArt).then(page => completeOperatorExtras(page, {
     chibis: async () => {
       const chibiIndex = process.env.ARKPEDIA_WORKER === '1' ? readDataTable<Record<string, ChibiFacings>>('chibi-art.json') : (await import('@/data/chibi-art.json')).default as unknown as Record<string, ChibiFacings>;
       const skins = (await import('@/data/skins.json')).default as import('@/lib/skins/skinTypes').Skin[];

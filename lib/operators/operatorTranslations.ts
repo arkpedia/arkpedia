@@ -1,6 +1,7 @@
+import type { BaseSkillKeyword } from './operatorTypes';
 import { getSkillList } from './operatorTypes';
 import { getSkillIconPath } from './operatorIconPaths';
-import type { Operator } from './operatorTypes';
+import type { Operator } from './operatorTextTypes';
 
 export type Translation = { translator: string; strings: Record<string, string> };
 const fields = ['trait', 'skills', 'talents', 'potential', 'modules', 'baseSkills', 'tags'] as const;
@@ -41,5 +42,14 @@ export function translateOperator(operator: Operator, translations: Record<strin
   });
   return { ...next,
     ...(operator.sourceRegion === 'CN' ? { translationCredit: entry.translator } : {}),
+  };
+}
+
+/** Content exports carry the compact result, so newer published data stays authoritative. */
+export function enrichOperatorText(operator: Operator, translations: Record<string, Translation>, keywords: BaseSkillKeyword[]): Operator {
+  const translated = translateOperator(operator, translations);
+  const mechanics = JSON.stringify([translated.trait, translated.skills, translated.talents, translated.modules, translated.potential]).toLowerCase();
+  return { ...translated, operatorTextVersion: 1,
+    combatKeywords: keywords.filter(keyword => mechanics.includes(keyword.text.toLowerCase())),
   };
 }

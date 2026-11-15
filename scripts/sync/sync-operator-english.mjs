@@ -7,7 +7,6 @@ import { materialItems, readMaterialNames } from '../lib/material-items.mjs';
 import { pinnedRef } from '../content/pin-upstream.mjs';
 import { moduleStages } from './module-stages.mjs';
 import { voiceType } from '../lib/voice-pack-metadata.mjs';
-import { combatKeywords } from '../lib/combat-keywords.mjs';
 import { BASE_ROOMS, facilityLabel } from '../lib/base-rooms.mjs';
 
 
@@ -655,7 +654,6 @@ async function main() {
     }
   }
   const handbook = process.env.ARKPEDIA_EN_HANDBOOK ? JSON.parse(fs.readFileSync(process.env.ARKPEDIA_EN_HANDBOOK, 'utf8')) : read('handbook');
-  fs.writeFileSync(path.join(root, 'data/combat-keywords.json'), JSON.stringify(combatKeywords(read('constants')), null, 2) + '\n');
   const changed = syncOperatorEnglish(root, handbook, {
     characters: read('characters'),
     skills: read('skills'),

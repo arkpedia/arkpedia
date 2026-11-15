@@ -7,8 +7,8 @@ planner/reference previews and native selector previews retain those definitions
 Escape/outside dismissal and a tooltip portalled into the nearest native dialog when
 necessary. Base skills keep their own game-provided keyword lists.
 
-`data/combat-keywords.json` is regenerated from the pinned Global constants by
-`sync-operator-english.mjs`. Elemental definitions distinguish enemy targets from allies.
+`data/combat-keywords.json` is generated from the game’s Global constants with
+`scripts/lib/combat-keywords.mjs`. Elemental definitions distinguish enemy targets from allies.
 Whole-word matches and explicit inflections avoid interpreting ordinary substrings as
 status effects. Only the first mention of a term in a description becomes a button.
 
@@ -24,3 +24,13 @@ unofficial text explicitly, include its CN source, and identify AI assistance wh
 Do not invent an author for existing uncredited translations. Translating a label must
 retain the original skill/base-skill artwork path; consumers prefer the supplied icon.
 Profiles, archives and editorial writing are not part of this mechanics overlay.
+
+
+The deployment seeds missing supplements from the immutable arkpedia-data revision
+and SHA-256 values in `config/operator-text-source.json`. Existing hydrated records
+win, so a newer content release does not get replaced by an older bundled snapshot.
+Prebuild, predev and pretest perform this step. `completeOperatorText` backfills old
+published operator page/API payloads server-side; newer exports carry
+`operatorTextVersion: 1` and remain authoritative. Only relevant definitions travel
+to the browser, never the entire translation dictionary. Website presentation types
+live in `operatorTextTypes.ts`, separate from the shared game importer schema.

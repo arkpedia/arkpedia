@@ -1,7 +1,8 @@
 import fs from 'fs';
 import path from 'path';
-import { translateOperator, type Translation } from './operatorTranslations';
-import { Operator, type BaseSkillKeyword } from './operatorTypes';
+import { enrichOperatorText, type Translation } from './operatorTranslations';
+import type { Operator } from './operatorTextTypes';
+import type { BaseSkillKeyword } from './operatorTypes';
 import { resolveOperatorDebut } from './operatorReleaseSchedule';
 import { getCurrentOperatorVoiceCredits } from './operatorVoices';
 import { isPortraitPending } from './operatorPortrait';
@@ -141,15 +142,11 @@ export function getAllOperators(): Operator[] {
   };
   const translations = readSupplement<Record<string, Translation>>('operator-translations.json', {});
   const keywords = readSupplement<BaseSkillKeyword[]>('combat-keywords.json', []);
-  const released = releasedRaw.map(op => translateOperator(op, translations)).map((op) => {
-    const mechanics = JSON.stringify([op.trait, op.skills, op.talents, op.modules, op.potential]).toLowerCase();
-    return {
-      ...op,
-      combatKeywords: keywords.filter(keyword => mechanics.includes(keyword.text.toLowerCase())),
-      characterVoices: getCurrentOperatorVoiceCredits(op.internalName, op.characterVoices),
-      talents: normalizeTalents(op.talents as unknown as RawTalent[] | undefined) as unknown as Operator['talents'],
-    };
-  });
+  const released = releasedRaw.map(op => enrichOperatorText(op, translations, keywords)).map((op) => ({
+    ...op,
+    characterVoices: getCurrentOperatorVoiceCredits(op.internalName, op.characterVoices),
+    talents: normalizeTalents(op.talents as unknown as RawTalent[] | undefined) as unknown as Operator['talents'],
+  }));
   cachedOperators = released.map(op => {
     // Decided here, where the release's asset index is, and carried with the record:
     // the browser renders the placeholder from the flag instead of loading the index.
