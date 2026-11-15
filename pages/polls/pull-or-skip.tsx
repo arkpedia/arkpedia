@@ -23,7 +23,6 @@ import { bannerChoice, decodeBallot, encodeBallot, importGoals, parseBallot, PUL
 import styles from '@/components/community/PullPoll.module.css';
 
 interface Props { banners: PollBanner[]; now: number }
-const API = '/api/cloud-account/polls/pull-or-skip';
 const wants = [{value:'',label:'Choose…'},{value:'0',label:'Not want'},{value:'-1',label:'Good to have'},...Array.from({length:6},(_,i)=>({value:String(i+1),label:`Potential ${i+1}${i===0?' · 1 copy':''}`}))];
 const compact = [{value:'pull',label:'Pull'},{value:'maybe',label:'Maybe'},{value:'skip',label:'Skip'}];
 export default function PullOrSkip(props: Props) {
@@ -35,7 +34,7 @@ function PullPoll({banners,now,owner}:Props&{owner:string|null}) {
   const [filters,setFilters] = useQueryRecord({view:'compact'});
   const [ballot,setBallot] = useState<Ballot>({}), [hydrated,setHydrated] = useState(false);
   const [storageError,setStorageError] = useState(''), [notice,setNotice] = useState('');
-  const [revision,setRevision] = useState(0), [ready,setReady] = useState(false), [error,setError] = useState('');
+  const [revision,setRevision] = useState(0), [ready,setReady] = useState(false), [error,setError] = useState(''), [reload,setReload] = useState(0);
   const [working,setWorking] = useState(false), [prompt,setPrompt] = useState(false), [importing,setImporting] = useState(false);
   const [submitted,setSubmitted] = useState('');
   const file = useRef<HTMLInputElement>(null), hadDraft = useRef(false), edited = useRef(false), request = useRef(false);
@@ -63,7 +62,7 @@ function PullPoll({banners,now,owner}:Props&{owner:string|null}) {
   },[ballot,hydrated,storageError]);
   useEffect(() => {
     const abort = new AbortController();
-    void fetch(API,{credentials:'same-origin',cache:'no-store',signal:abort.signal}).then(async response => {
+    void fetch('/api/cloud-account/polls/pull-or-skip',{credentials:'same-origin',cache:'no-store',signal:abort.signal}).then(async response => {
       const result = await response.json();
       if (!response.ok) throw Error(result.error ?? 'Submissions are temporarily unavailable.');
       if (result.owner !== owner) throw Error('Your account changed. Reload the poll.');
@@ -71,7 +70,7 @@ function PullPoll({banners,now,owner}:Props&{owner:string|null}) {
       if (!edited.current && !hadDraft.current && Object.keys(result.choices).length) setBallot(parseBallot(result.choices,banners));
     }).catch(e => { if (!abort.signal.aborted) setError(e instanceof Error?e.message:'Could not load your submitted entry.'); });
     return () => abort.abort();
-  },[owner,banners]);
+  },[owner,banners,reload]);
   function change(next:Ballot) { edited.current = true; setBallot(next); setNotice(''); }
   function importPlan(raw:string) {
     try {
@@ -91,7 +90,7 @@ function PullPoll({banners,now,owner}:Props&{owner:string|null}) {
     request.current = true; setWorking(true); setError('');
     const sent = ballot;
     try {
-      const response = await fetch(API,{method:'PUT',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify({owner,revision,choices:sent})});
+      const response = await fetch('/api/cloud-account/polls/pull-or-skip',{method:'PUT',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify({owner,revision,choices:sent})});
       const result = await response.json();
       if (!response.ok) { if(response.status===409)setReady(false); throw Error(result.error ?? 'Your entry could not be submitted.'); }
       setRevision(result.revision); setSubmitted(JSON.stringify(sent)); setNotice('Your poll entry has been submitted.'); if (!owner) setPrompt(true);
@@ -128,7 +127,7 @@ function PullPoll({banners,now,owner}:Props&{owner:string|null}) {
       <div className={styles.summary}><span className="hint">{answered} / {visible.length} banners answered</span><span className="hint" role="status">{hydrated ? storageError?'Draft needs attention':revision&&!dirty?'Submitted · Draft saved locally':'Draft saved locally · Not submitted':'Loading draft…'}</span></div>
       {storageError&&<p className="notice notice-danger" role="alert">{storageError}</p>}
       {notice&&<p className="notice" role="status">{notice}</p>}
-      {error&&<p className="notice notice-danger" role="alert">{error} Your draft is kept in this browser. <button className="ghost btn-sm" onClick={()=>window.location.reload()}>Reload poll</button></p>}
+      {error&&<p className="notice notice-danger" role="alert">{error} Your draft is kept in this browser. <button className="ghost btn-sm" onClick={()=>{setReady(false);setError('');setReload(value=>value+1);}}>Refresh entry</button></p>}
       <div ref={hold.ref} style={hold.style} className={styles.banners}>
         {visible.map(banner=><article key={banner.id} className={`panel ${styles.banner}`} aria-label={banner.name}>
           <div className={styles.bannerRow}>

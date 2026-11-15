@@ -5,9 +5,10 @@ import {PULL_POLL_DRAFT,type Ballot} from '../../lib/polls/pull-poll';
 async function setup(page:Page,theme:string){
   await readOnly(page);await page.addInitScript(theme=>localStorage.setItem('theme',theme),theme);
   await page.route('**/api/cloud-account',route=>route.fulfill({status:401,json:{providers:['google','discord']}}));
-  const state={choices:{} as Ballot,revision:0,writes:[] as Ballot[]};
+  const state={choices:{} as Ballot,revision:0,conflict:false,writes:[] as Ballot[]};
   await page.route('**/api/cloud-account/polls/pull-or-skip',async route=>{
     if(route.request().method()==='PUT'){
+      if(state.conflict){state.conflict=false;state.revision++;return route.fulfill({status:409,json:{error:'Your submitted choices changed on another device.'}});}
       const body=route.request().postDataJSON();state.writes.push(body.choices);state.choices=body.choices;state.revision++;
     }
     return route.fulfill({json:{owner:null,choices:state.choices,revision:state.revision}});
@@ -48,4 +49,18 @@ test('Maybe is Good to have; planner imports are drafts and preserve the planner
   await page.getByRole('button',{name:'Import pull planner',exact:true}).click();await page.getByRole('button',{name:'Use this browser’s plan',exact:true}).click();
   await expect(banner.getByRole('combobox').first()).toHaveText('Potential 5');expect(state.writes).toHaveLength(0);
   expect(await page.evaluate(()=>JSON.parse(localStorage.getItem('arkpedia.pull-plan.v1')!))).toEqual(plan);
+});
+
+test('conflicting submissions refresh in place and keep the local draft',async({page})=>{
+  const state=await setup(page,'dark');await page.goto('/polls/pull-or-skip');
+  const banner=page.getByRole('article').first();await banner.getByRole('button',{name:'Pull',exact:true}).click();
+  state.conflict=true;await page.getByRole('button',{name:'Submit entry',exact:true}).click();
+  await expect(page.getByRole('main').getByRole('alert')).toContainText('another device');
+  await expect(banner.getByRole('button',{name:'Pull',exact:true})).toHaveAttribute('aria-pressed','true');
+  let navigations=0;page.on('framenavigated',()=>navigations++);
+  await page.getByRole('button',{name:'Refresh entry',exact:true}).click();
+  await expect(page.getByRole('button',{name:'Update entry',exact:true})).toBeEnabled();
+  await expect(banner.getByRole('button',{name:'Pull',exact:true})).toHaveAttribute('aria-pressed','true');expect(navigations).toBe(0);
+  await page.getByRole('button',{name:'Update entry',exact:true}).click();
+  await expect(page.getByRole('dialog',{name:'Create an Arkpedia account'})).toBeVisible();
 });
