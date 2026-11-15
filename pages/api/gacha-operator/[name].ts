@@ -1,5 +1,6 @@
+import { completeOperatorText } from '@/lib/operators/operatorTextServer';
 import type { NextApiRequest, NextApiResponse } from 'next';
-import type { Operator } from '@/lib/operators/operatorTypes';
+import type { Operator } from '@/lib/operators/operatorTextTypes';
 import { contentRoute } from '@/lib/content/types';
 import { readPublishedContentPageProps } from '@/lib/content/release';
 import { buildGachaOperatorPreview, operatorPreviewSource } from '@/lib/gacha/operatorPreviewData';
@@ -33,6 +34,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
   if (!operator) return res.status(404).json({ error: 'Operator not found' });
 
+  operator = (await completeOperatorText({ operator })).operator;
   res.setHeader('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=120');
   return res.status(200).json(req.query.progression === '1' ? operatorPreviewSource(operator) : buildGachaOperatorPreview(operator));
 }

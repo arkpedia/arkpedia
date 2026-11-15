@@ -221,7 +221,7 @@ export function buildTechniqueGroups(): TechniqueGroup[] {
         addBadge(tech.name, tech.description, tech.viaBranch, op, operatorIconPath, branchIconPath, op.branch, op.rarity, {
           label: skill.name || '',
           skillNumber: skillIndex + 1,
-          skillIconPath: getSkillIconPath(op.name, skill.name),
+          skillIconPath: skill.icon || getSkillIconPath(op.name, skill.name),
           talentLabel: null,
           sourceText: tech.sourceText,
           matchedKeyword: tech.matchedKeyword,
@@ -245,7 +245,7 @@ export function buildTechniqueGroups(): TechniqueGroup[] {
             addBadge(techName, techDescription, false, op, operatorIconPath, branchIconPath, op.branch, op.rarity, {
               label: skill.name || '',
               skillNumber: skillIndex + 1,
-              skillIconPath: getSkillIconPath(op.name, skill.name),
+              skillIconPath: skill.icon || getSkillIconPath(op.name, skill.name),
               talentLabel: null,
               sourceText: referencedTalentText,
               matchedKeyword: null,

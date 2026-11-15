@@ -2,14 +2,16 @@ import { ReactNode, useState } from 'react';
 import type { Talent, TalentRow } from '@/lib/operators/operatorTypes';
 import { talentDisplayName } from '@/lib/operators/operatorIconPaths';
 import OperatorGameIcon from './OperatorGameIcon';
+import CombatText from './CombatText';
 import { highlightStats } from '../ui/HighlightedText';
 import styles from './OperatorPage.module.css';
 
 const eliteOf = (row: TalentRow) => Number(row.stage?.match(/\d+/)?.[0] ?? 0);
 const potentialOf = (row: TalentRow) => Number(row.potential?.match(/\d+/)?.[0] ?? 1);
 
-export default function OperatorTalents({ talents, elites, renderDetails }: {
+export default function OperatorTalents({ talents, elites, renderDetails, note }: {
   talents: Talent[];
+  note?: ReactNode;
   elites: number[];
   renderDetails: (talent: Talent, unlocked: boolean) => ReactNode;
 }) {
@@ -38,6 +40,7 @@ export default function OperatorTalents({ talents, elites, renderDetails }: {
         </div>
       </div>
     </div>
+    {note}
     {talents.map((talent, index) => {
       const selected = talent.rows
         .filter(row => eliteOf(row) <= elite && potentialOf(row) <= potential)
@@ -55,7 +58,7 @@ export default function OperatorTalents({ talents, elites, renderDetails }: {
         </div>
         <div className={styles.talentDescriptions}>
           {talent.rows.map((row, rowIndex) => <p key={rowIndex} aria-hidden={row !== selected}
-            style={{ visibility: row === selected ? 'visible' : 'hidden' }}>{highlightStats(row.description)}</p>)}
+            style={{ visibility: row === selected ? 'visible' : 'hidden' }}>{row === selected ? <CombatText text={row.description} /> : highlightStats(row.description)}</p>)}
           {!selected && <p>Unlocks at Elite {unlock}.</p>}
         </div>
         {renderDetails(talent, Boolean(selected))}

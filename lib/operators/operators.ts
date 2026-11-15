@@ -1,6 +1,9 @@
+import type { BaseSkillGlossary } from './baseSkillGlossary';
 import fs from 'fs';
 import path from 'path';
-import { Operator } from './operatorTypes';
+import { enrichOperatorText, type Translation } from './operatorTranslations';
+import type { Operator } from './operatorTextTypes';
+import type { BaseSkillKeyword } from './operatorTypes';
 import { resolveOperatorDebut } from './operatorReleaseSchedule';
 import { getCurrentOperatorVoiceCredits } from './operatorVoices';
 import { isPortraitPending } from './operatorPortrait';
@@ -133,7 +136,15 @@ export function getAllOperators(): Operator[] {
   // Filter out any entries that failed to scrape (they only have
   // { name, error } rather than the full Operator shape).
   const releasedRaw = allData.filter((op) => !('error' in (op as Record<string, unknown>))) as Operator[];
-  const released = releasedRaw.map((op) => ({
+  // Older content snapshots remain readable until their next data release.
+  const readSupplement = <T,>(name: string, fallback: T): T => {
+    const file = path.join(DATA_DIR, name);
+    return fs.existsSync(file) ? JSON.parse(fs.readFileSync(file, 'utf8')) as T : fallback;
+  };
+  const translations = readSupplement<Record<string, Translation>>('operator-translations.json', {});
+  const keywords = readSupplement<BaseSkillKeyword[]>('combat-keywords.json', []);
+  const glossary = readSupplement<BaseSkillGlossary>('base-skill-glossary.json', { terms: [], buffs: {} });
+  const released = releasedRaw.map(op => enrichOperatorText(op, translations, keywords, glossary)).map((op) => ({
     ...op,
     characterVoices: getCurrentOperatorVoiceCredits(op.internalName, op.characterVoices),
     talents: normalizeTalents(op.talents as unknown as RawTalent[] | undefined) as unknown as Operator['talents'],

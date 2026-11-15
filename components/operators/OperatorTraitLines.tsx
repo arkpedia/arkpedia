@@ -1,6 +1,6 @@
 import { Fragment } from 'react';
 import type { TraitPhase } from '@/lib/operators/operatorTrait';
-import { highlightStats } from '../ui/HighlightedText';
+import CombatText from './CombatText';
 
 /*
  * A trait's lines (lib/operators/operatorTrait.ts traitPhases) inside a paragraph or span the
@@ -15,7 +15,7 @@ export default function OperatorTraitLines({ lines, highlight }: { lines: TraitP
       <Fragment key={line.stage ?? 'trait'}>
         {index > 0 && <br />}
         {line.stage && <><b>{line.stage}:</b>{' '}</>}
-        {highlight ? highlightStats(line.text) : line.text}
+        {highlight ? <CombatText text={line.text} /> : line.text}
       </Fragment>
     ))}
   </>;
