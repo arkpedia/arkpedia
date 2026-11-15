@@ -30,3 +30,13 @@ export async function pullPollCatalogue() {
     ? { banners: pollBanners((await bundledSources()).banners, await bundledLineups()) }
     : { banners: pollBanners((await import('@/lib/pulls/schedule')).getPullSchedule(), await bundledLineups()) };
 }
+
+export async function pullPollPageCatalogue(){
+  const catalogue=await pullPollCatalogue();
+  return {...catalogue,portraits:await pullPollPortraits(catalogue.banners)};
+}
+export async function pullPollPortraits(banners:import('./pull-poll').PollBanner[]){
+  const {communityOperators}=await import('@/lib/community/catalogues');
+  const names=new Set(banners.flatMap(b=>b.operators));
+  return Object.fromEntries((await communityOperators()).filter(op=>names.has(op.name)).map(op=>[op.name,{icon:op.icon,rarity:op.rarity}]));
+}

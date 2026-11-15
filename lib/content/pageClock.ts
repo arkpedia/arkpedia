@@ -27,6 +27,7 @@ const CLOCK_UNITS: Record<string, number> = {
   '/planner': 60_000,
   '/community': 60_000,
   '/polls/pull-or-skip': 60_000,
+  '/polls': 60_000,
   // Which outfit shops are over (components/skins/SkinPlanner).
   '/skin-planner': 60_000,
   '/free-op': 60_000,

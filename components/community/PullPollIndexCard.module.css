@@ -1,0 +1,15 @@
+.card { display:grid; grid-template-columns:minmax(280px,420px) minmax(0,1fr); gap:24px; align-items:center; min-height:214px; padding:20px 24px 22px; }
+.copy { display:flex; flex-direction:column; gap:8px; min-width:0; }
+.copy h2 { margin:0; }
+.copy p { margin:0; font-size:15px; }
+.facts, .actions { display:flex; flex-wrap:wrap; gap:6px; }
+.facts > span:not(:global(.poll-your-choice)) { font:10px var(--font-mono); letter-spacing:.06em; text-transform:uppercase; border:1px solid var(--line); padding:2px 7px; color:var(--text-dim); }
+.actions { gap:8px; margin-top:4px; }
+.strip { display:flex; justify-content:flex-end; align-items:stretch; gap:12px; min-width:0; }
+.strip figure { flex:1; margin:0; min-width:0; }
+.strip figcaption { font-family:var(--font-display); font-weight:700; font-size:15px; margin-top:6px; }
+.preview { display:flex; flex-direction:column; background:var(--well); border:1px solid var(--line); }
+.operators { display:flex; gap:4px; padding:8px; overflow:hidden; }
+.operators > span { flex-shrink:1; min-width:0; }
+@media (max-width:900px) { .card { grid-template-columns:minmax(0,1fr); gap:18px; padding:18px; } }
+@media (max-width:520px) { .strip figure:last-child { display:none; } .strip figcaption { overflow-wrap:anywhere; } }

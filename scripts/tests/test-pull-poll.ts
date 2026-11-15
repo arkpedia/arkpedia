@@ -17,7 +17,7 @@ test('compact choices apply to all operators; detailed choices survive sharing a
   assert.equal(bannerChoice(ballot[banner.id],banner),'maybe');
   ballot[banner.id].Texas=6;assert.equal(bannerChoice(ballot[banner.id],banner),'custom');
   assert.deepEqual(decodeBallot(encodeBallot(ballot),banners),ballot);
-  assert.equal(bannerChoice({Exusiai:0},banner),'');
+  assert.equal(bannerChoice({Exusiai:0},banner),'custom');
   assert.equal(bannerChoice(setBannerChoice(ballot,banner,'skip')[banner.id],banner),'skip');
 });
 test('planner import matches aliases, preserves potentials and does not mutate planner goals',()=>{
@@ -34,12 +34,12 @@ test('ballots reject injected operators, unknown banners, nonintegers and oversi
 function harness(){
   const sqlite=new DatabaseSync(':memory:');sqlite.exec('PRAGMA foreign_keys=ON');
   for(const file of fs.readdirSync('migrations/accounts').filter(f=>f.endsWith('.sql')).sort())sqlite.exec(fs.readFileSync(`migrations/accounts/${file}`,'utf8'));
-  const prepare=(sql:string,args:unknown[]=[])=>({bind:(...values:unknown[])=>prepare(sql,values),first:async()=>sqlite.prepare(sql).get(...args as never[])??null,run:async()=>sqlite.prepare(sql).run(...args as never[])});
-  const db={prepare} as unknown as D1Database;
-  async function call(owner:string|null,method='GET',body?:unknown,cookie='aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa'){
+  const prepare=(sql:string,args:unknown[]=[])=>({bind:(...values:unknown[])=>prepare(sql,values),first:async()=>sqlite.prepare(sql).get(...args as never[])??null,run:async()=>sqlite.prepare(sql).run(...args as never[]),all:async()=>({results:sqlite.prepare(sql).all(...args as never[])})});
+  const db={prepare,batch:async(statements:ReturnType<typeof prepare>[])=>Promise.all(statements.map(s=>s.all()))} as unknown as D1Database;
+  async function call(owner:string|null,method='GET',body?:unknown,cookie='aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa',query:Record<string,string>={}){
     let status=200,result:any;const headers:Record<string,string>={};
     const response={setHeader:(key:string,value:string)=>{headers[key]=value;},status:(n:number)=>{status=n;return response;},json:(v:unknown)=>{result=v;return response;}};
-    await pullPoll({method,cookies:{'__Host-arkpedia-pull-poll':cookie},body} as unknown as NextApiRequest,response as unknown as NextApiResponse,db,owner,async()=>({banners}));
+    await pullPoll({method,cookies:{'__Host-arkpedia-pull-poll':cookie},body,query} as unknown as NextApiRequest,response as unknown as NextApiResponse,db,owner,async()=>({banners}));
     return {status,result,headers};
   }
   return {sqlite,call};
@@ -90,4 +90,31 @@ test('anonymous writes have a browser-scoped rate limit without requiring an acc
     assert.equal((await h.call(null,'PUT',{owner:null,revision:10,choices})).status,429);
     assert.equal((await h.call(null)).result.revision,10);
   }finally{h.sqlite.close();}
+});
+
+
+test('public results count mixed choices and potentials without exposing ballot identities',async()=>{
+  const h=harness();try{
+    await h.call(null,'PUT',{owner:null,revision:0,choices:{[banner.id]:{Exusiai:1,Texas:-1}}});
+    await h.call(null,'PUT',{owner:null,revision:0,choices:setBannerChoice({},banner,'skip')},'bbbbbbbb-bbbb-4bbb-bbbb-bbbbbbbbbbbb');
+    await h.call(null,'PUT',{owner:null,revision:0,choices:{[banner.id]:{Exusiai:6}}},'cccccccc-cccc-4ccc-cccc-cccccccccccc');
+    const {result}=await h.call(null,'GET',undefined,'',{view:'results'});
+    assert.equal(result.ballots,3);assert.deepEqual(result.banners.map((r:any)=>({...r})),[{id:banner.id,answers:3,pull:2,maybe:0,skip:1}]);
+    const op=result.operators.find((r:any)=>r.name==='Exusiai');assert.equal(op.want,2);assert.equal(op.totalPotential,7);assert.equal(op.maxPotential,1);
+    assert.ok(!JSON.stringify(result).includes('voter'));assert.ok(!JSON.stringify(result).includes('aaaa'));
+  }finally{h.sqlite.close();}
+});
+test('classified banners accept an explicit banner vote without inventing operator goals',()=>{
+  const pending={...banner,operators:[]};const ballot=setBannerChoice({},pending,'maybe');
+  assert.equal(bannerChoice(ballot[pending.id],pending),'maybe');assert.deepEqual(parseBallot(ballot,[pending]),ballot);
+  assert.throws(()=>parseBallot({[pending.id]:{Exusiai:1}},[pending]));
+});
+test('planner sync preserves resources, budgets, other goals and local Maybe choices',async()=>{
+  const {emptyPullPlan,pollIntoPlanner,plannerIntoPoll}=await import('../../lib/polls/pull-poll-sync');
+  const plan={...emptyPullPlan(),orundum:'12345',goals:[{banner:banner.name,spendOn:banner.end,pulls:88,targets:[{name:'Exusiai',copies:2}]},{banner:'Other',spendOn:'2027-01-01',pulls:50}]};
+  const ballot={[banner.id]:{Exusiai:4 as const,Texas:-1 as const}};
+  const next=pollIntoPlanner(plan,ballot,banners);assert.equal(next.orundum,'12345');assert.equal(next.goals[0].pulls,88);assert.deepEqual(next.goals[0].targets,[{name:'Exusiai',copies:4}]);assert.deepEqual(next.goals[1],plan.goals[1]);assert.equal(plan.goals[0].targets![0].copies,2);
+  const restored=plannerIntoPoll(ballot,{...next,goals:[{...next.goals[0],targets:[{name:'Exusiai',copies:6}]}]},banners);assert.deepEqual(restored,{[banner.id]:{Exusiai:6,Texas:-1}});
+  assert.equal(pollIntoPlanner(next,{[banner.id]:{}},banners).goals.length,1);
+  assert.deepEqual(plannerIntoPoll(ballot,{...plan,goals:[]},banners),{[banner.id]:{Exusiai:0,Texas:-1}});
 });

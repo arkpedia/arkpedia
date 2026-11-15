@@ -422,3 +422,8 @@
     from { transform: scaleX(0); }
   }
 }
+
+@media (prefers-reduced-motion: no-preference) {
+  .poll-stamp { animation:poll-stamp-arrive var(--dur-2) var(--ease) both; }
+  @keyframes poll-stamp-arrive { from { scale:1.5; opacity:0; } to { scale:1; opacity:1; } }
+}
