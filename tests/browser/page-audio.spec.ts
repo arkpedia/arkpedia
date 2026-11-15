@@ -278,7 +278,8 @@ for (const readyBeforeLeaving of [true,false]) test(`event audio interrupts an i
   let release!:()=>void; const gate=new Promise<void>(resolve=>{release=resolve});
   await page.route('https://www.youtube.com/iframe_api',async route=>{await gate;await route.fallback().catch(()=>{})});
   try {
-    await page.goto('/music?view=library');
+    // This fixture deliberately holds an API script open; load can wait on it.
+    await page.goto('/music?view=library', { waitUntil: 'domcontentloaded' });
     await page.locator('.music-library-row .music-song-row-main').first().click();
     const audio=page.locator('audio[data-music-audio]');
     await expect.poll(()=>audio.evaluate(el=>(el as HTMLAudioElement).currentTime)).toBeGreaterThan(.1);
