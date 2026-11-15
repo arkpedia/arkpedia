@@ -4,7 +4,7 @@ Supported event links keep their normal Next.js navigation and history. A truste
 unmodified click (including keyboard activation) arms the fullscreen entrance;
 Back/Forward and direct loads do not replay it. Reduced motion bypasses playback.
 The modal fades quickly to black, runs the reviewed native timeline, then shrinks
-its final menu artwork into the event hero. The hero uses the same menu artwork.
+its final menu artwork into the edge-to-edge event backdrop. Theme-coloured translucent panels sit above the same menu artwork.
 Skip, Escape, navigation cancellation, missing/slow assets and WebGL failure all
 release the overlay and page-audio hold. Navigation never waits for the animation.
 
@@ -26,8 +26,8 @@ callbacks are never executed.
 Native entrance SFX starts at the recorded cue. The event theme is prepared under
 the overlay and released at the end of the native timeline, as docking begins.
 Both use the existing Event Music choice, external-media consent, volume and
-main-player priority. A cancelled intro stops its SFX; normal completion lets its
-tail finish. The optional background theme choice remains independent.
+event interruption/restoration of personal playback. A cancelled intro stops its SFX; normal completion lets its
+tail finish. Browsing Background Music has been retired; personal playback is controlled by the music player.
 Cold taps give the SFX the remaining entrance load budget, rather than requiring
 a hover-preloaded sound. Page themes use official Monster Siren audio where
 available, following the main player's Data saver choice for YouTube playback.
@@ -44,7 +44,7 @@ their animations do not receive an invented sound association or timing.
 2. Convert the original clip with `scripts/build_event_player.py`, explicitly
    selecting verified SFX associations. Unsupported bindings fail conversion.
 3. Render the entrance and final menu frame with `lib/events/gameUiPlayer.ts`.
-   Inspect native timing/shaders, desktop/mobile crop, final hero and audio cues.
+   Inspect native timing/shaders, desktop/mobile crop, final backdrop and audio cues.
    Save the final 1280×720 menu frame as `menu.webp` and seal the pack using the
    asset repository's `event_player_manifest.py`. Record any known omissions.
 4. Pass source/player validation and publish the immutable asset revision through
@@ -59,8 +59,8 @@ their animations do not receive an invented sound association or timing.
 Assets warm on event-link hover/focus and keep one prepared scene. Playback is
 bounded by a short load budget; it skips instead of leaving a blocking black
 screen on an unavailable or slow connection. Fullscreen art covers the viewport
-without stretching; unusual aspects crop its edges, revealing the full frame as
-it docks into the 16:9 hero.
+without stretching; unusual aspects crop its edges as
+it settles into the event backdrop below the site navigation.
 
 For local frame review, run
 `node scripts/audits/event-entrance-review.mjs <asset-repo>/event-transitions/players`.

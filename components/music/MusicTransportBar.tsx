@@ -13,7 +13,7 @@ import SeekBar from './SeekBar';
 import VolumeControl from './VolumeControl';
 import { MSR_LABEL } from '@/lib/music/songArt';
 import { minimizeMusicPlayer, playerIsVisible, usePlayerVisibility } from '@/lib/music/playerVisibility';
-import BackgroundMusicNowPlaying from './BackgroundMusicNowPlaying';
+import EventMusicNowPlaying from './EventMusicNowPlaying';
 import { songTitle } from '@/lib/music/musicPolish';
 
 
@@ -159,7 +159,7 @@ export default function MusicTransportBar({ view, coverPath, onFullPlayer, hasLy
             : !panelOpen && <Link href={queuePanelHref(router)} shallow scroll={false} prefetch={false} className="ghost btn-sm" onClick={dismissNotice}>View queue</Link>}
         </>}
       </div>
-      <BackgroundMusicNowPlaying />
+      <EventMusicNowPlaying />
       <div className="music-transport-song-row">{song}
         {wide && favorite}
         {wide && blockButton}

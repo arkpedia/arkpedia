@@ -91,49 +91,12 @@ button.events-row-main.btn-bare { border: 0; background: transparent; padding: 0
   .events-row-plan { margin-left: auto; }
 }
 
-/* --- Event detail page ---
-   PageHeader, then the event's art across the top, then one section at a time below
-   it at the page's full width (.event-detail-right, named from when it was a column
-   beside the art), switched by components/ui/Tabs. */
+/* Event detail: shared page frame above a fixed artwork backdrop; one tab at a time. */
 .event-detail-layout {
   display: flex;
   flex-direction: column;
   gap: 20px;
 }
-.event-detail-carousel { width: 100%; }
-/* Sized from the art (the page passes the ratio: 1024/328 for a poster, 16/9 for a
-   CG set); this default is the poster's, for a release exported before it did. */
-.event-detail-image-wrap {
-  position: relative;
-  width: 100%;
-  aspect-ratio: 1024 / 328;
-  border-radius: var(--radius);
-  overflow: hidden;
-  background: var(--panel-2);
-}
-/* Carousel auto-advances every 8s (see AnnouncementTicker-style timer
-   in pages/events/[slug].tsx) -- no prev/next buttons, just dots for
-   jumping directly to a specific image. */
-.event-detail-carousel-dots {
-  display: flex;
-  gap: 6px;
-  justify-content: center;
-  margin-top: 10px;
-}
-.event-detail-carousel-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  border: 1px solid var(--line-soft);
-  background: var(--panel-2);
-  cursor: pointer;
-  padding: 0;
-}
-.event-detail-carousel-dot.active {
-  background: var(--teal);
-  border-color: var(--teal);
-}
-
 .event-detail-right {
   min-width: 0;
 }
@@ -694,3 +657,10 @@ html[data-site-server="kr"] .event-news[data-own-kr] .event-news-server[data-ser
   .reward-image-dialog .account-dialog-body, .reward-image-content { flex: 0 1 auto; }
   .reward-image-preview { flex: 0 1 auto; aspect-ratio: var(--reward-image-ratio, 1); }
 }
+
+/* Event menu artwork occupies the viewport behind the normal page frame. */
+.event-page { display: flow-root; position: relative; isolation: isolate; min-height: calc(100dvh - var(--nav-h, 54px)); }
+.event-page-art { position: fixed; inset: var(--nav-h, 54px) 0 0; z-index: -1; pointer-events: none; overflow: hidden; }
+.event-detail-compact { max-width: 640px; }
+.reward-image-zoom { display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 8px; }
+.reward-image-zoom output { min-width: 4ch; text-align: center; font-family: var(--font-mono); }

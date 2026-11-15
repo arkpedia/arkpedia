@@ -10,8 +10,7 @@ import ProfileAvatar from './ProfileAvatar';
 const DataDialog = dynamic(() => import('./DataDialog'), { ssr: false });
 const AvatarPicker = dynamic(() => import('./AvatarPicker'), { ssr: false });
 const CloudAccountPanel = dynamic(() => import('./CloudAccountPanel'), { ssr: false });
-const MenuMusicSettings = dynamic(() => import('@/components/music/MenuMusicSettings'), { ssr: false });
-type Action = 'import' | 'settings' | 'menu-music';
+type Action = 'import' | 'settings';
 const Context = createContext<{ open: (action: Action) => void }>({ open: () => {} });
 export const useAccountActions = () => useContext(Context);
 
@@ -77,7 +76,6 @@ export default function AccountActions({ children }: { children: ReactNode }) {
     opener.current = menu ? [...document.querySelectorAll<HTMLElement>('[aria-controls]')].find(element => element.getAttribute('aria-controls') === menu.id) ?? active : active;
     setError(''); setSettingsTab(onboarding ? 'saving' : 'profile'); setAction(value); } }}>
     {children}
-    {!onboarding && action === 'menu-music' && <ImportDialog title="Choose Background Music" onClose={close}><MenuMusicSettings /></ImportDialog>}
     {!onboarding && action === 'import' && (localTables || loaded ? <ContentContext.Provider value={localTables ? release : loaded!.release}><ContentTablesContext.Provider value={localTables ? tables : loaded!.tables}><DataDialog onClose={close} /></ContentTablesContext.Provider></ContentContext.Provider> : <ImportDialog title="Import / export" onClose={close}><p role={error ? 'alert' : 'status'}>{error || 'Loading import tools…'}</p>{error && <button type="button" onClick={() => setAttempt(value => value + 1)}>Retry</button>}</ImportDialog>)}
     {(onboarding || action === 'settings') && (sync.status === 'unavailable'
       ? <ImportDialog title="Account settings" onClose={close}>{avatar}</ImportDialog>

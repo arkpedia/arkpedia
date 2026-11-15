@@ -4,7 +4,7 @@ import { stubMonsterSiren } from './monster-siren-stub';
 test.use({ storageState: { cookies: [], origins: [] } });
 const shell = (page: Page) => page.locator('.music-player');
 const event = '/events/' + encodeURIComponent("[Rerun] The Masses' Travels Rerun");
-async function enable(page: Page, values: Record<string, unknown> = { backgroundMusic: true }) {
+async function enable(page: Page, values: Record<string, unknown> = { eventMusic: true }) {
   await page.addInitScript(values => {
     localStorage.setItem('arkpedia:settings', JSON.stringify({ version: 1, values }));
     localStorage.setItem('musicVolume', '42');
@@ -43,20 +43,12 @@ for (const theme of ['dark', 'light']) {
     await expect(prompt).toBeVisible();
     await expect(prompt.getByRole('heading', { name: 'Allow music playback?', exact: true })).toBeVisible();
     await expect(prompt.getByLabel('Event Music', {exact:true})).not.toBeChecked();
-    await expect(prompt.getByLabel('Background Music', {exact:true})).not.toBeChecked();
+    await expect(prompt.getByLabel('Background Music', {exact:true})).toHaveCount(0);
     await expect(page.getByRole('region', { name: 'Usage statistics choice' })).toBeHidden();
     expect(await youtube(page)).toBeNull(); expect(await ambient(page)).toBeNull();
-    const help = prompt.getByRole('button', { name: 'How background music works' });
-    await help.focus(); await page.keyboard.press('Enter');
-    await expect(page.getByText('Your chosen theme plays quietly as you browse, except on event pages.', {exact:false})).toBeVisible();
-    await expect(prompt).toBeVisible();
-    expect(await page.locator('.action-popover').evaluate(element => { const r = element.getBoundingClientRect(); return element.contains(document.elementFromPoint(r.x+r.width/2,r.y+r.height/2)); })).toBe(true);
-    if (process.env.ARKPEDIA_QA_CAPTURE) await page.screenshot({animations:'disabled',path:`${process.env.ARKPEDIA_QA_CAPTURE}/${info.project.name}-${theme}-media-help.png`});
-    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-    await page.keyboard.press('Escape'); await expect(help).toBeFocused();
     const eventHelp = prompt.getByRole('button', { name: 'How event music works' });
     await eventHelp.click();
-    await expect(page.getByText('This works even when Background Music is off.', {exact:false})).toBeVisible();
+    await expect(page.getByText('Your personal music pauses during the event', {exact:false})).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     if (process.env.ARKPEDIA_QA_CAPTURE) await page.screenshot({animations:'disabled',path:`${process.env.ARKPEDIA_QA_CAPTURE}/${info.project.name}-${theme}-event-help.png`});
     await page.keyboard.press('Escape'); await expect(eventHelp).toBeFocused();
@@ -69,7 +61,7 @@ for (const theme of ['dark', 'light']) {
     expect(await page.evaluate(() => JSON.parse(localStorage.getItem('arkpedia:privacy:v1')!))).toMatchObject({analytics:false,analyticsChosen:false,externalMedia:true,externalMediaChosen:true});
     await page.reload(); await expect(prompt).toBeHidden(); await playing(page);
     const menu=await settings(page); await expect(menu.getByRole('checkbox',{name:'Event Music',exact:true})).toBeChecked();
-    await expect(menu.getByRole('checkbox',{name:'Background Music',exact:true})).not.toBeChecked();
+    await expect(menu.getByRole('checkbox',{name:'Background Music',exact:true})).toHaveCount(0);
     if (process.env.ARKPEDIA_QA_CAPTURE) await page.screenshot({animations:'disabled',path:`${process.env.ARKPEDIA_QA_CAPTURE}/${info.project.name}-${theme}-music-setting.png`});
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     await page.keyboard.press('Escape'); await expect(page.getByRole('button',{name:'Settings',exact:true})).toBeFocused();
@@ -90,10 +82,10 @@ test('page music loops quietly without touching the player and stops on departur
   const saved=await page.evaluate(()=>({queue:localStorage.getItem('arkpediaMusicQueue'),volume:localStorage.getItem('musicVolume')}));
   await page.evaluate(()=>(window as unknown as {__pageYt:{finish:()=>void}}).__pageYt.finish());
   await expect.poll(async()=>(await ambient(page))?.calls.length).toBeGreaterThan(first.calls.length);
-  await navigate(page,'/schedule'); expect((await playing(page)).videoId).toBe('Wi7ZotrFx0M');
+  await navigate(page,'/schedule'); await expect(page.locator('[data-page-audio]')).toHaveCount(0);
   expect(await page.evaluate(()=>({queue:localStorage.getItem('arkpediaMusicQueue'),volume:localStorage.getItem('musicVolume')}))).toEqual(saved);
   await expect(shell(page).getByRole('button',{name:'Expand player'})).toBeVisible();
-  await navigate(page,'/'); expect((await playing(page)).videoId).not.toBe(first.videoId);
+  await navigate(page,'/'); await expect(page.locator('[data-page-audio]')).toHaveCount(0);
 });
 test('Event Music setting stops immediately and persists across pages and reloads', async ({page}) => {
   await stubYouTube(page); await page.goto(event);
@@ -106,40 +98,11 @@ test('Event Music setting stops immediately and persists across pages and reload
   await menu.getByRole('checkbox',{name:'Event Music',exact:true}).check(); await playing(page);
   await expect(shell(page).getByRole('button',{name:'Expand player'})).toBeVisible();
 });
-for (const theme of ['dark', 'light']) test(`Background Music and Event Music work independently and survive reload (${theme})`, async ({page}, info) => {
-  await stubYouTube(page);
-  await page.addInitScript(theme => localStorage.setItem('theme', theme), theme);
-  await page.goto('/schedule');
-  const menu=await settings(page);
-  const background=menu.getByRole('checkbox',{name:'Background Music',exact:true});
-  const events=menu.getByRole('checkbox',{name:'Event Music',exact:true});
-  await expect(background).not.toBeChecked(); await expect(events).not.toBeChecked();
-  await background.focus(); await page.keyboard.press('Space');
-  expect((await playing(page)).videoId).toBe('Wi7ZotrFx0M');
-  await expect(events).not.toBeChecked();
-  await page.keyboard.press('Escape'); await navigate(page,event);
-  await expect(page.locator('[data-page-audio]')).toHaveCount(0);
-  await settings(page); await expect(background).toBeChecked(); await expect(events).not.toBeChecked();
-  await events.check(); expect((await playing(page)).videoId).toBe('FnDnOnBqKg0');
-  await background.uncheck(); await playing(page); await expect(events).toBeChecked();
-  if(process.env.ARKPEDIA_QA_CAPTURE) await page.screenshot({animations:'disabled',path:`${process.env.ARKPEDIA_QA_CAPTURE}/${info.project.name}-${theme}-independent-music.png`});
-  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-  await page.keyboard.press('Escape'); await navigate(page,'/schedule');
-  await expect(page.locator('[data-page-audio]')).toHaveCount(0);
-  await page.reload(); await settings(page);
-  await expect(background).not.toBeChecked(); await expect(events).toBeChecked();
-  await page.keyboard.press('Escape'); await navigate(page,event); await playing(page);
-  await settings(page); await events.uncheck();
-  await expect.poll(async()=>(await ambient(page))?.destroyed).toBe(true);
-  await page.reload(); await settings(page);
-  await expect(background).not.toBeChecked(); await expect(events).not.toBeChecked();
-  await expect(page.locator('[data-page-audio]')).toHaveCount(0);
-});
 test('browser-blocked page music offers Play inside Settings', async ({page}) => {
   await stubYouTube(page,'refuse'); await enable(page); await page.goto(event);
   await expect(page.locator('[data-page-audio]')).toHaveAttribute('data-page-audio','blocked');
-  const menu=await settings(page); await menu.getByRole('button',{name:'Play background music',exact:true}).click(); await playing(page);
-  await expect(menu.getByRole('button',{name:'Play background music',exact:true})).toHaveCount(0);
+  const menu=await settings(page); await menu.getByRole('button',{name:'Play event music',exact:true}).click(); await playing(page);
+  await expect(menu.getByRole('button',{name:'Play event music',exact:true})).toHaveCount(0);
   await expect(shell(page).getByRole('button',{name:'Expand player'})).toBeVisible();
 });
 test('page themes use official audio by default when a YouTube upload also exists', async ({page}) => {
@@ -148,14 +111,14 @@ test('page themes use official audio by default when a YouTube upload also exist
   await page.goto(event);
   await expect(page.locator('[data-page-audio]')).toHaveAttribute('data-page-audio',/playing|blocked/);
   if(await page.locator('[data-page-audio]').getAttribute('data-page-audio')==='blocked') {
-    const menu=await settings(page); await menu.getByRole('button',{name:'Play background music',exact:true}).click();
+    const menu=await settings(page); await menu.getByRole('button',{name:'Play event music',exact:true}).click();
   }
   await expect(page.locator('[data-page-audio]')).toHaveAttribute('data-page-audio','playing');
   expect(siren.resolves).toContain('232236');
   expect(await ambient(page)).toBeNull();
 });
 test('legacy greetings and the previous manual-pause flag cannot block page music', async ({page}) => {
-  await stubYouTube(page); await enable(page,{backgroundMusic:true,greeting:'chosen',greetingOperator:'Amiya'});
+  await stubYouTube(page); await enable(page,{eventMusic:true,greeting:'chosen',greetingOperator:'Amiya'});
   await page.addInitScript(()=>sessionStorage.setItem('arkpedia:audio-manual-visit','1'));
   const requests:string[]=[];page.on('request',r=>{if(r.url().includes('/api/greeting'))requests.push(r.url());});
   await page.goto(event); await playing(page); await expand(page);
@@ -186,14 +149,6 @@ test('a paused player allows Masses Travels; resuming it silences the theme with
   await shell(page).getByRole('button',{name:'Pause',exact:true}).click(); await playing(page);
   expect((await youtube(page))?.videoId).toBe(paused.videoId); expect((await youtube(page))?.state).toBe(2);
 });
-test('actively playing music keeps priority on event pages', async ({page}) => {
-  await stubYouTube(page); await enable(page); await page.goto('/music?view=library');
-  await page.locator('.music-library-row .music-song-row-main').first().click();
-  await expect.poll(async()=>(await youtube(page))?.state).toBe(1);const first=(await youtube(page))!;
-  await navigate(page,event); await expect.poll(async()=>(await ambient(page))?.state).toBe(5);
-  expect((await youtube(page))?.videoId).toBe(first.videoId); expect((await youtube(page))?.state).toBe(1);
-  expect((await ambient(page))?.state).not.toBe(1);
-});
 test('upcoming Global and crossover events play released themes with no player takeover', async ({page}) => {
   await stubYouTube(page,'allow',{dataSaver:true}); await enable(page);
   for(const [name,id] of [
@@ -208,7 +163,7 @@ test('upcoming Global and crossover events play released themes with no player t
 test('silent autoplay refusal eventually offers Play without loading the main player', async ({page}) => {
   await stubYouTube(page,'refuse-silently'); await enable(page); await page.goto(event);
   await expect(page.locator('[data-page-audio]')).toHaveAttribute('data-page-audio','blocked',{timeout:15000});
-  const menu=await settings(page); await menu.getByRole('button',{name:'Play background music',exact:true}).click(); await playing(page);
+  const menu=await settings(page); await menu.getByRole('button',{name:'Play event music',exact:true}).click(); await playing(page);
   expect((await youtube(page))?.players).toBe(0);
 });
 test('MSR-only page music uses a separate element and stops on departure', async ({page}) => {
@@ -217,7 +172,7 @@ test('MSR-only page music uses a separate element and stops on departure', async
   await page.goto(event);
   await expect(page.locator('[data-page-audio]')).toHaveAttribute('data-page-audio',/playing|blocked/);
   if(await page.locator('[data-page-audio]').getAttribute('data-page-audio')==='blocked') {
-    const menu=await settings(page); await menu.getByRole('button',{name:'Play background music',exact:true}).click();
+    const menu=await settings(page); await menu.getByRole('button',{name:'Play event music',exact:true}).click();
   }
   await expect.poll(()=>siren.files.length).toBeGreaterThan(0);
   await expect(page.locator('[data-page-audio]')).toHaveAttribute('data-page-audio','playing');
@@ -241,86 +196,105 @@ test('Yet Another Wave resolves its published Mirari recording', async ({page}) 
   await page.goto('/games/music-guesser');await navigate(page,path);
   await expect(page.locator('[data-page-audio]')).toHaveAttribute('data-page-audio',/playing|blocked/);
   if(await page.locator('[data-page-audio]').getAttribute('data-page-audio')==='blocked') {
-    const menu=await settings(page); await menu.getByRole('button',{name:'Play background music',exact:true}).click();
+    const menu=await settings(page); await menu.getByRole('button',{name:'Play event music',exact:true}).click();
   }
   await expect(page.locator('[data-page-audio]')).toHaveAttribute('data-page-audio','playing');
   expect(siren.files.some(url=>url.includes('306864'))).toBe(true);
   await expect(page.getByRole('button',{name:'Mute page music',exact:true})).toHaveCount(0);
 });
 
-for (const theme of ['dark', 'light']) test(`background now-playing stays separate from the personal player (${theme})`, async ({page}, info) => {
-  await stubYouTube(page); await enable(page);
-  await page.addInitScript(theme=>localStorage.setItem('theme',theme),theme);
-  await page.goto(event); await playing(page);
-  const opener=shell(page).getByRole('button',{name:'Expand player'});
-  await opener.click();
-  const row=shell(page).getByRole('group',{name:'Background music'});
-  await expect(row).toContainText('Background music · Playing');
-  const themeTitle=await row.locator('.music-widget-title').innerText(); expect(themeTitle.length).toBeGreaterThan(0);
-  await expect(shell(page).locator('.music-transport-song-link')).toContainText('Nothing playing yet');
-  // Let opening the personal player's engine settle: inspection must not steal audio.
-  await expect.poll(async()=>(await youtube(page))?.players).toBe(1);
-  await page.waitForTimeout(250);
-  await playing(page); await expect(row).toContainText('Background music · Playing');
-  if(process.env.ARKPEDIA_QA_CAPTURE) await page.screenshot({animations:'disabled',path:`${process.env.ARKPEDIA_QA_CAPTURE}/${info.project.name}-${theme}-background-playing.png`});
-  await shell(page).getByRole('button',{name:'Minimize player',exact:true}).click(); await expect(opener).toBeVisible();
-  await navigate(page,'/music?view=library');
-  await page.locator('.music-library-row .music-song-row-main').first().click();
-  await expect.poll(async()=>(await youtube(page))?.state).toBe(1);
-  const personal=(await youtube(page))!.videoId;
-  await navigate(page,event); await expand(page);
-  await expect(row).toContainText('Background music · Paused');
-  await expect(row).toContainText(themeTitle);
-  expect((await youtube(page))?.videoId).toBe(personal);
-  if(process.env.ARKPEDIA_QA_CAPTURE) await page.screenshot({animations:'disabled',path:`${process.env.ARKPEDIA_QA_CAPTURE}/${info.project.name}-${theme}-background-paused.png`});
-  await shell(page).locator('.music-play-btn').click(); await expect(row).toContainText('Background music · Playing');
-  expect((await youtube(page))?.videoId).toBe(personal);
-  const menu=await settings(page); await menu.getByRole('checkbox',{name:'Event Music',exact:true}).uncheck();
-  await page.getByRole('button',{name:'Settings',exact:true}).click(); await expand(page);
-  await expect(row).toHaveCount(0);
-  await settings(page); await menu.getByRole('checkbox',{name:'Event Music',exact:true}).check();
-  await page.getByRole('button',{name:'Settings',exact:true}).click(); await expand(page);
-  await expect(row).toContainText('Background music · Playing');
-  await navigate(page,'/schedule'); expect((await playing(page)).videoId).toBe('Wi7ZotrFx0M'); await expect(row).not.toContainText(themeTitle);
-});
-
 test('blocked background music can be started from its mini-player row',async({page})=>{
   await stubYouTube(page,'refuse-silently'); await enable(page); await page.goto(event);
   await expect(page.locator('[data-page-audio]')).toHaveAttribute('data-page-audio','blocked',{timeout:15000}); await expand(page);
-  const row=shell(page).getByRole('group',{name:'Background music'});
+  const row=shell(page).getByRole('group',{name:'Event music'});
   await expect(row).toContainText('Ready to play',{timeout:15000});
-  await row.getByRole('button',{name:'Play background music',exact:true}).click();
-  await expect(row).toContainText('Background music · Playing');
+  await row.getByRole('button',{name:'Play event music',exact:true}).click();
+  await expect(row).toContainText('Event music · Playing');
 });
 
-for (const theme of ['dark', 'light']) test(`menu theme continues between pages and yields to events (${theme})`, async ({page}, info) => {
+
+for (const theme of ['dark', 'light']) test(`events pause and restore the personal song without changing its queue (${theme})`, async ({page}) => {
   await stubYouTube(page); await enable(page);
-  await page.addInitScript(theme=>localStorage.setItem('theme',theme),theme);
-  await page.goto('/operators'); expect((await playing(page)).videoId).toBe('Wi7ZotrFx0M');
-  await page.evaluate(()=>{ const w=window as unknown as {__pageYt:unknown;__menuEngine:unknown}; w.__menuEngine=w.__pageYt; });
-  const initial=(await ambient(page))!;
-  for(const path of ['/schedule','/','/operators?search=Amiya']) {
-    await navigate(page,path); expect((await playing(page)).videoId).toBe(initial.videoId);
-    expect(await page.evaluate(()=>{const w=window as unknown as {__pageYt:unknown;__menuEngine:unknown};return w.__menuEngine===w.__pageYt;})).toBe(true);
-    expect((await ambient(page))?.calls.filter(call=>(call as string[])[0]==='loadVideoById')).toHaveLength(1);
-  }
-  await expand(page);
-  const row=shell(page).getByRole('group',{name:'Background music'});
-  await expect(row).toContainText('Background music · Playing');
-  if(process.env.ARKPEDIA_QA_CAPTURE) await page.screenshot({animations:'disabled',path:`${process.env.ARKPEDIA_QA_CAPTURE}/${info.project.name}-${theme}-site-menu.png`});
-  await navigate(page,event); expect((await playing(page)).videoId).toBe('FnDnOnBqKg0');
-  expect(await page.evaluate(()=>(window as unknown as {__menuEngine:{destroyed:boolean}}).__menuEngine.destroyed)).toBe(true);
-  await expect(page.locator('[data-page-audio]')).toHaveCount(1);
-  await page.goBack(); await expect.poll(async()=>(await ambient(page))?.videoId).toBe('Wi7ZotrFx0M'); await playing(page);
-  await page.goForward(); await expect.poll(async()=>(await ambient(page))?.videoId).toBe('FnDnOnBqKg0'); await playing(page);
-  await navigate(page,'/games/music-guesser'); await expect(page.locator('[data-page-audio]')).toHaveCount(0);
-  await navigate(page,'/operators'); expect((await playing(page)).videoId).toBe('Wi7ZotrFx0M');
-  await navigate(page,'/music?view=library');
+  await page.addInitScript(theme => localStorage.setItem('theme', theme), theme);
+  await page.goto('/music?view=library');
   await page.locator('.music-library-row .music-song-row-main').first().click();
   await expect.poll(async()=>(await youtube(page))?.state).toBe(1);
+  await navigate(page,'/music?view=player');
+  await page.getByRole('region',{name:'Player',exact:true}).getByRole('slider',{name:'Seek',exact:true}).press('PageUp');
+  const before=(await youtube(page))!, queue=await page.evaluate(()=>localStorage.getItem('arkpediaMusicQueue'));
+  await navigate(page,event); await playing(page);
+  const paused=(await youtube(page))!;
+  expect(paused.state).toBe(2); expect(paused.videoId).toBe(before.videoId);
+  expect(Math.abs(paused.time-before.time)).toBeLessThan(2);
+  await page.waitForTimeout(200);
+  expect((await youtube(page))?.time).toBeCloseTo(paused.time,1);
+  await navigate(page,'/schedule');
+  await expect.poll(async()=>(await youtube(page))?.state).toBe(1);
+  expect((await youtube(page))?.videoId).toBe(before.videoId);
+  expect((await youtube(page))!.time).toBeGreaterThanOrEqual(paused.time);
+  expect(await page.evaluate(()=>localStorage.getItem('arkpediaMusicQueue'))).toBe(queue);
+  await expect(page.locator('[data-page-audio]')).toHaveCount(0);
+  const menu=await settings(page);
+  await expect(menu.getByRole('checkbox',{name:'Background Music',exact:true})).toHaveCount(0);
+  await expect(menu.getByRole('button',{name:'Choose Background Music',exact:true})).toHaveCount(0);
+});
+
+test('leaving an event keeps an already paused player paused', async ({page}) => {
+  await stubYouTube(page); await enable(page); await page.goto('/music?view=library');
+  await page.locator('.music-library-row .music-song-row-main').first().click();
+  await expect.poll(async()=>(await youtube(page))?.state).toBe(1);
+  await navigate(page,'/music?view=player');
+  await page.getByRole('region',{name:'Player',exact:true}).getByRole('button',{name:'Pause',exact:true}).click();
+  await expect.poll(async()=>(await youtube(page))?.state).toBe(2);
+  const before=(await youtube(page))!;
+  await navigate(page,event); await playing(page); await navigate(page,'/schedule');
+  expect((await youtube(page))?.state).toBe(2); expect((await youtube(page))?.videoId).toBe(before.videoId);
+});
+
+test('disabling Event Music resumes the interrupted song', async ({page}) => {
+  await stubYouTube(page); await enable(page); await page.goto('/music?view=library');
+  await page.locator('.music-library-row .music-song-row-main').first().click();
+  await expect.poll(async()=>(await youtube(page))?.state).toBe(1);
+  await navigate(page,event); await playing(page); expect((await youtube(page))?.state).toBe(2);
+  const menu=await settings(page); await menu.getByRole('checkbox',{name:'Event Music',exact:true}).uncheck();
+  await expect.poll(async()=>(await youtube(page))?.state).toBe(1);
+  await expect(page.locator('[data-page-audio]')).toHaveCount(0);
+});
+
+test('a manual personal-player choice cancels the automatic resume', async ({page}) => {
+  await stubYouTube(page); await enable(page); await page.goto('/music?view=library');
+  await page.locator('.music-library-row .music-song-row-main').first().click();
+  await expect.poll(async()=>(await youtube(page))?.state).toBe(1);
+  await navigate(page,event); await playing(page); await expand(page);
+  await shell(page).getByRole('button',{name:'Play',exact:true}).click();
+  await expect.poll(async()=>(await youtube(page))?.state).toBe(1);
   await expect.poll(async()=>(await ambient(page))?.state).toBe(2);
-  await navigate(page,'/schedule'); await expand(page);
-  await expect(row).toContainText('Background music · Paused');
-  await shell(page).locator('.music-play-btn').click(); await playing(page);
-  await page.goto('/operators'); expect((await playing(page)).videoId).toBe('Wi7ZotrFx0M');
+  await shell(page).getByRole('button',{name:'Pause',exact:true}).click(); await playing(page);
+  await navigate(page,'/schedule'); expect((await youtube(page))?.state).toBe(2);
+});
+
+for (const readyBeforeLeaving of [true,false]) test(`event audio interrupts an initializing player and restores it (API ready before leaving: ${readyBeforeLeaving})`,async({page})=>{
+  await stubYouTube(page,'allow',{dataSaver:false}); await stubMonsterSiren(page); await enable(page);
+  let release!:()=>void; const gate=new Promise<void>(resolve=>{release=resolve});
+  await page.route('https://www.youtube.com/iframe_api',async route=>{await gate;await route.fallback().catch(()=>{})});
+  try {
+    await page.goto('/music?view=library');
+    await page.locator('.music-library-row .music-song-row-main').first().click();
+    const audio=page.locator('audio[data-music-audio]');
+    await expect.poll(()=>audio.evaluate(el=>(el as HTMLAudioElement).currentTime)).toBeGreaterThan(.1);
+    const source=await audio.getAttribute('src');
+    await navigate(page,'/schedule'); await navigate(page,event);
+    await expect.poll(()=>audio.evaluate(el=>(el as HTMLAudioElement).paused)).toBe(true);
+    const seconds=await audio.evaluate(el=>(el as HTMLAudioElement).currentTime);
+    if(readyBeforeLeaving) {
+      release(); await expect.poll(async()=>(await youtube(page))?.players).toBe(1);
+      await page.waitForTimeout(200);
+      expect(await audio.evaluate(el=>(el as HTMLAudioElement).paused)).toBe(true);
+    }
+    await navigate(page,'/schedule');
+    await expect.poll(()=>audio.evaluate(el=>(el as HTMLAudioElement).paused)).toBe(false);
+    release(); await expect.poll(async()=>(await youtube(page))?.players).toBe(1);
+    await expect.poll(()=>audio.evaluate(el=>(el as HTMLAudioElement).currentTime)).toBeGreaterThanOrEqual(seconds);
+    expect((await audio.getAttribute('src'))?.split('#')[0]).toBe(source?.split('#')[0]);
+  } finally { release(); }
 });

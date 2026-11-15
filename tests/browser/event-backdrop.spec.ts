@@ -1,0 +1,40 @@
+import { test, expect } from '@playwright/test';
+const event='/events/'+encodeURIComponent("[Rerun] The Masses' Travels Rerun");
+for (const theme of ['dark','light']) test(`event artwork fills the page behind readable controls (${theme})`,async({page})=>{
+  await page.addInitScript(theme=>localStorage.setItem('theme',theme),theme);
+  await page.goto(event);
+  const art=page.locator('.event-page-art'); await expect(art).toBeVisible();
+  const box=(await art.boundingBox())!,width=await page.evaluate(()=>document.documentElement.getBoundingClientRect().width);
+  expect(box.x).toBe(0); expect(box.width).toBe(width); expect(box.height).toBeGreaterThan(300);
+  expect(await art.evaluate(el=>getComputedStyle(el).position)).toBe('fixed');
+  await expect(page.locator('.event-detail-carousel')).toHaveCount(0);
+  const header=page.locator('.event-page > .page-header');
+  const headingBox=(await header.boundingBox())!;
+  const viewport=page.viewportSize()!;
+  if(viewport.width>720) {
+    expect((await page.locator('.event-detail-compact').boundingBox())!.width).toBeLessThanOrEqual(640);
+  }
+  expect(headingBox.y-box.y).toBeLessThan(40);
+  const back=(await header.locator('.back-btn').boundingBox())!;
+  const trail=(await header.locator('.eyebrow').boundingBox())!;
+  expect(Math.abs((back.y+back.height/2)-(trail.y+trail.height/2))).toBeLessThan(1);
+  await expect(page.getByRole('heading',{level:1})).toHaveText("The Masses' Travels");
+  await expect(page.locator('.event-detail-right.artwork-surface')).toHaveCount(0);
+  const tabs=page.getByRole('tablist',{name:'Event sections'});
+  const tabsBox=(await tabs.boundingBox())!;
+  expect(await header.evaluate(el=>getComputedStyle(el).backgroundColor)).toBe('rgba(0, 0, 0, 0)');
+  expect(await tabs.evaluate(el=>getComputedStyle(el).backgroundColor)).toBe('rgba(0, 0, 0, 0)');
+  expect(await page.locator('.artwork-page').evaluate(el=>getComputedStyle(el,'::after').backgroundImage)).toContain('linear-gradient');
+  const card=page.locator('.event-section-card').first();
+  expect(await card.evaluate(el=>getComputedStyle(el).backgroundColor)).toContain('0.62');
+  await page.getByRole('tab',{name:'Rewards',exact:true}).click();
+  const nextTabs=(await tabs.boundingBox())!;
+  expect(Math.abs(nextTabs.x-tabsBox.x)).toBeLessThanOrEqual(1);
+  expect(Math.abs(nextTabs.y-tabsBox.y)).toBeLessThanOrEqual(1);
+  await expect(page.getByRole('button',{name:'View rewards image fullscreen',exact:true})).toBeVisible();
+  await page.getByRole('button',{name:'View rewards image fullscreen',exact:true}).click();
+  await expect(page.getByRole('dialog')).toBeVisible(); await page.keyboard.press('Escape');
+  await page.locator('.page-header .back-btn').click(); await expect(page).toHaveURL(/\/schedule$/);
+  await expect(page.locator('.event-page-art')).toHaveCount(0);
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+});
