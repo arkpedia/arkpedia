@@ -3,7 +3,7 @@ import path from 'node:path';
 import { createHash } from 'node:crypto';
 import { pathToFileURL } from 'node:url';
 
-/** Seed only records absent from the hydrated release. Never replace newer published data. */
+/** Seed absent records or explicitly superseded snapshots. Preserve unknown/newer data. */
 export async function pullOperatorText(root = process.cwd(), fetchImpl = fetch) {
   const pin = JSON.parse(fs.readFileSync(path.join(root, 'config/operator-text-source.json'), 'utf8'));
   if (pin.repository !== 'arkpedia/arkpedia-data' || !/^[a-f0-9]{40}$/.test(pin.revision)) throw Error('Invalid operator text source');
@@ -11,7 +11,10 @@ export async function pullOperatorText(root = process.cwd(), fetchImpl = fetch) 
   for (const name of Object.keys(pin.files)) {
     if (!['operator-translations.json', 'combat-keywords.json', 'base-skill-glossary.json'].includes(name)) throw Error('Invalid operator text record');
     const destination = path.join(root, 'data', name);
-    if (fs.existsSync(destination)) continue;
+    if (fs.existsSync(destination)) {
+      const currentHash = createHash('sha256').update(fs.readFileSync(destination)).digest('hex');
+      if (currentHash === pin.files[name] || !pin.supersedes?.[name]?.includes(currentHash)) continue;
+    }
     const response = await fetchImpl(`https://raw.githubusercontent.com/${pin.repository}/${pin.revision}/source/data/${name}`, { signal: AbortSignal.timeout(30000) });
     if (!response.ok) throw Error(`Operator text source ${name}: HTTP ${response.status}`);
     const bytes = Buffer.from(await response.arrayBuffer());

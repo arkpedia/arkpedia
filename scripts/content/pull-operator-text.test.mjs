@@ -37,3 +37,22 @@ test('mismatched bytes or failed fetches cannot seed a partial snapshot', async 
     } finally { fs.rmSync(root, { recursive: true, force: true }); }
   }
 });
+
+test('only explicitly superseded hydrated snapshots upgrade to the checked supplement', async () => {
+  const { root, bytes } = fixture();
+  const file = path.join(root, 'data/operator-translations.json');
+  const previous = Buffer.from('{"older":true}');
+  try {
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    fs.writeFileSync(file, previous);
+    const configFile = path.join(root, 'config/operator-text-source.json');
+    const pin = JSON.parse(fs.readFileSync(configFile, 'utf8'));
+    pin.supersedes = { 'operator-translations.json': [createHash('sha256').update(previous).digest('hex')] };
+    fs.writeFileSync(configFile, JSON.stringify(pin));
+    assert.equal(await pullOperatorText(root, async () => new Response(bytes)), 2);
+    assert.deepEqual(fs.readFileSync(file), bytes);
+    fs.writeFileSync(file, '{"unknownNewer":true}');
+    assert.equal(await pullOperatorText(root, async () => { throw Error('Must preserve unknown data'); }), 0);
+    assert.equal(fs.readFileSync(file, 'utf8'), '{"unknownNewer":true}');
+  } finally { fs.rmSync(root, { recursive: true, force: true }); }
+});
