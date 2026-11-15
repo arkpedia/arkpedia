@@ -29,3 +29,11 @@ test('a description with no keywords renders as before, and none renders nothing
   assert.equal(render({ text: 'Morale +0.05', keywords: undefined }), 'Morale <span class="op-stat-highlight">+0</span>.<span class="op-stat-highlight">05</span>');
   assert.equal(render({ text: null, keywords: [special] }), '');
 });
+
+test('combat keywords match whole words, preserve case and explain the first mention', () => {
+  const stun = { text: 'Stun', term: 'ba.stun', name: 'Stun', definition: 'Unable to move or attack' };
+  const html = render({ text: 'stun, Stun; stunning damage +30%', keywords: [stun] });
+  assert.equal((html.match(/class="btn-bare base-skill-keyword"/g) ?? []).length, 1);
+  assert.match(html, />stun<\/button>/);
+  assert.match(html, /; stunning damage/);
+});

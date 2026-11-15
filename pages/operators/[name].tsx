@@ -1,3 +1,5 @@
+import TranslationNote from '@/components/operators/TranslationNote';
+import CombatText, { CombatKeywords } from '@/components/operators/CombatText';
 import { hasMasteryGuidance, hasMasteryPriority } from '@/lib/operators/skillRecommendation';
 import PageMeta from '@/components/layout/PageMeta';
 import BaseSkillText from '@/components/operators/BaseSkillText';
@@ -641,7 +643,7 @@ export default function OperatorDetailPage({ chibis = {}, summons = [], epTrack,
     type Row = { skillIndex: number; iconPath: string | null; entry: SkillRecommendationEntry };
     const rows: Row[] = [];
     skillList.forEach((s, i) => {
-      const iconPath = getSkillIconPath(operator.name, s.name);
+      const iconPath = s.icon || getSkillIconPath(operator.name, s.name);
       (s.recommendation || []).filter(hasMasteryGuidance).forEach((entry) => {
         rows.push({ skillIndex: i, iconPath, entry });
       });
@@ -948,7 +950,7 @@ export default function OperatorDetailPage({ chibis = {}, summons = [], epTrack,
      default appearance, not the one the reader has picked: a card is fetched by someone else. */
   const metaDescription = `${operator.name}, ${operator.rarity ? `a ${operator.rarity}★ ` : 'an '}${[operator.class, operator.branch].filter(Boolean).join(' · ') || 'operator'} in Arknights: skills, talents, modules, base skills, outfits and voice lines.`;
   return (
-    <>
+    <CombatKeywords keywords={operator.combatKeywords}>
       <PageMeta title={operator.name} description={metaDescription} path={operatorHref(operator.name, null)} image={appearances[0]?.fullPath ?? null} />
       {/* The frame is the viewport under the nav: the header, then the workspace
           (artwork | information) filling what is left, so on a desktop the page itself
@@ -1098,6 +1100,7 @@ export default function OperatorDetailPage({ chibis = {}, summons = [], epTrack,
             {(
               <section id="operator-overview" data-operator-section="overview" tabIndex={-1} className={`op-section ${pageStyles.overview}`} aria-label="Overview">
                 <h2>Overview</h2>
+                <TranslationNote region={operator.sourceRegion} credit={operator.translationCredit} />
                 <div>
                   {operator.review?.official && <p className={pageStyles.review}>{highlightStats(operator.review.official)}</p>}
                   {overviewRanges.length > 0 && <div className={pageStyles.range}><OperatorAttackRange key={operator.internalName ?? operator.name} ranges={overviewRanges} /></div>}
@@ -1128,6 +1131,7 @@ export default function OperatorDetailPage({ chibis = {}, summons = [], epTrack,
                     </a>
                   )}
                 </div>
+                <TranslationNote region={operator.sourceRegion} credit={operator.translationCredit} />
                 {/* The site's tabs, each with the skill's icon: they were 56x62 icon
                     tiles in a column beside the title, a fourth tab look. */}
                 <Tabs
@@ -1137,7 +1141,7 @@ export default function OperatorDetailPage({ chibis = {}, summons = [], epTrack,
                   value={activeSkillIndex}
                   onChange={setActiveSkillIndex}
                   options={skillList.map((s, i) => {
-                    const iconPath = getSkillIconPath(operator.name, s.name);
+                    const iconPath = s.icon || getSkillIconPath(operator.name, s.name);
                     return {
                       value: i,
                       label: <span className={pageStyles.skillTabLabel}>
@@ -1187,7 +1191,7 @@ export default function OperatorDetailPage({ chibis = {}, summons = [], epTrack,
                           <div className={pageStyles.skillMetricSp}><dt>SP cost</dt><dd>{activeStep.spCost ?? '—'}</dd></div>
                           <div><dt>{skillTiming.label}</dt><dd>{skillTiming.value}</dd></div>
                         </dl>
-                        <p>{highlightStats(activeStep.description)}</p>
+                        <p><CombatText text={activeStep.description} /></p>
                         {skillRange && activeSkillRange && (
                           <div className="op-skill-range">
                             <span className="op-skill-range-label">Range while active</span>
@@ -1270,6 +1274,7 @@ export default function OperatorDetailPage({ chibis = {}, summons = [], epTrack,
             {sectionVisible('talents') && operator.talents && (
               <section id="operator-talents" data-operator-section="talents" tabIndex={-1} className={`op-section ${pageStyles.section}`}>
                 <OperatorTalents key={operator.name} talents={operator.talents}
+                  note={<TranslationNote region={operator.sourceRegion} credit={operator.translationCredit} />}
                   elites={operator.stats?.phases.map(phase => phase.elite) ?? []}
                   renderDetails={(talent, unlocked) => {
                     if (operator.internalName === 'char_1039_thorn2' && talent.name === 'El Alcance de la Visión') return <LodestarTalentDemo unlocked={unlocked} />;
@@ -1281,7 +1286,7 @@ export default function OperatorDetailPage({ chibis = {}, summons = [], epTrack,
             )}
 
             <section id="operator-community" data-operator-section="community" tabIndex={-1} className={`op-section ${pageStyles.section}`}>
-              <CommunityStats maxElite={operator.stats?.phases.length?Math.max(...operator.stats.phases.map(phase=>phase.elite)):(operator.rarity??0)<=2?0:operator.rarity===3?1:2} operator={operator.name} rarity={operator.rarity??0} skills={skillList.length} skillNames={skillList.map(skill=>skill.name)} modules={modules.map((m,index)=>({index,label:m.badgeText||m.name?.split(':')[0]||`Module ${index+1}`}))} />
+              <CommunityStats maxElite={operator.stats?.phases.length?Math.max(...operator.stats.phases.map(phase=>phase.elite)):(operator.rarity??0)<=2?0:operator.rarity===3?1:2} operator={operator.name} rarity={operator.rarity??0} skills={skillList.length} skillNames={skillList.map(skill=>skill.name)} skillIcons={skillList.map(skill=>skill.icon)} modules={modules.map((m,index)=>({index,label:m.badgeText||m.name?.split(':')[0]||`Module ${index+1}`}))} />
             </section>
 
             {priorityGuideGroups.length > 0 && (
@@ -1331,6 +1336,7 @@ export default function OperatorDetailPage({ chibis = {}, summons = [], epTrack,
                 {activeModule && (
                   <div className="op-module-detail">
                     <h3>{activeModule.name || activeModule.type}</h3>
+                    <TranslationNote region={activeModule.translationCredit ? 'CN' : operator.sourceRegion} credit={activeModule.translationCredit ?? operator.translationCredit} />
                     {activeModule.mission && (
                       <div className="op-module-mission">
                         <button type="button" className="ghost" aria-expanded={showMission} onClick={() => setShowMission((s) => !s)}>
@@ -1360,7 +1366,7 @@ export default function OperatorDetailPage({ chibis = {}, summons = [], epTrack,
                             </p>
                             {getModuleStageEffects(activeModule, activeModuleStage).map(effect => (
                               <p key={effect.label}>
-                                <b>{effect.label}:</b> {highlightStats(effect.text)}
+                                <b>{effect.label}:</b> <CombatText text={effect.text} />
                               </p>
                             ))}
                             <div className={pageStyles.costs}>
@@ -1397,6 +1403,7 @@ export default function OperatorDetailPage({ chibis = {}, summons = [], epTrack,
             {sectionVisible('potential') && (
               <section id="operator-potential" data-operator-section="potential" tabIndex={-1} className={`op-section ${pageStyles.section}`}>
                 <h2>Potential</h2>
+                <TranslationNote region={operator.sourceRegion} credit={operator.translationCredit} />
                 {operator.potential.levels.map((p, i) => {
                   const iconPath = p.level >= 2 && p.level <= 6 ? getEssentialIconPath(`Potential ${p.level}`) : null;
                   return (
@@ -1406,7 +1413,7 @@ export default function OperatorDetailPage({ chibis = {}, summons = [], epTrack,
                       ) : (
                         <b>Potential {p.level}:</b>
                       )}
-                      <span>{highlightStats(p.benefit)}</span>
+                      <span><CombatText text={p.benefit} /></span>
                     </p>
                   );
                 })}
@@ -1417,6 +1424,7 @@ export default function OperatorDetailPage({ chibis = {}, summons = [], epTrack,
             {sectionVisible('baseSkills') && operator.baseSkills && (
               <section id="operator-baseSkills" data-operator-section="baseSkills" tabIndex={-1} className={`op-section ${pageStyles.section}`}>
                 <h2>Base skills</h2>
+                <TranslationNote region={operator.sourceRegion} credit={operator.translationCredit} />
                 <div className="op-base-skill-list">
                   {operator.baseSkills.map((bs, i) => {
                     const iconPath = getBaseSkillIconPath(operator.name, bs);
@@ -1666,7 +1674,7 @@ export default function OperatorDetailPage({ chibis = {}, summons = [], epTrack,
         <SkinZoomOverlay voiceOperator={operator.name} image={shownAppearance.fullPath} name={shownAppearance.label} dynamic={dynamicArt[shownAppearance.label] ?? null} alternate={dynamicArt[`${shownAppearance.label}^sp_dyn`] ?? null}
           onClose={() => setZooming(false)} />
       )}
-    </>
+    </CombatKeywords>
   );
 }
 
@@ -1823,7 +1831,7 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/op
           const highestLevelText = skill.levels.length > 0 ? skill.levels[skill.levels.length - 1].description : null;
           const found = highestLevelText ? findSynergyMatches(highestLevelText, allCandidateNames, { ignoredNames }).find((m) => m.name === name && m.type === type) : null;
           if (found) {
-            badges.push({ label: skill.name || '', skillIconPath: getSkillIconPath(op.name, skill.name), talentLabel: null, sourceText: highestLevelText, matchedKeyword: found.matchedTerm });
+            badges.push({ label: skill.name || '', skillIconPath: skill.icon || getSkillIconPath(op.name, skill.name), talentLabel: null, sourceText: highestLevelText, matchedKeyword: found.matchedTerm });
           }
         }
         (op.talents || []).forEach((talent, ti) => {

@@ -7,7 +7,7 @@ import InfoPopover from '@/components/ui/InfoPopover';
 import CommunityContributionFooter from './CommunityContributionFooter';
 import styles from './Community.module.css';
 
-export default function CommunityStats({operator,skin,skills=0,skillNames=[],maxElite=2,modules=[],compact=false}:{operator?:string;skin?:string;skills?:number;skillNames?:(string|null|undefined)[];rarity?:number;maxElite?:number;modules?:{index:number;label:string}[];compact?:boolean}){
+export default function CommunityStats({operator,skin,skills=0,skillNames=[],skillIcons=[],maxElite=2,modules=[],compact=false}:{operator?:string;skin?:string;skills?:number;skillNames?:(string|null|undefined)[];skillIcons?:(string|null|undefined)[];rarity?:number;maxElite?:number;modules?:{index:number;label:string}[];compact?:boolean}){
   const [server,setServer]=useState<ServerId|'all'>('all'),[data,setData]=useState<Stats|null>(null),[error,setError]=useState(''),[retry,setRetry]=useState(0);
   useEffect(()=>{
     const controller=new AbortController();setData(null);setError('');
@@ -40,7 +40,7 @@ export default function CommunityStats({operator,skin,skills=0,skillNames=[],max
     </div>
     {error?<p role="status">{error} <button type="button" className="ghost btn-sm" onClick={()=>setRetry(v=>v+1)}>Retry</button></p>:!data?<p role="status">Loading community stats…</p>:<>
       {skin&&<p>{data.contributors} contributors{data.owned!==null?` · ${data.owned} owners`:''}</p>}
-      {data.owned===null?<p>Waiting for at least {COMMUNITY_MIN_SAMPLE} contributors {server==='all'?'across all regions':'in this region'}.</p>:operator?<OperatorStatsBars data={data} operator={operator} skillNames={skillNames} skills={skills} maxElite={maxElite} modules={modules}/>:<dl className={styles.metrics}>
+      {data.owned===null?<p>Waiting for at least {COMMUNITY_MIN_SAMPLE} contributors {server==='all'?'across all regions':'in this region'}.</p>:operator?<OperatorStatsBars data={data} operator={operator} skillNames={skillNames} skillIcons={skillIcons} skills={skills} maxElite={maxElite} modules={modules}/>:<dl className={styles.metrics}>
         {metric('Owned',data.owned,data.contributors)}
         {skin&&metric('Equipped',data.equipped,data.equipmentOwners)}
       </dl>}

@@ -1,3 +1,5 @@
+import TranslationNote from './TranslationNote';
+import CombatText, { CombatKeywords } from './CombatText';
 import Link from 'next/link';
 import BaseSkillText from '@/components/operators/BaseSkillText';
 import { ContentImg } from '@/components/content/ContentImage';
@@ -101,6 +103,7 @@ export function OperatorPreview({ item, onClose, nativeModal = false }: { item: 
             <Link className="gacha-preview-link" href={operatorHref(item.name, null)}>View operator page ↗</Link>
           </div>
           <div className="gacha-preview-data" role="region" aria-label={`${item.name} operator details`} tabIndex={0}>
+            <TranslationNote region={details?.sourceRegion} credit={details?.translationCredit} />
             {item.support&&<section className="gacha-preview-section" aria-label="Equipped support build">
               <h3>Equipped support</h3>
               <p>E{item.support.elite} Lv{item.support.level}{item.support.potential?` · Potential ${item.support.potential}`:''}</p>
@@ -132,15 +135,15 @@ export function OperatorPreview({ item, onClose, nativeModal = false }: { item: 
               {details.traitPhases.map((line) => line.stage
                 ? <div className="gacha-preview-entry" key={line.stage}>
                   <div className="gacha-preview-entry-title"><span>{line.stage}</span></div>
-                  <p>{line.text}</p>
+                  <p><CombatText text={line.text} /></p>
                 </div>
-                : <p key="trait">{line.text}</p>)}
+                : <p key="trait"><CombatText text={line.text} /></p>)}
             </section>}
             {!!details?.talents.length && <section className="gacha-preview-section">
               <h3>Talents</h3>
               {details.talents.map((talent, index) => <div className="gacha-preview-entry" key={`${talent.name}-${index}`}>
                 <div className="gacha-preview-entry-title"><strong>{talent.name}</strong>{talent.stage && <span>{talent.stage}</span>}</div>
-                <p>{talent.description}</p>
+                <p><CombatText text={talent.description} /></p>
               </div>)}
             </section>}
             {!!details?.skills.length && <section className="gacha-preview-section gacha-preview-ability-section">
@@ -163,7 +166,7 @@ export function OperatorPreview({ item, onClose, nativeModal = false }: { item: 
                   {skill.spCost !== null && <span className="gacha-preview-skill-fact sp">{skill.initialSp ?? 0}/{skill.spCost} SP</span>}
                   {skill.duration !== null && <span className="gacha-preview-skill-fact">{typeof skill.duration === 'number' || /^\d+(?:\.\d+)?$/.test(String(skill.duration)) ? `${skill.duration}s` : skill.duration}</span>}
                 </div>
-                <p>{skill.description || 'No skill description is available yet.'}</p>
+                <p><CombatText text={skill.description || 'No skill description is available yet.'} /></p>
               </div>}
             </section>}
             {!!details?.modules.length && <section className="gacha-preview-section gacha-preview-ability-section">
@@ -172,6 +175,7 @@ export function OperatorPreview({ item, onClose, nativeModal = false }: { item: 
                 onChange={(index) => { modulePanel.hold(); setSelectedModule(index); setSelectedStage(Math.max(0, (details.modules[index]?.stages.length ?? 1) - 1)); }}
                 options={details.modules.map((entry, index) => ({ value: index, label: entry.name }))} />
               <div ref={modulePanel.ref} {...tabPanelProps('gacha-preview-module', selectedModule)} style={modulePanel.style}>
+                <TranslationNote region={selectedModuleData?.translationCredit ? 'CN' : undefined} credit={selectedModuleData?.translationCredit} />
                 {/* The module's stage is a value picked from 1-3, not a panel of its own:
                     the operator page's module stage is the same SegmentedControl. */}
                 {selectedModuleData?.stages.length ? <>
@@ -180,7 +184,7 @@ export function OperatorPreview({ item, onClose, nativeModal = false }: { item: 
                   {moduleStage && <div className="gacha-preview-entry">
                     {moduleStage.attributes && <div className="gacha-preview-meta">{moduleStage.attributes}</div>}
                     {moduleStage.label && <strong>{moduleStage.label}</strong>}
-                    {moduleStage.effect && <p>{moduleStage.effect}</p>}
+                    {moduleStage.effect && <p><CombatText text={moduleStage.effect} /></p>}
                   </div>}
                 </> : <p>Original trait; no module upgrades.</p>}
               </div>
@@ -204,8 +208,8 @@ export function OperatorPreview({ item, onClose, nativeModal = false }: { item: 
   );
   // A selector is already a native dialog. Its preview needs its own top-layer
   // dialog so it remains interactive while the selector keeps its scroll and focus.
-  return nativeModal ? <dialog ref={modal} className="operator-preview-dialog" aria-labelledby="gacha-pull-preview-title"
+  return <CombatKeywords keywords={details?.combatKeywords}>{nativeModal ? <dialog ref={modal} className="operator-preview-dialog" aria-labelledby="gacha-pull-preview-title"
     onCancel={event => { event.preventDefault(); event.stopPropagation(); onClose(); }} onClick={onClose}>
     {content}
-  </dialog> : <div className="modal-overlay gacha-operator-overlay" onClick={onClose}>{content}</div>;
+  </dialog> : <div className="modal-overlay gacha-operator-overlay" onClick={onClose}>{content}</div>}</CombatKeywords>;
 }

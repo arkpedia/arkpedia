@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
-import { Operator } from './operatorTypes';
+import { translateOperator, type Translation } from './operatorTranslations';
+import { Operator, type BaseSkillKeyword } from './operatorTypes';
 import { resolveOperatorDebut } from './operatorReleaseSchedule';
 import { getCurrentOperatorVoiceCredits } from './operatorVoices';
 import { isPortraitPending } from './operatorPortrait';
@@ -133,11 +134,22 @@ export function getAllOperators(): Operator[] {
   // Filter out any entries that failed to scrape (they only have
   // { name, error } rather than the full Operator shape).
   const releasedRaw = allData.filter((op) => !('error' in (op as Record<string, unknown>))) as Operator[];
-  const released = releasedRaw.map((op) => ({
-    ...op,
-    characterVoices: getCurrentOperatorVoiceCredits(op.internalName, op.characterVoices),
-    talents: normalizeTalents(op.talents as unknown as RawTalent[] | undefined) as unknown as Operator['talents'],
-  }));
+  // Older content snapshots remain readable until their next data release.
+  const readSupplement = <T,>(name: string, fallback: T): T => {
+    const file = path.join(DATA_DIR, name);
+    return fs.existsSync(file) ? JSON.parse(fs.readFileSync(file, 'utf8')) as T : fallback;
+  };
+  const translations = readSupplement<Record<string, Translation>>('operator-translations.json', {});
+  const keywords = readSupplement<BaseSkillKeyword[]>('combat-keywords.json', []);
+  const released = releasedRaw.map(op => translateOperator(op, translations)).map((op) => {
+    const mechanics = JSON.stringify([op.trait, op.skills, op.talents, op.modules, op.potential]).toLowerCase();
+    return {
+      ...op,
+      combatKeywords: keywords.filter(keyword => mechanics.includes(keyword.text.toLowerCase())),
+      characterVoices: getCurrentOperatorVoiceCredits(op.internalName, op.characterVoices),
+      talents: normalizeTalents(op.talents as unknown as RawTalent[] | undefined) as unknown as Operator['talents'],
+    };
+  });
   cachedOperators = released.map(op => {
     // Decided here, where the release's asset index is, and carried with the record:
     // the browser renders the placeholder from the flag instead of loading the index.

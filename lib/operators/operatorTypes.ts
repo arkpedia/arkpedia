@@ -132,6 +132,7 @@ export interface ModuleMission {
 }
 
 export interface OperatorModule {
+  translationCredit?: string;
   moduleId?: string; // immutable uniEquipId from the regional game dump
   type: 'Original' | 'Upgrade';
   icon?: string | null;
@@ -203,6 +204,9 @@ export function getWelfareInfo(howToObtain: string | Record<string, unknown> | n
 }
 
 export interface Operator {
+  /** Credit for the exact-source CN mechanics overlay. */
+  translationCredit?: string;
+  combatKeywords?: BaseSkillKeyword[];
   /** Previous public names remain valid after official Global localization. */
   aliases?: string[];
   sourceRegion?: 'CN' | 'Global';
