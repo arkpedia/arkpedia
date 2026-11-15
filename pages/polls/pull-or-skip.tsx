@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/router';
 import PageMeta from '@/components/layout/PageMeta';
 import PageHeader from '@/components/ui/PageHeader';
+import SegmentedControl from '@/components/ui/SegmentedControl';
 import Tabs,{tabPanelProps} from '@/components/ui/Tabs';
 import PullPollResults from '@/components/community/PullPollResults';
 import PullPollShareImage from '@/components/community/PullPollShareImage';
@@ -32,7 +33,7 @@ export default function PullOrSkip(props: Props) {
 }
 function PullPoll({banners,now,owner,portraits={}}:Props&{owner:string|null}) {
   const router = useRouter(), sync = useCloudSync();
-  const [filters,setFilters] = useQueryRecord({view:'vote'});
+  const [filters,setFilters] = useQueryRecord({view:'vote',display:'simple'});
   const [ballot,setBallot] = useState<Ballot>({}), [hydrated,setHydrated] = useState(false);
   const [storageError,setStorageError] = useState(''), [notice,setNotice] = useState('');
   const [revision,setRevision] = useState(0), [ready,setReady] = useState(false), [error,setError] = useState(''), [reload,setReload] = useState(0);
@@ -44,7 +45,7 @@ function PullPoll({banners,now,owner,portraits={}}:Props&{owner:string|null}) {
   const hold = useSwitchHold('pull-poll'), clock = useReaderClock(now,{onFocus:true,tickMs:60_000});
   const active = banners.filter(b => (b.endAt ? Date.parse(b.endAt) : Date.parse(`${b.end}T23:59:59-07:00`)) > clock);
   const visible = [...active].sort((a,b)=>a.start.localeCompare(b.start,'en')||a.id.localeCompare(b.id,'en'));
-  const results = filters.view === 'results';
+  const results = filters.view === 'results', detailed = filters.display === 'detailed';
   const answered = visible.filter(b => Object.keys(ballot[b.id] ?? {}).length).length;
   const dirty = JSON.stringify(ballot) !== submitted;
   useEffect(() => {
@@ -149,31 +150,31 @@ function PullPoll({banners,now,owner,portraits={}}:Props&{owner:string|null}) {
     <PageHeader slim back={{href:'/polls',label:'Community polls'}} eyebrow="Rhodes Island // Community Polls" title="Pull or Skip" sub="Doctor, the next banners are lined up. Who gets your Orundum?"/>
     <main className={styles.page}>
       <Tabs label="Pull or Skip sections" id="pull-poll" value={results?'results':'vote'} onChange={view=>{hold.capture();setFilters({view});}} options={[{value:'vote',label:'Your picks'},{value:'results',label:'Results'}]}/>
-      {results?<section {...tabPanelProps('pull-poll','results')}><PullPollResults banners={visible} portraits={portraits} ballot={ballot}/></section>:<section {...tabPanelProps('pull-poll','vote')}>
-        <div className={styles.key} aria-label="How to vote">
+      <div className={styles.viewTools}><SegmentedControl label="Poll display" value={detailed?'detailed':'simple'} onChange={display=>{hold.capture();setFilters({display});}} options={[{value:'simple',label:'Simple'},{value:'detailed',label:'Detailed'}]}/>{!results&&<button className="ghost btn-sm" onClick={()=>setImporting(true)} disabled={!hydrated}>Import plan</button>}</div>
+      {results?<section {...tabPanelProps('pull-poll','results')}><PullPollResults banners={visible} portraits={portraits} ballot={ballot} detailed={detailed}/></section>:<section {...tabPanelProps('pull-poll','vote')}>
+        {detailed&&<div className={styles.key} aria-label="How to vote">
           <span data-choice="pull"><ContentImg src="/material-icons/Headhunting%20Permit.webp" alt="" width="22" height="22"/><b>Pull</b>One copy of each featured operator.</span>
           <span data-choice="maybe"><b>Maybe</b>if the pity gods allow</span>
           <span data-choice="skip"><ContentImg src="/material-icons/Orundum.webp" alt="" width="22" height="22"/><b>Skip</b>my Orundum stays home</span>
-          <div className={styles.tools}><button className="ghost btn-sm" onClick={()=>setImporting(true)} disabled={!hydrated}>Import plan</button></div>
-        </div>
-        {(!syncDismissed||linked)&&<div className={styles.sync} data-linked={linked}>
+        </div>}
+        {detailed&&(!syncDismissed||linked)&&<div className={styles.sync} data-linked={linked}>
           <b className={styles.syncIcon} aria-hidden="true">⟲</b><span><strong>{linked?'Synced with your pull planner.':'Sync with your pull planner?'}</strong>{linked?'Copy goals follow changes on either page. Maybe stays here.':'Your copy goals here and your plan there become the same list. Change one, the other follows.'}</span>
           {linked?<><Link className="ghost btn-sm" href="/pull-planner">Open planner ↗</Link><button className="ghost btn-sm" onClick={()=>setLinked(false)}>Stop syncing</button></>:<><button className="primary btn-sm" onClick={linkPlanner} disabled={!hydrated}>Yes, sync</button><button className="ghost btn-sm" onClick={()=>setSyncDismissed(true)}>Not now</button></>}
         </div>}
         {storageError&&<p className="notice notice-danger" role="alert">{storageError}</p>}
         {notice&&<p className="notice" role="status">{notice}</p>}
         {error&&<p className="notice notice-danger" role="alert">{error} Your draft stays in this browser. <button className="ghost btn-sm" onClick={()=>{setReady(false);setError('');setReload(value=>value+1);}}>Refresh entry</button></p>}
-        <div ref={hold.ref} style={hold.style} className={styles.banners}>
-          {visible.map((banner,index)=>{const verdict=bannerChoice(ballot[banner.id],banner),open=!!expanded[banner.id];return <article key={banner.id} className={`${styles.banner} poll-banner-surface`} data-verdict={verdict} aria-label={banner.name}>
+        <div ref={hold.ref} style={hold.style} className={detailed?styles.banners:styles.simpleGrid}>
+          {visible.map((banner,index)=>{const verdict=bannerChoice(ballot[banner.id],banner),open=!!expanded[banner.id];return <article key={banner.id} className={detailed?`${styles.banner} poll-banner-surface`:`${styles.simpleBanner} panel`} data-verdict={verdict} aria-label={banner.name}>
             <BannerArt banner={banner} choices={ballot[banner.id]} portraits={portraits}/>
-            <div className={styles.identity}><div><h2 className="entity-title entity-title-sm entity-title-name">{bannerTitle(banner)}</h2><div className="hint"><time dateTime={banner.start}>{formatDayMonthYear(banner.start)}</time> – <time dateTime={banner.end}>{formatDayMonthYear(banner.end)}</time>{banner.estimated?' · estimated':''}</div></div>
-              <div className={styles.portraits}>{banner.operators.map(name=><OperatorTile key={name} name={name} want={ballot[banner.id]?.[name]} portraits={portraits}/>)}{!banner.operators.length&&<span className="hint">Lineup still classified</span>}</div>
+            <div className={styles.identity}><div><h2 className="entity-title entity-title-sm entity-title-name">{bannerTitle(banner)}</h2>{detailed&&<div className="hint"><time dateTime={banner.start}>{formatDayMonthYear(banner.start)}</time> – <time dateTime={banner.end}>{formatDayMonthYear(banner.end)}</time>{banner.estimated?' · estimated':''}</div>}</div>
+              {detailed&&<div className={styles.portraits}>{banner.operators.map(name=><OperatorTile key={name} name={name} want={ballot[banner.id]?.[name]} portraits={portraits}/>)}{!banner.operators.length&&<span className="hint">Lineup still classified</span>}</div>}
             </div>
             <div className={styles.bannerActions}>
               <div className="poll-choice-group" role="group" aria-label={`Plan for ${banner.name}`}>{(['pull','maybe','skip'] as const).map(choice=><button key={choice} type="button" data-choice={choice} aria-pressed={verdict===choice} onClick={()=>chooseBanner(banner,choice)}>{choice==='pull'&&<ContentImg src="/material-icons/Headhunting%20Permit.webp" alt="" width="22" height="22"/>}{choice[0].toUpperCase()+choice.slice(1)}</button>)}</div>
-              {!!banner.operators.length&&<button className={`ghost ${styles.expand}`} aria-label={`${open?'Hide':'Choose'} per operator for ${bannerTitle(banner)}`} title="Choose per operator" aria-expanded={open} aria-controls={`pull-banner-detail-${index}`} onClick={()=>{hold.capture();setExpanded(prev=>({...prev,[banner.id]:!open}));}}>{open?'▴':'▾'}</button>}
+              {detailed&&!!banner.operators.length&&<button className={`ghost ${styles.expand}`} aria-label={`${open?'Hide':'Choose'} per operator for ${bannerTitle(banner)}`} title="Choose per operator" aria-expanded={open} aria-controls={`pull-banner-detail-${index}`} onClick={()=>{hold.capture();setExpanded(prev=>({...prev,[banner.id]:!open}));}}>{open?'▴':'▾'}</button>}
             </div>
-            {open&&<div id={`pull-banner-detail-${index}`} className={styles.details}>{banner.operators.map(name=>{
+            {detailed&&open&&<div id={`pull-banner-detail-${index}`} className={styles.details}>{banner.operators.map(name=>{
               const want=ballot[banner.id]?.[name];return <div key={name} className={styles.operator}><OperatorTile name={name} portraits={portraits} small/><strong className={styles.operatorName}>{name}</strong><div className={styles.pips}>
                 <div className="poll-choice-group" role="group" aria-label={`Interest in ${name} on ${bannerTitle(banner)}`}><button data-choice="skip" aria-pressed={want===0} onClick={()=>chooseOperator(banner,name,0)}>Nope</button><button data-choice="maybe" aria-pressed={want===-1} onClick={()=>chooseOperator(banner,name,-1)}>Nice to have</button></div>
                 <div className="poll-choice-group" role="group" aria-label={`Potential for ${name} on ${bannerTitle(banner)}`}>{([1,2,3,4,5,6] as Want[]).map(p=><button key={p} aria-pressed={want===p} aria-label={`Potential ${p} for ${name}`} title={`Potential ${p}`} onClick={()=>chooseOperator(banner,name,p)}>{p===6?'MAX':`P${p}`}</button>)}</div>
@@ -183,7 +184,7 @@ function PullPoll({banners,now,owner,portraits={}}:Props&{owner:string|null}) {
           {!visible.length&&<p className="notice">No upcoming banners are available. Check back when the Global schedule updates.</p>}
         </div>
         <div className={styles.dock} role="region" aria-label="Your pull plan actions"><div className={styles.dockInner}>
-          <div className={styles.meter}><span className={styles.meterTitle}>{answered} / {visible.length} answered</span><span className={styles.mood}>{walletMood(ballot)}</span><div className={styles.ticks} aria-hidden="true">{visible.map(b=><span key={b.id} data-verdict={bannerChoice(ballot[b.id],b)}/>)}</div></div>
+          <div className={styles.meter}><span className={styles.meterTitle}>{answered} / {visible.length} answered</span><span className={styles.mood}>{walletMood(ballot)}</span></div>
           <span className={styles.saveStatus} role="status">{!hydrated?'Loading draft…':storageError?'Draft needs attention':revision&&!dirty?'Submitted · Draft saved':linked?'Synced with pull planner':'Draft saved on this device'}</span>
           <button className="ghost btn-sm" aria-label="Copy share link" onClick={()=>void share()} disabled={!hydrated||!answered}>⧉ <span>Copy share link</span></button>
           <button className="ghost btn-sm" aria-label="Save as image" onClick={()=>setImageOpen(true)} disabled={!hydrated||!answered}>▣ <span>Save as image</span></button>

@@ -1035,9 +1035,6 @@ a.ghost.panel:focus-visible { border-color: var(--teal); }
 .poll-potential { position:absolute; right:0; bottom:0; padding:2px 4px; background:var(--well); font:10px/1 var(--font-mono); color:var(--teal); }
 .poll-potential[data-want="maybe"] { color:var(--amber); }
 .poll-potential[data-want="skip"] { color:var(--text-faint); }
-.poll-banner-tag { position:absolute; left:0; top:0; padding:3px 7px; background:var(--well); font:10px var(--font-mono); letter-spacing:.12em; text-transform:uppercase; }
-.poll-banner-tag:not([data-limited="true"]) { color:var(--text-dim); }
-.poll-banner-tag[data-limited="true"] { background:var(--rarity-fill-6); }
 .poll-stamp { position:absolute; right:10px; bottom:10px; padding:2px 10px; border:2px solid currentColor; border-radius:var(--radius-frame); transform:rotate(-8deg); background:color-mix(in srgb,var(--well) 90%,transparent); color:var(--teal); font:700 18px var(--font-display); letter-spacing:.1em; text-transform:uppercase; }
 .poll-stamp[data-stamp="maybe"] { color:var(--amber); transform:rotate(5deg); }
 .poll-stamp[data-stamp="skip"] { color:var(--text-dim); transform:rotate(-3deg); }

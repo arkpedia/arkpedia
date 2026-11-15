@@ -18,7 +18,7 @@ async function setup(page:Page,theme:string){
   });return state;
 }
 const firstBanner=(page:Page)=>page.getByRole('article').first();
-const expand=async(page:Page)=>{const banner=firstBanner(page),button=banner.getByRole('button',{name:/^(Choose|Hide) per operator/});if(await button.getAttribute('aria-expanded')==='false')await button.click();return banner;};
+const expand=async(page:Page)=>{await page.getByRole('button',{name:'Detailed',exact:true}).click();const banner=firstBanner(page),button=banner.getByRole('button',{name:/^(Choose|Hide) per operator/});if(await button.getAttribute('aria-expanded')==='false')await button.click();return banner;};
 const potential=(page:Page,n:number)=>firstBanner(page).getByRole('group',{name:/^Potential for/}).first().getByRole('button',{name:new RegExp(`^Potential ${n} for`)});
 for(const theme of ['dark','light'])test(`mockup banner rows, inline potentials, drafts and anonymous submission (${theme})`,async({page},info)=>{
   const state=await setup(page,theme);await page.goto('/polls/pull-or-skip');const banner=firstBanner(page);
@@ -52,7 +52,7 @@ for(const theme of ['dark','light'])test(`real result projections and a complete
   const state=await setup(page,theme);await page.goto('/polls/pull-or-skip');const banner=firstBanner(page);await banner.getByRole('button',{name:'Pull',exact:true}).click();
   const data=await page.evaluate(()=>{const ballot=JSON.parse(localStorage.getItem('arkpedia.pull-poll.v1')!);const id=Object.keys(ballot)[0];return {id,name:Object.keys(ballot[id])[0]};});
   state.results={ballots:3,banners:[{id:data.id,answers:3,pull:2,maybe:0,skip:1}],operators:[{banner:data.id,name:data.name,answers:3,want:2,maybe:0,no:1,totalPotential:7,maxPotential:1}]};
-  await page.getByRole('tab',{name:'Results',exact:true}).click();await expect(page.getByText(/3 Doctors have shared/)).toBeVisible();await expect(page.getByRole('img',{name:'Pull 67%, Maybe 0%, Skip 33%'})).toBeVisible();await expect(page.getByRole('region',{name:'Your pull plan actions'})).toHaveCount(0);
+  await page.getByRole('tab',{name:'Results',exact:true}).click();await expect(page.getByText(/3 Doctors have shared/)).toBeVisible();await expect(page.getByRole('img',{name:'Pull 67%, Maybe 0%, Skip 33%'})).toHaveCount(0);await page.getByRole('button',{name:'Detailed',exact:true}).click();await expect(page.getByRole('img',{name:'Pull 67%, Maybe 0%, Skip 33%'})).toBeVisible();await expect(page.getByRole('region',{name:'Your pull plan actions'})).toHaveCount(0);
   if(process.env.ARKPEDIA_QA_CAPTURE)await page.screenshot({path:`${process.env.ARKPEDIA_QA_CAPTURE}/pull-poll-results-${theme}-${info.project.name}.png`,animations:'disabled'});
   await page.getByRole('tab',{name:'Your picks',exact:true}).click();await page.getByRole('button',{name:'Save as image',exact:true}).click();const dialog=page.getByRole('dialog',{name:'My pull plan',exact:true});await expect(dialog.getByRole('button',{name:'Download PNG'})).toBeEnabled({timeout:20000});
   const bounds=await dialog.getByRole('img').boundingBox();expect(bounds!.width).toBeLessThanOrEqual(page.viewportSize()!.width);await expect(dialog.getByRole('button',{name:'Download PNG'})).toBeInViewport();
@@ -77,9 +77,18 @@ for(const theme of ['dark','light'])test(`one share PNG includes every answered 
 for(const theme of ['dark','light'])test(`limited Pull selects featured operators only (${theme})`,async({page})=>{
   await setup(page,theme);await page.goto('/polls/pull-or-skip');const banner=page.getByRole('article',{name:/Cinders of Snow/});
   await banner.getByRole('button',{name:'Maybe',exact:true}).click();await banner.getByRole('button',{name:'Pull',exact:true}).click();await expect(banner).toHaveAttribute('data-verdict','pull');await expect(banner.getByRole('button',{name:'Pull',exact:true})).toHaveAttribute('aria-pressed','true');await expect(banner.getByText('Pulling!',{exact:true})).toBeVisible();
-  await banner.getByRole('button',{name:/^Choose per operator/}).click();
+  await page.getByRole('button',{name:'Detailed',exact:true}).click();await banner.getByRole('button',{name:/^Choose per operator/}).click();
   for(const name of ['Talulah','Тоска','Ольга'])await expect(banner.getByRole('button',{name:`Potential 1 for ${name}`,exact:true})).toHaveAttribute('aria-pressed','true');
   for(const name of ['SilverAsh the Reignfrost','Exusiai the New Covenant','Lappland the Decadenza'])await expect(banner.getByRole('group',{name:new RegExp(`^Interest in ${name} on`)}).getByRole('button',{name:'Nope',exact:true})).toHaveAttribute('aria-pressed','true');
   await banner.getByRole('button',{name:'Potential 2 for SilverAsh the Reignfrost',exact:true}).click();await expect(banner).toHaveAttribute('data-verdict','custom');await banner.getByRole('button',{name:'Pull',exact:true}).click();await expect(banner).toHaveAttribute('data-verdict','pull');await expect(banner.getByRole('button',{name:'Potential 2 for SilverAsh the Reignfrost',exact:true})).toHaveAttribute('aria-pressed','false');
   await banner.getByRole('button',{name:'Pull',exact:true}).click();await expect(banner).toHaveAttribute('data-verdict','');
+});
+
+for(const theme of ['dark','light'])test(`simple view shows banners and choices, details preserve the draft (${theme})`,async({page},info)=>{
+  await setup(page,theme);await page.goto('/polls/pull-or-skip');const banner=firstBanner(page);
+  await expect(page.getByRole('button',{name:'Simple',exact:true})).toHaveAttribute('aria-pressed','true');await expect(page.locator('.poll-banner-tag,.poll-portrait,.poll-result-split')).toHaveCount(0);await expect(page.getByRole('button',{name:/^Choose per operator/})).toHaveCount(0);
+  await banner.getByRole('button',{name:'Pull',exact:true}).click();if(process.env.ARKPEDIA_QA_CAPTURE)await page.screenshot({path:`${process.env.ARKPEDIA_QA_CAPTURE}/pull-poll-simple-${theme}-${info.project.name}.png`,animations:'disabled'});
+  await expand(page);await potential(page,4).click();await page.getByRole('button',{name:'Simple',exact:true}).click();await expect(banner).toHaveAttribute('data-verdict','custom');await expect(page.locator('.poll-portrait')).toHaveCount(0);await expand(page);await expect(potential(page,4)).toHaveAttribute('aria-pressed','true');
+  await page.getByRole('button',{name:'Simple',exact:true}).click();await page.getByRole('tab',{name:'Results',exact:true}).click();await expect(page.locator('.poll-portrait,.poll-result-split,.poll-want-meter')).toHaveCount(0);
+  if(process.env.ARKPEDIA_QA_CAPTURE)await page.screenshot({path:`${process.env.ARKPEDIA_QA_CAPTURE}/pull-poll-simple-results-${theme}-${info.project.name}.png`,animations:'disabled'});
 });

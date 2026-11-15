@@ -16,7 +16,6 @@ export function BannerArt({banner,choices,portraits,stamp}:{banner:PollBanner;ch
   const value=stamp?.value??stampKey(choices,banner,portraits),applicationArt=applicationBannerArt(banner);
   return <div className={styles.art}>
     {banner.image?<ContentImg src={banner.image} alt="" width="1024" height="559" onError={e=>{e.currentTarget.style.visibility='hidden';}} onLoad={e=>{e.currentTarget.style.visibility='visible';}}/>:applicationArt?<ApplicationImage asset={applicationArt} alt="" width={1024} height={559}/>:<span className={styles.artFallback}>Banner artwork pending</span>}
-    <span className={`poll-banner-tag${banner.limited?' tier-fill-6':''}`} data-limited={!!banner.limited}>{banner.category||'Global banner'}</span>
     {value&&<VerdictStamp value={value} label={stamp?.label}/>}
   </div>;
 }

@@ -39,3 +39,10 @@ test('the overview never substitutes featured outfits for an empty live ranking'
   await page.goto('/polls');const leaders=page.getByRole('group',{name:'Current skin leaders',exact:true});
   await expect(leaders).toContainText('No ratings yet.');await expect(leaders.locator('img')).toHaveCount(0);
 });
+
+for(const theme of ['dark','light'])test(`pull overview keeps artwork and uses the shared facts row (${theme})`,async({page},info)=>{
+  await prepare(page,theme);await page.goto('/polls');const pull=page.getByRole('region',{name:'Pull or Skip',exact:true});
+  await expect(pull.locator('.poll-banner-tag,.poll-portrait,.poll-result-split')).toHaveCount(0);await expect(pull.getByRole('definition')).toHaveText([/\d+ banners/,'Anonymous','Live results']);
+  await expect(pull.getByRole('group',{name:'Pull or Skip banners'}).locator('figure')).toHaveCount(3);expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
+  if(process.env.ARKPEDIA_QA_CAPTURE)await page.screenshot({path:`${process.env.ARKPEDIA_QA_CAPTURE}/polls-clean-overview-${theme}-${info.project.name}.png`,animations:'disabled',fullPage:true});
+});

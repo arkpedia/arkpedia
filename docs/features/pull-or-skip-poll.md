@@ -1,10 +1,12 @@
 # Pull or Skip poll
 
 Review `/polls/pull-or-skip` and `/polls` on isolated native Preview. Keep this PR
-unmerged until the maintainer accepts the design. The supplied
-`pull-or-skip-mockup.html` is the visual reference: artwork-led banner rows,
+unmerged until the maintainer accepts the design. The default Simple view shows banner artwork and Pull/Maybe/Skip choices. Results
+start with banner artwork, the community verdict and answer count. Detailed view
+keeps the supplied `pull-or-skip-mockup.html` as its visual reference: artwork-led banner rows,
 rarity-striped operator portraits, per-banner expanders, joined potential buttons,
-stamped verdicts and a fixed progress/share/submit bar.
+stamped verdicts and share/submit actions. Banner-type labels are omitted in all
+views. The polls overview uses plain banner art and the skin poll’s shared facts row.
 
 Pull wants one copy of every featured operator and zero copies of returning off-banner limited operators. Returning limiteds remain individually selectable; explicit planner targets are preserved. Maybe means Good to have; Skip
 means Not want. Individual choices are Nope, Nice to have and P1–P6/MAX. Selecting
