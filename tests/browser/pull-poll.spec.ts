@@ -65,7 +65,7 @@ test('conflicting submissions refresh in place and keep the local draft',async({
 });
 
 test('share images paginate without dropping answered banners',async({page})=>{
-  test.setTimeout(45000);await setup(page,'dark');await page.goto('/polls/pull-or-skip');const banners=page.getByRole('article');expect(await banners.count()).toBeGreaterThanOrEqual(7);
+  test.setTimeout(45000);await setup(page,'dark');await page.goto('/polls/pull-or-skip');const banners=page.getByRole('article');await expect.poll(()=>banners.count()).toBeGreaterThanOrEqual(7);
   for(let i=0;i<7;i++)await banners.nth(i).getByRole('button',{name:'Pull',exact:true}).click();
   await page.getByRole('button',{name:'Save as image',exact:true}).click();const dialog=page.getByRole('dialog',{name:'My pull plan',exact:true});await expect(dialog.getByRole('button',{name:'Download PNG'})).toBeEnabled({timeout:20000});
   await expect(dialog.getByRole('img')).toHaveAttribute('aria-label','Your pull plan share image, page 1 of 2');await dialog.getByRole('button',{name:'Next page'}).click();await expect(dialog.getByRole('button',{name:'Download PNG'})).toBeEnabled({timeout:20000});await expect(dialog.getByRole('img')).toHaveAttribute('aria-label','Your pull plan share image, page 2 of 2');
