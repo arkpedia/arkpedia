@@ -91,8 +91,6 @@
 .viewTools { display:flex; align-items:center; flex-wrap:wrap; gap:12px; margin:14px 0; }
 .simpleGrid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:18px; margin:16px 0; }
 .simpleBanner { display:flex; flex-direction:column; min-width:0; }
-.simpleBanner .identity { padding:12px 14px 0; }
-.simpleBanner .bannerActions { padding:12px 14px; margin-top:auto; }
 .simpleBanner .resultBody { padding:12px 14px; }
 .simpleBanner .resultHeading { flex-direction:column; gap:4px; }
 @media (max-width:1100px) { .simpleGrid { grid-template-columns:repeat(2,minmax(0,1fr)); } }
