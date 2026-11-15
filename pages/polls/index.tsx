@@ -30,6 +30,15 @@ export default function Polls({skins=[],previousLeaders=[]}:Props){
     <PageMeta title="Community polls" description="Vote in Arkpedia community polls and explore previous results." path="/polls"/>
     <PageHeader slim eyebrow="Rhodes Island // Community" title="Community polls" sub="Pick your favourites. Follow the community’s verdict."/>
     <main className={styles.page}>
+      <section className="panel" aria-labelledby="pull-poll-title">
+        <div className={styles.copy}>
+          <span className="label-tag">Open poll</span>
+          <h2 id="pull-poll-title" className="entity-title entity-title-name">Pull or Skip</h2>
+          <p>Who are you saving for? Choose by banner or set each operator’s potential.</p>
+          <div className={styles.actions}><Link className="primary btn-sm" href="/polls/pull-or-skip">Plan your pulls</Link></div>
+          <p className="hint">Anonymous entries welcome · Local drafts · Share before submitting</p>
+        </div>
+      </section>
       <section className={`panel ${styles.feature}`} aria-labelledby="drip-awards-title">
         <div className={styles.featureBody}>
           <div className={styles.copy}>
