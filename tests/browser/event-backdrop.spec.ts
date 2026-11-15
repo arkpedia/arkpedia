@@ -25,7 +25,7 @@ for (const theme of ['dark','light']) test(`event artwork fills the page behind 
   expect(await tabs.evaluate(el=>getComputedStyle(el).backgroundColor)).toBe('rgba(0, 0, 0, 0)');
   expect(await page.locator('.artwork-page').evaluate(el=>getComputedStyle(el,'::after').backgroundImage)).toContain('linear-gradient');
   const card=page.locator('.event-section-card').first();
-  expect(await card.evaluate(el=>getComputedStyle(el).backgroundColor)).toContain('0.62');
+  expect(await card.evaluate(el=>getComputedStyle(el).backgroundColor)).toContain('0.82');
   await page.getByRole('tab',{name:'Rewards',exact:true}).click();
   const rewardsBox=(await page.locator('.event-section-card').first().boundingBox())!;
   expect(rewardsBox.width).toBe(operatorBox.width);

@@ -997,19 +997,28 @@ a.ghost.panel:focus-visible { border-color: var(--teal); }
 
 /* Bare headings and tabs sit over a directional, theme-coloured artwork scrim.
    Only reading cards have glass surfaces; dialogs retain their opaque ground. */
-.artwork-page { --panel-grad: color-mix(in srgb, var(--panel) 62%, transparent); }
+/* Artwork needs a stronger reading ground than the ordinary opaque-page inks.
+   Keep muted metadata readable even over the brightest/darkest menu art. */
+.artwork-page {
+  --panel-grad: color-mix(in srgb, var(--panel) 82%, transparent);
+  --text-dim: var(--text);
+  --text-faint: var(--text);
+  --artwork-top-scrim: color-mix(in srgb, var(--bg) 78%, transparent);
+  --artwork-top-stop: 280px;
+}
 .artwork-page::after {
   content: '';
   position: fixed;
   inset: 0;
   z-index: -1;
   pointer-events: none;
-  background: linear-gradient(180deg, var(--artwork-top-scrim, transparent) var(--artwork-top-stop, 0px), transparent 65%),
+  background: linear-gradient(180deg, var(--artwork-top-scrim, transparent) var(--artwork-top-stop, 0px), transparent calc(var(--artwork-top-stop) + 240px)),
     linear-gradient(90deg, color-mix(in srgb, var(--bg) 82%, transparent), color-mix(in srgb, var(--bg) 38%, transparent) 48%, transparent 85%),
     linear-gradient(0deg, color-mix(in srgb, var(--bg) 94%, transparent), transparent 70%);
 }
 .artwork-heading { border-bottom-color: transparent; background: transparent; }
+.artwork-heading h1 { color: var(--text-bright); }
 .artwork-page .artwork-glass { backdrop-filter: blur(5px); }
 @media (max-width: 720px) {
-  .artwork-page { --artwork-top-scrim: color-mix(in srgb, var(--bg) 86%, transparent); --artwork-top-stop: 200px; }
+  .artwork-page { --artwork-top-scrim: color-mix(in srgb, var(--bg) 86%, transparent); --artwork-top-stop: 400px; }
 }
