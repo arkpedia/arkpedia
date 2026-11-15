@@ -12,7 +12,7 @@ necessary. Base skills keep their own game-provided keyword lists.
 Whole-word matches and explicit inflections avoid interpreting ordinary substrings as
 status effects. Only the first mention of a term in a description becomes a button.
 
-`data/operator-translations.json` is an exact-source CN mechanics supplement. It lives
+`data/operator-translations.json` is an exact-source CN mechanics and game-overview supplement. It lives
 in arkpedia-data, alongside the combat keyword record, and must be hydrated before
 compiling the companion content release. Missing supplements preserve compatibility
 with older snapshots. The overlay does not modify the source operator records. Official
@@ -23,7 +23,7 @@ Keep translator credits visible next to the affected sections and in previews. L
 unofficial text explicitly, include its CN source, and identify AI assistance when used.
 Do not invent an author for existing uncredited translations. Translating a label must
 retain the original skill/base-skill artwork path; consumers prefer the supplied icon.
-Profiles, archives and editorial writing are not part of this mechanics overlay.
+The game overview (`review.official`) is included; archive files and editorial writing are excluded. Credits are tracked per section. Attribution inspects the displayed text and explicitly reports incomplete English when Chinese remains, including changed source text without a matching replacement.
 
 
 The deployment seeds missing supplements from the immutable arkpedia-data revision
@@ -31,6 +31,6 @@ and SHA-256 values in `config/operator-text-source.json`. Existing hydrated reco
 win, so a newer content release does not get replaced by an older bundled snapshot.
 Prebuild, predev and pretest perform this step. `completeOperatorText` backfills old
 published operator page/API payloads server-side; newer exports carry
-`operatorTextVersion: 1` and remain authoritative. Only relevant definitions travel
+`operatorTextVersion: 2` and remain authoritative. Only relevant definitions travel
 to the browser, never the entire translation dictionary. Website presentation types
 live in `operatorTextTypes.ts`, separate from the shared game importer schema.

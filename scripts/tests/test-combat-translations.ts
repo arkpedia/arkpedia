@@ -1,6 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import { createElement } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
+import TranslationNote from '../../components/operators/TranslationNote';
 import { getSkillList } from '../../lib/operators/operatorTypes';
 import { getSkillIconPath, getBaseSkillIconPath } from '../../lib/operators/operatorIconPaths';
 import { translateOperator, type Translation } from '../../lib/operators/operatorTranslations';
@@ -21,11 +24,44 @@ test('CN overlay matches source text exactly, preserves the original, and gives 
   assert.equal(actual.trait, 'English');
   assert.equal(actual.talents![0].name, 'Talent');
   assert.equal(actual.translationCredit, 'Test translator');
+  assert.deepEqual(actual.translationCredits, { trait: 'Test translator', talents: 'Test translator' });
   assert.equal(operator.trait, '中文');
   assert.equal(translateOperator({ ...operator, trait: '新版本', talents: [] }, translations).trait, '新版本');
   const official = { ...operator, sourceRegion: 'Global' as const };
   assert.equal(translateOperator(official, translations), official);
   assert.equal(translateOperator(operator, {}), operator, 'an older content snapshot remains usable');
+});
+
+test('an untranslated or changed CN section never claims to be an English fan translation', () => {
+  for (const text of ['行动预备组A6的队长', ['English trait', '尚未翻译的简介']]) {
+    const html = renderToStaticMarkup(createElement(TranslationNote, { region: 'CN', credit: 'Other section translator', text }));
+    assert.match(html, /English translation incomplete/);
+    assert.doesNotMatch(html, /Unofficial fan translation|Translator uncredited/);
+  }
+  const html = renderToStaticMarkup(createElement(TranslationNote, { region: 'CN', text: 'English description' }));
+  assert.match(html, /Unofficial fan translation/);
+  assert.match(html, /Translator uncredited/);
+  assert.equal(renderToStaticMarkup(createElement(TranslationNote, { region: 'Global', text: 'Official English' })), '');
+});
+
+test('CN overview translation is exact, leaves editorial text alone, and credits only changed sections', () => {
+  const raw = { ...operator, trait: 'Existing fan translation', talents: [], review: { official: '中文', author: '中文' } } as unknown as Operator;
+  const actual = translateOperator(raw, translations);
+  assert.equal(actual.review?.official, 'English');
+  assert.equal((actual.review as unknown as { author: string }).author, '中文');
+  assert.deepEqual(actual.translationCredits, { review: 'Test translator' });
+  assert.equal(raw.review?.official, '中文');
+});
+
+test('every CN operator overview is English, including Violet Mizutsune Orchid', { skip: !hasSupplement }, () => {
+  for (const op of getAllOperators().filter(op => op.sourceRegion === 'CN')) {
+    assert.doesNotMatch(op.review?.official ?? '', /\p{Script=Han}/u, op.name);
+    if (op.name === 'Violet Mizutsune Orchid') {
+      assert.match(op.review?.official ?? '', /Captain of Op Reserve A6/);
+      assert.equal(op.translationCredits?.review, 'Arkpedia (AI-assisted)');
+      assert.equal(op.translationCredits?.skills, undefined, 'existing English skills must not acquire the overview translator credit');
+    }
+  }
 });
 
 test('elemental explanations distinguish enemies and allies and strip game markup', () => {
@@ -87,9 +123,12 @@ test('old published operator props receive the same text enrichment as source co
   const page = { operator: raw, retained: 'other published page props' };
   const completed = await completeOperatorText(page);
   assert.equal(completed.retained, page.retained);
-  assert.equal(completed.operator.operatorTextVersion, 1);
+  assert.equal(completed.operator.operatorTextVersion, 2);
   assert.equal(getSkillList(completed.operator)[0].name, 'Erosion');
   assert.ok(completed.operator.combatKeywords?.some(term => term.name === 'Corrosion'));
   assert.equal(await completeOperatorText(completed), completed, 'already enriched published props remain authoritative');
+  const legacy = await completeOperatorText({ operator: { ...raw, operatorTextVersion: 1 as const } });
+  assert.equal(legacy.operator.operatorTextVersion, 2);
+  assert.doesNotMatch(legacy.operator.review?.official ?? '', /\p{Script=Han}/u, 'version 1 payloads must receive the missing overview translation');
   assert.equal(getSkillList(raw)[0].name, '冲蚀', 'the cached published object is not mutated');
 });

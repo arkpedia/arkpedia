@@ -1102,7 +1102,7 @@ export default function OperatorDetailPage({ chibis = {}, summons = [], epTrack,
             {(
               <section id="operator-overview" data-operator-section="overview" tabIndex={-1} className={`op-section ${pageStyles.overview}`} aria-label="Overview">
                 <h2>Overview</h2>
-                <TranslationNote region={operator.sourceRegion} credit={operator.translationCredit} />
+                <TranslationNote region={operator.sourceRegion} credit={operator.translationCredits?.review ?? operator.translationCredits?.trait} text={[operator.review?.official, operator.trait]} />
                 <div>
                   {operator.review?.official && <p className={pageStyles.review}>{highlightStats(operator.review.official)}</p>}
                   {overviewRanges.length > 0 && <div className={pageStyles.range}><OperatorAttackRange key={operator.internalName ?? operator.name} ranges={overviewRanges} /></div>}
@@ -1133,7 +1133,7 @@ export default function OperatorDetailPage({ chibis = {}, summons = [], epTrack,
                     </a>
                   )}
                 </div>
-                <TranslationNote region={operator.sourceRegion} credit={operator.translationCredit} />
+                <TranslationNote region={operator.sourceRegion} credit={operator.translationCredits?.skills} text={[activeSkill?.name, activeSkill?.recoveryType, activeSkill?.activationType, activeStep?.description]} />
                 {/* The site's tabs, each with the skill's icon: they were 56x62 icon
                     tiles in a column beside the title, a fourth tab look. */}
                 <Tabs
@@ -1276,7 +1276,7 @@ export default function OperatorDetailPage({ chibis = {}, summons = [], epTrack,
             {sectionVisible('talents') && operator.talents && (
               <section id="operator-talents" data-operator-section="talents" tabIndex={-1} className={`op-section ${pageStyles.section}`}>
                 <OperatorTalents key={operator.name} talents={operator.talents}
-                  note={<TranslationNote region={operator.sourceRegion} credit={operator.translationCredit} />}
+                  note={<TranslationNote region={operator.sourceRegion} credit={operator.translationCredits?.talents} text={operator.talents} />}
                   elites={operator.stats?.phases.map(phase => phase.elite) ?? []}
                   renderDetails={(talent, unlocked) => {
                     if (operator.internalName === 'char_1039_thorn2' && talent.name === 'El Alcance de la Visión') return <LodestarTalentDemo unlocked={unlocked} />;
@@ -1338,7 +1338,7 @@ export default function OperatorDetailPage({ chibis = {}, summons = [], epTrack,
                 {activeModule && (
                   <div className="op-module-detail">
                     <h3>{activeModule.name || activeModule.type}</h3>
-                    <TranslationNote region={activeModule.translationCredit ? 'CN' : operator.sourceRegion} credit={activeModule.translationCredit ?? operator.translationCredit} />
+                    <TranslationNote region={operator.sourceRegion} credit={activeModule.translationCredit} text={[activeModule.name, activeModule.mission, activeModule.stages]} />
                     {activeModule.mission && (
                       <div className="op-module-mission">
                         <button type="button" className="ghost" aria-expanded={showMission} onClick={() => setShowMission((s) => !s)}>
@@ -1405,7 +1405,7 @@ export default function OperatorDetailPage({ chibis = {}, summons = [], epTrack,
             {sectionVisible('potential') && (
               <section id="operator-potential" data-operator-section="potential" tabIndex={-1} className={`op-section ${pageStyles.section}`}>
                 <h2>Potential</h2>
-                <TranslationNote region={operator.sourceRegion} credit={operator.translationCredit} />
+                <TranslationNote region={operator.sourceRegion} credit={operator.translationCredits?.potential} text={operator.potential} />
                 {operator.potential.levels.map((p, i) => {
                   const iconPath = p.level >= 2 && p.level <= 6 ? getEssentialIconPath(`Potential ${p.level}`) : null;
                   return (
@@ -1426,7 +1426,7 @@ export default function OperatorDetailPage({ chibis = {}, summons = [], epTrack,
             {sectionVisible('baseSkills') && operator.baseSkills && (
               <section id="operator-baseSkills" data-operator-section="baseSkills" tabIndex={-1} className={`op-section ${pageStyles.section}`}>
                 <h2>Base skills</h2>
-                <TranslationNote region={operator.sourceRegion} credit={operator.translationCredit} />
+                <TranslationNote region={operator.sourceRegion} credit={operator.translationCredits?.baseSkills} text={operator.baseSkills} />
                 <div className="op-base-skill-list">
                   {operator.baseSkills.map((bs, i) => {
                     const iconPath = getBaseSkillIconPath(operator.name, bs);

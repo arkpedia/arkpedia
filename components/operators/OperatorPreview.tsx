@@ -103,7 +103,6 @@ export function OperatorPreview({ item, onClose, nativeModal = false }: { item: 
             <Link className="gacha-preview-link" href={operatorHref(item.name, null)}>View operator page ↗</Link>
           </div>
           <div className="gacha-preview-data" role="region" aria-label={`${item.name} operator details`} tabIndex={0}>
-            <TranslationNote region={details?.sourceRegion} credit={details?.translationCredit} />
             {item.support&&<section className="gacha-preview-section" aria-label="Equipped support build">
               <h3>Equipped support</h3>
               <p>E{item.support.elite} Lv{item.support.level}{item.support.potential?` · Potential ${item.support.potential}`:''}</p>
@@ -132,6 +131,7 @@ export function OperatorPreview({ item, onClose, nativeModal = false }: { item: 
                 `?.` on the list: a response cached from before it existed has none. */}
             {!!details?.traitPhases?.length && <section className="gacha-preview-section">
               <h3>Trait</h3>
+              <TranslationNote region={details.sourceRegion} credit={details.translationCredits?.trait} text={details.traitPhases} />
               {details.traitPhases.map((line) => line.stage
                 ? <div className="gacha-preview-entry" key={line.stage}>
                   <div className="gacha-preview-entry-title"><span>{line.stage}</span></div>
@@ -141,6 +141,7 @@ export function OperatorPreview({ item, onClose, nativeModal = false }: { item: 
             </section>}
             {!!details?.talents.length && <section className="gacha-preview-section">
               <h3>Talents</h3>
+              <TranslationNote region={details.sourceRegion} credit={details.translationCredits?.talents} text={details.talents} />
               {details.talents.map((talent, index) => <div className="gacha-preview-entry" key={`${talent.name}-${index}`}>
                 <div className="gacha-preview-entry-title"><strong>{talent.name}</strong>{talent.stage && <span>{talent.stage}</span>}</div>
                 <p><CombatText text={talent.description} /></p>
@@ -148,6 +149,7 @@ export function OperatorPreview({ item, onClose, nativeModal = false }: { item: 
             </section>}
             {!!details?.skills.length && <section className="gacha-preview-section gacha-preview-ability-section">
               <h3>Skills</h3>
+              <TranslationNote region={details.sourceRegion} credit={details.translationCredits?.skills} text={skill} />
               <Tabs label="Skill" id="gacha-preview-skill" className="gacha-preview-tabs" value={selectedSkill} onChange={(index) => { skillPanel.hold(); setSelectedSkill(index); }}
                 options={details.skills.map((entry, index) => ({
                   value: index,
@@ -175,7 +177,7 @@ export function OperatorPreview({ item, onClose, nativeModal = false }: { item: 
                 onChange={(index) => { modulePanel.hold(); setSelectedModule(index); setSelectedStage(Math.max(0, (details.modules[index]?.stages.length ?? 1) - 1)); }}
                 options={details.modules.map((entry, index) => ({ value: index, label: entry.name }))} />
               <div ref={modulePanel.ref} {...tabPanelProps('gacha-preview-module', selectedModule)} style={modulePanel.style}>
-                <TranslationNote region={selectedModuleData?.translationCredit ? 'CN' : undefined} credit={selectedModuleData?.translationCredit} />
+                <TranslationNote region={details.sourceRegion} credit={selectedModuleData?.translationCredit} text={[selectedModuleData?.name, moduleStage]} />
                 {/* The module's stage is a value picked from 1-3, not a panel of its own:
                     the operator page's module stage is the same SegmentedControl. */}
                 {selectedModuleData?.stages.length ? <>
@@ -191,6 +193,7 @@ export function OperatorPreview({ item, onClose, nativeModal = false }: { item: 
             </section>}
             {!!details?.baseSkills?.length && <section className="gacha-preview-section gacha-preview-ability-section">
               <h3>Base Skills</h3>
+              <TranslationNote region={details.sourceRegion} credit={details.translationCredits?.baseSkills} text={details.baseSkills} />
               <div className="gacha-preview-base-skills">
                 {details.baseSkills.map((baseSkill, index) => <div className="gacha-preview-base-skill" key={`${baseSkill.name}-${index}`}>
                   {baseSkill.icon && <ContentImg src={baseSkill.icon} alt="" width={36} height={36} />}

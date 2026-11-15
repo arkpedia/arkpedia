@@ -6,7 +6,8 @@ export interface OperatorModule extends GameModule {
 }
 export interface Operator extends GameOperator {
   translationCredit?: string;
+  translationCredits?: Partial<Record<'review' | 'trait' | 'skills' | 'talents' | 'potential' | 'modules' | 'baseSkills' | 'tags', string>>;
   combatKeywords?: BaseSkillKeyword[];
-  operatorTextVersion?: 1;
+  operatorTextVersion?: 1 | 2;
   modules?: OperatorModule[];
 }

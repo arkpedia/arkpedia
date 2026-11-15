@@ -4,7 +4,7 @@ import { getSkillIconPath } from './operatorIconPaths';
 import type { Operator } from './operatorTextTypes';
 
 export type Translation = { translator: string; strings: Record<string, string> };
-const fields = ['trait', 'skills', 'talents', 'potential', 'modules', 'baseSkills', 'tags'] as const;
+const fields = ['review', 'trait', 'skills', 'talents', 'potential', 'modules', 'baseSkills', 'tags'] as const;
 
 /** Exact source text is the revision guard: changed CN text stays visible for review.
  * Global records only translate exact CN module text. Source records remain untouched. */
@@ -23,10 +23,16 @@ export function translateOperator(operator: Operator, translations: Record<strin
     return value;
   }
   const next = { ...operator };
+  const credits = { ...operator.translationCredits };
   for (const field of operator.sourceRegion === 'CN' ? fields : ['modules'] as const) {
-    if (operator[field] !== undefined) Object.assign(next, { [field]: translate(operator[field]) });
+    if (operator[field] === undefined || (field === 'review' && operator.review?.official === undefined)) continue;
+    changed = false;
+    // Only the game overview belongs to the supplement, never editorial reviews.
+    const value = field === 'review' ? { ...operator.review, official: translate(operator.review?.official) } : translate(operator[field]);
+    Object.assign(next, { [field]: value });
+    if (changed) credits[field] = entry.translator;
   }
-  if (!changed) return operator;
+  if (!Object.keys(credits).length) return operator;
   // Translation changes the label, never the published artwork filename.
   const originalSkills = getSkillList(operator);
   getSkillList(next).forEach((skill, index) => {
@@ -41,6 +47,7 @@ export function translateOperator(operator: Operator, translations: Record<strin
     if (JSON.stringify(module) !== JSON.stringify(operator.modules?.[index])) module.translationCredit = entry.translator;
   });
   return { ...next,
+    translationCredits: credits,
     ...(operator.sourceRegion === 'CN' ? { translationCredit: entry.translator } : {}),
   };
 }
@@ -49,7 +56,7 @@ export function translateOperator(operator: Operator, translations: Record<strin
 export function enrichOperatorText(operator: Operator, translations: Record<string, Translation>, keywords: BaseSkillKeyword[]): Operator {
   const translated = translateOperator(operator, translations);
   const mechanics = JSON.stringify([translated.trait, translated.skills, translated.talents, translated.modules, translated.potential]).toLowerCase();
-  return { ...translated, operatorTextVersion: 1,
+  return { ...translated, operatorTextVersion: 2,
     combatKeywords: keywords.filter(keyword => mechanics.includes(keyword.text.toLowerCase())),
   };
 }
