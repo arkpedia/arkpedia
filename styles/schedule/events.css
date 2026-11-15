@@ -148,7 +148,7 @@ button.event-banner-extra:focus-visible > .event-banner-extra-name { color: var(
 .event-banner-tag { color: var(--text-dim); font: 13px var(--font-mono); }
 .event-banner-body { display: grid; grid-template-columns: minmax(0, 1fr); gap: 20px 32px; align-items: start; }
 @media (min-width: 960px) {
-  .event-banner-body { grid-template-columns: minmax(0, 1.25fr) minmax(300px, 1fr); }
+  .event-banner-body { grid-template-columns: minmax(0, 1.25fr) minmax(340px, 1fr); }
 }
 .event-banner-lineups { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
 .event-banner-lineups > .event-detail-lineup + .event-detail-lineup { padding-top: 16px; border-top: 1px solid var(--line); }
@@ -660,7 +660,6 @@ html[data-site-server="kr"] .event-news[data-own-kr] .event-news-server[data-ser
 
 /* Event menu artwork occupies the viewport behind the normal page frame. */
 .event-page { display: flow-root; position: relative; isolation: isolate; min-height: calc(100dvh - var(--nav-h, 54px)); }
-.event-page-art { position: fixed; inset: var(--nav-h, 54px) 0 0; z-index: -1; pointer-events: none; overflow: hidden; }
-.event-detail-compact { max-width: 640px; }
+.event-page-art { position: fixed; inset: 0; z-index: -1; pointer-events: none; overflow: hidden; }
 .reward-image-zoom { display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 8px; }
 .reward-image-zoom output { min-width: 4ch; text-align: center; font-family: var(--font-mono); }
