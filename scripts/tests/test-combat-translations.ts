@@ -7,7 +7,7 @@ import TranslationNote from '../../components/operators/TranslationNote';
 import { applyBaseSkillGlossary, type BaseSkillGlossary } from '../../lib/operators/baseSkillGlossary';
 import { getSkillList } from '../../lib/operators/operatorTypes';
 import { getSkillIconPath, getBaseSkillIconPath } from '../../lib/operators/operatorIconPaths';
-import { translateOperator, type Translation } from '../../lib/operators/operatorTranslations';
+import { enrichOperatorText, translateOperator, type Translation } from '../../lib/operators/operatorTranslations';
 import { getAllOperators } from '../../lib/operators/operators';
 import { operatorPreviewSource, buildGachaOperatorPreview } from '../../lib/gacha/operatorPreviewData';
 import type { Operator } from '../../lib/operators/operatorTextTypes';
@@ -93,6 +93,8 @@ test('CN shared base terms use game IDs, consistent English and the same member 
   assert.notEqual(firstParty.term, reconGroup.term, 'the two Monster Hunter groups stay distinct');
   const plain = { ...helper, buffId: 'unrelated', keywords: undefined, description: 'Monster Hunter Squad' };
   assert.equal(applyBaseSkillGlossary([plain], glossary)![0].description, plain.description, 'similar wording without the game term ID is not enough');
+  const official = { ...recon, sourceRegion: 'Global' as const, baseSkills: [{ ...helper, description: 'Monster Hunter Squad' }] };
+  assert.deepEqual(enrichOperatorText(official, {}, [], glossary).baseSkills, official.baseSkills, 'official Global prose and keywords remain exactly as published');
   const again = applyBaseSkillGlossary(recon.baseSkills, glossary)!;
   assert.deepEqual(again, recon.baseSkills, 're-enrichment does not duplicate keywords');
   assert.match(recon.review!.official!, /Bubble Kingdom/);

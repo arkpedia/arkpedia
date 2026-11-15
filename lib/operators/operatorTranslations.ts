@@ -57,7 +57,7 @@ export function translateOperator(operator: Operator, translations: Record<strin
 export function enrichOperatorText(operator: Operator, translations: Record<string, Translation>, keywords: BaseSkillKeyword[], glossary: BaseSkillGlossary = { terms: [], buffs: {} }): Operator {
   const translated = translateOperator(operator, translations);
   const mechanics = JSON.stringify([translated.trait, translated.skills, translated.talents, translated.modules, translated.potential]).toLowerCase();
-  return { ...translated, ...(translated.baseSkills ? { baseSkills: applyBaseSkillGlossary(translated.baseSkills, glossary) } : {}), operatorTextVersion: 3,
+  return { ...translated, ...(translated.sourceRegion === 'CN' && translated.baseSkills ? { baseSkills: applyBaseSkillGlossary(translated.baseSkills, glossary) } : {}), operatorTextVersion: 3,
     combatKeywords: keywords.filter(keyword => mechanics.includes(keyword.text.toLowerCase())),
   };
 }
