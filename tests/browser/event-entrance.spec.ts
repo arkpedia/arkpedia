@@ -242,9 +242,12 @@ test('native channel masks reveal artwork without drawing masks or retaining the
     const read = (y: number) => { const pixel = new Uint8Array(4); gl.readPixels(Math.floor(element.width / 2), Math.round(element.height / 2 + y * fit), 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, pixel); return [...pixel].slice(0, 3); };
     resolve({ center: read(0), edge: read(70), moved: read(250), error: gl.getError() });
   })));
-  await expect.poll(async () => (await pixels()).center).toEqual([0, 0, 255]);
-  expect((await pixels()).edge).toEqual([0, 255, 0]);
-  expect((await pixels()).moved).toEqual([0, 0, 0]);
+  // Sample the three initial pixels from one frame. Separate round trips can
+  // cross the mask's movement threshold on a busy CI worker.
+  let initial!: Awaited<ReturnType<typeof pixels>>;
+  await expect.poll(async () => { initial = await pixels(); return initial.center; }).toEqual([0, 0, 255]);
+  expect(initial.edge).toEqual([0, 255, 0]);
+  expect(initial.moved).toEqual([0, 0, 0]);
   await expect.poll(async () => (await pixels()).moved, { timeout: 3000 }).toEqual([0, 255, 0]);
   const final = await pixels(); expect(final.center).toEqual([0, 0, 0]); expect(final.error).toBe(0);
   await page.keyboard.press('Escape'); await unlocked(page);
