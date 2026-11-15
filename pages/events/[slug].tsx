@@ -348,9 +348,8 @@ export default function EventDetailPage({
       />
 
       <main className="event-detail-layout">
-        {/* Compact operator information leaves the cast visible. Dense reward and
-            news sections use the full reading frame; navigation keeps its left edge. */}
-        <div className={`event-detail-right${activeImage && (activeSection === 'banner' || sections.length === 0) ? ' event-detail-compact' : ''}`} ref={hold.ref} style={hold.style}>
+        {/* Every tab shares the full reading frame and the same navigation edge. */}
+        <div className="event-detail-right" ref={hold.ref} style={hold.style}>
           {sections.length > 1 && activeSection && (
             <Tabs<SectionKey>
               label="Event sections"
@@ -373,7 +372,7 @@ export default function EventDetailPage({
               {/* One card: the banner's name and tag, its art beside its rate-up and returning
                   limited lineups, then a line per operator the event gives (welfare, free). Every
                   operator opens the operator preview. */}
-              <div className="panel event-section-card event-banner-card">
+              <div className="panel event-section-card artwork-glass event-banner-card">
                 {bannerName && <>
                   <div className="event-section-head">
                     <h3 className="entity-title entity-title-name">{bannerTitle.title}</h3>
@@ -383,7 +382,7 @@ export default function EventDetailPage({
                     {/* The frame stays when the art is not published yet, empty at the
                         same size, rather than the card closing up around it. */}
                     <div className="event-detail-banner-art-wrap">
-                      {shownBannerImage && <Image src={shownBannerImage} alt={bannerName} fill sizes="(max-width: 960px) 100vw, 640px" style={{ objectFit: 'contain' }} />}
+                      {shownBannerImage && <Image src={shownBannerImage} alt={bannerName} fill sizes="(max-width: 960px) 100vw, 680px" style={{ objectFit: 'contain' }} />}
                     </div>
                     <div className="event-banner-lineups">
                       {pendingNote ? <p className="hint">{pendingNote}</p>
@@ -422,7 +421,7 @@ export default function EventDetailPage({
 
           {activeSection === 'rewards' && (
             <section className="op-section" {...tabPanelProps('event-section', 'rewards')}>
-              <div className="panel event-section-card">
+              <div className="panel event-section-card artwork-glass">
                 <div className="event-section-head"><h3 className="entity-title entity-title-name">Rewards</h3></div>
                 {/* Older prepared releases coupled the CN reward notice to date confirmation.
                     The page header owns date status; this note describes reward provenance. */}
@@ -463,7 +462,7 @@ export default function EventDetailPage({
 
           {activeSection === 'skins' && (
             <section className="op-section" {...tabPanelProps('event-section', 'skins')}>
-              <div className="panel event-section-card">
+              <div className="panel event-section-card artwork-glass">
                 <div className="event-section-head"><h3 className="entity-title entity-title-name">Skins</h3></div>
                 {globalPredicted && <p className="hint">CN outfit inventory; Global availability awaits confirmation.</p>}
                 <div className="event-detail-skins">
@@ -497,7 +496,7 @@ export default function EventDetailPage({
 
           {activeSection === 'news' && (
             <section className="op-section" {...tabPanelProps('event-section', 'news')}>
-              <div className="panel event-section-card">
+              <div className="panel event-section-card artwork-glass">
                 <div className="event-section-head"><h3 className="entity-title entity-title-name">News</h3></div>
                 <EventNews news={news} board={board} />
               </div>
@@ -506,7 +505,7 @@ export default function EventDetailPage({
 
           {activeSection === 'pvs' && (
             <section className="op-section" {...tabPanelProps('event-section', 'pvs')}>
-              <div className="panel event-section-card">
+              <div className="panel event-section-card artwork-glass">
                 <div className="event-section-head"><h3 className="entity-title entity-title-name">PVs</h3></div>
                 <EventVideos videos={videos} run={isRerun(name) ? 'rerun' : 'launch'} />
               </div>

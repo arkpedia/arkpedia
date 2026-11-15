@@ -47,6 +47,10 @@ for (const theme of ['dark', 'light']) {
     await expect(dialog(page)).toHaveAttribute('data-phase', 'playing');
     await expect(page.locator('.artwork-heading')).toHaveCSS('opacity', '0');
     await expect(page.locator('.event-detail-tabs')).toHaveCSS('opacity', '0');
+    const glass=page.locator('.artwork-glass').first();
+    await expect(glass).toHaveCSS('opacity','1');
+    await expect(glass).toHaveCSS('backdrop-filter','blur(5px)');
+    await expect(glass.locator(':scope > *').first()).toHaveCSS('opacity','0');
     const bounds = await dialog(page).boundingBox();
     const viewport = page.viewportSize()!;
     expect(Math.abs(bounds!.width - viewport.width)).toBeLessThan(2);
@@ -57,6 +61,7 @@ for (const theme of ['dark', 'light']) {
     await expect(page.locator('.artwork-heading')).toHaveCSS('opacity', '1');
     await expect(page.locator('.event-detail-tabs')).toHaveCSS('opacity', '1');
     await expect(page.getByRole('tabpanel')).toHaveCSS('opacity', '1');
+    await expect(glass.locator(':scope > *').first()).toHaveCSS('opacity','1');
     await expect(page.locator('[data-event-entrance-art="act42sre"] img')).toHaveAttribute('src', /menu.webp/);
     expect(requests).not.toContain('entrance.wav'); // Audio is opt-in.
     await page.goBack(); await expect(page).toHaveURL(/\/schedule$/); await unlocked(page);

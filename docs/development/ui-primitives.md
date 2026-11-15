@@ -717,8 +717,8 @@ has a separate persisted volume (20% initially) for both entrance soundtracks an
 spoken actions, alongside its existing Sound switch.
 
 Artwork-backed event pages use `.artwork-page`: theme-coloured translucent surfaces
-from `styles/core/arkpedia-theme.css`, with a fixed edge-to-edge backdrop beneath the
-site navigation. Bare titles and tabs use the directional theme-coloured scrim;
+from `styles/core/arkpedia-theme.css`, with a fixed full-viewport backdrop behind the
+site navigation. Keep its crop and position unchanged when the fullscreen entrance lands. Bare titles and tabs use the directional theme-coloured scrim;
 reading cards use translucent surfaces. Leave dialogs and popovers opaque.
 The backdrop is decorative and never takes pointer events. Do not auto-cycle it
 under reading content. An event entrance lands on this backdrop instead of a hero card.
@@ -735,11 +735,15 @@ content. Bounds checks measure those contents separately from the header frame,
 just as for its shared sticky-action extension.
 
 Event artwork is the primary visual on its detail page. Keep its title overlay and
-operator summary compact, remove surrounding panels that duplicate the content
+operator summary aligned with the other tabs, remove surrounding panels that duplicate the content
 card's surface, and leave navigation anchored when a dense section uses more of
 the reading frame. Keep the title at the top on phones too, without a blank art spacer.
 Display the event kind separately from the title instead of repeating a rerun tag.
 
 Artwork-backed event controls fade in after the native entrance overlay closes,
-with a brief stagger from the heading to tabs to content. Tab panels also fade on
-selection. Keep this opacity-only motion in `motion.css`; reduced motion is immediate.
+with a brief stagger from the heading to tabs to content. `.artwork-glass` surfaces
+keep their blur and opacity steady; animate their contents, never a glass surface
+or its ancestor, because opacity ancestors create a backdrop root that delays blur.
+Tab content also fades on selection. Keep this opacity-only motion in `motion.css`;
+reduced motion is immediate. Every event tab uses the full reading width; banner art expands with the frame,
+and rate-up and returning operators use horizontal rows.

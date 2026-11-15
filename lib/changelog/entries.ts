@@ -34,6 +34,19 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    at: '2026-11-15T07:05:00Z',
+    added: [
+      { title: 'Original event entrances', detail: 'Supported events open with their recovered game animation and optional sound effects.', href: '/events' },
+      { title: 'Zoom into event rewards', detail: 'Zoom and drag reward overviews for a closer look, then use Fit image to see the whole overview.', href: '/events' },
+    ],
+    changed: [
+      { title: 'Event music takes its turn', detail: 'Event Music pauses your personal player and resumes it when you leave; the separate Background Music setting is removed.', href: '/events' },
+      { title: 'Wider event operator panels', detail: 'Operators use the same width as other tabs, with larger banner art and horizontal limited lineups.', href: '/events' },
+      { title: 'Seamless event artwork', detail: 'Artwork extends behind the navigation bar and controls fade in over glass that is blurred from the start.', href: '/events' },
+    ],
+    fixed: [{ title: 'One Vremya, v Put’! event', detail: 'Removed the duplicate listing while keeping its rewards, store and entrance animation.', href: '/schedule' }],
+  },
+  {
     at: '2026-11-13T20:38:00Z',
     changed: [{ title: 'Reward overview follows the page frame', detail: 'Reward overviews are centered, use the page width and fit their image on phones without empty space or hidden rewards.', href: '/events' }],
   },
