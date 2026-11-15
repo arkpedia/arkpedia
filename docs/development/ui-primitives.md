@@ -719,7 +719,9 @@ spoken actions, alongside its existing Sound switch.
 Artwork-backed event pages use `.artwork-page`: theme-coloured translucent surfaces
 from `styles/core/arkpedia-theme.css`, with a fixed full-viewport backdrop behind the
 site navigation. Keep its crop and position unchanged when the fullscreen entrance lands. Bare titles and tabs use the directional theme-coloured scrim;
-reading cards use translucent surfaces. Leave dialogs and popovers opaque.
+reading cards use an 82% theme-coloured surface and secondary ink at body-text strength.
+A top scrim protects bare titles, dates and tabs in both themes; keep the lower artwork visible.
+Leave dialogs and popovers opaque.
 The backdrop is decorative and never takes pointer events. Do not auto-cycle it
 under reading content. An event entrance lands on this backdrop instead of a hero card.
 
