@@ -39,7 +39,7 @@ const artFor = (op: { name: string; rarity: number | null }) => {
 };
 fs.writeFileSync(path.join(process.cwd(), 'data/community-operator-catalogue.json'), JSON.stringify(operators.map(op=>({
   name:op.name,charIds:Object.entries(map.chars).filter(([,v])=>v.name===op.name).map(([id])=>id),
-  rarity:op.rarity??0,className:op.class??'',icon:getOperatorIconPath(op),skills:getSkillList(op).length,skillIcons:getSkillList(op).map(skill=>getSkillIconPath(op.name,skill.name)),art:artFor(op),
+  rarity:op.rarity??0,className:op.class??'',icon:getOperatorIconPath(op),skills:getSkillList(op).length,skillIcons:getSkillList(op).map(skill=>skill.icon || getSkillIconPath(op.name,skill.name)),art:artFor(op),
 })))+'\n');
 
 // Polls can be Preview-only and absent from the published content release. Bundle

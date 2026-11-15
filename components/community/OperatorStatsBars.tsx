@@ -44,7 +44,7 @@ function Distribution({label,name,segments,total,summary,summaryLabel}:{label:Re
     </div>,document.body)}
   </div>;
 }
-export default function OperatorStatsBars({data,operator,skillNames,skills,maxElite,modules}:{data:CommunityStats;operator:string;skillNames:(string|null|undefined)[];skills:number;maxElite:number;modules:{index:number;label:string}[]}){
+export default function OperatorStatsBars({data,operator,skillNames,skillIcons,skills,maxElite,modules}:{data:CommunityStats;operator:string;skillNames:(string|null|undefined)[];skillIcons?:(string|null|undefined)[];skills:number;maxElite:number;modules:{index:number;label:string}[]}){
   const promotion=[Math.max(0,(data.builds??0)-(data.e1??0)-(data.e2??0)),data.e1,data.e2];
   return <div className={styles.charts}>
     <div className={styles.distribution} data-community-metric="Owned">
@@ -61,7 +61,7 @@ export default function OperatorStatsBars({data,operator,skillNames,skills,maxEl
     {maxElite>=2&&skills>0&&<section className={styles.chartSection} aria-label="Skill mastery distribution">
       <div className={styles.chartHeading}><h3 className="entity-title entity-title-sm">Skill mastery</h3><span>Of {data.masteryOwners??0} E2 owners</span></div>
       {Array.from({length:Math.min(skills,3)},(_,i)=>{
-        const path=getSkillIconPath(operator,skillNames[i]);
+        const path=skillIcons?.[i] || getSkillIconPath(operator,skillNames[i]);
         const ranks=data.skillRanks?.[i];
         const counts=ranks?.slice(1,4)??[undefined,undefined,data.skills?.[i]];
         return <Distribution key={i} name={`Skill ${i+1}`} label={<><span title={skillNames[i]??`Skill ${i+1}`}>{path&&<Image src={path} alt={skillNames[i]??`Skill ${i+1}`} width={36} height={36}/>}</span><span>Skill {i+1}</span></>} segments={[...counts.map((count,rank)=>({label:`Skill ${i+1} M${rank+1}`,count,color:colors[rank+1],icon:<OperatorGameIcon label={`M${rank+1}`} color size={24}/> })),{label:`Skill ${i+1} No masteries`,count:remainder(data.masteryOwners,counts),color:emptyColor,icon:<span>No masteries</span>}]} total={data.masteryOwners} summary={counts[2]} summaryLabel="M3"/>;

@@ -2,6 +2,8 @@ import { expect, test, type Page } from '@playwright/test';
 import { stubYouTube, youtube } from './youtube-stub';
 import { signedHeads, stubMonsterSiren } from './monster-siren-stub';
 
+// The fixed entrance fixture is historical; its lifecycle must outlive its event window.
+const schedulePath = '/schedule?past=1';
 const eventPath = '/events/' + encodeURIComponent("[Rerun] The Masses' Travels Rerun");
 const dialog = (page: Page) => page.getByRole('dialog', { name: "Opening The Masses' Travels" });
 // A short, data-only native timeline keeps lifecycle tests independent of CDN availability.
@@ -27,11 +29,24 @@ async function media(page: Page, fail: boolean | 'slow' = false) {
   });
   return requests;
 }
-async function open(page: Page) {
-  await page.goto('/schedule');
+async function eventLink(page: Page) {
+  await expect(page.getByRole('button', { name: 'Past', exact: true })).toHaveAttribute('aria-pressed', 'true');
   const link = page.locator(`a[href="${eventPath}"]`).first();
+  // Keep the historical fixture reachable after newer events fill the first batch.
+  while (!await link.count()) {
+    const more = page.locator('.load-on-scroll');
+    if (!await more.count()) break;
+    const count = await page.locator('.events-row').count();
+    await more.scrollIntoViewIfNeeded();
+    await expect.poll(() => page.locator('.events-row').count()).toBeGreaterThan(count);
+  }
+  await link.scrollIntoViewIfNeeded();
   await expect(link).toBeVisible();
   return link;
+}
+async function open(page: Page) {
+  await page.goto(schedulePath);
+  return eventLink(page);
 }
 async function unlocked(page: Page) {
   await expect(dialog(page)).toBeHidden();
@@ -64,7 +79,7 @@ for (const theme of ['dark', 'light']) {
     await expect(glass.locator(':scope > *').first()).toHaveCSS('opacity','1');
     await expect(page.locator('[data-event-entrance-art="act42sre"] img')).toHaveAttribute('src', /menu.webp/);
     expect(requests).not.toContain('entrance.wav'); // Audio is opt-in.
-    await page.goBack(); await expect(page).toHaveURL(/\/schedule$/); await unlocked(page);
+    await page.goBack(); await expect(page).toHaveURL(/\/schedule\?past=1$/); await unlocked(page);
     await page.goForward(); await expect(page).toHaveURL(/\/events\//); await unlocked(page);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   });
@@ -74,7 +89,7 @@ test('skip and Escape release the modal, focus and scroll lock', async ({ page }
   let link = await open(page); await link.focus(); await page.keyboard.press('Enter');
   await expect(dialog(page)).toBeVisible(); await page.keyboard.press('Escape'); await unlocked(page);
   await expect(page.locator('#page-content')).toBeFocused();
-  await expect(page).toHaveURL(/\/events\//); await page.goBack(); await expect(page).toHaveURL(/\/schedule$/); link = page.locator(`a[href="${eventPath}"]`).first(); await link.click();
+  await expect(page).toHaveURL(/\/events\//); await page.goBack(); await expect(page).toHaveURL(/\/schedule\?past=1$/); link = page.locator(`a[href="${eventPath}"]`).first(); await link.click();
   await expect(dialog(page)).toBeVisible(); await page.getByRole('button', { name: 'Skip intro', exact: true }).click();
   await unlocked(page); await expect(page.locator('#page-content')).toBeFocused();
 });
@@ -95,7 +110,7 @@ test('missing entrance assets leave a usable event page', async ({ page }) => {
 test('Back and a reduced-motion change cancel an active entrance', async ({ page }) => {
   await media(page); const link = await open(page); await link.click();
   await expect(dialog(page)).toHaveAttribute('data-phase', 'playing');
-  await expect(page).toHaveURL(/\/events\//); await page.goBack(); await expect(page).toHaveURL(/\/schedule$/); await unlocked(page);
+  await expect(page).toHaveURL(/\/events\//); await page.goBack(); await expect(page).toHaveURL(/\/schedule\?past=1$/); await unlocked(page);
   await page.locator(`a[href="${eventPath}"]`).first().click();
   await expect(dialog(page)).toHaveAttribute('data-phase', 'playing');
   await page.emulateMedia({ reducedMotion: 'reduce' }); await unlocked(page);
@@ -105,9 +120,16 @@ test('cold-tap SFX waits for its download, uses its cue and holds event music', 
   await page.addInitScript(() => {
     localStorage.setItem('arkpedia:settings', JSON.stringify({ version: 1, values: { eventMusic: true } }));
     const starts: number[] = []; Object.assign(window, { __entranceStarts: starts });
+    // Compare against the same native clock read used to schedule the cue. A second
+    // currentTime read can cross an audio render quantum before the spy executes.
+    const clock = Object.getOwnPropertyDescriptor(BaseAudioContext.prototype, 'currentTime')!;
+    const reads = new WeakMap<BaseAudioContext, number>();
+    Object.defineProperty(BaseAudioContext.prototype, 'currentTime', { ...clock, get(this: BaseAudioContext) {
+      const value = clock.get!.call(this) as number; reads.set(this, value); return value;
+    } });
     const original = AudioBufferSourceNode.prototype.start;
     AudioBufferSourceNode.prototype.start = function(when = 0, ...rest) {
-      starts.push(when - this.context.currentTime); return original.call(this, when, ...rest);
+      starts.push(when - (reads.get(this.context) ?? this.context.currentTime)); return original.call(this, when, ...rest);
     };
   });
   const requests = await media(page);
@@ -127,15 +149,19 @@ test('cold-tap SFX waits for its download, uses its cue and holds event music', 
 });
 
 test('a slow pack cannot leave a blocking black screen', async ({ page }) => {
+  await page.clock.install();
   await media(page, 'slow'); const link = await open(page); await link.click();
   await expect(dialog(page)).toBeVisible();
-  await expect(dialog(page)).toBeHidden({ timeout: 2300 });
+  // The pack's 2500 ms delay runs in Node; advance only the browser's 1800 ms watchdog.
+  await page.clock.runFor(2000);
+  // Observe the virtual deadline immediately; a later failed download must not satisfy it.
+  expect(await dialog(page).isVisible()).toBe(false);
   await expect(page).toHaveURL(/\/events\//); await unlocked(page);
 });
 test('modified event links leave the current page without an intro', async ({ page }) => {
   await media(page); const link = await open(page);
   await link.click({ modifiers: ['Control'] });
-  await expect(page).toHaveURL(/\/schedule$/); await unlocked(page);
+  await expect(page).toHaveURL(/\/schedule\?past=1$/); await unlocked(page);
 });
 
 test('unavailable SFX leaves animation and theme handoff usable without an idle audio context', async ({ page }) => {
@@ -218,12 +244,12 @@ test('native channel masks reveal artwork without drawing masks or retaining the
   const transform = { name: 'art', parent: null, active: true, alpha: 1, position: [0, 0], z: 0,
     size: [1280, 720], pivot: [.5, .5], anchorMin: [.5, .5], anchorMax: [.5, .5], scale: [1, 1, 1], rotation: [0, 0, 0, 1] };
   const image = (color: number[]) => ({ texture: null, rect: { x: 0, y: 0, width: 1, height: 1 }, offset: { x: 0, y: 0 }, spriteSize: [1, 1], border: [0, 0, 0, 0], color, material: null, type: 0, preserveAspect: false, fill: 1, fillMethod: 0, clockwise: true, origin: 0 });
-  await page.route('**/scene.json', route => route.fulfill({ json: { ...scene, duration: 4, nodes: [
+  await page.route('**/scene.json', route => route.fulfill({ json: { ...scene, duration: 8, nodes: [
     { ...transform, image: image([0, 1, 0, 1]) },
     { ...transform, name: 'invisible channel writer', size: [200, 200], image: image([1, 0, 0, 1]), stencil: { compare: 0, operation: 2, readMask: 0, writeMask: 8, colorMask: 0 } },
     { ...transform, name: 'outside matte', image: image([0, 0, 0, 1]), stencil: { compare: 2, operation: 0, readMask: 8, writeMask: 0, colorMask: 15 } },
     { ...transform, name: 'inside artwork', size: [60, 60], image: image([0, 0, 1, 1]), stencil: { compare: 1, operation: 0, readMask: 8, writeMask: 0, colorMask: 15 } },
-  ], textures: [], materials: [], shaders: [], curves: [{ node: 1, property: 'position.1', keys: [[0, 0, null, null, 0, 1/3, 1/3], [2, 250, null, null, 0, 1/3, 1/3]] }] } }));
+  ], textures: [], materials: [], shaders: [], curves: [{ node: 1, property: 'position.1', keys: [[0, 0, null, null, 0, 1/3, 1/3], [3, 0, null, null, 0, 1/3, 1/3], [4, 250, null, null, 0, 1/3, 1/3]] }] } }));
   const link = await open(page); await link.click();
   await expect(dialog(page)).toHaveAttribute('data-phase', 'playing');
   const pixels = () => page.locator('.event-entrance canvas').evaluate(canvas => new Promise<{ center: number[]; edge: number[]; moved: number[]; error: number }>(resolve => requestAnimationFrame(() => {
@@ -231,11 +257,10 @@ test('native channel masks reveal artwork without drawing masks or retaining the
     const read = (y: number) => { const pixel = new Uint8Array(4); gl.readPixels(Math.floor(element.width / 2), Math.round(element.height / 2 + y * fit), 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, pixel); return [...pixel].slice(0, 3); };
     resolve({ center: read(0), edge: read(70), moved: read(250), error: gl.getError() });
   })));
-  await expect.poll(async () => (await pixels()).center).toEqual([0, 0, 255]);
-  expect((await pixels()).edge).toEqual([0, 255, 0]);
-  expect((await pixels()).moved).toEqual([0, 0, 0]);
-  await expect.poll(async () => (await pixels()).moved, { timeout: 3000 }).toEqual([0, 255, 0]);
-  const final = await pixels(); expect(final.center).toEqual([0, 0, 0]); expect(final.error).toBe(0);
+  // Hold the initial stencil layout through GPU startup, then inspect each state in one frame.
+  // Separate awaited reads can otherwise observe different curve positions.
+  await expect.poll(pixels).toMatchObject({ center: [0, 0, 255], edge: [0, 255, 0], moved: [0, 0, 0], error: 0 });
+  await expect.poll(pixels, { timeout: 5000 }).toMatchObject({ moved: [0, 255, 0], center: [0, 0, 0], error: 0 });
   await page.keyboard.press('Escape'); await unlocked(page);
 });
 
@@ -255,14 +280,14 @@ test('native entrance takes audio from a playing personal song and restores it o
   await page.locator('.music-library-row .music-song-row-main').first().click();
   await expect.poll(async()=>(await youtube(page))?.state).toBe(1);
   const song=(await youtube(page))!.videoId;
-  await page.evaluate(()=>(window as unknown as {next:{router:{push:(path:string)=>Promise<void>}}}).next.router.push('/schedule'));
-  await page.locator(`a[href="${eventPath}"]`).first().click();
+  await page.evaluate(()=>(window as unknown as {next:{router:{push:(path:string)=>Promise<void>}}}).next.router.push('/schedule?past=1'));
+  await (await eventLink(page)).click();
   await expect(dialog(page)).toHaveAttribute('data-phase','playing');
   await expect.poll(async()=>(await youtube(page))?.state).toBe(2);
   await expect.poll(()=>page.evaluate(()=>(window as unknown as {__entranceStarts:number[]}).__entranceStarts.length)).toBe(1);
   await unlocked(page);
   await expect(page.locator('[data-page-audio]')).toHaveAttribute('data-page-audio','playing');
-  await page.goBack(); await expect(page).toHaveURL(/\/schedule$/);
+  await page.goBack(); await expect(page).toHaveURL(/\/schedule\?past=1$/);
   await expect.poll(async()=>(await youtube(page))?.state).toBe(1);
   expect((await youtube(page))?.videoId).toBe(song);
 });

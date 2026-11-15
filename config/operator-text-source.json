@@ -1,0 +1,9 @@
+{
+  "repository": "arkpedia/arkpedia-data",
+  "revision": "77211fa16ec145b51f408b99aeeab77f46d93a01",
+  "files": {
+    "operator-translations.json": "bb6b739a6458381547650efaead8ac0b48c71ab1b482b668673b2a02fe7bc9ae",
+    "combat-keywords.json": "d9b6d90e9c153813020cd853302e40fa1c8aa96637061c2d1bdbe16977099858",
+    "base-skill-glossary.json": "73c0fef629e3f75cbf5e6e81e8afc05702ed568c7afaa56e06c4ba00e6629761"
+  }
+}

@@ -71,7 +71,7 @@ export function buildSynergyGroups(): SynergyGroup[] {
         if (isSynergyExcluded(groupKey, op.name)) continue;
         addBadge(groupKey, op, operatorIconPath, op.rarity, {
           label: skill.name || '',
-          skillIconPath: getSkillIconPath(op.name, skill.name),
+          skillIconPath: skill.icon || getSkillIconPath(op.name, skill.name),
           talentLabel: null,
           sourceText: highestLevelText,
           matchedKeyword: matchedTerm,
