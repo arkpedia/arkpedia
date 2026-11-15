@@ -4,7 +4,7 @@ import { getSkillIconPath } from './operatorIconPaths';
 import type { Operator } from './operatorTextTypes';
 import { applyBaseSkillGlossary, type BaseSkillGlossary } from './baseSkillGlossary';
 
-export type Translation = { translator: string; strings: Record<string, string>; credits?: Record<string, string> };
+export type Translation = { translator: string; strings: Record<string, string>; credits?: Record<string, { name: string; sourceRef?: string }> };
 const fields = ['review', 'trait', 'skills', 'talents', 'potential', 'modules', 'baseSkills', 'tags'] as const;
 
 /** Exact source text is the revision guard: changed CN text stays visible for review.
@@ -19,7 +19,8 @@ export function translateOperator(operator: Operator, translations: Record<strin
       const next = entry.strings[value];
       if (next !== undefined) {
         changed = true;
-        usedCredits.add(entry.credits?.[value] ?? entry.translator);
+        const credit = entry.credits?.[value];
+        usedCredits.add(credit ? `${credit.name}${credit.sourceRef ? ` [${credit.sourceRef}]` : ''}` : entry.translator);
       }
       return next ?? value;
     }
