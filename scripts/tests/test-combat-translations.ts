@@ -104,10 +104,10 @@ test('CN shared base terms use game IDs, consistent English and the same member 
 
 test('populated CN mechanics are English at every rank and previews retain definitions and attribution', { skip: !hasSupplement && 'Older content snapshot has no translation supplement' }, () => {
   const operators = getAllOperators();
-  for (const name of ['Homebound', 'Pedro', 'de Toledo', 'Clementia', 'Mechanist', 'Jacinta']) {
-    const op = operators.find(op => op.name === name)!;
+  for (const op of operators.filter(op => op.sourceRegion === 'CN')) {
+    const name = op.name;
     assert.ok(op, name);
-    assert.equal(op.translationCredit, 'Arkpedia (AI-assisted)');
+    if (op.translationCredit) assert.equal(op.translationCredit, 'Arkpedia (AI-assisted)');
     assert.doesNotMatch(JSON.stringify([op.trait, op.talents, op.skills, op.potential, op.modules, op.baseSkills, op.tags], (key, value) => key === 'rawName' || key === 'icon' ? undefined : value), /\p{Script=Han}/u, name);
     const preview = buildGachaOperatorPreview(operatorPreviewSource(op));
     assert.equal(preview.translationCredit, op.translationCredit);
@@ -121,9 +121,9 @@ test('translations preserve all source numeric values, including every skill and
   const data = JSON.parse(fs.readFileSync('data/operator-translations.json', 'utf8')) as Record<string, Translation>;
   const numbers = (text: string): string[] => (text.match(/\d+(?:\.\d+)?/g) ?? []).sort();
   for (const entry of Object.values(data)) for (const [source, english] of Object.entries(entry.strings)) {
-    const remaining = numbers(english);
+    const remaining = numbers(english).map(Number);
     for (const value of numbers(source)) {
-      const index = remaining.indexOf(value);
+      const index = remaining.indexOf(Number(value));
       assert.ok(index >= 0, `${value} missing from ${english}`);
       remaining.splice(index, 1);
     }
@@ -152,12 +152,45 @@ test('old published operator props receive the same text enrichment as source co
   const page = { operator: raw, retained: 'other published page props' };
   const completed = await completeOperatorText(page);
   assert.equal(completed.retained, page.retained);
-  assert.equal(completed.operator.operatorTextVersion, 3);
+  assert.equal(completed.operator.operatorTextVersion, 4);
   assert.equal(getSkillList(completed.operator)[0].name, 'Erosion');
   assert.ok(completed.operator.combatKeywords?.some(term => term.name === 'Corrosion'));
   assert.equal(await completeOperatorText(completed), completed, 'already enriched published props remain authoritative');
   const legacy = await completeOperatorText({ operator: { ...raw, operatorTextVersion: 1 as const } });
-  assert.equal(legacy.operator.operatorTextVersion, 3);
+  assert.equal(legacy.operator.operatorTextVersion, 4);
   assert.doesNotMatch(legacy.operator.review?.official ?? '', /\p{Script=Han}/u, 'version 1 payloads must receive the missing overview translation');
   assert.equal(getSkillList(raw)[0].name, '冲蚀', 'the cached published object is not mutated');
+});
+
+test('Talulah talents include every promotion and potential and retain scoped wiki attribution', { skip: !hasSupplement }, async () => {
+  const op = getAllOperators().find(op => op.name === 'Talulah')!;
+  assert.equal(op.talents?.[0].name, 'Never Compromise');
+  assert.equal(op.talents?.[1].name, 'I Am The Flame');
+  assert.equal(op.talents?.[0].rows.length, 6);
+  assert.equal(op.talents?.[1].rows.length, 2);
+  assert.match(op.talents![0].rows[4].description!, /11%.*Burn.*3 seconds.*15%/s);
+  assert.match(op.talents![1].rows[0].description!, /While deployed.*5 seconds.*passable ground.*3 seconds.*25 tiles.*12%.*0.3 seconds/s);
+  assert.match(op.translationCredits?.talents ?? '', /Arknights Terra Wiki.*CC BY-SA 4.0.*oldid=780685/);
+  assert.equal(op.translationCredits?.review, 'Arkpedia (AI-assisted)', 'wiki credit must not be applied to an independently translated overview');
+  const html = renderToStaticMarkup(createElement(TranslationNote, { region: 'CN', credit: op.translationCredits?.talents, text: op.talents }));
+  assert.match(html, /href="https:\/\/arknights.wiki.gg\/w\/index.php\?title=Talulah&amp;oldid=780685"/);
+  const { completeOperatorText } = await import('../../lib/operators/operatorTextServer');
+  const raw = JSON.parse(fs.readFileSync('data/operators-6star/Talulah.json', 'utf8')) as Operator;
+  const completed = await completeOperatorText({ operator: { ...raw, operatorTextVersion: 3 as const } });
+  assert.equal(completed.operator.talents?.[0].name, 'Never Compromise', 'the production version 3 payload must receive the missing mechanics');
+});
+
+test('checked CN mechanics preserve qualifications omitted or incorrect in the wiki', { skip: !hasSupplement }, () => {
+  const ops = getAllOperators();
+  const caleido = ops.find(op => op.name === 'Caleido')!;
+  for (const rank of getSkillList(caleido)[1].levels!) assert.match(rank.description!, /converts 30%.*half that amount of Frenzy/);
+  const toska = ops.find(op => op.internalName === 'char_4244_tocka')!;
+  assert.match(toska.talents![1].rows[0].description!, /after applying a Trigger effect/);
+  const territory = ops.find(op => op.internalName === 'char_4246_dminon')!;
+  assert.match(territory.talents![1].rows[0].description!, /all ground enemies/);
+  const source = JSON.parse(fs.readFileSync('data/operators-6star/Территория.json', 'utf8')) as Operator;
+  getSkillList(source)[2].levels!.forEach((rank, index) => {
+    const [, atk, aspd] = rank.description!.match(/攻击力\+(\d+)%，攻击速度\+(\d+)/)!;
+    assert.ok(getSkillList(territory)[2].levels![index].description!.includes(`ATK +${atk}%, ASPD +${aspd}`));
+  });
 });
