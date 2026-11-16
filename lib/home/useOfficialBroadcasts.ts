@@ -8,7 +8,8 @@ export function useOfficialBroadcasts():{broadcasts:OfficialBroadcast[];featured
       if (document.hidden||controller) return;
       controller=new AbortController();
       const request=controller;
-      const timeout=setTimeout(()=>request.abort(),10000);
+      // A cold shared refresh can resolve the channel, discover streams, then verify status.
+      const timeout=setTimeout(()=>request.abort(),45000);
       try {
         const response=await fetch('/api/home/broadcasts',{cache:'no-store',signal:controller.signal});
         if (!response.ok) throw Error('Broadcasts unavailable');
