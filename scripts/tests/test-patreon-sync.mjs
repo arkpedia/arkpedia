@@ -50,6 +50,33 @@ test('complete paginated snapshots use the highest entitled tier and exclude mas
   h.sqlite.close();
 });
 
+test('nullable pledge privacy includes paid supporters across pages without exposing hidden or masked identities', async () => {
+  const h = harness();
+  try {
+    await syncPatreon(h.env, { now, fetch: async input => {
+      const url = new URL(input);
+      if (url.pathname.endsWith('/123')) return campaign();
+      if (!url.searchParams.has('page[cursor]')) return page([
+        member('1', 'Unset privacy', 'active_patron', ['10', '20']),
+        member('2', 'Public privacy'), member('3', 'Hidden pledge'),
+      ], [user('1', 'Unset privacy', null), user('2', 'Public privacy', false), user('3', 'Hidden pledge', true)], 'next', 9);
+      return page([
+        member('4', 'Second page'), member('5', ''), member('6', 'Masked profile'),
+        member('7', 'Former', 'former_patron'), member('8', 'Free', null, []),
+        member('9', 'Unexpected privacy'),
+      ], [user('4', 'Second page', null), user('5', 'Do not reconstruct', null),
+        user('6', '', null), user('7', 'Former', null), user('8', 'Free', null),
+        user('9', 'Unexpected privacy', 'false')], null, 9);
+    } });
+    const snapshot = await readSupporters(h.env);
+    assert.deepEqual(snapshot['supporter-tier'].map(t => [t.name, t.supporters]), [
+      ['Giant Cookies', ['Unset privacy']], ['Cookies', ['Public privacy', 'Second page']],
+    ]);
+    assert(!JSON.stringify(snapshot).includes('PRIVATE'));
+    assert(!JSON.stringify(snapshot).includes('user-'));
+  } finally { h.sqlite.close(); }
+});
+
 test('token rotation is durable before a later failure, and the next attempt uses the new refresh pair', async () => {
   const h = harness(); let renewed = false;
   await assert.rejects(syncPatreon(h.env, { now, fetch: async (input, options) => {
