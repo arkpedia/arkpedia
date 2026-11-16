@@ -31,7 +31,17 @@
 }
 .event-entrance[data-phase="docking"]::backdrop,
 .event-entrance[data-phase="fading"]::backdrop { background: transparent; }
-.event-entrance-skip { position: absolute; top: var(--page-gutter); right: var(--page-gutter); z-index: 1; }
+.event-entrance-skip {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+.event-entrance-skip:focus-visible { outline-offset: -4px; }
 @media (prefers-reduced-motion: reduce) {
   .event-entrance[open]::backdrop { animation: none; }
 }

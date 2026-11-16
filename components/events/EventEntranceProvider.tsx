@@ -137,7 +137,7 @@ export default function EventEntranceProvider({ children }: { children: ReactNod
     let disposed = false, raf = 0, player: GameUiPlayer | null = null, docked = false;
     let timer: ReturnType<typeof setTimeout> | undefined, watchdog: ReturnType<typeof setTimeout> | undefined;
     const overflow = document.documentElement.style.overflow, gutter = document.documentElement.style.scrollbarGutter, entered = performance.now();
-    box.showModal(); box.focus({ preventScroll: true }); document.documentElement.style.overflow = 'hidden';
+    box.showModal(); box.querySelector('button')?.focus({ preventScroll: true }); document.documentElement.style.overflow = 'hidden';
     document.documentElement.style.scrollbarGutter = 'auto';
     control.current = { stop: () => { disposed = true; abort.abort(); cancelAnimationFrame(raf); clearTimeout(timer); clearTimeout(watchdog); } };
     const updateTarget = () => {
@@ -224,8 +224,9 @@ export default function EventEntranceProvider({ children }: { children: ReactNod
     {children}
     <dialog ref={dialog} className="event-entrance" data-phase={phase} aria-label={session ? `Opening ${session.entry.title}` : 'Event entrance'} tabIndex={-1}
       onCancel={e => { e.preventDefault(); e.stopPropagation(); finish(); }}>
-      <div className="event-entrance-stage" style={target}><canvas ref={canvas} aria-hidden="true" /></div>
-      <button type="button" className="btn btn-sm event-entrance-skip" onClick={() => finish()}>Skip intro</button>
+      <button type="button" className="btn-bare event-entrance-skip" aria-label="Skip intro" onClick={e => { e.stopPropagation(); finish(); }}>
+        <span className="event-entrance-stage" style={target}><canvas ref={canvas} aria-hidden="true" /></span>
+      </button>
     </dialog>
   </EventEntranceContext.Provider>;
 }

@@ -54,6 +54,26 @@ async function unlocked(page: Page) {
   await expect.poll(() => page.evaluate(() => document.documentElement.style.scrollbarGutter)).toBe('');
 }
 for (const theme of ['dark', 'light']) {
+  test(`clicking or tapping anywhere skips without a corner button (${theme})`, async ({ page, isMobile }) => {
+    await media(page);
+    await page.addInitScript(theme => localStorage.setItem('theme', theme), theme);
+    for (const corner of [false, true]) {
+      const link = await open(page); await link.click();
+      await expect(dialog(page)).toHaveAttribute('data-phase', 'playing');
+      const skip = dialog(page).getByRole('button', { name: 'Skip intro', exact: true });
+      await expect(skip).toBeFocused();
+      await expect(skip).toHaveText('');
+      const viewport = page.viewportSize()!;
+      const position = corner ? { x: 2, y: viewport.height - 2 } : { x: viewport.width / 2, y: viewport.height / 2 };
+      if (isMobile) await page.touchscreen.tap(position.x, position.y);
+      else await page.mouse.click(position.x, position.y);
+      await unlocked(page);
+      await expect(page.locator('#page-content')).toBeFocused();
+      await expect(page).toHaveURL(/\/events\//);
+      await expect(page.getByRole('heading', { level: 1 })).toContainText("Masses' Travels");
+      await page.goBack(); await expect(page).toHaveURL(/\/schedule\?past=1$/);
+    }
+  });
   test(`native entrance uses the viewport, docks and leaves Back usable (${theme})`, async ({ page }) => {
     const requests = await media(page);
     await page.addInitScript(theme => localStorage.setItem('theme', theme), theme);
@@ -84,13 +104,13 @@ for (const theme of ['dark', 'light']) {
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   });
 }
-test('skip and Escape release the modal, focus and scroll lock', async ({ page }) => {
+for (const key of ['Escape', 'Enter', 'Space']) test(`${key} releases the modal, focus and scroll lock`, async ({ page }) => {
   await media(page);
   let link = await open(page); await link.focus(); await page.keyboard.press('Enter');
-  await expect(dialog(page)).toBeVisible(); await page.keyboard.press('Escape'); await unlocked(page);
+  await expect(dialog(page)).toBeVisible(); await page.keyboard.press(key); await unlocked(page);
   await expect(page.locator('#page-content')).toBeFocused();
   await expect(page).toHaveURL(/\/events\//); await page.goBack(); await expect(page).toHaveURL(/\/schedule\?past=1$/); link = page.locator(`a[href="${eventPath}"]`).first(); await link.click();
-  await expect(dialog(page)).toBeVisible(); await page.getByRole('button', { name: 'Skip intro', exact: true }).click();
+  await expect(dialog(page)).toBeVisible(); await page.keyboard.press(key);
   await unlocked(page); await expect(page.locator('#page-content')).toBeFocused();
 });
 test('reduced motion avoids the entrance and its downloads', async ({ page }) => {
