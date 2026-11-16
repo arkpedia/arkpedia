@@ -14,10 +14,10 @@ import styles from './PullPoll.module.css';
 export default function PullPollShareImage({banners:initialBanners,ballot:initialBallot,portraits:initialPortraits,owned:initialOwned={},onClose}:{banners:PollBanner[];ballot:Ballot;portraits:Record<string,PollPortrait>;owned?:OwnedPotentials;onClose:()=>void}){
   const [{banners,ballot,portraits,owned}]=useState(()=>({banners:initialBanners,ballot:initialBallot,portraits:initialPortraits,owned:initialOwned}));
   const canvas=useRef<HTMLCanvasElement>(null),stampStyles=useRef<HTMLDivElement>(null),url=useContentUrl(),descriptionId=useId();
-  const [ready,setReady]=useState(false),[message,setMessage]=useState(''),[retry,setRetry]=useState(0),[display,setDisplay]=useState('simple'),[bannerStamps,setBannerStamps]=useState(false),[detailedStamps,setDetailedStamps]=useState(false),[includeOffBanner,setIncludeOffBanner]=useState(true),[showLegend,setShowLegend]=useState(true);
+  const [ready,setReady]=useState(false),[message,setMessage]=useState(''),[retry,setRetry]=useState(0),[display,setDisplay]=useState('simple'),[bannerStamps,setBannerStamps]=useState(false),[includeOffBanner,setIncludeOffBanner]=useState(true),[showLegend,setShowLegend]=useState(true);
   const answered=banners.filter(b=>bannerChoice(ballot[b.id],b,owned)),detailed=display==='detailed',stamped=!detailed&&bannerStamps,artWidth=stamped?1200:600;
   const planned=(b:PollBanner)=>shareOperatorInterests(b,ballot[b.id],owned).filter(op=>!detailed||includeOffBanner||!b.returningOperators?.includes(op.name));
-  const tags=stamped||(detailed&&detailedStamps);
+  const tags=stamped||detailed;
   const description=answered.map(b=>`${bannerTitle(b)}: ${tags?STAMP_LABELS[stampKey(ballot[b.id],b,portraits,owned) as Stamp]:pullIntent(ballot[b.id])}${detailed?`; ${planned(b).map(op=>op.interest==='maybe'?`Maybe ${op.label}`:op.label).join(', ')}`:''}`).join('. ');
 
   useEffect(()=>{
@@ -50,8 +50,7 @@ export default function PullPollShareImage({banners:initialBanners,ballot:initia
         const art=images.get(artPath(b)??''),artHeight=art?Math.ceil((artWidth-8)*art.naturalHeight/art.naturalWidth)+8:250;
         const operators=detailed?planned(b):[];
         const slotHeight=operators.some(op=>measure.measureText(op.label).width>174)?194:166;
-        const symbolHeading=!detailedStamps&&pullIntent(ballot[b.id])==='maybe';
-        return {banner:b,operators,slotHeight,rowHeight:Math.max(artHeight,operators.length?(symbolHeading?62:24)+Math.ceil(operators.length/3)*slotHeight:0)};
+        return {banner:b,operators,slotHeight,rowHeight:Math.max(artHeight,operators.length?24+Math.ceil(operators.length/3)*slotHeight:0)};
       });
       const headerHeight=150,footerHeight=52,height=headerHeight+rows.reduce((sum,row)=>sum+row.rowHeight,0)+footerHeight;
       canvas.current.height=height;
@@ -84,7 +83,7 @@ export default function PullPollShareImage({banners:initialBanners,ballot:initia
       c.fillStyle=bg;c.fillRect(0,0,1200,height);
       label('ARKNIGHTS // PULL PLAN',24,72,'700 64px Rajdhani',text);
       label('arkpedia.net/polls/pull-or-skip',24,122,'28px "JetBrains Mono"',teal);
-      if(detailed&&showLegend){
+      if(showLegend){
         for(const [index,item] of [{text:'Pull',color:teal},{text:'Maybe',color:amber},{text:'Skip',color:danger}].entries()){
           const x=800+index*128;c.fillStyle=item.color;c.fillRect(x,52,24,24);
           label(item.text,x+34,73,'700 26px Rajdhani',text);
@@ -99,11 +98,10 @@ export default function PullPollShareImage({banners:initialBanners,ballot:initia
         if(!draw(artPath(b),4,y+4,artWidth-8,rowHeight-8,v==='skip'&&tags))label(bannerTitle(b),20,y+rowHeight/2,'700 25px Rajdhani',dim,artWidth-40);
         if(stamped){drawStamp(b,y,rowHeight);return;}
         if(!detailed){verdict(choice,(artWidth+1200)/2,y+rowHeight/2,v==='pull'?80:v==='maybe'?Math.min(240,rowHeight*1.15):Math.min(180,rowHeight*.9),accent);return;}
-        if(detailedStamps)drawStamp(b,y,rowHeight);
-        else if(v!=='pull')verdict(choice,(artWidth+1200)/2,y+(operators.length?28:rowHeight/2),v==='maybe'?(operators.length?160:Math.min(220,rowHeight*1.15)):Math.min(160,rowHeight*.9),accent);
+        drawStamp(b,y,rowHeight);
         const cols=3,size=128;
         operators.forEach((op,j)=>{
-          const slot=artWidth+24+(j%cols)*184,px=slot+24,py=y+(!detailedStamps&&v==='maybe'?56:18)+Math.floor(j/cols)*slotHeight;
+          const slot=artWidth+24+(j%cols)*184,px=slot+24,py=y+18+Math.floor(j/cols)*slotHeight;
           c.fillStyle=well;c.fillRect(px,py,size,size);if(!draw(portraits[op.name]?.icon,px,py,size,size))label(op.name.slice(0,2),px+22,py+82,'700 46px Rajdhani',dim);
           c.font='700 30px Rajdhani';
           const words=op.label.split(' ');let first=words.shift()??'';
@@ -120,7 +118,7 @@ export default function PullPollShareImage({banners:initialBanners,ballot:initia
     return()=>{disposed=true;clearTimeout(timer);abort.abort();};
   // Rebuild for the selected image format or an explicit retry; the dialog owns this snapshot.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  },[retry,display,bannerStamps,detailedStamps,includeOffBanner,showLegend]);
+  },[retry,display,bannerStamps,includeOffBanner,showLegend]);
   const blob=()=>new Promise<Blob>((resolve,reject)=>canvas.current?.toBlob(value=>value?resolve(value):reject(Error('Image export is unavailable.')),'image/png'));
   async function save(copy:boolean){try{
     if(copy){if(!navigator.clipboard?.write||typeof ClipboardItem==='undefined')throw Error('Copy image is unavailable in this browser. Download the PNG instead.');await navigator.clipboard.write([new ClipboardItem({'image/png':blob()})]);setMessage('Image copied.');}
@@ -128,14 +126,12 @@ export default function PullPollShareImage({banners:initialBanners,ballot:initia
   }catch(e){setMessage(e instanceof Error?e.message:'Image export failed. Please try again.');}}
   return <ImportDialog title="My pull plan" className={styles.imageDialog} onClose={onClose}>
     <SegmentedControl label="Share image display" value={display} onChange={setDisplay} options={[{value:'simple',label:'Simple'},{value:'detailed',label:'Detailed'}]}/>
-    {!detailed&&<label className="check"><input type="checkbox" checked={bannerStamps} onChange={e=>setBannerStamps(e.target.checked)}/>Banner art with stamps</label>}
-    {detailed&&<div className={styles.imageOptions}>
-      <label className="check"><input type="checkbox" checked={includeOffBanner} onChange={e=>setIncludeOffBanner(e.target.checked)}/>Include off-banner limited operators</label>
-      <label className="check"><input type="checkbox" checked={detailedStamps} onChange={e=>setDetailedStamps(e.target.checked)}/>Show banner stamps</label>
+    <div className={styles.imageOptions}>
+      {detailed?<label className="check"><input type="checkbox" checked={includeOffBanner} onChange={e=>setIncludeOffBanner(e.target.checked)}/>Include off-banner limited operators</label>:<label className="check"><input type="checkbox" checked={bannerStamps} onChange={e=>setBannerStamps(e.target.checked)}/>Banner art with stamps</label>}
       <label className="check"><input type="checkbox" checked={showLegend} onChange={e=>setShowLegend(e.target.checked)}/>Show legend</label>
-    </div>}
+    </div>
     <div ref={stampStyles} className="visually-hidden" aria-hidden="true">{(Object.keys(STAMP_LABELS) as Stamp[]).map(value=><VerdictStamp key={value} value={value}/>)}</div>
-    <canvas data-legend={detailed&&showLegend?'visible':'hidden'} data-display={stamped?'stamps':detailed&&detailedStamps?'detailed-stamps':display} ref={canvas} width="1200" height="400" aria-describedby={descriptionId} className={styles.imageCanvas} role="img" aria-label={`Your pull plan share image with ${answered.length} answered banners`}/>
+    <canvas data-legend={showLegend?'visible':'hidden'} data-display={stamped?'stamps':detailed?'detailed-stamps':display} ref={canvas} width="1200" height="400" aria-describedby={descriptionId} className={styles.imageCanvas} role="img" aria-label={`Your pull plan share image with ${answered.length} answered banners`}/>
     <p id={descriptionId} className="visually-hidden">{description}</p>
     <div className={styles.imageActions}><span className="hint" role="status">{message}</span>
       <button className="primary btn-sm" disabled={!ready} onClick={()=>void save(false)}>Download PNG</button><button className="ghost btn-sm" disabled={!ready} onClick={()=>void save(true)}>Copy image</button><button className="ghost btn-sm" onClick={()=>setRetry(value=>value+1)}>Retry artwork</button></div>
