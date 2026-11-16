@@ -5,6 +5,12 @@ on:
     types: [opened]
     paths: ['scripts/sync/jev-video-classifier.ts']
   workflow_dispatch:
+    inputs:
+      mode:
+        description: 'Dry thumbnail check, or paid evaluation: 20 metadata / 4 image calls. Paid modes require an authorized budget.'
+        type: choice
+        options: [metadata, thumbnail-dry-run, thumbnails]
+        default: thumbnail-dry-run
 permissions:
   contents: read
 jobs:
@@ -20,13 +26,25 @@ jobs:
           cache: npm
       - run: npm ci
       - name: Evaluate the labeled public metadata (20 calls)
+        if: github.event_name != 'workflow_dispatch' || inputs.mode == 'metadata'
         env:
           TYPESAFE_API_KEY: ${{ secrets.TYPESAFE_API_KEY }}
         run: node --import tsx scripts/audits/evaluate-youtube-topics.ts
+      - name: Validate public thumbnail inputs (no TypeSafe calls)
+        if: github.event_name == 'workflow_dispatch' && inputs.mode == 'thumbnail-dry-run'
+        run: node --import tsx scripts/audits/evaluate-youtube-thumbnails.ts
+      - name: Probe experimental public thumbnails (at most 4 calls; never publish)
+        if: github.event_name == 'workflow_dispatch' && inputs.mode == 'thumbnails'
+        env:
+          TYPESAFE_API_KEY: ${{ secrets.TYPESAFE_API_KEY }}
+          JEV_THUMBNAIL_CALL_BUDGET: '4'
+        run: node --import tsx scripts/audits/evaluate-youtube-thumbnails.ts --live
       - name: Save exact public requests and answers
         if: always()
         uses: actions/upload-artifact@v7
         with:
           name: jev-evaluation
-          path: jev-evaluation.json
+          path: |
+            jev-evaluation.json
+            jev-thumbnail-evaluation/
           if-no-files-found: ignore
