@@ -43,3 +43,12 @@ test('nightly audit uses pinned Check inputs and never uploads deployment approv
   for(const job of Object.values(audit))for(const step of job.steps??[])
     assert.ok(!String(step.with?.name??'').startsWith('checked-'),'an audit cannot approve deployment');
 });
+
+test('the isolated content job creates its own live runtime fixture before using pinned browser records',()=>{
+  const steps=jobs['content-check'].steps;
+  const index=name=>steps.findIndex(s=>s.name===name);
+  assert.match(steps[index('Prepare runtime content fixture')].run,/content:export -- --check && npm run content:validate/);
+  assert.ok(index('Pull the live game records for runtime fixtures')<index('Prepare runtime content fixture'));
+  assert.ok(index('Prepare runtime content fixture')<index('Pull the pinned game records for the browser specs'));
+  assert.ok(index('Prepare runtime content fixture')<index('Content updates and rollback without rebuilding'));
+});

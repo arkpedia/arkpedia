@@ -204,6 +204,13 @@ jobs:
           cache: npm
           package-manager-cache: true
       - run: npm ci
+      - name: Pull the live game records for runtime fixtures
+        run: node scripts/content/pull-data.mjs
+      - name: Prepare runtime content fixture
+        run: npm run content:export -- --check && npm run content:validate
+        env:
+          NODE_ENV: production
+          ARKPEDIA_CONTENT_DISABLED: '1'
       - name: Pull the pinned game records for the browser specs
         run: node scripts/content/pull-data.mjs --pinned
       - name: Prepare pinned browser build inputs
