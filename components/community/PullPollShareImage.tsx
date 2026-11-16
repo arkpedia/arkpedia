@@ -62,7 +62,7 @@ export default function PullPollShareImage({banners:initialBanners,ballot:initia
       const centeredLabel=(value:string,x:number,y:number,font:string,color:string)=>{c.save();c.textAlign='center';c.textBaseline='middle';label(value,x,y,font,color);c.restore();};
       const verdict=(value:string,x:number,y:number,size:number,color:string)=>{
         if(value==='PULL'){centeredLabel(value,x,y,`700 ${size}px Rajdhani`,color);return;}
-        c.save();c.font=`700 ${size}px Rajdhani`;c.fillStyle=color;c.textAlign='left';c.textBaseline='alphabetic';
+        c.save();c.font=`700 ${value==='X'?size*.75:size}px Rajdhani`;c.fillStyle=color;c.textAlign='left';c.textBaseline='alphabetic';
         const bounds=c.measureText(value);c.fillText(value,x+(bounds.actualBoundingBoxLeft-bounds.actualBoundingBoxRight)/2,y+(bounds.actualBoundingBoxAscent-bounds.actualBoundingBoxDescent)/2);c.restore();
       };
       const draw=(path:string|null|undefined,x:number,y:number,w:number,h:number,grey=false)=>{const image=path?images.get(path):undefined;if(!image)return false;const scale=Math.min(w/image.naturalWidth,h/image.naturalHeight);c.save();if(grey){c.filter='grayscale(1)';c.globalAlpha=.45;}c.drawImage(image,x+(w-image.naturalWidth*scale)/2,y+(h-image.naturalHeight*scale)/2,image.naturalWidth*scale,image.naturalHeight*scale);c.restore();return true;};
