@@ -12,6 +12,7 @@
   "/skin-planner",
   "/free-op",
   "/story",
+  "/story/read",
   "/manga",
   "/schedule",
   "/events/[slug]",

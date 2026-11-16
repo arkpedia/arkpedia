@@ -40,7 +40,7 @@ test('the shipped library has all eight reading categories, unique deep links, a
   assert.ok(entries.filter(e => !onMap.has(e.id)).length > 800, 'canvas membership must never limit the catalogue');
   assert.equal(new Set(entries.map(e => e.id)).size, entries.length);
   for (const entry of entries) {
-    assert.equal(entry.url, `https://arknights.timo.beer/story.html#${entry.category}&${entry.id}&0`);
+    assert.equal(entry.url, entry.id.startsWith('native_') ? `/story/read?chapter=${entry.id.slice(7)}` : `https://arknights.timo.beer/story.html#${entry.category}&${entry.id}&0`);
     const rows = chapters[entry.id] ?? [];
     assert.equal(new Set(rows.map(s => s[0])).size, rows.length, entry.id);
     assert.ok(rows.every(s => Number.isInteger(s[0]) && s[0] >= 0), entry.id);
