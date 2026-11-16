@@ -5,13 +5,14 @@ import { VIDEO_TOPICS, type VideoTopic } from '../../lib/music/youtubeDiscovery'
 /** Keep the taxonomy, question, and acceptance policy together for review. */
 export const VIDEO_TOPIC_CRITERIA: Record<VideoTopic, string> = {
   news: 'News, announcements, schedules, patch details, future content previews and summaries. Cinematic promotional trailers belong in media.',
-  discussions: 'Opinions, reactions, essays, tier-list debates and community discussions about Arknights.',
+  discussions: 'Opinions, reactions, essays, probability or RNG analysis, tier-list debates and community discussions about Arknights. Also general resource planning, free-pull income explanations and community tool overviews such as pull tracking. A timely official announcement belongs in news.',
   operators: 'Operator skill demonstrations, character comparisons, analysis and advice about building or obtaining operators. A list of operator names can title a showcase. Not a review of the whole game.',
-  guides: 'Stage clears, AFK strategies, walkthroughs and practical help completing stages or game modes.',
+  guides: 'Instructional stage-clearing or event guides: reproducible strategies, AFK walkthroughs, low-rarity tutorials, event mechanics and event farming help. General account resources, free-pull counts and community tools belong in discussions. Run showcases and challenges without instructional guidance belong in clears.',
+  clears: 'Actual stage clears, combat run showcases, solos, duos, niche-team challenges and game-mode runs. Instructional walkthroughs belong in guides. Essays or probability analysis using battle clips as examples belong in discussions.',
   skins: 'Outfit, costume or skin demonstrations and comparisons. An alternate playable operator is not an outfit.',
   media: 'Official cinematic trailers and teasers, promotional videos, music, voice lines, animation and fan art videos.',
   reviews: 'Reviews and retrospectives evaluating Arknights as a whole game, including whether to start playing. Not reviews of individual operators.',
-  gameplay: 'Other gameplay, challenges, summoning, gacha pulls and entertainment built around playing the game.',
+  pulls: 'Actual summoning sessions, gacha rolls, banner pulling and pull results. Advice on obtaining or building an operator belongs in operators. Free-pull income, saving plans and pull-tracking tools belong in discussions; event-specific reward instructions belong in guides.',
   other: 'Insufficient evidence to identify a main topic, or content that fits none of these categories.',
 };
 export const DEFAULT_JEV_MODEL = 'jev-latest';

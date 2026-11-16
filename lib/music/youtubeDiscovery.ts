@@ -6,15 +6,20 @@ export const VIDEO_TOPICS = [
   { value: 'news', label: 'News' },
   { value: 'discussions', label: 'Discussions' },
   { value: 'operators', label: 'Operator analyses' },
-  { value: 'guides', label: 'Guides & clears' },
+  { value: 'guides', label: 'Guides' },
+  { value: 'clears', label: 'Stage clears' },
   { value: 'skins', label: 'Skin showcases' },
   { value: 'media', label: 'Music & media' },
   { value: 'reviews', label: 'Game reviews' },
-  { value: 'gameplay', label: 'Gameplay & pulls' },
+  { value: 'pulls', label: 'Pulls' },
   { value: 'other', label: 'Other' },
 ] as const;
 export type VideoTopic = typeof VIDEO_TOPICS[number]['value'];
-export const discoveryVideoTopic = (video: YouTubeVideo) => video.topicHint ?? video.classifiedTopic ?? videoTopic(video.title);
+export const discoveryVideoTopic = (video: YouTubeVideo): VideoTopic => {
+  // Old published pages can still carry the retired combined gameplay category.
+  for (const topic of [video.topicHint, video.classifiedTopic]) if (VIDEO_TOPICS.some(item => item.value === topic)) return topic as VideoTopic;
+  return videoTopic(video.title);
+};
 export const filterDiscoveryVideos = (videos: YouTubeVideo[]) => videos.filter(video => !isBannedContent(video.title)
   && (mentionsArknights(video.title) || (video.archived && video.operatorNames?.length)));
 
@@ -23,12 +28,20 @@ export const filterDiscoveryVideos = (videos: YouTubeVideo[]) => videos.filter(v
 export function videoTopic(title: string): VideoTopic {
   if (/\b(skins?|outfits?|costumes?|live\s?2d|l2d)\b|皮肤|時装|スキン|스킨/i.test(title)) return 'skins';
   if (/\b(song|music|bgm|ost|soundtrack|theme|cover|remix|voice[\s-]?lines?|amv|mmd|animation|animated|animatic|pv|ep|trailer|teaser)\b|音楽|歌曲|音乐|ボイス集|语音|語音|애니메이션/i.test(title)) return 'media';
-  if (/\b(guide|tutorial|walkthrough|afk|low[ -]?(?:end|rarity|stars?)|clear|annihilation|how to)\b|\b[a-z]{1,4}-\d+(?:-\d+)?\b|攻略|공략/i.test(title)) return 'guides';
+  const stage = /\b[a-z]{1,4}(?:-[a-z]{1,3})?-\d+(?:-\d+)?\b|(?<![\d-])\b\d{1,2}-\d+\b(?!-\d)/i.test(title);
+  const combat = stage || /\b(stage|event|annihilation|stronghold protocol|integrated strategies|contingency contract|reclamation algorithm)\b|\b(?:is|cc|ccb)\s*#?\d+\b|\brisk\s*\d+\b|剿灭|殲滅|危機契約/i.test(title);
+  if (combat && /\b(guide|tutorial|walkthrough|afk|low[ -]?(?:end|rarity|stars?)|how to)\b|攻略|공략/i.test(title)) return 'guides';
   if (/\b(?:game review|reviewing arknights|arknights review|retrospective|worth (?:playing|starting)|should you (?:play|start))\b/i.test(title)) return 'reviews';
   if (/\b(news|announcement|announced|update|patch|maintenance|schedule|coming soon|revealed)\b|速報|공지|업데이트/i.test(title)) return 'news';
-  if (/\b(?:operators?|analysis|analyses|analyzing|analysing|should you (?:pull|save|(?:get and )?build)|pull or skip|worth pulling|is (?:she|he|this operator).*(?:good|bad|worth)|why.*(?:underpowered|overpowered)|explaining why.*(?:bad|good)|skill\s*[123]|s[123]\s*(?:lv\s*\d+|m[0-3]))\b/i.test(title)) return 'operators';
+  if (/\b(?:operator (?:review|analysis)|should you (?:pull|save|(?:get and )?build)|pull or skip|worth pulling|is (?:she|he|this operator).*(?:good|bad|worth)|why.*(?:underpowered|overpowered)|explaining why.*(?:bad|good)|skill\s*[123]|s[123]\s*(?:lv\s*\d+|m[0-3]))\b/i.test(title)) return 'operators';
+  const resources = /\b(?:track(?:ing)?|tracker|planner|planning|calculator)\b.*\b(?:pulls?|summons?|gacha)\b/i.test(title)
+    || (/\bfree\s+pulls\b/i.test(title) && /\b(?:get|earn|farm|obtain|available|new players?|saving|income|counting)\b/i.test(title));
+  if (resources) return 'discussions';
   if (/\b(discussion|opinion|thoughts|reaction|reacts|rant|talking|let'?s talk|explained|explaining|drama|hardest|easiest)\b/i.test(title)) return 'discussions';
-  if (/\b(gameplay|challenge|solo|duo|pulls|pulling|summoning|summons|gacha|integrated strategies)\b|\b(?:is|cc|ccb)\s*#?\d+\b|\brisk\s*\d+\b/i.test(title)) return 'gameplay';
+  if (/\b(pulls|pulling|summoning|summons)\b|\bgacha\b.*\b(session|results?|rolls?)\b/i.test(title)) return 'pulls';
+  if (stage || /\b(clears?|challenge|solo|duo|integrated strategies)\b|\b(?:is|cc|ccb)\s*#?\d+\b|\brisk\s*\d+\b/i.test(title)) return 'clears';
+  if (/\b(rng|probability|probabilities|rarest|odds|statistics)\b/i.test(title)) return 'discussions';
+  if (/\b(?:operators?|analysis|analyses|analyzing|analysing)\b/i.test(title)) return 'operators';
   return 'other';
 }
 
