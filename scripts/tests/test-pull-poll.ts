@@ -5,7 +5,7 @@ import fs from 'node:fs';
 import { DatabaseSync } from 'node:sqlite';
 import type { D1Database } from '@cloudflare/workers-types';
 import type { NextApiRequest, NextApiResponse } from 'next';
-import { bannerChoice, decodeBallot, encodeBallot, importGoals, parseBallot, pollBanners, setBannerChoice, stampKey, constrainOwned, activePollBanners, currentBallot, type PollBanner } from '../../lib/polls/pull-poll';
+import { bannerChoice, decodeBallot, encodeBallot, importGoals, parseBallot, pollBanners, setBannerChoice, stampKey, constrainOwned, activePollBanners, currentBallot, pullIntent, type PollBanner } from '../../lib/polls/pull-poll';
 import type { UpcomingBanner } from '../../lib/pulls/pulls';
 import type { HeadhuntingBanner } from '../../lib/gacha/headhuntingBanners';
 import { pullPoll } from '../../lib/polls/pull-poll-api';
@@ -169,4 +169,8 @@ test('owned target potentials round-trip as additional planner copies',async()=>
   const plan=pollIntoPlanner({...emptyPullPlan(),orundum:'5000'},ballot,banners,owned);
   assert.deepEqual(plan.goals[0].targets,[{name:'Exusiai',copies:1}]);assert.equal(plan.orundum,'5000');
   assert.deepEqual(plannerIntoPoll(ballot,plan,banners,owned),ballot);
+});
+
+test('compact share intentions classify partial Maybe/Skip plans without inventing a Pull',()=>{
+  assert.equal(pullIntent({Exusiai:0,Texas:-1}),'maybe');assert.equal(pullIntent({Texas:0}),'skip');assert.equal(pullIntent({Exusiai:2,Texas:-1}),'pull');assert.equal(pullIntent({}),'');
 });

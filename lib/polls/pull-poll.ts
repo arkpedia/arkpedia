@@ -53,6 +53,10 @@ export function parseBallot(value: unknown, banners: readonly PollBanner[]): Bal
   }
   return result;
 }
+/** A compact plan uses the same Pull/Maybe/Skip meaning as public results. */
+export function pullIntent(choices:Record<string,Want>|undefined):'pull'|'maybe'|'skip'|''{
+  const values=Object.values(choices??{});return values.some(w=>w>0)?'pull':values.includes(-1)?'maybe':values.length?'skip':'';
+}
 export function bannerChoice(choices: Record<string, Want> | undefined, banner: PollBanner,owned:OwnedPotentials={}): string {
   if (!choices) return '';
   const values = banner.operators.length ? banner.operators.map(name=>choices[name]) : [choices[BANNER_INTENT]];

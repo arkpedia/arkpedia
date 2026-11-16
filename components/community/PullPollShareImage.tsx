@@ -5,7 +5,7 @@ import {useContentUrl} from '@/lib/content/context';
 import {applicationBannerArt} from '@/lib/polls/pull-poll-art';
 import {assetUrl,encodeAssetPath} from '@/lib/assets/assetUrl';
 import {loadAssetImage} from '@/lib/assets/assetRetry';
-import {bannerChoice,type Ballot,type PollBanner,type PollPortrait,type OwnedPotentials} from '@/lib/polls/pull-poll';
+import {bannerChoice,pullIntent,type Ballot,type PollBanner,type PollPortrait,type OwnedPotentials} from '@/lib/polls/pull-poll';
 import {bannerTitle} from './PullPollVisuals';
 import styles from './PullPoll.module.css';
 
@@ -38,7 +38,7 @@ export default function PullPollShareImage({banners:initialBanners,ballot:initia
       for(const [i,choice] of ['Pull','Maybe','Skip'].entries()){const x=780+i*130;c.fillStyle=[teal,amber,danger][i];c.fillRect(x,25,118,48);label(choice,x+16,57,'700 24px Rajdhani',bg);}
       c.lineWidth=2;c.strokeStyle=line;
       shown.forEach((b,i)=>{
-        const y=120+i*rowHeight,v=bannerChoice(ballot[b.id],b,owned),choice=v==='maybe'?'Maybe':v==='skip'?'Skip':'Pull',accent=choice==='Maybe'?amber:choice==='Skip'?danger:teal;
+        const y=120+i*rowHeight,v=pullIntent(ballot[b.id]),choice=v==='maybe'?'Maybe':v==='skip'?'Skip':'Pull',accent=choice==='Maybe'?amber:choice==='Skip'?danger:teal;
         c.fillStyle=panel;c.fillRect(0,y,1200,rowHeight);c.strokeRect(1,y,1198,rowHeight);c.beginPath();c.moveTo(500,y);c.lineTo(500,y+rowHeight);c.stroke();
         if(!draw(artPath(b),4,y+4,492,rowHeight-8))label(bannerTitle(b),20,y+rowHeight/2,'700 25px Rajdhani',dim,460);
         if(!detailed){label(choice,550,y+155,'700 64px Rajdhani',accent);return;}
