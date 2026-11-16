@@ -1,4 +1,5 @@
 import { loadAllEventYears } from '@/lib/events/loadEventsData';
+import { communityOperators } from '@/lib/community/catalogues';
 import PageAudio from '@/components/music/PageAudio';
 import { useReleaseTable } from '@/lib/content/context';
 import { eventMusicId, type PageMusicTable } from '@/lib/music/pageMusic';
@@ -46,7 +47,7 @@ import Rarity from '@/components/ui/Rarity';
 import InfoPopover from '@/components/ui/InfoPopover';
 import { LazyOperatorPreview } from '@/components/operators/LazyOperatorPreview';
 import type { OperatorPreviewItem } from '@/components/operators/OperatorPreview';
-import { allFreeRewards, eventRewardOperators, eventWelfareOperators, withWelfareEventLinks, type EventWelfareOperator, type FreeReward } from '@/lib/pulls/freeRewards';
+import { allFreeRewards, canonicalEventWelfare, eventRewardOperators, eventWelfareOperators, withWelfareEventLinks, type EventWelfareOperator, type FreeReward } from '@/lib/pulls/freeRewards';
 import { computeRewardTotals, stockLimit, type ResolvedRewardItem, type ResolvedRewardStore, type RewardTotal } from '@/lib/events/rewardTotals';
 import { eventExtras, furniturePieceSource, NO_EXTRAS, tableRewardStores, type EventExtras, type EventRewardsFile } from '@/lib/events/tableRewards';
 import { ALL_TAB, eventLink, EXTRA_TABS, readEventLink, rewardTabsFor, shownRewardTab } from '@/lib/events/rewardTabs';
@@ -537,17 +538,21 @@ export const getStaticPaths: GetStaticPaths = async () => {
 
 /** A page from a release compiled before the Operators tab has no welfare or reward operators:
  *  the welfare ones are the Reward Tracker's published rows linked to this page (the same rows
- *  the page's own compile reads), the reward ones its own reward lists'. A release compiled by
- *  this code carries both, and they are kept. */
+ *  the page's own compile reads), the reward ones its own reward lists'. Resolve legacy display
+ *  names through the tracker IDs before removing duplicate reward operators. */
 async function withEventOperators(props: Props): Promise<Props> {
+  const needsTracker = !props.welfareOperators || props.welfareOperators.some(op => !op.characterId);
+  const tracker = needsTracker ? await readPublishedContentPageProps<{ freeRewards?: FreeReward[] }>('/free-op').catch(() => null) : null;
+  const rewards = tracker?.freeRewards ?? [];
   let welfareOperators = props.welfareOperators;
   if (!welfareOperators) {
-    const tracker = await readPublishedContentPageProps<{ freeRewards?: FreeReward[] }>('/free-op').catch(() => null);
     // Rows from before welfare rows carried their page are linked by their event's title, as the
     // Reward Tracker links them (withWelfareEventLinks), against this page's event.
-    welfareOperators = eventWelfareOperators(withWelfareEventLinks(tracker?.freeRewards ?? [], [{ name: props.name }]), `/events/${encodeURIComponent(props.name)}`);
+    welfareOperators = eventWelfareOperators(withWelfareEventLinks(rewards, [{ name: props.name }]), `/events/${encodeURIComponent(props.name)}`);
   }
-  return { ...props, welfareOperators, rewardOperators: props.rewardOperators ?? eventRewardOperators(props.rewardStores, welfareOperators) };
+  welfareOperators = canonicalEventWelfare(welfareOperators, rewards, welfareOperators.length ? await communityOperators() : []);
+  // Recompute after resolving identity, including already-published duplicate lists.
+  return { ...props, welfareOperators, rewardOperators: eventRewardOperators(props.rewardStores, welfareOperators) };
 }
 
 function withNewsArt(props: Props): Props {
@@ -574,7 +579,8 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/ev
   const banner = getBannerForEvent(event.name, event.isPredicted ? null : event.dateRange, getAllHeadhuntingBanners());
   const featuredOperators = banner ? getFeaturedOperatorRates(banner) : [];
   const free = (await import('@/data/free-rewards.json')).default as unknown as { rewards: FreeReward[]; beginnerRewards?: FreeReward[] };
-  const welfareOperators = eventWelfareOperators(withWelfareEventLinks(allFreeRewards(free), listings), `/events/${encodeURIComponent(event.name)}`);
+  const freeRewards = allFreeRewards(free);
+  const welfareOperators = canonicalEventWelfare(eventWelfareOperators(withWelfareEventLinks(freeRewards, listings), `/events/${encodeURIComponent(event.name)}`), freeRewards, await communityOperators());
 
   const allSkins = getAllSkins();
   const skins = eventSkins(event.name, allSkins, listings.map((e) => e.name), { confirmed, rotations });

@@ -431,11 +431,19 @@ jobs:
       - name: Restore checked browser site
         run: node scripts/ci/browser-site.mjs restore
       - name: Download browser shard evidence
-        if: needs.browser-build.outputs.lane != 'none'
+        if: needs.browser-build.outputs.lane == 'full'
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
         with:
           pattern: browser-result-${{ needs.browser-build.outputs.partition }}-*
           path: .cache/browser-shard-downloads
+      # download-artifact flattens a single match into `path`, even for a pattern.
+      # Preserve the merger's named-shard contract for the targeted lane too.
+      - name: Download single browser shard evidence
+        if: needs.browser-build.outputs.lane == 'targeted'
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
+        with:
+          name: browser-result-${{ needs.browser-build.outputs.partition }}-1
+          path: .cache/browser-shard-downloads/browser-result-${{ needs.browser-build.outputs.partition }}-1
       - name: Merge browser shard evidence
         if: needs.browser-build.outputs.lane != 'none'
         run: node scripts/ci/browser-shards.mjs merge
