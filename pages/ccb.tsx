@@ -5,89 +5,108 @@ import type { GetStaticProps } from 'next';
 import { useState } from 'react';
 import { ContentImg } from '@/components/content/ContentImage';
 import PageHeader from '@/components/ui/PageHeader';
-import StyledSelect from '@/components/ui/StyledSelect';
-import SegmentedControl from '@/components/ui/SegmentedControl';
+import RecordDialog from '@/components/ui/RecordDialog';
+import EnemyRecord from '@/components/enemies/EnemyRecord';
+import SeasonHub from '@/components/ccb/SeasonHub';
+import { CCB_TEXT as T } from '@/components/ccb/strings';
 import { useHeightFloor } from '@/components/ui/useHeightFloor';
 import OperatorComparison from '@/components/ccb/OperatorComparison';
 import ContractBoard from '@/components/ccb/ContractBoard';
 import StatComparison from '@/components/ccb/StatComparison';
-import { activeModifierSummaries, board, modifiedStats, replacementId, resolvedDescription, toggleContract } from '@/lib/ccb/modifiers';
-import type { BattleplanData, Contract } from '@/lib/ccb/types';
+import { contractSummary, groupComplete, totalRisk, activeModifierSummaries, board, modifiedStats, replacementId, resolvedDescription, toggleContract } from '@/lib/ccb/modifiers';
+import type { BattleplanData, BattleplanEnemy, Contract } from '@/lib/ccb/types';
 import styles from '@/components/ccb/Battleplan.module.css';
 
-export default function BattleplanPage({ seasons, operators, source }: BattleplanData) {
+export default function BattleplanPage({ seasons, operators, operatorIcons, source }: BattleplanData) {
   const [seasonId, setSeason] = useState(seasons[0].id);
   const season = seasons.find(row => row.id === seasonId) ?? seasons[0];
   const [mapId, setMap] = useState(seasons[0].maps.find(row => row.main)!.id);
-  const [mode, setMode] = useState<'main' | 'rotation'>('main');
+  const [focused, setFocused] = useState<Contract | null>(null);
   const [selections, setSelections] = useState<Record<string, string[]>>({});
   const [enemyId, setEnemy] = useState('');
+  const [mapOpen, setMapOpen] = useState(false);
+  const [handbook, setHandbook] = useState<BattleplanEnemy | null>(null);
   const identity = `${seasonId}/${mapId}`;
   const floor = useHeightFloor('ccb');
   const map = season.maps.find(row => row.id === mapId) ?? season.maps[0];
+  const details = map.details;
   const all = map.groups.flatMap(group => group.contracts);
   const selected = selections[identity] ?? [];
   const active = all.filter(contract => selected.includes(contract.id));
-  const names = Object.fromEntries([...map.details.enemies, ...map.details.variants].map(enemy => [enemy.id, enemy.name]));
+  const names = Object.fromEntries([...(details?.enemies ?? []), ...(details?.variants ?? [])].map(enemy => [enemy.id, enemy.name]));
   const summaries = activeModifierSummaries(active, names);
   const hiddenGroups = new Set(active.flatMap(contract => contract.effects.filter(effect => effect.key === 'level_hidden_group_enable').map(effect => String(board(effect).key))));
-  const enemies = map.details.enemies.filter(enemy => !enemy.conditional || !enemy.hiddenGroups.length || enemy.hiddenGroups.some(group => hiddenGroups.has(group)));
-  const enemy = enemies.find(row => row.id === enemyId) ?? enemies[0];
+  // The whole roster of the map is listed; the ones a contract has not switched on are marked, not hidden.
+  const enemies = details?.enemies ?? [];
+  const fielded = (row: BattleplanEnemy) => !row.conditional || !row.hiddenGroups.length || row.hiddenGroups.some(group => hiddenGroups.has(group));
+  const enemy = enemies.find(row => row.id === enemyId) ?? enemies.find(fielded) ?? enemies[0];
   const replacedId = enemy ? replacementId(enemy.id, active) : '';
-  const replacedEnemy = replacedId !== enemy?.id ? map.details.variants.find(row => row.id === replacedId) : undefined;
+  const replacedEnemy = replacedId !== enemy?.id ? details?.variants.find(row => row.id === replacedId) : undefined;
   const combatEnemy = replacedEnemy ?? enemy;
-  const score = active.reduce((total, row) => total + row.score, 0);
+  const score = totalRisk(map.groups, selected);
+  const bonuses = map.groups.filter(group => group.bonus && groupComplete(group, selected));
+  const shownFocus = focused && all.some(row => row.id === focused.id) ? focused : null;
   function select(contract: Contract) { setSelections(current => ({ ...current, [identity]: toggleContract(current[identity] ?? [], contract, all) })); }
-  function changeMode(value: 'main' | 'rotation') {
-    setMode(value);
-    const target = season.maps.find(row => row.main === (value === 'main'));
-    if (target) setMap(target.id);
-  }
+  const facts = details ? [[T.life, details.battle.life], [T.deployLimit, details.battle.deployment], [T.initialDp, details.battle.initialDp], [T.dpRecovery, details.battle.dpRecovery]].filter(row => row[1] != null) : [];
   return <>
-    <PageMeta title="CCB Helper" description="Select Contingency Contract Battleplan maps and contracts, then compare original and modified operator and enemy stats." noindex />
-    <PageHeader slim eyebrow={<><ModeMark name="contingency-contract.svg" className="head-mark" />Contingency Contract // Battle preparation</>} title="CCB Helper" sub="Choose a battlefield, select contracts, and inspect their effects." />
+    <PageMeta title={T.title} description="Select Contingency Contract Battleplan maps and contracts, then compare original and modified operator and enemy stats." noindex />
+    <PageHeader slim eyebrow={<><ModeMark name="contingency-contract.svg" className="head-mark" />{T.eyebrow}</>} title={T.title} sub={T.sub} />
     <main className={styles.workspace} ref={floor.ref}>
-      <Link className="btn" href="/game-modes">← Game Modes</Link>
-      <div className={styles.toolbar}>
-        <StyledSelect label="CCB season" value={season.id} options={seasons.map(row => ({ value: row.id, label: `CCB #${row.number} · ${row.name}` }))} onChange={value => {
-          const next = seasons.find(row => row.id === value)!;
-          setSeason(value); setMap((next.maps.find(row => row.main === (mode === 'main')) ?? next.maps[0]).id);
-        }} />
-        <SegmentedControl label="Map type" value={mode} onChange={changeMode} options={[{ value: 'main', label: 'Main map' }, { value: 'rotation', label: 'Rotational maps' }]} />
-        <span className={styles.archiveLabel}>CN archive · CCB #1–4</span>
-      </div>
-      <div className={styles.maps} role="group" aria-label="Battlefields">
-        {season.maps.filter(row => row.main === (mode === 'main')).map(choice => <button type="button" className={`btn-bare ${styles.mapCard}`} aria-pressed={choice.id === mapId} key={choice.id} onClick={() => setMap(choice.id)}>
-          {choice.details.preview && <ContentImg src={choice.details.preview} alt="" width={200} height={112} />}
-          <span><span className={styles.mapArea}>{choice.area}</span><strong>{choice.name}</strong>{choice.name !== choice.originalName && <span lang="zh-CN" className={styles.mapOriginal}>{choice.originalName}</span>}</span>
-        </button>)}
-      </div>
+      <Link className="btn" href="/game-modes">{T.back}</Link>
+      <SeasonHub seasons={seasons} season={season} map={map} onMap={setMap} onSeason={value => {
+        const next = seasons.find(row => row.id === value)!;
+        setSeason(value); setMap((next.maps.find(row => row.main) ?? next.maps[0]).id); setFocused(null);
+      }} />
+      <section className={styles.stage} aria-label={`${map.name}: ${T.map}`}>
+        {details?.preview ? <button type="button" className={`btn-bare ${styles.mapThumb}`} onClick={() => setMapOpen(true)} aria-label={T.mapOpen(map.name)}>
+          <ContentImg src={details.preview} alt="" width={320} height={180} /><span className={styles.zoom} aria-hidden="true">⤢</span>
+        </button> : <p className={styles.empty}>{details ? T.noMap : T.noStage}</p>}
+        <div className={styles.stageFacts}>
+          <span className={styles.kicker}>{map.area}</span>
+          <h2>{map.name}</h2>
+          {map.name !== map.originalName && <span lang="zh-CN" className={styles.mapOriginal}>{map.originalName}</span>}
+          {!!facts.length && <dl className={styles.facts}>{facts.map(([label, value]) => <div key={String(label)}><dt>{label}</dt><dd>{value}</dd></div>)}</dl>}
+        </div>
+      </section>
         <div className={styles.battlefield}>
-          <section className={`panel op-section ${styles.contractPanel}`} aria-label="Contract board">
-            <div className={styles.row}><h2>Test criteria</h2><button className="ghost btn-sm" type="button" disabled={!selected.length} onClick={() => setSelections(current => ({ ...current, [identity]: [] }))}>Clear contracts</button></div>
-            <ContractBoard key={identity} map={map} selected={selected} names={names} onSelect={select} />
+          <section className={styles.contractPanel} aria-label="Contract board">
+            <div className={styles.row}><h2>{T.criteria}</h2><button className="ghost btn-sm" type="button" disabled={!selected.length} onClick={() => setSelections(current => ({ ...current, [identity]: [] }))}>{T.clear}</button></div>
+            <ContractBoard key={identity} map={map} selected={selected} names={names} onSelect={select} onFocus={setFocused} />
           </section>
-          <aside className={`panel op-section ${styles.activePanel}`}>
-            <div className={styles.row}><h2>Active modifiers</h2><output className={styles.score} aria-label="Contract score" aria-live="polite">▲ {score}</output></div>
-            {active.length ? <ul className={styles.activeList}>{summaries.map(summary => <li key={summary.id}><span className={styles.points}>▲{summary.score}</span><span>{summary.text}{summary.unmodeled && <small className={styles.note}>Includes effects outside the stat table</small>}</span></li>)}</ul> : <p className={styles.empty}>{map.main ? 'Open a criteria group to select contracts.' : 'Select nodes to combine contracts.'}</p>}
-            <details className={styles.source}><summary>Archive and calculation notes</summary><p>Historical Chinese contract snapshots. English group names and effect summaries are editorial translations. This archive does not establish the next Global season or its schedule.</p><p>Contract points are summed. Group completion bonuses and reward progress are not included.</p><p><a href={source} target="_blank" rel="noreferrer">View pinned source ↗</a></p>{active.length > 0 && <ul>{active.map(contract => <li key={contract.id} lang="zh-CN"><strong>{contract.name}</strong>: {resolvedDescription(contract)}</li>)}</ul>}</details>
+          <aside className={styles.activePanel}>
+            <h2>{T.selected}</h2>
+            <p className={styles.preview} aria-live="polite">{shownFocus ? <><b>▲{shownFocus.score}</b> {contractSummary(shownFocus, names)}</> : T.hover}</p>
+            {active.length ? <ul className={styles.activeList}>{summaries.map(summary => <li key={summary.id}><span className={styles.points}>▲{summary.score}</span><span>{summary.text}{summary.unmodeled && <small className={styles.note}>{T.outside}</small>}</span></li>)}{bonuses.map(group => <li key={group.id} className={styles.bonusRow}><span className={styles.points}>▲+{group.bonus}</span><span>{T.bonusLine(group.name)}</span></li>)}</ul> : <p className={styles.empty}>{T.none}</p>}
+            <div className={styles.total}><span className={styles.kicker}>{T.totalRisk}</span><output className={styles.score} aria-label="Contract score" aria-live="polite">▲ {score}</output></div>
+            <details className={styles.source}><summary>{T.notes}</summary><p>Historical Chinese contract snapshots. English group names and effect summaries are editorial translations. This archive does not establish the next Global season or its schedule.</p><p>{T.bonusNote}</p><p>Reward and mission progress are not included.</p><p><a href={source} target="_blank" rel="noreferrer">View pinned source ↗</a></p>{active.length > 0 && <ul>{active.map(contract => <li key={contract.id} lang="zh-CN"><strong>{contract.name}</strong>: {resolvedDescription(contract)}</li>)}</ul>}</details>
           </aside>
         </div>
+        {!!enemies.length && <section className={styles.enemySection} aria-label={T.enemies}>
+          <div className={styles.row}><h2>{T.enemies}</h2><span className="hint">{T.enemiesHint}</span></div>
+          <div className={styles.enemyGrid} role="group" aria-label={T.enemies}>
+            {enemies.map(row => <button type="button" key={row.id} className={`btn-bare ${styles.enemyTile}`} aria-pressed={row.id === enemy?.id} data-off={!fielded(row) || undefined} title={fielded(row) ? row.name : `${row.name} · ${T.conditional}`} onClick={() => setEnemy(row.id)}>
+              {row.icon ? <ContentImg src={row.icon} alt="" width={72} height={72} /> : <span className={styles.enemyBlank} aria-hidden="true" />}
+              <span className={styles.enemyTileName}>{row.name}</span>
+            </button>)}
+          </div>
+        </section>}
         <div className={styles.comparisons}>
-          <OperatorComparison operators={operators} contracts={active} />
+          <OperatorComparison operators={operators} icons={operatorIcons ?? {}} contracts={active} />
           <section className={`panel op-section ${styles.comparison}`}>
             <h2>Enemy</h2>
             {enemy ? <>
-              <StyledSelect label="Map enemy" value={enemy.id} options={enemies.map(row => ({ value: row.id, label: `${row.name}${row.conditional ? ' · conditional' : ''}` }))} onChange={setEnemy} />
-              <div className={styles.enemyName}>{enemy.icon && <ContentImg src={enemy.icon} width={52} height={52} alt="" />}<h3 className="entity-title entity-title-sm">{enemy.name}</h3></div>
+              <div className={styles.row}><div className={styles.enemyName}>{enemy.icon && <ContentImg src={enemy.icon} width={52} height={52} alt="" />}<h3 className="entity-title entity-title-sm">{enemy.name}</h3></div><button type="button" className="ghost btn-sm" onClick={() => setHandbook(enemy)}>{T.handbook}</button></div>
+              {!fielded(enemy) && <p className={styles.warning}>{T.conditional}</p>}
               {replacedEnemy && <p className={styles.warning}>Replaced by {replacedEnemy.name}</p>}
-              <StatComparison label={`${enemy.name} stat comparison`} original={enemy.stats} modified={modifiedStats(combatEnemy.stats, active, { side: 'enemy', id: combatEnemy.id })} />
+              <StatComparison label={`${enemy.name} stat comparison`} original={enemy.stats} modified={modifiedStats(combatEnemy!.stats, active, { side: 'enemy', id: combatEnemy!.id })} />
               <p className={styles.note}>Baseline uses this map’s enemy level and stat overrides. Damage taken is a multiplier, separate from DEF and RES.</p>
               {replacedId !== enemy.id && !replacedEnemy && <p className={styles.warning}>Replacement combat data is unavailable. The table still shows the original enemy.</p>}
-            </> : <p className={styles.empty}>No enemy records are available for this map.</p>}
+            </> : <p className={styles.empty}>{details ? 'No enemy records are available for this map.' : T.noStage}</p>}
           </section>
         </div>
       {floor.spacer}
+      {mapOpen && details?.preview && <RecordDialog label={`${map.name}: ${T.map}`} onClose={() => setMapOpen(false)} className={styles.mapDialog}><ContentImg src={details.preview} alt={`${map.name}: ${T.map}`} /></RecordDialog>}
+      {handbook && <EnemyRecord slug={handbook.slug} name={handbook.name} onClose={() => setHandbook(null)} />}
     </main>
   </>;
 }

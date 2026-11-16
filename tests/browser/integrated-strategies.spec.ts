@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { setTheme } from './overlay-checks';
+import gameArt from '../../config/is-game-art.json';
 
 for (const theme of ['dark', 'light'] as const) test(`IS native artwork loads through every section (${theme})`, async ({ page }, info) => {
   await page.goto('/game-modes/integrated-strategies?theme=rogue_3&tab=items');
@@ -7,7 +8,7 @@ for (const theme of ['dark', 'light'] as const) test(`IS native artwork loads th
   const panel = page.getByRole('tabpanel');
   const art = panel.locator('img').first();
   await expect(art).toBeVisible();
-  await expect(art).toHaveAttribute('src', /27a6696b6c1d98d442e0a36be031d6869639591e.*integrated-strategies/);
+  await expect(art).toHaveAttribute('src', new RegExp(`${gameArt.revision}.*integrated-strategies`));
   await expect.poll(() => art.evaluate((img: HTMLImageElement) => img.naturalWidth)).toBeGreaterThan(0);
   await page.screenshot({ path: info.outputPath(`is-items-${theme}.png`), scale: 'css' });
   for (const name of ['Overview', 'Stages', 'Squads', 'Encounters', 'Special mechanics', 'Endings']) {
@@ -40,17 +41,39 @@ test('IS reference keeps theme and tab in the URL, searches collectibles and ope
   const cc = page.getByRole('link', { name: /Contingency Contract/ });
   await expect(cc).toHaveAttribute('href', '/ccb');
   await cc.click();
-  await expect(page.getByRole('heading', { name: 'CCB Helper', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Contingency Contract', exact: true })).toBeVisible();
   await page.goBack();
   await page.getByRole('link', { name: /Integrated Strategies/ }).click();
   await page.getByRole('tab', { name: /^Items/ }).click();
-  await expect(page.getByRole('combobox', { name: 'Item category', exact: true })).toHaveText('Collectibles');
+  const categories = page.getByRole('group', { name: 'Item category', exact: true });
+  await expect(categories.getByRole('button', { name: 'Collectibles', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  // Sui's Garden opens first, and its coins are one record per coin with the game's icon.
+  await expect(page).toHaveURL(/tab=items/);
+  await categories.getByRole('button', { name: 'Coins', exact: true }).click();
+  await expect(page.getByRole('tabpanel').getByRole('article').first().locator('img')).toHaveAttribute('src', /copper/);
+  await categories.getByRole('button', { name: 'Collectibles', exact: true }).click();
   const search = page.getByRole('searchbox', { name: 'Search items', exact: true });
   await search.fill('zzzznotarelic');
   await expect(page.getByText('No matching records in this theme.', { exact: true })).toBeVisible();
   await search.fill('');
-  await page.getByRole('combobox', { name: 'Integrated Strategies theme', exact: true }).click();
-  await page.getByRole('option', { name: /Phantom/ }).click();
+  // Endings are numbered, and how to reach one opens over the page.
+  await page.getByRole('tab', { name: /^Endings/ }).click();
+  const endings = page.getByRole('tabpanel').getByRole('article');
+  await expect(endings.first()).toContainText('Ending 1');
+  await endings.nth(1).getByRole('button', { name: 'Ending Requirements', exact: true }).click();
+  const requirements = page.getByRole('dialog', { name: 'Ending Requirements' });
+  await expect(requirements.getByRole('listitem').first()).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  // A random-effect squad is listed once, with every effect it can roll behind a button.
+  await page.getByRole('tab', { name: /^Squads/ }).click();
+  await page.getByRole('button', { name: /possible effects$/ }).first().click();
+  await expect.poll(() => page.getByRole('dialog', { name: 'Possible random effects' }).getByRole('listitem').count()).toBeGreaterThan(5);
+  await page.keyboard.press('Escape');
+  // Themes run left to right in Global numbering, each one press away.
+  const themes = page.getByRole('button', { name: /^Integrated Strategies #\d/ });
+  await expect(themes.first()).toContainText('#2');
+  await page.getByRole('button', { name: /Phantom/ }).click();
   await expect(page.getByRole('heading', { name: 'Phantom & Crimson Solitaire', exact: true })).toBeVisible();
   await expect(page).toHaveURL(/theme=rogue_1/);
   await page.getByRole('tab', { name: /^Stages/ }).click();
@@ -69,5 +92,5 @@ test('IS reference keeps theme and tab in the URL, searches collectibles and ope
   await page.goBack();
   await expect(page.getByRole('tab', { name: /^Stages/ })).toHaveAttribute('aria-selected', 'true');
   await expect.poll(async () => Math.abs(await page.evaluate(() => window.scrollY) - before)).toBeLessThan(100);
-  await expect(page.getByRole('combobox', { name: 'Integrated Strategies theme', exact: true })).toHaveText('Phantom & Crimson Solitaire');
+  await expect(page.getByRole('button', { name: /Phantom/ })).toHaveAttribute('aria-pressed', 'true');
 });

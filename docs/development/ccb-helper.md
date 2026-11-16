@@ -2,11 +2,28 @@
 
 Local route: `/ccb`. The paired `feat/ccb-helper` branch in `arkpedia-data` owns
 `source/data/ccb/archive.json`, its offline normalizer, and account-map trust thresholds.
-Data dependency: `ffe48336c025e89421a6fa596ec88ffaeff86529`.
+Data dependency: `6d03e6bb4a968b94ed6480611e383178f62a77e2` (branch `feat/ccb-helper-season5`).
 Preview pins the recovered archive in `config/ccb-archive.json`; normal content hydration cannot overwrite it.
 
-Game Modes links to it in Preview. This first archive covers CCB #1–4,
-with all five maps per season, including reused rotational maps.
+Game Modes links to it in Preview. The archive covers CCB #1–5, with all five maps
+per season, including reused rotational maps. CCB #5 has run on CN only; its season
+and new map names are unofficial translations and the page says so.
+
+## Page
+
+One page, in the game's look, without its menu depth: every season, the permanent
+site and the rotating sites are one press away in the hub, and every indicator group
+is drawn at once as its tree of contract tiles. A tile is a toggle button carrying the
+contract's own glyph. A side panel shows the pointed-at contract, the selection and
+total risk, and stays at the bottom of the screen at phone width. Selecting a whole
+group adds its bonus risk (`bonus`, the game's `rewardScore`); the snapshots record no
+extra effect for a completed group. Under the hub: the map picture (opens large), the
+battle parameters and the map's enemies as tiles, which drive the stat comparison.
+
+Interface art (contract glyphs, region logos, area pictures, season banners) is
+published in `arkpedia-image-assets` under `content-art/contingency-contract/` by that
+repository's daily sync and pinned with the Integrated Strategies art in
+`config/is-game-art.json`. Reader-facing text is in `components/ccb/strings.ts`.
 
 ## Sources
 
@@ -29,7 +46,7 @@ Rebuild the normalized archive from `arkpedia-data/importer/` with:
 python3 scripts/imports/import-ccb-archive.py --input-dir <snapshot-directory>
 ```
 
-The input directory holds `ccb-raw-1.json` through `ccb-raw-4.json` (from the pinned
+The input directory holds `ccb-raw-1.json` through `ccb-raw-5.json` (from the pinned
 paths above) and, optionally, `ccb-seasons.json` from HellaAPI. Builds and browser
 visits perform no game login or game-server requests. `/ccb` is compiled as a Preview-only static page, outside production content publication. Its compact archive and map baselines
 travel in page props together, so map changes are instant and do not mix releases.
@@ -57,8 +74,8 @@ and then apply the remaining contracts to the replacement's ID.
 Mechanics outside the sheet calculator remain in the active modifier list and are
 marked. They include skill/talent changes, tile mechanics, conditional statuses,
 HP loss, SP recovery and battle rules. This is not a combat/damage simulator.
-Node unlock/path progression, group completion bonuses and reward state are not
-simulated. The displayed score is the sum of selected contract points.
+Node unlock/path progression and reward state are not
+simulated. The displayed score is the sum of selected contract points plus the bonus of every completed group.
 
 Underdawn contains two nodes for `enemy_atk_1`. Node identity and effect identity
 are separate: selecting its alternate node replaces its earlier selection so one

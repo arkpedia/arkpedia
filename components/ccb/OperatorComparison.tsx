@@ -6,12 +6,13 @@ import { getBaseStats, getTrustBonus, applyModuleStatBonuses, parseModuleStatBon
 import type { Contract, OperatorBuildData } from '@/lib/ccb/types';
 import { modifiedStats } from '@/lib/ccb/modifiers';
 import SearchInput from '@/components/ui/SearchInput';
+import { ContentImg } from '@/components/content/ContentImage';
 import StyledSelect from '@/components/ui/StyledSelect';
 import SegmentedControl from '@/components/ui/SegmentedControl';
 import StatComparison from './StatComparison';
 import styles from './Battleplan.module.css';
 
-export default function OperatorComparison({ operators, contracts }: { operators: string[]; contracts: Contract[] }) {
+export default function OperatorComparison({ operators, icons, contracts }: { operators: string[]; icons: Record<string, string>; contracts: Contract[] }) {
   const [query, setQuery] = useState('');
   const [name, setName] = useState('');
   const [operator, setOperator] = useState<OperatorBuildData | null>(null);
@@ -29,12 +30,12 @@ export default function OperatorComparison({ operators, contracts }: { operators
   const matches = getOperatorSearchResults(operators.map(name => ({ name })), query).map(row => row.name);
   return <section className={`panel op-section ${styles.comparison}`}>
     <h2>Operator</h2>
-    <SearchInput label="Search operators" placeholder="Search all operators…" value={query} onChange={setQuery} suggestions={matches} getKey={row => row} renderSuggestion={row => row} onPick={row => { setName(row); setQuery(row); }} suggestLabel="Matching operators" emptyText="No matching operators" />
-    {!name ? <p className={styles.empty}>Select an operator to compare their stats.</p> : error ? <p role="alert">{error} <button type="button" className="ghost btn-sm" onClick={() => setName('')}>Choose again</button></p> : !operator ? <p role="status">Loading {name}…</p> : <BuildEditor key={operator.name} operator={operator} contracts={contracts} />}
+    <SearchInput label="Search operators" placeholder="Search all operators…" value={query} onChange={setQuery} suggestions={matches} getKey={row => row} renderSuggestion={row => <span className={styles.suggestion}>{icons[row] && <ContentImg src={icons[row]} alt="" width={28} height={28} />}{row}</span>} onPick={row => { setName(row); setQuery(row); }} suggestLabel="Matching operators" emptyText="No matching operators" />
+    {!name ? <p className={styles.empty}>Select an operator to compare their stats.</p> : error ? <p role="alert">{error} <button type="button" className="ghost btn-sm" onClick={() => setName('')}>Choose again</button></p> : !operator ? <p role="status">Loading {name}…</p> : <BuildEditor key={operator.name} operator={operator} icon={icons[operator.name]} contracts={contracts} />}
   </section>;
 }
 
-function BuildEditor({ operator, contracts }: { operator: OperatorBuildData; contracts: Contract[] }) {
+function BuildEditor({ operator, icon, contracts }: { operator: OperatorBuildData; icon?: string; contracts: Contract[] }) {
   const account = useAccount();
   const owned = account?.operatorBuilds?.[operator.name];
   const accountKey = `${account?.server}:${account?.importedAt}:${owned?.elite}:${owned?.level}:${owned?.potential}:${owned?.trust}:${owned?.equippedModule}`;
@@ -44,7 +45,9 @@ function BuildEditor({ operator, contracts }: { operator: OperatorBuildData; con
   const build = custom?.key === accountKey ? custom : baseline;
   const { trust, moduleIndex, moduleStage } = build;
   const [tileOverride, setTile] = useState<'ground' | 'high' | null>(null);
-  const tile = tileOverride ?? (operator.position === 'Ranged' ? 'high' : 'ground');
+  const home = operator.position === 'Ranged' ? 'high' : 'ground';
+  // Only operators that can stand on both tile types get the choice; everyone else is on their own.
+  const tile = operator.bothTiles ? tileOverride ?? home : home;
   const [elapsed, setElapsed] = useState(0);
   const stats = operator.stats;
   if (!stats?.phases.length) return <p className={styles.empty}>Stats are not available for {operator.name} yet.</p>;
@@ -71,7 +74,7 @@ function BuildEditor({ operator, contracts }: { operator: OperatorBuildData; con
   function update(patch: Partial<typeof baseline>) { setCustom({ key: accountKey, ...build, ...patch }); }
   return <>
     <div className={styles.row}>
-      <h3 className="entity-title entity-title-sm">{operator.name}</h3>
+      <h3 className={`entity-title entity-title-sm ${styles.suggestion}`}>{icon && <ContentImg src={icon} alt="" width={40} height={40} />}{operator.name}</h3>
       <button className="ghost btn-sm" type="button" onClick={() => { setCustom(null); setTile(null); setElapsed(0); }}>Reset to {owned ? 'account' : 'E0 Lv 1'}</button>
     </div>
     <p className={styles.note}>{owned ? `Default: imported ${account?.server} build.` : <>Default: E0 Lv 1. <Link href="/account">Import account</Link></>} {owned && (owned.trust === undefined || owned.equippedModule === undefined) && 'This older import lacks trust or equipped-module data. Set them below or import again.'}</p>
@@ -83,7 +86,7 @@ function BuildEditor({ operator, contracts }: { operator: OperatorBuildData; con
       <label className={styles.wide}>Module{!moduleAvailable && operator.modules.some(row => row.type === 'Upgrade') && ` · E2 Lv ${moduleMinLevel}`}<StyledSelect label="Operator module" value={String(activeModule ? moduleIndex : -1)} disabled={!moduleAvailable} options={[{ value: '-1', label: 'None' }, ...operator.modules.flatMap((row, index) => row.type === 'Upgrade' ? [{ value: String(index), label: row.name ?? `Module ${index}` }] : [])]} onChange={value => update({ moduleIndex: Number(value), moduleStage: 0 })} /></label>
       {activeModule && <label>Module level<StyledSelect label="Module level" value={String(moduleStage)} options={activeModule.stages.map((_, index) => ({ value: String(index), label: String(index + 1) }))} onChange={value => update({ moduleStage: Number(value) })} /></label>}
     </div>
-    <div className={styles.row}><SegmentedControl label="Deployment tile" value={tile} onChange={setTile} options={[{ value: 'ground', label: 'Ground' }, { value: 'high', label: 'High tile' }]} /><label className={styles.inlineField}>Seconds after deployment<input aria-label="Seconds after deployment" type="number" min={0} max={9999} value={elapsed} onChange={event => setElapsed(clampInteger(event.target.valueAsNumber, 0, 9999))} /></label></div>
+    <div className={styles.row}>{operator.bothTiles && <SegmentedControl label="Deployment tile" value={tile} onChange={setTile} options={[{ value: 'ground', label: 'Ground' }, { value: 'high', label: 'High tile' }]} />}<label className={styles.inlineField}>Seconds after deployment<input aria-label="Seconds after deployment" type="number" min={0} max={9999} value={elapsed} onChange={event => setElapsed(clampInteger(event.target.valueAsNumber, 0, 9999))} /></label></div>
     <StatComparison label={`${operator.name} stat comparison`} original={original} modified={modified} />
     <p className={styles.note}>Sheet stats and direct module attributes. Skills, talents, and module combat effects are excluded. Red = lower; green = higher.</p>
   </>;

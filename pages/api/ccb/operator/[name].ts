@@ -19,7 +19,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     operator = getOperatorByName(name);
   }
   if (!operator) return res.status(404).json({ error: 'Operator not found' });
-  const data: OperatorBuildData = { name, rarity: operator.rarity, className: operator.class, position: operator.position, stats: operator.stats ?? null, potential: operator.potential, modules: operator.modules ?? [] };
+  const data: OperatorBuildData = { name, rarity: operator.rarity, className: operator.class, position: operator.position, stats: operator.stats ?? null, potential: operator.potential, modules: operator.modules ?? [], bothTiles: /deployed on (?:ranged|melee|ground|high)/i.test(JSON.stringify([operator.trait, operator.modules ?? []])) };
   res.setHeader('Cache-Control', 'public, max-age=60, s-maxage=60');
   return res.status(200).json(data);
 }

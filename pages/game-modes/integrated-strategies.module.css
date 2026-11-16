@@ -25,3 +25,55 @@
 .page :global(.tab) .nodeIcon { width: 20px; height: 20px; }
 .grid summary { display: flex; align-items: center; gap: 12px; }
 @media (max-width: 480px) { .illustrated { grid-template-columns: 60px minmax(0, 1fr); } .itemArt { width: 60px; height: 60px; } .recordHead { flex-wrap: wrap; gap: 4px; } }
+
+/* ---- Game-styled theme hero and theme rail (redesign prototype) ---- */
+.kicker { display: flex; align-items: center; gap: 8px; font-family: var(--font-mono); font-size: 10px; letter-spacing: .08em; text-transform: uppercase; }
+.cn { padding: 0 5px; background: var(--amber); color: #15171b; }
+.themeHero { position: relative; display: grid; grid-template-columns: minmax(0, 420px) minmax(0, 1fr); min-height: 360px; overflow: hidden; background: #0b0d10; color: var(--scrim-ink); border-radius: var(--radius); }
+.themeArt { grid-column: 1 / -1; grid-row: 1; position: relative; display: flex; min-height: 0; height: 440px; overflow: hidden; }
+.themeArt > img { flex: 1 1 0; min-width: 0; width: 100%; height: 100%; object-fit: cover; object-position: 50% 40%; display: block; }
+.themeArt > .themeFigure { position: absolute; left: 50%; bottom: 8%; flex: none; width: auto; height: 62%; translate: -50% 0; object-fit: contain; }
+.themeCopy { grid-column: 1; grid-row: 1; position: relative; display: grid; gap: 12px; align-content: center; padding: 28px; background: rgb(11 13 16 / .86); }
+.themeCopy .kicker { color: rgb(255 255 255 / .72); }
+.themeCopy h2 { margin: 0; }
+.themeName { font-family: var(--font-display); font-size: 30px; line-height: 1.05; letter-spacing: 0; text-transform: none; color: #fff; }
+.logoHeading { line-height: 0; }
+.themeLogo { max-width: min(100%, 340px); max-height: 150px; width: auto; height: auto; }
+.themeCopy .text { margin: 0; font-size: 13px; line-height: 1.6; }
+.themeNote { margin: 0; font-size: 11px; color: rgb(255 255 255 / .62); }
+.rail { gap: 12px; }
+.themeCard { flex: 0 0 240px; display: grid; gap: 4px; padding: 0 0 8px; text-align: left; background: none; border-bottom: 3px solid transparent; }
+.themeThumb { display: flex; aspect-ratio: 16 / 9; margin-bottom: 4px; overflow: hidden; background: var(--well); outline: 2px solid transparent; outline-offset: -2px; }
+.themeThumb img { flex: 1 1 0; min-width: 0; width: 100%; height: 100%; object-fit: cover; display: block; }
+.themeCard .kicker { color: var(--text-dim); }
+.themeCard strong { font-family: var(--font-display); font-size: 18px; line-height: 1.15; color: var(--text-bright); }
+.themeCard[aria-pressed="true"] .themeThumb, .themeCard:hover .themeThumb, .themeCard:focus-visible .themeThumb { outline-color: var(--text-bright); }
+.themeCard[aria-pressed="true"] { border-bottom-color: var(--teal); }
+@media (max-width: 720px) {
+  .themeHero { grid-template-columns: minmax(0, 1fr); min-height: 0; }
+  .themeArt { grid-row: 1; height: 200px; }
+  .themeCopy { grid-row: 2; padding: 16px; background: none; }
+  .themeName { font-size: 26px; }
+  .themeCard { flex-basis: 170px; }
+}
+
+/* Endings, squad extras and the record pop-up */
+.ending { display: grid; align-content: start; background: var(--panel); border-radius: var(--radius); overflow: hidden; }
+.endingArt { width: 100%; height: auto; aspect-ratio: 16 / 9; object-fit: cover; display: block; background: var(--well); }
+.endingBody { display: grid; gap: 6px; justify-items: start; padding: var(--card-inset); }
+.endingBody h3 { margin: 0; }
+.endingBody .kicker { color: var(--text-dim); }
+.tag { margin-left: 8px; padding: 0 5px; font-family: var(--font-mono); font-size: 10px; letter-spacing: .06em; text-transform: uppercase; vertical-align: middle; background: var(--teal-dim); color: var(--teal); }
+.unlock { margin: 6px 0; font-size: 12px; color: var(--text-dim); }
+.unlock b { font-family: var(--font-mono); font-size: 10px; letter-spacing: .06em; text-transform: uppercase; margin-right: 4px; }
+.dialog { display: grid; gap: 10px; max-width: 640px; padding: var(--card-inset); }
+.dialog h2 { margin: 0; padding-right: 40px; }
+.dialog p { margin: 0; }
+.dialog .kicker { color: var(--text-dim); }
+.steps { margin: 0; padding-left: 22px; display: grid; gap: 8px; font-size: 13px; line-height: 1.55; }
+
+/* Links: a record title reads as a title until pointed at; a text link is quietly underlined. */
+.titleLink { text-decoration: none; }
+.titleLink:hover, .titleLink:focus-visible { color: var(--teal); text-decoration: underline; text-underline-offset: 3px; }
+.textLink { text-decoration: underline; text-decoration-color: var(--line-soft); text-underline-offset: 3px; }
+.textLink:hover, .textLink:focus-visible { color: var(--teal); text-decoration-color: currentColor; }

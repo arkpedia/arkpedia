@@ -10,21 +10,22 @@ const contracts = arclight.groups.flatMap(group => group.contracts);
 const risk = (id: string): Contract => { const result = contracts.find(row => row.runeId === id || row.id === id); assert.ok(result, id); return result; };
 
 test('archive preserves every season/map and valid contract graph references', () => {
-  assert.equal(seasons.length, 4);
-  assert.equal(seasons.flatMap(row => row.maps).length, 20);
+  assert.equal(seasons.length, 5);
+  assert.equal(seasons.flatMap(row => row.maps).length, 25);
   for (const season of seasons) for (const map of season.maps) {
     assert.equal(season.maps.filter(row => row.main).length, 1);
     const rows = map.groups.flatMap(group => group.contracts);
     assert.ok(map.groups.length && rows.length >= 15, `${map.id} must include its criteria, including ungrouped rotational trees`);
     assert.equal(new Set(rows.map(row => row.id)).size, rows.length);
     for (const row of rows) {
+      assert.match(row.icon ?? '', /^g_/, `${map.id}/${row.id} must carry its own contract glyph`);
       assert.ok(row.effects.length);
       assert.ok(Number.isFinite(row.x) && Number.isFinite(row.y));
       assert.ok(row.adjacent.every(id => rows.some(other => other.id === id)), `${map.id}/${row.id}`);
       assert.ok(!resolvedDescription(row).includes('{'), `${map.id}/${row.id} has unresolved parameters`);
     }
   }
-  assert.equal(seasons.flatMap(season => season.maps.flatMap(map => map.groups.flatMap(group => group.contracts))).length, 628);
+  assert.equal(seasons.flatMap(season => season.maps.flatMap(map => map.groups.flatMap(group => group.contracts))).length, 806);
 });
 
 test('CCB tiers with the same packed mutex key stack additively', () => {
@@ -84,4 +85,17 @@ test('active modifiers combine compatible tiers like the in-game summary', () =>
   assert.equal(summaries[0].text, 'All enemies: ATK +100%');
   assert.equal(summaries[0].score, 50);
   assert.equal(summaries[1].text, 'All operators on ground tiles: HP -50%');
+});
+
+test('a completed group adds its bonus risk, and only while complete', async () => {
+  const { groupComplete, maximumRisk, totalRisk } = await import('../../lib/ccb/modifiers');
+  const main = seasons[0].maps.find(row => row.main)!;
+  const group = main.groups.find(row => (row.bonus ?? 0) > 0 && !row.contracts.some(contract => contract.exclusion))!;
+  const all = group.contracts.map(row => row.id);
+  const base = group.contracts.reduce((sum, row) => sum + row.score, 0);
+  assert.equal(groupComplete(group, all), true);
+  assert.equal(totalRisk(main.groups, all), base + group.bonus!);
+  assert.equal(groupComplete(group, all.slice(1)), false);
+  assert.equal(totalRisk(main.groups, all.slice(1)), base - group.contracts[0].score);
+  assert.equal(maximumRisk(main.groups), main.groups.reduce((sum, row) => sum + maximumContractScore(row.contracts) + (row.bonus ?? 0), 0));
 });

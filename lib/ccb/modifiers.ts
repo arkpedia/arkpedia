@@ -1,4 +1,4 @@
-import type { CombatStats, Contract, RuneEffect } from './types';
+import type { CombatStats, Contract, ContractGroup, RuneEffect } from './types';
 
 const ATTRS: Record<string, string> = { max_hp: 'hp', atk: 'atk', def: 'def', magic_resistance: 'res', move_speed: 'moveSpeed', attack_speed: 'aspd', base_attack_time: 'interval', respawn_time: 'redeploy', cost: 'dp' };
 export const STAT_LABELS: Record<string, string> = { hp: 'HP', atk: 'ATK', def: 'DEF', res: 'RES', dp: 'DP cost', block: 'Block count', interval: 'Attack interval (s)', redeploy: 'Redeploy time (s)', moveSpeed: 'Movement speed', weight: 'Weight', aspd: 'Attack speed', physicalTaken: 'Physical damage taken (%)', artsTaken: 'Arts damage taken (%)' };
@@ -14,6 +14,20 @@ export function toggleContract(selected: string[], contract: Contract, all: Cont
   // NOT: CCB explicitly allows additive tiers from the same family together.
   const incompatible = new Set(all.filter(row => row.runeId === contract.runeId || contract.exclusion && row.exclusion === contract.exclusion).map(row => row.id));
   return [...selected.filter(id => !incompatible.has(id)), contract.id];
+}
+
+/** A group is complete when its selected risk reaches the most the group allows. */
+export function groupComplete(group: ContractGroup, selected: string[]): boolean {
+  const max = maximumContractScore(group.contracts);
+  return max > 0 && group.contracts.filter(row => selected.includes(row.id)).reduce((sum, row) => sum + row.score, 0) >= max;
+}
+/** Selected contract risk plus the bonus of every completed group. */
+export function totalRisk(groups: ContractGroup[], selected: string[]): number {
+  return groups.reduce((total, group) => total + group.contracts.filter(row => selected.includes(row.id)).reduce((sum, row) => sum + row.score, 0) + (groupComplete(group, selected) ? group.bonus ?? 0 : 0), 0);
+}
+/** The most a map allows: every group at its maximum, with every completion bonus. */
+export function maximumRisk(groups: ContractGroup[]): number {
+  return groups.reduce((total, group) => total + maximumContractScore(group.contracts) + (group.bonus ?? 0), 0);
 }
 
 export function maximumContractScore(contracts: Contract[]): number {
