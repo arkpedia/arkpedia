@@ -7,8 +7,10 @@ rarity-striped operator portraits, per-banner expanders, joined potential button
 stamped verdicts and share/submit actions. Banner-type labels are omitted in all
 views. The polls overview uses plain banner art and the skin poll’s shared facts row.
 
-Pull wants one copy of every featured operator and zero copies of returning off-banner limited operators. Returning limiteds remain individually selectable; explicit planner targets are preserved. Maybe means Good to have; Skip
-means Not want. Individual choices are Nope, Nice to have and P1–P6/MAX. Selecting
+Only debut banners, limited banners and event reruns enter the poll. Recurring Standard Pools, Kernel/Locating, Joint Operation and Orienteering banners are excluded. Newly recorded eligible banners join automatically. Exact close instants remove banners from voting and results; old drafts discard retired banner entries.
+
+Pull targets one copy of each newly released operator, leaves older rate-ups at Nice to have, and sets off-banner returning limiteds to Don’t Want. Event reruns target their featured operators. One wanted six-star copy remains Pull even if the five-stars are unwanted. Five-star P1–P5 does not raise the stamp; P6 becomes Dolphin. Maybe means Good to have; Skip
+means Not want. Individual choices are Don’t Want, Nice to have and P1–P6 with their game icons. Selecting
 the current choice again clears it. A partly answered or customized banner is
 Picky; higher copy goals receive the mockup’s Dolphin, Whale or Leviathan stamps.
 Banners with an unconfirmed roster accept a banner choice without inventing
@@ -17,7 +19,7 @@ rosters, with estimates labelled.
 
 Drafts stay in browser storage. Share links encode choices in a URL fragment,
 without submitting. PNG/clipboard export renders one complete 1200px-wide bitmap shown
-in the fitted preview. Longer plans grow taller to include every answered banner
+in the fitted preview. The reference-style sheet places each banner on the left and Pull/Maybe/Skip on the right. Detailed adds operator target potentials. Longer plans grow taller to include every answered banner
 in the same image; no pagination or silently omitted banners. Failed artwork retains the names and choices.
 
 Importing a browser or exported Pull Planner plan remains a one-time import.
@@ -44,3 +46,14 @@ Native Preview’s existing recovery/migration workflow applies it only to isola
 Preview. Worker fallbacks read shipped static catalogues, preserving bundle limits.
 The two illustrations in `config/pull-poll-art.json` use the reference mockup’s
 immutable asset pins while their live catalogue artwork is pending.
+
+Imported browser rosters and accepted cloud restores supply owned potentials locally.
+Owned appears below portraits; the current potential is yellow until a higher target
+is planned, when the planned potential is teal. Positive targets at or below the owned
+potential are disabled; P6 owners can still choose Don’t Want or Nice to have. Planner
+sync converts between target potentials and additional copies without changing the roster.
+
+Detailed result operator bars use Pull/Maybe/Skip segments. Each operator opens an
+artwork-and-pie-chart dialog with aggregate P1–P6 slices and independent Skip/Maybe
+filters. Counts come directly from ballot JSON aggregates; no voter identity is exposed
+and no database migration is needed.

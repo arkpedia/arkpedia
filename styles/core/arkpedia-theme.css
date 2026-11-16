@@ -1037,7 +1037,7 @@ a.ghost.panel:focus-visible { border-color: var(--teal); }
 .poll-potential[data-want="skip"] { color:var(--text-faint); }
 .poll-stamp { position:absolute; right:10px; bottom:10px; padding:2px 10px; border:2px solid currentColor; border-radius:var(--radius-frame); transform:rotate(-8deg); background:color-mix(in srgb,var(--well) 90%,transparent); color:var(--teal); font:700 18px var(--font-display); letter-spacing:.1em; text-transform:uppercase; }
 .poll-stamp[data-stamp="maybe"] { color:var(--amber); transform:rotate(5deg); }
-.poll-stamp[data-stamp="skip"] { color:var(--text-dim); transform:rotate(-3deg); }
+.poll-stamp[data-stamp="skip"] { color:var(--danger); transform:rotate(-3deg); }
 .poll-stamp[data-stamp="dolphin"] { color:var(--heading); transform:rotate(-6deg); }
 .poll-stamp[data-stamp="whale"] { color:var(--rarity-5); font-size:22px; transform:rotate(-10deg); }
 .poll-stamp[data-stamp="levi"] { color:var(--rarity-6); font-size:26px; border-width:3px; transform:rotate(-12deg); }
@@ -1055,10 +1055,8 @@ a.ghost.panel:focus-visible { border-color: var(--teal); }
 .poll-result-split { display:flex; height:8px; background:var(--well); }
 .poll-result-split > span { display:block; }
 .poll-result-split [data-choice="pull"] { background:color-mix(in srgb,var(--teal) 72%,var(--panel)); }
-.poll-result-split [data-choice="maybe"] { background:color-mix(in srgb,var(--teal) 32%,var(--panel)); }
-.poll-result-split [data-choice="skip"] { background:color-mix(in srgb,var(--text-faint) 40%,var(--panel)); }
-.poll-want-meter { height:3px; margin-top:5px; background:var(--well); }
-.poll-want-meter > span { display:block; height:100%; background:color-mix(in srgb,var(--teal) 55%,var(--panel)); }
+.poll-result-split [data-choice="maybe"] { background:var(--amber); }
+.poll-result-split [data-choice="skip"] { background:var(--danger); }
 
 /* A base skill keyword the game explains (components/operators/BaseSkillText.tsx): underlined, as
    in game, and a button so a tap, a hover or keyboard focus opens the game's definition. */
@@ -1090,3 +1088,6 @@ a.ghost.panel:focus-visible { border-color: var(--teal); }
 .base-skill-keyword-tip b { display: block; margin-bottom: 4px; color: var(--teal); }
 .base-skill-keyword-tip p { margin: 0; color: var(--text-dim); }
 .base-skill-keyword-tip p + p { margin-top: 2px; }
+
+.poll-potential[data-want="owned"], .poll-owned { color:var(--amber); }
+.poll-owned { font:10px var(--font-mono); }

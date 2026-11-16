@@ -38,5 +38,5 @@ export async function pullPollPageCatalogue(){
 export async function pullPollPortraits(banners:import('./pull-poll').PollBanner[]){
   const {communityOperators}=await import('@/lib/community/catalogues');
   const names=new Set(banners.flatMap(b=>b.operators));
-  return Object.fromEntries((await communityOperators()).filter(op=>names.has(op.name)).map(op=>[op.name,{icon:op.icon,rarity:op.rarity}]));
+  return Object.fromEntries((await communityOperators()).filter(op=>names.has(op.name)).map(op=>[op.name,{icon:op.icon,rarity:op.rarity,charIds:op.charIds,art:op.art}]));
 }

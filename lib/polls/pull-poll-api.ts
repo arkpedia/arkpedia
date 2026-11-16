@@ -1,7 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import type { D1Database } from '@cloudflare/workers-types';
 import { allowAccountRequest, accountLimited } from '@/lib/cloud-account/limits';
-import { parseBallot, PULL_POLL_ID, type PollBanner } from './pull-poll';
+import { parseBallot, activePollBanners, PULL_POLL_ID, type PollBanner } from './pull-poll';
 import { pullPollResults } from './pull-poll-results';
 import { pullPollCatalogue } from './pull-poll-catalogue';
 
@@ -34,7 +34,7 @@ export async function pullPoll(req: NextApiRequest, res: NextApiResponse, db: D1
   }
   let choices;
   try {
-    choices = parseBallot(req.body.choices, (await catalogue()).banners);
+    choices = parseBallot(req.body.choices, activePollBanners((await catalogue()).banners));
     if (!Object.keys(choices).length) throw Error('Choose at least one banner or operator.');
   } catch (error) { return res.status(400).json({ error: error instanceof Error ? error.message : 'Invalid poll choices.' }); }
   const row = await db.prepare(`INSERT INTO pull_poll_ballot(poll,voter,userId,choices,revision)

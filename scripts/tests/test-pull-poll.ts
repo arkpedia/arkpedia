@@ -5,12 +5,12 @@ import fs from 'node:fs';
 import { DatabaseSync } from 'node:sqlite';
 import type { D1Database } from '@cloudflare/workers-types';
 import type { NextApiRequest, NextApiResponse } from 'next';
-import { bannerChoice, decodeBallot, encodeBallot, importGoals, parseBallot, pollBanners, setBannerChoice, type PollBanner } from '../../lib/polls/pull-poll';
+import { bannerChoice, decodeBallot, encodeBallot, importGoals, parseBallot, pollBanners, setBannerChoice, stampKey, constrainOwned, activePollBanners, currentBallot, type PollBanner } from '../../lib/polls/pull-poll';
 import type { UpcomingBanner } from '../../lib/pulls/pulls';
 import type { HeadhuntingBanner } from '../../lib/gacha/headhuntingBanners';
 import { pullPoll } from '../../lib/polls/pull-poll-api';
 
-const banner:PollBanner={id:'test-pool',name:'Future banner',aliases:['Old title'],start:'2026-12-01',end:'2026-12-15',endAt:null,estimated:true,image:null,operators:['Exusiai','Texas']};
+const banner:PollBanner={id:'test-pool',name:'Future banner',aliases:['Old title'],start:'2036-12-01',end:'2036-12-15',endAt:null,estimated:true,image:null,operators:['Exusiai','Texas']};
 const banners=[banner];
 test('compact choices apply to all operators; detailed choices survive sharing as custom',()=>{
   let ballot=setBannerChoice({},banner,'pull');
@@ -40,13 +40,13 @@ test('limited banner Pull includes featured six/five-stars and skips returning l
   assert.deepEqual(ballot[limited.id],choices);
   assert.equal(bannerChoice(ballot[limited.id],limited),'pull');
   assert.deepEqual(decodeBallot(encodeBallot(ballot),[limited]),ballot);
-  assert.equal(bannerChoice({...ballot[limited.id],[returning[0]]:1},limited),'custom');
+  assert.equal(bannerChoice({...ballot[limited.id],[returning[0]]:1},limited),'pull');
   assert.equal(parseBallot({[limited.id]:{[returning[0]]:6}},[limited])[limited.id][returning[0]],6);
   const goal={banner:limited.name,spendOn:limited.end,pulls:100};
   assert.deepEqual(importGoals([goal],[limited])[limited.id],choices);
   assert.equal(importGoals([{...goal,targets:[{name:returning[0],copies:3}]}],[limited])[limited.id][returning[0]],3);
   const regular=pollBanners([{...scheduled,category:'standard'}],[])[0];
-  assert.ok(Object.values(setBannerChoice({},regular,'pull')[regular.id]).every(want=>want===1));
+  assert.equal(setBannerChoice({},regular,'pull')[regular.id].Talulah,1);assert.equal(setBannerChoice({},regular,'pull')[regular.id][returning[0]],-1);
 });
 test('ballots reject injected operators, unknown banners, nonintegers and oversized shares',()=>{
   for(const value of [{wrong:{Texas:1}},{[banner.id]:{Unknown:1}},{[banner.id]:{Texas:7}},{[banner.id]:{Texas:1.5}},{[banner.id]:{Texas:'1'}}])assert.throws(()=>parseBallot(value,banners));
@@ -122,7 +122,7 @@ test('public results count mixed choices and potentials without exposing ballot 
     await h.call(null,'PUT',{owner:null,revision:0,choices:{[banner.id]:{Exusiai:6}}},'cccccccc-cccc-4ccc-cccc-cccccccccccc');
     const {result}=await h.call(null,'GET',undefined,'',{view:'results'});
     assert.equal(result.ballots,3);assert.deepEqual(result.banners.map((r:any)=>({...r})),[{id:banner.id,answers:3,pull:2,maybe:0,skip:1}]);
-    const op=result.operators.find((r:any)=>r.name==='Exusiai');assert.equal(op.want,2);assert.equal(op.totalPotential,7);assert.equal(op.maxPotential,1);
+    const op=result.operators.find((r:any)=>r.name==='Exusiai');assert.equal(op.want,2);assert.equal(op.totalPotential,7);assert.equal(op.maxPotential,1);assert.deepEqual(op.potentials,[1,0,0,0,0,1]);
     assert.ok(!JSON.stringify(result).includes('voter'));assert.ok(!JSON.stringify(result).includes('aaaa'));
   }finally{h.sqlite.close();}
 });
@@ -139,4 +139,34 @@ test('planner sync preserves resources, budgets, other goals and local Maybe cho
   const restored=plannerIntoPoll(ballot,{...next,goals:[{...next.goals[0],targets:[{name:'Exusiai',copies:6}]}]},banners);assert.deepEqual(restored,{[banner.id]:{Exusiai:6,Texas:-1}});
   assert.equal(pollIntoPlanner(next,{[banner.id]:{}},banners).goals.length,1);
   assert.deepEqual(plannerIntoPoll(ballot,{...plan,goals:[]},banners),{[banner.id]:{Exusiai:0,Texas:-1}});
+});
+
+test('only debut, limited and event-rerun banners enter the poll; old rate-ups remain optional',async()=>{
+  const {getPullSchedule}=await import('../../lib/pulls/schedule');const {getAllHeadhuntingBanners}=await import('../../lib/gacha/headhuntingBannerData');
+  const catalogue=pollBanners(getPullSchedule(),getAllHeadhuntingBanners());
+  assert.ok(catalogue.length>0);assert.ok(catalogue.every(b=>!/Kernel|Standard Pool|Joint Operation|Orienteering|Locating/i.test(b.name)));
+  const chaos=catalogue.find(b=>b.name==='Deterministic Chaos')!;assert.ok(chaos);assert.deepEqual(chaos.newOperators,['Aphrissa','Pedro']);
+  const ballot=setBannerChoice({},chaos,'pull');assert.deepEqual(ballot[chaos.id],{Aphrissa:1,Pedro:1,Wulfenite:-1});
+  assert.equal(bannerChoice({...ballot[chaos.id],Pedro:0,Wulfenite:0},chaos),'pull');
+  const rerun=catalogue.find(b=>b.rerun)!;assert.ok(rerun);assert.ok(Object.values(setBannerChoice({},rerun,'pull')[rerun.id]).every(w=>w===0||w===1));
+});
+test('five-star goals only become Dolphin at P6, and ownership raises the target floor',()=>{
+  const b={...banner,sixStars:['Exusiai'],newOperators:['Exusiai','Texas']};const portraits={Exusiai:{icon:null,rarity:6},Texas:{icon:null,rarity:5}};
+  for(const p of [1,2,3,4,5] as const)assert.equal(stampKey({Exusiai:1,Texas:p},b,portraits),'pull');
+  assert.equal(stampKey({Exusiai:1,Texas:6},b,portraits),'dolphin');
+  const owned={Exusiai:5,Texas:6};const ballot=setBannerChoice({},b,'pull',owned);assert.deepEqual(ballot[b.id],{Exusiai:6,Texas:0});
+  assert.equal(bannerChoice(ballot[b.id],b,owned),'pull');assert.equal(stampKey(ballot[b.id],b,portraits,owned),'pull');
+  assert.deepEqual(constrainOwned({[b.id]:{Exusiai:2,Texas:-1}},owned),{[b.id]:{Exusiai:6,Texas:-1}});
+});
+test('exact closing instants remove banners and historical drafts prune safely',()=>{
+  const end='2026-12-15T15:59:59Z',b={...banner,endAt:end};assert.equal(activePollBanners([b],Date.parse(end)-1).length,1);assert.equal(activePollBanners([b],Date.parse(end)).length,0);
+  assert.deepEqual(currentBallot({expired:{Old:6},[banner.id]:{Texas:2}},banners),{[banner.id]:{Texas:2}});
+});
+
+test('owned target potentials round-trip as additional planner copies',async()=>{
+  const {pollIntoPlanner,plannerIntoPoll,emptyPullPlan}=await import('../../lib/polls/pull-poll-sync');
+  const owned={Exusiai:5};const ballot={[banner.id]:{Exusiai:6 as const,Texas:-1 as const}};
+  const plan=pollIntoPlanner({...emptyPullPlan(),orundum:'5000'},ballot,banners,owned);
+  assert.deepEqual(plan.goals[0].targets,[{name:'Exusiai',copies:1}]);assert.equal(plan.orundum,'5000');
+  assert.deepEqual(plannerIntoPoll(ballot,plan,banners,owned),ballot);
 });

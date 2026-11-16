@@ -1,20 +1,22 @@
-import {useMemo} from 'react';
+import {useMemo,useState} from 'react';
 import Link from 'next/link';
 import {usePullPollResults} from '@/lib/polls/usePullPollResults';
-import {bannerChoice,type Ballot,type PollBanner,type PollPortrait,type PollBannerResult,type Stamp} from '@/lib/polls/pull-poll';
+import {bannerChoice,type Ballot,type PollBanner,type PollPortrait,type PollBannerResult,type Stamp,type PollOperatorResult,type OwnedPotentials} from '@/lib/polls/pull-poll';
 import {formatDayMonthYear} from '@/lib/pulls/format';
 import {BannerArt,OperatorTile,bannerTitle} from './PullPollVisuals';
+import PullPollOperatorResults from './PullPollOperatorResults';
 import styles from './PullPoll.module.css';
 const percent=(count:number,total:number)=>total?Math.round(count/total*100):0;
 export function resultVerdict(row:PollBannerResult):{value:Stamp;label:string}{
   const verdict=row.pull>=row.maybe&&row.pull>=row.skip?'pull':row.maybe>=row.skip?'maybe':'skip';
   return {value:verdict,label:`${verdict} ${percent(row[verdict],row.answers)}%`};
 }
-export function ResultSplit({row}:{row:PollBannerResult}){
-  return <div className="poll-result-split" role="img" aria-label={`Pull ${percent(row.pull,row.answers)}%, Maybe ${percent(row.maybe,row.answers)}%, Skip ${percent(row.skip,row.answers)}%`}>
+export function ResultSplit({row,label}:{row:PollBannerResult;label?:string}){
+  return <div className="poll-result-split" role="img" aria-label={`${label?`${label}: `:''}Pull ${percent(row.pull,row.answers)}%, Maybe ${percent(row.maybe,row.answers)}%, Skip ${percent(row.skip,row.answers)}%`}>
     {(['pull','maybe','skip'] as const).map(choice=><span key={choice} data-choice={choice} style={{width:`${row.answers?row[choice]/row.answers*100:0}%`}}/>)}</div>;
 }
-export default function PullPollResults({banners,portraits,ballot,detailed=false}:{banners:PollBanner[];portraits:Record<string,PollPortrait>;ballot:Ballot;detailed?:boolean}){
+export default function PullPollResults({banners,portraits,ballot,detailed=false,owned={}}:{banners:PollBanner[];portraits:Record<string,PollPortrait>;ballot:Ballot;detailed?:boolean;owned?:OwnedPotentials}){
+  const [selected,setSelected]=useState<PollOperatorResult|null>(null);
   const {result,error,retry}=usePullPollResults();
   const ids=new Set(banners.map(b=>b.id));
   const operatorRows=useMemo(()=>result?.operators.filter(row=>banners.some(b=>b.id===row.banner&&b.operators.includes(row.name)))??[],[result,banners]);
@@ -28,20 +30,21 @@ export default function PullPollResults({banners,portraits,ballot,detailed=false
     {detailed&&result&&result.ballots>0&&<div className={styles.resultHighlights}>
       {most&&<div className={styles.resultHighlight}><OperatorTile name={most.name} portraits={portraits}/><div><span className="label-tag">Most wanted</span><strong>{most.name}</strong><span className="hint">{percent(most.want,most.answers)}% want a copy</span></div></div>}
       {skipped&&<div className={styles.resultHighlight}><div><span className="label-tag">Most skipped banner</span><strong>{bannerTitle(banners.find(b=>b.id===skipped.id)!)}</strong><span className="hint">{percent(skipped.skip,skipped.answers)}% skip</span></div></div>}
-      {max&&<div className={styles.resultHighlight}><OperatorTile name={max.name} portraits={portraits}/><div><span className="label-tag">Biggest whale target</span><strong>{max.name}</strong><span className="hint">{percent(max.maxPotential,max.answers)}% going for MAX</span></div></div>}
+      {max&&<div className={styles.resultHighlight}><OperatorTile name={max.name} portraits={portraits}/><div><span className="label-tag">Biggest whale target</span><strong>{max.name}</strong><span className="hint">{percent(max.maxPotential,max.answers)}% going for P6</span></div></div>}
     </div>}
     {detailed&&<><h2 className="section-title">Banner by banner</h2>
     <p className="hint">A wanted operator counts as Pull; otherwise Good to have counts as Maybe. Percentages use answers for each banner or operator.</p></>}
     <div className={detailed?styles.banners:styles.simpleGrid}>{banners.map(banner=>{
-      const row=result?.banners.find(r=>r.id===banner.id),mine=bannerChoice(ballot[banner.id],banner);
+      const row=result?.banners.find(r=>r.id===banner.id),mine=bannerChoice(ballot[banner.id],banner,owned);
       return <article key={banner.id} className={detailed?`${styles.resultBanner} poll-banner-surface`:`${styles.simpleBanner} panel`} aria-label={`${bannerTitle(banner)} results`}>
         <BannerArt banner={banner} portraits={portraits} stamp={row?.answers?resultVerdict(row):undefined}/>
         <div className={styles.resultBody}><div className={styles.resultHeading}><h3 className="entity-title entity-title-sm entity-title-name">{bannerTitle(banner)}</h3><span className="hint">{detailed?`${formatDayMonthYear(banner.start)} – ${formatDayMonthYear(banner.end)}`:row?.answers?`${row.answers.toLocaleString('en-US')} answers`:'No answers yet'}</span>{detailed&&mine&&<span className="poll-your-choice">You: {mine==='custom'?'picky':mine}</span>}</div>
           {detailed&&(row?.answers?<><div className={styles.resultLegend}>{(['pull','maybe','skip'] as const).map(choice=><span key={choice}><i data-choice={choice}/>{choice}<b>{percent(row[choice],row.answers)}%</b></span>)}<span className="hint">{row.answers.toLocaleString('en-US')} answers</span></div><ResultSplit row={row}/></>:<span className="hint">No answers for this banner yet.</span>)}
-          {detailed&&<div className={styles.resultOperators}>{banner.operators.map(name=>{const op=operatorRows.find(r=>r.banner===banner.id&&r.name===name);return <div key={name} className={styles.resultOperator}><OperatorTile name={name} portraits={portraits} small/><div><strong>{name}</strong><div className="poll-want-meter"><span style={{width:`${op?percent(op.want,op.answers):0}%`}}/></div></div><span className={styles.operatorPercent}>{op?<><b>{percent(op.want,op.answers)}%</b> want<br/>{op.want?`avg P${(op.totalPotential/op.want).toFixed(1)}`:'No copies yet'}</>:'No answers'}</span></div>;})}</div>}
+          {detailed&&<div className={styles.resultOperators}>{banner.operators.map(name=>{const op=operatorRows.find(r=>r.banner===banner.id&&r.name===name);return <button key={name} className={`btn-bare ${styles.resultOperator}`} onClick={()=>setSelected(op??{banner:banner.id,name,answers:0,want:0,maybe:0,no:0,totalPotential:0,maxPotential:0,potentials:[0,0,0,0,0,0]})} aria-haspopup="dialog" aria-label={`View pull results for ${name} on ${bannerTitle(banner)}`}><OperatorTile name={name} portraits={portraits} small/><div><strong>{name}</strong><ResultSplit label={name} row={{id:name,answers:op?.answers??0,pull:op?.want??0,maybe:op?.maybe??0,skip:op?.no??0}}/></div><span className={styles.operatorPercent}>{op?<><b>{percent(op.want,op.answers)}%</b> want<br/>{op.want?`avg P${(op.totalPotential/op.want).toFixed(1)}`:'No copies yet'}</>:'No answers'}</span></button>;})}</div>}
         </div>
       </article>;
     })}</div>
+    {selected&&<PullPollOperatorResults row={operatorRows.find(row=>row.banner===selected.banner&&row.name===selected.name)??selected} portrait={portraits[selected.name]} onClose={()=>setSelected(null)}/>}
     <Link className="ghost btn-sm" href="/polls">Community polls</Link>
   </div>;
 }
