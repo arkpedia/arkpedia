@@ -119,7 +119,8 @@ async function withLiveFeeds(props: Props, context: GetStaticPropsContext): Prom
   // content, and this panel is specifically an Arknights feed.
   const { videoArchive, videoTopics, ...rest } = props;
   const archive = process.env.ARKPEDIA_YOUTUBE_FEED_FIXTURE ? [] : videoArchive ?? readLocalVideoArchive();
-  const videos = filterDiscoveryVideos(applyVideoTopicAssignments([...enriched, ...archive].filter((v) => !v.isLivestream), videoTopics ?? await loadVideoTopics()));
+  const filtered = filterDiscoveryVideos([...enriched, ...archive].filter((v) => !v.isLivestream));
+  const videos = applyVideoTopicAssignments(filtered, videoTopics ?? await loadVideoTopics());
   const videoContext = await loadVideoDiscoveryContext(props.now);
 
   return {
