@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { eventRewardOperators, eventWelfareOperators, withWelfareEventLinks, type FreeReward } from '../../lib/pulls/freeRewards';
+import { canonicalEventWelfare, eventRewardOperators, eventWelfareOperators, withWelfareEventLinks, type FreeReward } from '../../lib/pulls/freeRewards';
 
 /* An event page's Operators tab lists the welfare operators the Reward Tracker links to that
    page (lib/pulls/freeRewards.ts eventWelfareOperators): one per operator, with how it is earned. */
@@ -16,7 +16,23 @@ test('lists the welfare operators linked to the page, once each, with their task
     row({ id: 'd', href: page, group: 'Event sign-in and gifts', rewards: [{ id: 'char_y', name: 'Gift', count: 1, rarity: 3 }] }),
   ];
   // The first row wins; with no `event` the source is the row's own name (welfareCardFacts).
-  assert.deepEqual(eventWelfareOperators(rewards, page), [{ name: 'Botani', rarity: 5, task: 'Clear PA-4', source: 'Botani · Event missions: Clear PA-4' }]);
+  assert.deepEqual(eventWelfareOperators(rewards, page), [{ name: 'Botani', rarity: 5, task: 'Clear PA-4', source: 'Botani · Event missions: Clear PA-4', characterId: 'char_4223_botany' }]);
+});
+
+test('game name order resolves by character ID in new and already-published event rows', async () => {
+  const catalogue = (await import('../../data/community-operator-catalogue.json')).default;
+  const rewards = (await import('../../data/free-rewards.json')).default.rewards as FreeReward[];
+  const href = `/events/${encodeURIComponent('[Side Story – Crossover] Somniloquium Serenum')}`;
+  const raw = eventWelfareOperators(rewards, href);
+  assert.equal(raw.length, 2);
+  for (const rows of [raw, raw.map(({ characterId: _id, ...legacy }) => legacy)]) {
+    const welfare = canonicalEventWelfare(rows, rewards, catalogue);
+    assert.deepEqual(welfare.map(op => [op.name, op.task]), [['Yūtenji Nyamu', 'Clear SS-4'], ['Yahata Umiri', 'Clear SS-5']]);
+    const stores = [{ type: 'Missions', name: 'Missions', items: welfare.map(op => ({ iconPath: `/five-star-icons/${encodeURIComponent(op.name + ' - Base.webp')}` })) }];
+    assert.deepEqual(eventRewardOperators(stores, welfare), [], 'mission rewards cannot duplicate the welfare operators');
+  }
+  const unresolved = [{ name: 'Unknown', rarity: 5, task: null, source: 'Missions', characterId: 'char_unknown' }];
+  assert.deepEqual(canonicalEventWelfare(unresolved, [], catalogue), unresolved);
 });
 
 test('a legacy row without a link is matched through its event (withWelfareEventLinks)', () => {
