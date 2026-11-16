@@ -52,3 +52,9 @@ test('the isolated content job creates its own live runtime fixture before using
   assert.ok(index('Prepare runtime content fixture')<index('Pull the pinned game records for the browser specs'));
   assert.ok(index('Prepare runtime content fixture')<index('Content updates and rollback without rebuilding'));
 });
+
+test('browser failures are readable in GitHub annotations as well as exact JSON evidence',()=>{
+  for(const workflowName of ['check','browser-audit'])for(const job of Object.values(workflow(workflowName).jobs))
+    for(const step of job.steps??[])if(step.env?.PLAYWRIGHT_JSON_OUTPUT_FILE)
+      assert.match(step.run,/--reporter=list,json,github/);
+});

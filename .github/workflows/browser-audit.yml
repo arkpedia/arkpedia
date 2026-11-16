@@ -114,14 +114,14 @@ jobs:
         run: node scripts/ci/browser-shards.mjs prepare "${{ matrix.index }}" "${{ matrix.total }}"
       - name: Desktop and mobile browser regressions
         if: needs.browser-build.outputs.lane == 'full'
-        run: npm run test:browser -- --test-list .cache/browser-shard-tests.txt --project desktop --project mobile --reporter=list,json
+        run: npm run test:browser -- --test-list .cache/browser-shard-tests.txt --project desktop --project mobile --reporter=list,json,github
         env:
           PLAYWRIGHT_JSON_OUTPUT_FILE: .cache/browser-shard-report.json
           TMPDIR: ${{ runner.temp }}
           PW_WORKERS: '2'
       - name: Selected browser regressions
         if: needs.browser-build.outputs.lane == 'targeted'
-        run: npm run test:browser -- --test-list .cache/browser-shard-tests.txt --project desktop --project mobile --reporter=list,json
+        run: npm run test:browser -- --test-list .cache/browser-shard-tests.txt --project desktop --project mobile --reporter=list,json,github
         env:
           PLAYWRIGHT_JSON_OUTPUT_FILE: .cache/browser-shard-report.json
           TMPDIR: ${{ runner.temp }}
@@ -194,7 +194,7 @@ jobs:
       - name: Full-census completion contract
         id: completion
         if: needs.browser-build.outputs.lane == 'full'
-        run: npm run test:browser -- --test-list .cache/browser-completion-tests.txt --project after-census --no-deps --output test-results-completion --reporter=list,json && node scripts/ci/browser-shards.mjs complete
+        run: npm run test:browser -- --test-list .cache/browser-completion-tests.txt --project after-census --no-deps --output test-results-completion --reporter=list,json,github && node scripts/ci/browser-shards.mjs complete
         env:
           ARKPEDIA_BROWSER_COMPLETION_ONLY: '1'
           ARKPEDIA_CENSUS_STACK_DIR: .cache/census-stack-align
