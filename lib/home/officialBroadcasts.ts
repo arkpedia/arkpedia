@@ -71,13 +71,16 @@ export function broadcastIsEligible(broadcast: OfficialBroadcast, now: number): 
   return broadcast.status === 'upcoming' && age <= 86400000 && start >= now - 6 * 3600000 && start <= now + BROADCAST_LOOKAHEAD;
 }
 
-export function featuredBroadcastGroups(broadcasts: readonly OfficialBroadcast[], now: number): BroadcastGroup[] {
+export function featuredBroadcastGroups(broadcasts: readonly OfficialBroadcast[], now: number, featuredLiveIds: readonly string[] = []): BroadcastGroup[] {
   const grouped = new Map<string, OfficialBroadcast[]>();
   for (const broadcast of broadcasts) grouped.set(broadcast.groupKey, [...(grouped.get(broadcast.groupKey) ?? []), broadcast]);
   const compare = (a: OfficialBroadcast, b: OfficialBroadcast) => Number(b.status === 'live') - Number(a.status === 'live')
     || Date.parse(a.startsAt) - Date.parse(b.startsAt) || priority[a.region] - priority[b.region] || a.id.localeCompare(b.id);
   return [...grouped].flatMap(([key, members]) => {
-    const primary = members.filter(member => broadcastIsEligible(member, now)).sort(compare)[0];
+    const eligible = members.filter(member => broadcastIsEligible(member, now)).sort(compare);
+    // Once a reader is watching a featured live broadcast, a delayed regional
+    // start (including a nominally same-time Global/KR tie) must not displace it.
+    const primary = eligible.find(member => member.status === 'live' && featuredLiveIds.includes(member.id)) ?? eligible[0];
     if (!primary) return [];
     const others = members.filter(member => member.id !== primary.id && (member.status === 'ended' || broadcastIsEligible(member,now)) && Date.parse(member.startsAt) >= now - BROADCAST_LOOKAHEAD && Date.parse(member.startsAt) <= now + BROADCAST_LOOKAHEAD)
       .sort((a, b) => Date.parse(a.startsAt) - Date.parse(b.startsAt) || priority[a.region] - priority[b.region]);

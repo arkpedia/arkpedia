@@ -11,7 +11,8 @@ or shared canonical event names in the shipped regional schedule. Generic titles
 and nearby times do not merge unrelated programmes; CN is its own release family.
 The earliest regional stream is featured. Live confirmation keeps it featured until
 the provider reports it ended; the next stream then takes over. Global wins an
-identical-time tie with KR. Other regional watch/replay links and local times remain
+identical-time tie with KR for a new selection. A stream already featured as live
+stays selected even if a same-time regional stream reports its live status later. Other regional watch/replay links and local times remain
 below the hero. All-ended groups leave the carousel.
 
 GET /api/home/broadcasts exposes public metadata only. It reuses the existing

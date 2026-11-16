@@ -29,9 +29,9 @@ export default function EventsPanel({ ongoing, upcoming, now }: Props) {
   // The request's clock first, so the markup and the first client paint agree; the
   // reader's after mount, re-read every second (it changes once a minute).
   const clock = useReaderClock(now, { tickMs: 1000 });
-  const broadcasts = useOfficialBroadcasts();
+  const {broadcasts,featuredLiveIds} = useOfficialBroadcasts();
   const slides: SlideItem[] = [
-    ...featuredBroadcastGroups(broadcasts,clock).map(broadcast=>({key:broadcast.key,broadcast})),
+    ...featuredBroadcastGroups(broadcasts,clock,featuredLiveIds).map(broadcast=>({key:broadcast.key,broadcast})),
     ...ongoing.map((event) => ({ key:event.name, event, isUpcoming: clock < event.start.getTime() })),
     ...(upcoming ? [{ key:upcoming.name, event: upcoming, isUpcoming: clock < upcoming.start.getTime() }] : []),
   ];

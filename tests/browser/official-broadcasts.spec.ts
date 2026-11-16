@@ -23,6 +23,13 @@ for(const theme of ['dark','light']) test(`official broadcasts roll over regiona
   await expect(hero.locator('img')).toHaveJSProperty('naturalWidth',1280);
   await page.screenshot({path:`/tmp/arkpedia-broadcast-${test.info().project.name}-${theme}.png`});
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+  // A late provider Live flag must not steal an already featured stream.
+  records=[{...records[0],status:'ended'},{...records[1],status:'upcoming'},records[2]];
+  await page.evaluate(()=>window.dispatchEvent(new Event('focus')));
+  await expect(hero).toHaveAttribute('href',/kr000000001/);
+  records=[records[0],{...records[1],status:'live'},records[2]];
+  await page.evaluate(()=>window.dispatchEvent(new Event('focus')));
+  await expect(hero).toHaveAttribute('href',/kr000000001/);
   records=records.map(record=>({...record,status:'ended'}));
   await page.evaluate(()=>window.dispatchEvent(new Event('focus')));
   await expect(hero).toHaveAttribute('href',/^\/events\//);

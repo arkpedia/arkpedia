@@ -47,3 +47,15 @@ test('only broadcast formats and Endfield patch programmes qualify; DTOs have sa
   assert.equal(validBroadcastSnapshot(snapshot),true);
   assert.equal(validBroadcastSnapshot({...snapshot,broadcasts:snapshot.broadcasts.map(row=>({...row,url:'javascript:alert(1)'} as OfficialBroadcast))}),false);
 });
+
+test('a delayed same-time Global start cannot displace an already featured live KR stream',()=>{
+  const now=Date.parse('2026-11-16T12:00:00Z'),stamp=new Date(now).toISOString();
+  const shared={game:'arknights' as const,title:'6th Anniversary Livestream',thumbnail:null,startsAt:stamp,verifiedAt:stamp,groupKey:'anniversary6'};
+  const global={...shared,id:'en',source:'global',region:'global' as const,status:'upcoming' as const,url:'https://www.youtube.com/watch?v=en000000001'};
+  const kr={...shared,id:'kr',source:'kr',region:'kr' as const,status:'live' as const,url:'https://www.youtube.com/watch?v=kr000000001'};
+  assert.equal(featuredBroadcastGroups([global,kr],now)[0].primary.id,'kr');
+  const both=[{...global,status:'live' as const},kr];
+  assert.equal(featuredBroadcastGroups(both,now)[0].primary.id,'en','new readers still prefer Global for a simultaneous tie');
+  assert.equal(featuredBroadcastGroups(both,now,['kr'])[0].primary.id,'kr','the existing featured live stream stays until it ends');
+  assert.equal(featuredBroadcastGroups([both[0],{...kr,status:'ended'}],now,['kr'])[0].primary.id,'en');
+});
