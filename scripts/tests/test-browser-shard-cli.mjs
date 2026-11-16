@@ -46,8 +46,9 @@ test('real Playwright reporters survive partition, isolated execution, census co
   const prefix=root+'/.cache/browser-shard-downloads/browser-result-'+partition.planSha256+'-';
   for(let index=1;index<=4;index++) {
     run(helper,['prepare',String(index),'4']);
-    run(cli,['test','--test-list','.cache/browser-shard-tests.txt','--project','desktop','--project','mobile','--reporter=json'],
+    const annotations=run(cli,['test','--test-list','.cache/browser-shard-tests.txt','--project','desktop','--project','mobile','--reporter=json,github'],
       {PLAYWRIGHT_JSON_OUTPUT_FILE:'.cache/browser-shard-report.json'});
+    assert.match(annotations,/::notice .*Playwright Run Summary/);
     run(helper,['record',String(index),'4']);
     fs.mkdirSync(root+'/.cache/browser-shard-downloads',{recursive:true});
     fs.renameSync(root+'/.cache/browser-shard-result',prefix+index);
