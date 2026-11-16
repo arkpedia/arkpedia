@@ -1,0 +1,32 @@
+name: Evaluate YouTube categories
+on:
+  # One bounded paid evaluation when the integration PR opens, not every push.
+  pull_request:
+    types: [opened]
+    paths: ['scripts/sync/jev-video-classifier.ts']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  evaluate:
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - name: Evaluate the labeled public metadata (20 calls)
+        env:
+          TYPESAFE_API_KEY: ${{ secrets.TYPESAFE_API_KEY }}
+        run: node --import tsx scripts/audits/evaluate-youtube-topics.ts
+      - name: Save exact public requests and answers
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: jev-evaluation
+          path: jev-evaluation.json
+          if-no-files-found: ignore

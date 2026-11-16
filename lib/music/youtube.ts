@@ -16,6 +16,8 @@ export interface YouTubeVideo {
   archived?: true;
   operatorNames?: string[];
   topicHint?: 'operators';
+  /** Validated cached classifier output; explicit editorial hints take precedence. */
+  classifiedTopic?: import('./youtubeDiscovery').VideoTopic;
 }
 
 export interface VideoOEmbedInfo {

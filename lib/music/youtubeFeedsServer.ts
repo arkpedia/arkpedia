@@ -6,6 +6,8 @@ import { parseChannelFeed, type YouTubeVideo } from './youtube';
 import { createChannelFeedReader } from './youtubeFeedCache';
 import { workerContext } from './audioLinkMemo';
 import { loadVideoArchive } from './youtubeArchiveServer';
+import { loadVideoTopics } from './youtubeTopicsServer';
+import { applyVideoTopicAssignments } from './youtubeTopicAssignments';
 import type { GetStaticPropsContext } from 'next';
 
 /**
@@ -61,5 +63,5 @@ export async function getLatestVideos(
     throw new Error('YouTube feeds unavailable; retaining the previous page');
   }
   merged.sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime());
-  return merged;
+  return applyVideoTopicAssignments(merged, await loadVideoTopics());
 }

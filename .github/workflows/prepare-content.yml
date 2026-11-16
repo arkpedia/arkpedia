@@ -268,6 +268,30 @@ jobs:
           path: .cache/youtube-discovery/archive.json
           key: youtube-discovery-${{ github.run_id }}
 
+      - name: Restore cached YouTube categories
+        if: github.event_name != 'schedule' || steps.prepared.outputs.cache-hit != 'true'
+        uses: actions/cache/restore@v6
+        with:
+          path: .cache/youtube-discovery/topics.json
+          key: youtube-topics-${{ github.run_id }}
+          restore-keys: youtube-topics-
+      - name: Classify public video metadata with Jev
+        if: (github.event_name != 'schedule' || steps.prepared.outputs.cache-hit != 'true') && (github.event_name == 'schedule' || inputs.refresh_upstream)
+        # A provider outage cannot hold unrelated content back. The script saves
+        # successful answers before reporting a total failure; rules remain available.
+        continue-on-error: true
+        timeout-minutes: 8
+        env:
+          TYPESAFE_API_KEY: ${{ secrets.TYPESAFE_API_KEY }}
+          ARKPEDIA_CONTENT_DISABLED: '1'
+        run: node --import tsx scripts/sync/sync-youtube-topics.ts
+      - name: Keep cached YouTube categories
+        if: github.event_name != 'schedule' || steps.prepared.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v6
+        with:
+          path: .cache/youtube-discovery/topics.json
+          key: youtube-topics-${{ github.run_id }}
+
       - name: Validate and compile data (no website build)
         if: github.event_name != 'schedule' || steps.prepared.outputs.cache-hit != 'true'
         env:
