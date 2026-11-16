@@ -1,34 +1,26 @@
+# Parallel CI preserves exact-source approval and complete browser execution evidence.
 name: Check
-
 on:
-  # A change to nothing but docs builds nothing and deploys nothing, so it skips Check (and
-  # with it Deploy, which follows a green Check). The list is config/docs-only-paths.json,
-  # which the content release gate's code fingerprint leaves out too
-  # (scripts/content/code-fingerprint.mjs): keep the two the same, a test holds them to it.
-  # Other changes run draft feedback or the full ready/main/manual profile below.
+  # Keep these exclusions aligned with config/docs-only-paths.json and the release fingerprint.
   push:
     branches: [main]
     paths-ignore: ['docs/**', '**/*.md']
   pull_request:
     branches: [main]
-    types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - ready_for_review
+      - converted_to_draft
     paths-ignore: ['docs/**', '**/*.md']
-  # So a branch can be checked before it has a pull request, and so this file can
-  # be tried by hand once it lands.
-  workflow_dispatch:
-
-# A second push to the same branch makes the first run pointless.
+  workflow_dispatch: null
 concurrency:
   group: check-${{ github.ref }}
   cancel-in-progress: true
-
 permissions:
   contents: read
-
 jobs:
-  # Reuse a successful PR Check of this exact merge tree on pushes and same-repository PRs.
-  # This also covers a rebase that changes only ancestry. Any changed file, missing proof or
-  # API failure runs the full Check. Manual rechecks always run the full Check.
   seen:
     if: github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository)
     runs-on: ubuntu-latest
@@ -40,25 +32,18 @@ jobs:
     outputs:
       checked: ${{ steps.seen.outputs.checked }}
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-
-      # Node for the two scripts below (built-in modules only, so no npm ci).
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
         with:
           node-version: '22'
-
       - name: Look for a green pull request Check of this exact code
         id: seen
         env:
           GH_TOKEN: ${{ github.token }}
         run: node scripts/ci/already-checked.mjs >> "$GITHUB_OUTPUT"
-
       - name: Mark main green again when its pull request's Check vouches
         if: steps.seen.outputs.checked == 'true' && github.ref == 'refs/heads/main'
         run: echo 'Exact-tree Check proof verified; the trusted main-report job handles issue reporting.'
-
-  # Draft iterations give fast feedback without a website build or browser suite.
-  # GitHub prevents merging drafts; ready_for_review always starts the full path below.
   draft:
     if: github.event_name == 'pull_request' && github.event.pull_request.draft == true && github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
@@ -66,20 +51,18 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - name: Use disk-backed temporary storage
         run: echo "TMPDIR=$RUNNER_TEMP" >> "$GITHUB_ENV"
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
         with:
           node-version: '22'
           cache: npm
           package-manager-cache: true
       - run: npm ci
-      # Game records live in arkpedia-data; this repository keeps code only. The live release's
-      # records, the ones www serves (scripts/content/pull-data.mjs).
       - name: Pull the live game records
         run: node scripts/content/pull-data.mjs
-      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
         with:
           python-version: '3.12'
       - run: python -m pip install -r scripts/requirements.txt
@@ -100,8 +83,7 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
         env:
-          # The full Preview UI exceeds Node's automatic 2 GB heap on the 6 GB runner.
-          NODE_OPTIONS: --max-old-space-size=4096
+          NODE_OPTIONS: '--max-old-space-size=4096'
       - name: Lint
         run: npm run lint -- --max-warnings 15
       - name: Lint pipeline scripts
@@ -111,9 +93,6 @@ jobs:
       - name: Report draft coverage
         run: |
           echo 'Draft feedback passed: application/Python tests, generated inputs, types, lint, style and code graph. No website build, browser coverage or reusable Check proof. Mark ready for review to run the full release gate.' >> "$GITHUB_STEP_SUMMARY"
-
-  # The browser build is ordinary Next.js. Also compile the real production Worker
-  # before merge: deployment must not discover missing modules or bundle bloat first.
   production-build:
     needs: seen
     if: ${{ !cancelled() && needs.seen.outputs.checked != 'true' && !(github.event_name == 'pull_request' && github.event.pull_request.draft == true && github.event.pull_request.head.repo.full_name == github.repository) }}
@@ -122,12 +101,12 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           persist-credentials: false
       - name: Use disk-backed temporary storage
         run: echo "TMPDIR=$RUNNER_TEMP" >> "$GITHUB_ENV"
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
         with:
           node-version: '24'
           cache: npm
@@ -138,49 +117,35 @@ jobs:
       - name: Compile and check the production Worker
         run: npm run cf:build
         env:
-          NODE_OPTIONS: --max-old-space-size=4096
+          NODE_OPTIONS: '--max-old-space-size=4096'
           NEXT_TELEMETRY_DISABLED: '1'
           WRANGLER_SEND_METRICS: 'false'
-
-  check:
+  # Quality gates overlap both site builds; check remains the required final verdict.
+  validation:
     needs: seen
-    # A cache miss, failed lookup or skipped lookup runs the full Check.
-    # Draft feedback never creates that proof. Forks/manual checks retain the full path.
     if: ${{ !cancelled() && needs.seen.outputs.checked != 'true' && !(github.event_name == 'pull_request' && github.event.pull_request.draft == true && github.event.pull_request.head.repo.full_name == github.repository) }}
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    timeout-minutes: 25
     permissions:
       contents: read
-      # Validate actual full-browser baseline runs and merged PR provenance.
-      actions: read
-      pull-requests: read
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.sha }}
       - name: Use disk-backed temporary storage
         run: echo "TMPDIR=$RUNNER_TEMP" >> "$GITHUB_ENV"
-
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
         with:
           node-version: '22'
           cache: npm
           package-manager-cache: true
-
       - run: npm ci
-      # Game records live in arkpedia-data; this repository keeps code only. The live release's
-      # records, the ones www serves (scripts/content/pull-data.mjs).
       - name: Pull the live game records
         run: node scripts/content/pull-data.mjs
-
-      # Before npm test: it runs the Python importers too (test-cn-tables.ts), and they
-      # import Pillow and certifi at the top.
-      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
         with:
-          python-version: "3.12"
-
+          python-version: '3.12'
       - run: python -m pip install -r scripts/requirements.txt
-
-      # Independent processes; Python suites use temporary fixtures. Keep npm test's
-      # existing parallel runner, overlap the importer tests, and collect BOTH verdicts.
       - name: Application and Python regression tests
         run: |
           npm run test:py > "$RUNNER_TEMP/python-tests.log" 2>&1 &
@@ -190,107 +155,68 @@ jobs:
           wait "$python_pid" || regression_status=$?
           cat "$RUNNER_TEMP/python-tests.log"
           exit "$regression_status"
-
-      # The voice clip check lists every outfit voice folder (66) with the contents API, past
-      # its 60 unauthenticated requests an hour.
       - name: External asset coverage
         env:
           GH_TOKEN: ${{ github.token }}
         run: npm run check:assets && npm run check:published-assets
-
-      # Size ceilings on what the guessers send to readers, measured on the bundled data.
-      # They are not in npm test: the release job runs that suite on the day's data, which
-      # only grows, and there the same check is the payload-budgets refresh stage, which
-      # reports a payload over budget and never holds back a release.
       - name: Page payload budgets
         run: npm run check:payload-budgets
-
-      # A ratchet over style drift: rarity colour literals, the pre-token teal, pill
-      # radii, h1 overrides, font weights that are not loaded, native <select> and
-      # hand-built listboxes outside components/ui, class collisions, off-scale sizes.
-      # It fails on anything new AND on a fixed entry still in the baseline, so the
-      # page-family migrations can only shrink scripts/audits/style-audit-baseline.json.
-      # See docs/development/ui-primitives.md.
       - name: Style drift ratchet
         run: npm run audit:styles
-
-      # Code graph only, independent of the bundled game records. Next/Playwright
-      # entrypoints, manual scripts and declaration twins are covered by fixtures.
       - name: Unused code and dependencies
         run: npm run audit:unused
-
-      # A class the app renders that no stylesheet styles is invisible to the type
-      # checker and to the linter: nothing fails, the page just quietly looks wrong.
-      # That was 45 names when this check went in; it is 0 now, so --strict can gate.
       - name: Every rendered class is styled
         run: npm run check:styles
-
       - name: Compile and validate runtime content
         run: npm run content:export -- --check && npm run content:validate
         env:
           NODE_ENV: production
           ARKPEDIA_CONTENT_DISABLED: '1'
-
-      # Generate before typechecking: prebuild can change JSON imported by the app.
-      # The two Next builds below then reuse these explicit checks in this same job.
       - name: Prepare build inputs
         run: npm run prebuild
         env:
           NODE_ENV: production
           ARKPEDIA_CONTENT_DISABLED: '1'
-
       - name: Typecheck
         run: npm run typecheck
         env:
-          NODE_OPTIONS: --max-old-space-size=4096
-
-      # A ratchet, not a wall: 15 warnings exist today (react-hooks/exhaustive-deps
-      # in the four big pages, plus two ARIA roles), every one of them a judgement
-      # call about behaviour rather than a mechanical fix, so they are left standing
-      # and capped. Errors fail on their own. Lower the number as they go.
+          NODE_OPTIONS: '--max-old-space-size=4096'
       - name: Lint
         run: npm run lint -- --max-warnings 15
-
       - name: Lint pipeline scripts
         run: npm run lint:scripts
-
-      # NEXT_TELEMETRY_DISABLED so a CI run is not also a ping to Vercel.
-      # Everything above read the live records. The build below is the one the browser specs
-      # run against, so it reads the commit tests/browser/data-pin.json pins: the specs check
-      # the site's behaviour, and a nightly release must not turn an unrelated PR red.
+  content-check:
+    needs: seen
+    if: ${{ !cancelled() && needs.seen.outputs.checked != 'true' && !(github.event_name == 'pull_request' && github.event.pull_request.draft == true && github.event.pull_request.head.repo.full_name == github.repository) }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.sha }}
+      - name: Use disk-backed temporary storage
+        run: echo "TMPDIR=$RUNNER_TEMP" >> "$GITHUB_ENV"
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version: '22'
+          cache: npm
+          package-manager-cache: true
+      - run: npm ci
       - name: Pull the pinned game records for the browser specs
         run: node scripts/content/pull-data.mjs --pinned
       - name: Prepare pinned browser build inputs
-        # Public catalogues and shipped tables must use the same revision as the
-        # pages. The earlier preparation belongs to the live-data type checks.
         run: npm run prebuild
         env:
           NODE_ENV: production
           ARKPEDIA_CONTENT_DISABLED: '1'
-      - name: Build
-        # Pinned inputs are prepared above; postbuild enforces BOTH output budgets.
-        run: npm run --ignore-scripts build && npm run postbuild
-        env:
-          NEXT_TELEMETRY_DISABLED: '1'
-          ARKPEDIA_BUILD_CHECKS_PASSED: '1'
-          ARKPEDIA_CONTENT_DISABLED: '1'
-          # The community pages' videos from a checked-in feed, not the channels' live ones,
-          # which returned 404 for hours on 2026-09-27 and failed the picture-card tests. The
-          # browser specs run against this build; playwright.config.ts sets the same file on
-          # the server it starts, for the pages' regenerations. Deploy never sets it.
-          ARKPEDIA_YOUTUBE_FEED_FIXTURE: tests/fixtures/youtube-feeds.xml
-          # Keep data readers in their production cache mode while prerendering.
-          NODE_ENV: production
-
-      # Deploy builds against the live content release, and right after a merge that release
-      # is still the one the previous code compiled: the release gate (deploy-gate.mjs) holds
-      # the next one until production runs this code. A page that cannot render the previous
-      # release's props fails Deploy, production stays on the old code, and the gate then
-      # holds every release after it, so neither can move (2026-09-26: /stages/seasonal and
-      # the 151 /stages/content pages once their props changed shape). So this builds again
-      # the way Deploy does, reading the live release, into a directory of its own. The last
-      # line fails the step when the release could not be read and the pages quietly came
-      # from this checkout's data instead, which would prove nothing.
+      - name: Cache Next compiler inputs
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830
+        with:
+          path: .next-live/cache
+          key: ${{ runner.os }}-next-content-node22-${{ hashFiles('package-lock.json', 'tests/browser/data-pin.json', 'next.config.js') }}-${{ github.sha }}
+          restore-keys: ${{ runner.os }}-next-content-node22-${{ hashFiles('package-lock.json', 'tests/browser/data-pin.json', 'next.config.js') }}-
       - name: Pages render the live content release
         run: |
           npx next build --webpack
@@ -299,21 +225,60 @@ jobs:
           ARKPEDIA_BUILD_CHECKS_PASSED: '1'
           NEXT_DIST_DIR: .next-live
           NEXT_TELEMETRY_DISABLED: '1'
-          # The same checked-in feed as Build: this step proves the content release renders,
-          # and the channels' live feeds would only add a network wait with no timeout.
           ARKPEDIA_YOUTUBE_FEED_FIXTURE: tests/fixtures/youtube-feeds.xml
           NODE_ENV: production
-
       - name: Install Chromium only
-
         run: npx playwright install --with-deps chromium
-
-      # PRs, and pushes to main no PR Check vouched for, compare with a trusted full-browser
-      # ancestor, then run core and affected release journeys: named feature families, and
-      # the specs of the pages that import a changed file (scripts/ci/release-browser-plan.mjs).
-      # Shared chrome uses representative populated features; exhaustive visual contracts run
-      # in the independent Browser audit workflow, nightly. Unknown/toolchain inputs, a missing
-      # baseline, and manual, branch-push and fork checks retain full coverage.
+      - name: Content updates and rollback without rebuilding
+        run: |
+          df -h "$TMPDIR" /tmp /dev/shm
+          npm run test:content-runtime
+        env:
+          NEXT_DIST_DIR: .next-live
+          TMPDIR: ${{ runner.temp }}
+  # Build once from pinned fixtures, then distribute this exact site within this run.
+  browser-build:
+    needs: seen
+    if: ${{ !cancelled() && needs.seen.outputs.checked != 'true' && !(github.event_name == 'pull_request' && github.event.pull_request.draft == true && github.event.pull_request.head.repo.full_name == github.repository) }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    permissions:
+      contents: read
+      actions: read
+      pull-requests: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.sha }}
+      - name: Use disk-backed temporary storage
+        run: echo "TMPDIR=$RUNNER_TEMP" >> "$GITHUB_ENV"
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version: '22'
+          cache: npm
+          package-manager-cache: true
+      - run: npm ci
+      - name: Pull the pinned game records for the browser specs
+        run: node scripts/content/pull-data.mjs --pinned
+      - name: Prepare pinned browser build inputs
+        run: npm run prebuild
+        env:
+          NODE_ENV: production
+          ARKPEDIA_CONTENT_DISABLED: '1'
+      - name: Cache Next compiler inputs
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830
+        with:
+          path: .next/cache
+          key: ${{ runner.os }}-next-browser-node22-${{ hashFiles('package-lock.json', 'tests/browser/data-pin.json', 'next.config.js') }}-${{ github.sha }}
+          restore-keys: ${{ runner.os }}-next-browser-node22-${{ hashFiles('package-lock.json', 'tests/browser/data-pin.json', 'next.config.js') }}-
+      - name: Build
+        run: npm run --ignore-scripts build && npm run postbuild
+        env:
+          NEXT_TELEMETRY_DISABLED: '1'
+          ARKPEDIA_BUILD_CHECKS_PASSED: '1'
+          ARKPEDIA_CONTENT_DISABLED: '1'
+          ARKPEDIA_YOUTUBE_FEED_FIXTURE: tests/fixtures/youtube-feeds.xml
+          NODE_ENV: production
       - name: Which browser regressions this change needs
         id: browser
         env:
@@ -323,90 +288,212 @@ jobs:
           BROWSER_HEAD_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name }}
           BROWSER_EXPEDITED: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && contains(github.event.pull_request.labels.*.name, 'release:expedite') && '1' || '' }}
         run: node scripts/ci/browser-lane.mjs plan >> "$GITHUB_OUTPUT"
-
-      # Fail on broken publication before the long browser suite. Its own build directory
-      # keeps fixture releases out of the bundled pages the browser suite reads.
-      - name: Content updates and rollback without rebuilding
-        run: |
-          df -h "$TMPDIR" /tmp /dev/shm
-          npm run test:content-runtime
-        env:
-          NEXT_DIST_DIR: .next-live
-
-          TMPDIR: ${{ runner.temp }}
-      - name: Browser runner resources
-        if: steps.browser.outputs.lane != 'none'
-        env:
-          TMPDIR: ${{ runner.temp }}
-          PW_WORKERS: '2'
-        run: |
-          node -e 'const os=require("node:os");console.log({temporaryDirectory:os.tmpdir(),memoryLimitBytes:process.constrainedMemory(),availableMemoryBytes:process.availableMemory(),workers:process.env.PW_WORKERS})'
-          df -h "$TMPDIR" /tmp /dev/shm
-
-      # Keep this name exclusive to actual full execution: baseline verification checks it.
+      - name: Partition browser coverage
+        id: shards
+        run: node scripts/ci/browser-shards.mjs plan >> "$GITHUB_OUTPUT"
+      - name: Package checked browser site
+        run: node scripts/ci/browser-site.mjs pack
+      - name: Share checked browser site
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: browser-site
+          path: |-
+            .cache/browser-site.tgz
+            .cache/browser-site-manifest.json
+          include-hidden-files: true
+          retention-days: 2
+          overwrite: true
+    outputs:
+      lane: ${{ steps.browser.outputs.lane }}
+      matrix: ${{ steps.shards.outputs.matrix }}
+      partition: ${{ steps.shards.outputs.partition }}
+  browser-tests:
+    needs: browser-build
+    if: '!cancelled() && needs.browser-build.result == ''success'' && needs.browser-build.outputs.lane != ''none'''
+    name: browser (${{ matrix.index }}/${{ matrix.total }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.browser-build.outputs.matrix || '{"include":[{"index":1,"total":1}]}') }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.sha }}
+      - name: Use disk-backed temporary storage
+        run: echo "TMPDIR=$RUNNER_TEMP" >> "$GITHUB_ENV"
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version: '22'
+          cache: npm
+          package-manager-cache: true
+      - run: npm ci
+      - name: Download checked browser site
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
+        with:
+          name: browser-site
+          path: .cache
+      - name: Restore checked browser site
+        run: node scripts/ci/browser-site.mjs restore
+      - name: Install Chromium only
+        run: npx playwright install --with-deps chromium
+      - name: Prepare browser shard
+        run: node scripts/ci/browser-shards.mjs prepare "${{ matrix.index }}" "${{ matrix.total }}"
       - name: Desktop and mobile browser regressions
-        id: full_browser
-        if: steps.browser.outputs.lane != 'targeted' && steps.browser.outputs.lane != 'none'
-        run: npm run test:browser -- --reporter=list,json
+        if: needs.browser-build.outputs.lane == 'full'
+        run: npm run test:browser -- --test-list .cache/browser-shard-tests.txt --project desktop --project mobile --reporter=list,json
         env:
-          PLAYWRIGHT_JSON_OUTPUT_FILE: .cache/browser-results.json
+          PLAYWRIGHT_JSON_OUTPUT_FILE: .cache/browser-shard-report.json
           TMPDIR: ${{ runner.temp }}
           PW_WORKERS: '2'
-
       - name: Selected browser regressions
-        id: selected_browser
-        if: steps.browser.outputs.lane == 'targeted'
-        run: npm run test:browser -- --test-list .cache/browser-test-list.txt --reporter=list,json
+        if: needs.browser-build.outputs.lane == 'targeted'
+        run: npm run test:browser -- --test-list .cache/browser-shard-tests.txt --project desktop --project mobile --reporter=list,json
         env:
-          PLAYWRIGHT_JSON_OUTPUT_FILE: .cache/browser-results.json
+          PLAYWRIGHT_JSON_OUTPUT_FILE: .cache/browser-shard-report.json
           TMPDIR: ${{ runner.temp }}
           PW_WORKERS: '2'
-
+      - name: Record browser shard
+        run: node scripts/ci/browser-shards.mjs record "${{ matrix.index }}" "${{ matrix.total }}"
+      - name: Share browser shard evidence
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: browser-result-${{ needs.browser-build.outputs.partition }}-${{ matrix.index }}
+          path: .cache/browser-shard-result
+          include-hidden-files: true
+          retention-days: 2
+          overwrite: true
+      - name: Preserve browser failure evidence
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: browser-failure-${{ github.run_id }}-${{ matrix.index }}-${{ github.run_attempt }}
+          path: |-
+            test-results/
+            .cache/browser-shard-report.json
+            .cache/browser-plan.json
+          include-hidden-files: true
+          retention-days: 3
+  # Missing or failed dependencies must reach the fail-closed gate below.
+  check:
+    needs:
+      - seen
+      - validation
+      - production-build
+      - content-check
+      - browser-build
+      - browser-tests
+    if: ${{ !cancelled() && needs.seen.outputs.checked != 'true' && !(github.event_name == 'pull_request' && github.event.pull_request.draft == true && github.event.pull_request.head.repo.full_name == github.repository) }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.sha }}
+      - name: Use disk-backed temporary storage
+        run: echo "TMPDIR=$RUNNER_TEMP" >> "$GITHUB_ENV"
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version: '22'
+          cache: npm
+          package-manager-cache: true
+      - run: npm ci
+      - name: Require parallel checks
+        run: |-
+          test "$VALIDATION" = success
+          test "$CONTENT" = success
+          test "$WORKER" = success
+          test "$BUILD" = success
+          if [ "$LANE" = none ]; then test "$BROWSERS" = skipped; else test "$BROWSERS" = success; fi
+        env:
+          VALIDATION: ${{ needs.validation.result }}
+          CONTENT: ${{ needs.content-check.result }}
+          WORKER: ${{ needs.production-build.result }}
+          BUILD: ${{ needs.browser-build.result }}
+          BROWSERS: ${{ needs.browser-tests.result }}
+          LANE: ${{ needs.browser-build.outputs.lane }}
+      - name: Download checked browser site
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
+        with:
+          name: browser-site
+          path: .cache
+      - name: Restore checked browser site
+        run: node scripts/ci/browser-site.mjs restore
+      - name: Download browser shard evidence
+        if: needs.browser-build.outputs.lane != 'none'
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
+        with:
+          pattern: browser-result-${{ needs.browser-build.outputs.partition }}-*
+          path: .cache/browser-shard-downloads
+      - name: Merge browser shard evidence
+        if: needs.browser-build.outputs.lane != 'none'
+        run: node scripts/ci/browser-shards.mjs merge
+      - name: Full-census completion contract
+        id: completion
+        if: needs.browser-build.outputs.lane == 'full'
+        run: npm run test:browser -- --test-list .cache/browser-completion-tests.txt --project after-census --no-deps --output test-results-completion --reporter=list,json && node scripts/ci/browser-shards.mjs complete
+        env:
+          ARKPEDIA_BROWSER_COMPLETION_ONLY: '1'
+          ARKPEDIA_CENSUS_STACK_DIR: .cache/census-stack-align
+          PLAYWRIGHT_JSON_OUTPUT_FILE: .cache/browser-completion-report.json
+          TMPDIR: ${{ runner.temp }}
       - name: Validate browser execution evidence
         id: validate_browser
         run: node scripts/ci/browser-lane.mjs complete
-
+      - name: Validate full browser shard execution
+        id: full_browser
+        if: needs.browser-build.outputs.lane == 'full'
+        run: node scripts/ci/browser-shards.mjs verify-full
+      - name: Validate selected browser shard execution
+        id: selected_browser
+        if: needs.browser-build.outputs.lane == 'targeted'
+        run: node scripts/ci/browser-shards.mjs verify-targeted
       - name: Preserve browser failure evidence
-        if: failure() && (steps.full_browser.outcome == 'failure' || steps.selected_browser.outcome == 'failure' || steps.validate_browser.outcome == 'failure')
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
-          name: browser-failure-${{ github.run_id }}-${{ github.run_attempt }}
-          path: |
-            test-results/
+          name: browser-merge-failure-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |-
             .cache/browser-results.json
             .cache/browser-plan.json
-          if-no-files-found: ignore
+            .cache/browser-completion-report.json
+            test-results-completion/
+          include-hidden-files: true
           retention-days: 3
-
-      # The code this pull request's Check passed, so the push that merges it need not run
-      # it again (the `seen` job above).
       - name: Name the code this Check passed
         id: tree
         if: success() && github.event_name == 'pull_request'
         run: |
           echo "tree=$(git rev-parse 'HEAD^{tree}')" >> "$GITHUB_OUTPUT"
           node -e 'console.log("policy=" + require("./.cache/browser-evidence.json").policySha256)' >> "$GITHUB_OUTPUT"
-
       - name: Record the code this Check passed
-        if: success() && github.event_name == 'pull_request' && steps.browser.outputs.lane == 'full'
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        if: success() && github.event_name == 'pull_request' && needs.browser-build.outputs.lane == 'full'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: checked-tree-${{ steps.tree.outputs.tree }}
           path: package.json
           retention-days: 7
-
-      # Partial evidence has a separate name and explicit selected/omitted coverage.
       - name: Record selected browser coverage
-        if: success() && github.event_name == 'pull_request' && (steps.browser.outputs.lane == 'targeted' || steps.browser.outputs.lane == 'none')
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        if: success() && github.event_name == 'pull_request' && (needs.browser-build.outputs.lane == 'targeted' || needs.browser-build.outputs.lane == 'none')
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: checked-policy-tree-${{ steps.tree.outputs.tree }}-${{ steps.tree.outputs.policy }}
           path: .cache/browser-evidence.json
           retention-days: 7
-
-
+          include-hidden-files: true
   main-report:
-    needs: [seen, check, production-build]
+    needs:
+      - seen
+      - check
+      - production-build
+      - validation
+      - content-check
+      - browser-build
+      - browser-tests
     if: always() && github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -414,19 +501,19 @@ jobs:
       contents: read
       issues: write
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           ref: ${{ github.sha }}
           persist-credentials: false
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
         with:
           node-version: '24'
       - name: Report a red Check on main
-        if: needs.seen.result == 'failure' || needs.check.result == 'failure' || needs.production-build.result == 'failure' || needs.check.result == 'cancelled' || needs.production-build.result == 'cancelled'
+        if: needs.seen.result == 'failure' || needs.check.result == 'failure' || needs.production-build.result == 'failure' || needs.validation.result == 'failure' || needs.content-check.result == 'failure' || needs.browser-build.result == 'failure' || needs.browser-tests.result == 'failure' || needs.seen.result == 'cancelled' || needs.check.result == 'cancelled' || needs.production-build.result == 'cancelled' || needs.validation.result == 'cancelled' || needs.content-check.result == 'cancelled' || needs.browser-build.result == 'cancelled' || needs.browser-tests.result == 'cancelled'
         env:
           GH_TOKEN: ${{ github.token }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-          JOB_STATUS: ${{ (needs.seen.result == 'failure' || needs.check.result == 'failure' || needs.production-build.result == 'failure') && 'failure' || 'cancelled' }}
+          JOB_STATUS: ${{ (needs.seen.result == 'failure' || needs.check.result == 'failure' || needs.production-build.result == 'failure' || needs.validation.result == 'failure' || needs.content-check.result == 'failure' || needs.browser-build.result == 'failure' || needs.browser-tests.result == 'failure') && 'failure' || 'cancelled' }}
         run: |
           set -euo pipefail
           if [ "$JOB_STATUS" = cancelled ] && [ "$(git ls-remote origin refs/heads/main | cut -f1)" != "$GITHUB_SHA" ]; then
@@ -436,7 +523,6 @@ jobs:
           body="$RUNNER_TEMP/red-check.md"
           echo "Check ended with $JOB_STATUS on main at ${GITHUB_SHA:0:12} ($(date -u '+%Y-%m-%d %H:%M UTC')): $RUN_URL. Nothing deploys until a Check on main passes, and content releases stay held while production runs older code." > "$body"
           node scripts/content/alert-issue.mjs open --alert check-failing-main --title 'Check failing on main' --body-file "$body"
-
       - name: Close the red-Check report
         if: needs.seen.result != 'failure' && (needs.seen.outputs.checked == 'true' || (needs.check.result == 'success' && needs.production-build.result == 'success'))
         continue-on-error: true

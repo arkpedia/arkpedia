@@ -23,6 +23,7 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { ARTIFACT_PREFIX, POLICY_ARTIFACT_PREFIX, POLICY_FILES, policyFingerprint, validateBrowserEvidence } from './browser-evidence.mjs';
 import { hydrateProofPullRequest, revalidateFullBaseline } from './browser-baseline.mjs';
+import { parallelValidationPassed, browserShardsPassed } from './full-browser-baseline.mjs';
 
 export { ARTIFACT_PREFIX } from './browser-evidence.mjs';
 
@@ -79,9 +80,17 @@ export function policyVouching({ tree, policySha256, artifact, run, jobs, record
   const success = item => item?.status === 'completed' && item.conclusion === 'success';
   const skipped = item => item?.status === 'completed' && item.conclusion === 'skipped';
   if (!success(step('Validate browser execution evidence')) || !success(step('Record selected browser coverage'))) return null;
-  if (!skipped(step('Desktop and mobile browser regressions'))) return null;
-  const selected = step('Selected browser regressions');
-  if (record.coverage.lane === 'targeted' ? !success(selected) : !skipped(selected)) return null;
+  if (step('Require parallel checks')) {
+    const targeted=record.coverage.lane==='targeted';
+    if (!success(step('Require parallel checks')) || !parallelValidationPassed(jobs,run.id)
+      || !browserShardsPassed(jobs,run.id,targeted?1:0,'targeted')
+      || !skipped(step('Validate full browser shard execution'))
+      || (targeted?!success(step('Validate selected browser shard execution')):!skipped(step('Validate selected browser shard execution')))) return null;
+  } else {
+    if (!skipped(step('Desktop and mobile browser regressions'))) return null;
+    const selected = step('Selected browser regressions');
+    if (record.coverage.lane === 'targeted' ? !success(selected) : !skipped(selected)) return null;
+  }
   return record;
 }
 

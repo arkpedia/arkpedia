@@ -17,6 +17,45 @@ Marking a draft ready starts the readiness profile. A quick job passing does not
 supply a full-browser baseline or approve deployment. The first validation of this
 CI policy itself retains the full suite.
 
+## Parallel execution
+
+Readiness starts four independent jobs after the exact-tree lookup: live-data
+application/type/lint validation, the production Worker build, live-content
+compatibility/rollback checks, and a pinned browser-site build. Browser execution
+waits only for the pinned site; the final job named check waits for every required
+verdict before validating execution or uploading approval evidence.
+
+The browser site is built once. Its archive excludes dependencies, compiler caches
+and environment files and binds the Git commit/tree, workflow run, dependency lock,
+fixture pins and archive checksum. Each runner installs the locked dependencies
+and restores that same artifact. Next compiler caches are separate for fixture and
+live-content builds, with dependency/config/pin keys; final build artifacts are
+never reused across sources or workflow runs.
+
+Full coverage uses four isolated hosted runners with two browser workers each.
+Targeted coverage uses one runner. A project/file stays together to preserve serial
+suites; the layout census explicitly supports parallel cases and is distributed
+case by case. This changes execution placement, not selection, assertions, retries
+or intentional skips.
+
+Each shard reports exactly its assigned identities, with source/run/partition and
+reporter checksums. Missing, repeated, interrupted or mismatched shards cannot
+produce approval. The coordinator combines all census records, then runs the
+after-census project once with dependencies disabled, a separate output directory
+and the collected census directory. Full execution requires that global guard to
+pass, rather than skip because records were lost between runners.
+
+The nightly audit uses the same pinned records, feed fixture, site artifact and
+shard verification as Check. It remains a browser-only baseline and never uploads
+deployment approval artifacts. Legacy full-run evidence remains readable; new
+parallel evidence additionally requires every independent gate and actual shard
+execution, so a green coordinator alone is insufficient.
+
+Recent pre-change examples were 50.5 minutes for a full Check (41.7 minutes in
+browsers) and 16.1 minutes for an expedited Check (2.7 minutes in browsers).
+These are individual runs, not a controlled benchmark. New wall-time results must
+come from actual Actions runs; local partition simulations do not establish them.
+
 ## Impact and baseline
 
 `browser-plan.mjs` follows reverse consumers transitively. TypeScript parsing

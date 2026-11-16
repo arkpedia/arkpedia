@@ -36,7 +36,7 @@ export default defineConfig({
     // the stale stack-align check reads what every census page load wrote.
     { name: 'after-census', testMatch: AFTER_CENSUS, dependencies: ['desktop', 'mobile'] },
   ],
-  webServer: {
+  webServer: process.env.ARKPEDIA_BROWSER_COMPLETION_ONLY === '1' ? undefined : {
     command: 'npm run start -- -p 3192',
     // The same checked-in feed check.yml's Build step prerenders the community pages from
     // (lib/music/youtubeFeedsServer.ts), for their regenerations during a run: build with it
