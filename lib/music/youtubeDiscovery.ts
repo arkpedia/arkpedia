@@ -14,7 +14,7 @@ export const VIDEO_TOPICS = [
   { value: 'other', label: 'Other' },
 ] as const;
 export type VideoTopic = typeof VIDEO_TOPICS[number]['value'];
-export const discoveryVideoTopic = (video: YouTubeVideo) => video.topicHint ?? videoTopic(video.title);
+export const discoveryVideoTopic = (video: YouTubeVideo) => video.topicHint ?? video.classifiedTopic ?? videoTopic(video.title);
 export const filterDiscoveryVideos = (videos: YouTubeVideo[]) => videos.filter(video => !isBannedContent(video.title)
   && (mentionsArknights(video.title) || (video.archived && video.operatorNames?.length)));
 
@@ -22,13 +22,13 @@ export const filterDiscoveryVideos = (videos: YouTubeVideo[]) => videos.filter(v
  * permanent topic: the same channel can publish a guide, a song and an opinion. */
 export function videoTopic(title: string): VideoTopic {
   if (/\b(skins?|outfits?|costumes?|live\s?2d|l2d)\b|皮肤|時装|スキン|스킨/i.test(title)) return 'skins';
-  if (/\b(song|music|bgm|ost|soundtrack|theme|cover|remix|voice[\s-]?lines?|amv|mmd|animation|animated|animatic|pv|ep)\b|音楽|歌曲|音乐|ボイス集|语音|語音|애니메이션/i.test(title)) return 'media';
+  if (/\b(song|music|bgm|ost|soundtrack|theme|cover|remix|voice[\s-]?lines?|amv|mmd|animation|animated|animatic|pv|ep|trailer|teaser)\b|音楽|歌曲|音乐|ボイス集|语音|語音|애니메이션/i.test(title)) return 'media';
   if (/\b(guide|tutorial|walkthrough|afk|low[ -]?(?:end|rarity|stars?)|clear|annihilation|how to)\b|\b[a-z]{1,4}-\d+(?:-\d+)?\b|攻略|공략/i.test(title)) return 'guides';
   if (/\b(?:game review|reviewing arknights|arknights review|retrospective|worth (?:playing|starting)|should you (?:play|start))\b/i.test(title)) return 'reviews';
   if (/\b(news|announcement|announced|update|patch|maintenance|schedule|coming soon|revealed)\b|速報|공지|업데이트/i.test(title)) return 'news';
-  if (/\b(?:operator|analysis|analyses|analyzing|analysing|should you (?:pull|save)|pull or skip|worth pulling|is (?:she|he|this operator).*(?:good|bad|worth)|why.*(?:underpowered|overpowered)|explaining why.*(?:bad|good))\b/i.test(title)) return 'operators';
+  if (/\b(?:operators?|analysis|analyses|analyzing|analysing|should you (?:pull|save|(?:get and )?build)|pull or skip|worth pulling|is (?:she|he|this operator).*(?:good|bad|worth)|why.*(?:underpowered|overpowered)|explaining why.*(?:bad|good)|skill\s*[123]|s[123]\s*(?:lv\s*\d+|m[0-3]))\b/i.test(title)) return 'operators';
   if (/\b(discussion|opinion|thoughts|reaction|reacts|rant|talking|let'?s talk|explained|explaining|drama|hardest|easiest)\b/i.test(title)) return 'discussions';
-  if (/\b(gameplay|challenge|solo|duo|pulls|pulling|gacha|integrated strategies)\b|\b(?:is|cc)\s*#?\d+\b|\brisk\s*\d+\b/i.test(title)) return 'gameplay';
+  if (/\b(gameplay|challenge|solo|duo|pulls|pulling|summoning|summons|gacha|integrated strategies)\b|\b(?:is|cc|ccb)\s*#?\d+\b|\brisk\s*\d+\b/i.test(title)) return 'gameplay';
   return 'other';
 }
 

@@ -54,6 +54,7 @@ export function rankDiscoveryVideos(videos: YouTubeVideo[], context: VideoDiscov
     unique.set(video.videoId, latest ? { ...video, ...latest,
       operatorNames: [...new Set([...(latest.operatorNames ?? []), ...(video.operatorNames ?? [])])],
       ...(latest.topicHint || video.topicHint ? { topicHint: latest.topicHint ?? video.topicHint } : {}),
+      ...(latest.classifiedTopic || video.classifiedTopic ? { classifiedTopic: latest.classifiedTopic ?? video.classifiedTopic } : {}),
     } : video);
   }
   return [...unique.values()]

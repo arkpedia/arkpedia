@@ -60,8 +60,9 @@ operator showcases and currently available outfits, including older uploads. Rem
 choices use the newest upload per channel within 48 hours; when nothing qualifies, fall
 back to the three newest available channels. Keep one video per creator in the rotation.
 Keep the last successful public feeds through temporary upstream failures, independently
-of that editorial window. World’s YouTube tab groups uploads by conservative title rules,
-with ambiguous titles in Other. Relevant current content precedes newer unrelated videos;
+of that editorial window. World’s YouTube tab groups uploads using cached, confidence-gated Jev classifications
+from automatic content preparation, with conservative title rules as a fallback.
+Ambiguous titles remain in Other; explicit editorial guide associations take precedence. Relevant current content precedes newer unrelated videos;
 the matching Global window’s exclusive close removes its priority. CN and future-content
 uploads remain included. Both views retain search/category choices in the URL.
 Show publication dates when known and Archive otherwise; never invent dates for older

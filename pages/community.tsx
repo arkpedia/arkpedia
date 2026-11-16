@@ -22,6 +22,8 @@ import { youtubeChannels, VIDEOS_PER_CHANNEL } from '@/lib/music/youtubeConfig';
 import { filterDiscoveryVideos } from '@/lib/music/youtubeDiscovery';
 import { loadVideoDiscoveryContext } from '@/lib/music/youtubeContextServer';
 import { readLocalVideoArchive } from '@/lib/music/youtubeArchiveServer';
+import { readLocalVideoTopics, loadVideoTopics } from '@/lib/music/youtubeTopicsServer';
+import { applyVideoTopicAssignments, type VideoTopicAssignments } from '@/lib/music/youtubeTopicAssignments';
 import type { VideoDiscoveryContext } from '@/lib/music/youtubeRelevance';
 import { useLiveTwitchStreams } from '@/lib/community/useLiveTwitchStreams';
 import { EVENTS } from '@/lib/schedule/eventsConfig';
@@ -41,6 +43,7 @@ interface Props {
   directory?: WorldDirectory;
   videos: YouTubeVideo[];
   videoArchive?: YouTubeVideo[];
+  videoTopics?: VideoTopicAssignments;
   videoContext?: VideoDiscoveryContext;
   events: CommunityEvent[];
   /** The request's moment (lib/content/pageClock.ts): the event panels render from it until they mount. */
@@ -114,9 +117,9 @@ async function withLiveFeeds(props: Props, context: GetStaticPropsContext): Prom
   // every remaining video must mention Arknights and not mention any
   // banned other-game keyword -- some configured channels post mixed
   // content, and this panel is specifically an Arknights feed.
-  const { videoArchive, ...rest } = props;
+  const { videoArchive, videoTopics, ...rest } = props;
   const archive = process.env.ARKPEDIA_YOUTUBE_FEED_FIXTURE ? [] : videoArchive ?? readLocalVideoArchive();
-  const videos = filterDiscoveryVideos([...enriched, ...archive].filter((v) => !v.isLivestream));
+  const videos = filterDiscoveryVideos(applyVideoTopicAssignments([...enriched, ...archive].filter((v) => !v.isLivestream), videoTopics ?? await loadVideoTopics()));
   const videoContext = await loadVideoDiscoveryContext(props.now);
 
   return {
@@ -134,5 +137,5 @@ async function withLiveFeeds(props: Props, context: GetStaticPropsContext): Prom
    stayed as the deploy built them until the next release. The builder reads only the
    compiled-in EVENTS, so it can run at runtime, and finalize fetches the feeds either way. */
 export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>('/community', async () => ({
-  props: { directory: { ...(await import('@/data/world-directory.json')).default as WorldDirectory, webEvents: await publishedWebEvents() }, events: EVENTS, videos: [], videoArchive: readLocalVideoArchive(), hasYouTubeApiKey: false },
+  props: { directory: { ...(await import('@/data/world-directory.json')).default as WorldDirectory, webEvents: await publishedWebEvents() }, events: EVENTS, videos: [], videoArchive: readLocalVideoArchive(), videoTopics: readLocalVideoTopics(), hasYouTubeApiKey: false },
 }), { finalize: withLiveFeeds, revalidate: 1500, bundledWhenUnpublished: true, tables: { 'youtube-creators': async () => (await import('@/data/youtube-creators.json')).default } });
