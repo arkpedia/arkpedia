@@ -4,7 +4,7 @@ import { getSkillIconPath } from './operatorIconPaths';
 import type { Operator } from './operatorTextTypes';
 import { applyBaseSkillGlossary, type BaseSkillGlossary } from './baseSkillGlossary';
 
-export type Translation = { translator: string; strings: Record<string, string>; credits?: Record<string, { name: string; sourceRef?: string }> };
+export type Translation = { translator: string; strings: Record<string, string>; legacyStrings?: Record<string, string>; credits?: Record<string, { name: string; sourceRef?: string }> };
 const fields = ['review', 'trait', 'skills', 'talents', 'potential', 'modules', 'baseSkills', 'tags'] as const;
 
 /** Exact source text is the revision guard: changed CN text stays visible for review.
@@ -16,7 +16,7 @@ export function translateOperator(operator: Operator, translations: Record<strin
   const usedCredits = new Set<string>();
   function translate(value: unknown): unknown {
     if (typeof value === 'string') {
-      const next = entry.strings[value];
+      const next = entry.strings[value] ?? (operator.sourceRegion === 'CN' ? entry.legacyStrings?.[value] : undefined);
       if (next !== undefined) {
         changed = true;
         const credit = entry.credits?.[value];
@@ -67,7 +67,7 @@ export function translateOperator(operator: Operator, translations: Record<strin
 export function enrichOperatorText(operator: Operator, translations: Record<string, Translation>, keywords: BaseSkillKeyword[], glossary: BaseSkillGlossary = { terms: [], buffs: {} }): Operator {
   const translated = translateOperator(operator, translations);
   const mechanics = JSON.stringify([translated.trait, translated.skills, translated.talents, translated.modules, translated.potential]).toLowerCase();
-  return { ...translated, ...(translated.sourceRegion === 'CN' && translated.baseSkills ? { baseSkills: applyBaseSkillGlossary(translated.baseSkills, glossary) } : {}), operatorTextVersion: 4,
+  return { ...translated, ...(translated.sourceRegion === 'CN' && translated.baseSkills ? { baseSkills: applyBaseSkillGlossary(translated.baseSkills, glossary) } : {}), operatorTextVersion: 5,
     combatKeywords: keywords.filter(keyword => mechanics.includes(keyword.text.toLowerCase())),
   };
 }

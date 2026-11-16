@@ -22,7 +22,7 @@ function operatorTextRecords() {
 /** Backfill old published pages from the checked deployment's canonical data snapshot.
  * Newly compiled releases already carry the result and never read this fallback. */
 export async function completeOperatorText<P extends { operator: Operator }>(page: P): Promise<P> {
-  if (page.operator.operatorTextVersion === 4) return page;
+  if (page.operator.operatorTextVersion === 5) return page;
   const [translations, keywords, glossary] = await operatorTextRecords();
   return { ...page, operator: enrichOperatorText(page.operator, translations, keywords, glossary) };
 }
