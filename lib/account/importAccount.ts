@@ -68,7 +68,8 @@ export function importGameAccount(user: Record<string, any>, tables: ImportTable
   // did not ask (a file), what the same player's record said.
   const status = history ? { readAt: history.readAt, error: history.error } : samePlayer(earlier, imported) ? earlier?.pulls : undefined;
   const { roster, depot, training, unknown } = readGameAccount(user, tables.map, tables.aliases, tables.depotNames);
-  const record: AccountRecord = { ...imported, operatorBuilds: roster, ...(status ? { pulls: status } : {}) };
+  const eventPermits = { ...(samePlayer(earlier, imported) ? earlier?.eventPermits : {}), ...imported.eventPermits };
+  const record: AccountRecord = { ...imported, ...(Object.keys(eventPermits).length ? { eventPermits } : {}), operatorBuilds: roster, ...(status ? { pulls: status } : {}) };
   // The history goes to the archive, as a union, before the record it was read for is written.
   if (history) restorePullArchives([archiveFromAccount(record, history)]);
   // The import is shown; the record it takes the place of, if another server's, waits.

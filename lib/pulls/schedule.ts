@@ -80,6 +80,7 @@ export function resolvePullEventSchedule(current: ReturnType<typeof getAllEvents
       rerun: /rerun/i.test(reward.event), op: reward.op, opSource: 'cn' as const,
       inBacklog: rerunBacklogEvent({ name: reward.event, event: reward.event }, backlog.playable) !== undefined,
       hasShop: reward.shopPermits > 0, shopPermits: reward.shopPermits,
+      ...(event?.global.shopEndAt ? { shopEndAt: event.global.shopEndAt } : {}),
       wishActId: reward.wishActId, wishDays: reward.wishDays, wishOrundum: reward.wishOrundum,
       legacyNames: ALL_BANNERS.filter(b => b.event === reward.event).map(b => b.name),
       ...(reward.cnAct ? { cnAct: reward.cnAct, clearMedal: rerunClearMedal(reward.cnAct), clearOperator: rerunClearOperator(reward.cnAct) } : {}),
@@ -118,7 +119,10 @@ export function rerunClearOperator(cnAct: string | null | undefined): string | n
  *  deploy. */
 export function fillRerunActivities(events: readonly PullEventReward[]): PullEventReward[] {
   const byEvent = new Map(eventRewards.map(reward => [pullBannerKey(reward.event), reward.cnAct]));
-  return events.map(event => {
+  const shopEnds = new Map(getAllEvents().map(event => [pullBannerKey(event.name), event.global.shopEndAt]));
+  return events.map(original => {
+    const shopEndAt = original.shopEndAt ?? shopEnds.get(pullBannerKey(original.event ?? original.name));
+    const event = shopEndAt && shopEndAt !== original.shopEndAt ? { ...original, shopEndAt } : original;
     const cnAct = event.cnAct ?? byEvent.get(pullBannerKey(event.event ?? event.name)) ?? null;
     if (!cnAct) return event;
     const clearMedal = event.clearMedal === undefined ? rerunClearMedal(cnAct) : event.clearMedal;
