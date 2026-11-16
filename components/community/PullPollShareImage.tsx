@@ -89,10 +89,10 @@ export default function PullPollShareImage({banners:initialBanners,ballot:initia
         const y=rowTop;rowTop+=rowHeight;
         const v=pullIntent(ballot[b.id]),choice=v==='maybe'?'~':v==='skip'?'X':'PULL',accent=v==='maybe'?amber:v==='skip'?danger:teal;
         c.fillStyle=panel;c.fillRect(0,y,1200,rowHeight);c.strokeRect(1,y,1198,rowHeight);if(!stamped){c.beginPath();c.moveTo(artWidth,y);c.lineTo(artWidth,y+rowHeight);c.stroke();}
-        if(!draw(artPath(b),4,y+4,artWidth-8,rowHeight-8,v==='skip'))label(bannerTitle(b),20,y+rowHeight/2,'700 25px Rajdhani',dim,artWidth-40);
+        if(!draw(artPath(b),4,y+4,artWidth-8,rowHeight-8,v==='skip'&&tags))label(bannerTitle(b),20,y+rowHeight/2,'700 25px Rajdhani',dim,artWidth-40);
         if(stamped){drawStamp(b,y,rowHeight);return;}
-        if(!detailed){verdict(choice,(artWidth+1200)/2,y+rowHeight/2,v==='pull'?80:v==='maybe'?400:Math.min(240,rowHeight*1.15),accent);return;}
-        if(detailedStamps)drawStamp(b,y,rowHeight);else verdict(choice,(artWidth+1200)/2,y+(operators.length?28:rowHeight/2),v==='pull'?44:v==='maybe'?(operators.length?240:400):Math.min(220,rowHeight*1.15),accent);
+        if(!detailed){verdict(choice,(artWidth+1200)/2,y+rowHeight/2,v==='pull'?80:v==='maybe'?400:Math.min(180,rowHeight*.9),accent);return;}
+        if(detailedStamps)drawStamp(b,y,rowHeight);else verdict(choice,(artWidth+1200)/2,y+(operators.length?28:rowHeight/2),v==='pull'?44:v==='maybe'?(operators.length?240:400):Math.min(160,rowHeight*.9),accent);
         const cols=3,size=128;
         operators.forEach((op,j)=>{
           const slot=artWidth+24+(j%cols)*184,px=slot+24,py=y+(detailedStamps?18:56)+Math.floor(j/cols)*slotHeight;
