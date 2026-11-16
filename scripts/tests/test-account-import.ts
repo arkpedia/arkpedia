@@ -430,3 +430,34 @@ test('the sign-in reads the pull history after the account, and a history it can
   assert.match(read, /try \{\s*pulls = \{ rows: await readPulls\(/);
   assert.match(read, /catch \(error\) \{\s*pulls = \{ rows: null, error: describe\(error\) \};/);
 });
+
+test('event shop import reads catalogue items against sync purchases and advances replay sequence', async () => {
+  const { calls, relay, direct } = server({ ...structuredClone(ANSWERS),
+    'https://gs.example:8443/account/syncData': { result: 0, user: { status: { nickName: 'Doctor' }, tshop: { shop_act42sre: { info: [{ id: 'act42sre_2', count: 3 }] } } } },
+    'https://gs.example:8443/templateShop/getGoodList': { data: { shopId: 'shop_act42sre', shopGroup: { main: { shopGood: { act42sre_2: { goodId: 'act42sre_2', goodType: 'NORMAL', item: { id: '7003', count: 1 }, availCount: 3 } } } } } },
+    'https://gs.example:8443/quest/getBattleReplay': { battleReplay: 'fixture' },
+  });
+  let continuation: import('../../lib/account-import/yostar').ReplaySession | undefined;
+  const user = await readAccount({ transport: relay, direct, deviceId: 'test', network: await readNetwork(relay, 'en'),
+    eventShops: async () => [{ shopId: 'shop_act42sre', eventId: 'act42sre' }, { shopId: 'shop_act50side', eventId: 'act50side' }], onReplaySession: session => { continuation = session; } }, { uid: '1', token: 'test', authToken: 'test' });
+  assert.deepEqual(user.arkpediaEventPermits, { act42sre: 3 });
+  const read = calls.find(call => call.url.endsWith('/templateShop/getGoodList'))!;
+  assert.deepEqual(JSON.parse(read.request.body!), { shopId: 'shop_act42sre' });
+  assert.equal(read.request.headers.seqnum, '3');
+  assert.equal(calls.filter(call => call.url.includes('templateShop/')).length, 1);
+  await continuation!.readReplay('main_00-02');
+  assert.equal(calls.at(-1)!.request.headers.seqnum, '4');
+  assert.ok(!calls.some(call => /buyGood|receive/.test(call.url)));
+});
+
+test('unavailable shop read keeps the wallet, stops optional requests and withholds replay continuation', async () => {
+  const { calls, relay, direct } = server({ ...structuredClone(ANSWERS),
+    'https://gs.example:8443/account/syncData': { result: 0, user: { status: { diamondShard: 12345 }, tshop: { shop_act42sre: { info: [] }, shop_act50side: { info: [] } } } },
+  });
+  let continuation = false;
+  const user = await readAccount({ transport: relay, direct, deviceId: 'test', network: await readNetwork(relay, 'en'), eventShops: async () => [{ shopId: 'shop_act42sre', eventId: 'act42sre' }, { shopId: 'shop_act50side', eventId: 'act50side' }], onReplaySession: () => { continuation = true; } }, { uid: '1', token: 'test', authToken: 'test' });
+  assert.equal(user.status.diamondShard, 12345);
+  assert.equal(user.arkpediaEventPermits, undefined);
+  assert.equal(continuation, false);
+  assert.equal(calls.filter(call => call.url.includes('templateShop/')).length, 1);
+});

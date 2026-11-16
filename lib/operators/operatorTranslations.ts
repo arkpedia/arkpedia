@@ -4,7 +4,7 @@ import { getSkillIconPath } from './operatorIconPaths';
 import type { Operator } from './operatorTextTypes';
 import { applyBaseSkillGlossary, type BaseSkillGlossary } from './baseSkillGlossary';
 
-export type Translation = { translator: string; strings: Record<string, string> };
+export type Translation = { translator: string; strings: Record<string, string>; legacyStrings?: Record<string, string>; credits?: Record<string, { name: string; sourceRef?: string }> };
 const fields = ['review', 'trait', 'skills', 'talents', 'potential', 'modules', 'baseSkills', 'tags'] as const;
 
 /** Exact source text is the revision guard: changed CN text stays visible for review.
@@ -13,10 +13,15 @@ export function translateOperator(operator: Operator, translations: Record<strin
   const entry = translations[operator.internalName ?? ''];
   if (!entry) return operator;
   let changed = false;
+  const usedCredits = new Set<string>();
   function translate(value: unknown): unknown {
     if (typeof value === 'string') {
-      const next = entry.strings[value];
-      if (next !== undefined) changed = true;
+      const next = entry.strings[value] ?? (operator.sourceRegion === 'CN' ? entry.legacyStrings?.[value] : undefined);
+      if (next !== undefined) {
+        changed = true;
+        const credit = entry.credits?.[value];
+        usedCredits.add(credit ? `${credit.name}${credit.sourceRef ? ` [${credit.sourceRef}]` : ''}` : entry.translator);
+      }
       return next ?? value;
     }
     if (Array.isArray(value)) return value.map(translate);
@@ -28,10 +33,11 @@ export function translateOperator(operator: Operator, translations: Record<strin
   for (const field of operator.sourceRegion === 'CN' ? fields : ['modules'] as const) {
     if (operator[field] === undefined || (field === 'review' && operator.review?.official === undefined)) continue;
     changed = false;
+    usedCredits.clear();
     // Only the game overview belongs to the supplement, never editorial reviews.
     const value = field === 'review' ? { ...operator.review, official: translate(operator.review?.official) } : translate(operator[field]);
     Object.assign(next, { [field]: value });
-    if (changed) credits[field] = entry.translator;
+    if (changed) credits[field] = [...usedCredits].join(' · ');
   }
   if (!Object.keys(credits).length) return operator;
   // Translation changes the label, never the published artwork filename.
@@ -45,7 +51,11 @@ export function translateOperator(operator: Operator, translations: Record<strin
     if (original && original.name !== skill.name) skill.rawName = original.rawName ?? original.name;
   });
   next.modules?.forEach((module, index) => {
-    if (JSON.stringify(module) !== JSON.stringify(operator.modules?.[index])) module.translationCredit = entry.translator;
+    if (JSON.stringify(module) !== JSON.stringify(operator.modules?.[index])) {
+      usedCredits.clear();
+      translate(operator.modules?.[index]);
+      module.translationCredit = [...usedCredits].join(' · ');
+    }
   });
   return { ...next,
     translationCredits: credits,
@@ -57,7 +67,7 @@ export function translateOperator(operator: Operator, translations: Record<strin
 export function enrichOperatorText(operator: Operator, translations: Record<string, Translation>, keywords: BaseSkillKeyword[], glossary: BaseSkillGlossary = { terms: [], buffs: {} }): Operator {
   const translated = translateOperator(operator, translations);
   const mechanics = JSON.stringify([translated.trait, translated.skills, translated.talents, translated.modules, translated.potential]).toLowerCase();
-  return { ...translated, ...(translated.sourceRegion === 'CN' && translated.baseSkills ? { baseSkills: applyBaseSkillGlossary(translated.baseSkills, glossary) } : {}), operatorTextVersion: 3,
+  return { ...translated, ...(translated.sourceRegion === 'CN' && translated.baseSkills ? { baseSkills: applyBaseSkillGlossary(translated.baseSkills, glossary) } : {}), operatorTextVersion: 5,
     combatKeywords: keywords.filter(keyword => mechanics.includes(keyword.text.toLowerCase())),
   };
 }

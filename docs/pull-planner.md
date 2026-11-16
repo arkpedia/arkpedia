@@ -244,3 +244,27 @@ deployment's source-backed banner records at request finalization. Matching uses
 exact pool IDs and preserves release dates, names, and any explicit release schedule,
 including an empty schedule. This bridge prevents an older live content snapshot
 from continuing to show zero after the application fix is deployed.
+
+
+## Inventory refresh and forecast accounting
+
+Monthly card sign-ins assume continuous subscription while enabled. Purchase OP is
+counted only at future 30-day renewals anchored to the imported card expiry; the
+active card's purchase OP is already in holdings. Plans retain this expiry across
+export/import. Without a known expiry, only daily Orundum is forecast, avoiding
+invented purchase bonuses. Re-importing inventory preserves the reader's monthly
+card checkbox instead of resetting that planning assumption from current ownership.
+
+Event token shops retain their separate closing timestamp. Closing stages does not
+remove an open shop's permits, nor does retaining the shop resurrect expired stage
+or Wishing Wall rewards. Income includes a **Collected event permits** control for
+each open shop. Live game imports automatically match `tshop` purchase counts to
+the shop catalogue and fill this value, including partial purchases. A failed or
+unsupported shop read preserves known counts; the reader can still enter a missing
+count manually. Counts survive plan/account export and imports, remain isolated
+between accounts, and future reruns use their own activity IDs.
+
+Recurring income still counts future resets. Current-day/current-week unclaimed
+rewards are not tracked by account imports, so a Monday dip can persist until the
+reader collects those rewards and refreshes inventory. This assumption is stated
+in Income. Do not infer spending or reward claims from a net wallet difference.

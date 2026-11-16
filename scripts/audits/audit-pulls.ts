@@ -14,7 +14,7 @@
 import {
   ANNIHILATION_WEEKLY_ORUNDUM, DAILY_ORUNDUM, ORUNDUM_PER_ORIGINITE, ORUNDUM_PER_PULL,
   WEEKLY_ORUNDUM,
-  MONTHLY_CARD_DAILY_ORUNDUM, MONTHLY_CARD_DAYS, MONTHLY_CARD_ORIGINITE,
+  MONTHLY_CARD_DAILY_ORUNDUM, MONTHLY_CARD_ORIGINITE,
   EVENT_SHOP_PERMITS, WISH_MIN_ORUNDUM, bannerFreePulls,
   bannerHaul, incomeBetween, monthlyCardIncome,
   pullsFrom, remainingBacklog,
@@ -212,12 +212,12 @@ check('ticking Annihilation removes its orundum but no Originite',
 
 /* ---------------------------------------------------------------- the card */
 const cardWindow = incomeBetween(at('2026-09-01T00:00:00Z'), at('2026-10-15T00:00:00Z'));
-const mc = monthlyCardIncome(cardWindow);
+const mc = monthlyCardIncome(cardWindow, { from: at('2026-09-01T00:00:00Z'), to: at('2026-10-15T00:00:00Z'), expiresAt: '2026-09-20T12:00:00Z' });
 check('monthly card pays the daily rate once per counted daily reset',
   mc.orundum === cardWindow.days * MONTHLY_CARD_DAILY_ORUNDUM,
   `${mc.orundum} over ${cardWindow.days} days`);
-check('a window longer than one card needs a second card',
-  cardWindow.days > MONTHLY_CARD_DAYS && mc.cards === Math.ceil(cardWindow.days / MONTHLY_CARD_DAYS),
+check('only a future renewal adds purchase OP, not the already owned card',
+  mc.cards === 1,
   `${mc.cards} cards for ${cardWindow.days} days`);
 check('each card pays its Originite once, not per day',
   mc.originitePrime === mc.cards * MONTHLY_CARD_ORIGINITE, String(mc.originitePrime));

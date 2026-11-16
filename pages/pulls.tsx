@@ -65,6 +65,8 @@ import {
   bannerHaul,
   incomeBetween,
   monthlyCardIncome,
+  eventRewardsEnd,
+  remainingEventPermits,
   fillFromDeployment,
   pullsFrom,
   type BacklogSources,
@@ -174,6 +176,10 @@ export default function PullsPage({ scheduledEvents: globalEvents, scheduledBann
      mismatch and the reader sees as a flicker. */
   const [until, setUntil] = useState('');
   const [monthlyCard, setMonthlyCard] = useState(false);
+  const [monthlyCardUntil, setMonthlyCardUntil] = useState('');
+  const monthlyCardChosen = useRef(false);
+  const [eventPermitOwner, setEventPermitOwner] = useState('');
+  const [collectedEventPermits, setCollectedEventPermits] = useState<Record<string, number>>({});
   const [wishingWallMode, setWishingWallMode] = useState<WishingWallMode>('average');
   /* Which banner the reader is saving for. Empty means they are working to a
      plain date instead, which is still a perfectly good question to ask. */
@@ -194,6 +200,7 @@ export default function PullsPage({ scheduledEvents: globalEvents, scheduledBann
     [scheduledEvents, backlogSources, past.doneEvents, past.cleared, ownedMedals, ownedOperators, recordedStages]);
   const clearedAll = useMemo(() => new Set([...clearedReruns, ...tickedReruns]), [clearedReruns, tickedReruns]);
   const [walletFrom, setWalletFrom] = useState('');
+  const cardExpiresAt = monthlyCardUntil || (walletFrom === account?.importedAt ? account?.wallet?.monthlyCardUntil : null);
   // Locked by default while the resources are the import's (useLock); the reader's choice stays.
   const [walletLocked, setWalletLocked] = useLock('pulls-resources', !!account?.wallet && walletFrom === account.importedAt);
   const [pastOpen, setPastOpen] = useState(false);
@@ -207,6 +214,10 @@ export default function PullsPage({ scheduledEvents: globalEvents, scheduledBann
     setYellowCerts(plan.yellowCerts ?? ''); setCertSpending(plan.certificateSpending ?? {}); setIncomeSettings(plan.incomeSettings ?? DEFAULT_INCOME_SETTINGS);
     setOrundum(plan.orundum); setOriginite(plan.originite); setPermits(plan.permits); setReservedOP(plan.reservedOP);
     setUntil(plan.until); setBannerName(plan.bannerName);
+    monthlyCardChosen.current = true;
+    setMonthlyCardUntil(plan.monthlyCardUntil ?? '');
+    setCollectedEventPermits(plan.collectedEventPermits ?? {});
+    setEventPermitOwner(plan.eventPermitOwner ?? '');
     setMonthlyCard(plan.monthlyCard); setIncludeBacklog(plan.includeBacklog); setIncludeSkins(plan.includeSkins ?? true); setClearedReruns(new Set(plan.clearedReruns));
     setWishingWallMode(plan.wishingWallMode ?? 'average'); setWalletFrom(plan.walletFrom ?? '');
     setGoals(plan.goals);
@@ -239,21 +250,26 @@ export default function PullsPage({ scheduledEvents: globalEvents, scheduledBann
     /* The Past events ticks live in their own store (lib/pulls/pastProgress.ts), once: an
        account import claims thousands of rewards, more with every event the game adds, and
        a copy of them here outgrew what a plan may hold, so the page refused its own save. */
-    monthlyCard, includeBacklog, includeSkins, annihilationDone: false, doneEvents: [], doneKeys: [], clearedReruns: [...clearedReruns], future: {}, manualEventDate: '', goals, skinIds, wishingWallMode,
+    monthlyCard, ...(cardExpiresAt ? { monthlyCardUntil: cardExpiresAt } : {}), collectedEventPermits, ...(eventPermitOwner ? { eventPermitOwner } : {}), includeBacklog, includeSkins, annihilationDone: false, doneEvents: [], doneKeys: [], clearedReruns: [...clearedReruns], future: {}, manualEventDate: '', goals, skinIds, wishingWallMode,
     ...(walletFrom ? { walletFrom } : {}),
-  }), [orundum, originite, permits, reservedOP, until, bannerName, yellowCerts, certSpending, incomeSettings, monthlyCard, includeBacklog, includeSkins, clearedReruns, goals, skinIds, wishingWallMode, walletFrom]);
+  }), [orundum, originite, permits, reservedOP, until, bannerName, yellowCerts, certSpending, incomeSettings, monthlyCard, includeBacklog, includeSkins, clearedReruns, goals, skinIds, wishingWallMode, walletFrom, cardExpiresAt, collectedEventPermits, eventPermitOwner]);
 
-  /* An account import fills the resources (and the Monthly Card, ticked while it runs), once
-     per import: after that they are the reader's to edit, until the next import. Run after
+  /* An account import fills resources and card expiry once per import. Only a new
+     plan defaults the card checkbox from ownership; later imports preserve the choice. Run after
      the saved plan is applied, so the plan never overwrites a newer import's numbers. */
   useEffect(() => {
     const wallet = account?.wallet;
     if (!hydrated || !wallet || walletFrom === account.importedAt) return;
     setOrundum(String(wallet.orundum)); setOriginite(String(wallet.originitePrime));
     setPermits(String(wallet.permits)); setYellowCerts(String(wallet.yellowCerts));
-    setMonthlyCard(!!wallet.monthlyCardUntil && Date.parse(wallet.monthlyCardUntil) > Date.now());
+    if (!monthlyCardChosen.current && !walletFrom) setMonthlyCard(!!wallet.monthlyCardUntil && Date.parse(wallet.monthlyCardUntil) > Date.now());
+    monthlyCardChosen.current = true;
+    setMonthlyCardUntil(wallet.monthlyCardUntil ?? '');
+    const owner = `${account.server}:${account.profile?.uid ?? account.doctor ?? ''}`;
+    setCollectedEventPermits(previous => ({ ...(eventPermitOwner && eventPermitOwner !== owner ? {} : previous), ...account.eventPermits }));
+    setEventPermitOwner(owner);
     setWalletFrom(account.importedAt);
-  }, [hydrated, account, walletFrom]);
+  }, [hydrated, account, walletFrom, eventPermitOwner]);
 
   useEffect(() => {
     if (!hydrated || saveBlocked) return;
@@ -282,7 +298,8 @@ export default function PullsPage({ scheduledEvents: globalEvents, scheduledBann
   }, [until, server, bannerName, scheduledBanners]);
 
   const banners = useMemo(() => (now ? scheduledBanners.filter(b => planningWindowEnd(b) > now.getTime()).sort((a, b) => a.start.localeCompare(b.start)) : []), [now, scheduledBanners]);
-  const rewardEvents = useMemo(() => now ? scheduledEvents.filter(event => planningWindowEnd(event) > now.getTime()) : [], [now, scheduledEvents]);
+  const rewardEvents = useMemo(() => now ? scheduledEvents.filter(event => eventRewardsEnd(event) > now.getTime()) : [], [now, scheduledEvents]);
+  const openEventShops = rewardEvents.filter(event => eventShopPermits(event) > 0 && now && Date.parse(event.startAt ?? event.start) <= now.getTime());
   const picked = useMemo(
     () => banners.find((b) => b.name === bannerName) ?? null,
     [banners, bannerName],
@@ -302,7 +319,7 @@ export default function PullsPage({ scheduledEvents: globalEvents, scheduledBann
     permits: held.permits + (includeBacklog ? backlog.permits : 0),
   };
 
-  const rerunOptions = useMemo(() => ({ cleared: clearedAll, wishingWallMode }), [clearedAll, wishingWallMode]);
+  const rerunOptions = useMemo(() => ({ cleared: clearedAll, wishingWallMode, now: now ?? undefined, collectedPermits: collectedEventPermits }), [clearedAll, wishingWallMode, now, collectedEventPermits]);
 
   /*
    * The whole calculation at one moment in time.
@@ -321,7 +338,7 @@ export default function PullsPage({ scheduledEvents: globalEvents, scheduledBann
     const inc = selectedIncome(now ? incomeBetween(now, when, server) : incomeBetween(new Date(0), new Date(0), server), incomeSettings);
     const certs = now ? certificatePulls(now, when, readNumber(yellowCerts), incomeSettings.certificates, certSpending, server) : 0;
     const green = greenCertificateIncome(now ?? when, when, !!incomeSettings.greenCertificates, server);
-    const mc = monthlyCardIncome(inc);
+    const mc = monthlyCardIncome(inc, now ? { from: now, to: when, expiresAt: cardExpiresAt } : undefined);
     const haul = bannerHaul(rewardEvents, when, rerunOptions);
     const withExtras = {
       ...inc,
@@ -373,7 +390,7 @@ export default function PullsPage({ scheduledEvents: globalEvents, scheduledBann
       arriving: withExtras.orundum,
     };
   }, [now, rewardEvents, picked, rerunOptions, monthlyCard, inHand.orundum, inHand.originitePrime,
-    inHand.permits, reserve, orundum, originite, permits, goals, incomeSettings, yellowCerts, certSpending, server, opForPulls]);
+    inHand.permits, reserve, orundum, originite, permits, goals, incomeSettings, yellowCerts, certSpending, server, opForPulls, cardExpiresAt]);
 
   const at = useMemo(() => (target ? totalAt(target) : null), [target, totalAt]);
   const income = at?.income ?? selectedIncome(incomeBetween(new Date(0), new Date(0), server), incomeSettings);
@@ -419,7 +436,7 @@ export default function PullsPage({ scheduledEvents: globalEvents, scheduledBann
 
   const monthlyEnd = new Date((now?.getTime() ?? 0) + 30 * DAY_MS);
   const monthlyBase = selectedIncome(incomeBetween(now ?? monthlyEnd, monthlyEnd, server), incomeSettings);
-  const monthlyBonus = monthlyCardIncome(monthlyBase);
+  const monthlyBonus = monthlyCardIncome(monthlyBase, now ? { from: now, to: monthlyEnd, expiresAt: cardExpiresAt } : undefined);
   const monthlyGreen = greenCertificateIncome(now ?? monthlyEnd, monthlyEnd, !!incomeSettings.greenCertificates, server);
   const monthlyIncome = (monthlyBase.orundum + monthlyGreen.orundum + (monthlyCard ? monthlyBonus.orundum + opForPulls(monthlyBonus.originitePrime) * ORUNDUM_PER_ORIGINITE : 0)) / ORUNDUM_PER_PULL + monthlyGreen.permits + certificatePulls(now ?? monthlyEnd, monthlyEnd, readNumber(yellowCerts), incomeSettings.certificates, certSpending, server);
   return <>
@@ -453,7 +470,7 @@ export default function PullsPage({ scheduledEvents: globalEvents, scheduledBann
         <div className={workspace.incomeRow}>
             {/* Six settings, each a real checkbox (.check): #64 had made them highlighted
                 .tgl buttons, and the maintainer asked for the checkboxes back. */}
-            <div className="pulls-recurring-grid" role="group" aria-label="Recurring income">{([['daily', 'Daily missions', `${DAILY_ORUNDUM} / day`], ['weekly', 'Weekly missions', `${WEEKLY_ORUNDUM} / week`], ['annihilation', 'Annihilation', `${ANNIHILATION_WEEKLY_ORUNDUM} / week`], ['certificates', 'Yellow cert shop', '258 certs → 38 pulls'], ['greenCertificates', 'Green cert shop', '5 pulls / month']] as const).map(([key, label, rate]) => <label key={key} className="check" title={rate}><input type="checkbox" checked={!!incomeSettings[key]} onChange={event => setIncomeSettings(previous => ({ ...previous, [key]: event.target.checked }))} />{label}</label>)}<label className="check"><input type="checkbox" checked={monthlyCard} onChange={e => setMonthlyCard(e.target.checked)} />Monthly card</label><label className="check" title="Originite Prime counts towards pulls at 180 Orundum each: what you hold, the monthly card's, events' and the back catalogue's"><input type="checkbox" checked={useOP} onChange={event => setIncomeSettings(previous => ({ ...previous, originite: event.target.checked }))} />Use OP for pulls</label></div>
+            <div className="pulls-recurring-grid" role="group" aria-label="Recurring income">{([['daily', 'Daily missions', `${DAILY_ORUNDUM} / day`], ['weekly', 'Weekly missions', `${WEEKLY_ORUNDUM} / week`], ['annihilation', 'Annihilation', `${ANNIHILATION_WEEKLY_ORUNDUM} / week`], ['certificates', 'Yellow cert shop', '258 certs → 38 pulls'], ['greenCertificates', 'Green cert shop', '5 pulls / month']] as const).map(([key, label, rate]) => <label key={key} className="check" title={rate}><input type="checkbox" checked={!!incomeSettings[key]} onChange={event => setIncomeSettings(previous => ({ ...previous, [key]: event.target.checked }))} />{label}</label>)}<label className="check"><input type="checkbox" checked={monthlyCard} onChange={e => { monthlyCardChosen.current = true; setMonthlyCard(e.target.checked); }} />Monthly card</label><label className="check" title="Originite Prime counts towards pulls at 180 Orundum each: what you hold, the monthly card's, events' and the back catalogue's"><input type="checkbox" checked={useOP} onChange={event => setIncomeSettings(previous => ({ ...previous, originite: event.target.checked }))} />Use OP for pulls</label></div>
 <div className={workspace.rate}><strong>{formatOneDecimal(monthlyIncome)}</strong><span>pulls / 30 days</span></div></div>
         <div className={workspace.utilities}>
           <button type="button" id="tab-income" aria-haspopup="dialog" onClick={() => setIncomeOpen(true)}><span>Income</span><span aria-hidden="true">+</span></button>
@@ -545,7 +562,7 @@ export default function PullsPage({ scheduledEvents: globalEvents, scheduledBann
               <ReportRow what="Daily missions" how={`${income.days} resets × ${DAILY_ORUNDUM} Orundum`} pulls={income.daily / ORUNDUM_PER_PULL} off={!incomeSettings.daily} />
               <ReportRow what="Weekly missions" how={`${income.weeks} resets × ${WEEKLY_ORUNDUM} Orundum`} pulls={income.weekly / ORUNDUM_PER_PULL} off={!incomeSettings.weekly} />
               <ReportRow what="Annihilation" how={`${income.weeks} weeks × ${ANNIHILATION_WEEKLY_ORUNDUM} Orundum`} pulls={income.annihilation / ORUNDUM_PER_PULL} off={!incomeSettings.annihilation} />
-              <ReportRow what="Monthly card" how={`${income.days} sign-ins × ${MONTHLY_CARD_DAILY_ORUNDUM} Orundum · ${card.cards} × ${MONTHLY_CARD_ORIGINITE} OP`} pulls={monthlyCard ? (card.orundum + opForPulls(card.originitePrime) * ORUNDUM_PER_ORIGINITE) / ORUNDUM_PER_PULL : 0} off={!monthlyCard} />
+              <ReportRow what="Monthly card" how={`${income.days} sign-ins × ${MONTHLY_CARD_DAILY_ORUNDUM} Orundum · ${card.cards} future renewals × ${MONTHLY_CARD_ORIGINITE} OP`} pulls={monthlyCard ? (card.orundum + opForPulls(card.originitePrime) * ORUNDUM_PER_ORIGINITE) / ORUNDUM_PER_PULL : 0} off={!monthlyCard} />
               <ReportRow what="Green cert shop" how={`${greenIncome.months} resets · 600 Orundum + 4 permits each`} pulls={greenIncome.orundum / ORUNDUM_PER_PULL + greenIncome.permits} off={!incomeSettings.greenCertificates} />
               <ReportRow what="Yellow cert shop" how="planned monthly shop purchases" pulls={at?.certs ?? 0} off={!incomeSettings.certificates} />
               <tr className="pulls-report-sum"><th scope="row">Income</th><td>in whole pulls, with what you hold</td><td>{recurringGained}</td></tr>
@@ -571,13 +588,13 @@ export default function PullsPage({ scheduledEvents: globalEvents, scheduledBann
                     </label>}</td>
                     <td><span className="pulls-report-amounts">
                       <span className={useOP ? undefined : 'pulls-report-uncounted'} title={useOP ? undefined : 'Not counted: Use OP for pulls is off'}><RewardAmount resource="op" amount={cleared ? 0 : b.op} /></span>
-                      {eventShopPermits(b) > 0 ? <RewardAmount resource="permits" amount={eventShopPermits(b)} /> : <span aria-hidden="true" />}
+                      {eventShopPermits(b) > 0 ? <RewardAmount resource="permits" amount={remainingEventPermits(b, collectedEventPermits)} /> : <span aria-hidden="true" />}
                     </span></td>
                   </tr>
                 );
               })}
               {haul.skipped.map((b) => (
-                <tr key={b.name}><th scope="row">{(b.event ?? b.name).replace(/^\[[^\]]*\]\s*/, '')}</th><td /><td><RewardAmount resource="permits" amount={eventShopPermits(b)} /></td></tr>
+                <tr key={b.name}><th scope="row">{(b.event ?? b.name).replace(/^\[[^\]]*\]\s*/, '')}</th><td /><td><RewardAmount resource="permits" amount={remainingEventPermits(b, collectedEventPermits)} /></td></tr>
               ))}
               {haul.counted.length === 0 && haul.skipped.length === 0 && <tr className="muted"><td colSpan={3}>No events end before this date.</td></tr>}
               <tr>
@@ -596,6 +613,16 @@ export default function PullsPage({ scheduledEvents: globalEvents, scheduledBann
               <tr className="pulls-report-sum"><th scope="row">{includeBacklog ? 'Event & past rewards' : 'Event rewards'}</th><td>{at && <PullResourceAmounts amounts={at.resources.rewards} useOP={useOP} />}<span>In whole pulls{!useOP ? '; OP conversion off' : ''}</span></td><td>{rewardGained}</td></tr>
             </tbody>
           </table>
+          {monthlyCard && <p className="hint">Monthly card assumes continued daily sign-ins and renewals. {cardExpiresAt ? `Renewals follow the imported expiry (${formatDayMonthYear(cardExpiresAt.slice(0, 10))}); already purchased OP is in your resources.` : 'Import an active card to forecast renewal OP. Without its expiry, only daily Orundum is counted.'}</p>}
+          <p className="hint">Income counts future resets. Uncollected rewards from today or this week are not added; after Monday reset, up to 2,300 Orundum returns to the total as you collect it and refresh your resources.</p>
+          {openEventShops.length > 0 && <div>
+            <h3>Collected event permits</h3>
+            <p className="hint">Game imports fill collected permits automatically from shop purchase records. If a shop could not be read, enter the count already included in your resources. Only remaining permits count as future rewards.</p>
+            <div className={workspace.eventPermits}>{openEventShops.map(event => {
+              const key = event.cnAct ?? event.name;
+              return <label key={key}>{event.event ?? event.name}<NumberInput className="number-input" min="0" max={eventShopPermits(event)} step="1" aria-label={`Collected permits ${event.name}`} value={collectedEventPermits[key] ?? 0} onChange={e => setCollectedEventPermits(value => ({ ...value, [key]: Math.max(0, Math.min(eventShopPermits(event), Math.floor(Number(e.target.value) || 0))) }))} /><span className="hint">of {eventShopPermits(event)} permits{account?.eventPermits?.[key] !== undefined && collectedEventPermits[key] === account.eventPermits[key] ? ' · imported purchases' : ''} · shop closes {formatDayMonthYear((event.shopEndAt ?? event.end).slice(0, 10))}</span></label>;
+            })}</div>
+          </div>}
         </div>
       </ImportDialog>
     )}

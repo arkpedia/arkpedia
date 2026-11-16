@@ -165,6 +165,9 @@ test('an unfinished direct download never delays Next, and old relay preferences
 test('shuffle prepares its actual next row; Repeat one discards it and Repeat all wraps to the first song', async ({ page }) => {
   const { songs: [first, second, third] } = await setup(page);
   await select(page, first, true); await select(page, second); await select(page, third);
+  // Finish the fixture's debounced search navigation before opening the queue;
+  // a late URL write can otherwise dismiss the popup during playback assertions.
+  await expect(page).toHaveURL(url => url.searchParams.get('q') === (third.altTitle || third.title));
   await clickMusicControl(page, 'Shuffle');
   await chooseMusicView(page, /^Queue/);
   const nextId = await page.locator('.music-queue-row').nth(1).getAttribute('data-song-id');

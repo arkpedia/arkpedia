@@ -319,3 +319,8 @@
   /* "0 OP reserved" moves to the second line whole, rather than breaking after "OP". */
   .utilities button small { white-space: nowrap; }
 }
+
+/* Keep open-shop names and purchase counts aligned at both planner widths. */
+.eventPermits { display: grid; gap: 12px; }
+.eventPermits label { display: grid; grid-template-columns: minmax(0, 1fr) 80px; gap: 4px 12px; align-items: center; }
+.eventPermits label > span { grid-column: 1 / -1; }
