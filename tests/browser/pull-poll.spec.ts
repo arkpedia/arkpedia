@@ -75,12 +75,14 @@ for(const theme of ['dark','light'])test(`one share PNG includes every answered 
   if(process.env.ARKPEDIA_QA_CAPTURE)await page.screenshot({path:`${process.env.ARKPEDIA_QA_CAPTURE}/pull-poll-complete-${theme}-${info.project.name}.png`,animations:'disabled'});
 });
 for(const theme of ['dark','light'])test(`limited Pull selects featured operators only (${theme})`,async({page})=>{
-  await setup(page,theme);await page.goto('/polls/pull-or-skip');const banner=page.getByRole('article',{name:/Cinders of Snow/});
+  await setup(page,theme);await page.goto('/polls/pull-or-skip');
+  const data=await page.evaluate(()=>{const b=(window as any).__NEXT_DATA__.props.pageProps.banners.find((b:any)=>b.returningOperators?.length&&Date.parse(b.endAt??`${b.end}T23:59:59-07:00`)>Date.now());return b?{name:b.name,featured:b.operators.filter((name:string)=>!b.returningOperators.includes(name)),returning:b.returningOperators}:null;});
+  expect(data,'the catalogue includes an upcoming limited banner with returning operators').not.toBeNull();const banner=page.getByRole('article',{name:data!.name,exact:true});
   await banner.getByRole('button',{name:'Maybe',exact:true}).click();await banner.getByRole('button',{name:'Pull',exact:true}).click();await expect(banner).toHaveAttribute('data-verdict','pull');await expect(banner.getByRole('button',{name:'Pull',exact:true})).toHaveAttribute('aria-pressed','true');await expect(banner.getByText('Pulling!',{exact:true})).toBeVisible();
   await banner.getByRole('button',{name:/^Choose per operator/}).click();
-  for(const name of ['Talulah','Тоска','Ольга'])await expect(banner.getByRole('button',{name:`Potential 1 for ${name}`,exact:true})).toHaveAttribute('aria-pressed','true');
-  for(const name of ['SilverAsh the Reignfrost','Exusiai the New Covenant','Lappland the Decadenza'])await expect(banner.getByRole('group',{name:new RegExp(`^Interest in ${name} on`)}).getByRole('button',{name:'Nope',exact:true})).toHaveAttribute('aria-pressed','true');
-  await banner.getByRole('button',{name:'Potential 2 for SilverAsh the Reignfrost',exact:true}).click();await expect(banner).toHaveAttribute('data-verdict','custom');await banner.getByRole('button',{name:'Pull',exact:true}).click();await expect(banner).toHaveAttribute('data-verdict','pull');await expect(banner.getByRole('button',{name:'Potential 2 for SilverAsh the Reignfrost',exact:true})).toHaveAttribute('aria-pressed','false');
+  for(const name of data!.featured)await expect(banner.getByRole('button',{name:`Potential 1 for ${name}`,exact:true})).toHaveAttribute('aria-pressed','true');
+  for(const name of data!.returning)await expect(banner.getByRole('group',{name:new RegExp(`^Interest in ${name} on`)}).getByRole('button',{name:'Nope',exact:true})).toHaveAttribute('aria-pressed','true');
+  await banner.getByRole('button',{name:`Potential 2 for ${data!.returning[0]}`,exact:true}).click();await expect(banner).toHaveAttribute('data-verdict','custom');await banner.getByRole('button',{name:'Pull',exact:true}).click();await expect(banner).toHaveAttribute('data-verdict','pull');await expect(banner.getByRole('button',{name:`Potential 2 for ${data!.returning[0]}`,exact:true})).toHaveAttribute('aria-pressed','false');
   await banner.getByRole('button',{name:'Pull',exact:true}).click();await expect(banner).toHaveAttribute('data-verdict','');
 });
 
