@@ -83,7 +83,9 @@ export function setBannerChoice(ballot: Ballot, banner: PollBanner, choice: stri
 export type Stamp = 'pull'|'maybe'|'skip'|'custom'|'dolphin'|'whale'|'levi';
 export const STAMP_LABELS:Record<Stamp,string>={pull:'Pulling!',maybe:'Tempted…',skip:'Skipped',custom:'Picky',dolphin:'Dolphin',whale:'Whale!',levi:'Leviathan!!'};
 export function stampKey(choices:Record<string,Want>|undefined,banner:PollBanner,portraits:Record<string,PollPortrait>,owned:OwnedPotentials={}):Stamp|''{
-  const verdict=bannerChoice(choices,banner,owned);if(!verdict||verdict==='maybe'||verdict==='skip')return verdict as Stamp|'';
+  const verdict=bannerChoice(choices,banner,owned);if(!verdict)return '';
+  if(pullIntent(choices)==='maybe')return 'maybe';
+  if(verdict==='skip')return 'skip';
   let tier=0;for(const [name,want] of Object.entries(choices??{})){
     if(want<=0)continue;
     const copies=want-(owned[name]??0);

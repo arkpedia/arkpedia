@@ -111,3 +111,4 @@
 @media (max-width:720px) { .operatorResultLayout { grid-template-columns:minmax(0,1fr); } .operatorResultArt img { max-height:180px; } }
 
 .imageOptions { display:flex; flex-wrap:wrap; gap:8px 20px; }
+.submissionSuccess { --dialog-w:360px; }

@@ -41,6 +41,7 @@ function PullPoll({banners,now,owner,portraits={}}:Props&{owner:string|null}) {
   const [storageError,setStorageError] = useState(''), [notice,setNotice] = useState('');
   const [revision,setRevision] = useState(0), [ready,setReady] = useState(false), [error,setError] = useState(''), [reload,setReload] = useState(0);
   const [working,setWorking] = useState(false), [prompt,setPrompt] = useState(false), [importing,setImporting] = useState(false);
+  const [success,setSuccess]=useState(false);
   const [submitted,setSubmitted] = useState(''),[continuation,setContinuation]=useState<PollSubmissionIntent|null>(null);
   const mounted=useRef(false);useEffect(()=>{mounted.current=true;return()=>{mounted.current=false;};},[]);
   const [expanded,setExpanded]=useState<Record<string,boolean>>({}),[linked,setLinked]=useState(false),[syncDismissed,setSyncDismissed]=useState(false),[imageOpen,setImageOpen]=useState(false);
@@ -134,14 +135,14 @@ function PullPoll({banners,now,owner,portraits={}}:Props&{owner:string|null}) {
   }
   async function submit(choices=ballot) {
     if (request.current || !ready) return;
-    request.current = true; setContinuation(null);try{sessionStorage.removeItem(PULL_POLL_SUBMISSION);}catch{}setWorking(true); setError('');
+    request.current = true; setSuccess(false);setContinuation(null);try{sessionStorage.removeItem(PULL_POLL_SUBMISSION);}catch{}setWorking(true); setError('');
     const sent = constrainOwned(currentBallot(choices,activePollBanners(banners)),readPollOwnedPotentials(portraits));
     ballotRef.current=sent;setBallot(sent);
     try {
       const response = await fetch('/api/cloud-account/polls/pull-or-skip',{method:'PUT',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify({owner,revision,choices:sent})});
       const result = await response.json();
       if (!response.ok) { if(response.status===409){setReady(false);setPrompt(false);} throw Error(result.error ?? 'Your entry could not be submitted.'); }
-      setRevision(result.revision); setSubmitted(JSON.stringify(sent)); setNotice(owner?'Your poll entry has been submitted with your Arkpedia account.':'Your anonymous poll entry has been submitted.'); setPrompt(false);if(owner&&router.query[PULL_POLL_SUBMIT_PARAM])void accountActions.close([PULL_POLL_SUBMIT_PARAM]).catch(()=>{});
+      setRevision(result.revision); setSubmitted(JSON.stringify(sent)); setNotice(owner?'Your poll entry has been submitted with your Arkpedia account.':'Your anonymous poll entry has been submitted.'); setPrompt(false);setSuccess(true);if(owner&&router.query[PULL_POLL_SUBMIT_PARAM])void accountActions.close([PULL_POLL_SUBMIT_PARAM]).catch(()=>{});
     } catch(e) { setError(e instanceof Error?e.message:'Submission failed. Your local draft is still here.'); }
     finally { setWorking(false); request.current = false; }
   }
@@ -224,6 +225,7 @@ function PullPoll({banners,now,owner,portraits={}}:Props&{owner:string|null}) {
           <button className="primary btn-sm" disabled={working||sync.status==='loading'||!ready||!answered||!dirty} onClick={()=>{if(owner)void submit();else setPrompt(true);}}>{working?'Sending…':revision?'Update entry':'Send it'}</button>
         </div></div>
       </section>}
+      {success&&<ImportDialog title="Successfully submitted" className={styles.submissionSuccess} onClose={()=>setSuccess(false)}><p>Your pull plan has been submitted.</p><button type="button" className="primary btn-sm" autoFocus onClick={()=>setSuccess(false)}>Done</button></ImportDialog>}
       {imageOpen&&<PullPollShareImage banners={visible} ballot={ballot} portraits={portraits} owned={owned} onClose={()=>setImageOpen(false)}/>}
       {importing&&<ImportDialog title="Import pull planner" onClose={()=>setImporting(false)}><p>Import banner and operator goals from your saved Arkpedia pull plan. Matching banners replace their poll choices; other choices stay.</p><div className={styles.actions}><button className="primary btn-sm" onClick={()=>{try{const raw=localStorage.getItem(PULL_PLAN_KEY);if(!raw)throw Error('No pull plan is saved in this browser.');importPlan(raw);}catch(e){setNotice(e instanceof Error?e.message:'Could not read your plan.');}}}>Use this browser’s plan</button><button className="ghost btn-sm" onClick={()=>file.current?.click()}>Choose plan file</button></div><input ref={file} type="file" accept=".json,application/json" hidden onChange={event=>{const chosen=event.target.files?.[0];if(!chosen)return;if(chosen.size>MAX_PLAN_FILE_SIZE){setNotice('This file is too large for a pull plan.');return;}void chosen.text().then(importPlan).catch(()=>setNotice('Could not read this file.'));}}/>{notice&&<p role="status" className="notice">{notice}</p>}<p className="hint">Your pull planner is unchanged. <Link className="ghost btn-sm" href="/pull-planner">Open pull planner</Link>.</p></ImportDialog>}
       {prompt&&!owner&&<ImportDialog title="Submit your pull plan" onClose={closeSubmission}>

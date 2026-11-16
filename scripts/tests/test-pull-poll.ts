@@ -195,3 +195,11 @@ test('detailed share pictures include Maybe operators beside planned additional 
     {name:'Texas',copies:0,label:'Texas',interest:'maybe'},
   ]);
 });
+
+test('mixed Maybe and Don’t Want choices stay Tempted when no copies are planned',()=>{
+  assert.equal(stampKey({Exusiai:-1,Texas:0},banner,{}),'maybe');
+  assert.equal(stampKey({Exusiai:0,Texas:-1},banner,{}),'maybe');
+  assert.equal(stampKey({Exusiai:-1},banner,{}),'maybe');
+  assert.equal(stampKey({Exusiai:2,Texas:-1},banner,{}),'dolphin');
+  assert.equal(stampKey({Exusiai:0,Texas:0},banner,{}),'skip');
+});

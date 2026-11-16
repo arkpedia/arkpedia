@@ -1,9 +1,10 @@
+import type {ReactNode} from 'react';
 import { ContentImg } from '@/components/content/ContentImage';
 import ResponsiveSkinArtwork from '@/components/skins/ResponsiveSkinArtwork';
 import Link from 'next/link';
 import styles from './Statistics.module.css';
 
-type Entry = {id:string;rank:number;name:string;operator?:string;image:string|null;href?:string;onClick?:()=>void;onArtClick?:()=>void;unit?:string;skillIcon?:string|null}&({points:number;firsts:number;value?:never;detail?:never}|{value:string;detail:string;points?:never;firsts?:never});
+type Entry = {id:string;rank:number;name:string;operator?:string;image:string|null;href?:string;onClick?:()=>void;onArtClick?:()=>void;unit?:string;skillIcon?:string|null}&({points:number;firsts:number;value?:never;detail?:never}|{value:string;detail:ReactNode;points?:never;firsts?:never});
 export default function RankingPodium({entries,portrait=false}:{entries:Entry[];portrait?:boolean}){
   return <ol className={`${styles.podium}${portrait?` ${styles.portraitPodium}`:''}`} aria-label="Top three results">{entries.slice(0,3).map(entry=><li key={entry.id} value={entry.rank} data-rank={entry.rank} className={styles.podiumEntry}>
     <div className={styles.podiumDisplay}>

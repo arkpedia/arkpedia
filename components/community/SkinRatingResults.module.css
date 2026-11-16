@@ -9,7 +9,7 @@
 .tile > small { font-size:10px; color:var(--text-dim); }
 .tile > span > button { width:100%; min-height:var(--control-h); }
 .rankingArt { display:flex; align-items:center; justify-content:center; min-width:var(--control-h); min-height:var(--control-h); }
-.tableScroll > table { flex:1 0 790px; }
+.tableScroll > table { flex:1 0 1000px; }
 .table { border-collapse:collapse; width:100%; font-size:12px; font-variant-numeric:tabular-nums; }
 .table th, .table td { text-align:left; padding:10px 8px; border-bottom:1px solid var(--line-soft); }
 .table th { color:var(--text-dim); white-space:nowrap; }
@@ -38,3 +38,8 @@
   .summary { grid-template-columns:repeat(3,minmax(0,1fr)); }
   .detailHeader { gap:12px; }
 }
+
+.weighting { margin:0 0 12px; }
+.yourScore, .yourScore small, .scoreDetails > span { display:block; }
+.yourScore { font-variant-numeric:tabular-nums; }
+.rankingScroll > table { flex:1 0 560px; }
