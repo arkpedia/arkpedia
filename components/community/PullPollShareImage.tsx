@@ -50,7 +50,8 @@ export default function PullPollShareImage({banners:initialBanners,ballot:initia
         const art=images.get(artPath(b)??''),artHeight=art?Math.ceil((artWidth-8)*art.naturalHeight/art.naturalWidth)+8:250;
         const operators=detailed?planned(b):[];
         const slotHeight=operators.some(op=>measure.measureText(op.label).width>174)?194:166;
-        return {banner:b,operators,slotHeight,rowHeight:Math.max(artHeight,operators.length?24+Math.ceil(operators.length/3)*slotHeight:0)};
+        const symbolHeading=!detailedStamps&&pullIntent(ballot[b.id])==='maybe';
+        return {banner:b,operators,slotHeight,rowHeight:Math.max(artHeight,operators.length?(symbolHeading?62:24)+Math.ceil(operators.length/3)*slotHeight:0)};
       });
       const headerHeight=150,footerHeight=52,height=headerHeight+rows.reduce((sum,row)=>sum+row.rowHeight,0)+footerHeight;
       canvas.current.height=height;
@@ -99,10 +100,10 @@ export default function PullPollShareImage({banners:initialBanners,ballot:initia
         if(stamped){drawStamp(b,y,rowHeight);return;}
         if(!detailed){verdict(choice,(artWidth+1200)/2,y+rowHeight/2,v==='pull'?80:v==='maybe'?Math.min(240,rowHeight*1.15):Math.min(180,rowHeight*.9),accent);return;}
         if(detailedStamps)drawStamp(b,y,rowHeight);
-        else if(!operators.length&&v==='skip'){c.fillStyle=danger;c.fillRect((artWidth+1200)/2-12,y+rowHeight/2-12,24,24);}
+        else if(v!=='pull')verdict(choice,(artWidth+1200)/2,y+(operators.length?28:rowHeight/2),v==='maybe'?(operators.length?160:Math.min(220,rowHeight*1.15)):Math.min(160,rowHeight*.9),accent);
         const cols=3,size=128;
         operators.forEach((op,j)=>{
-          const slot=artWidth+24+(j%cols)*184,px=slot+24,py=y+18+Math.floor(j/cols)*slotHeight;
+          const slot=artWidth+24+(j%cols)*184,px=slot+24,py=y+(!detailedStamps&&v==='maybe'?56:18)+Math.floor(j/cols)*slotHeight;
           c.fillStyle=well;c.fillRect(px,py,size,size);if(!draw(portraits[op.name]?.icon,px,py,size,size))label(op.name.slice(0,2),px+22,py+82,'700 46px Rajdhani',dim);
           c.font='700 30px Rajdhani';
           const words=op.label.split(' ');let first=words.shift()??'';
