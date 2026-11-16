@@ -41,7 +41,12 @@ request on every run. A policy/question change must increment
 Initially accept a category only when its probability is at least 0.8 and the
 answer confidence is at least 0.6. These are conservative starting thresholds,
 not measured accuracy guarantees. Editorial operator-guide associations take
-precedence. An uncertain/missing/invalid answer or changed metadata uses the title
+precedence. An uncertain answer whose title consists entirely of multiple distinct
+canonical operator names (plus game branding) uses an operator-showcase fallback,
+unless its introduction explicitly names another genre. This applies to existing
+cached abstentions too, without another API call. These deterministic assignments
+use `model: catalogue-v1`; `fallbackFrom` retains the model's original uncertainty.
+An uncertain/missing/invalid answer or changed metadata otherwise uses the title
 rules. A failed request is logged as a failure and does not replace a successful
 cached entry. A total provider outage reports a failed classification step;
 content preparation continues with retained categories and rules.

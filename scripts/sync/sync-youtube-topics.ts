@@ -12,6 +12,7 @@ import { getAllSkins } from '../../lib/skins/skins';
 import { mentionsVideoSubject } from '../../lib/music/youtubeRelevance';
 import { classifyVideoTopic, DEFAULT_JEV_MODEL, type VideoTopicSubject } from './jev-video-classifier';
 import type { YouTubeVideo } from '../../lib/music/youtube';
+import { resolveCanonicalVideoTopic } from './canonical-video-topics';
 
 export const TOPIC_CACHE_FILE = '.cache/youtube-discovery/topics.json';
 const MAX_CALLS = 160;
@@ -40,19 +41,27 @@ export async function refreshVideoTopics(now = Date.now()) {
   const candidates = [...new Map([...readLocalVideoArchive(), ...feeds.flat()].map(video => [video.videoId, video])).values()];
   const eligible = filterDiscoveryVideos(candidates).filter(video => !video.isLivestream && video.liveStatus === 'none' && !video.topicHint)
     .sort((a, b) => (Date.parse(b.publishedAt) || 0) - (Date.parse(a.publishedAt) || 0));
+  const operators = getAllOperators();
+  const operatorNames = operators.map(operator => operator.name);
+  // Revisit cached abstentions too: a clearer catalogue must not wait 30 days or
+  // spend another model request before fixing a known name-only showcase.
+  for (const video of eligible) if (cache[video.videoId]) {
+    cache[video.videoId] = resolveCanonicalVideoTopic(video, cache[video.videoId], operatorNames);
+  }
   const pending = eligible.filter(video => {
     const saved = cache[video.videoId];
     return !saved || saved.inputHash !== videoTopicInputHash(video) || saved.policyVersion !== TOPIC_POLICY_VERSION
       || saved.requestedModel !== model || now - Date.parse(saved.checkedAt) >= MAX_AGE_MS;
   }).slice(0, MAX_CALLS);
-  const subjects: VideoTopicSubject[] = [...getAllOperators().map(operator => ({ name: operator.name, kind: 'operator' as const })),
+  const subjects: VideoTopicSubject[] = [...operators.map(operator => ({ name: operator.name, kind: 'operator' as const })),
     ...getAllSkins().map(skin => ({ name: skin.name, kind: 'outfit' as const }))];
   let failed = 0;
   for (let offset = 0; offset < pending.length; offset += 8) {
     await Promise.all(pending.slice(offset, offset + 8).map(async video => {
       try {
-        cache[video.videoId] = await classifyVideoTopic(video, { apiKey, model, now,
+        const assignment = await classifyVideoTopic(video, { apiKey, model, now,
           subjects: subjects.filter(subject => mentionsVideoSubject(video.title, [subject.name])).slice(0, 16) });
+        cache[video.videoId] = resolveCanonicalVideoTopic(video, assignment, operatorNames);
       } catch (error) { failed++; console.warn(`JEV: ${video.videoId}: ${error instanceof Error ? error.message : 'request failed'}; rules remain available.`); }
     }));
   }
