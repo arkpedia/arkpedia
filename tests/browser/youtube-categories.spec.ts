@@ -4,12 +4,17 @@ const outfit = 'Upcoming Operators/Outfits - Monster Hunter Collab 2 | Arknights
 const bgm = 'Stronghold Protocol: Regulation Mix | Arknights 坚守协议 BGM集';
 const voice = 'Closure Stronghold Protocol JP Voice Lines | Arknights 坚守协议 クロージャボイス集';
 const guide = 'Stronghold Protocol Regulation AFK Guide | Arknights';
-const titles = [outfit, bgm, voice, guide, 'Arknights: a very surprising day'];
+const operator = 'Should You Get and Build Orchid alter? | Orchid alter Review [Arknights]';
+const showcase = 'Violet Mizutsune Orchid, Zinogre S Catapult, Rhodes Island Recon [Arknights]';
+const trailer = 'Arknights Official Trailer - Thunder in the Azure Dream';
+const teaser = 'Arknights Official Teaser Trailer - Thunder in the Azure Dream';
+const titles = [outfit, bgm, voice, guide, 'Arknights: a very surprising day', operator, showcase, trailer, teaser];
 const videos = titles.map((title, index) => ({
   videoId: String(index + 1).repeat(11), title, channelLabel: 'RiverV Workshop',
   publishedAt: '2026-11-08T12:00:00Z', thumbnail: '/essential-icons/M3.webp',
   url: `https://www.youtube.com/watch?v=${String(index + 1).repeat(11)}`,
   isLivestream: false, liveStatus: 'none',
+  ...(title === showcase ? { classifiedTopic: 'operators' } : {}),
 }));
 
 for (const theme of ['dark', 'light']) {
@@ -32,13 +37,14 @@ for (const theme of ['dark', 'light']) {
     const media = page.getByRole('region', { name: 'Music & media', exact: true });
     const other = page.getByRole('region', { name: 'Other', exact: true });
     await expect(skins.getByRole('link', { name: outfit, exact: false })).toBeVisible();
-    for (const title of [bgm, voice]) await expect(media.getByRole('link', { name: title, exact: false })).toBeVisible();
+    for (const title of [bgm, voice, trailer, teaser]) await expect(media.getByRole('link', { name: title, exact: false })).toBeVisible();
+    for (const title of [operator, showcase]) await expect(page.getByRole('region', { name: 'Operator analyses', exact: true }).getByRole('link', { name: title, exact: false })).toBeVisible();
     await expect(page.getByRole('region', { name: 'Guides & clears', exact: true }).getByRole('link', { name: guide, exact: false })).toBeVisible();
     await expect(other.locator('.video-card')).toHaveCount(1);
     for (const title of [outfit, bgm, voice]) await expect(other.getByText(title)).toHaveCount(0);
     await page.getByRole('combobox', { name: 'Video category', exact: true }).click();
-    await page.getByRole('option', { name: 'Music & media (2)', exact: true }).click();
-    await expect(media.locator('.video-card')).toHaveCount(2);
+    await page.getByRole('option', { name: 'Music & media (4)', exact: true }).click();
+    await expect(media.locator('.video-card')).toHaveCount(4);
     await expect(skins).toHaveCount(0);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   });

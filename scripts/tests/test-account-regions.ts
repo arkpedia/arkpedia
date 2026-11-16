@@ -77,3 +77,14 @@ test('a backup carries every server\'s account, and refuses a mislabelled one', 
   const mislabelled = JSON.stringify({ kr: record('jp') });
   assert.equal(store.valid(mislabelled, JSON.parse(mislabelled)), false);
 });
+
+test('event shop claims survive an unavailable read but never transfer between players or servers', async () => {
+  storage.clear();
+  const { importGameAccount } = await import('../../lib/account/importAccount');
+  const run = (uid: string, server: 'en' | 'jp', claims?: Record<string, number>) => importGameAccount({ ...user(uid, 'Doctor'), ...(claims ? { arkpediaEventPermits: claims } : {}) }, tables, null, server).record;
+  assert.deepEqual(run('100', 'en', { act42sre: 3 }).eventPermits, { act42sre: 3 });
+  assert.deepEqual(run('100', 'en').eventPermits, { act42sre: 3 });
+  assert.deepEqual(run('100', 'en', { act42sre: 0 }).eventPermits, { act42sre: 0 });
+  assert.equal(run('200', 'en').eventPermits, undefined);
+  assert.equal(run('100', 'jp').eventPermits, undefined);
+});

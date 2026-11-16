@@ -10,7 +10,7 @@ import { useRegionalTime } from '@/lib/time/useRegionalTime';
 import { regionalArt, regionalRange, regionalScheduleSlice, type RegionalSchedules } from '@/lib/time/regional';
 import { withContentPage } from '@/lib/content/server';
 import { readPublishedContentPageProps } from '@/lib/content/release';
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { GetStaticPaths, GetStaticProps } from 'next';
 import Image from '@/components/content/ContentImage';
 import Link from 'next/link';
@@ -67,8 +67,6 @@ import { getOperatorIconPath } from '@/lib/operators/operatorIcon';
 import { operatorHref } from '@/lib/operators/operatorHref';
 import { eventEntrance, entranceAsset } from '@/lib/events/eventEntrance';
 
-const CAROUSEL_INTERVAL_MS = 8000;
-const PAUSE_AFTER_CLICK_MS = 30000;
 
 interface Props {
   name: string;
@@ -243,7 +241,6 @@ export default function EventDetailPage({
   const entrance = eventEntrance(name, server);
   const [failedMenu, setFailedMenu] = useState<string | null>(null);
   const menuArt = entrance && failedMenu !== entrance.id ? entranceAsset(entrance, 'menu.webp') : null;
-  const shownArtAspect = menuArt ? CG_ASPECT : artAspect;
   const regionalImages = artAspect === POSTER_ASPECT && server !== 'en' ? [regionalArt(regionalWindow, modeImages[0] ?? null, server)].filter((src): src is string => !!src) : modeImages;
   const shownImages = menuArt ? [menuArt, ...(artAspect === CG_ASPECT ? regionalImages : [])] : regionalImages;
   const shownBannerImage = bannerName ? regionalArt(schedule?.banners?.[bannerName], bannerImage, server) : bannerImage;
@@ -279,11 +276,9 @@ export default function EventDetailPage({
     setActiveSection(next);
     setLink(eventLink(next, activeRewardTab, rewardTabs));
   }
-  const [imgIndex, setImgIndex] = useState(0);
-  const [paused, setPaused] = useState(false);
-  const resumeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const activeImage = shownImages[Math.min(imgIndex, shownImages.length - 1)];
-  useEffect(() => { setImgIndex(0); setPaused(false); }, [name]);
+  const activeImage = shownImages[0];
+  const displayTitle = eventTitle(name).replace(/\s+Rerun$/i, '');
+  const eventKind = /^\[([^\]]+)\]/.exec(name)?.[1];
 
   const rewardTypes = Array.from(new Set(rewardStores.map((s) => s.type)));
   // One list for the Tabs and for reading a link: All only when there are blocks to total.
@@ -336,62 +331,24 @@ export default function EventDetailPage({
   const extraOperators = [...welfareOperators.map(op => ({ ...op, kind: 'welfare' as const })), ...rewardOperators.map(op => ({ ...op, kind: 'free' as const }))];
 
 
-  useEffect(() => {
-    if (paused || shownImages.length <= 1) return;
-    const interval = setInterval(() => {
-      setImgIndex((i) => (i + 1) % shownImages.length);
-    }, CAROUSEL_INTERVAL_MS);
-    return () => clearInterval(interval);
-  }, [paused, shownImages.length]);
-
-  useEffect(() => {
-    return () => {
-      if (resumeTimeoutRef.current) clearTimeout(resumeTimeoutRef.current);
-    };
-  }, []);
-
-  function selectImage(i: number) {
-    setImgIndex(i);
-    setPaused(true);
-    if (resumeTimeoutRef.current) clearTimeout(resumeTimeoutRef.current);
-    resumeTimeoutRef.current = setTimeout(() => setPaused(false), PAUSE_AFTER_CLICK_MS);
-  }
-
   return (
     <RewardDetailsProvider tickets={tickets}>
       <PageAudio musicId={eventMusicId(name, pageMusic)} pageKey={`event:${name}`} preference="eventMusic" />
       <PageMeta title={name} description={`${name}, an Arknights event${dateRange ? ` (${dateRange})` : ''}: its banner, rewards, outfits and news.`} path={`/events/${encodeURIComponent(name)}`} image={menuArt ?? images[0] ?? poster ?? bannerImage} />
-      <PageHeader
+      <div className={activeImage ? 'event-page artwork-page' : 'event-page'}>
+      {activeImage && <div className="event-page-art" data-event-entrance-art={menuArt ? entrance?.id : undefined} aria-hidden="true">
+        <Image src={activeImage} alt="" fill sizes="100vw" style={{ objectFit: 'cover' }}
+          onError={() => { if (entrance && activeImage === menuArt) setFailedMenu(entrance.id); }} />
+      </div>}
+      <PageHeader slim={!!activeImage} inlineTrail={!!activeImage} className={activeImage ? 'artwork-heading' : undefined}
         back={{ href: '/schedule', label: 'Events' }}
-        eyebrow={<>Rhodes Island // <Link prefetch={false} href="/schedule">Events</Link></>}
-        title={name}
+        eyebrow={<><Link prefetch={false} href="/schedule">Events</Link>{activeImage && eventKind ? ` // ${eventKind}` : ''}</>}
+        title={activeImage ? displayTitle : name}
         sub={`${isPredicted ? (mode ? 'Predicted launch: ' : 'Predicted release: ') : (mode ? 'Launch: ' : 'Release: ')}${dateRange}${mode ? ' · Permanent mode' : ''}`}
       />
 
       <main className="event-detail-layout">
-        {/* The event's art across the top, the sections below it (2026-10-04: a column of art
-            beside the sections left most of the page's left side empty). At most 420px tall, so
-            a 16:9 CG set does not fill the screen; a poster is full width well under that. */}
-        <div className="event-detail-carousel" style={{ maxWidth: `calc(420px * ${shownArtAspect})` }}>
-          <div className="event-detail-image-wrap" data-event-entrance-art={menuArt ? entrance?.id : undefined} style={{ aspectRatio: shownArtAspect }}>
-            {activeImage && <Image src={activeImage} alt={name} fill sizes="(max-width: 1240px) 100vw, 1200px" style={{ objectFit: mode?.poster ? 'contain' : 'cover' }}
-              onError={() => { if (entrance && activeImage === menuArt) setFailedMenu(entrance.id); }} />}
-          </div>
-          {shownImages.length > 1 && (
-            <div className="event-detail-carousel-dots">
-              {shownImages.map((_, i) => (
-                <button
-                  type="button"
-                  key={i}
-                  className={`event-detail-carousel-dot${i === imgIndex ? ' active' : ''}`}
-                  onClick={() => selectImage(i)}
-                  aria-label={`Image ${i + 1}`}
-                />
-              ))}
-            </div>
-          )}
-        </div>
-
+        {/* Every tab shares the full reading frame and the same navigation edge. */}
         <div className="event-detail-right" ref={hold.ref} style={hold.style}>
           {sections.length > 1 && activeSection && (
             <Tabs<SectionKey>
@@ -408,14 +365,14 @@ export default function EventDetailPage({
               <EventModeOverview mode={mode} />
             </section>
           )}
-          {sections.length === 0 && <p className="hint">No banner, reward store or skins are linked to this event yet.</p>}
+          {sections.length === 0 && <p className={activeImage ? 'notice' : 'hint'}>No banner, reward store or skins are linked to this event yet.</p>}
 
           {activeSection === 'banner' && (bannerName || extraOperators.length > 0) && (
             <section className="op-section event-detail-operators" {...tabPanelProps('event-section', 'banner')}>
               {/* One card: the banner's name and tag, its art beside its rate-up and returning
                   limited lineups, then a line per operator the event gives (welfare, free). Every
                   operator opens the operator preview. */}
-              <div className="panel event-section-card event-banner-card">
+              <div className="panel event-section-card artwork-glass event-banner-card">
                 {bannerName && <>
                   <div className="event-section-head">
                     <h3 className="entity-title entity-title-name">{bannerTitle.title}</h3>
@@ -425,7 +382,7 @@ export default function EventDetailPage({
                     {/* The frame stays when the art is not published yet, empty at the
                         same size, rather than the card closing up around it. */}
                     <div className="event-detail-banner-art-wrap">
-                      {shownBannerImage && <Image src={shownBannerImage} alt={bannerName} fill sizes="(max-width: 960px) 100vw, 640px" style={{ objectFit: 'contain' }} />}
+                      {shownBannerImage && <Image src={shownBannerImage} alt={bannerName} fill sizes="(max-width: 960px) 100vw, 680px" style={{ objectFit: 'contain' }} />}
                     </div>
                     <div className="event-banner-lineups">
                       {pendingNote ? <p className="hint">{pendingNote}</p>
@@ -464,7 +421,7 @@ export default function EventDetailPage({
 
           {activeSection === 'rewards' && (
             <section className="op-section" {...tabPanelProps('event-section', 'rewards')}>
-              <div className="panel event-section-card">
+              <div className="panel event-section-card artwork-glass">
                 <div className="event-section-head"><h3 className="entity-title entity-title-name">Rewards</h3></div>
                 {/* Older prepared releases coupled the CN reward notice to date confirmation.
                     The page header owns date status; this note describes reward provenance. */}
@@ -505,7 +462,7 @@ export default function EventDetailPage({
 
           {activeSection === 'skins' && (
             <section className="op-section" {...tabPanelProps('event-section', 'skins')}>
-              <div className="panel event-section-card">
+              <div className="panel event-section-card artwork-glass">
                 <div className="event-section-head"><h3 className="entity-title entity-title-name">Skins</h3></div>
                 {globalPredicted && <p className="hint">CN outfit inventory; Global availability awaits confirmation.</p>}
                 <div className="event-detail-skins">
@@ -539,7 +496,7 @@ export default function EventDetailPage({
 
           {activeSection === 'news' && (
             <section className="op-section" {...tabPanelProps('event-section', 'news')}>
-              <div className="panel event-section-card">
+              <div className="panel event-section-card artwork-glass">
                 <div className="event-section-head"><h3 className="entity-title entity-title-name">News</h3></div>
                 <EventNews news={news} board={board} />
               </div>
@@ -548,7 +505,7 @@ export default function EventDetailPage({
 
           {activeSection === 'pvs' && (
             <section className="op-section" {...tabPanelProps('event-section', 'pvs')}>
-              <div className="panel event-section-card">
+              <div className="panel event-section-card artwork-glass">
                 <div className="event-section-head"><h3 className="entity-title entity-title-name">PVs</h3></div>
                 <EventVideos videos={videos} run={isRerun(name) ? 'rerun' : 'launch'} />
               </div>
@@ -557,6 +514,7 @@ export default function EventDetailPage({
 
         </div>
       </main>
+      </div>
 
       {activeSkin && <SkinDetailDialog key={activeSkin.name} skin={activeSkin} onClose={() => setActiveSkin(null)}
         footer={<Link prefetch={false} href={`/skins?skin=${encodeURIComponent(activeSkin.name)}`}>View in outfit gallery</Link>} />}

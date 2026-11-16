@@ -391,6 +391,11 @@ const REGENERATED: Record<string, (props: Record<string, unknown>, clock: { from
     assert.ok(ops.length>400);
     assert.ok(ops.some(op=>op.className==='Guard'&&op.charIds.includes('char_293_thorns')));
   },
+  '/polls/pull-or-skip': (props, {from,to}) => {
+    const banners=props.banners as {id:string;operators:string[]}[];
+    assert.ok(banners.length>100 && banners.every(b=>b.id && b.operators.length));
+    assert.ok(Number(props.now)>=Math.floor(from/60_000)*60_000 && Number(props.now)<=to);
+  },
   '/polls/favourite-skins': (props) => {
     const skins=props.skins as {id:string;name:string}[];
     assert.ok(skins.length>400);

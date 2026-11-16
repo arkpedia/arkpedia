@@ -18,8 +18,11 @@ Preview and local development never contact Patreon. An unconfigured deployment 
 the existing published `config/patreon_supporters.json` acknowledgements as a fallback.
 
 `lib/patreon/sync.mjs` requests only tier titles/amounts, membership status, display
-names and profile privacy. Only active paid members with explicitly public identities
-are acknowledged, once under their highest entitled tier. Hidden or masked identities
+names and profile privacy. Only active paid members with unmasked identities and no
+explicit pledge-privacy opt-out are acknowledged, once under their highest entitled
+tier. Patreon's nullable `hide_pledges` field accepts `false` or `null`; `true`
+excludes the member. Missing privacy fields fail the refresh, and unexpected values
+remain excluded. Hidden or masked identities
 are omitted; emails, addresses and payment histories are never published. The public
 API accepts only the closed names/tiers/update-time projection.
 

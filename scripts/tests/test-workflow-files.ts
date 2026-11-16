@@ -96,7 +96,7 @@ test('all workflows use isolated hosted runners, including fork and Dependabot c
       assert.equal(job['runs-on'], 'ubuntu-latest', `${name}/${id}: no self-hosted routing, including PR-edited runner variables`);
     }
   }
-  assert.ok(Number(load('check.yml').jobs!.check['timeout-minutes']) >= 90, 'full hosted browser coverage has enough time');
+  assert.ok(Number(load('check.yml').jobs!['browser-tests']['timeout-minutes']) >= 35, 'full hosted browser coverage has enough time');
 });
 
 test('Deploy may start a held content release again', () => {
@@ -220,18 +220,18 @@ test("pushes and same-repository PRs reuse only a successful exact-tree Check", 
   assert.equal(seen.permissions?.actions, 'read', 'it lists artifacts');
   assert.equal(seen.outputs?.checked, '${{ steps.seen.outputs.checked }}');
   assert.ok(seen.steps!.some(step => step.run === 'node scripts/ci/already-checked.mjs >> "$GITHUB_OUTPUT"'));
-  assert.equal(check.needs, 'seen');
+  assert.deepEqual(check.needs,['seen','validation','production-build','content-check','browser-build','browser-tests']);
   // A failed or skipped lookup still runs everything; only an explicit true skips.
   assert.match(String(check.if), /!cancelled\(\) && needs\.seen\.outputs\.checked != 'true'/);
   const steps = (check.steps ?? []) as (Step & { with?: Record<string, unknown> })[];
   const record = steps.find(step => step.name === 'Record the code this Check passed');
   assert.ok(record, 'a green pull request Check records its tree');
-  assert.equal(String(record!.if), "success() && github.event_name == 'pull_request' && steps.browser.outputs.lane == 'full'");
+  assert.equal(String(record!.if), "success() && github.event_name == 'pull_request' && needs.browser-build.outputs.lane == 'full'");
   assert.equal(String(record!.with?.name), 'checked-tree-${{ steps.tree.outputs.tree }}');
   const scoped = steps.find(step => step.name === 'Record selected browser coverage');
   assert.ok(scoped, 'partial coverage has an independently named artifact');
   assert.equal(String(scoped!.with?.name), 'checked-policy-tree-${{ steps.tree.outputs.tree }}-${{ steps.tree.outputs.policy }}');
-  assert.equal(String(scoped!.if), "success() && github.event_name == 'pull_request' && (steps.browser.outputs.lane == 'targeted' || steps.browser.outputs.lane == 'none')");
+  assert.equal(String(scoped!.if), "success() && github.event_name == 'pull_request' && (needs.browser-build.outputs.lane == 'targeted' || needs.browser-build.outputs.lane == 'none')");
   assert.ok(steps.findIndex(step => step.name === 'Validate browser execution evidence') < steps.indexOf(record!));
   // Both artifacts are recorded last and only after actual execution validation.
   const last = steps.map(step => step.name).filter(name => name && !['Report a red Check on main', 'Close the red-Check report'].includes(name));

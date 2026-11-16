@@ -1,62 +1,235 @@
+# Parallel CI preserves exact-source approval and complete browser execution evidence.
 name: Browser audit
-
 on:
   schedule:
-    - cron: '17 3 * * *'
-  workflow_dispatch:
-
+    - cron: 17 3 * * *
+  workflow_dispatch: null
 permissions:
   contents: read
-
 concurrency:
   group: browser-audit-${{ github.ref }}
   cancel-in-progress: true
-
 jobs:
-  audit:
+  browser-build:
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    timeout-minutes: 25
+    permissions:
+      contents: read
+      actions: read
+      pull-requests: read
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.sha }}
+      - name: Use disk-backed temporary storage
+        run: echo "TMPDIR=$RUNNER_TEMP" >> "$GITHUB_ENV"
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
         with:
           node-version: '22'
           cache: npm
           package-manager-cache: true
-      - uses: actions/setup-python@v7
-        with:
-          python-version: '3.12'
       - run: npm ci
-      # Game records live in arkpedia-data; this repository keeps code only. The live release's
-      # records, the ones www serves (scripts/content/pull-data.mjs).
-      - name: Pull the live game records
-        run: node scripts/content/pull-data.mjs
-      - run: python -m pip install -r scripts/requirements.txt
-      - name: Build audit site
-        run: npm run build
+      - name: Pull the pinned game records for the browser specs
+        run: node scripts/content/pull-data.mjs --pinned
+      - name: Prepare pinned browser build inputs
+        run: npm run prebuild
         env:
+          NODE_ENV: production
+          ARKPEDIA_CONTENT_DISABLED: '1'
+      - name: Cache Next compiler inputs
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830
+        with:
+          path: .next/cache
+          key: ${{ runner.os }}-next-browser-node22-${{ hashFiles('package-lock.json', 'tests/browser/data-pin.json', 'next.config.js') }}-${{ github.sha }}
+          restore-keys: ${{ runner.os }}-next-browser-node22-${{ hashFiles('package-lock.json', 'tests/browser/data-pin.json', 'next.config.js') }}-
+      - name: Build
+        run: npm run --ignore-scripts build && npm run postbuild
+        env:
+          NEXT_TELEMETRY_DISABLED: '1'
+          ARKPEDIA_BUILD_CHECKS_PASSED: '1'
           ARKPEDIA_CONTENT_DISABLED: '1'
           ARKPEDIA_YOUTUBE_FEED_FIXTURE: tests/fixtures/youtube-feeds.xml
-          NEXT_TELEMETRY_DISABLED: '1'
-          # The build's type check ran out of Node's default 2 GB heap (every run since
-          # 2026-10-26); Check gives its typecheck the same room.
-          NODE_OPTIONS: --max-old-space-size=4096
-
-      - run: npx playwright install --with-deps chromium
-      - name: Exhaustive desktop and mobile audit
-        run: npm run test:browser -- --reporter=list,json
+          NODE_ENV: production
+      - name: Which browser regressions this change needs
+        id: browser
         env:
-          PLAYWRIGHT_JSON_OUTPUT_FILE: .cache/browser-audit-results.json
-
+          GH_TOKEN: ${{ github.token }}
+          EVENT: ${{ github.event_name }}
+          BEFORE: ${{ github.event.before }}
+          BROWSER_HEAD_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name }}
+          BROWSER_EXPEDITED: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && contains(github.event.pull_request.labels.*.name, 'release:expedite') && '1' || '' }}
+        run: node scripts/ci/browser-lane.mjs plan >> "$GITHUB_OUTPUT"
+      - name: Partition browser coverage
+        id: shards
+        run: node scripts/ci/browser-shards.mjs plan >> "$GITHUB_OUTPUT"
+      - name: Package checked browser site
+        run: node scripts/ci/browser-site.mjs pack
+      - name: Share checked browser site
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: browser-site
+          path: |-
+            .cache/browser-site.tgz
+            .cache/browser-site-manifest.json
+          include-hidden-files: true
+          retention-days: 2
+          overwrite: true
+    outputs:
+      lane: ${{ steps.browser.outputs.lane }}
+      matrix: ${{ steps.shards.outputs.matrix }}
+      partition: ${{ steps.shards.outputs.partition }}
+  browser-tests:
+    needs: browser-build
+    if: '!cancelled() && needs.browser-build.result == ''success'' && needs.browser-build.outputs.lane != ''none'''
+    name: browser (${{ matrix.index }}/${{ matrix.total }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.browser-build.outputs.matrix || '{"include":[{"index":1,"total":1}]}') }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.sha }}
+      - name: Use disk-backed temporary storage
+        run: echo "TMPDIR=$RUNNER_TEMP" >> "$GITHUB_ENV"
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version: '22'
+          cache: npm
+          package-manager-cache: true
+      - run: npm ci
+      - name: Download checked browser site
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
+        with:
+          name: browser-site
+          path: .cache
+      - name: Restore checked browser site
+        run: node scripts/ci/browser-site.mjs restore
+      - name: Install Chromium only
+        run: npx playwright install --with-deps chromium
+      - name: Prepare browser shard
+        run: node scripts/ci/browser-shards.mjs prepare "${{ matrix.index }}" "${{ matrix.total }}"
+      - name: Desktop and mobile browser regressions
+        if: needs.browser-build.outputs.lane == 'full'
+        run: npm run test:browser -- --test-list .cache/browser-shard-tests.txt --project desktop --project mobile --reporter=list,json,github
+        env:
+          PLAYWRIGHT_JSON_OUTPUT_FILE: .cache/browser-shard-report.json
           TMPDIR: ${{ runner.temp }}
           PW_WORKERS: '2'
+      - name: Selected browser regressions
+        if: needs.browser-build.outputs.lane == 'targeted'
+        run: npm run test:browser -- --test-list .cache/browser-shard-tests.txt --project desktop --project mobile --reporter=list,json,github
+        env:
+          PLAYWRIGHT_JSON_OUTPUT_FILE: .cache/browser-shard-report.json
+          TMPDIR: ${{ runner.temp }}
+          PW_WORKERS: '2'
+      - name: Record browser shard
+        run: node scripts/ci/browser-shards.mjs record "${{ matrix.index }}" "${{ matrix.total }}"
+      - name: Share browser shard evidence
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: browser-result-${{ needs.browser-build.outputs.partition }}-${{ matrix.index }}
+          path: .cache/browser-shard-result
+          include-hidden-files: true
+          retention-days: 2
+          overwrite: true
+      - name: Preserve browser failure evidence
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: browser-failure-${{ github.run_id }}-${{ matrix.index }}-${{ github.run_attempt }}
+          path: |-
+            test-results/
+            .cache/browser-shard-report.json
+            .cache/browser-plan.json
+          include-hidden-files: true
+          retention-days: 3
+  audit:
+    needs:
+      - browser-build
+      - browser-tests
+    if: '!cancelled()'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.sha }}
+      - name: Use disk-backed temporary storage
+        run: echo "TMPDIR=$RUNNER_TEMP" >> "$GITHUB_ENV"
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version: '22'
+          cache: npm
+          package-manager-cache: true
+      - run: npm ci
+      - name: Require complete audit execution
+        run: |-
+          test "$BUILD" = success
+          test "$BROWSERS" = success
+        env:
+          BUILD: ${{ needs.browser-build.result }}
+          BROWSERS: ${{ needs.browser-tests.result }}
+      - name: Download checked browser site
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
+        with:
+          name: browser-site
+          path: .cache
+      - name: Restore checked browser site
+        run: node scripts/ci/browser-site.mjs restore
+      - name: Download browser shard evidence
+        if: needs.browser-build.outputs.lane != 'none'
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
+        with:
+          pattern: browser-result-${{ needs.browser-build.outputs.partition }}-*
+          path: .cache/browser-shard-downloads
+      - name: Merge browser shard evidence
+        if: needs.browser-build.outputs.lane != 'none'
+        run: node scripts/ci/browser-shards.mjs merge
+      - name: Full-census completion contract
+        id: completion
+        if: needs.browser-build.outputs.lane == 'full'
+        run: npm run test:browser -- --test-list .cache/browser-completion-tests.txt --project after-census --no-deps --output test-results-completion --reporter=list,json,github && node scripts/ci/browser-shards.mjs complete
+        env:
+          ARKPEDIA_BROWSER_COMPLETION_ONLY: '1'
+          ARKPEDIA_CENSUS_STACK_DIR: .cache/census-stack-align
+          PLAYWRIGHT_JSON_OUTPUT_FILE: .cache/browser-completion-report.json
+          TMPDIR: ${{ runner.temp }}
+      - name: Validate browser execution evidence
+        id: validate_browser
+        run: node scripts/ci/browser-lane.mjs complete
+      - name: Validate full browser shard execution
+        id: full_browser
+        if: needs.browser-build.outputs.lane == 'full'
+        run: node scripts/ci/browser-shards.mjs verify-full
+      - name: Validate selected browser shard execution
+        id: selected_browser
+        if: needs.browser-build.outputs.lane == 'targeted'
+        run: node scripts/ci/browser-shards.mjs verify-targeted
+      - name: Preserve browser failure evidence
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: browser-merge-failure-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |-
+            .cache/browser-results.json
+            .cache/browser-plan.json
+            .cache/browser-completion-report.json
+            test-results-completion/
+          include-hidden-files: true
+          retention-days: 3
       - name: Preserve audit report
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: browser-audit-${{ github.run_id }}
-          path: |
-            .cache/browser-audit-results.json
-            test-results/
-          if-no-files-found: ignore
+          path: |-
+            .cache/browser-results.json
+            .cache/browser-evidence.json
+          include-hidden-files: true
           retention-days: 7

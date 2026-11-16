@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { curveValue } from '../../lib/events/gameUiPlayer';
+import { curveValue, eulerQuaternion } from '../../lib/events/gameUiPlayer';
 import { eventEntrance, entranceForUrl } from '../../lib/events/eventEntrance';
 
 test('native curves preserve endpoints, Hermite slopes, weights and stepped keys', () => {
@@ -10,9 +10,17 @@ test('native curves preserve endpoints, Hermite slopes, weights and stepped keys
   assert.equal(curveValue(weighted, -5), 0); assert.equal(curveValue(weighted, 5), 1);
   assert.equal(curveValue([[0, 4, null, null, 0, 1/3, 1/3], [1, 9, 0, 0, 0, 1/3, 1/3]], .999), 4);
 });
+test('native Euler animation uses Unity ZXY rotation order', () => {
+  const close = (actual: number[], expected: number[]) => actual.forEach((v, i) => assert.ok(Math.abs(v - expected[i]) < 1e-10));
+  close(eulerQuaternion([0, 0, 90]), [0, 0, Math.SQRT1_2, Math.SQRT1_2]);
+  close(eulerQuaternion([90, 90, 0]), [.5, .5, -.5, .5]);
+  close(eulerQuaternion([90, 90, 90]), [Math.SQRT1_2, 0, 0, Math.SQRT1_2]);
+});
 test('reviewed entrance matches separate original/rerun and regional assets', () => {
   assert.equal(eventEntrance("[Side Story] The Masses' Travels", 'en')?.id, 'act42side');
   assert.equal(eventEntrance("[Rerun] The Masses' Travels Rerun", 'en')?.id, 'act42sre');
+  assert.equal(eventEntrance("[Rerun] The Masses' Travels Rerun", 'jp')?.id, 'act42sre');
+  assert.equal(eventEntrance("[Rerun] The Masses' Travels Rerun", 'kr')?.id, 'act42sre');
   assert.equal(eventEntrance("[Rerun] The Masses' Travels Rerun", 'cn'), null);
   assert.equal(eventEntrance('[Side Story] Another Event', 'en'), null);
   const path = '/events/' + encodeURIComponent("[Side Story] The Masses' Travels");
@@ -20,4 +28,30 @@ test('reviewed entrance matches separate original/rerun and regional assets', ()
   assert.equal(entranceForUrl('https://example.com' + path, 'https://arkpedia.net', 'en'), null);
   assert.equal(entranceForUrl('/events/%xx', 'https://arkpedia.net', 'en'), null);
   assert.equal(entranceForUrl('/schedule', 'https://arkpedia.net', 'en'), null);
+});
+
+test('upcoming events use reviewed CN packs without confusing original and rerun versions', () => {
+  for (const server of ['en', 'jp', 'kr']) {
+    const thunder = eventEntrance('[Side Story – Crossover] Thunder in the Azure Dream', server);
+    assert.equal(thunder?.id, 'act50side');
+    assert.match(thunder!.folder, /players\/cn\/act50side\//);
+    assert.equal(eventEntrance('[Rerun] A Flurry to the Flame Rerun', server)?.id, 'act24sre');
+    assert.equal(eventEntrance('[Rerun] Act or Die Rerun', server)?.id, 'act43sre');
+    assert.equal(eventEntrance('[Side Story] Ato', server)?.id, 'act44side');
+    assert.equal(eventEntrance('[Rerun] Ato Rerun', server)?.id, 'act44sre');
+  }
+  assert.equal(eventEntrance('[Side Story] A Flurry to the Flame', 'en'), null);
+  assert.equal(eventEntrance('[Side Story] Act or Die', 'en'), null);
+  assert.equal(eventEntrance('Positional Football Championship', 'en'), null);
+});
+
+test('recovered menus match the calendar titles and Vremya translations', () => {
+  for (const server of ['en', 'jp', 'kr']) {
+    assert.equal(eventEntrance('[Story Collection] Bolívar Diagnosed', server)?.id, 'act21mini');
+    assert.equal(eventEntrance('[Side Story ‐ Crossover] Sur le lac lune vivante', server)?.id, 'act54side');
+    for (const name of ['Время, в Путь!', "Vremya, v Put'!", 'Vremya, v Put’!', '时间啊，向前！']) {
+      assert.equal(eventEntrance(`[Side Story – Celebration] ${name}`, server)?.id, 'act55side');
+    }
+  }
+  assert.equal(eventEntrance('[Rerun] Vremya, v Put\'! Rerun', 'en'), null);
 });

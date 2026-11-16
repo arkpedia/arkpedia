@@ -1,4 +1,6 @@
 import Link from 'next/link';
+import PullPollIndexCard from '@/components/community/PullPollIndexCard';
+import type {PollBanner,PollPortrait} from '@/lib/polls/pull-poll';
 import {useMemo} from 'react';
 import {useSkinRatings} from '@/lib/polls/useSkinRatings';
 import {skinRatingRows} from '@/lib/polls/skin-rating-statistics';
@@ -12,7 +14,7 @@ import styles from '@/components/community/Polls.module.css';
 
 interface Outfit {image:string;name:string;operator:string}
 interface Leader {id:string;name:string;operator?:string;image:string|null;rank:number;href?:string}
-interface Props {showcase:Outfit[];previousArt:string[];skins?:PollSkin[];previousLeaders?:Leader[]}
+interface Props {now:number;pullBanners?:PollBanner[];pullPortraits?:Record<string,PollPortrait>;showcase:Outfit[];previousArt:string[];skins?:PollSkin[];previousLeaders?:Leader[]}
 
 function LeaderFigures({leaders}:{leaders:Leader[]}){
   return <>{[1,0,2].map((position,slot)=>{const leader=leaders[position];if(!leader)return <figure key={`empty-${slot}`} aria-hidden="true"/>;
@@ -23,13 +25,15 @@ function LeaderFigures({leaders}:{leaders:Leader[]}){
     </figure>;
   })}</>;
 }
-export default function Polls({skins=[],previousLeaders=[]}:Props){
+export default function Polls({skins=[],previousLeaders=[],pullBanners=[],pullPortraits={},now}:Props){
   const {result,error}=useSkinRatings(null);
   const leaders=useMemo(()=>skinRatingRows(result?.ranking??[],skins,'skins').slice(0,3).map(row=>({...row,href:`/polls/favourite-skins?view=results&detail=${encodeURIComponent(row.id)}`})),[result,skins]);
   return <>
     <PageMeta title="Community polls" description="Vote in Arkpedia community polls and explore previous results." path="/polls"/>
     <PageHeader slim eyebrow="Rhodes Island // Community" title="Community polls" sub="Pick your favourites. Follow the community’s verdict."/>
     <main className={styles.page}>
+      <h2 className="section-title">Open now</h2>
+      <PullPollIndexCard banners={pullBanners} portraits={pullPortraits} now={now}/>
       <section className={`panel ${styles.feature}`} aria-labelledby="drip-awards-title">
         <div className={styles.featureBody}>
           <div className={styles.copy}>
@@ -68,9 +72,11 @@ export default function Polls({skins=[],previousLeaders=[]}:Props){
 export const getStaticProps:GetStaticProps<Props>=withContentPage<Props>('/polls',async()=>{
   const {communityPoll}=await import('@/lib/community/catalogues');
   const catalogue=await communityPoll();
-  return {props:catalogue};
+  const {pullPollPageCatalogue}=await import('@/lib/polls/pull-poll-catalogue');const pull=await pullPollPageCatalogue();
+  return {props:{...catalogue,pullBanners:pull.banners,pullPortraits:pull.portraits}};
 },{bundledWhenUnpublished:true,finalize:async props=>{
-  if(props.skins&&props.previousLeaders)return props;
+  const pull=props.pullBanners&&props.pullPortraits?null:await (await import('@/lib/polls/pull-poll-catalogue')).pullPollPageCatalogue();
+  if(props.skins&&props.previousLeaders)return {...props,...(pull?{pullBanners:pull.banners,pullPortraits:pull.portraits}:{})};
   const {communityPoll}=await import('@/lib/community/catalogues');const catalogue=await communityPoll();
-  return {...props,skins:props.skins??catalogue.skins,previousLeaders:props.previousLeaders??catalogue.previousLeaders};
+  return {...props,skins:props.skins??catalogue.skins,previousLeaders:props.previousLeaders??catalogue.previousLeaders,...(pull?{pullBanners:pull.banners,pullPortraits:pull.portraits}:{})};
 }});

@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import yaml from 'js-yaml';
 
 const workflow = yaml.load(fs.readFileSync('.github/workflows/check.yml', 'utf8'));
-const { draft, check } = workflow.jobs;
+const { draft, check, validation } = workflow.jobs;
 const context = (event = 'pull_request', isDraft = true, repo = 'arkpedia/arkpedia') => ({ event_name: event, repository: 'arkpedia/arkpedia', event: { pull_request: { draft: isDraft, head: { repo: { full_name: repo } } } } });
 function condition(source, github, checked = 'false', cancelled = false) {
   const expression = source.replace(/^\$\{\{\s*|\s*\}\}$/g, '');
@@ -26,16 +26,16 @@ test('only same-repository drafts take quick feedback; ready/manual/push/fork us
 
 test('draft readiness changes start a new run and the branch protection check keeps its identity', () => {
   for (const event of ['opened', 'synchronize', 'reopened', 'ready_for_review', 'converted_to_draft']) assert.ok(workflow.on.pull_request.types.includes(event));
-  assert.equal(check.needs, 'seen');
+  assert.deepEqual(check.needs,['seen','validation','production-build','content-check','browser-build','browser-tests']);
   assert.equal(workflow.concurrency.group, 'check-${{ github.ref }}');
   assert.equal(workflow.concurrency['cancel-in-progress'], true);
 });
 
 test('drafts retain regression verdicts/types/lint and cannot publish or create full-proof artifacts', () => {
   const step = (job, name) => job.steps.find(item => item.name === name);
-  assert.equal(step(draft, 'Application and Python regression tests').run, step(check, 'Application and Python regression tests').run);
+  assert.equal(step(draft, 'Application and Python regression tests').run, step(validation, 'Application and Python regression tests').run);
   assert.equal(step(draft, 'Typecheck').run, 'npm run typecheck');
-  assert.equal(step(draft, 'Lint').run, step(check, 'Lint').run);
+  assert.equal(step(draft, 'Lint').run, step(validation, 'Lint').run);
   assert.equal(step(draft, 'Prepare build inputs').env.ARKPEDIA_CONTENT_DISABLED, '1');
   assert.deepEqual(draft.permissions, { contents: 'read' });
   for (const item of draft.steps) {
@@ -51,10 +51,10 @@ test('drafts retain regression verdicts/types/lint and cannot publish or create 
 test('browser failure evidence is distinct from approval artifacts and runs only after a failed browser lane', () => {
   const failure = check.steps.find(item => item.name === 'Preserve browser failure evidence');
   assert.ok(failure.if.includes('failure()'));
-  assert.ok(failure.if.includes("steps.full_browser.outcome == 'failure'"));
-  assert.ok(failure.if.includes("steps.selected_browser.outcome == 'failure'"));
-  assert.ok(failure.if.includes("steps.validate_browser.outcome == 'failure'"));
-  assert.ok(failure.with.name.startsWith('browser-failure-'));
+  assert.equal(failure.if,'failure()');
+  const shardFailure=workflow.jobs['browser-tests'].steps.find(s=>s.name==='Preserve browser failure evidence');
+  assert.equal(shardFailure.if,'failure()');
+  assert.ok(failure.with.name.startsWith('browser-merge-failure-'));
   assert.equal(failure.with['retention-days'], 3);
   for (const step of check.steps.filter(item => item.uses?.startsWith('actions/upload-artifact')
     && item.with.name.startsWith('checked-'))) assert.ok(step.if.includes('success()'));

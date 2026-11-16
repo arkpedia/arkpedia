@@ -18,9 +18,9 @@ const BLACK_MS = 160, DOCK_MS = 560, FADE_MS = 180, LOAD_BUDGET_MS = 1800;
 export default function EventEntranceProvider({ children }: { children: ReactNode }) {
   const router = useRouter(), server = useSiteServer();
   const enabled = useSiteSetting('eventMusic'), consent = usePrivacyChoice('externalMedia');
-  const { isPlaying, starting, buffering, volume } = useMusicPlayer();
+  const { isPlaying, starting, buffering, volume, pauseForEvent } = useMusicPlayer();
   const audioAllowed = enabled && consent && !isPlaying && !starting && !buffering && volume > 0;
-  const preferences = useRef({ server, audioAllowed, volume }); preferences.current = { server, audioAllowed, volume };
+  const preferences = useRef({ server, audioAllowed, volume, eventAudioEnabled: enabled && consent }); preferences.current = { server, audioAllowed, volume, eventAudioEnabled: enabled && consent };
   const [session, setSession] = useState<Session | null>(null), [phase, setPhase] = useState<Phase>('black'), [holding, setHolding] = useState(false);
   const [target, setTarget] = useState<CSSProperties>({});
   const dialog = useRef<HTMLDialogElement>(null), canvas = useRef<HTMLCanvasElement>(null);
@@ -92,7 +92,8 @@ export default function EventEntranceProvider({ children }: { children: ReactNod
       if (!entry || url.pathname === window.location.pathname) return;
       intent.current = { pathname: url.pathname, at: performance.now() };
       void prepare(entry).catch(() => {});
-      if (preferences.current.audioAllowed) {
+      if (preferences.current.eventAudioEnabled) {
+        pauseForEvent();
         try {
           stopSound();
           if (!sound.current || sound.current.context.state === 'closed') {
@@ -128,7 +129,7 @@ export default function EventEntranceProvider({ children }: { children: ReactNod
       reduced.removeEventListener('change', motion); window.removeEventListener(MAIN_AUDIO_START, stopSound);
       router.events.off('routeChangeStart', start); router.events.off('routeChangeError', cancel);
     };
-  }, [router.events, finish, prepare, stopSound]);
+  }, [router.events, finish, prepare, stopSound, pauseForEvent]);
 
   useEffect(() => {
     if (!session || !dialog.current || !canvas.current) return;
@@ -136,7 +137,7 @@ export default function EventEntranceProvider({ children }: { children: ReactNod
     let disposed = false, raf = 0, player: GameUiPlayer | null = null, docked = false;
     let timer: ReturnType<typeof setTimeout> | undefined, watchdog: ReturnType<typeof setTimeout> | undefined;
     const overflow = document.documentElement.style.overflow, gutter = document.documentElement.style.scrollbarGutter, entered = performance.now();
-    box.showModal(); box.focus({ preventScroll: true }); document.documentElement.style.overflow = 'hidden';
+    box.showModal(); box.querySelector('button')?.focus({ preventScroll: true }); document.documentElement.style.overflow = 'hidden';
     document.documentElement.style.scrollbarGutter = 'auto';
     control.current = { stop: () => { disposed = true; abort.abort(); cancelAnimationFrame(raf); clearTimeout(timer); clearTimeout(watchdog); } };
     const updateTarget = () => {
@@ -163,7 +164,10 @@ export default function EventEntranceProvider({ children }: { children: ReactNod
           .then(r => r.ok ? r.arrayBuffer() : null).catch(() => null);
       }
       if (preferences.current.audioAllowed && audio && prepared.sound) {
-        const bytes = await Promise.race([prepared.sound, new Promise<null>(resolve => { timer = setTimeout(() => resolve(null), 120); })]);
+        // Cold taps have no hover prewarm. Give their SFX the remaining load
+        // budget instead of silently dropping it after only 120 ms.
+        const soundBudget = Math.max(0, LOAD_BUDGET_MS - (performance.now() - entered) - 100);
+        const bytes = await Promise.race([prepared.sound, new Promise<null>(resolve => { timer = setTimeout(() => resolve(null), soundBudget); })]);
         clearTimeout(timer);
         if (bytes && !disposed) { try { buffer = await audio.context.decodeAudioData(bytes.slice(0)); } catch { /* silent fallback */ } }
       }
@@ -220,8 +224,9 @@ export default function EventEntranceProvider({ children }: { children: ReactNod
     {children}
     <dialog ref={dialog} className="event-entrance" data-phase={phase} aria-label={session ? `Opening ${session.entry.title}` : 'Event entrance'} tabIndex={-1}
       onCancel={e => { e.preventDefault(); e.stopPropagation(); finish(); }}>
-      <div className="event-entrance-stage" style={target}><canvas ref={canvas} aria-hidden="true" /></div>
-      <button type="button" className="btn btn-sm event-entrance-skip" onClick={() => finish()}>Skip intro</button>
+      <button type="button" className="btn-bare event-entrance-skip" aria-label="Skip intro" onClick={e => { e.stopPropagation(); finish(); }}>
+        <span className="event-entrance-stage" style={target}><canvas ref={canvas} aria-hidden="true" /></span>
+      </button>
     </dialog>
   </EventEntranceContext.Provider>;
 }

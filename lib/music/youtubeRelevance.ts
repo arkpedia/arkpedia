@@ -51,9 +51,16 @@ export function rankDiscoveryVideos(videos: YouTubeVideo[], context: VideoDiscov
   const unique = new Map<string, YouTubeVideo>();
   for (const video of videos) {
     const latest = unique.get(video.videoId);
-    unique.set(video.videoId, latest ? { ...video, ...latest,
+    // The first (live-feed) copy owns the displayed metadata. An older archive
+    // answer must not reclassify a title/description the creator has since edited.
+    const { classifiedTopic: archivedTopic, ...archived } = video;
+    const classifiedTopic = latest?.classifiedTopic ?? (latest && latest.title === video.title
+      && latest.channelLabel === video.channelLabel && (latest.description ?? '').slice(0, 2000) === (video.description ?? '').slice(0, 2000)
+      ? archivedTopic : undefined);
+    unique.set(video.videoId, latest ? { ...archived, ...latest,
       operatorNames: [...new Set([...(latest.operatorNames ?? []), ...(video.operatorNames ?? [])])],
       ...(latest.topicHint || video.topicHint ? { topicHint: latest.topicHint ?? video.topicHint } : {}),
+      ...(classifiedTopic ? { classifiedTopic } : {}),
     } : video);
   }
   return [...unique.values()]

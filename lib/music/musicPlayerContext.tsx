@@ -1,6 +1,8 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, useSyncExternalStore, ReactNode } from 'react';
 import { MAIN_AUDIO_START } from './pageMusic';
-import { readPrivacy, requestExternalMedia } from '@/lib/privacy/preferences';
+import { readPrivacy, requestExternalMedia, usePrivacyChoice } from '@/lib/privacy/preferences';
+import { getSetting } from '@/lib/settings/siteSettings';
+import { useSiteSetting } from '@/lib/settings/useSiteSetting';
 import { useRouter } from 'next/router';
 import { useContentUrl } from '@/lib/content/context';
 import { GAME_PATHS } from '@/lib/minigames/catalogue';
@@ -195,6 +197,8 @@ interface MusicPlayerContextValue {
   initializePlayer: (prompt?: boolean) => void;
   togglePlay: () => void;
   pausePlayback: () => void;
+  /** Reserve event audio without changing the personal queue or playback position. */
+  pauseForEvent: () => void;
   nextTrack: () => void;
   prevTrack: () => void;
   toggleShuffle: () => void;
@@ -315,6 +319,9 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
   // pendingPlayRef fallback below) silently did nothing visible at
   // all, which read as broken rather than just loading.
   const [starting, setStarting] = useState(false);
+  const eventMusicEnabled = useSiteSetting('eventMusic'), mediaAllowed = usePrivacyChoice('externalMedia');
+  const eventAudioActive = useRef(false);
+  const eventAudioResume = useRef<{ id: string; seconds: number; pending: boolean } | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [buffering, setBufferingState] = useState(false);
   const bufferingRef = useRef(false);
@@ -1157,20 +1164,25 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
               const vid = pendingVideoIdRef.current;
               pendingVideoIdRef.current = null;
               pendingPlayRef.current = false;
-              if (pendingFirstRef.current === vid) { putFirst(vid); pendingFirstRef.current = null; }
-              const idx = queueRef.current.findIndex((track) => track.id === vid);
-              if (idx !== -1) {
-                queueIndexRef.current = idx;
-                setQueueIndex(idx);
-                const pos = shuffleOrderRef.current?.indexOf(idx) ?? -1;
-                if (pos !== -1) {
-                  shufflePositionRef.current = pos;
-                  setShufflePosition(pos);
-                }
-              }
-              engine.loadVideoById(vid);
+              selectRequestedTrack(vid);
+              const cued = cuedAtRef.current;
+              cuedAtRef.current = null;
+              engine.loadVideoById(cued?.videoId === vid ? { videoId: vid, startSeconds: cued.seconds } : vid);
               setReady(true);
               setStarting(false);
+              return;
+            }
+
+            // Official audio can already be audible before the iframe API is
+            // ready. An event keeps that exact request cued, never auto-playing
+            // it underneath the event soundtrack when initialization completes.
+            const interrupted = eventAudioResume.current;
+            if (eventAudioActive.current && interrupted?.pending) {
+              selectRequestedTrack(interrupted.id);
+              cuedAtRef.current = { videoId: interrupted.id, seconds: interrupted.seconds };
+              engine.cueVideoById({ videoId: interrupted.id, startSeconds: interrupted.seconds });
+              setVideoId(interrupted.id);
+              setReady(true); setStarting(false);
               return;
             }
 
@@ -1321,6 +1333,9 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
       endResumeWatch();
     }
     playerRef.current?.pauseVideo?.();
+    // A first official-audio press primes this element before the engine exists.
+    document.querySelector<HTMLAudioElement>('audio[data-music-audio]')?.pause();
+    isPlayingRef.current = false;
     setStarting(false);
     setIsPlaying(false);
     bufferingRef.current = false;
@@ -1540,6 +1555,19 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
       const ids = existing.map(i => previous[i]?.id).filter(id => id && id !== videoId);
       const order = [0, ...ids.map(id => next.findIndex(track => track.id === id))];
       shuffleOrderRef.current = order; setShuffleOrder(order); shufflePositionRef.current = 0; setShufflePosition(0);
+    }
+  }
+  function selectRequestedTrack(vid: string) {
+    if (pendingFirstRef.current === vid) { putFirst(vid); pendingFirstRef.current = null; }
+    const idx = queueRef.current.findIndex((track) => track.id === vid);
+    if (idx !== -1) {
+      queueIndexRef.current = idx;
+      setQueueIndex(idx);
+      const pos = shuffleOrderRef.current?.indexOf(idx) ?? -1;
+      if (pos !== -1) {
+        shufflePositionRef.current = pos;
+        setShufflePosition(pos);
+      }
     }
   }
   function playFirst(videoId: string) {
@@ -2035,14 +2063,41 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
     element: msrSession ? audioRef.current?.element ?? null : null,
   });
 
-  function claimManualAudio() {
+  function claimManualAudio(cancelEventResume = true) {
     manualAudio.current = true;
+    // A new personal-player choice supersedes an event's saved resume intent.
+    if (cancelEventResume) eventAudioResume.current = null;
+  }
+
+  function pauseForEvent() {
+    if (eventAudioActive.current || !getSetting('eventMusic') || !readPrivacy().externalMedia) return;
+    eventAudioActive.current = true;
+    const requested = isPlayingRef.current || bufferingRef.current || pendingPlayRef.current || starting;
+    const id = pendingVideoIdRef.current || videoIdRef.current;
+    const primed = document.querySelector<HTMLAudioElement>('audio[data-music-audio]');
+    eventAudioResume.current = requested && id ? { id,
+      seconds: playerRef.current?.getCurrentTime() ?? primed?.currentTime ?? 0,
+      pending: !playerReadyRef.current } : null;
+    if (requested) pausePlayback();
+  }
+  function releaseEventAudio() {
+    eventAudioActive.current = false;
+    const interrupted = eventAudioResume.current;
+    eventAudioResume.current = null;
+    if (!interrupted || !readPrivacy().externalMedia || catalogRef.current?.some(song => song.id === interrupted.id && !allowed(song))) return;
+    if (interrupted.pending && !playerReadyRef.current) {
+      pendingVideoIdRef.current = interrupted.id;
+      pendingPlayRef.current = true;
+      cuedAtRef.current = { videoId: interrupted.id, seconds: interrupted.seconds };
+      setStarting(true);
+      primeAudio(interrupted.id, interrupted.seconds);
+    } else if (interrupted.id === videoIdRef.current && !isPlayingRef.current && !bufferingRef.current) togglePlay();
   }
 
   // The actions keep their identity across renders (lib/ui/useLatestActions.ts), so the value
   // below changes only with the state it carries.
   const actions = useLatestActions({
-    setAutoplay, dismissNotice, setIncludeEndfield, setDataSaver, initializePlayer,
+    setAutoplay, dismissNotice, setIncludeEndfield, setDataSaver, initializePlayer, pauseForEvent,
     toggleShuffle, cycleRepeat, toggleFavorite, toggleNoAutoplay: toggleSongNoAutoplay,
     reorderQueue, reorderShuffleOrder, moveQueueItemToTop, removeFromQueue, queueSong, clearQueue,
     undoClearQueue, setExcludeCopyrighted,
@@ -2057,9 +2112,19 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
     playQueueIndex: (index: number) => { claimManualAudio(); playQueueIndex(index); },
     playPlaylist: (ids: string[] | null, source?: MusicSource, selectedId?: string) => { claimManualAudio(); return playPlaylist(ids, source, selectedId); },
     playHistory: (position: number) => { claimManualAudio(); playHistory(position); },
-    setVolumeLevel: (v: number) => { claimManualAudio(); setVolumeLevel(v); },
-    toggleMute: () => { claimManualAudio(); toggleMute(); },
+    setVolumeLevel: (v: number) => { claimManualAudio(false); setVolumeLevel(v); },
+    toggleMute: () => { claimManualAudio(false); toggleMute(); },
   });
+  const eventAudioActions = useLatestActions({ pauseForEvent, releaseEventAudio });
+  useEffect(() => {
+    if (eventMusicEnabled && mediaAllowed && router.pathname.startsWith('/events/')) eventAudioActions.pauseForEvent();
+    else if (router.pathname !== GAME_PATHS.music) eventAudioActions.releaseEventAudio();
+  }, [router.pathname, eventMusicEnabled, mediaAllowed, eventAudioActions]);
+  useEffect(() => {
+    const cancel = () => { if (!router.pathname.startsWith('/events/')) eventAudioActions.releaseEventAudio(); };
+    router.events.on('routeChangeError', cancel);
+    return () => router.events.off('routeChangeError', cancel);
+  }, [router.events, router.pathname, eventAudioActions]);
   const upcomingTrack = useMemo(() => {
     const forward = forwardPosition();
     if (forward >= 0) return playableTrack(history.tracks[forward]);

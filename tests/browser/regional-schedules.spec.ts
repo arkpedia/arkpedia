@@ -8,10 +8,21 @@ test.beforeEach(async ({ page }) => {
 });
 async function expectClock(page: import('@playwright/test').Page, text: string) {
   const clock = page.locator('.site-nav-clock:visible').first();
-  const inDrawer = !await clock.isVisible();
-  if (inDrawer) await page.getByRole('button', { name: 'Open navigation menu', exact: true }).click();
+  const menu = page.getByRole('button', { name: 'Open navigation menu', exact: true });
+  const opened = await menu.isVisible() && await menu.getAttribute('aria-expanded') !== 'true';
+  if (opened) {
+    // A route change closes the drawer before its exit transition hides the clock.
+    // Identify the mobile layout from the menu button, not that transient clock.
+    await expect(clock).toBeHidden();
+    await menu.click();
+    await expect(menu).toHaveAttribute('aria-expanded', 'true');
+  }
   await expect(clock).toContainText(text);
-  if (inDrawer) await page.keyboard.press('Escape');
+  if (opened) {
+    await page.keyboard.press('Escape');
+    await expect(menu).toHaveAttribute('aria-expanded', 'false');
+    await expect(clock).toBeHidden();
+  }
 }
 async function account(page: import('@playwright/test').Page, server: string) {
   await page.evaluate(server => { localStorage.setItem('arkpediaAccount', JSON.stringify({ version: 1, server, importedAt: '2026-10-16T00:00:00Z', doctor: 'Regional QA', operators: [], skins: [], cleared: [] }));window.dispatchEvent(new Event('arkpediaAccountChanged')); }, server);
@@ -149,7 +160,15 @@ test('regional reward labels use the server calendar and manual claims survive c
   if (await mobileMenu.isVisible()) await mobileMenu.click();
   const planner = page.getByRole('button', { name: 'Planner', exact: true });
   if (await planner.getAttribute('aria-expanded') !== 'true') await planner.click();
+  await page.evaluate(() => {
+    Reflect.set(window, 'regionalNavigationComplete', false);
+    const events = Reflect.get(window, 'next').router.events;
+    const complete = () => { Reflect.set(window, 'regionalNavigationComplete', true); events.off('routeChangeComplete', complete); };
+    events.on('routeChangeComplete', complete);
+  });
   await page.locator('a[href="/reward-tracker"]:visible').click();
+  await page.waitForFunction(() => Reflect.get(window, 'regionalNavigationComplete') === true);
+  if (await mobileMenu.isVisible()) await expect(mobileMenu).toHaveAttribute('aria-expanded', 'false');
   await expectClock(page, '03:59');
   await page.getByRole('tab', { name: 'Free rewards', exact: true }).click();
   await page.getByRole('group', { name: 'Free rewards status' }).getByRole('button', { name: 'Claimed', exact: true }).click();

@@ -1,4 +1,4 @@
-import { Fragment, useId, type ReactNode } from 'react';
+import { Fragment, useId, useRef, useEffect, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { highlightStats } from '@/components/ui/HighlightedText';
 import { useAnchoredPopover } from '@/components/ui/useAnchoredPopover';
@@ -14,16 +14,16 @@ export default function BaseSkillText({ text, keywords }: { text: string | null 
   if (!text) return null;
   if (!keywords?.length) return <>{highlightStats(text)}</>;
   // Longest first, so a keyword that holds a shorter one is matched whole.
-  const ordered = [...keywords].sort((a, b) => b.text.length - a.text.length);
+  const ordered = keywords.filter(keyword => keyword.text).sort((a, b) => b.text.length - a.text.length);
   const escaped = ordered.map(keyword => keyword.text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
-  const parts = text.split(new RegExp(`(${escaped.join('|')})`));
+  const parts = text.split(new RegExp(`(?<![\\p{L}\\p{N}_])(${escaped.join('|')})(?![\\p{L}\\p{N}_])`, 'giu'));
   const used = new Set<string>();
   const nodes: ReactNode[] = parts.map((part, index) => {
-    const keyword = index % 2 === 1 ? ordered.find(entry => entry.text === part) : undefined;
+    const keyword = index % 2 === 1 ? ordered.find(entry => entry.text.toLowerCase() === part.toLowerCase()) : undefined;
     // The first mention carries the explanation; a repeat reads as plain words.
     if (keyword && !used.has(keyword.term)) {
       used.add(keyword.term);
-      return <KeywordTip key={index} keyword={keyword} />;
+      return <KeywordTip key={index} keyword={{ ...keyword, text: part }} />;
     }
     return <Fragment key={index}>{highlightStats(part)}</Fragment>;
   });
@@ -33,6 +33,10 @@ export default function BaseSkillText({ text, keywords }: { text: string | null 
 function KeywordTip({ keyword }: { keyword: BaseSkillKeyword }) {
   const { open, setOpen, close, buttonRef, menuRef, menuStyle } = useAnchoredPopover(300);
   const id = useId();
+  const leaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const keepOpen = () => { if (leaveTimer.current) clearTimeout(leaveTimer.current); setOpen(true); };
+  const leave = () => { leaveTimer.current = setTimeout(close, 150); };
+  useEffect(() => () => { if (leaveTimer.current) clearTimeout(leaveTimer.current); }, []);
   const lines = keyword.definition.split('\n').filter(Boolean);
   return <>
     <button ref={buttonRef} type="button" className="btn-bare base-skill-keyword" aria-expanded={open} aria-controls={open ? id : undefined}
@@ -40,14 +44,15 @@ function KeywordTip({ keyword }: { keyword: BaseSkillKeyword }) {
       // A tap focuses the button and then clicks it: both open, so the click never shuts what the
       // focus just opened. A tap outside, Escape or leaving the button closes it.
       onClick={() => setOpen(true)} onFocus={() => setOpen(true)} onBlur={close}
-      onPointerEnter={event => { if (event.pointerType === 'mouse') setOpen(true); }}
-      onPointerLeave={event => { if (event.pointerType === 'mouse') close(); }}>
+      onKeyDown={event => { if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); close(); } }}
+      onPointerEnter={event => { if (event.pointerType === 'mouse') keepOpen(); }}
+      onPointerLeave={event => { if (event.pointerType === 'mouse') leave(); }}>
       {keyword.text}
     </button>
     {open && typeof document !== 'undefined' && createPortal(
-      <div id={id} ref={menuRef} role="tooltip" className="base-skill-keyword-tip" style={menuStyle}>
+      <div id={id} ref={menuRef} role="tooltip" onPointerEnter={keepOpen} onPointerLeave={leave} className="base-skill-keyword-tip" style={menuStyle}>
         <b>{keyword.name}</b>
         {lines.map((line, index) => <p key={index}>{line}</p>)}
-      </div>, document.body)}
+      </div>, buttonRef.current?.closest('dialog') ?? document.body)}
   </>;
 }

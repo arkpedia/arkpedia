@@ -4,6 +4,28 @@ const SHA = /^[a-f0-9]{40}$/;
 const id = value => Number.isSafeInteger(value) && value > 0;
 const successful = value => value?.status === 'completed' && value.conclusion === 'success';
 
+const completedJob = (jobs,runId,name,steps) => {
+  const found=jobs.filter(job => job?.name===name);
+  return found.length===1 && id(found[0].id) && found[0].run_id===runId && successful(found[0])
+    && steps.every(name => {const matches=found[0].steps?.filter(step => step.name===name);return matches?.length===1 && successful(matches[0]);});
+};
+export function parallelValidationPassed(jobs,runId,{audit=false}={}) {
+  if (!Array.isArray(jobs) || !id(runId)) return false;
+  if (!completedJob(jobs,runId,'browser-build',['Build','Which browser regressions this change needs','Package checked browser site'])) return false;
+  return audit || [
+    ['validation',['Application and Python regression tests','Typecheck','Lint','Compile and validate runtime content']],
+    ['content-check',['Pages render the live content release','Content updates and rollback without rebuilding']],
+    ['production-build',['Compile and check the production Worker']],
+  ].every(([name,steps]) => completedJob(jobs,runId,name,steps));
+}
+export function browserShardsPassed(jobs,runId,total,lane) {
+  if (!Array.isArray(jobs) || !id(runId) || ![0,1,4].includes(total)) return false;
+  const shards=jobs.filter(job => /^browser \(/.test(job?.name??''));
+  if(shards.length!==total)return false;
+  return Array.from({length:total},(_,i)=>i+1).every(index => completedJob(jobs,runId,'browser ('+index+'/'+total+')',
+    [lane==='full'?'Desktop and mobile browser regressions':'Selected browser regressions','Record browser shard','Share browser shard evidence']));
+}
+
 /** Validate GitHub API records; callers separately establish ancestry and cumulative impact. */
 export function fullBrowserBaseline({ run, jobs, repository, baseRef, commit, tree, artifact, allowAudit = false } = {}) {
   if (typeof repository !== 'string' || !/^[^/\s]+\/[^/\s]+$/.test(repository)
@@ -17,7 +39,12 @@ export function fullBrowserBaseline({ run, jobs, repository, baseRef, commit, tr
   const job = checks[0];
   if (!successful(job) || !id(job.id) || job.run_id !== run.id || !Array.isArray(job.steps)) return null;
   const steps = job.steps.filter(step => step?.name === (audit ? 'Exhaustive desktop and mobile audit' : 'Desktop and mobile browser regressions'));
-  if (steps.length !== 1 || !successful(steps[0])) return null;
+  if (steps.length !== 1 || !successful(steps[0])) {
+    const executed = name => {const found=job.steps.filter(step=>step.name===name);return found.length===1&&successful(found[0]);};
+    if (!executed('Validate full browser shard execution') || !executed('Full-census completion contract')
+      || !executed('Validate browser execution evidence') || !executed(audit?'Require complete audit execution':'Require parallel checks')
+      || !parallelValidationPassed(jobs,run.id,{audit}) || !browserShardsPassed(jobs,run.id,4,'full')) return null;
+  }
 
   let artifactId = null;
   if (audit && !['schedule', 'workflow_dispatch'].includes(run.event)) return null;

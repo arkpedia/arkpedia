@@ -9,6 +9,7 @@ import { communityRankings } from './rankings';
 import { cachedCommunityRankings } from './rankingsCache';
 import {reportRankingFailure,type RankingBucket} from './sharedRankingsCache';
 import { deploymentPreviewStatistics } from './preview-statistics';
+import { pullPoll } from '@/lib/polls/pull-poll-api';
 import { skinRatings } from '@/lib/polls/skin-ratings-api';
 import { skinPoll,skinPollIds } from '@/lib/polls/skin-poll-api';
 import { STAGE_ID } from '@/lib/replays/model';
@@ -44,7 +45,7 @@ export async function gameFingerprint(secret:string,server:string,uid:string) {
   return Array.from(new Uint8Array(await crypto.subtle.sign('HMAC',key,new TextEncoder().encode(`community-v1:${server}:${uid}`)))).map(v=>v.toString(16).padStart(2,'0')).join('');
 }
 /** Isolated rows, explicit consent, revision checks and fixed public projections. */
-export function createCommunityHandler(kind:'sharing'|'stats'|'supports'|'availability'|'rankings'|'skin-poll',{
+export function createCommunityHandler(kind:'sharing'|'stats'|'supports'|'availability'|'rankings'|'skin-poll'|'pull-poll',{
   resolveEnv=accountsEnv, authenticate=async(req:NextApiRequest,env:AccountsEnv)=>(await accountAuth(env).api.getSession({headers:fromNodeHeaders(req.headers)}))?.user.id??null, now=()=>Date.now(),
   pollSkinIds=skinPollIds,
 }:{resolveEnv?:()=>Env|null;authenticate?:(req:NextApiRequest,env:AccountsEnv)=>Promise<string|null>;now?:()=>number;pollSkinIds?:()=>Promise<ReadonlySet<string>>}={}) {
@@ -52,7 +53,7 @@ export function createCommunityHandler(kind:'sharing'|'stats'|'supports'|'availa
     res.setHeader('Cache-Control','private, no-store'); res.setHeader('Vary','Cookie'); res.setHeader('X-Robots-Tag','noindex');
     const env=resolveEnv();
     if(!env) return res.status(503).json({error:'Community sharing is not configured on this deployment.'});
-    const methods=['sharing','skin-poll'].includes(kind)?['GET','PUT','DELETE']:kind==='availability'?['POST','DELETE']:['GET'];
+    const methods=kind==='pull-poll'?['GET','PUT']:['sharing','skin-poll'].includes(kind)?['GET','PUT','DELETE']:kind==='availability'?['POST','DELETE']:['GET'];
     if(!methods.includes(req.method??'')){res.setHeader('Allow',methods.join(', '));return res.status(405).end();}
     if(req.method!=='GET'&&(req.headers.origin!==env.ARKPEDIA_AUTH_URL||!req.headers['content-type']?.startsWith('application/json'))) return res.status(403).json({error:'This request must come from Arkpedia.'});
     try{
@@ -76,6 +77,7 @@ export function createCommunityHandler(kind:'sharing'|'stats'|'supports'|'availa
       if(kind==='stats')return await stats(req,res,db);
       if(kind==='supports')return await supports(req,res,db,time);
       const owner=await authenticate(req,env);
+      if(kind==='pull-poll')return await pullPoll(req,res,db,owner);
       if(kind==='skin-poll')return await (req.query.mode==='ratings'?skinRatings:skinPoll)(req,res,db,owner,pollSkinIds);
       if(!owner)return res.status(401).json({error:kind==='availability'?'Sign in to report availability.':'Sign in to choose community sharing.'});
       if(kind==='availability')return await availability(req,res,db,owner,time);

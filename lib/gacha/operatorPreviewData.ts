@@ -1,4 +1,5 @@
-import type { BaseSkillKeyword, Operator, OperatorModule } from '@/lib/operators/operatorTypes';
+import type { BaseSkillKeyword } from '@/lib/operators/operatorTypes';
+import type { Operator, OperatorModule } from '@/lib/operators/operatorTextTypes';
 import type { StatValues } from '@/lib/operators/operatorStats';
 import { getSkillList } from '@/lib/operators/operatorTypes';
 import { baseSkillDisplayName, getBaseSkillIconPath, getSkillIconPath, talentDisplayName } from '@/lib/operators/operatorIconPaths';
@@ -6,14 +7,19 @@ import { traitPhases, type TraitPhase } from '@/lib/operators/operatorTrait';
 import { getBaseStats } from '@/lib/operators/operatorStats';
 import type { Owned } from '@/lib/planner/roster';
 
-export type OperatorPreviewSource = Pick<Operator, 'name' | 'rarity' | 'class' | 'branch' | 'position' | 'tags' | 'trait' | 'stats' | 'talents' | 'skills' | 'modules' | 'baseSkills'>;
+export type OperatorPreviewSource = Pick<Operator, 'combatKeywords' | 'sourceRegion' | 'translationCredit' | 'translationCredits' | 'name' | 'rarity' | 'class' | 'branch' | 'position' | 'tags' | 'trait' | 'stats' | 'talents' | 'skills' | 'modules' | 'baseSkills'>;
 
 /** Public reference data only. Account builds stay in the reader's browser. */
 export function operatorPreviewSource(operator: Operator): OperatorPreviewSource {
   const { name, rarity, class: className, branch, position, tags, trait, stats, talents, baseSkills } = operator;
   return { name, rarity, class: className, branch, position, tags, trait, stats, talents, baseSkills,
+    ...(operator.combatKeywords ? { combatKeywords: operator.combatKeywords } : {}),
+    ...(operator.sourceRegion ? { sourceRegion: operator.sourceRegion } : {}),
+    ...(operator.translationCredit ? { translationCredit: operator.translationCredit } : {}),
+    ...(operator.translationCredits ? { translationCredits: operator.translationCredits } : {}),
     skills: getSkillList(operator).map(({ name, icon, recoveryType, activationType, duration, levels }) => ({ name, icon, recoveryType, activationType, duration, levels })),
-    modules: operator.modules?.map(({ name, type, stages }) => ({ name, type,
+    modules: operator.modules?.map(({ name, type, stages, translationCredit }) => ({ name, type,
+      ...(translationCredit ? { translationCredit } : {}),
       stages: stages.map(({ stage, attributesIncreased, effectLabel, effectText }) => ({ stage, attributesIncreased, effectLabel, effectText })),
     })),
   };
@@ -36,10 +42,14 @@ export interface GachaOperatorPreview {
    *  from the string `trait` it replaces, so a page loaded before a deploy reads no trait from a
    *  newer response instead of rendering this list as text. */
   traitPhases: TraitPhase[];
+  combatKeywords?: BaseSkillKeyword[];
+  sourceRegion?: 'CN' | 'Global';
+  translationCredit?: string;
+  translationCredits?: Operator['translationCredits'];
   stats: { elite: number; level: number; values: StatValues; trust: { hp: number; atk: number; def: number } } | null;
   talents: { name: string; stage: string | null; description: string }[];
   skills: { name: string; icon: string | null; rank: string; recovery: string | null; activation: string | null; initialSp: number | string | null; spCost: number | string | null; duration: number | string | null; description: string }[];
-  modules: { name: string; type: OperatorModule['type']; stages: { stage: string; attributes: string | null; label: string | null; effect: string | null }[] }[];
+  modules: { name: string; translationCredit?: string; type: OperatorModule['type']; stages: { stage: string; attributes: string | null; label: string | null; effect: string | null }[] }[];
   baseSkills: { name: string; icon: string | null; facility: string | null; unlock: string | null; description: string; keywords: BaseSkillKeyword[] }[];
 }
 
@@ -56,6 +66,10 @@ export function buildGachaOperatorPreview(operator: OperatorPreviewSource, build
     branch: operator.branch,
     position: operator.position,
     tags: operator.tags ?? [],
+    ...(operator.combatKeywords ? { combatKeywords: operator.combatKeywords } : {}),
+    ...(operator.sourceRegion ? { sourceRegion: operator.sourceRegion } : {}),
+    ...(operator.translationCredit ? { translationCredit: operator.translationCredit } : {}),
+    ...(operator.translationCredits ? { translationCredits: operator.translationCredits } : {}),
     traitPhases: traitPhases(operator.trait).filter(row => !build || unlockedAt(row.stage, build)),
     stats: phase ? {
       elite: phase.elite,
@@ -89,6 +103,7 @@ export function buildGachaOperatorPreview(operator: OperatorPreviewSource, build
       };
     }),
     modules: (operator.modules ?? []).filter(module => !build || module.type === 'Original' || build.modules?.[upgradeModules.indexOf(module)] !== undefined).map((module) => ({
+      ...(module.translationCredit ? { translationCredit: module.translationCredit } : {}),
       name: module.name || (module.type === 'Original' ? 'Original' : 'Module'),
       type: module.type,
       stages: (build && module.type === 'Upgrade' ? module.stages.slice(0, (build.modules?.[upgradeModules.indexOf(module)] ?? -1) + 1) : module.stages).map((stage) => ({

@@ -76,6 +76,11 @@ interface Props {
 /** The two views. In the URL as ?view=, so a link can point at either. */
 type ViewKey = 'calendar' | 'events';
 
+// Keep already revealed archive rows across client-side detail/Back navigation.
+// Rebuilding one lazy batch at a time can outlast scroll restoration on a busy
+// device. Only the client effect below writes this; server renders start at 24.
+let rememberedPastVisible = 24;
+
 function iconPathFor(name: string, rarity: 6 | 5): string {
   const folder = rarity === 6 ? 'six-star-icons' : 'five-star-icons';
   return `/${folder}/${name} - Base.webp`;
@@ -162,7 +167,8 @@ export default function SchedulePage({ events: globalEvents, operators: exported
     return [...pastEvents.map(row => ({ ...row, isPredicted: false, pullBanner: null, featuredOperators: [] })),
       ...regionalRows.filter(row => currentNames.has(row.name))];
   }, [eventRows, pastEvents, regionalRows]);
-  const [pastVisible, setPastVisible] = useState(24);
+  const [pastVisible, setPastVisible] = useState(() => rememberedPastVisible);
+  useEffect(() => { rememberedPastVisible = pastVisible; }, [pastVisible]);
   const viewHold = useSwitchHold('schedule');
   const [year, setYear] = useState(today.year);
   const [showBirthdays, setShowBirthdays] = useState(false);

@@ -21,7 +21,7 @@ import {useSkinRatings} from '@/lib/polls/useSkinRatings';
 import styles from '@/components/community/SkinRatings.module.css';
 
 interface Props {skins:PollSkin[]}
-const defaults={q:'',view:'vote',rated:'all',skin:'',group:'skins',display:'podium',resultsQ:'',sort:'mean',order:'desc',detail:''};
+const defaults={q:'',view:'vote',rated:'all',skin:'',group:'skins',display:'podium',resultsQ:'',sort:'score',order:'desc',weighted:'on',detail:''};
 const options=Array.from({length:10},(_,i)=>({value:i+1,label:String(i+1),ariaLabel:`${i+1} out of 10`}));
 export default function FavouriteSkins(props:Props){
   const {remote,status}=useCloudSync();
@@ -66,7 +66,7 @@ function SkinRatings({skins,owner,accountLoading}:Props&{owner:string|null;accou
           <LoadOnScroll shown={Math.min(shown,filtered.length)} total={filtered.length} onMore={()=>setShown(n=>n+30)}/>
         </section>
         <section {...tabPanelProps('skin-poll','results')} hidden={!results} className={styles.results}>
-          {results&&<SkinRatingResults skins={skins} result={result} error={error} onRetry={()=>void load().catch(()=>{})} filters={filters} onChange={patch=>{hold.capture();set(patch);}}/>}
+          {results&&<SkinRatingResults ownRatings={owner&&ready?saved:null} skins={skins} result={result} error={error} onRetry={()=>void load().catch(()=>{})} filters={filters} onChange={patch=>{hold.capture();set(patch);}}/>}
         </section>
       </div>
       {selected&&<ImportDialog title={selected.name} className={styles.ratingDialog} dismissible={!zooming} onClose={closeSkin} actions={!zooming&&<button className="ghost btn-sm" onClick={closeSkin}>Back to skins</button>}>

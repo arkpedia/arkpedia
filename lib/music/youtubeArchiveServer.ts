@@ -2,6 +2,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { readPublishedContentPageProps } from '@/lib/content/release';
 import type { YouTubeVideo } from './youtube';
+import { loadVideoTopics } from './youtubeTopicsServer';
+import { applyVideoTopicAssignments } from './youtubeTopicAssignments';
 
 export const YOUTUBE_ARCHIVE_FILE = '.cache/youtube-discovery/archive.json';
 export const YOUTUBE_ARCHIVE_RECORD = 'data/youtube-discovery.json';
@@ -20,5 +22,5 @@ export function readLocalVideoArchive(): YouTubeVideo[] {
 export async function loadVideoArchive(): Promise<YouTubeVideo[]> {
   if (process.env.ARKPEDIA_YOUTUBE_FEED_FIXTURE) return [];
   const published = await readPublishedContentPageProps<{ videoArchive?: YouTubeVideo[] }>('/community');
-  return published?.videoArchive ?? readLocalVideoArchive();
+  return applyVideoTopicAssignments(published?.videoArchive ?? readLocalVideoArchive(), await loadVideoTopics());
 }

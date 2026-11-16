@@ -52,6 +52,16 @@
       "child": "span.supply-card-body",
       "why": "a picture card: the text keeps --card-inset from the flush art (/stages/supplies, a stage shut today); optional: which supply stages are open or shut follows the weekday",
       "optional": true
+    },
+    {
+      "parent": "article.banner.poll-banner-surface",
+      "child": "div.identity",
+      "why": "a picture card: the banner name and operator portraits keeps --card-inset from the flush banner artwork in the supplied Pull or Skip mockup (/polls/pull-or-skip at mobile width)"
+    },
+    {
+      "parent": "article.banner.poll-banner-surface",
+      "child": "div.bannerActions",
+      "why": "a picture card: the joined verdict controls keeps --card-inset from the flush banner artwork in the supplied Pull or Skip mockup (/polls/pull-or-skip at mobile width)"
     }
   ]
 }

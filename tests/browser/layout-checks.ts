@@ -492,9 +492,10 @@ export async function measure(page: Page): Promise<Measurement> {
     /* Media, controls and drawn boxes (a background or a side border); a band as wide
        as the viewport is full-bleed decoration, not content. */
     for (const el of Array.from(root.querySelectorAll('*'))) {
-      // The header's sticky extension owns the same outer frame/gutters as the header.
-      // Measure all its actual text and controls, not its full-frame background band.
-      if (el === headerActions) continue;
+      // The shared header and its sticky extension own the outer frame/gutters.
+      // A glass header can paint that frame too. Its actual text and controls
+      // remain measured below; its background band is not a body-content card.
+      if (el === header || el === headerActions) continue;
       if (fixed(el) || !visible(el)) continue;
       const s = cs(el);
       const media = /^(IMG|SVG|CANVAS|VIDEO|INPUT|SELECT|BUTTON|TEXTAREA)$/i.test(el.tagName);
@@ -582,7 +583,7 @@ export const STACK_BASELINE_FILE = path.join(__dirname, 'stack-align-baseline.js
 /* The census writes the accepted insets each page bounds run saw here, one file per page and
    width; the stale check (layout-census-after.spec.ts) reads them once both projects are done.
    Playwright empties the output directory at the start of every run. */
-export const stackDir = (info: TestInfo) => path.join(info.project.outputDir, 'layout-census-stack-align');
+export const stackDir = (info: TestInfo) => process.env.ARKPEDIA_CENSUS_STACK_DIR || path.join(info.project.outputDir, 'layout-census-stack-align');
 /* `optional`: an entry that shows only on some days (a card in a date window, a stage
    open by weekday), so the stale check leaves it alone; it is still held to the inset. */
 export const stackBaseline: { accepted: { parent: string; child: string; why: string; optional?: boolean }[] } = JSON.parse(fs.readFileSync(STACK_BASELINE_FILE, 'utf8'));

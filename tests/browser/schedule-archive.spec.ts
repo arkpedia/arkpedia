@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { eventTitle } from '../../lib/events/eventName.mjs';
 
 for (const theme of ['dark', 'light']) test(`outside collaborations are opt-in and independent of events in ${theme}`, async ({ page }) => {
   await page.goto('/schedule?view=calendar');
@@ -98,7 +99,7 @@ test('past events are newest first, shareable, and link to their event pages', a
   const name = await rows.first().locator('.events-row-name').innerText();
   await first.click();
   await expect(page).toHaveURL(new URL(href!, page.url()).href);
-  await expect(page.locator('h1')).toHaveText(name);
+  await expect(page.locator('h1')).toContainText(eventTitle(name).replace(/\s+Rerun$/i, ''));
   await page.goto('/schedule?past=1');
   await expect(page.getByRole('button', { name: 'Past', exact: true, pressed: true })).toBeVisible();
   await expect(rows.first().locator('a.events-row-main')).toHaveAttribute('href', href!);
@@ -108,9 +109,22 @@ test('past events are newest first, shareable, and link to their event pages', a
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });
 
-test('page Back and browser Back restore a deep archive position and loaded batches', async ({ page }) => {
+for (const theme of ['dark', 'light']) test(`page Back and browser Back restore a deep archive position and loaded batches in ${theme}`, async ({ page }) => {
   test.setTimeout(90000);
+  await page.addInitScript(() => {
+    const Observer = window.IntersectionObserver;
+    window.IntersectionObserver = class extends Observer {
+      constructor(callback: IntersectionObserverCallback, options?: IntersectionObserverInit) {
+        super((entries, observer) => {
+          const ready = sessionStorage.getItem('test:pause-archive-batches') === '1'
+            ? entries.filter(entry => !entry.target.classList.contains('load-on-scroll')) : entries;
+          if (ready.length) callback(ready, observer);
+        }, options);
+      }
+    };
+  });
   await page.goto('/schedule?past=1');
+  await page.evaluate(theme => { document.documentElement.dataset.theme = theme; }, theme);
   await expect(page.getByRole('button', { name: 'Past', exact: true, pressed: true })).toBeVisible();
   const grani = page.locator('.events-row-main').filter({ hasText: "Grani and the Knights' Treasure" }).filter({ hasNotText: 'Rerun' }).first();
   for (let batch = 0; batch < 10 && await grani.count() === 0; batch++) {
@@ -120,14 +134,18 @@ test('page Back and browser Back restore a deep archive position and loaded batc
   }
   await grani.scrollIntoViewIfNeeded();
   const position = await page.evaluate(() => scrollY);
+  const loadedRows = await page.locator('#schedule-events .events-row').count();
   expect(position).toBeGreaterThan(1000);
   for (const back of ['page', 'browser']) {
     await grani.click();
     await expect(page.locator('h1')).toContainText('Grani');
     await expect.poll(() => page.evaluate(() => scrollY)).toBeLessThan(100);
+    // Back restores the rows already read, even before fresh observer work runs.
+    await page.evaluate(() => sessionStorage.setItem('test:pause-archive-batches', '1'));
     if (back === 'page') await page.getByRole('link', { name: '‹ Back', exact: true }).click();
     else await page.goBack();
     await expect(page).toHaveURL(/schedule\?past=1/);
+    await expect(page.locator('#schedule-events .events-row')).toHaveCount(loadedRows);
     await expect.poll(() => page.evaluate(() => scrollY), { timeout: 15000, message: `${back} Back restores the archive position` }).toBeCloseTo(position, -1);
     await expect(grani).toBeInViewport();
   }

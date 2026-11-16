@@ -29,10 +29,12 @@ cards. Choose the pattern below first, then use its established primitives.
 Verified event entrances may use the original game animation fullscreen after an
 event link is activated (maintainer exception, 2026-11-13). Use a quick fade to black,
 then the native animation and sound cues; shrink its final menu artwork into the
-event page's hero, which may use that same menu artwork instead of the event banner.
+event page's full-viewport artwork backdrop behind the navigation, with theme-coloured translucent panels above it (maintainer update, 2026-11-14). The backdrop may use that same menu artwork instead of the event banner.
 Respect reduced motion and the existing event-audio preference. Keep Back/Forward,
 modified links and unsupported events on their ordinary navigation path. The media
-overlay must be skippable and bounded when its assets cannot load.
+overlay must be skippable by clicking or tapping anywhere, without a visible corner
+button. Keep the full-screen skip control keyboard accessible and support Escape.
+Bound the overlay when its assets cannot load.
 
 Public URLs use their current reader-facing names: `/reward-tracker`,
 `/operator-planner`, `/pull-planner`, `/game-modes`, `/gacha-simulator`,
@@ -60,8 +62,9 @@ operator showcases and currently available outfits, including older uploads. Rem
 choices use the newest upload per channel within 48 hours; when nothing qualifies, fall
 back to the three newest available channels. Keep one video per creator in the rotation.
 Keep the last successful public feeds through temporary upstream failures, independently
-of that editorial window. World’s YouTube tab groups uploads by conservative title rules,
-with ambiguous titles in Other. Relevant current content precedes newer unrelated videos;
+of that editorial window. World’s YouTube tab groups uploads using cached, confidence-gated Jev classifications
+from automatic content preparation, with conservative title rules as a fallback.
+Ambiguous titles remain in Other; explicit editorial guide associations take precedence. Relevant current content precedes newer unrelated videos;
 the matching Global window’s exclusive close removes its priority. CN and future-content
 uploads remain included. Both views retain search/category choices in the URL.
 Show publication dates when known and Archive otherwise; never invent dates for older
