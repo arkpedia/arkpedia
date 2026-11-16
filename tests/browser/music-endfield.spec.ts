@@ -7,8 +7,8 @@ import { CROSSOVER_PAGE_MUSIC } from '../../lib/music/crossoverPageMusic';
  * Arknights: Endfield's songs (data/endfield-albums.json) are in the player's catalogue, each row
  * marked game 'endfield', and every list that draws from it hides them until the reader ticks
  * "Endfield music" (lib/music/songFilter.ts): the Library, Discover, Play all and a saved
- * playlist's queue alike. The setting is kept in this browser, beside Playlists in the music
- * pages' header and in the player bar's ⋯ menu.
+ * playlist's queue alike. The setting is kept in this browser, beside Playlists in the phone's
+ * music menu and in the player bar's ⋯ menu.
  */
 
 interface Row { videoId?: string; cid?: string; title: string; altTitle?: string; album?: string; game?: string }
@@ -19,8 +19,17 @@ async function catalogue(page: Page): Promise<Row[]> {
   return [...songs, ...CROSSOVER_PAGE_MUSIC.filter(entry => !ids.has(entry.song.id)).map(entry => entry.song)];
 }
 const idOf = (row: Row) => row.videoId || `msr:${row.cid}`;
-const setting = (page: Page) => page.locator((page.viewportSize()?.width ?? 1440) < 1000 ? '.music-phone-settings input[type=checkbox]' : '.page-header input[type=checkbox]');
-async function changeSetting(page: Page, checked: boolean) { await openMusicMenu(page); await setting(page).setChecked(checked); }
+const setting = (page: Page) => page.locator('.music-phone-settings input[type=checkbox]');
+async function changeSetting(page: Page, checked: boolean) {
+  if ((page.viewportSize()?.width ?? 1440) < 1000) {
+    await openMusicMenu(page);
+    await setting(page).setChecked(checked);
+  } else {
+    await openPlayerActions(page);
+    await page.getByRole('dialog', { name: 'Player actions', exact: true }).getByRole('checkbox', { name: 'Endfield music', exact: true }).setChecked(checked);
+    await page.keyboard.press('Escape');
+  }
+}
 
 test('Endfield music is off until ticked, then joins the Library, and the choice is kept', async ({ page }) => {
   await stubYouTube(page);
@@ -106,11 +115,16 @@ test('a saved playlist plays its Endfield songs only once the setting is on, and
 // drawn the way Data saver's is (components/music/MusicSetting.tsx).
 const BACKGROUND_NOTE = 'Endfield songs play from YouTube, so background play on phones may not work properly with them.';
 
-test('the header\'s Endfield music ⓘ says background play on phones may not work properly, and opening it moves nothing', async ({ page }) => {
-  await page.goto('/music/discover');
+test('music headers leave Endfield controls to menus, and phone menu help moves nothing', async ({ page }) => {
+  for (const path of ['/music', '/music/discover']) {
+    await page.goto(path);
+    await expect(page.locator('.page-header').getByRole('checkbox', { name: 'Endfield music', exact: true })).toHaveCount(0);
+    await expect(page.locator('.page-header').getByRole('button', { name: 'About Endfield music', exact: true })).toHaveCount(0);
+  }
+  if ((page.viewportSize()?.width ?? 1440) >= 1000) return;
   await page.evaluate(() => document.fonts.ready);
   await openMusicMenu(page);
-  const header = page.locator((page.viewportSize()?.width ?? 1440) < 1000 ? '.music-nav-dropdown' : '.page-header');
+  const header = page.locator('.music-nav-dropdown');
   const info = header.getByRole('button', { name: 'About Endfield music', exact: true });
   await expect(info).toHaveAttribute('aria-expanded', 'false');
   const infoBox = (await info.boundingBox())!;
