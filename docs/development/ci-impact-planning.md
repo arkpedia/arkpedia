@@ -35,8 +35,11 @@ never reused across sources or workflow runs.
 Full coverage uses four isolated hosted runners with two browser workers each.
 Targeted coverage uses one runner. A project/file stays together to preserve serial
 suites; the layout census explicitly supports parallel cases and is distributed
-case by case. This changes execution placement, not selection, assertions, retries
-or intentional skips.
+case by case. Selection rules, existing assertions, retries and intentional skips
+are retained. The Schedule archive regression additionally checks that Back restores
+already revealed rows while fresh lazy-list callbacks are pending, in both themes.
+Keeping those batches across client-side navigation avoids rebuilding the archive
+one batch at a time under the scroll-restoration deadline.
 
 Each shard reports exactly its assigned identities, with source/run/partition and
 reporter checksums. Missing, repeated, interrupted or mismatched shards cannot
