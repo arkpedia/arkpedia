@@ -19,7 +19,7 @@ rosters, with estimates labelled.
 
 Drafts stay in browser storage. Share links encode choices in a URL fragment,
 without submitting. PNG/clipboard export renders one complete 1200px-wide bitmap shown
-in the fitted preview. The reference-style sheet places each banner on the left and Pull/Maybe/Skip on the right. Detailed adds larger operator portraits and additional-copy labels such as `1× Orchid`, subtracting owned copies from the target potential. Only planned acquisitions appear; current ownership and final P1–P6 targets are omitted from the image. The header omits the redundant choice legend. Artwork is enlarged, and the fitted preview has matching gaps above and below the image. Longer plans grow taller to include every answered banner
+in the fitted preview. The reference-style sheet places each banner on the left and Pull/Maybe/Skip on the right. Detailed adds larger operator portraits and additional-copy labels such as `1× Orchid`, subtracting owned copies from the target potential. Planned acquisitions and Maybe operators appear; current ownership and final P1–P6 targets are omitted from the image. Maybe portraits and labels use amber. Row heights fit each banner’s artwork and operator content, with only a small inset. The enlarged title and Arkpedia URL identify the source; the footer says Arkpedia without a region. The header omits the redundant choice legend. Artwork is enlarged, and the fitted preview has matching gaps above and below the image. Longer plans grow taller to include every answered banner
 in the same image; no pagination or silently omitted banners. Failed artwork retains the names and choices.
 
 Importing a browser or exported Pull Planner plan remains a one-time import.

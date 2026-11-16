@@ -186,3 +186,12 @@ test('share pictures count additional copies, omit unplanned operators and use r
   const {shareOperatorCopies}=await import('../../lib/polls/pull-poll-share');const name='Violet Mizutsune Orchid',b={...banner,operators:[name,'Texas']};
   assert.deepEqual(shareOperatorCopies(b,{[name]:6,Texas:-1},{[name]:5}),[{name,copies:1,label:'1× Orchid'}]);assert.equal(shareOperatorCopies(b,{[name]:6})[0].label,'6× Orchid');assert.deepEqual(shareOperatorCopies(b,{[name]:6},{[name]:6}),[]);
 });
+
+test('detailed share pictures include Maybe operators beside planned additional copies',async()=>{
+  const {shareOperatorInterests}=await import('../../lib/polls/pull-poll-share');
+  const b={...banner,operators:['Violet Mizutsune Orchid','Texas','Exusiai']};
+  assert.deepEqual(shareOperatorInterests(b,{'Violet Mizutsune Orchid':6,Texas:-1,Exusiai:0},{'Violet Mizutsune Orchid':5}),[
+    {name:'Violet Mizutsune Orchid',copies:1,label:'1× Orchid',interest:'pull'},
+    {name:'Texas',copies:0,label:'Maybe Texas',interest:'maybe'},
+  ]);
+});
