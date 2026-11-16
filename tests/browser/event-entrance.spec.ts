@@ -260,6 +260,7 @@ void main(){result=vec4(_Tint.r,_Offset.x,0.0,1.0);}`;
 });
 
 test('native channel masks reveal artwork without drawing masks or retaining the previous frame', async ({ page }) => {
+  await page.clock.install();
   await media(page);
   const transform = { name: 'art', parent: null, active: true, alpha: 1, position: [0, 0], z: 0,
     size: [1280, 720], pivot: [.5, .5], anchorMin: [.5, .5], anchorMax: [.5, .5], scale: [1, 1, 1], rotation: [0, 0, 0, 1] };
@@ -280,6 +281,8 @@ test('native channel masks reveal artwork without drawing masks or retaining the
   // Hold the initial stencil layout through GPU startup, then inspect each state in one frame.
   // Separate awaited reads can otherwise observe different curve positions.
   await expect.poll(pixels).toMatchObject({ center: [0, 0, 255], edge: [0, 255, 0], moved: [0, 0, 0], error: 0 });
+  // Advance the native timeline explicitly instead of racing a short wall-clock window on busy GPUs.
+  await page.clock.runFor(4100);
   await expect.poll(pixels, { timeout: 5000 }).toMatchObject({ moved: [0, 255, 0], center: [0, 0, 0], error: 0 });
   await page.keyboard.press('Escape'); await unlocked(page);
 });

@@ -21,6 +21,13 @@ export default function AccountActions({ children }: { children: ReactNode }) {
   const [error, setError] = useState('');
   const [attempt, setAttempt] = useState(0);
   const opener = useRef<HTMLElement | null>(null);
+  const restoreFocus = useRef(false);
+  useEffect(() => {
+    if (action !== null || !restoreFocus.current) return;
+    restoreFocus.current = false;
+    // Restore after the modal has left the DOM; while it is open the caller is inert.
+    if (opener.current?.isConnected) opener.current.focus({ preventScroll: true });
+  }, [action]);
   const [settingsTab, setSettingsTab] = useState<'community' | 'profile' | 'saving' | 'logins' | 'data'>('profile');
   const setupOwner = useRef<string | null>(null);
   const tables = useContext(ContentTablesContext), release = useContext(ContentContext);
@@ -43,11 +50,11 @@ export default function AccountActions({ children }: { children: ReactNode }) {
     }
   }, [sync.remote]);
   const close = (extraQueryKeys:readonly string[] = []):Promise<boolean> => {
+    restoreFocus.current = true;
     setAction(null);
     const query = { ...router.query };
     for (const key of ['account', 'settings', 'confirm', 'signin',...extraQueryKeys]) delete query[key];
     const navigation=requested||extraQueryKeys.some(key=>key in router.query)?router.replace({ pathname: router.pathname, query, hash: router.asPath.split('#')[1] ?? '' }, undefined, { shallow: true, scroll: false }):Promise.resolve(true);
-    requestAnimationFrame(() => { if (opener.current?.isConnected) opener.current.focus({ preventScroll: true }); });
     return navigation;
   };
   useEffect(() => {
