@@ -61,7 +61,7 @@ export function bannerChoice(choices: Record<string, Want> | undefined, banner: 
     : (banner.sixStars?.length?banner.operators.some(name=>(choices[name]??0)>(owned[name]??0))&&[...banner.sixStars,...(banner.returningOperators??[])].every(name=>(choices[name]??0)-(owned[name]??0)<=1)
       : values.every((w,index)=>w===pullWant(banner,banner.operators[index]??BANNER_INTENT))) ? 'pull' : 'custom';
 }
-export const pullWant = (banner:PollBanner,name:string):Want => banner.returningOperators?.includes(name)?0:banner.newOperators&&!banner.rerun&&!banner.newOperators.includes(name)?-1:1;
+export const pullWant = (banner:PollBanner,name:string):Want => name===BANNER_INTENT?1:banner.returningOperators?.includes(name)?0:banner.newOperators&&!banner.rerun&&!banner.newOperators.includes(name)?-1:1;
 export type OwnedPotentials=Record<string,number>;
 export function constrainOwned(ballot:Ballot,owned:OwnedPotentials):Ballot {
   return Object.fromEntries(Object.entries(ballot).map(([id,choices])=>[id,Object.fromEntries(Object.entries(choices).map(([name,want])=>[name,want>0&&want<=(owned[name]??0)?(owned[name]>=6?0:owned[name]+1):want]))])) as Ballot;
@@ -89,8 +89,8 @@ export function stampKey(choices:Record<string,Want>|undefined,banner:PollBanner
   }
   return tier===3?'levi':tier===2?'whale':tier===1?'dolphin':verdict as Stamp;
 }
-export function walletMood(ballot:Ballot):string{
-  const copies=Object.values(ballot).flatMap(Object.values).reduce((sum,w)=>sum+Math.max(0,w),0);
+export function walletMood(ballot:Ballot,owned:OwnedPotentials={}):string{
+  const copies=Object.values(ballot).flatMap(Object.entries).reduce((sum,[name,w])=>sum+Math.max(0,w-(owned[name]??0)),0);
   return copies===0?'Wallet status: untouched':copies<=3?'Wallet status: fine, probably':copies<=7?'Wallet status: nervous':copies<=12?'Wallet status: in danger':copies<=20?'Orundum? Never heard of it':copies<=30?'Wallet status: beached whale':'Selling the landship for pulls';
 }
 export interface PollBannerResult {id:string;answers:number;pull:number;maybe:number;skip:number}

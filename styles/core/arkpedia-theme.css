@@ -1049,7 +1049,7 @@ a.ghost.panel:focus-visible { border-color: var(--teal); }
 .poll-choice-group > button[aria-pressed="true"] { z-index:1; background:var(--teal-dim); border-color:var(--teal); color:var(--teal); }
 .poll-choice-group > button[data-choice="pull"][aria-pressed="true"] { background:var(--teal-fill); border-color:var(--teal-fill); color:var(--teal-ink); }
 .poll-choice-group > button[data-choice="maybe"][aria-pressed="true"] { background:color-mix(in srgb,var(--amber) 14%,var(--panel)); border-color:var(--amber); color:var(--amber); }
-.poll-choice-group > button[data-choice="skip"][aria-pressed="true"] { background:var(--well); border-color:var(--text-faint); color:var(--text); }
+.poll-choice-group > button[data-choice="skip"][aria-pressed="true"] { background:var(--danger-dim); border-color:var(--danger); color:var(--danger); }
 .poll-choice-group > button > img { width:22px; height:22px; object-fit:contain; vertical-align:middle; margin-right:5px; }
 .poll-your-choice { color:var(--teal); border:1px solid var(--teal); padding:1px 7px; font:10px var(--font-mono); letter-spacing:.08em; text-transform:uppercase; }
 .poll-result-split { display:flex; height:8px; background:var(--well); }

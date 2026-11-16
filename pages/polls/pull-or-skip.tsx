@@ -25,7 +25,7 @@ import { formatDayMonthYear } from '@/lib/pulls/format';
 import { parsePullPlan, PULL_PLAN_KEY, MAX_PLAN_FILE_SIZE } from '@/lib/pulls/plan';
 import { withContentPage } from '@/lib/content/server';
 import { useReaderClock } from '@/lib/time/readerClock';
-import { bannerChoice, decodeBallot, encodeBallot, importGoals, currentBallot, constrainOwned, activePollBanners, PULL_POLL_DRAFT, setBannerChoice, walletMood, type PollPortrait, type Ballot, type PollBanner, type Want } from '@/lib/polls/pull-poll';
+import { bannerChoice, decodeBallot, encodeBallot, importGoals, currentBallot, constrainOwned, activePollBanners, PULL_POLL_DRAFT, pullWant, setBannerChoice, walletMood, type PollPortrait, type Ballot, type PollBanner, type Want } from '@/lib/polls/pull-poll';
 import styles from '@/components/community/PullPoll.module.css';
 
 interface Props { banners: PollBanner[]; now: number; portraits?:Record<string,PollPortrait> }
@@ -158,7 +158,7 @@ function PullPoll({banners,now,owner,portraits={}}:Props&{owner:string|null}) {
       {results&&<div className={styles.viewTools}><SegmentedControl label="Results display" value={detailed?'detailed':'simple'} onChange={display=>{hold.capture();setFilters({display});}} options={[{value:'simple',label:'Simple'},{value:'detailed',label:'Detailed'}]}/></div>}
       {results?<section {...tabPanelProps('pull-poll','results')}><PullPollResults banners={visible} portraits={portraits} ballot={ballot} detailed={detailed} owned={owned}/></section>:<section {...tabPanelProps('pull-poll','vote')}>
         <div className={styles.key} aria-label="How to vote">
-          <span data-choice="pull"><ContentImg src="/material-icons/Headhunting%20Permit.webp" alt="" width="22" height="22"/><b>Pull</b>One copy of each featured operator.</span>
+          <span data-choice="pull"><ContentImg src="/material-icons/Headhunting%20Permit.webp" alt="" width="22" height="22"/><b>Pull</b>One copy of each new operator; featured operators on reruns.</span>
           <span data-choice="maybe"><b>Maybe</b>if the pity gods allow</span>
           <span data-choice="skip"><ContentImg src="/material-icons/Orundum.webp" alt="" width="22" height="22"/><b>Skip</b>my Orundum stays home</span>
           <button className="ghost btn-sm" onClick={()=>setImporting(true)} disabled={!hydrated}>Import plan</button>
@@ -177,7 +177,7 @@ function PullPoll({banners,now,owner,portraits={}}:Props&{owner:string|null}) {
               <div className={styles.portraits}>{banner.operators.map(name=><OperatorTile key={name} name={name} want={ballot[banner.id]?.[name]} portraits={portraits} owned={owned[name]??0}/>)}{!banner.operators.length&&<span className="hint">Lineup still classified</span>}</div>
             </div>
             <div className={styles.bannerActions}>
-              <div className="poll-choice-group" role="group" aria-label={`Plan for ${banner.name}`}>{(['pull','maybe','skip'] as const).map(choice=><button key={choice} type="button" data-choice={choice} aria-pressed={verdict===choice} onClick={()=>chooseBanner(banner,choice)}>{choice==='pull'&&<ContentImg src="/material-icons/Headhunting%20Permit.webp" alt="" width="22" height="22"/>}{choice[0].toUpperCase()+choice.slice(1)}</button>)}</div>
+              <div className="poll-choice-group" role="group" aria-label={`Plan for ${banner.name}`}>{(['pull','maybe','skip'] as const).map(choice=><button key={choice} type="button" data-choice={choice} aria-pressed={verdict===choice} disabled={choice==='pull'&&banner.operators.length>0&&banner.operators.every(name=>pullWant(banner,name)<=0||(owned[name]??0)>=6)} onClick={()=>chooseBanner(banner,choice)}>{choice==='pull'&&<ContentImg src="/material-icons/Headhunting%20Permit.webp" alt="" width="22" height="22"/>}{choice[0].toUpperCase()+choice.slice(1)}</button>)}</div>
               {!!banner.operators.length&&<button className={`ghost ${styles.expand}`} aria-label={`${open?'Hide':'Choose'} per operator for ${bannerTitle(banner)}`} title="Choose per operator" aria-expanded={open} aria-controls={`pull-banner-detail-${index}`} onClick={()=>{hold.capture();setExpanded(prev=>({...prev,[banner.id]:!open}));}}>{open?'▴':'▾'}</button>}
             </div>
             {open&&<div id={`pull-banner-detail-${index}`} className={styles.details}>{banner.operators.map(name=>{
@@ -190,7 +190,7 @@ function PullPoll({banners,now,owner,portraits={}}:Props&{owner:string|null}) {
           {!visible.length&&<p className="notice">No upcoming banners are available. Check back when the Global schedule updates.</p>}
         </div>
         <div className={styles.dock} role="region" aria-label="Your pull plan actions"><div className={styles.dockInner}>
-          <div className={styles.meter}><span className={styles.meterTitle}>{answered} / {visible.length} answered</span><span className={styles.mood}>{walletMood(ballot)}</span></div>
+          <div className={styles.meter}><span className={styles.meterTitle}>{answered} / {visible.length} answered</span><span className={styles.mood}>{walletMood(ballot,owned)}</span></div>
           <span className={styles.saveStatus} role="status">{!hydrated?'Loading draft…':storageError?'Draft needs attention':revision&&!dirty?'Submitted · Draft saved':linked?'Synced with pull planner':'Draft saved on this device'}</span>
           <button className="ghost btn-sm" aria-label="Copy share link" onClick={()=>void share()} disabled={!hydrated||!answered}>⧉ <span>Copy share link</span></button>
           <button className="ghost btn-sm" aria-label="Save as image" onClick={()=>setImageOpen(true)} disabled={!hydrated||!answered}>▣ <span>Save as image</span></button>

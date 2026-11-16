@@ -127,7 +127,7 @@ test('public results count mixed choices and potentials without exposing ballot 
   }finally{h.sqlite.close();}
 });
 test('classified banners accept an explicit banner vote without inventing operator goals',()=>{
-  const pending={...banner,operators:[]};const ballot=setBannerChoice({},pending,'maybe');
+  const pending={...banner,operators:[],newOperators:[],sixStars:[]};assert.equal(bannerChoice(setBannerChoice({},pending,'pull')[pending.id],pending),'pull');const ballot=setBannerChoice({},pending,'maybe');
   assert.equal(bannerChoice(ballot[pending.id],pending),'maybe');assert.deepEqual(parseBallot(ballot,[pending]),ballot);
   assert.throws(()=>parseBallot({[pending.id]:{Exusiai:1}},[pending]));
 });

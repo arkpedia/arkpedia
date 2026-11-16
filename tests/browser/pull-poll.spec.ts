@@ -100,7 +100,7 @@ for(const theme of ['dark','light'])test(`results default to simple banners with
 
 for(const theme of ['dark','light'])test(`ownership, new operators, and potential distribution (${theme})`,async({page},info)=>{
   const state=await setup(page,theme);
-  await page.addInitScript(()=>localStorage.setItem('plannerRoster',JSON.stringify({Aphrissa:{elite:0,level:1,skillLevel:1,masteries:{},potential:5}})));
+  await page.addInitScript(()=>{const operatorBuilds={Aphrissa:{elite:0,level:1,skillLevel:1,masteries:{},potential:5}};localStorage.setItem('plannerRoster',JSON.stringify(operatorBuilds));localStorage.setItem('arkpediaAccount',JSON.stringify({version:1,server:'en',importedAt:new Date().toISOString(),doctor:'Poll tester',operators:['Aphrissa'],skins:[],cleared:[],operatorBuilds}));});
   await page.goto('/polls/pull-or-skip',{waitUntil:'domcontentloaded'});await expect(page.getByRole('article',{name:/Kernel|Standard Pool|Joint Operation|Locating|Orienteering/})).toHaveCount(0);
   const banner=page.getByRole('article',{name:'Deterministic Chaos',exact:true});await expect(banner.getByText('Owned',{exact:true})).toBeVisible();await expect(banner.locator('.poll-potential[data-want=owned]')).toHaveText('P5');
   await banner.getByRole('button',{name:/^Choose per operator/}).click();
@@ -113,5 +113,5 @@ for(const theme of ['dark','light'])test(`ownership, new operators, and potentia
   const dialog=page.getByRole('dialog',{name:'Aphrissa · Pull plans',exact:true});await expect(dialog.getByRole('img',{name:/potential distribution, 10 included/})).toBeVisible();
   await dialog.getByRole('checkbox',{name:'Include Skip',exact:true}).uncheck();await dialog.getByRole('checkbox',{name:'Include Maybe',exact:true}).uncheck();await expect(dialog.getByRole('img',{name:/potential distribution, 7 included/})).toBeVisible();
   if(process.env.ARKPEDIA_QA_CAPTURE)await page.screenshot({path:`${process.env.ARKPEDIA_QA_CAPTURE}/poll-distribution-${theme}-${info.project.name}.png`,animations:'disabled'});
-  await page.keyboard.press('Escape');await expect(dialog).toHaveCount(0);
+  await page.keyboard.press('Escape');await expect(dialog).toHaveCount(0);await page.getByRole('tab',{name:'Your picks',exact:true}).click();await page.evaluate(()=>{const key='arkpediaAccount',account=JSON.parse(localStorage.getItem(key)!);account.operatorBuilds.Aphrissa.potential=6;localStorage.setItem(key,JSON.stringify(account));window.dispatchEvent(new Event('arkpediaAccountChanged'));});await expect(banner.getByRole('button',{name:'Potential 6 for Aphrissa',exact:true})).toBeDisabled();await page.evaluate(()=>{localStorage.removeItem('arkpediaAccount');window.dispatchEvent(new Event('arkpediaAccountChanged'));});await expect(banner.getByRole('button',{name:'Potential 1 for Aphrissa',exact:true})).toBeEnabled();await expect(banner.getByText('Owned',{exact:true})).toHaveCount(0);
 });

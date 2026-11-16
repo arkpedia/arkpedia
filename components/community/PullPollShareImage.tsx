@@ -10,10 +10,11 @@ import {bannerTitle} from './PullPollVisuals';
 import styles from './PullPoll.module.css';
 
 /** Preview, download and clipboard share one complete bitmap, growing for longer plans. */
-export default function PullPollShareImage({banners,ballot,portraits,owned={},onClose}:{banners:PollBanner[];ballot:Ballot;portraits:Record<string,PollPortrait>;owned?:OwnedPotentials;onClose:()=>void}){
+export default function PullPollShareImage({banners:initialBanners,ballot:initialBallot,portraits:initialPortraits,owned:initialOwned={},onClose}:{banners:PollBanner[];ballot:Ballot;portraits:Record<string,PollPortrait>;owned?:OwnedPotentials;onClose:()=>void}){
+  const [{banners,ballot,portraits,owned}]=useState(()=>({banners:initialBanners,ballot:initialBallot,portraits:initialPortraits,owned:initialOwned}));
   const canvas=useRef<HTMLCanvasElement>(null),url=useContentUrl();
   const [ready,setReady]=useState(false),[message,setMessage]=useState(''),[retry,setRetry]=useState(0),[display,setDisplay]=useState('simple');
-  const answered=banners.filter(b=>bannerChoice(ballot[b.id],b,owned)),rowHeight=280,height=190+Math.max(1,answered.length)*rowHeight,detailed=display==='detailed';
+  const answered=banners.filter(b=>bannerChoice(ballot[b.id],b,owned)),detailed=display==='detailed',rowHeight=detailed?Math.max(280,110+Math.ceil(Math.max(0,...answered.map(b=>b.operators.length))/6)*130):280,height=190+Math.max(1,answered.length)*rowHeight;
   useEffect(()=>{
     const abort=new AbortController(),timer=window.setTimeout(()=>abort.abort(),12000);let disposed=false;
     setReady(false);setMessage('Preparing your pull plan…');
@@ -44,7 +45,7 @@ export default function PullPollShareImage({banners,ballot,portraits,owned={},on
         label(choice,526,y+42,'700 30px Rajdhani',accent);
         const cols=6,size=64;
         b.operators.forEach((name,j)=>{
-          const px=526+(j%cols)*110,py=y+60+Math.floor(j/cols)*110,want=ballot[b.id]?.[name],has=owned[name]??0,planned=(want??0)>has;
+          const px=526+(j%cols)*110,py=y+60+Math.floor(j/cols)*130,want=ballot[b.id]?.[name],has=owned[name]??0,planned=(want??0)>has;
           c.fillStyle=well;c.fillRect(px,py,size,size);if(!draw(portraits[name]?.icon,px,py,size,size))label(name.slice(0,2),px+8,py+40,'700 24px Rajdhani',dim);
           label(name,px,py+82,'13px Rajdhani',text,102);
           label(planned?`P${want}`:want===-1?'Maybe':want===0?"Don't Want":'—',px,py+101,'700 14px "JetBrains Mono"',planned?teal:want===-1?amber:dim,102);

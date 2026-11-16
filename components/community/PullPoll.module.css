@@ -4,6 +4,7 @@
 .key b { font-family:var(--font-display); font-weight:700; letter-spacing:.1em; text-transform:uppercase; margin-right:6px; }
 .key [data-choice="pull"] b { color:var(--teal); }
 .key [data-choice="maybe"] b { color:var(--amber); }
+.key [data-choice="skip"] b { color:var(--danger); }
 .key img { width:22px; height:22px; object-fit:contain; vertical-align:middle; margin-right:4px; }
 .sync { padding:10px 14px; margin-bottom:10px; background:var(--teal-dim); border:1px dashed var(--teal); border-radius:var(--radius); font-size:13px; }
 .sync[data-linked="true"] { border-style:solid; background:var(--panel); }
