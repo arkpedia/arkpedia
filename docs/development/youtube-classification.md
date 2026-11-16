@@ -65,3 +65,35 @@ secret and uploads the exact public request/answer pairs. Acceptance requires al
 four screenshot examples and at least 85% of the complete sample to match the
 labels. This small sample is an integration check, not a general accuracy claim.
 Manual reruns spend another 20 calls and require a corresponding authorized budget.
+
+## Iteration two: experimental thumbnail probe
+
+The initial metadata/catalogue version is released independently. TypeSafe currently
+labels [image support](https://docs.typesafe.ai/images) experimental and not ready
+for production. Thumbnail inference is therefore a manual evaluation only: it is
+not imported by content preparation, the website or its Worker, and writes no
+category assignments to the published record.
+
+Run `node --import tsx scripts/audits/evaluate-youtube-thumbnails.ts` to download and
+inspect the four reported examples without making a TypeSafe request. After an
+authorized budget, the existing **Evaluate YouTube categories** workflow's
+`thumbnails` mode makes at most four calls, without retries. It sends only public
+metadata, matching public character names and one unmodified public thumbnail per
+call. The API key remains in the runner secret. This probe can use the four calls
+remaining from the original 24-call experiment budget; reruns need a new budget.
+Manual dispatch defaults to `thumbnail-dry-run`; select `metadata` explicitly for
+the existing 20-call text evaluation.
+
+The adapter uses the required `TypeSafe-Danger-Zone-Images: true` header and multipart
+uploads. Thumbnails come only from canonical YouTube `hqdefault.jpg` addresses,
+with redirects rejected, a 256 KiB download cap, and the provider's pixel bounds.
+Artifacts include exact request JSON, thumbnail bytes and hashes, full typed
+answers, and accepted categories. The existing probability/confidence thresholds
+still apply. No automatic escalation or production activation occurs.
+
+These four examples are regression controls, already correctly categorized by
+the released hybrid. Passing them proves integration compatibility, not improved
+accuracy. Before activation, evaluate additional uncertain examples and misleading
+thumbnails, compare against the metadata/catalogue baseline, and version/cache
+image decisions using thumbnail content hashes because thumbnails can change at
+the same URL. Keep a metadata-only fallback for missing images and provider errors.
