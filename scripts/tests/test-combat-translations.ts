@@ -120,7 +120,7 @@ test('populated CN mechanics are English at every rank and previews retain defin
 test('translations preserve all source numeric values, including every skill and talent upgrade', { skip: !hasSupplement && 'Older content snapshot has no translation supplement' }, () => {
   const data = JSON.parse(fs.readFileSync('data/operator-translations.json', 'utf8')) as Record<string, Translation>;
   const numbers = (text: string): string[] => (text.match(/\d+(?:\.\d+)?/g) ?? []).sort();
-  for (const entry of Object.values(data)) for (const [source, english] of Object.entries(entry.strings)) {
+  for (const entry of Object.values(data)) for (const [source, english] of [...Object.entries(entry.strings), ...Object.entries(entry.legacyStrings ?? {})]) {
     const remaining = numbers(english).map(Number);
     for (const value of numbers(source)) {
       const index = remaining.indexOf(Number(value));
@@ -128,6 +128,38 @@ test('translations preserve all source numeric values, including every skill and
       remaining.splice(index, 1);
     }
   }
+});
+
+test('CN wording uses the same beast terminology and states module squad caps explicitly', { skip: !hasSupplement }, () => {
+  const ops = getAllOperators();
+  const herdbells = ops.find(op => op.internalName === 'char_4170_hdbell')!;
+  assert.match(herdbells.review?.official ?? '', /burdenbeast/);
+  assert.doesNotMatch(herdbells.review?.official ?? '', /herdbeast/i);
+  assert.match(JSON.stringify(getSkillList(herdbells)), /burdenbeast/);
+  for (const [id, limit] of [['char_1045_svash2', 7], ['char_4246_dminon', 9]] as const) {
+    const op = ops.find(op => op.internalName === id)!;
+    assert.ok(JSON.stringify(op.modules?.map(module => module.mission)).includes(`at most ${limit} other Operators`), op.name);
+  }
+});
+
+test('older English fan corrections are exact and bypass official Global module prose', () => {
+  const source = 'Older fan sentence';
+  const supplement: Record<string, Translation> = { char_test: { translator: 'Test translator', strings: {}, legacyStrings: { [source]: 'Corrected fan sentence' } } };
+  const raw = { ...operator, trait: '', talents: [], review: { official: source }, modules: [{ name: source, type: 'Upgrade', stages: [] }] } as unknown as Operator;
+  assert.equal(translateOperator(raw, supplement).review?.official, 'Corrected fan sentence');
+  assert.equal(translateOperator({ ...raw, review: { ...raw.review!, official: `${source} (revised)` } }, supplement).review?.official, `${source} (revised)`);
+  const official = { ...raw, sourceRegion: 'Global' as const };
+  assert.equal(translateOperator(official, supplement), official);
+});
+
+test('version 4 published fan wording receives the corrected CN overview', { skip: !hasSupplement }, async () => {
+  const op = getAllOperators().find(op => op.internalName === 'char_4170_hdbell')!;
+  const older = { ...op, operatorTextVersion: 4 as const, review: { ...op.review!, official: op.review!.official!.replaceAll('burdenbeast', 'herdbeast') } };
+  const { completeOperatorText } = await import('../../lib/operators/operatorTextServer');
+  const result = await completeOperatorText({ operator: older });
+  assert.equal(result.operator.operatorTextVersion, 5);
+  assert.match(result.operator.review?.official ?? '', /burdenbeast/);
+  assert.doesNotMatch(result.operator.review?.official ?? '', /herdbeast/);
 });
 
 test('translated labels retain original skill and base-skill artwork paths', () => {
@@ -152,12 +184,12 @@ test('old published operator props receive the same text enrichment as source co
   const page = { operator: raw, retained: 'other published page props' };
   const completed = await completeOperatorText(page);
   assert.equal(completed.retained, page.retained);
-  assert.equal(completed.operator.operatorTextVersion, 4);
+  assert.equal(completed.operator.operatorTextVersion, 5);
   assert.equal(getSkillList(completed.operator)[0].name, 'Erosion');
   assert.ok(completed.operator.combatKeywords?.some(term => term.name === 'Corrosion'));
   assert.equal(await completeOperatorText(completed), completed, 'already enriched published props remain authoritative');
   const legacy = await completeOperatorText({ operator: { ...raw, operatorTextVersion: 1 as const } });
-  assert.equal(legacy.operator.operatorTextVersion, 4);
+  assert.equal(legacy.operator.operatorTextVersion, 5);
   assert.doesNotMatch(legacy.operator.review?.official ?? '', /\p{Script=Han}/u, 'version 1 payloads must receive the missing overview translation');
   assert.equal(getSkillList(raw)[0].name, '冲蚀', 'the cached published object is not mutated');
 });

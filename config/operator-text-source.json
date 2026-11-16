@@ -1,14 +1,16 @@
 {
   "repository": "arkpedia/arkpedia-data",
-  "revision": "c68eca93cb594e74268ee1eddbd0b20a4c53cc75",
+  "revision": "4b811dbd47abd71e0fbeaa44f813d383916dfdf7",
   "files": {
-    "operator-translations.json": "9035796535b4a11e378526703ca67396f2e5249d80aa5303ee02a80625309c08",
+    "operator-translations.json": "4e1c5e9b8ab2f3de4bd77be2423238625172097784e4e0ec2d35ea2241d765f4",
     "combat-keywords.json": "d9b6d90e9c153813020cd853302e40fa1c8aa96637061c2d1bdbe16977099858",
     "base-skill-glossary.json": "73c0fef629e3f75cbf5e6e81e8afc05702ed568c7afaa56e06c4ba00e6629761"
   },
   "supersedes": {
     "operator-translations.json": [
-      "bb6b739a6458381547650efaead8ac0b48c71ab1b482b668673b2a02fe7bc9ae"
+      "bb6b739a6458381547650efaead8ac0b48c71ab1b482b668673b2a02fe7bc9ae",
+      "9035796535b4a11e378526703ca67396f2e5249d80aa5303ee02a80625309c08",
+      "755b13150556da4ec7077e3117b5cf734e63b31a6e94fef6f29cf2f5083f176d"
     ]
   }
 }

@@ -32,7 +32,7 @@ hydrated records win. This allows a checked correction to reach existing live da
 replacing a later content release.
 Prebuild, predev and pretest perform this step. `completeOperatorText` backfills old
 published operator page/API payloads server-side; newer exports carry
-`operatorTextVersion: 4` and remain authoritative. Only relevant definitions travel
+`operatorTextVersion: 5` and remain authoritative. Only relevant definitions travel
 to the browser, never the entire translation dictionary. Website presentation types
 live in `operatorTextTypes.ts`, separate from the shared game importer schema.
 
@@ -40,4 +40,6 @@ On Workers, the compatibility supplement is served through the existing shipped-
 
 `base-skill-glossary.json` joins canonical English labels and group definitions by the game’s term IDs and buff IDs. Alias normalization only applies to buffs that actually reference the term. Monster Hunter Party (`cc.tag.mh`) and Bubble Kingdom Hunting Squad (`cc.tag.mh2`) are distinct groups. All matching pages, Base views and compact previews share their respective keyword definitions.
 
-Per-string `credits` overrides keep wiki adaptations separate from independent overview translations. Section/module credits link to immutable Arknights Terra Wiki revisions with CC BY-SA 4.0 attribution. The coverage guard audits every CN operator and every skill, talent, potential, module and Base skill variant; archive prose and voice transcripts are excluded. Numeric values are compared by value so 3 and 3.0 are equivalent. Version 4 backfills version 3 production pages with the completed mechanics.
+Per-string `credits` overrides keep wiki adaptations separate from independent overview translations. Section/module credits link to immutable Arknights Terra Wiki revisions with CC BY-SA 4.0 attribution. The coverage guard audits every CN operator and every skill, talent, potential, module and Base skill variant; archive prose and voice transcripts are excluded. Numeric values are compared by value so 3 and 3.0 are equivalent. Version 5 backfills versions 1–4 with the current supplement.
+
+`legacyStrings` contains exact older English fan sentences whose wording was corrected. These aliases apply only to CN records; Global modules continue to accept only the original CN-source replacements. Version 5 re-enriches prior version 4 payloads so corrected English can reach older published pages as well as fresh source compilation.
