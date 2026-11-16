@@ -43,6 +43,12 @@ test('accepted classifications reach grouping and survive feed/archive deduplica
   assert.equal(discoveryVideoTopic(merged[0]), 'operators');
   assert.equal(merged.length, 1);
   assert.equal(discoveryVideoTopic({ ...classified, topicHint: 'operators', classifiedTopic: 'media' }), 'operators');
+  for (const changed of [{ ...video, title: 'Arknights official trailer' }, { ...video, description: 'New description' }]) {
+    const merged = rankDiscoveryVideos([changed, classified], EMPTY_VIDEO_CONTEXT, Date.now());
+    assert.equal(merged[0].classifiedTopic, undefined, 'old archive metadata cannot restore a rejected cache entry');
+    assert.equal(discoveryVideoTopic(merged[0]), videoTopic(changed.title));
+    assert.ok(!Object.hasOwn(merged[0], 'classifiedTopic'), 'server props contain no undefined classification field');
+  }
 });
 
 test('uncertain answers, missing classifications, metadata edits and policy changes use rules', async () => {
