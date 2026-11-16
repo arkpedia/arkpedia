@@ -54,6 +54,26 @@ async function unlocked(page: Page) {
   await expect.poll(() => page.evaluate(() => document.documentElement.style.scrollbarGutter)).toBe('');
 }
 for (const theme of ['dark', 'light']) {
+  test(`clicking or tapping anywhere skips without a corner button (${theme})`, async ({ page, isMobile }) => {
+    await media(page);
+    await page.addInitScript(theme => localStorage.setItem('theme', theme), theme);
+    for (const corner of [false, true]) {
+      const link = await open(page); await link.click();
+      await expect(dialog(page)).toHaveAttribute('data-phase', 'playing');
+      const skip = dialog(page).getByRole('button', { name: 'Skip intro', exact: true });
+      await expect(skip).toBeFocused();
+      await expect(skip).toHaveText('');
+      const viewport = page.viewportSize()!;
+      const position = corner ? { x: 2, y: viewport.height - 2 } : { x: viewport.width / 2, y: viewport.height / 2 };
+      if (isMobile) await page.touchscreen.tap(position.x, position.y);
+      else await page.mouse.click(position.x, position.y);
+      await unlocked(page);
+      await expect(page.locator('#page-content')).toBeFocused();
+      await expect(page).toHaveURL(/\/events\//);
+      await expect(page.getByRole('heading', { level: 1 })).toContainText("Masses' Travels");
+      await page.goBack(); await expect(page).toHaveURL(/\/schedule\?past=1$/);
+    }
+  });
   test(`native entrance uses the viewport, docks and leaves Back usable (${theme})`, async ({ page }) => {
     const requests = await media(page);
     await page.addInitScript(theme => localStorage.setItem('theme', theme), theme);
@@ -84,13 +104,13 @@ for (const theme of ['dark', 'light']) {
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   });
 }
-test('skip and Escape release the modal, focus and scroll lock', async ({ page }) => {
+for (const key of ['Escape', 'Enter', 'Space']) test(`${key} releases the modal, focus and scroll lock`, async ({ page }) => {
   await media(page);
   let link = await open(page); await link.focus(); await page.keyboard.press('Enter');
-  await expect(dialog(page)).toBeVisible(); await page.keyboard.press('Escape'); await unlocked(page);
+  await expect(dialog(page)).toBeVisible(); await page.keyboard.press(key); await unlocked(page);
   await expect(page.locator('#page-content')).toBeFocused();
   await expect(page).toHaveURL(/\/events\//); await page.goBack(); await expect(page).toHaveURL(/\/schedule\?past=1$/); link = page.locator(`a[href="${eventPath}"]`).first(); await link.click();
-  await expect(dialog(page)).toBeVisible(); await page.getByRole('button', { name: 'Skip intro', exact: true }).click();
+  await expect(dialog(page)).toBeVisible(); await page.keyboard.press(key);
   await unlocked(page); await expect(page.locator('#page-content')).toBeFocused();
 });
 test('reduced motion avoids the entrance and its downloads', async ({ page }) => {
@@ -240,6 +260,7 @@ void main(){result=vec4(_Tint.r,_Offset.x,0.0,1.0);}`;
 });
 
 test('native channel masks reveal artwork without drawing masks or retaining the previous frame', async ({ page }) => {
+  await page.clock.install();
   await media(page);
   const transform = { name: 'art', parent: null, active: true, alpha: 1, position: [0, 0], z: 0,
     size: [1280, 720], pivot: [.5, .5], anchorMin: [.5, .5], anchorMax: [.5, .5], scale: [1, 1, 1], rotation: [0, 0, 0, 1] };
@@ -260,6 +281,8 @@ test('native channel masks reveal artwork without drawing masks or retaining the
   // Hold the initial stencil layout through GPU startup, then inspect each state in one frame.
   // Separate awaited reads can otherwise observe different curve positions.
   await expect.poll(pixels).toMatchObject({ center: [0, 0, 255], edge: [0, 255, 0], moved: [0, 0, 0], error: 0 });
+  // Advance the native timeline explicitly instead of racing a short wall-clock window on busy GPUs.
+  await page.clock.runFor(4100);
   await expect.poll(pixels, { timeout: 5000 }).toMatchObject({ moved: [0, 255, 0], center: [0, 0, 0], error: 0 });
   await page.keyboard.press('Escape'); await unlocked(page);
 });

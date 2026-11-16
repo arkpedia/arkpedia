@@ -32,7 +32,9 @@ then the native animation and sound cues; shrink its final menu artwork into the
 event page's full-viewport artwork backdrop behind the navigation, with theme-coloured translucent panels above it (maintainer update, 2026-11-14). The backdrop may use that same menu artwork instead of the event banner.
 Respect reduced motion and the existing event-audio preference. Keep Back/Forward,
 modified links and unsupported events on their ordinary navigation path. The media
-overlay must be skippable and bounded when its assets cannot load.
+overlay must be skippable by clicking or tapping anywhere, without a visible corner
+button. Keep the full-screen skip control keyboard accessible and support Escape.
+Bound the overlay when its assets cannot load.
 
 Public URLs use their current reader-facing names: `/reward-tracker`,
 `/operator-planner`, `/pull-planner`, `/game-modes`, `/gacha-simulator`,

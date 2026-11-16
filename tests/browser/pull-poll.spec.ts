@@ -29,6 +29,24 @@ async function dismissSubmissionSuccess(page:Page){
 const firstBanner=(page:Page)=>page.getByRole('article').first();
 const expand=async(page:Page)=>{const banner=firstBanner(page),button=banner.getByRole('button',{name:/^(Choose|Hide) per operator/});if(await button.getAttribute('aria-expanded')==='false')await button.click();return banner;};
 const potential=(page:Page,n:number)=>firstBanner(page).getByRole('group',{name:/^Potential for/}).first().getByRole('button',{name:new RegExp(`^Potential ${n} for`)});
+test('share image retains decoded artwork and remains downloadable when another image never settles',async({page})=>{
+  test.setTimeout(45000);
+  await setup(page,'dark');
+  await page.route(/\.(png|jpe?g|webp)(\?|$)/,route=>route.fulfill({contentType:'image/svg+xml',headers:{'access-control-allow-origin':'*'},body:'<svg xmlns="http://www.w3.org/2000/svg" width="32" height="16"><path fill="red" d="M0 0h32v16H0z"/></svg>'}));
+  await page.goto('/polls/pull-or-skip',{waitUntil:'domcontentloaded'});
+  for(let i=0;i<2;i++)await page.getByRole('article').nth(i).getByRole('button',{name:'Pull',exact:true}).click();
+  const stalled=await firstBanner(page).locator('img').first().evaluate(image=>(image as HTMLImageElement).src);
+  await page.evaluate(stalled=>{
+    const decode=HTMLImageElement.prototype.decode;
+    HTMLImageElement.prototype.decode=function(){return new URL(this.src).pathname===new URL(stalled).pathname?new Promise<void>(()=>{}):decode.call(this);};
+  },stalled);
+  await page.getByRole('button',{name:'Save as image',exact:true}).click();
+  const dialog=page.getByRole('dialog',{name:'My pull plan',exact:true});
+  await expect(dialog.getByRole('button',{name:'Download PNG',exact:true})).toBeEnabled({timeout:15000});
+  await expect(dialog.getByRole('status')).toContainText('Your choices are still included.');
+  await expect(dialog.getByRole('img')).toHaveAttribute('aria-label','Your pull plan share image with 2 answered banners');
+  expect(await dialog.locator('canvas').evaluate(element=>[...(element as HTMLCanvasElement).getContext('2d')!.getImageData(100,450,1,1).data].slice(0,3))).toEqual([255,0,0]);
+});
 for(const theme of ['dark','light'])test(`mockup banner rows, inline potentials, drafts and anonymous submission (${theme})`,async({page},info)=>{
   const state=await setup(page,theme);await page.goto('/polls/pull-or-skip?display=detailed#local-draft',{waitUntil:'domcontentloaded'});const banner=firstBanner(page);
   await banner.getByRole('button',{name:'Pull',exact:true}).click();await expect(banner).toHaveAttribute('data-verdict','pull');await expect(banner.getByText('Pulling!',{exact:true})).toBeVisible();expect(state.writes).toHaveLength(0);

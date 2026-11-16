@@ -36,14 +36,21 @@ export default function PullPollShareImage({banners:initialBanners,ballot:initia
   },[display]);
 
   useEffect(()=>{
-    const abort=new AbortController(),timer=window.setTimeout(()=>abort.abort(),12000);let disposed=false;
+    const abort=new AbortController();let disposed=false;
+    const deadline=new Promise<void>(resolve=>{
+      const timer=window.setTimeout(resolve,12000);
+      abort.signal.addEventListener('abort',()=>{clearTimeout(timer);resolve();},{once:true});
+    });
     setReady(false);setMessage('Preparing your pull plan…');
     void (async()=>{
       await Promise.race([document.fonts.ready,new Promise(resolve=>window.setTimeout(resolve,1500))]);
       const shown=answered,images=new Map<string,HTMLImageElement>();
       const artPath=(b:PollBanner)=>{const art=applicationBannerArt(b);return art?assetUrl(art.repository,art.revision,encodeAssetPath(art.path)):b.image;};
       const paths=[...new Set(shown.flatMap(b=>[artPath(b),...(detailed?planned(b).map(op=>portraits[op.name]?.icon):[])]).filter((p):p is string=>!!p))];
-      await Promise.all(paths.map(async path=>{try{images.set(path,await loadAssetImage(path.startsWith('https:')?path:url(path),{crossOrigin:'anonymous',signal:abort.signal}));}catch{}}));
+      const artwork=Promise.all(paths.map(async path=>{try{images.set(path,await loadAssetImage(path.startsWith('https:')?path:url(path),{crossOrigin:'anonymous',signal:abort.signal}));}catch{}}));
+      // Budget decoding independently of cancellation, which may not settle decode().
+      // Keep already decoded pictures alive until their pixels reach the canvas.
+      await Promise.race([artwork,deadline]);
       if(disposed||!canvas.current)return;
       const measure=canvas.current.getContext('2d');if(!measure)return;measure.font='700 30px Rajdhani';
       const rows=shown.map(b=>{
@@ -113,9 +120,10 @@ export default function PullPollShareImage({banners:initialBanners,ballot:initia
         if(!b.operators.length)label('Lineup still unconfirmed',artWidth+24,y+rowHeight-40,'22px Rajdhani',dim,550);
       });
       label('ARKPEDIA',24,height-16,'700 30px Rajdhani',text);
+      abort.abort();
       setReady(true);setMessage(paths.some(p=>!images.has(p))?'Some artwork could not load. Your choices are still included.':`1200 × ${height} · All ${answered.length} answered banners in one image`);
-    })().catch(()=>{if(!disposed)setMessage('Could not prepare your image. Please retry.');});
-    return()=>{disposed=true;clearTimeout(timer);abort.abort();};
+    })().catch(()=>{abort.abort();if(!disposed)setMessage('Could not prepare your image. Please retry.');});
+    return()=>{disposed=true;abort.abort();};
   // Rebuild for the selected image format or an explicit retry; the dialog owns this snapshot.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   },[retry,display,bannerStamps,includeOffBanner,showLegend]);
