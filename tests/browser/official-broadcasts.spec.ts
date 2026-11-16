@@ -10,7 +10,7 @@ for(const theme of ['dark','light']) test(`official broadcasts roll over regiona
   const panel=page.locator('.front-events-panel');
   const hero=panel.locator('.front-events-main');
   await expect(hero).toHaveAttribute('href',/jp000000001/);
-  await expect(panel.getByLabel('Other regional broadcasts').getByRole('link',{name:'Global ↗',exact:true})).toBeVisible();
+  await expect(panel.getByLabel('Other regional broadcasts').getByRole('link',{name:'Global',exact:true})).toBeVisible();
   await expect(panel.locator('time').first()).toHaveAttribute('datetime',start);
   records=[{...records[0],status:'live'}, {...records[1],status:'live'},{...records[2],status:'live'}];
   await page.evaluate(()=>window.dispatchEvent(new Event('focus')));
@@ -19,7 +19,7 @@ for(const theme of ['dark','light']) test(`official broadcasts roll over regiona
   records=[{...records[0],status:'ended'},records[1],records[2]];
   await page.evaluate(()=>window.dispatchEvent(new Event('focus')));
   await expect(hero).toHaveAttribute('href',/en000000001/);
-  await expect(panel.getByRole('link',{name:'JP replay ↗',exact:true})).toBeVisible();
+  await expect(panel.getByRole('link',{name:'JP replay',exact:true})).toBeVisible();
   await expect(hero.locator('img')).toHaveJSProperty('naturalWidth',1280);
   await page.screenshot({path:`/tmp/arkpedia-broadcast-${test.info().project.name}-${theme}.png`});
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);

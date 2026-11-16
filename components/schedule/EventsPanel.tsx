@@ -4,6 +4,7 @@ import Link from 'next/link';
 import Image from '@/components/content/ContentImage';
 import CountdownTimer from '../ui/CountdownTimer';
 import { eventShopEnd } from '@/lib/schedule/gameWindow';
+import ExternalLinkIcon from '@/components/ui/ExternalLinkIcon';
 import LocalTime from '@/components/ui/LocalTime';
 import { useOfficialBroadcasts } from '@/lib/home/useOfficialBroadcasts';
 import { featuredBroadcastGroups, BROADCAST_REGIONS, type BroadcastGroup } from '@/lib/home/officialBroadcasts';
@@ -127,14 +128,14 @@ function BroadcastSlide({group,now}:{group:BroadcastGroup;now:number}) {
       </div>
       <div className="front-events-info">
         <span className={broadcast.status==='live'?'badge-live':'badge-upcoming'}>{broadcast.status==='live'?'Live now':Date.parse(broadcast.startsAt)<=now?'Starting soon':'Upcoming broadcast'}</span>
-        <span className="front-events-name">{broadcast.game==='endfield'?'Endfield':'Arknights'} · {BROADCAST_REGIONS[broadcast.region]} — {broadcast.title} ↗</span>
+        <span className="front-events-name">{broadcast.game==='endfield'?'Endfield':'Arknights'} · {BROADCAST_REGIONS[broadcast.region]} — {broadcast.title} <ExternalLinkIcon /></span>
         <LocalTime iso={broadcast.startsAt} precision="minute" />
         {broadcast.status==='upcoming'&&Date.parse(broadcast.startsAt)>now&&<CountdownTimer target={new Date(broadcast.startsAt)} label="Starts in" />}
       </div>
     </a>
     {group.others.length>0&&<ul className="front-broadcast-regions" aria-label="Other regional broadcasts">
       {group.others.map(other=><li key={other.id}>
-        <a className="btn ghost btn-sm" href={other.url} target="_blank" rel="noopener noreferrer">{BROADCAST_REGIONS[other.region]}{other.status==='ended'?' replay':other.status==='live'?' · Live now':''} ↗</a>
+        <a className="btn ghost btn-sm" href={other.url} target="_blank" rel="noopener noreferrer">{BROADCAST_REGIONS[other.region]}{other.status==='ended'?' replay':other.status==='live'?' · Live now':''} <ExternalLinkIcon /></a>
         {' · '}<LocalTime iso={other.startsAt} precision="minute" />
       </li>)}
     </ul>}
