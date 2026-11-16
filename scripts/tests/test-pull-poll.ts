@@ -174,3 +174,15 @@ test('owned target potentials round-trip as additional planner copies',async()=>
 test('compact share intentions classify partial Maybe/Skip plans without inventing a Pull',()=>{
   assert.equal(pullIntent({Exusiai:0,Texas:-1}),'maybe');assert.equal(pullIntent({Texas:0}),'skip');assert.equal(pullIntent({Exusiai:2,Texas:-1}),'pull');assert.equal(pullIntent({}),'');
 });
+
+test('OAuth submission intent is tab-bound, short-lived and tied to the confirmed draft',async()=>{
+  const {submissionIntent,submissionReturnPath,SUBMISSION_TTL}=await import('../../lib/polls/pull-poll-submission');
+  const nonce='11111111-1111-4111-8111-111111111111',now=Date.parse('2036-12-02T12:00:00Z'),choices=setBannerChoice({},banner,'pull'),raw=JSON.stringify({nonce,createdAt:now,choices});
+  assert.deepEqual(submissionIntent(raw,nonce,banners,now)?.choices,choices);
+  assert.equal(submissionIntent(raw,'22222222-2222-4222-8222-222222222222',banners,now),null);assert.equal(submissionIntent(null,nonce,banners,now),null);assert.equal(submissionIntent(raw,nonce,banners,now+SUBMISSION_TTL+1),null);
+  const path=submissionReturnPath('/polls/pull-or-skip?display=detailed#plan=abc',nonce);assert.ok(path.startsWith('/polls/pull-or-skip?'));assert.ok(path.includes(`pollSubmit=${nonce}`));assert.ok(path.endsWith('#plan=abc'));assert.ok(submissionReturnPath('/polls/pull-or-skip',nonce,true).includes('signin=failed'));
+});
+test('share pictures count additional copies, omit unplanned operators and use readable names',async()=>{
+  const {shareOperatorCopies}=await import('../../lib/polls/pull-poll-share');const name='Violet Mizutsune Orchid',b={...banner,operators:[name,'Texas']};
+  assert.deepEqual(shareOperatorCopies(b,{[name]:6,Texas:-1},{[name]:5}),[{name,copies:1,label:'1× Orchid'}]);assert.equal(shareOperatorCopies(b,{[name]:6})[0].label,'6× Orchid');assert.deepEqual(shareOperatorCopies(b,{[name]:6},{[name]:6}),[]);
+});

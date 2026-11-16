@@ -11,7 +11,7 @@ const DataDialog = dynamic(() => import('./DataDialog'), { ssr: false });
 const AvatarPicker = dynamic(() => import('./AvatarPicker'), { ssr: false });
 const CloudAccountPanel = dynamic(() => import('./CloudAccountPanel'), { ssr: false });
 type Action = 'import' | 'settings';
-const Context = createContext<{ open: (action: Action) => void }>({ open: () => {} });
+const Context = createContext<{ open: (action: Action) => void; close:(extraQueryKeys?:readonly string[])=>Promise<boolean> }>({ open: () => {}, close:async()=>true });
 export const useAccountActions = () => useContext(Context);
 
 /** Overlays keep their caller mounted, including its scroll, filters and music. */
@@ -42,12 +42,13 @@ export default function AccountActions({ children }: { children: ReactNode }) {
       setSettingsTab('profile'); setAction('settings');
     }
   }, [sync.remote]);
-  const close = () => {
+  const close = (extraQueryKeys:readonly string[] = []):Promise<boolean> => {
     setAction(null);
     const query = { ...router.query };
-    for (const key of ['account', 'settings', 'confirm', 'signin']) delete query[key];
-    if (requested) void router.replace({ pathname: router.pathname, query, hash: router.asPath.split('#')[1] ?? '' }, undefined, { shallow: true, scroll: false });
+    for (const key of ['account', 'settings', 'confirm', 'signin',...extraQueryKeys]) delete query[key];
+    const navigation=requested||extraQueryKeys.some(key=>key in router.query)?router.replace({ pathname: router.pathname, query, hash: router.asPath.split('#')[1] ?? '' }, undefined, { shallow: true, scroll: false }):Promise.resolve(true);
     requestAnimationFrame(() => { if (opener.current?.isConnected) opener.current.focus({ preventScroll: true }); });
+    return navigation;
   };
   useEffect(() => {
     const dismiss = (_url: string, { shallow }: { shallow: boolean }) => { if (!shallow) setAction(null); };
@@ -74,7 +75,7 @@ export default function AccountActions({ children }: { children: ReactNode }) {
     const active = document.activeElement as HTMLElement | null;
     const menu = active?.closest('.action-popover');
     opener.current = menu ? [...document.querySelectorAll<HTMLElement>('[aria-controls]')].find(element => element.getAttribute('aria-controls') === menu.id) ?? active : active;
-    setError(''); setSettingsTab(onboarding ? 'saving' : 'profile'); setAction(value); } }}>
+    setError(''); setSettingsTab(onboarding ? 'saving' : 'profile'); setAction(value); }, close }}>
     {children}
     {!onboarding && action === 'import' && (localTables || loaded ? <ContentContext.Provider value={localTables ? release : loaded!.release}><ContentTablesContext.Provider value={localTables ? tables : loaded!.tables}><DataDialog onClose={close} /></ContentTablesContext.Provider></ContentContext.Provider> : <ImportDialog title="Import / export" onClose={close}><p role={error ? 'alert' : 'status'}>{error || 'Loading import tools…'}</p>{error && <button type="button" onClick={() => setAttempt(value => value + 1)}>Retry</button>}</ImportDialog>)}
     {(onboarding || action === 'settings') && (sync.status === 'unavailable'

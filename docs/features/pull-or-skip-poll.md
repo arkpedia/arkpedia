@@ -19,7 +19,7 @@ rosters, with estimates labelled.
 
 Drafts stay in browser storage. Share links encode choices in a URL fragment,
 without submitting. PNG/clipboard export renders one complete 1200px-wide bitmap shown
-in the fitted preview. The reference-style sheet places each banner on the left and Pull/Maybe/Skip on the right. Detailed adds operator target potentials. Longer plans grow taller to include every answered banner
+in the fitted preview. The reference-style sheet places each banner on the left and Pull/Maybe/Skip on the right. Detailed adds larger operator portraits and additional-copy labels such as `1× Orchid`, subtracting owned copies from the target potential. Only planned acquisitions appear; current ownership and final P1–P6 targets are omitted from the image. The header omits the redundant choice legend. Artwork is enlarged, and the fitted preview has matching gaps above and below the image. Longer plans grow taller to include every answered banner
 in the same image; no pagination or silently omitted banners. Failed artwork retains the names and choices.
 
 Importing a browser or exported Pull Planner plan remains a one-time import.
@@ -28,10 +28,7 @@ preserving the planner’s resources, budgets and unrelated goals. Maybe has no
 planner equivalent and stays local to the poll. Stop syncing disconnects later
 changes. Shared links never silently enable planner sync.
 
-Submission stays explicit. Anonymous entries use a secure HttpOnly browser cookie;
-updates check the submitted revision. The optional account prompt uses existing
-Google/Discord sign-in and onboarding. Sign-in alone never resubmits. Explicit
-account submission replaces this browser’s anonymous entry. Account deletion
+Submission stays explicit. Signed-out voters first choose Google/Discord login or confirm anonymous submission; signed-in voters submit directly. The login choice preserves the selected draft in a tab-bound, expiring intent. After sign-in and any required account setup, that specific draft submits once as the account. Cancellation, failed sign-in and ordinary login do not authorize submission. Anonymous entries use a secure HttpOnly browser cookie; updates check the submitted revision. Account submission replaces this browser’s anonymous entry. Account deletion
 cascades account ballots. Existing same-origin/ingress protections and guest write
 limits apply. Conflicts refresh in place without reloading the application.
 

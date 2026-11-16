@@ -59,7 +59,7 @@
 .operatorPercent { font:10px/1.35 var(--font-mono); color:var(--text-dim); text-align:right; }
 .operatorPercent b { font-size:13px; font-weight:500; color:var(--text-bright); }
 .imageDialog { --dialog-w:1000px; }
-.imageCanvas { display:block; max-width:100%; max-height:calc(100dvh - 300px); width:auto; height:auto; margin:0 auto; border:1px solid var(--teal); }
+.imageCanvas { display:block; max-width:100%; max-height:calc(100dvh - 300px); width:auto; height:auto; margin:10px auto 0; border:1px solid var(--teal); }
 .imageActions { display:flex; flex-wrap:wrap; align-items:center; gap:10px; margin-top:10px; }
 @media (max-width:1100px) {
   .banner { grid-template-columns:200px minmax(0,1fr); }
