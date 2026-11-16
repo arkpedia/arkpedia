@@ -79,8 +79,8 @@ inspect the four reported examples without making a TypeSafe request. After an
 authorized budget, the existing **Evaluate YouTube categories** workflow's
 `thumbnails` mode makes at most four calls, without retries. It sends only public
 metadata, matching public character names and one unmodified public thumbnail per
-call. The API key remains in the runner secret. This probe can use the four calls
-remaining from the original 24-call experiment budget; reruns need a new budget.
+call. The API key remains in the runner secret. The first probe used the final four
+calls of the original 24-call experiment budget; reruns need a new budget.
 Manual dispatch defaults to `thumbnail-dry-run`; select `metadata` explicitly for
 the existing 20-call text evaluation.
 
@@ -97,3 +97,10 @@ accuracy. Before activation, evaluate additional uncertain examples and misleadi
 thumbnails, compare against the metadata/catalogue baseline, and version/cache
 image decisions using thumbnail content hashes because thumbnails can change at
 the same URL. Keep a metadata-only fallback for missing images and provider errors.
+
+The [first live probe](https://github.com/arkpedia/arkpedia/actions/runs/43945186468)
+used `jev-1.14.0` and matched all four controls: review → operators (0.99), trailer
+→ media (0.98), three-operator showcase → operators (0.83), teaser → media (0.97).
+All passed the existing acceptance thresholds. Exact inputs and answers are in the
+run's `jev-evaluation` artifact. These results establish compatibility only;
+thumbnail inference remains disabled in production.
