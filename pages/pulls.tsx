@@ -178,6 +178,7 @@ export default function PullsPage({ scheduledEvents: globalEvents, scheduledBann
   const [monthlyCard, setMonthlyCard] = useState(false);
   const [monthlyCardUntil, setMonthlyCardUntil] = useState('');
   const monthlyCardChosen = useRef(false);
+  const lastWrittenPlan = useRef<string | null>(null);
   const [eventPermitOwner, setEventPermitOwner] = useState('');
   const [collectedEventPermits, setCollectedEventPermits] = useState<Record<string, number>>({});
   const [wishingWallMode, setWishingWallMode] = useState<WishingWallMode>('average');
@@ -240,7 +241,7 @@ export default function PullsPage({ scheduledEvents: globalEvents, scheduledBann
   }, [applyPlan]);
 
   useEffect(()=>{
-    const receive=()=>{try{const raw=localStorage.getItem(PULL_PLAN_KEY);if(raw)applyPlan(parsePullPlan(raw),false);}catch{setSaveStatus('Could not read the updated planner. Your current plan is unchanged.');}};
+    const receive=()=>{try{const raw=localStorage.getItem(PULL_PLAN_KEY);if(raw&&raw!==lastWrittenPlan.current)applyPlan(parsePullPlan(raw),false);}catch{setSaveStatus('Could not read the updated planner. Your current plan is unchanged.');}};
     const storage=(event:StorageEvent)=>{if(event.key===PULL_PLAN_KEY)receive();};
     window.addEventListener(PULL_PLAN_EVENT,receive);window.addEventListener('storage',storage);
     return()=>{window.removeEventListener(PULL_PLAN_EVENT,receive);window.removeEventListener('storage',storage);};
@@ -275,7 +276,7 @@ export default function PullsPage({ scheduledEvents: globalEvents, scheduledBann
     if (!hydrated || saveBlocked) return;
     try {
       const serialized=JSON.stringify(savedPlan);
-      if(localStorage.getItem(PULL_PLAN_KEY)!==serialized){localStorage.setItem(PULL_PLAN_KEY,serialized);window.dispatchEvent(new Event(PULL_PLAN_EVENT));}
+      if(localStorage.getItem(PULL_PLAN_KEY)!==serialized){localStorage.setItem(PULL_PLAN_KEY,serialized);lastWrittenPlan.current=serialized;window.dispatchEvent(new Event(PULL_PLAN_EVENT));}
       setSaveStatus('Saved on this device');
     } catch { setSaveStatus('Device storage is unavailable. Export your plan to keep a copy.'); }
   }, [hydrated, saveBlocked, savedPlan]);
