@@ -50,3 +50,36 @@ Mailbox protocol references: [Global client read requests](https://github.com/dj
 Paradox availability uses the handbook stage's AWAKE promotion and level requirement against the imported `operatorBuilds` snapshot (keyed by operator name). Availability only orders and dims rows; it never establishes a claimed reward. Lower-rarity E0/E1 unlocks are preserved. Remaining sanity sums one successful clear per unfinished reward stage, after exclusions and imported/manual clears, using the compiled stage costs; retries, farming and other unlock costs are excluded. Unknown costs yield an unavailable total rather than zero.
 
 The welfare overview's optional recommendation order follows the four tiers supplied by the owner from [kukkikaze’s guide](https://www.youtube.com/watch?v=TRb4_fCVyhk). Unlisted operators stay unranked; availability order remains selectable. These recommendations never alter eligibility or account completion.
+
+## Event-shop permits
+
+Live game imports now read `templateShop/getGoodList` with `{shopId}` for up to
+8 currently open permit shops present in `user.tshop`. Discovery uses the same
+published `/pulls` schedule and regional shop closing timestamps as the planner.
+No purchase or reward-collection endpoint is called. The browser's existing relay
+carries the authenticated request; the public discovery API receives only a server
+code, never account data or credentials.
+
+`user.tshop[shopId].info` contains `{id, count}` purchase records. Catalogue products
+are `data.shopGroup[*].shopGood[*]`, with `goodId`, `goodType`, `item` and `availCount`.
+Only NORMAL products explicitly identifying item 7003 (single) or 7004 (ten-pull)
+are counted, multiplying purchases by the item's quantity. A valid catalogue and
+empty purchase list establish zero. Missing/malformed data, unrelated shops, and
+unsupported exchange formats remain unknown. Store only the resulting permit count
+by planner activity ID in `AccountRecord.eventPermits`, not shop catalogues or secrets.
+
+Schema references (public, no player records copied):
+- [PlayerTemplateShop / PlayerGoodItemData](https://github.com/xfoxfu/Arkdays/blob/a1874d884d08d666afc72aa78f811fa6336479ae/src/types.ts)
+- [Catalogue request/response and purchase-count protocol, documented against captures](https://github.com/loongling/LocalArknights/blob/47641f7e8ee0f452ab960d960dab5b89f74aa0d0/src/main/java/com/hypergryph/arknights/game/templateShop.java)
+
+An uncertain optional read is not retried and its game session is not handed to the
+replay queue with an uncertain sequence number. The wallet import still succeeds.
+Same-player imports preserve earlier known claims when the new read is absent;
+explicit new counts override them. Claims never transfer to another known account
+or server. Raw sync files without catalogue-derived counts cannot identify the
+permit products on their own; manual fallback remains available.
+
+Tests use synthetic responses: zero/partial/full purchases, item quantities,
+ten-pull permits, bad/missing records, regional shop windows, session sequencing,
+account round trips, account isolation, and automatic planner updates in both themes
+on desktop and mobile. No live authenticated account was used for verification.

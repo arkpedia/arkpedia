@@ -1,3 +1,4 @@
+import { eventShopId, eventShopPermitClaims, type EventShopRequest } from './eventShopClaims';
 import { mailboxIds, welcomeMailClaims } from './welcomeMail';
 
 /**
@@ -295,6 +296,8 @@ export interface AccountOptions {
   readFriendSlots?: boolean;
   /** Read retained Global newbie mail without receiving, deleting or changing it. */
   readWelcomeMail?: boolean;
+  /** Public current-shop IDs; invoked only when syncData contains shop records. */
+  eventShops?: () => Promise<readonly EventShopRequest[]>;
 }
 
 export interface ReplaySession { uid: string; readReplay: (stageId: string) => Promise<string> }
@@ -344,7 +347,7 @@ export function createReplaySession(transport: Transport, gs: string, uid: strin
 }
 
 /** Steps 3 to 5: the account's game data, as syncData sends it (its `user`). */
-export async function readAccount({ transport, direct, deviceId, network, onStep = () => {}, onReplaySession, readFriendSlots = false, readWelcomeMail = false }: AccountOptions, account: YostarAccount): Promise<Record<string, any>> {
+export async function readAccount({ transport, direct, deviceId, network, onStep = () => {}, onReplaySession, readFriendSlots = false, readWelcomeMail = false, eventShops }: AccountOptions, account: YostarAccount): Promise<Record<string, any>> {
   onStep('game-token');
   const fields: Record<string, string | number> = {
     appId: '1', platform: 1, channelId: YOSTAR_CHANNEL, subChannel: YOSTAR_CHANNEL, worldId: YOSTAR_CHANNEL,
@@ -407,6 +410,25 @@ export async function readAccount({ transport, direct, deviceId, network, onStep
       replayAvailable = false;
       user.arkpediaMailStatus = { status: 'unavailable', retained: 0 };
     }
+  }
+  if (eventShops && user.tshop && typeof user.tshop === 'object' && !Array.isArray(user.tshop) && replayAvailable && socialAvailable) {
+    let shops: readonly EventShopRequest[] = [];
+    try { shops = (await eventShops()).filter(shop => shop && eventShopId(shop.shopId) && eventShopId(`shop_${shop.eventId}`) && Object.hasOwn(user.tshop, shop.shopId)).slice(0, 8); } catch { /* No catalogue discovery: preserve unknown claims. */ }
+    const claims: Record<string, number> = {};
+    for (const { shopId, eventId } of shops) {
+      try {
+        const catalogue = await post(transport, 'account', `${network.gs}/templateShop/getGoodList`,
+          { ...CLIENT_HEADERS, secret: login.secret, seqnum: String(++sequence), uid: String(login.uid) }, { shopId });
+        const amount = eventShopPermitClaims(shopId, user.tshop[shopId], catalogue);
+        if (amount !== null) claims[eventId] = amount;
+        else { replayAvailable = false; break; }
+      } catch {
+        // A lost response may consume a sequence. Do not retry or hand off this session.
+        replayAvailable = false;
+        break;
+      }
+    }
+    if (Object.keys(claims).length) user.arkpediaEventPermits = claims;
   }
   if (onReplaySession && replayAvailable && login.uid != null) onReplaySession(createReplaySession(transport, network.gs, String(login.uid), login.secret, sequence));
   return user;

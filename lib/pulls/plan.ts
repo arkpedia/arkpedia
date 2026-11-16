@@ -31,6 +31,9 @@ export interface SavedPullPlan {
   version: 1;
   orundum: string; originite: string; permits: string; reservedOP: string;
   until: string; manualEventDate: string; bannerName: string;
+  monthlyCardUntil?: string;
+  collectedEventPermits?: Record<string, number>;
+  eventPermitOwner?: string;
   monthlyCard: boolean; includeBacklog: boolean; annihilationDone: boolean;
   /** Whether the Skin wishlist's OP is held back from the pulls; absent (older plans) means yes. */
   includeSkins?: boolean;
@@ -129,6 +132,16 @@ export function parsePullPlan(raw: string): SavedPullPlan {
     if (value.originite !== undefined && typeof value.originite !== 'boolean') throw new Error('Invalid Originite Prime setting.');
     incomeSettings = { ...(value.greenCertificates === undefined ? {} : { greenCertificates: value.greenCertificates as boolean }), ...(value.originite === undefined ? {} : { originite: value.originite as boolean }), daily: value.daily as boolean, weekly: value.weekly as boolean, annihilation: value.annihilation as boolean, certificates: value.certificates as boolean };
   }
+  if (data.monthlyCardUntil !== undefined && (typeof data.monthlyCardUntil !== 'string' || !parseInstant(data.monthlyCardUntil))) throw new Error('Invalid monthly card expiry.');
+  let collectedEventPermits: Record<string, number> | undefined;
+  if (data.collectedEventPermits !== undefined) {
+    const value = data.collectedEventPermits;
+    if (!value || typeof value !== 'object' || Array.isArray(value) || Object.keys(value).length > 500) throw new Error('Invalid event permit claims.');
+    collectedEventPermits = Object.fromEntries(Object.entries(value).map(([key, amount]) => {
+      if (!key || key.length > 200 || !Number.isInteger(amount) || Number(amount) < 0 || Number(amount) > 1000) throw new Error('Invalid event permit claims.');
+      return [key, Number(amount)];
+    }));
+  }
   let certificateSpending: Record<string, number> | undefined;
   if (data.certificateSpending !== undefined) {
     const value = data.certificateSpending;
@@ -139,7 +152,7 @@ export function parsePullPlan(raw: string): SavedPullPlan {
       certificateSpending[month] = Number(amount);
     }
   }
-  return { ...(certificateSpending ? { certificateSpending } : {}), ...(incomeSettings ? { incomeSettings } : {}), ...(data.yellowCerts === undefined ? {} : { yellowCerts: amount('yellowCerts') }), ...(data.walletFrom === undefined ? {} : { walletFrom: text('walletFrom', 40) }), ...(data.ticksFrom === undefined ? {} : { ticksFrom: text('ticksFrom', 40) }), version: 1, orundum: amount('orundum'), originite: amount('originite'), permits: amount('permits'), reservedOP: amount('reservedOP'), until: date('until'), manualEventDate: date('manualEventDate'), bannerName: text('bannerName'), monthlyCard: flag('monthlyCard'), includeBacklog: flag('includeBacklog'), annihilationDone: flag('annihilationDone'), doneEvents: list('doneEvents', MAX_PROGRESS_ITEMS), doneKeys: list('doneKeys', MAX_PROGRESS_ITEMS), clearedReruns: list('clearedReruns'), future, goals, ...(data.skinIds === undefined ? {} : { skinIds: list('skinIds') }), ...(data.wishingWallMode === undefined ? {} : { wishingWallMode: data.wishingWallMode as WishingWallMode }), ...(data.includeSkins === undefined ? {} : { includeSkins: flag('includeSkins') }) };
+  return { ...(data.eventPermitOwner === undefined ? {} : { eventPermitOwner: text('eventPermitOwner', 200) }), ...(data.monthlyCardUntil === undefined ? {} : { monthlyCardUntil: data.monthlyCardUntil as string }), ...(collectedEventPermits ? { collectedEventPermits } : {}), ...(certificateSpending ? { certificateSpending } : {}), ...(incomeSettings ? { incomeSettings } : {}), ...(data.yellowCerts === undefined ? {} : { yellowCerts: amount('yellowCerts') }), ...(data.walletFrom === undefined ? {} : { walletFrom: text('walletFrom', 40) }), ...(data.ticksFrom === undefined ? {} : { ticksFrom: text('ticksFrom', 40) }), version: 1, orundum: amount('orundum'), originite: amount('originite'), permits: amount('permits'), reservedOP: amount('reservedOP'), until: date('until'), manualEventDate: date('manualEventDate'), bannerName: text('bannerName'), monthlyCard: flag('monthlyCard'), includeBacklog: flag('includeBacklog'), annihilationDone: flag('annihilationDone'), doneEvents: list('doneEvents', MAX_PROGRESS_ITEMS), doneKeys: list('doneKeys', MAX_PROGRESS_ITEMS), clearedReruns: list('clearedReruns'), future, goals, ...(data.skinIds === undefined ? {} : { skinIds: list('skinIds') }), ...(data.wishingWallMode === undefined ? {} : { wishingWallMode: data.wishingWallMode as WishingWallMode }), ...(data.includeSkins === undefined ? {} : { includeSkins: flag('includeSkins') }) };
 }
 
 /** Past daily freebies cannot be saved. An unused banner ticket can be kept

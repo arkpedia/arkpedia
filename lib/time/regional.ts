@@ -135,7 +135,7 @@ export function regionalPullEvents(events: readonly PullEventReward[], schedule:
   if (server === 'en') return [...events];
   return events.map(event => {
     const time = (event.event ? schedule?.events?.[event.event] : undefined);
-    return time ? { ...event, ...time, start: regionalDate(time.startAt, server), end: regionalDate(time.endAt, server) } : { ...event };
+    return time ? { ...event, ...time, shopEndAt: time.shopEndAt ?? time.endAt, start: regionalDate(time.startAt, server), end: regionalDate(time.endAt, server) } : { ...event };
   });
 }
 export function regionalCards<T extends Pick<StageModeCard, 'id' | 'start' | 'end'>>(cards: readonly T[], schedule: RegionalSchedule | undefined, server: GameServer): T[] {

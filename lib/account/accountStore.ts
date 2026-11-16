@@ -1,3 +1,4 @@
+import { parseEventPermitClaims } from '../account-import/eventShopClaims';
 import { rewardClaimsFromGame, parseRewardClaims, type RewardClaims } from './rewardClaims';
 import { permanentClaimsFromGame, parsePermanentClaims, type PermanentClaims } from './permanentClaims';
 /**
@@ -49,6 +50,8 @@ export const OTHER_ACCOUNTS_KEY = 'arkpediaOtherAccounts';
 export const ACCOUNT_EVENT = 'arkpediaAccountChanged';
 
 export interface AccountRecord {
+  /** Explicit event-shop permit purchases, keyed by activity/run ID. Missing means unknown. */
+  eventPermits?: Record<string, number>;
   version: 1;
   /** The server it was imported from (lib/account-import/yostar SERVERS). */
   server: ServerId;
@@ -211,6 +214,7 @@ export function parseAccount(raw: string | null): AccountRecord | null {
   const text = (field: unknown) => (typeof field === 'string' && field.length <= 500 ? field : null);
   return {
     version: 1, server: value.server, importedAt: value.importedAt,
+    ...(parseEventPermitClaims(value.eventPermits) ? { eventPermits: parseEventPermitClaims(value.eventPermits) } : {}),
     doctor: typeof value.doctor === 'string' ? value.doctor : null,
     ...(base ? { base } : {}),
     ...(gameId(value.homeBackground) ? { homeBackground: gameId(value.homeBackground)! } : {}),
@@ -296,6 +300,7 @@ export function accountFromGame(user: Record<string, any>, map: GameAccountMap, 
   const base = baseSnapshotFromGame(user, map);
   return {
     version: 1,
+    ...(parseEventPermitClaims(user.arkpediaEventPermits) ? { eventPermits: parseEventPermitClaims(user.arkpediaEventPermits) } : {}),
     rewardClaims: rewardClaimsFromGame(user, server === 'en' ? map.beginnerPrograms : undefined),
     permanentClaims: permanentClaimsFromGame(user),
     server,

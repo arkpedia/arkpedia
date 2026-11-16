@@ -164,7 +164,12 @@ export default function GameSignIn({ server, onAccount, idPrefix = 'import' }: {
       let replaySession: ReplaySession | undefined;
       // The report's beginner summary is this import's, never an earlier one's.
       connectionDiagnostics.setBeginner(null);
-      const user = await readAccount({ transport: relayTransport, direct: directTransport, deviceId: device, network: await connect(from), onStep: setStep, readFriendSlots: true, readWelcomeMail: from === 'en', ...(process.env.ARKPEDIA_CLOUD_ACCOUNTS === '1' ? { onReplaySession: (session: ReplaySession) => { replaySession = session; } } : {}) }, yostar);
+      const user = await readAccount({ transport: relayTransport, direct: directTransport, deviceId: device, network: await connect(from), onStep: setStep, readFriendSlots: true, eventShops: async () => {
+        const response = await fetch(`/api/account-import/event-shops?server=${from}`, { signal: AbortSignal.timeout(10000) });
+        if (!response.ok) return [];
+        const data = await response.json();
+        return Array.isArray(data.shops) ? data.shops : [];
+      }, readWelcomeMail: from === 'en', ...(process.env.ARKPEDIA_CLOUD_ACCOUNTS === '1' ? { onReplaySession: (session: ReplaySession) => { replaySession = session; } } : {}) }, yostar);
       stageDiagnostics.capture(user, from);
       connectionDiagnostics.setBeginner(beginnerDiagnostics(user));
       setStep('pulls');

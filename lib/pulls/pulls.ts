@@ -93,22 +93,19 @@ export interface MonthlyCard {
   originitePrime: number;
 }
 
-/**
- * What a card holder gets over the window.
- *
- * Cards are ROUNDED UP, because the daily 200 is only paid while a card is
- * active: drawing it for 40 days means buying a second card on day 30, and
- * a reader who gets the Orundum for a fortnight has bought a card to get it.
- * The count is shown on its own line so anyone who already owns an active card
- * can see the assumption and discount it.
- */
-export function monthlyCardIncome(income: Income): MonthlyCard {
-  const cards = Math.ceil(income.days / MONTHLY_CARD_DAYS);
-  return {
-    cards,
-    orundum: income.days * MONTHLY_CARD_DAILY_ORUNDUM,
-    originitePrime: cards * MONTHLY_CARD_ORIGINITE,
-  };
+/** Daily sign-ins assume continued subscription. Purchase OP only belongs to
+ * future renewals, anchored to the imported expiry, never to ceil(days / 30).
+ * Without an expiry we cannot know which purchases are already in the wallet. */
+export function monthlyCardIncome(income: Income, window?: { from: Date; to: Date; expiresAt?: string | null }): MonthlyCard {
+  const expiry = parseInstant(window?.expiresAt)?.getTime();
+  let cards = 0;
+  if (window && expiry !== undefined && window.to > window.from) {
+    const period = MONTHLY_CARD_DAYS * 86_400_000;
+    const first = Math.max(0, Math.floor((window.from.getTime() - expiry) / period) + 1);
+    const last = Math.floor((window.to.getTime() - expiry) / period);
+    cards = Math.max(0, last - first + 1);
+  }
+  return { cards, orundum: income.days * MONTHLY_CARD_DAILY_ORUNDUM, originitePrime: cards * MONTHLY_CARD_ORIGINITE };
 }
 
 export interface Chapter {
@@ -411,6 +408,8 @@ export function bannerTicketPulls(banner: UpcomingBanner, daysIn: number): numbe
 /** The reward schedule also contains events without a headhunting banner. */
 export type PullEventReward = Pick<UpcomingBanner, 'name' | 'event' | 'start' | 'end' | 'startAt' | 'endAt' | 'rerun' | 'op' | 'opSource' | 'inBacklog' | 'hasShop' | 'wishActId' | 'wishDays' | 'wishOrundum'> & {
   shopPermits?: number;
+  /** The token shop can remain open after playable stages close. */
+  shopEndAt?: string;
   /** Preserve saved rerun choices previously keyed by banner name. */
   legacyNames?: string[];
   /** The game's activity id (data/pull-event-rewards.json cnAct, "act42sre"): a rerun's names
@@ -475,6 +474,14 @@ export function eventShopPermits(event: PullEventReward): number {
   return event.shopPermits ?? (event.hasShop ? EVENT_SHOP_PERMITS : 0);
 }
 
+/** Remaining shop stock; purchases already reflected in holdings must not recur. */
+export function remainingEventPermits(event: PullEventReward, collected: Readonly<Record<string, number>> = {}): number {
+  return Math.max(0, eventShopPermits(event) - (collected[event.cnAct ?? event.name] ?? 0));
+}
+export function eventRewardsEnd(event: PullEventReward): number {
+  return Math.max(planningWindowEnd(event), parseInstant(event.shopEndAt)?.getTime() ?? 0);
+}
+
 export interface BannerHaul {
   /** Events whose Originite counts by the boundary, and what they pay. */
   op: number;
@@ -492,6 +499,8 @@ export interface BannerHaul {
 }
 
 export interface RerunOptions {
+  now?: Date;
+  collectedPermits?: Readonly<Record<string, number>>;
   wishingWallMode?: WishingWallMode;
   /** Reruns the reader has already cleared, which therefore pay nothing. */
   cleared: ReadonlySet<string>;
@@ -528,7 +537,8 @@ export function bannerHaul(
        rather than stage clears, so none of the event bookkeeping applies to it:
        a rerun you have already cleared still has its wall, and the back
        catalogue -- which holds first clears -- never contained it. */
-    if (b.wishOrundum > 0) {
+    const stagesOpen = !options.now || planningWindowEnd(b) > options.now.getTime();
+    if (stagesOpen && b.wishOrundum > 0) {
       wishOrundum += !options.wishingWallMode || options.wishingWallMode === 'minimum'
         ? b.wishOrundum
         : wishingWallOrundum(b.wishDays, options.wishingWallMode);
@@ -540,11 +550,11 @@ export function bannerHaul(
     /* The shop sells permits for event currency, which a rerun hands out again
        -- so a rerun you have already cleared still pays these even though its
        first-clear Originite is gone. */
-    if (eventShopPermits(b) > 0) {
-      permits += eventShopPermits(b);
+    if (eventShopPermits(b) > 0 && (!options.now || eventRewardsEnd(b) > options.now.getTime())) {
+      permits += remainingEventPermits(b, options.collectedPermits);
       shops.push(b);
     }
-    if (b.inBacklog) { skipped.push(b); continue; }
+    if (!stagesOpen || b.inBacklog) { skipped.push(b); continue; }
     if (!eventWasCleared(b, options.cleared)) op += b.op;
     counted.push(b);
   }

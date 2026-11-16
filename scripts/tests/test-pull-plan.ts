@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { availableBannerFreePulls, goalsAtBannerEnd, MAX_PROGRESS_ITEMS, parsePullPlan, planBudgets, planHorizon, savingsAfterPlanAt, validPlanDate, type SavedPullPlan } from '../../lib/pulls/plan';
-import { plainEventName, rerunBacklogEvent, rerunOriginalStages, rerunsClearedByTicks, rerunStagePrefix, type PullEventReward, type UpcomingBanner } from '../../lib/pulls/pulls';
+import { bannerHaul, eventRewardsEnd, incomeBetween, monthlyCardIncome, remainingEventPermits, plainEventName, rerunBacklogEvent, rerunOriginalStages, rerunsClearedByTicks, rerunStagePrefix, type PullEventReward, type UpcomingBanner } from '../../lib/pulls/pulls';
 import type { Skin } from '../../lib/skins/skinTypes';
 import { parsePastProgress } from '../../lib/pulls/pastProgress';
 import { ALL_BANNERS, bundledBacklogSources } from '../../lib/pulls/sources';
@@ -728,4 +728,75 @@ test('a plan keeps "Use OP for pulls", and one saved before the setting counts O
   const before = parsePullPlan(JSON.stringify({ ...base, incomeSettings: { daily: true, weekly: true, annihilation: true, certificates: false } }));
   assert.equal(before.incomeSettings?.originite, undefined);
   assert.throws(() => parsePullPlan(JSON.stringify({ ...base, incomeSettings: { daily: true, weekly: true, annihilation: true, certificates: false, originite: 'no' } })), /Originite Prime setting/);
+});
+
+
+test('daily wallet refresh preserves savings across former 91-to-90-day card cliff', () => {
+  const to = new Date('2027-03-06T06:59:59Z');
+  const expiresAt = '2026-12-20T12:00:00Z';
+  const value = (from: string, collected: number) => {
+    const income = incomeBetween(new Date(from), to);
+    const card = monthlyCardIncome(income, { from: new Date(from), to, expiresAt });
+    return collected + income.orundum + card.orundum + card.originitePrime * 180;
+  };
+  assert.equal(value('2026-12-04T18:12:00Z', 0), value('2026-12-05T18:12:00Z', 300));
+});
+
+test('renewal OP moves into the wallet once on the actual purchase date', () => {
+  const to = new Date('2027-03-06T06:59:59Z');
+  const before = new Date('2026-12-20T11:59:59Z');
+  const after = new Date('2026-12-20T12:00:01Z');
+  const first = monthlyCardIncome(incomeBetween(before, to), { from: before, to, expiresAt: '2026-12-20T12:00:00Z' });
+  const renewed = monthlyCardIncome(incomeBetween(after, to), { from: after, to, expiresAt: '2027-01-19T12:00:00Z' });
+  assert.equal(first.originitePrime, renewed.originitePrime + 6);
+  assert.equal(first.orundum, renewed.orundum);
+  assert.equal(monthlyCardIncome(incomeBetween(before, to)).originitePrime, 0, 'unknown expiry does not invent purchases');
+  assert.equal(monthlyCardIncome(incomeBetween(before, to), { from: before, to, expiresAt: 'invalid' }).originitePrime, 0);
+});
+
+test('an active or stacked card does not grant its already purchased OP again', () => {
+  const from = new Date('2026-11-15T18:12:00Z');
+  const to = new Date('2026-12-01T18:12:00Z');
+  assert.deepEqual(monthlyCardIncome(incomeBetween(from, to), { from, to, expiresAt: '2027-01-01T12:00:00Z' }), { cards: 0, orundum: 3200, originitePrime: 0 });
+  const expiry = '2026-12-01T18:12:00Z';
+  assert.equal(monthlyCardIncome(incomeBetween(from, to), { from, to, expiresAt: expiry }).cards, 1);
+  assert.equal(monthlyCardIncome(incomeBetween(to, from), { from: to, to: from, expiresAt: expiry }).cards, 0);
+});
+
+const extendedShop: PullEventReward = { ...a, name: 'Rerun shop', event: 'Rerun shop', cnAct: 'act42sre', end: '2026-11-15', endAt: '2026-11-15T11:00:00Z', shopEndAt: '2026-11-19T11:00:00Z', op: 41, inBacklog: false, hasShop: true, shopPermits: 3, wishOrundum: 2800, wishDays: 14 };
+test('Sunday stage closure retains the open shop without resurrecting expired stage or wall rewards', () => {
+  const now = new Date('2026-11-15T18:12:00Z');
+  const haul = bannerHaul([extendedShop], new Date('2027-03-05T18:00:00Z'), { cleared: new Set(), now });
+  assert.equal(haul.permits, 3);
+  assert.equal(haul.op, 0);
+  assert.equal(haul.wishOrundum, 0);
+  assert.equal(eventRewardsEnd(extendedShop), Date.parse(extendedShop.shopEndAt!));
+  assert.equal(bannerHaul([extendedShop], new Date('2027-03-05'), { cleared: new Set(), now: new Date(extendedShop.shopEndAt!) }).permits, 0);
+});
+
+test('collected event permits transfer into holdings without changing forecast savings', () => {
+  const now = new Date('2026-11-15T18:12:00Z');
+  const to = new Date('2027-03-05');
+  for (const collected of [0, 1, 2, 3]) {
+    const haul = bannerHaul([extendedShop], to, { cleared: new Set(), now, collectedPermits: { act42sre: collected } });
+    assert.equal(4 + collected + haul.permits, 7);
+  }
+  assert.equal(remainingEventPermits(extendedShop, { act42sre: 50 }), 0);
+  assert.equal(remainingEventPermits({ ...extendedShop, cnAct: 'act99sre' }, { act42sre: 3 }), 3, 'separate runs do not share claims');
+});
+
+test('card expiry and event claims survive plan export/import; malformed additions are rejected', () => {
+  const plan = { ...saved, monthlyCardUntil: '2026-12-20T12:00:00Z', collectedEventPermits: { act42sre: 2 } };
+  assert.deepEqual(parsePullPlan(JSON.stringify(plan)), plan);
+  for (const patch of [{ monthlyCardUntil: 'not a date' }, { collectedEventPermits: [] }, { collectedEventPermits: { act42sre: -1 } }, { collectedEventPermits: { act42sre: 1.5 } }]) assert.throws(() => parsePullPlan(JSON.stringify({ ...plan, ...patch })));
+});
+
+
+test('regional event shops use their own close rather than retaining the Global close', async () => {
+  const { regionalPullEvents } = await import('../../lib/time/regional');
+  const window = { startAt: '2026-12-01T07:00:00Z', endAt: '2026-12-10T19:00:00Z', status: 'announced' as const, timingSource: 'test fixture' };
+  const [event] = regionalPullEvents([extendedShop], { sources: {}, events: { [extendedShop.event!]: window } }, 'jp');
+  assert.equal(event.shopEndAt, window.endAt);
+  const [extended] = regionalPullEvents([extendedShop], { sources: {}, events: { [extendedShop.event!]: { ...window, shopEndAt: '2026-12-14T19:00:00Z' } } }, 'jp');
+  assert.equal(extended.shopEndAt, '2026-12-14T19:00:00Z');
 });
