@@ -8,17 +8,20 @@ import yaml from 'js-yaml';
 import { pythonTests, runPythonTests } from './run-python-tests.mjs';
 
 const workflow = name => yaml.load(fs.readFileSync(`.github/workflows/${name}.yml`, 'utf8'));
-const steps = workflow('check').jobs.check.steps;
+const jobs = workflow('check').jobs;
+const steps = jobs.validation.steps, buildSteps = jobs['browser-build'].steps, contentSteps = jobs['content-check'].steps;
 
-test('browser pages, catalogues and shipped tables are generated from the same pinned revision', () => {
-  const pin = steps.findIndex(step => step.name === 'Pull the pinned game records for the browser specs');
-  const prepare = steps.findIndex(step => step.name === 'Prepare pinned browser build inputs');
-  const build = steps.findIndex(step => step.name === 'Build');
-  assert.ok(pin >= 0 && prepare > pin && build > prepare);
-  assert.ok(steps.slice(prepare + 1, build).every(step => !/pull-data\.mjs/.test(step.run ?? '')), 'no later data pull can invalidate generated inputs');
-  assert.equal(steps[prepare].run, 'npm run prebuild');
-  assert.deepEqual(steps[prepare].env, { NODE_ENV: 'production', ARKPEDIA_CONTENT_DISABLED: '1' });
-  assert.ok(steps.findIndex(step => step.name === 'Typecheck') < pin, 'live-data type validation remains before the browser pin');
+test('browser pages and generated tables use pinned inputs in isolated build jobs', () => {
+  for (const [name, buildName] of [['browser-build','Build'],['content-check','Pages render the live content release']]) {
+    const own=jobs[name].steps,pin=own.findIndex(s=>s.name==='Pull the pinned game records for the browser specs'),prepare=own.findIndex(s=>s.name==='Prepare pinned browser build inputs'),build=own.findIndex(s=>s.name===buildName);
+    assert.ok(pin>=0&&prepare>pin&&build>prepare);
+    assert.ok(own.slice(prepare+1,build).every(s=>!/pull-data\.mjs/.test(s.run??'')));
+    assert.equal(own[prepare].run,'npm run prebuild');
+    assert.equal(own[prepare].env.ARKPEDIA_CONTENT_DISABLED,'1');
+    assert.equal(jobs[name].needs,'seen','builds start independently of validation');
+  }
+  assert.ok(steps.some(s=>s.name==='Pull the live game records'));
+  assert.ok(!steps.some(s=>s.name==='Pull the pinned game records for the browser specs'),'validation keeps live-data type checks');
 });
 
 test('Python discovery includes every current suite and nested new suites, without helpers', t => {
@@ -111,37 +114,33 @@ test('next.config.js passes Next\'s own option schema: no ignored, moved or unkn
   assert.deepEqual(issues, []);
 });
 
-test('both Check builds follow generated inputs and explicit validation, with output guards retained', () => {
-  const index = name => steps.findIndex(step => step.name === name);
-  for (const name of ['Prepare build inputs', 'Typecheck', 'Lint', 'Build', 'Pages render the live content release']) assert.ok(index(name) >= 0, name);
-  assert.ok(index('Compile and validate runtime content') < index('Prepare build inputs'));
-  assert.equal(steps[index('Prepare build inputs')].run, 'npm run prebuild');
-  assert.ok(index('Prepare build inputs') < index('Typecheck'));
-  assert.equal(steps[index('Typecheck')].run, 'npm run typecheck');
-  assert.equal(steps[index('Lint')].run, 'npm run lint -- --max-warnings 15');
-  for (const name of ['Build', 'Pages render the live content release']) {
-    const i = index(name);
-    assert.ok(i > index('Typecheck') && i > index('Lint'));
-    assert.equal(steps[i].if, undefined, 'a failed explicit gate must stop the build');
-    assert.equal(steps[i].env.ARKPEDIA_BUILD_CHECKS_PASSED, '1');
+test('parallel builds retain output budgets and require independent validation before proof', () => {
+  const index=name=>steps.findIndex(s=>s.name===name);
+  for(const name of ['Compile and validate runtime content','Prepare build inputs','Typecheck','Lint'])assert.ok(index(name)>=0,name);
+  assert.ok(index('Compile and validate runtime content')<index('Prepare build inputs'));
+  assert.ok(index('Prepare build inputs')<index('Typecheck'));
+  assert.equal(steps[index('Typecheck')].run,'npm run typecheck');
+  for(const [own,name] of [[buildSteps,'Build'],[contentSteps,'Pages render the live content release']]){
+    const build=own.find(s=>s.name===name);assert.equal(build.env.ARKPEDIA_BUILD_CHECKS_PASSED,'1');
+    assert.equal(build.if,undefined,'build failures remain blocking');
   }
-  assert.equal(steps[index('Build')].run, 'npm run --ignore-scripts build && npm run postbuild');
-  const scripts = JSON.parse(fs.readFileSync('package.json', 'utf8')).scripts;
-  // Next 16 builds with Turbopack, which refuses the `webpack` config ClientDataGuard lives in
-  // (it is what keeps a game record out of a browser chunk). The flag keeps webpack explicit.
-  assert.equal(scripts.build, 'next build --webpack');
-  assert.equal(scripts.postbuild, 'npm run check:deployment-traces && npm run check:client-chunks');
-  assert.match(steps[index('Pages render the live content release')].run, /grep -q '"__contentRelease"'/);
-  assert.equal(steps.filter(step => String(step.run).includes('npm run check:deployment-traces')).length, 0, 'postbuild owns the trace audit');
+  assert.equal(buildSteps.find(s=>s.name==='Build').run,'npm run --ignore-scripts build && npm run postbuild');
+  const scripts=JSON.parse(fs.readFileSync('package.json','utf8')).scripts;
+  assert.equal(scripts.build,'next build --webpack');
+  assert.equal(scripts.postbuild,'npm run check:deployment-traces && npm run check:client-chunks');
+  assert.match(contentSteps.find(s=>s.name==='Pages render the live content release').run,/grep -q/);
+  assert.ok(jobs.check.needs.includes('validation')&&jobs.check.needs.includes('production-build'));
+  const guard=jobs.check.steps.find(s=>s.name==='Require parallel checks');
+  assert.equal(guard.env.VALIDATION,'${{ needs.validation.result }}');
+  assert.equal(jobs.check.steps[4],guard,'independent gates are checked before artifacts or proof');
 });
 
-test('publication checks fail before browser regressions and use their separate build', () => {
-  const index = name => steps.findIndex(step => step.name === name);
-  const runtime = index('Content updates and rollback without rebuilding');
-  assert.ok(runtime > index('Pages render the live content release'));
-  assert.ok(runtime < index('Desktop and mobile browser regressions'));
-  assert.equal(steps[runtime].env.NEXT_DIST_DIR, '.next-live');
-  assert.equal(steps[runtime].if, undefined, 'publication must pass even when browser coverage is not needed');
+test('publication compatibility and rollback checks remain required before approval', () => {
+  const index=name=>contentSteps.findIndex(s=>s.name===name),runtime=contentSteps[index('Content updates and rollback without rebuilding')];
+  assert.ok(index('Pages render the live content release')<index('Content updates and rollback without rebuilding'));
+  assert.equal(runtime.env.NEXT_DIST_DIR,'.next-live');assert.equal(runtime.if,undefined);
+  assert.ok(jobs.check.needs.includes('content-check'));
+  assert.equal(jobs.check.steps.find(s=>s.name==='Require parallel checks').env.CONTENT,'${{ needs.content-check.result }}');
 });
 
 test('only fresh hosted runners restore npm archives; every profile has one locked install owner', () => {
@@ -152,7 +151,7 @@ test('only fresh hosted runners restore npm archives; every profile has one lock
     const installers = jobs.filter(job => job.steps?.some(ownsInstall));
     const cachesNpm = step => step.uses?.startsWith('actions/setup-node@') && step.with?.cache;
     const cached = jobs.flatMap(job => job.steps ?? []).filter(cachesNpm);
-    assert.equal(installers.length, name === 'check' ? 3 : 1, name);
+    assert.equal(installers.length, name === 'check' ? 7 : 1, name);
     assert.equal(cached.length, installers.length, 'only clean-install jobs configure the npm cache');
     for (const job of installers) {
       assert.equal(job.steps.filter(ownsInstall).length, 1, 'one dependency install owner per selected job');

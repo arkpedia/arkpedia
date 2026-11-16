@@ -34,6 +34,40 @@ test('completed targeted and no-impact jobs have separate, exact-policy reuse co
   }
 });
 
+function parallelFixture(lane='targeted') {
+  const input=fixture(lane),step=(name,conclusion='success')=>({name,status:'completed',conclusion});
+  const job=(name,names,id)=>({id,run_id:40,name,status:'completed',conclusion:'success',steps:names.map(name=>step(name))});
+  input.jobs[0].steps=[
+    step('Require parallel checks'),step('Validate full browser shard execution','skipped'),
+    step('Validate selected browser shard execution',lane==='targeted'?'success':'skipped'),
+    step('Validate browser execution evidence'),step('Record selected browser coverage'),
+  ];
+  input.jobs.push(
+    job('browser-build',['Build','Which browser regressions this change needs','Package checked browser site'],51),
+    job('validation',['Application and Python regression tests','Typecheck','Lint','Compile and validate runtime content'],52),
+    job('content-check',['Pages render the live content release','Content updates and rollback without rebuilding'],53),
+    job('production-build',['Compile and check the production Worker'],54),
+  );
+  if(lane==='targeted')input.jobs.push(job('browser (1/1)',['Selected browser regressions','Record browser shard','Share browser shard evidence'],55));
+  return input;
+}
+test('parallel targeted and no-impact proofs require every independent gate and actual shard execution',()=>{
+  for(const lane of ['targeted','none']){
+    const input=parallelFixture(lane);assert.equal(policyVouching(input),input.record);
+    for(const required of ['validation','content-check','production-build','browser-build']){
+      const missing=parallelFixture(lane);missing.jobs=missing.jobs.filter(j=>j.name!==required);
+      assert.equal(policyVouching(missing),null,required);
+    }
+  }
+  for(const mutate of [
+    x=>{x.jobs.find(j=>j.name==='browser (1/1)').steps.shift();},
+    x=>{x.jobs.find(j=>j.name==='validation').conclusion='failure';},
+    x=>{x.jobs.find(j=>j.name==='browser (1/1)').run_id=999;},
+    x=>{x.jobs[0].steps[0].conclusion='skipped';},
+    x=>{x.jobs.push(structuredClone(x.jobs.find(j=>j.name==='browser (1/1)')));},
+  ]){const input=parallelFixture();mutate(input);assert.equal(policyVouching(input),null);}
+});
+
 test('draft/skipped/failed/wrong-repository jobs or missing verification cannot vouch', () => {
   for (const mutate of [x => { x.run.event = 'workflow_dispatch'; }, x => { x.run.conclusion = 'failure'; },
     x => { x.run.head_repository.full_name = 'fork/arkpedia'; }, x => { x.run.pull_requests = []; },

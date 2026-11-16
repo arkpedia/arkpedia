@@ -92,7 +92,7 @@ test('a fixture named but missing fails the build instead of showing no videos',
 test("check.yml's two builds and the Playwright webServer name the same fixture", () => {
   assert.ok(fs.existsSync(path.join(process.cwd(), FIXTURE)), `${FIXTURE} exists`);
   const workflow = yaml.load(fs.readFileSync('.github/workflows/check.yml', 'utf8')) as { jobs: { check: { steps: { name?: string; run?: string; env?: Record<string, string> }[] } } };
-  const steps = workflow.jobs.check.steps;
+  const steps = Object.values(workflow.jobs).flatMap(job=>job.steps);
   const build = steps.find((step) => step.name === 'Build');
   assert.equal(build?.env?.[ENV], FIXTURE, 'check.yml Build step env');
   // Every step that builds the site, by what it runs: the live-release build too.

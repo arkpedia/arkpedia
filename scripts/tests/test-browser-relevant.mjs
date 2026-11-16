@@ -91,31 +91,25 @@ test('in this repository every script the build and browser step run is read, an
   }
 });
 
-test('Check plans scoped execution, defaults to full, and validates actual reporter evidence', () => {
-  const job = yaml.load(fs.readFileSync(path.join(REPO, '.github/workflows/check.yml'), 'utf8')).jobs.check;
-  const index = name => job.steps.findIndex(step => step.name === name);
-  const ask = job.steps[index('Which browser regressions this change needs')];
-  const browser = job.steps[index('Desktop and mobile browser regressions')];
-  assert.ok(index('Which browser regressions this change needs') < index('Desktop and mobile browser regressions'));
-  assert.equal(ask.id, 'browser');
-  assert.match(ask.run, /scripts\/ci\/browser-lane\.mjs plan >> "\$GITHUB_OUTPUT"/);
-  assert.equal(ask.env.EVENT, '${{ github.event_name }}');
-  assert.equal(browser.if, "steps.browser.outputs.lane != 'targeted' && steps.browser.outputs.lane != 'none'");
-  const selected = job.steps[index('Selected browser regressions')];
-  assert.equal(selected.if, "steps.browser.outputs.lane == 'targeted'");
-  assert.match(selected.run, /--test-list \.cache\/browser-test-list\.txt --reporter=list,json/);
-  assert.equal(browser.env.PLAYWRIGHT_JSON_OUTPUT_FILE, '.cache/browser-results.json');
-  assert.equal(selected.env.PLAYWRIGHT_JSON_OUTPUT_FILE, '.cache/browser-results.json');
-  for (const step of [browser, selected]) {
-    assert.equal(step.env.TMPDIR, '${{ runner.temp }}');
-    assert.equal(step.env.PW_WORKERS, '2');
+test('Check plans scoped execution and validates actual reports after parallel execution', () => {
+  const jobs=yaml.load(fs.readFileSync(path.join(REPO,'.github/workflows/check.yml'),'utf8')).jobs;
+  const build=jobs['browser-build'],runner=jobs['browser-tests'],check=jobs.check;
+  const ask=build.steps.find(s=>s.name==='Which browser regressions this change needs');
+  assert.match(ask.run,/scripts\/ci\/browser-lane\.mjs plan/);
+  assert.equal(ask.env.EVENT,'${{ github.event_name }}');
+  for(const [name,lane] of [['Desktop and mobile browser regressions','full'],['Selected browser regressions','targeted']]){
+    const step=runner.steps.find(s=>s.name===name);
+    assert.equal(step.if,"needs.browser-build.outputs.lane == '"+lane+"'");
+    assert.match(step.run,/--test-list \.cache\/browser-shard-tests\.txt --project desktop --project mobile/);
+    assert.equal(step.env.PW_WORKERS,'2');assert.equal(step.env.TMPDIR,'${{ runner.temp }}');
   }
-  assert.ok(index('Validate browser execution evidence') > index('Selected browser regressions'));
-  assert.equal(job.permissions.actions, 'read');
-  assert.equal(job.permissions['pull-requests'], 'read', 'merged full proofs require associated PR metadata');
-  // The content runtime test launches Chromium too, so its install is never skipped.
-  assert.equal(job.steps[index('Install Chromium only')].if, undefined);
+  assert.equal(build.permissions.actions,'read');assert.equal(build.permissions['pull-requests'],'read');
+  const names=check.steps.map(s=>s.name);
+  assert.ok(names.indexOf('Merge browser shard evidence')<names.indexOf('Validate browser execution evidence'));
+  assert.ok(names.indexOf('Full-census completion contract')<names.indexOf('Validate browser execution evidence'));
+  assert.equal(jobs['content-check'].steps.find(s=>s.name==='Install Chromium only').if,undefined);
 });
+
 
 test('a manual Check always runs the browser regressions, whatever changed', () => {
   const result = spawnSync('node', [path.join(REPO, 'scripts/ci/browser-relevant.mjs')], { cwd: REPO, encoding: 'utf8',
