@@ -19,6 +19,7 @@ import { PastRewards } from '@/components/pulls/PastRewards';
 import { certificatePulls, certificateSpending, greenCertificateIncome, selectedIncome, usesOriginite, DEFAULT_INCOME_SETTINGS, type IncomeSettings } from '@/lib/pulls/incomeSettings';
 import { getAllEvents } from '@/lib/schedule/schedule';
 import { getEventCalendar } from '@/lib/home/frontPageContent';
+import { PULL_PLAN_EVENT } from '@/lib/polls/pull-poll-sync';
 import { currentPullPlan } from '@/lib/pulls/currentPlan';
 import { withContentPage } from '@/lib/content/server';
 import { ContentImg } from '@/components/content/ContentImage';
@@ -177,6 +178,7 @@ export default function PullsPage({ scheduledEvents: globalEvents, scheduledBann
   const [monthlyCard, setMonthlyCard] = useState(false);
   const [monthlyCardUntil, setMonthlyCardUntil] = useState('');
   const monthlyCardChosen = useRef(false);
+  const lastWrittenPlan = useRef<string | null>(null);
   const [eventPermitOwner, setEventPermitOwner] = useState('');
   const [collectedEventPermits, setCollectedEventPermits] = useState<Record<string, number>>({});
   const [wishingWallMode, setWishingWallMode] = useState<WishingWallMode>('average');
@@ -238,6 +240,13 @@ export default function PullsPage({ scheduledEvents: globalEvents, scheduledBann
     setHydrated(true);
   }, [applyPlan]);
 
+  useEffect(()=>{
+    const receive=()=>{try{const raw=localStorage.getItem(PULL_PLAN_KEY);if(raw&&raw!==lastWrittenPlan.current)applyPlan(parsePullPlan(raw),false);}catch{setSaveStatus('Could not read the updated planner. Your current plan is unchanged.');}};
+    const storage=(event:StorageEvent)=>{if(event.key===PULL_PLAN_KEY)receive();};
+    window.addEventListener(PULL_PLAN_EVENT,receive);window.addEventListener('storage',storage);
+    return()=>{window.removeEventListener(PULL_PLAN_EVENT,receive);window.removeEventListener('storage',storage);};
+  },[applyPlan]);
+
   const savedPlan = useMemo((): SavedPullPlan => ({ version: 1, orundum, originite, permits, reservedOP, until, bannerName, yellowCerts, certificateSpending: certSpending, incomeSettings,
     /* The Past events ticks live in their own store (lib/pulls/pastProgress.ts), once: an
        account import claims thousands of rewards, more with every event the game adds, and
@@ -266,7 +275,8 @@ export default function PullsPage({ scheduledEvents: globalEvents, scheduledBann
   useEffect(() => {
     if (!hydrated || saveBlocked) return;
     try {
-      localStorage.setItem(PULL_PLAN_KEY, JSON.stringify(savedPlan));
+      const serialized=JSON.stringify(savedPlan);
+      if(localStorage.getItem(PULL_PLAN_KEY)!==serialized){localStorage.setItem(PULL_PLAN_KEY,serialized);lastWrittenPlan.current=serialized;window.dispatchEvent(new Event(PULL_PLAN_EVENT));}
       setSaveStatus('Saved on this device');
     } catch { setSaveStatus('Device storage is unavailable. Export your plan to keep a copy.'); }
   }, [hydrated, saveBlocked, savedPlan]);

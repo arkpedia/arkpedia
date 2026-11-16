@@ -1,0 +1,12 @@
+.copy { display:flex; flex-direction:column; gap:8px; min-width:0; }
+.copy h2 { margin:0; }
+.copy p { margin:0; font-size:15px; }
+.actions { display:flex; flex-wrap:wrap; gap:8px; margin-top:4px; }
+.strip { padding:24px; display:flex; justify-content:flex-end; align-items:stretch; gap:12px; min-width:0; }
+.strip figure { flex:1; margin:0; min-width:0; }
+.strip figcaption { font-family:var(--font-display); font-weight:700; font-size:15px; margin-top:6px; }
+.preview { display:flex; flex-direction:column; }
+
+@media (max-width:720px) { .strip { padding:20px; } }
+
+@media (max-width:520px) { .strip figure:last-child { display:none; } .strip figcaption { overflow-wrap:anywhere; } }

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import {aggregateRatingBuckets,ratingStatistics,skinRatingRows} from '../../lib/polls/skin-rating-statistics';
+import {aggregateRatingBuckets,ratingStatistics,skinRatingRows,weightedRating,personalRatingRows} from '../../lib/polls/skin-rating-statistics';
 const skins=[{id:'a',name:'First',operator:'Aak',image:null,aliases:[]},{id:'b',name:'Second',operator:'Aak',image:null,aliases:[]},{id:'c',name:'Third',operator:'Absinthe',image:null,aliases:[]}];
 test('score counts yield interpolated percentiles, multiple modes and population deviation without expanding votes',()=>{
   const stats=ratingStatistics([1,0,0,0,0,0,0,0,0,1])!;
@@ -17,4 +17,22 @@ test('operator summaries pool every skin rating, retain exact ties and never fab
   const legacy=skinRatingRows([{skin:'a',total:8,ratings:1}],skins,'skins')[0];assert.equal(legacy.stats,null);assert.equal(legacy.total,8);
   assert.equal(skinRatingRows([{skin:'a',total:2,ratings:1,histogram:[1,0,0,0,0,0,0,0,0,0]}],skins,'skins')[0].stats,null);
   assert.equal(skinRatingRows([{skin:'unknown',total:10,ratings:1}],skins,'skins').length,0);
+});
+
+test('weighted ranking tempers single votes while raw mode retains the exact original order',()=>{
+  assert.ok(Math.abs(weightedRating(10,1,7)-7.142857142857143)<1e-12);
+  assert.equal(weightedRating(990,100,7),9.416666666666666);
+  const scores=[{skin:'a',total:10,ratings:1},{skin:'b',total:990,ratings:100},{skin:'c',total:6000,ratings:1000}];
+  const raw=skinRatingRows(scores,skins,'skins'),weighted=skinRatingRows(scores,skins,'skins',true);
+  assert.deepEqual(raw.map(row=>row.id),['a','b','c']);assert.deepEqual(weighted.map(row=>row.id),['b','a','c']);
+  assert.equal(weighted[0].total,990);assert.equal(weighted[0].ratings,100);
+  assert.equal(skinRatingRows(scores,skins,'operators',true).reduce((sum,row)=>sum+row.ratings,0),1101);
+  const ties=skinRatingRows([{skin:'a',total:16,ratings:2},{skin:'b',total:16,ratings:2}],skins,'skins',true);assert.deepEqual(ties.map(row=>row.rank),[1,1]);
+  const withoutUnknown=skinRatingRows([...scores,{skin:'unknown',total:1,ratings:1}],skins,'skins',true);assert.deepEqual(withoutUnknown,weighted);
+});
+test('your score uses only this account’s saved ratings and pools its own rated skins for operators',()=>{
+  const saved=new Map([['a',{skin:'a',rating:10,revision:1}],['b',{skin:'b',rating:6,revision:1}],['c',{skin:'c',rating:null,revision:2}]]);
+  assert.deepEqual([...personalRatingRows(saved,skins,'skins')],[['a',{score:10,ratings:1}],['b',{score:6,ratings:1}]]);
+  assert.deepEqual([...personalRatingRows(saved,skins,'operators')],[['Aak',{score:8,ratings:2}]]);
+  assert.equal(personalRatingRows(new Map(),skins,'skins').size,0);
 });

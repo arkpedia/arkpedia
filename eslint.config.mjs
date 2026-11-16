@@ -42,6 +42,8 @@ const CLOCK_PAGES = [
   'pages/games/music-guesser.tsx',
   'pages/planner.tsx',
   'pages/community.tsx',
+  'pages/polls/pull-or-skip.tsx',
+  'pages/polls/index.tsx',
   'pages/skin-planner.tsx',
   'pages/free-op.tsx',
   'pages/artists.tsx',

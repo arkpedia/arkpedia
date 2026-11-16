@@ -1,4 +1,6 @@
-.page { display:grid; gap:28px; }
+.page { display:grid; gap:14px; }
+.page > h2 { margin:16px 0 0; }
+.page > h2:first-child { margin-top:0; }
 .feature { overflow:hidden; }
 .featureBody { display:grid; grid-template-columns:minmax(0,0.9fr) minmax(0,1.1fr); align-items:center; }
 .copy { padding:32px 0 32px 28px; position:relative; z-index:3; }
@@ -8,11 +10,11 @@
 .actions { display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
 .access { margin:14px 0 0; line-height:1.6; }
 /* The outfits are the feature: full-colour illustrations arranged as a fashion spread. */
-.showcase { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); grid-template-rows:minmax(0,1fr); gap:0; height:360px; padding:18px 10px; box-sizing:border-box; overflow:hidden; }
+.showcase { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); grid-template-rows:minmax(0,1fr); gap:0; height:216px; padding:18px 10px; box-sizing:border-box; overflow:hidden; }
 .showcase figure { min-width:0; height:92%; margin:0; align-self:center; display:grid; grid-template-rows:minmax(0,1fr) auto; }
 .showcase figure:nth-child(2) { height:100%; }
 .leaderImage { display:block; min-height:0; overflow:hidden; }
-.showcase .leaderImage img { clip-path:polygon(10% 0,100% 0,90% 100%,0 100%); }
+.showcase .leaderImage img { object-fit:contain; }
 .leaderCaption { display:flex; justify-content:center; gap:6px; min-width:0; padding-top:6px; text-align:center; }
 .leaderCaption > span { overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
 .emptyLeaders { grid-column:1/-1; align-self:center; text-align:center; }
@@ -34,7 +36,7 @@
 @media (max-width:720px) {
   .page { gap:24px; }
   .featureBody { grid-template-columns:minmax(0,1fr); }
-  .showcase { grid-row:1; height:230px; }
+  .showcase { grid-row:1; height:200px; }
   .copy { padding:4px 20px 22px; }
   .title { margin-top:8px; }
   .subtitle { max-width:none; }
