@@ -4,7 +4,7 @@ Review `/polls/pull-or-skip` and `/polls` on isolated native Preview. Keep this 
 unmerged until the maintainer accepts the design. Results default to Simple: banner artwork, the community verdict and answer count.
 Detailed results reveal the full breakdown. Voting keeps the supplied `pull-or-skip-mockup.html` as its visual reference: artwork-led banner rows,
 rarity-striped operator portraits, per-banner expanders, joined potential buttons,
-stamped verdicts and share/submit actions. Banner-type labels are omitted in all
+stamped verdicts and share/submit actions. The Leviathan stamp rotates around its lower-left corner so the frame stays inside the artwork. Banner-type labels are omitted in all
 views. The polls overview uses plain banner art and the skin poll’s shared facts row.
 
 Only debut banners, limited banners and event reruns enter the poll. Recurring Standard Pools, Kernel/Locating, Joint Operation and Orienteering banners are excluded. Newly recorded eligible banners join automatically. Exact close instants remove banners from voting and results; old drafts discard retired banner entries.
@@ -17,9 +17,8 @@ Banners with an unconfirmed roster accept a banner choice without inventing
 operator goals. The catalogue reuses published planner windows and simulator
 rosters, with estimates labelled.
 
-Drafts stay in browser storage. Share links encode choices in a URL fragment,
-without submitting. PNG/clipboard export renders one complete 1200px-wide bitmap shown
-in the fitted preview. The reference-style sheet places each banner on the left and Pull/Maybe/Skip on the right. Detailed adds larger operator portraits and additional-copy labels such as `1× Orchid`, subtracting owned copies from the target potential. Planned acquisitions and Maybe operators appear; current ownership and final P1–P6 targets are omitted from the image. Maybe portraits and labels use amber. Row heights fit each banner’s artwork and operator content, with only a small inset. The enlarged title and Arkpedia URL identify the source; the footer says Arkpedia without a region. The header omits the redundant choice legend. Artwork is enlarged, and the fitted preview has matching gaps above and below the image. Longer plans grow taller to include every answered banner
+Drafts stay in browser storage. Copy poll link copies the plain poll URL, without choices, query parameters or fragments. Existing shared-draft URLs remain readable. PNG/clipboard export renders one complete 1200px-wide bitmap shown
+in the fitted preview. The reference-style sheet places each banner on the left and Pull/Maybe/Skip on the right. Detailed adds larger operator portraits and additional-copy labels such as `1× Orchid`, subtracting owned copies from the target potential. Planned acquisitions and Maybe operators appear; current ownership and final P1–P6 targets are omitted from the image. Maybe portraits use name-only amber labels. Row heights fit each banner’s artwork and operator content, with only a small inset. Simple and Detailed share a fixed 1200px sheet and 600px banner column, reserving three operator slots across. Simple also offers an art-only sheet with the existing Pulling/Tempted/Dolphin/Whale/Leviathan stamps; stamp paint is read from the shared CSS and kept inside each banner. The enlarged title and Arkpedia URL identify the source; the footer says Arkpedia without a region. The header omits the redundant choice legend. Verdicts use centered PULL, ~ and X; operator labels are centered beneath their portraits. Artwork is enlarged, and the fitted preview has matching gaps above and below the image. Longer plans grow taller to include every answered banner
 in the same image; no pagination or silently omitted banners. Failed artwork retains the names and choices.
 
 Importing a browser or exported Pull Planner plan remains a one-time import.

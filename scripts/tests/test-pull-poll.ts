@@ -192,6 +192,6 @@ test('detailed share pictures include Maybe operators beside planned additional 
   const b={...banner,operators:['Violet Mizutsune Orchid','Texas','Exusiai']};
   assert.deepEqual(shareOperatorInterests(b,{'Violet Mizutsune Orchid':6,Texas:-1,Exusiai:0},{'Violet Mizutsune Orchid':5}),[
     {name:'Violet Mizutsune Orchid',copies:1,label:'1× Orchid',interest:'pull'},
-    {name:'Texas',copies:0,label:'Maybe Texas',interest:'maybe'},
+    {name:'Texas',copies:0,label:'Texas',interest:'maybe'},
   ]);
 });

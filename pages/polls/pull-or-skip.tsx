@@ -26,7 +26,7 @@ import { formatDayMonthYear } from '@/lib/pulls/format';
 import { parsePullPlan, PULL_PLAN_KEY, MAX_PLAN_FILE_SIZE } from '@/lib/pulls/plan';
 import { withContentPage } from '@/lib/content/server';
 import { useReaderClock } from '@/lib/time/readerClock';
-import { bannerChoice, decodeBallot, encodeBallot, importGoals, currentBallot, constrainOwned, activePollBanners, PULL_POLL_DRAFT, pullWant, setBannerChoice, walletMood, type PollPortrait, type Ballot, type PollBanner, type Want } from '@/lib/polls/pull-poll';
+import { bannerChoice, decodeBallot, importGoals, currentBallot, constrainOwned, activePollBanners, PULL_POLL_DRAFT, pullWant, setBannerChoice, walletMood, type PollPortrait, type Ballot, type PollBanner, type Want } from '@/lib/polls/pull-poll';
 import styles from '@/components/community/PullPoll.module.css';
 
 interface Props { banners: PollBanner[]; now: number; portraits?:Record<string,PollPortrait> }
@@ -75,7 +75,7 @@ function PullPoll({banners,now,owner,portraits={}}:Props&{owner:string|null}) {
   useEffect(() => {
     if (!hydrated || storageError) return;
     try { localStorage.setItem(PULL_POLL_DRAFT,JSON.stringify(ballot)); }
-    catch { setStorageError('Browser storage is unavailable. Keep this tab open or copy a share link to keep your choices.'); }
+    catch { setStorageError('Browser storage is unavailable. Keep this tab open or export an image to keep a record of your choices.'); }
   },[ballot,hydrated,storageError]);
   useEffect(() => {
     const abort = new AbortController();
@@ -128,8 +128,8 @@ function PullPoll({banners,now,owner,portraits={}}:Props&{owner:string|null}) {
   }
   async function share() {
     try {
-      const url = new URL(window.location.href); url.hash = `plan=${encodeBallot(currentBallot(ballot,visible))}`;
-      await navigator.clipboard.writeText(url.href); setNotice('Share link copied. It includes your draft choices without submitting them.');
+      const url = new URL('/polls/pull-or-skip',window.location.origin);
+      await navigator.clipboard.writeText(url.href); setNotice('Poll link copied. Your draft choices are not included.');
     } catch { setNotice('Could not copy the link. Try again with clipboard access enabled.'); }
   }
   async function submit(choices=ballot) {
@@ -219,7 +219,7 @@ function PullPoll({banners,now,owner,portraits={}}:Props&{owner:string|null}) {
         <div className={styles.dock} role="region" aria-label="Your pull plan actions"><div className={styles.dockInner}>
           <div className={styles.meter}><span className={styles.meterTitle}>{answered} / {visible.length} answered</span><span className={styles.mood}>{walletMood(ballot,owned)}</span></div>
           <span className={styles.saveStatus} role="status">{!hydrated?'Loading draft…':storageError?'Draft needs attention':revision&&!dirty?'Submitted · Draft saved':linked?'Synced with pull planner':'Draft saved on this device'}</span>
-          <button className="ghost btn-sm" aria-label="Copy share link" onClick={()=>void share()} disabled={!hydrated||!answered}>⧉ <span>Copy share link</span></button>
+          <button className="ghost btn-sm" aria-label="Copy poll link" onClick={()=>void share()} disabled={!hydrated}>⧉ <span>Copy poll link</span></button>
           <button className="ghost btn-sm" aria-label="Save as image" onClick={()=>setImageOpen(true)} disabled={!hydrated||!answered}>▣ <span>Save as image</span></button>
           <button className="primary btn-sm" disabled={working||sync.status==='loading'||!ready||!answered||!dirty} onClick={()=>{if(owner)void submit();else setPrompt(true);}}>{working?'Sending…':revision?'Update entry':'Send it'}</button>
         </div></div>

@@ -12,7 +12,7 @@ interface ShareInterest {name:string;copies:number;label:string;interest:'pull'|
 export function shareOperatorInterests(banner:PollBanner,choices:Record<string,Want>|undefined,owned:OwnedPotentials={}){
   const copies=shareOperatorCopies(banner,choices,owned);
   return banner.operators.flatMap<ShareInterest>(name=>{
-    if(choices?.[name]===-1)return [{name,copies:0,label:`Maybe ${shareOperatorName(name)}`,interest:'maybe' as const}];
+    if(choices?.[name]===-1)return [{name,copies:0,label:shareOperatorName(name),interest:'maybe' as const}];
     const wanted=copies.find(op=>op.name===name);return wanted?[{...wanted,interest:'pull' as const}]:[];
   });
 }

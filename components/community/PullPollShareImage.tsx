@@ -5,19 +5,19 @@ import {useContentUrl} from '@/lib/content/context';
 import {applicationBannerArt} from '@/lib/polls/pull-poll-art';
 import {assetUrl,encodeAssetPath} from '@/lib/assets/assetUrl';
 import {loadAssetImage} from '@/lib/assets/assetRetry';
-import {bannerChoice,pullIntent,type Ballot,type PollBanner,type PollPortrait,type OwnedPotentials} from '@/lib/polls/pull-poll';
+import {bannerChoice,pullIntent,stampKey,STAMP_LABELS,type Stamp,type Ballot,type PollBanner,type PollPortrait,type OwnedPotentials} from '@/lib/polls/pull-poll';
 import {shareOperatorInterests} from '@/lib/polls/pull-poll-share';
-import {bannerTitle} from './PullPollVisuals';
+import {bannerTitle,VerdictStamp} from './PullPollVisuals';
 import styles from './PullPoll.module.css';
 
 /** Preview, download and clipboard share one complete bitmap, growing for longer plans. */
 export default function PullPollShareImage({banners:initialBanners,ballot:initialBallot,portraits:initialPortraits,owned:initialOwned={},onClose}:{banners:PollBanner[];ballot:Ballot;portraits:Record<string,PollPortrait>;owned?:OwnedPotentials;onClose:()=>void}){
   const [{banners,ballot,portraits,owned}]=useState(()=>({banners:initialBanners,ballot:initialBallot,portraits:initialPortraits,owned:initialOwned}));
-  const canvas=useRef<HTMLCanvasElement>(null),url=useContentUrl(),descriptionId=useId();
-  const [ready,setReady]=useState(false),[message,setMessage]=useState(''),[retry,setRetry]=useState(0),[display,setDisplay]=useState('simple');
-  const answered=banners.filter(b=>bannerChoice(ballot[b.id],b,owned)),detailed=display==='detailed',artWidth=detailed?600:760;
+  const canvas=useRef<HTMLCanvasElement>(null),stampStyles=useRef<HTMLDivElement>(null),url=useContentUrl(),descriptionId=useId();
+  const [ready,setReady]=useState(false),[message,setMessage]=useState(''),[retry,setRetry]=useState(0),[display,setDisplay]=useState('simple'),[bannerStamps,setBannerStamps]=useState(false);
+  const answered=banners.filter(b=>bannerChoice(ballot[b.id],b,owned)),detailed=display==='detailed',stamped=!detailed&&bannerStamps,artWidth=stamped?1200:600;
   const planned=(b:PollBanner)=>shareOperatorInterests(b,ballot[b.id],owned);
-  const description=answered.map(b=>`${bannerTitle(b)}: ${pullIntent(ballot[b.id])}${detailed?`; ${planned(b).map(op=>op.label).join(', ')}`:''}`).join('. ');
+  const description=answered.map(b=>`${bannerTitle(b)}: ${stamped?STAMP_LABELS[stampKey(ballot[b.id],b,portraits,owned) as Stamp]:pullIntent(ballot[b.id])}${detailed?`; ${planned(b).map(op=>op.interest==='maybe'?`Maybe ${op.label}`:op.label).join(', ')}`:''}`).join('. ');
 
   useEffect(()=>{
     const abort=new AbortController(),timer=window.setTimeout(()=>abort.abort(),12000);let disposed=false;
@@ -43,7 +43,21 @@ export default function PullPollShareImage({banners:initialBanners,ballot:initia
       const bg=ink('--bg'),panel=ink('--panel'),well=ink('--well'),text=ink('--text-bright'),dim=ink('--text-dim'),teal=ink('--teal'),amber=ink('--amber');
       const fit=(text:string,width:number)=>{let value=text;while(c.measureText(value).width>width&&value.length)value=value.slice(0,-1);return value===text?value:value.slice(0,-1)+'…';};
       const label=(textValue:string,x:number,y:number,font:string,color:string,width?:number)=>{c.font=font;c.fillStyle=color;c.fillText(width?fit(textValue,width):textValue,x,y);};
+      const centeredLabel=(value:string,x:number,y:number,font:string,color:string)=>{c.save();c.textAlign='center';c.textBaseline='middle';label(value,x,y,font,color);c.restore();};
       const draw=(path:string|null|undefined,x:number,y:number,w:number,h:number)=>{const image=path?images.get(path):undefined;if(!image)return false;const scale=Math.min(w/image.naturalWidth,h/image.naturalHeight);c.drawImage(image,x+(w-image.naturalWidth*scale)/2,y+(h-image.naturalHeight*scale)/2,image.naturalWidth*scale,image.naturalHeight*scale);return true;};
+      const drawStamp=(banner:PollBanner,y:number,rowHeight:number)=>{
+        const key=stampKey(ballot[banner.id],banner,portraits,owned),element=stampStyles.current?.querySelector<HTMLElement>(`[data-stamp="${key}"]`);
+        if(!key||!element)return;
+        const paint=getComputedStyle(element),scale=3,fontSize=parseFloat(paint.fontSize)*scale,font=`${paint.fontWeight} ${fontSize}px ${paint.fontFamily}`,value=STAMP_LABELS[key].toUpperCase();
+        c.font=font;
+        const width=c.measureText(value).width+(parseFloat(paint.paddingLeft)+parseFloat(paint.paddingRight)+parseFloat(paint.borderLeftWidth)*2)*scale;
+        const h=fontSize*1.2+(parseFloat(paint.paddingTop)+parseFloat(paint.paddingBottom)+parseFloat(paint.borderTopWidth)*2)*scale;
+        const matrix=new DOMMatrix(paint.transform),angle=Math.atan2(matrix.b,matrix.a),boundsW=width*Math.abs(Math.cos(angle))+h*Math.abs(Math.sin(angle)),boundsH=width*Math.abs(Math.sin(angle))+h*Math.abs(Math.cos(angle));
+        c.save();c.translate(1200-24-boundsW/2,y+rowHeight-24-boundsH/2);c.rotate(angle);
+        c.beginPath();c.roundRect(-width/2,-h/2,width,h,parseFloat(paint.borderRadius)*scale||0);
+        c.fillStyle=paint.backgroundColor;c.fill();c.strokeStyle=paint.color;c.lineWidth=parseFloat(paint.borderLeftWidth)*scale;c.stroke();
+        centeredLabel(value,0,0,font,paint.color);c.restore();
+      };
       const danger=ink('--danger'),line=ink('--line');
       c.fillStyle=bg;c.fillRect(0,0,1200,height);
       label('ARKNIGHTS // PULL PLAN',24,72,'700 64px Rajdhani',text);
@@ -52,11 +66,12 @@ export default function PullPollShareImage({banners:initialBanners,ballot:initia
       let rowTop=headerHeight;
       rows.forEach(({banner:b,operators,slotHeight,rowHeight})=>{
         const y=rowTop;rowTop+=rowHeight;
-        const v=pullIntent(ballot[b.id]),choice=v==='maybe'?'Maybe':v==='skip'?'Skip':'Pull',accent=choice==='Maybe'?amber:choice==='Skip'?danger:teal;
-        c.fillStyle=panel;c.fillRect(0,y,1200,rowHeight);c.strokeRect(1,y,1198,rowHeight);c.beginPath();c.moveTo(artWidth,y);c.lineTo(artWidth,y+rowHeight);c.stroke();
+        const v=pullIntent(ballot[b.id]),choice=v==='maybe'?'~':v==='skip'?'X':'PULL',accent=v==='maybe'?amber:v==='skip'?danger:teal;
+        c.fillStyle=panel;c.fillRect(0,y,1200,rowHeight);c.strokeRect(1,y,1198,rowHeight);if(!stamped){c.beginPath();c.moveTo(artWidth,y);c.lineTo(artWidth,y+rowHeight);c.stroke();}
         if(!draw(artPath(b),4,y+4,artWidth-8,rowHeight-8))label(bannerTitle(b),20,y+rowHeight/2,'700 25px Rajdhani',dim,artWidth-40);
-        if(!detailed){label(choice,artWidth+30,y+rowHeight/2+25,'700 80px Rajdhani',accent);return;}
-        label(choice,artWidth+24,y+(operators.length?44:rowHeight/2+20),'700 44px Rajdhani',accent);
+        if(stamped){drawStamp(b,y,rowHeight);return;}
+        if(!detailed){centeredLabel(choice,(artWidth+1200)/2,y+rowHeight/2,'700 80px Rajdhani',accent);return;}
+        centeredLabel(choice,(artWidth+1200)/2,y+(operators.length?28:rowHeight/2),'700 44px Rajdhani',accent);
         const cols=3,size=128;
         operators.forEach((op,j)=>{
           const slot=artWidth+24+(j%cols)*184,px=slot+24,py=y+56+Math.floor(j/cols)*slotHeight;
@@ -65,8 +80,8 @@ export default function PullPollShareImage({banners:initialBanners,ballot:initia
           const words=op.label.split(' ');let first=words.shift()??'';
           while(words.length&&c.measureText(first+' '+words[0]).width<=174)first+=' '+words.shift();
           const color=op.interest==='maybe'?amber:teal;
-          label(first,slot,py+158,'700 30px Rajdhani',color,174);
-          if(words.length)label(words.join(' '),slot,py+186,'700 30px Rajdhani',color,174);
+          centeredLabel(fit(first,174),px+size/2,py+148,'700 30px Rajdhani',color);
+          if(words.length)centeredLabel(fit(words.join(' '),174),px+size/2,py+176,'700 30px Rajdhani',color);
         });
         if(!b.operators.length)label('Lineup still unconfirmed',artWidth+24,y+rowHeight-40,'22px Rajdhani',dim,550);
       });
@@ -76,7 +91,7 @@ export default function PullPollShareImage({banners:initialBanners,ballot:initia
     return()=>{disposed=true;clearTimeout(timer);abort.abort();};
   // Rebuild for the selected image format or an explicit retry; the dialog owns this snapshot.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  },[retry,display]);
+  },[retry,display,bannerStamps]);
   const blob=()=>new Promise<Blob>((resolve,reject)=>canvas.current?.toBlob(value=>value?resolve(value):reject(Error('Image export is unavailable.')),'image/png'));
   async function save(copy:boolean){try{
     if(copy){if(!navigator.clipboard?.write||typeof ClipboardItem==='undefined')throw Error('Copy image is unavailable in this browser. Download the PNG instead.');await navigator.clipboard.write([new ClipboardItem({'image/png':blob()})]);setMessage('Image copied.');}
@@ -84,7 +99,9 @@ export default function PullPollShareImage({banners:initialBanners,ballot:initia
   }catch(e){setMessage(e instanceof Error?e.message:'Image export failed. Please try again.');}}
   return <ImportDialog title="My pull plan" className={styles.imageDialog} onClose={onClose}>
     <SegmentedControl label="Share image display" value={display} onChange={setDisplay} options={[{value:'simple',label:'Simple'},{value:'detailed',label:'Detailed'}]}/>
-    <canvas data-display={display} ref={canvas} width="1200" height="400" aria-describedby={descriptionId} className={styles.imageCanvas} role="img" aria-label={`Your pull plan share image with ${answered.length} answered banners`}/>
+    {!detailed&&<label className="check"><input type="checkbox" checked={bannerStamps} onChange={e=>setBannerStamps(e.target.checked)}/>Banner art with stamps</label>}
+    <div ref={stampStyles} className="visually-hidden" aria-hidden="true">{(Object.keys(STAMP_LABELS) as Stamp[]).map(value=><VerdictStamp key={value} value={value}/>)}</div>
+    <canvas data-display={stamped?'stamps':display} ref={canvas} width="1200" height="400" aria-describedby={descriptionId} className={styles.imageCanvas} role="img" aria-label={`Your pull plan share image with ${answered.length} answered banners`}/>
     <p id={descriptionId} className="visually-hidden">{description}</p>
     <div className={styles.imageActions}><span className="hint" role="status">{message}</span>
       <button className="primary btn-sm" disabled={!ready} onClick={()=>void save(false)}>Download PNG</button><button className="ghost btn-sm" disabled={!ready} onClick={()=>void save(true)}>Copy image</button><button className="ghost btn-sm" onClick={()=>setRetry(value=>value+1)}>Retry artwork</button></div>

@@ -1040,7 +1040,7 @@ a.ghost.panel:focus-visible { border-color: var(--teal); }
 .poll-stamp[data-stamp="skip"] { color:var(--danger); transform:rotate(-3deg); }
 .poll-stamp[data-stamp="dolphin"] { color:var(--heading); transform:rotate(-6deg); }
 .poll-stamp[data-stamp="whale"] { color:var(--rarity-5); font-size:22px; transform:rotate(-10deg); }
-.poll-stamp[data-stamp="levi"] { color:var(--rarity-6); font-size:26px; border-width:3px; transform:rotate(-12deg); }
+.poll-stamp[data-stamp="levi"] { color:var(--rarity-6); font-size:26px; border-width:3px; transform:rotate(-12deg); transform-origin:bottom left; }
 .poll-choice-group { display:inline-flex; isolation:isolate; }
 .poll-choice-group > button { position:relative; min-height:var(--control-h); min-width:36px; padding:0 12px; margin-left:-1px; border:1px solid var(--control-border); border-radius:0; background:var(--panel-2); color:var(--text-dim); font-family:var(--font-display); font-weight:700; letter-spacing:.12em; text-transform:uppercase; }
 .poll-choice-group > button:first-child { margin-left:0; border-radius:var(--radius) 0 0 var(--radius); }
