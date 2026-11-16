@@ -76,3 +76,12 @@ assignments are invalidated and reclassified within the normal producer limit;
 deferred videos use the revised rules. Retired gameplay values are read through
 those rules so videos remain visible. Unchanged v1 catalogue-only operator proofs
 remain valid for this one-version migration; metadata edits still invalidate them.
+
+The revised category evaluation on 16 November 2026 used exactly 20 authorized
+metadata-only calls to Jev 1.14.0 (workflow run 43973343419): 19/20 hybrid decisions
+matched the labels. Both reported videos became Discussions, and all required
+Guides/Stage clears/Pulls boundary cases passed. The single disagreement was
+“Upcoming outfits announced”: News versus the fixture's Skins label. This small
+sample does not establish general accuracy. The raw requests, typed answers and
+call count are retained in that run's evaluation artifact. The 20-call budget is
+exhausted; another live evaluation needs a new budget.
