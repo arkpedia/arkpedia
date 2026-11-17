@@ -1,3 +1,4 @@
+import { withSiteTables } from '@/lib/content/server';
 import { GetStaticProps } from 'next';
 import PageMeta from '@/components/layout/PageMeta';
 import { useLiveTwitchStreams } from '@/lib/community/useLiveTwitchStreams';
@@ -36,7 +37,7 @@ export default function TwitchLivePage() {
 
 export const getStaticProps: GetStaticProps<Props> = async () => {
   return {
-    props: {},
+    props: await withSiteTables({}),
     revalidate: 1500,
   };
 };

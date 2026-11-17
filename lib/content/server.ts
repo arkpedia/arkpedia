@@ -2,7 +2,7 @@ import { contentPageClock, type PageClockField, type PageClockMoment } from './p
 import { defaultContentRevalidate } from './revalidation';
 import { REGIONAL_ROUTES, missingPageTables, pageTables } from './tables.mjs';
 import { operatorPageRoute } from '../operators/operatorPagePaths';
-import { loadRelease, readPageProps } from './release';
+import { loadRelease, readPageProps, readPublishedContentPageProps } from './release';
 import { checkSponsorCampaigns, currentSponsorCampaigns, type SponsorCampaignTable } from '../sponsors/campaigns';
 export { contentChannel } from './release';
 import type { GetStaticProps, GetStaticPropsContext, GetStaticPropsResult, Redirect } from 'next';
@@ -55,6 +55,27 @@ async function attachSponsors<P extends object>(props: P): Promise<P> {
   }
   return { ...props, __contentTables: { ...tables, 'sponsor-campaigns': table } };
 }
+
+/**
+ * The sponsor campaigns for a page that is not a content route (About, Privacy, the video
+ * pages): it has no release props of its own, so it takes the table the live release
+ * published with /support, else this deployment's copy, as of now. The header's Sponsored
+ * slot (components/ui/PageHeader) reads it. Never fails the page: unreadable means no sponsor.
+ */
+export async function withSiteTables<P extends object>(props: P): Promise<P> {
+  let table: SponsorCampaignTable = { version: 1, campaigns: [] };
+  try {
+    const published = await readPublishedContentPageProps<{ __contentTables?: Record<string, unknown> }>('/support').catch(() => null);
+    table = currentSponsorCampaigns(checkSponsorCampaigns(published?.__contentTables?.['sponsor-campaigns'] ?? (await import('../../data/sponsor-campaigns.json')).default), Date.now());
+  } catch (error) {
+    if (!warnedSponsors) { warnedSponsors = true; console.warn('[content] Sponsor campaigns unreadable; showing none:', error instanceof Error ? error.message : error); }
+  }
+  return { ...props, __contentTables: { ...(props as { __contentTables?: Record<string, unknown> }).__contentTables, 'sponsor-campaigns': table } };
+}
+
+/** getStaticProps for a page with no data of its own that still shows the site's tables.
+ *  Revalidated so a campaign starts and ends there without a deploy. */
+export const siteTablesStaticProps: GetStaticProps = async () => ({ props: await withSiteTables({}), revalidate: 1500 });
 
 /**
  * What a page's own data builder returns. No `revalidate`: a page served from the

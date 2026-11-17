@@ -90,3 +90,6 @@ export default function CreditsPage() {
     </>
   );
 }
+
+// No data of its own: the site's tables only (the header's Sponsored slot).
+export { siteTablesStaticProps as getStaticProps } from '@/lib/content/server';

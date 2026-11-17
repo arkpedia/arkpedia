@@ -6,12 +6,16 @@ third-party script runs, and nothing is sticky, fixed or laid over content.
 | Placement | Where | Notes |
 | --- | --- | --- |
 | `home` | Home page, a panel directly under Events (the same on a phone) | full column width |
-| `header` | The free space to the right of a page's title, on every page that opens with `PageHeader` | shrunk to 240-360 px wide; desktop widths only (hidden below 1000 px); not on a compact or slim header |
+| `header` | The free space to the right of a page's title, on every page that opens with `PageHeader` | shrunk to the height of the eyebrow and title rows (58 px, about 174 px wide) with its label beside it; desktop widths only (hidden below 1000 px) |
 | `support` | The "Our sponsor" section of `/support` | at the artwork's own width |
 
-A page shows at most one slot besides `/support`'s section. The header slot is laid over padding
-the header reserves, so the eyebrow, title and lede flow as they do without it; a header shorter
-than the slot grows to its height.
+A page shows at most one slot besides `/support`'s section. The header slot is laid over the
+empty space beside the title and takes no room of its own: the header reserves nothing for it, so
+every header and everything under it measures the same with or without a campaign. The slot stays
+hidden until it has measured that nothing in the header reaches under it (a long title, a control
+in the title row such as an operator page's), so on those pages it does not show. The music
+pages keep their Endfield music setting in the sidebar, not the title row, to leave that space
+free.
 
 ## Where things live
 
@@ -39,7 +43,9 @@ browser does not re-check with the reader's clock, so a slot never appears or di
 reader mid-visit; a campaign's start and end reach a page with its next revalidation. A record
 this deployment cannot read stops the export that carries it, and at request time shows no
 sponsor instead of failing the page. A page that is not a content route (`/about`,
-`/changelog`, the optimizer) carries no campaigns and shows no slot.
+`/changelog`, `/privacy`, the community video pages) takes the campaigns the live release
+published with `/support` (`withSiteTables`, `siteTablesStaticProps` in `lib/content/server.ts`).
+The error pages and the development-only pages carry none and show no slot.
 
 ## Reviewing a draft
 

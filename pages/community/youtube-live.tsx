@@ -1,3 +1,4 @@
+import { withSiteTables } from '@/lib/content/server';
 import { GetStaticProps } from 'next';
 import PageMeta from '@/components/layout/PageMeta';
 import Link from 'next/link';
@@ -47,7 +48,7 @@ export const getStaticProps: GetStaticProps<Props> = async (context) => {
   const liveNow = filterArknightsVideos(enriched.filter((v) => v.liveStatus === 'live'));
 
   return {
-    props: { liveNow, hasYouTubeApiKey: Boolean(youtubeApiKey) },
+    props: await withSiteTables({ liveNow, hasYouTubeApiKey: Boolean(youtubeApiKey) }),
     revalidate: 1500,
   };
 };

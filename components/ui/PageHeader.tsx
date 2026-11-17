@@ -49,9 +49,9 @@ interface PageHeaderProps {
  */
 export default function PageHeader({ eyebrow, title, sub, actions, stickyActions = false, slim = false, compact = false, titleId, back, inlineTrail = false, className = '' }: PageHeaderProps) {
   // The free space to the right of the title holds the Sponsored slot while a campaign
-  // runs. Not on a compact header (its actions stand there) or a slim one (a tool's first
-  // screen is the tool, and the slot would make the header taller).
-  const sponsored = useSponsorCampaign('header') !== null && !compact && !slim;
+  // runs: laid over it, never in the flow, so no header changes size for it
+  // (styles/ui/sponsored-slot.css). The slot shows only where it measures that space free.
+  const sponsored = useSponsorCampaign('header') !== null;
   return (
     <>
     <header className={`page-header${sponsored ? ' page-header-sponsored' : ''}${slim ? ' page-header-slim' : ''}${compact ? ' page-header-compact' : ''}${actions && stickyActions ? ' page-header-with-sticky-actions' : ''}${className ? ` ${className}` : ''}`}>

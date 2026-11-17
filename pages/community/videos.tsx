@@ -1,3 +1,4 @@
+import { withSiteTables } from '@/lib/content/server';
 import { GetStaticProps } from 'next';
 import PageMeta from '@/components/layout/PageMeta';
 import { enrichWithLiveStatus, YouTubeVideo } from '@/lib/music/youtube';
@@ -45,5 +46,5 @@ export const getStaticProps: GetStaticProps<Props> = async (context) => {
   const [archived, videoContext] = await Promise.all([loadVideoArchive(), loadVideoDiscoveryContext(now)]);
   const videos = filterDiscoveryVideos([...enriched, ...archived].filter((v) => !v.isLivestream));
 
-  return { props: { videos, videoContext, now }, revalidate: 1500 };
+  return { props: await withSiteTables({ videos, videoContext, now }), revalidate: 1500 };
 };

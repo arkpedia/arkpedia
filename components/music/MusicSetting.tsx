@@ -12,7 +12,7 @@ import { useAnchoredPopover } from '@/components/ui/useAnchoredPopover';
  * It stays nested in the menu's DOM so focus and outside clicks belong to the
  * correct disclosure; Escape closes the note before the menu.
  */
-export default function MusicSetting({ label, topic, checked, onChange, about, header = false }: {
+export default function MusicSetting({ label, topic, checked, onChange, about }: {
   label: string;
   /** What the ⓘ and its note are named after "About": "data saver", "Endfield music". */
   topic: string;
@@ -20,7 +20,6 @@ export default function MusicSetting({ label, topic, checked, onChange, about, h
   onChange: (on: boolean) => void;
   /** The note's text: what the setting changes, in the reader's words. */
   about: string;
-  header?: boolean;
 }) {
   const { open, setOpen, close, buttonRef: infoRef, menuRef: noteRef, menuStyle } = useAnchoredPopover(320, 'end');
   const id = useId();
@@ -38,7 +37,7 @@ export default function MusicSetting({ label, topic, checked, onChange, about, h
   }, [open]);
 
   return (
-    <div className={`music-setting${header ? ' music-setting-header' : ''}`} onKeyDown={event => {
+    <div className="music-setting" onKeyDown={event => {
       if (!open || event.key !== 'Escape') return;
       // The note only: a menu it sits in stays open.
       event.preventDefault();

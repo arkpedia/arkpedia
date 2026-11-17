@@ -19,7 +19,7 @@ async function catalogue(page: Page): Promise<Row[]> {
   return [...songs, ...CROSSOVER_PAGE_MUSIC.filter(entry => !ids.has(entry.song.id)).map(entry => entry.song)];
 }
 const idOf = (row: Row) => row.videoId || `msr:${row.cid}`;
-const setting = (page: Page) => page.locator((page.viewportSize()?.width ?? 1440) < 1000 ? '.music-phone-settings input[type=checkbox]' : '.page-header input[type=checkbox]');
+const setting = (page: Page) => page.locator('.music-nav-settings input[type=checkbox]');
 async function changeSetting(page: Page, checked: boolean) { await openMusicMenu(page); await setting(page).setChecked(checked); }
 
 test('Endfield music is off until ticked, then joins the Library, and the choice is kept', async ({ page }) => {
@@ -106,12 +106,11 @@ test('a saved playlist plays its Endfield songs only once the setting is on, and
 // drawn the way Data saver's is (components/music/MusicSetting.tsx).
 const BACKGROUND_NOTE = 'Endfield songs play from YouTube, so background play on phones may not work properly with them.';
 
-test('the header\'s Endfield music ⓘ says background play on phones may not work properly, and opening it moves nothing', async ({ page }) => {
+test('the sidebar\'s Endfield music ⓘ says background play on phones may not work properly, and opening it moves nothing', async ({ page }) => {
   await page.goto('/music/discover');
   await page.evaluate(() => document.fonts.ready);
   await openMusicMenu(page);
-  const header = page.locator((page.viewportSize()?.width ?? 1440) < 1000 ? '.music-nav-dropdown' : '.page-header');
-  const info = header.getByRole('button', { name: 'About Endfield music', exact: true });
+  const info = page.locator('.music-workspace-rail').getByRole('button', { name: 'About Endfield music', exact: true });
   await expect(info).toHaveAttribute('aria-expanded', 'false');
   const infoBox = (await info.boundingBox())!;
   expect(Math.min(infoBox.width, infoBox.height), 'the ⓘ is a 24px target at least').toBeGreaterThanOrEqual(24);
