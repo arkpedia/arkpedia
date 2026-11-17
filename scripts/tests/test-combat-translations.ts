@@ -82,12 +82,20 @@ test('CN shared base terms use game IDs, consistent English and the same member 
   const orchidGroup = orchid.baseSkills!.flatMap(skill => skill.keywords ?? []).find(term => term.term === 'cc.tag.mh2')!;
   const reconGroup = recon.baseSkills!.flatMap(skill => skill.keywords ?? []).find(term => term.term === 'cc.tag.mh2')!;
   assert.deepEqual(orchidGroup, reconGroup);
-  assert.equal(orchidGroup.name, 'Bubble Kingdom Hunting Squad');
+  // Global received these operators on 2026-11-16. From then the record is the game's own
+  // English (gamedata_const termDescriptionDict cc.tag.mh2, building_data, character_table):
+  // "Houei Hunting Squad", and prose that calls the first group "Soubo Adventurers" while the
+  // glossary still names its term "Monster Hunter Party". While the record was CN-only the site
+  // used its own translation, "Bubble Kingdom Hunting Squad". A release compiled before or
+  // after that day is held to the wording of its own source, never to a mix of the two.
+  const published = recon.sourceRegion === 'Global';
+  assert.equal(orchidGroup.name, published ? 'Houei Hunting Squad' : 'Bubble Kingdom Hunting Squad', `cc.tag.mh2 is named as the ${published ? 'game' : 'site translation'} names it`);
   for (const name of ['Violet Mizutsune Orchid', 'Zinogre S Catapult', 'Rhodes Island Recon']) assert.ok(orchidGroup.definition.includes(name));
   const helper = recon.baseSkills!.find(skill => skill.buffId === 'dorm_rec_single&tag[000]')!;
-  assert.match(helper.description!, /Monster Hunter Party/);
-  assert.doesNotMatch(helper.description!, /Monster Hunter Squad/);
+  assert.match(helper.description!, published ? /Soubo Adventurers or Houei Hunting Squad/ : /Monster Hunter Party/);
+  assert.doesNotMatch(helper.description!, published ? /Monster Hunter Squad|Bubble Kingdom/ : /Monster Hunter Squad|Houei/);
   const firstParty = helper.keywords!.find(term => term.term === 'cc.tag.mh')!;
+  assert.equal(firstParty.name, 'Monster Hunter Party', 'cc.tag.mh keeps the game glossary\'s name');
   assert.match(firstParty.definition, /Kirin R Yato/);
   assert.doesNotMatch(firstParty.definition, /Violet Mizutsune Orchid/);
   assert.notEqual(firstParty.term, reconGroup.term, 'the two Monster Hunter groups stay distinct');
@@ -97,8 +105,8 @@ test('CN shared base terms use game IDs, consistent English and the same member 
   assert.deepEqual(enrichOperatorText(official, {}, [], glossary).baseSkills, official.baseSkills, 'official Global prose and keywords remain exactly as published');
   const again = applyBaseSkillGlossary(recon.baseSkills, glossary)!;
   assert.deepEqual(again, recon.baseSkills, 're-enrichment does not duplicate keywords');
-  assert.match(recon.review!.official!, /Bubble Kingdom/);
-  assert.doesNotMatch(recon.review!.official!, /Land of Bubbles|Aigis/);
+  assert.match(recon.review!.official!, published ? /Houei/ : /Bubble Kingdom/, 'the place is named as the record\'s own source names it');
+  assert.doesNotMatch(recon.review!.official!, published ? /Bubble Kingdom|Land of Bubbles|Aigis/ : /Land of Bubbles|Aigis/);
   assert.match(ops.find(op => op.name === 'Aegis')!.review!.official!, /Aegis/);
 });
 

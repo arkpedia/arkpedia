@@ -389,7 +389,10 @@ test('talent headings drop the scraped Replaces suffix while the raw name stays 
 
 test('potential replacement chains render as one talent while independent numbered talents stay separate', () => {
   const normalized = new Map(getAllOperators().map(operator => [operator.internalName, operator]));
-  // Castle-3, Lancet-2, THRM-EX, and Rhodes Island Recon (CN-only).
+  // Castle-3, Lancet-2 and THRM-EX number their steps 1-6. Rhodes Island Recon numbers them
+  // I-VI in the game's English text (character_table, char_4215_buddy), as Global published it
+  // on 2026-11-16; while it was CN-only the site numbered its own translation 1-6.
+  const ROMAN = ['I', 'II', 'III', 'IV', 'V', 'VI'];
   for (const id of ['char_286_cast3', 'char_285_medic2', 'char_376_therex', 'char_4215_buddy']) {
     const talents = normalized.get(id)?.talents;
     assert(talents, id);
@@ -398,7 +401,8 @@ test('potential replacement chains render as one talent while independent number
     assert(talent, id);
     assert.equal(talent.rows.length, 6, id);
     assert(!talent.name?.match(/(?:\s[1-6]|\s(?:I|II|III|IV|V|VI))$/), id);
-    assert.deepEqual(talent.rows.map(row => row.name), Array.from({ length: 6 }, (_, index) => `${talent.name} ${index + 1}`), id);
+    const roman = /\sI$/.test(talent.rows[0].name ?? '');
+    assert.deepEqual(talent.rows.map(row => row.name), Array.from({ length: 6 }, (_, index) => `${talent.name} ${roman ? ROMAN[index] : index + 1}`), `${id}: the six steps are numbered in one series, 1-6 or I-VI, as the game names them`);
   }
 
   assert.deepEqual(normalized.get(op('CONFESS-47').internalName)?.talents?.[0]?.rows.map(row => row.name),
