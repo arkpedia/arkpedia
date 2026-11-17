@@ -5,7 +5,7 @@ import { createServer } from 'node:http';
 import { test } from 'node:test';
 import { withContentPage } from '../../lib/content/server';
 import { pageFilePath } from '../../lib/content/pagePaths.mjs';
-import { missingPageTables, PAGE_TABLES, pageTables } from '../../lib/content/tables.mjs';
+import { missingPageTables, PAGE_TABLES, pageTables, SITE_TABLES } from '../../lib/content/tables.mjs';
 import { CONTENT_SCHEMA, type ContentManifest, type ContentPointer } from '../../lib/content/types';
 
 /*
@@ -17,6 +17,8 @@ const sha = (value: string) => createHash('sha256').update(value).digest('hex');
 const ROUTE = '/planner';
 const NAMES = pageTables(ROUTE);
 const bundledCopy = (name: string) => ({ from: 'deployment', name });
+/** The page's own tables: withContentPage adds the site's (SITE_TABLES) to every route itself. */
+const own = (tables: Record<string, unknown>) => Object.fromEntries(Object.entries(tables).filter(([name]) => !SITE_TABLES.includes(name)));
 function loaders(calls: string[]) {
   return Object.fromEntries(NAMES.map(name => [name, async () => { calls.push(name); return bundledCopy(name); }]));
 }
@@ -73,7 +75,9 @@ test('the release\'s copy of a table wins; an older release without it gets this
     const releaseTables = Object.fromEntries(NAMES.map(name => [name, { from: 'release', name }]));
     publish({ value: 'current', __contentTables: releaseTables });
     const current = await read();
-    assert.deepEqual(current.__contentTables, releaseTables);
+    assert.deepEqual(own(current.__contentTables), releaseTables);
+    // The site's tables come with every page, from the deployment when the release has none.
+    for (const name of SITE_TABLES) assert.ok(current.__contentTables[name], name);
     assert.deepEqual(calls, [], 'a table the release carries is never replaced');
 
     // Exported before the tables joined this page: served, and completed from the bundle.
@@ -84,7 +88,7 @@ test('the release\'s copy of a table wins; an older release without it gets this
       publish({ value: 'older' });
       const older = await read();
       assert.equal(older.value, 'older');
-      assert.deepEqual(older.__contentTables, Object.fromEntries(NAMES.map(name => [name, bundledCopy(name)])));
+      assert.deepEqual(own(older.__contentTables), Object.fromEntries(NAMES.map(name => [name, bundledCopy(name)])));
       assert.deepEqual(calls, [...NAMES]);
       // Part of the tables: only the missing ones are loaded.
       const [first, ...rest] = NAMES;

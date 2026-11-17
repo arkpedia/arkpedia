@@ -22,8 +22,6 @@ import { getEventCalendar } from '@/lib/home/frontPageContent';
 import { PULL_PLAN_EVENT } from '@/lib/polls/pull-poll-sync';
 import { currentPullPlan } from '@/lib/pulls/currentPlan';
 import { withContentPage } from '@/lib/content/server';
-import SponsoredSlot from '@/components/ui/SponsoredSlot';
-import { checkSponsorCampaigns } from '@/lib/sponsors/campaigns';
 import { ContentImg } from '@/components/content/ContentImage';
 import { formatDayMonth, formatDayMonthYear, formatNumber, formatOneDecimal } from '@/lib/pulls/format';
 import { pullSkinCollections, skinReleaseDates, type SkinCollection } from '@/lib/pulls/skinCollections';
@@ -530,7 +528,6 @@ export default function PullsPage({ scheduledEvents: globalEvents, scheduledBann
         )}
       </section>
       </div>
-      <SponsoredSlot placement="spend" />
     </main>
     {availableRow && availableAt && <AvailablePullsDialog row={availableRow} holdings={availableNow}
       income={availableAt.recurringOnlyUnreserved - availableNow}
@@ -671,7 +668,7 @@ export const getStaticProps: GetStaticProps<PullsProps> = withContentPage<PullsP
   const predicted = new Set(getEventCalendar().filter(event => event.isPredicted).map(event => event.name));
   const skinCollections = pullSkinCollections(events, skins, skinCatalogue, predicted);
   return { props: { scheduledEvents: getPullEventSchedule(backlogSources), backlogSources, skinCatalogue, skinCollections, scheduledBanners, bannerOdds: getBannerOdds(scheduledBanners) } };
-}, { tables: { 'sponsor-campaigns': async () => checkSponsorCampaigns((await import('@/data/sponsor-campaigns.json')).default) }, finalize: async released => {
+}, { finalize: async released => {
   const props = withLightRegionalTable(released);
   const current = await withPullPlannerDynamicArt(currentPullPlan({ ...props, scheduledBanners: fillCollabTicketsFromDeployment(props.scheduledBanners), scheduledEvents: fillRerunActivities(props.scheduledEvents) }, Date.now()));
   if (current.backlogSources) return { ...current, backlogSources: fillFromDeployment(current.backlogSources, bundledBacklogSources()) };

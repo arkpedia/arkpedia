@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useContext, useState } from 'react';
 import { ContentImg } from '@/components/content/ContentImage';
-import { useReleaseTable } from '@/lib/content/context';
+import { ContentTablesContext } from '@/lib/content/context';
 import { useReaderValue } from '@/lib/time/readerClock';
 import { sponsorCampaignFor, type SponsorCampaign, type SponsorCampaignTable, type SponsorPlacement } from '@/lib/sponsors/campaigns';
 import { SPONSOR_STRINGS as S } from '@/lib/sponsors/strings';
@@ -9,12 +9,20 @@ import { SPONSOR_STRINGS as S } from '@/lib/sponsors/strings';
    (a review deployment), never on the public site. */
 const DRAFTS = process.env.NODE_ENV !== 'production' || process.env.NEXT_PUBLIC_SPONSOR_PREVIEW === '1';
 
-/** The campaign a placement shows now, or null: the server's answer first, then the reader's clock. */
-export function useSponsorCampaign(placement: SponsorPlacement, now?: number): SponsorCampaign | null {
-  const table = useReleaseTable<SponsorCampaignTable>('sponsor-campaigns');
+/**
+ * The campaign a placement shows now, or null.
+ *
+ * The first render takes the table as the server sent it: withContentPage has already
+ * dropped the campaigns outside their dates at the request (lib/content/server.ts), so
+ * the markup matches. After mount the reader's clock decides, which only differs for a
+ * page cached across a campaign's first or last minutes. A page that is not a content
+ * route (no withContentPage) carries no table and shows nothing.
+ */
+export function useSponsorCampaign(placement: SponsorPlacement): SponsorCampaign | null {
+  const table = useContext(ContentTablesContext)['sponsor-campaigns'] as SponsorCampaignTable | undefined;
   return useReaderValue(
-    sponsorCampaignFor(table, placement, now ?? null, DRAFTS),
-    readerMs => sponsorCampaignFor(table, placement, readerMs, DRAFTS),
+    table ? sponsorCampaignFor(table, placement, null, DRAFTS) : null,
+    readerMs => table ? sponsorCampaignFor(table, placement, readerMs, DRAFTS) : null,
     { onFocus: true },
   );
 }
@@ -25,15 +33,10 @@ export function useSponsorCampaign(placement: SponsorPlacement, now?: number): S
  *
  * The box is sized from the campaign's own width and height before the image loads, and
  * keeps that size if the image never does (a content blocker): it then holds a line of
- * text instead, so nothing below it moves.
- *
- * `now` is the page's request clock where the route has one (lib/content/pageClock.ts):
- * the server then renders the slot only inside the campaign's window. Without it the
- * first render shows any active campaign, and one outside its window is removed once the
- * page has mounted; put such a slot last on its page, where removing it moves nothing.
+ * text instead, so nothing around it moves.
  */
-export default function SponsoredSlot({ placement, now, className = '' }: { placement: SponsorPlacement; now?: number; className?: string }) {
-  const campaign = useSponsorCampaign(placement, now);
+export default function SponsoredSlot({ placement, className = '' }: { placement: SponsorPlacement; className?: string }) {
+  const campaign = useSponsorCampaign(placement);
   const [failed, setFailed] = useState<string | null>(null);
   if (!campaign) return null;
   const draft = campaign.status === 'draft';

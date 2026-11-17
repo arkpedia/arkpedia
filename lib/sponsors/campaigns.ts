@@ -7,8 +7,9 @@
  * script: a slot is one image and one link.
  */
 
-/** Where a slot stands. "spend" is the strip under /pulls, /skins and /gacha. */
-export const SPONSOR_PLACEMENTS = ['home', 'spend', 'support'] as const;
+/** Where a slot stands: the home page's panel under Events, the free space beside a page's
+ *  header, and the Sponsor section of /support. */
+export const SPONSOR_PLACEMENTS = ['home', 'header', 'support'] as const;
 export type SponsorPlacement = typeof SPONSOR_PLACEMENTS[number];
 
 export interface SponsorCampaign {
@@ -76,6 +77,15 @@ export function checkSponsorCampaigns(value: unknown): SponsorCampaignTable {
   return { version: 1, campaigns };
 }
 
+const inWindow = (campaign: SponsorCampaign, nowMs: number) =>
+  (campaign.startAt === null || nowMs >= Date.parse(campaign.startAt)) && (campaign.endAt === null || nowMs < Date.parse(campaign.endAt));
+
+/** The table without the active campaigns that are outside their dates at `nowMs`: what
+ *  withContentPage hands a request, so the server's HTML never holds an expired slot. */
+export function currentSponsorCampaigns(table: SponsorCampaignTable, nowMs: number): SponsorCampaignTable {
+  return { version: 1, campaigns: table.campaigns.filter(campaign => campaign.status !== 'active' || inWindow(campaign, nowMs)) };
+}
+
 /**
  * The campaign a placement shows at `nowMs`, or null.
  *
@@ -89,6 +99,6 @@ export function sponsorCampaignFor(table: SponsorCampaignTable, placement: Spons
     if (campaign.status === 'draft') return drafts;
     if (campaign.status !== 'active' || !campaign.url) return false;
     if (nowMs === null) return true;
-    return (campaign.startAt === null || nowMs >= Date.parse(campaign.startAt)) && (campaign.endAt === null || nowMs < Date.parse(campaign.endAt));
+    return inWindow(campaign, nowMs);
   }) ?? null;
 }

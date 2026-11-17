@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from 'react';
 import PageMeta from '@/components/layout/PageMeta';
 import PageHeader from '@/components/ui/PageHeader';
 import SponsoredSlot, { useSponsorCampaign } from '@/components/ui/SponsoredSlot';
-import { checkSponsorCampaigns } from '@/lib/sponsors/campaigns';
 import { SPONSOR_STRINGS } from '@/lib/sponsors/strings';
 import { withContentPage } from '@/lib/content/server';
 import { useReleaseTable } from '@/lib/content/context';
@@ -203,5 +202,5 @@ function SponsorSection() {
 
 export const getStaticProps = withContentPage('/support', async () => ({ props: {} }), {
   bundledWhenUnpublished: true,
-  tables: { 'sponsor-campaigns': async () => checkSponsorCampaigns((await import('@/data/sponsor-campaigns.json')).default), 'patreon-supporters': async () => (await import('@/data/patreon-supporters.json')).default },
+  tables: { 'patreon-supporters': async () => (await import('@/data/patreon-supporters.json')).default },
 });

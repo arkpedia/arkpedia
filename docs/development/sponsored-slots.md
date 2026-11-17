@@ -3,18 +3,20 @@
 A sponsored slot is one image and one link in the page's flow, labelled "Sponsored". No
 third-party script runs, and nothing is sticky, fixed or laid over content.
 
-| Placement | Where | Creative shape |
+| Placement | Where | Notes |
 | --- | --- | --- |
-| `home` | Home page, last panel of the left column (last of all on a phone) | wide panel, 3:1 |
-| `spend` | Under the content of `/pulls` and `/gacha` | strip, 4.5:1, at most 900 px wide |
-| `support` | The "Our sponsor" section of `/support` | the same strip |
+| `home` | Home page, a panel directly under Events (the same on a phone) | full column width |
+| `header` | The free space to the right of a page's title, on every page that opens with `PageHeader` | shrunk to 240-360 px wide; desktop widths only (hidden below 1000 px); not on a compact header, whose actions stand there |
+| `support` | The "Our sponsor" section of `/support` | at the artwork's own width |
 
-`/skins` has no slot: its gallery grows as the reader scrolls, so nothing can stand under it.
+A page shows at most one slot besides `/support`'s section. The header slot is laid over padding
+the header reserves, so the eyebrow, title and lede flow as they do without it; a header shorter
+than the slot grows to its height.
 
 ## Where things live
 
-- **Campaigns:** arkpedia-data `source/data/sponsor-campaigns.json`, which reaches pages as the
-  `sponsor-campaigns` release table (`lib/content/tables.mjs`). Starting, swapping or ending a
+- **Campaigns:** arkpedia-data `source/data/sponsor-campaigns.json`, which reaches every content
+  page as the `sponsor-campaigns` table (`SITE_TABLES` in `lib/content/tables.mjs`). Starting, swapping or ending a
   campaign is a data release, not a deploy. The record's `about` describes each field.
 - **Artwork:** arkpedia-image-assets `advertisements/<sponsor>/`, delivered as WebP, with the
   sponsor's uploaded file kept under `originals/advertisements/`.
@@ -31,10 +33,11 @@ The box takes the artwork's aspect ratio before the image loads. If the image ne
 content blocker, a failed request) the box keeps its size and holds a line of text, so nothing
 below it moves.
 
-On `/` and `/gacha` the server renders from the request clock, so a campaign outside its window
-is never in the HTML. `/pulls` and `/support` have no request clock: the server renders any
-active campaign and the browser removes one outside its window after mount. Those slots are last
-on their pages, where removing them moves nothing above.
+`withContentPage` attaches the campaigns to every content route (`SITE_TABLES`) and drops the
+ones outside their dates at each request, so the server's HTML never holds an expired slot. The
+browser re-checks with the reader's clock after mount, which only differs for a page cached
+across a campaign's first or last minutes. A page that is not a content route (`/about`,
+`/changelog`, the optimizer) carries no campaigns and shows no slot.
 
 ## Reviewing a draft
 
@@ -42,7 +45,7 @@ on their pages, where removing them moves nothing above.
 labelled "Sponsored · draft preview", with or without a link and whatever their dates. Never set
 that variable on the public site.
 
-A malformed record throws from the page's table loader (`checkSponsorCampaigns`), which stops the
+A malformed record throws when a page's tables are attached (`checkSponsorCampaigns`), which stops the
 release that carries it: an active campaign without a link, a date without a timezone, an image
 outside `/advertisements/`.
 

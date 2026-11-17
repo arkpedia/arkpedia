@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { checkSponsorCampaigns, sponsorCampaignFor, type SponsorCampaign } from '../../lib/sponsors/campaigns';
+import { checkSponsorCampaigns, currentSponsorCampaigns, sponsorCampaignFor, type SponsorCampaign } from '../../lib/sponsors/campaigns';
 import record from '../../data/sponsor-campaigns.json';
 
 const campaign = (over: Partial<SponsorCampaign> = {}): SponsorCampaign => ({
@@ -19,7 +19,7 @@ test('readers see a campaign only while it is active, linked and inside its wind
   assert.equal(sponsorCampaignFor(t, 'home', at('2026-11-17T00:00:00Z'))?.id, 'acme-sale');
   assert.equal(sponsorCampaignFor(t, 'home', at('2026-10-31T23:59:00Z')), null, 'before startAt');
   assert.equal(sponsorCampaignFor(t, 'home', at('2026-12-01T00:00:00Z')), null, 'endAt is exclusive');
-  assert.equal(sponsorCampaignFor(t, 'spend', at('2026-11-17T00:00:00Z')), null, 'another placement');
+  assert.equal(sponsorCampaignFor(t, 'header', at('2026-11-17T00:00:00Z')), null, 'another placement');
   assert.equal(sponsorCampaignFor(table(campaign({ status: 'ended' })), 'home', at('2026-11-17T00:00:00Z')), null);
 });
 
@@ -27,6 +27,13 @@ test('a draft is never shown to readers, and is shown in a preview whatever its 
   const t = table(campaign({ status: 'draft', url: null, startAt: null, endAt: null }));
   assert.equal(sponsorCampaignFor(t, 'home', at('2026-11-17T00:00:00Z')), null);
   assert.equal(sponsorCampaignFor(t, 'home', at('2026-11-17T00:00:00Z'), true)?.id, 'acme-sale');
+});
+
+test('a request is handed no active campaign outside its dates, and every draft', () => {
+  const t = table(campaign({ id: 'over', endAt: '2026-11-10T00:00:00Z' }), campaign({ id: 'running' }), campaign({ id: 'draft', status: 'draft', url: null }));
+  assert.deepEqual(currentSponsorCampaigns(t, at('2026-11-17T00:00:00Z')).campaigns.map(c => c.id), ['running', 'draft']);
+  // What the server then renders without a clock of its own.
+  assert.equal(sponsorCampaignFor(currentSponsorCampaigns(t, at('2026-12-02T00:00:00Z')), 'home', null), null);
 });
 
 test('the first usable campaign listed for a placement wins', () => {

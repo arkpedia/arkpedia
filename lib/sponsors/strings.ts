@@ -7,5 +7,5 @@ export const SPONSOR_STRINGS = {
   /** Shown in the slot's box when the artwork does not load (a content blocker, a failed request). */
   fallback: (sponsor: string) => `Arkpedia is supported by ${sponsor}`,
   supportHeading: 'Our sponsor',
-  supportCopy: 'Sponsors help pay for hosting. Sponsored links are always labelled and sit under a page\'s content, never over it.',
+  supportCopy: 'Sponsors help pay for hosting. Sponsored links are always labelled and never cover a page\'s content.',
 };

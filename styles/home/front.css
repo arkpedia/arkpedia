@@ -542,14 +542,14 @@ html[data-site-server="kr"] .maintenance-notice:not([data-server="kr"]) {
   }
   .maintenance-notice { order: 0; }
   .front-events-panel { order: 1; }
-  .front-farmable-panel { order: 2; }
-  .front-gacha-panel { order: 3; }
-  .front-featured-ops-panel { order: 4; }
-  .front-skins-panel { order: 5; }
-  .front-community-panel { order: 6; }
-  /* Last, under every panel of the site's own (components/ui/SponsoredSlot); without an
-     order it would be first, above Events. */
-  .front-sponsored-panel { order: 7; }
+  /* Directly under Events, as on the desktop board (components/ui/SponsoredSlot); without
+     an order it would be first, above Events. */
+  .front-sponsored-panel { order: 2; }
+  .front-farmable-panel { order: 3; }
+  .front-gacha-panel { order: 4; }
+  .front-featured-ops-panel { order: 5; }
+  .front-skins-panel { order: 6; }
+  .front-community-panel { order: 7; }
 }
 
 /* Append to styles/home/front.css -- .front-events-main is now a <Link>

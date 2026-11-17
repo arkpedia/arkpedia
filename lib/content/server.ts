@@ -3,6 +3,7 @@ import { defaultContentRevalidate } from './revalidation';
 import { REGIONAL_ROUTES, missingPageTables, pageTables } from './tables.mjs';
 import { operatorPageRoute } from '../operators/operatorPagePaths';
 import { loadRelease, readPageProps } from './release';
+import { checkSponsorCampaigns, currentSponsorCampaigns } from '../sponsors/campaigns';
 export { contentChannel } from './release';
 import type { GetStaticProps, GetStaticPropsContext, GetStaticPropsResult, Redirect } from 'next';
 import { contentRoute } from './types';
@@ -11,6 +12,9 @@ import { contentRoute } from './types';
  *  data file. Written inside the getStaticProps call, so Next drops them from the
  *  browser build along with it: the tables reach the browser only through props. */
 export type ContentTableLoaders = Record<string, () => Promise<unknown>>;
+
+// Exports stay clock-free; every other path is a request and gets its moment.
+const moment = (): PageClockMoment => process.env.ARKPEDIA_EXPORT_CONTENT === '1' ? { exporting: true } : { now: Date.now() };
 
 const warnedTables = new Set<string>();
 /** Give props every table the route declares, without touching a cached payload. A
@@ -31,6 +35,19 @@ async function attachTables<P extends object>(template: string, props: P, loader
 }
 
 /**
+ * The site table every content route carries (SITE_TABLES in lib/content/tables.mjs): the
+ * sponsor campaigns, the release's copy when it has one, else this deployment's. A request
+ * gets them as of its moment, so the server never renders a campaign outside its dates; an
+ * export stays clock-free and carries every campaign.
+ */
+async function attachSponsors<P extends object>(props: P): Promise<P> {
+  const tables = (props as { __contentTables?: Record<string, unknown> }).__contentTables ?? {};
+  const table = checkSponsorCampaigns(tables['sponsor-campaigns'] ?? (await import('../../data/sponsor-campaigns.json')).default);
+  const now = moment();
+  return { ...props, __contentTables: { ...tables, 'sponsor-campaigns': 'exporting' in now ? table : currentSponsorCampaigns(table, now.now) } };
+}
+
+/**
  * What a page's own data builder returns. No `revalidate`: a page served from the
  * release never calls its builder, so an interval set there silently never reached
  * Next (/schedule's 1200 did nothing). Pass it as withContentPage's option. No clock
@@ -43,8 +60,6 @@ export type ContentPageBuilder<P> = (context: GetStaticPropsContext) => Promise<
   | { redirect: Redirect; revalidate?: never }
 >;
 
-// Exports stay clock-free; every other path is a request and gets its moment.
-const moment = (): PageClockMoment => process.env.ARKPEDIA_EXPORT_CONTENT === '1' ? { exporting: true } : { now: Date.now() };
 
 export interface ContentPageOptions<P> {
   /** Runs on every request's props, the release's or the builder's (never in the export).
@@ -103,7 +118,7 @@ export function withContentPage<P extends object>(template: string, builder: Con
         if (template.includes('[')) return { notFound: true, revalidate: process.env.ARKPEDIA_CONTENT_TEST === '1' ? 1 : 60 };
         if (!bundledFallbackAvailable && !options.bundledWhenUnpublished) throw new Error(`Published content is missing ${route}`);
         const fallback = await bundled(context);
-        if ('props' in fallback) fallback.props = await attachTables(template, contentPageClock(template, await fallback.props, moment()), loaders);
+        if ('props' in fallback) fallback.props = await attachSponsors(await attachTables(template, contentPageClock(template, await fallback.props, moment()), loaders));
         if ('props' in fallback && options.finalize) fallback.props = await options.finalize(await fallback.props, context);
         return { ...fallback, revalidate: revalidate() };
       }
@@ -113,7 +128,7 @@ export function withContentPage<P extends object>(template: string, builder: Con
           if (template.includes('[')) return { notFound: true, revalidate: process.env.ARKPEDIA_CONTENT_TEST === '1' ? 1 : 60 };
           throw new Error('Published content page disappeared');
         }
-        const currentProps = await attachTables(template, contentPageClock(template, { ...props, __contentRelease: loaded.context } as unknown as P, moment()), loaders, loaded.context.release);
+        const currentProps = await attachSponsors(await attachTables(template, contentPageClock(template, { ...props, __contentRelease: loaded.context } as unknown as P, moment()), loaders, loaded.context.release));
         return { props: options.finalize ? await options.finalize(currentProps, context) : currentProps, revalidate: revalidate() };
       } catch (error) {
         // An ISR failure preserves Next's previous valid page. A cold request can
@@ -125,7 +140,7 @@ export function withContentPage<P extends object>(template: string, builder: Con
     if (!bundledFallbackAvailable) throw new Error(`Published content is unavailable for ${contentRoute(template, context.params)}`);
     const fallback = await bundled(context);
     // The content export takes this path too, so this is where a release gets its tables.
-    if ('props' in fallback) fallback.props = await attachTables(template, contentPageClock(template, await fallback.props, moment()), loaders);
+    if ('props' in fallback) fallback.props = await attachSponsors(await attachTables(template, contentPageClock(template, await fallback.props, moment()), loaders));
     if ('props' in fallback && options.finalize && process.env.ARKPEDIA_EXPORT_CONTENT !== '1') fallback.props = await options.finalize(await fallback.props, context);
     return { ...fallback, revalidate: revalidate() };
   };

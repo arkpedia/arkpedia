@@ -5,8 +5,6 @@ import { regionalBanners, withLightRegionalTable } from '@/lib/time/regional';
 import { isLineupPending, lineupPendingNote, RETURNING_LIMITED_NOTE } from '@/lib/gacha/bannerLineup';
 import { bannerDisplayName } from '@/lib/gacha/bannerDisplayName';
 import { withContentPage } from '@/lib/content/server';
-import SponsoredSlot from '@/components/ui/SponsoredSlot';
-import { checkSponsorCampaigns } from '@/lib/sponsors/campaigns';
 import { GetStaticProps } from 'next';
 import { useRouter } from 'next/router';
 import Image from '@/components/content/ContentImage';
@@ -2309,7 +2307,6 @@ export default function GachaSimulator({ pools, banners: globalBanners, kernelLo
             )}
           </div>
         </div>
-        <SponsoredSlot placement="spend" now={now} />
       </main>
 
       {showDetails && banner && <BannerDetails banner={banner} dateLabel={bannerDateLabel(selectedBanner)} onClose={() => setShowDetails(false)} onSelect={setPreviewedPull} previewOpen={!!previewedPull} />}
@@ -2545,4 +2542,4 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/ga
   // hook re-estimated CN-only dates on each request from this deployment's bundled
   // banners and events, which lag the release (411 banners against its 412). The one
   // request-time step is clock-free: the regional table without its provenance links.
-}, { tables: { 'sponsor-campaigns': async () => checkSponsorCampaigns((await import('@/data/sponsor-campaigns.json')).default) }, finalize: async props => withLightRegionalTable(props) });
+}, { finalize: async props => withLightRegionalTable(props) });
