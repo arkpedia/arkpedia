@@ -2,6 +2,9 @@
 export const SPONSOR_STRINGS = {
   label: 'Sponsored',
   draftLabel: 'Sponsored · draft preview',
+  /** The tag in the corner of the small artwork beside a page's title. */
+  tag: 'Ad',
+  draftTag: 'Ad · draft',
   region: (sponsor: string) => `Sponsored: ${sponsor}`,
   linkLabel: (sponsor: string, alt: string) => `${alt} (sponsored link to ${sponsor}, opens in a new tab)`,
   /** Shown in the slot's box when the artwork does not load (a content blocker, a failed request). */

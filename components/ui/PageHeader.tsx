@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import type { CSSProperties, ReactNode } from 'react';
 import BackLink from './BackLink';
 import StickyControls from './StickyControls';
 import SponsoredSlot, { useSponsorCampaign } from './SponsoredSlot';
@@ -51,10 +51,12 @@ export default function PageHeader({ eyebrow, title, sub, actions, stickyActions
   // The free space to the right of the title holds the Sponsored slot while a campaign
   // runs: laid over it, never in the flow, so no header changes size for it
   // (styles/ui/sponsored-slot.css). The slot shows only where it measures that space free.
-  const sponsored = useSponsorCampaign('header') !== null;
+  const campaign = useSponsorCampaign('header');
+  const sponsored = campaign !== null;
   return (
     <>
-    <header className={`page-header${sponsored ? ' page-header-sponsored' : ''}${slim ? ' page-header-slim' : ''}${compact ? ' page-header-compact' : ''}${actions && stickyActions ? ' page-header-with-sticky-actions' : ''}${className ? ` ${className}` : ''}`}>
+    <header className={`page-header${sponsored ? ' page-header-sponsored' : ''}${slim ? ' page-header-slim' : ''}${compact ? ' page-header-compact' : ''}${actions && stickyActions ? ' page-header-with-sticky-actions' : ''}${className ? ` ${className}` : ''}`}
+      style={campaign ? { '--header-sponsor-ratio': campaign.width / campaign.height } as CSSProperties : undefined}>
       {inlineTrail ? <div className="page-header-trail">
         {back ? <BackLink href={back.href} label={back.label} /> : null}
         <div className="eyebrow">{eyebrow}</div>

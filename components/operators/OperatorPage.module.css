@@ -18,10 +18,18 @@
    it: the workspace below is bounded to the viewport, so every header pixel is
    taken from the artwork. The h1 itself is PageHeader's, untouched. */
 @media (min-width: 901px) {
-  .frame > header { display: grid; grid-template-columns: minmax(0, 1fr) minmax(240px, 340px); align-items: end; column-gap: 24px; }
+  /* The workspace's own columns (.page below), so the search starts on the information
+     panel's left edge whatever the window's width. */
+  .frame > header { display: grid; grid-template-columns: minmax(0, 7fr) 28px minmax(0, 5fr); align-items: end; column-gap: 8px; }
   .frame > header > :global(.eyebrow), .frame > header > h1 { grid-column: 1; }
-  .frame > header > :global(.page-header-actions) { grid-column: 2; grid-row: 1 / span 2; align-self: end; margin: 0 0 4px; }
+  .frame > header > :global(.page-header-actions) { grid-column: 3; grid-row: 1 / span 2; align-self: end; max-width: 340px; margin: 0 0 4px; }
   .frame > header > :global(.page-header-actions) > * { flex: 1; }
+}
+/* While a campaign runs the search ends short of the Sponsored slot in the header's corner
+   (styles/ui/sponsored-slot.css); its left edge stays where it is. Narrower than this the
+   column cannot hold both, the search keeps it and the slot stays hidden. */
+@media (min-width: 1200px) {
+  .frame > header:global(.page-header-sponsored) > :global(.page-header-actions) { margin-right: calc(var(--header-sponsor-h) * var(--header-sponsor-ratio) + 24px); }
 }
 .page {
   display: grid;
