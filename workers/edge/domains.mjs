@@ -18,7 +18,7 @@ export async function domainResponse(request, requestPreview = fetch) {
   upstream.search = url.search;
   const headers = new Headers(request.headers);
   const previewAccount = /^\/api\/(?:auth|cloud-account|account-profile)(?:\/|$)/.test(path)
-    || /^\/api\/community\/(?:sharing|availability)\/?$/.test(path);
+    || /^\/api\/community\/(?:sharing|availability|friends)\/?$/.test(path);
   // Only the isolated native Preview handles its accounts. Ordinary demo requests
   // still discard credentials; no account request reaches the live service binding.
   if (!previewAccount) {

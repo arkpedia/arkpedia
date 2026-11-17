@@ -72,7 +72,7 @@ test('Preview keeps request bodies and rewrites only same-upstream redirects', a
 
 
 test('Preview community writes and private choices retain the login only for their exact routes',async()=>{
-  for(const path of ['/api/community/sharing','/api/community/availability','/api/community/%73haring','/api/community/sharing/']){
+  for(const path of ['/api/community/sharing','/api/community/availability','/api/community/friends?mine=1','/api/community/friends/','/api/community/%66riends?mine=1','/api/community/%73haring','/api/community/sharing/']){
     const response=await domainResponse(new Request(`https://preview.arkpedia.net${path}`,{headers:{cookie:'arkpedia.session_token=test'}}),async request=>{
       assert.equal(new URL(request.url).origin,'https://arkpedia-gins-arkpedia.cloudflare-1ff.workers.dev');
       assert.equal(request.headers.get('cookie'),'arkpedia.session_token=test');
@@ -82,11 +82,31 @@ test('Preview community writes and private choices retain the login only for the
     assert.ok(response.headers.has('set-cookie'));
     assert.equal(await domainResponse(new Request(`https://www.arkpedia.net${path}`)),null,'production routing is unchanged');
   }
-  for(const path of ['/api/community/supports','/api/community/stats','/api/community/sharing-extra','/api/community/sharing/nested']){
+  for(const path of ['/api/community/supports','/api/community/stats','/api/community/sharing-extra','/api/community/sharing/nested','/api/community/friends-extra','/api/community/friends/nested']){
     const response=await domainResponse(new Request(`https://preview.arkpedia.net${path}`,{headers:{cookie:'private',authorization:'Bearer private'}}),async request=>{
       assert.equal(request.headers.has('cookie'),false);assert.equal(request.headers.has('authorization'),false);
       return new Response('{}',{headers:{'set-cookie':'unexpected=value'}});
     });
     assert.equal(response.headers.has('set-cookie'),false);
+  }
+});
+
+test('Preview profile publication and withdrawal preserve their authenticated request and isolated destination', async () => {
+  for (const method of ['GET', 'PUT', 'DELETE']) {
+    const url = 'https://preview.arkpedia.net/api/community/friends?mine=1';
+    const body = JSON.stringify({ owner: 'test-owner', revision: 2 });
+    const response = await domainResponse(new Request(url, { method, headers: {
+      cookie: '__Secure-arkpedia.session_token=test', authorization: 'Bearer test', origin: 'https://preview.arkpedia.net', 'content-type': 'application/json',
+    }, ...(method === 'GET' ? {} : { body }) }), async request => {
+      assert.equal(request.url, 'https://arkpedia-gins-arkpedia.cloudflare-1ff.workers.dev/api/community/friends?mine=1');
+      assert.equal(request.headers.get('cookie'), '__Secure-arkpedia.session_token=test');
+      assert.equal(request.headers.get('authorization'), 'Bearer test');
+      assert.equal(request.headers.get('origin'), 'https://preview.arkpedia.net');
+      assert.equal(request.method, method);
+      if (method !== 'GET') assert.equal(await request.text(), body);
+      return new Response('{}');
+    });
+    assert.equal(response.headers.get('cache-control'), 'private, no-store');
+    assert.equal(await domainResponse(new Request(url.replace('preview.', 'www.'))), null);
   }
 });
