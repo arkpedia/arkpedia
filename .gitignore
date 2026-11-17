@@ -115,3 +115,8 @@ __pycache__/
 /public/operator-search.json
 # Tables the Worker reads from its static files (scripts/build/ship-tables.mjs).
 /public/_tables/
+
+# Generated, pinned Integrated Strategies reference
+/public/_is/
+
+/public/_ccb/

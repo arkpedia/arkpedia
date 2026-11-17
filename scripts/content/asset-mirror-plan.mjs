@@ -18,7 +18,8 @@ const { value: manifest, bytes } = await json(`${root}/${pointer.revision}/relea
 if (createHash('sha256').update(bytes).digest('hex') !== pointer.manifestSha256 || manifest.release !== pointer.release) throw new Error('Live manifest integrity failure');
 const bundled = JSON.parse(await readFile('data/assets/revisions.json', 'utf8'));
 const projectArt = JSON.parse(await readFile('config/community-project-art.json', 'utf8'));
-const entries = [[projectArt.repository, projectArt.revision], ...Object.entries(bundled), ...Object.entries(manifest.assets), ['arkpedia-data', pointer.revision]];
+const isArt = JSON.parse(await readFile('config/is-game-art.json', 'utf8'));
+const entries = [[isArt.repository, isArt.revision], [projectArt.repository, projectArt.revision], ...Object.entries(bundled), ...Object.entries(manifest.assets), ['arkpedia-data', pointer.revision]];
 for (const path of ['data/dynamic-art.json', 'data/chibi-art.json', 'data/medal-set-layouts.json', 'config/event-entrances.json', 'config/community-project-art.json']) {
   for (const ref of assetReferences(await readFile(path, 'utf8'))) entries.push([ref.repository, ref.revision]);
 }

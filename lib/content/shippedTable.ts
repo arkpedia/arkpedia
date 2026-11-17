@@ -25,8 +25,20 @@ export async function readShippedTable<T>(file: ShippedTable, { root = process.c
   } catch {
     // Not on disk: the Worker answering a request.
   }
+  return readAssetJson<T>(`_tables/${file}`, assets);
+}
+
+/** Preview reference snapshots must also work on an empty Worker page cache. */
+export async function readPublicJson<T>(file: '_is/manifest.json' | '_ccb/catalogue.json', { root = process.cwd(), assets }: { root?: string; assets?: AssetsBinding } = {}): Promise<T> {
+  try {
+    return JSON.parse(fs.readFileSync(path.join(root, 'public', file), 'utf8')) as T;
+  } catch { /* Request-time Workers read the same build's static assets. */ }
+  return readAssetJson<T>(file, assets);
+}
+
+async function readAssetJson<T>(file: string, assets?: AssetsBinding): Promise<T> {
   const binding = assets ?? ((await (await import('@opennextjs/cloudflare')).getCloudflareContext({ async: true })).env as unknown as { ASSETS: AssetsBinding }).ASSETS;
-  const response = await binding.fetch(new Request(`https://assets.local/_tables/${file}`));
+  const response = await binding.fetch(new Request(`https://assets.local/${file}`));
   if (!response.ok) throw new Error(`${file}: the Worker's static files answered HTTP ${response.status}`);
   return await response.json() as T;
 }

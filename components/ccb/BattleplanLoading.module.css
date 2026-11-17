@@ -1,0 +1,4 @@
+/* The placeholder pages/ccb.tsx renders while the browser loads the workspace. Held open at the hub's
+   height, so the page does not start short and then grow under the reader. */
+.workspace { display: grid; gap: 20px; }
+.loading { margin: 0; padding: 20px 20px 460px; background: var(--panel); border-radius: var(--radius); color: var(--text-dim); font-size: 13px; }

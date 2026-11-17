@@ -1,0 +1,4 @@
+/* The placeholder pages/game-modes/integrated-strategies.tsx renders while the browser loads the
+   reference. Held open at the hero's height, so the page does not start short and then grow. */
+.page { box-sizing: border-box; max-width: var(--frame-max); margin: 0 auto; padding: 24px var(--page-gutter) var(--section-gap); }
+.loading { margin: 0; padding: 20px 20px 560px; background: var(--panel); border-radius: var(--radius); color: var(--text-dim); font-size: 13px; }
