@@ -1,3 +1,4 @@
+import { siteTablesStaticProps } from '@/lib/content/server';
 import PageHeader from '@/components/ui/PageHeader';
 import PageMeta from '@/components/layout/PageMeta';
 import { CREDIT_GROUPS, OWN_REPOSITORIES, linkLabel } from '@/lib/credits/sources';
@@ -92,4 +93,4 @@ export default function CreditsPage() {
 }
 
 // No data of its own: the site's tables only (the header's Sponsored slot).
-export { siteTablesStaticProps as getStaticProps } from '@/lib/content/server';
+export const getStaticProps = siteTablesStaticProps;

@@ -68,8 +68,12 @@ function useClearSpace(ref: React.RefObject<HTMLElement | null>, enabled: boolea
     const observer = new ResizeObserver(measure);
     observer.observe(header);
     for (const child of Array.from(header.children)) if (child !== slot) observer.observe(child);
+    // A title that changes within its line (a client-side move to another record) resizes
+    // no box, so the header's text and children are watched too.
+    const changes = new MutationObserver(measure);
+    changes.observe(header, { childList: true, subtree: true, characterData: true });
     void document.fonts?.ready.then(measure);
-    return () => { live = false; observer.disconnect(); };
+    return () => { live = false; observer.disconnect(); changes.disconnect(); };
   }, [ref, enabled]);
   return clear;
 }

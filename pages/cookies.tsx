@@ -1,3 +1,4 @@
+import { siteTablesStaticProps } from '@/lib/content/server';
 import { useEffect, useState } from 'react';
 import { getSetting, setSetting } from '@/lib/settings/siteSettings';
 import AutoplayMusicChoice from '@/components/music/AutoplayMusicChoice';
@@ -33,4 +34,4 @@ export default function CookiesPage() {
 }
 
 // No data of its own: the site's tables only (the header's Sponsored slot).
-export { siteTablesStaticProps as getStaticProps } from '@/lib/content/server';
+export const getStaticProps = siteTablesStaticProps;

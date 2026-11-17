@@ -7,8 +7,8 @@ import { CROSSOVER_PAGE_MUSIC } from '../../lib/music/crossoverPageMusic';
  * Arknights: Endfield's songs (data/endfield-albums.json) are in the player's catalogue, each row
  * marked game 'endfield', and every list that draws from it hides them until the reader ticks
  * "Endfield music" (lib/music/songFilter.ts): the Library, Discover, Play all and a saved
- * playlist's queue alike. The setting is kept in this browser, beside Playlists in the music
- * pages' header and in the player bar's ⋯ menu.
+ * playlist's queue alike. The setting is kept in this browser, under Playlists in the music
+ * pages' sidebar and in the player bar's ⋯ menu.
  */
 
 interface Row { videoId?: string; cid?: string; title: string; altTitle?: string; album?: string; game?: string }

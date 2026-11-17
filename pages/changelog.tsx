@@ -1,3 +1,4 @@
+import { siteTablesStaticProps } from '@/lib/content/server';
 import Link from 'next/link';
 import PageMeta from '@/components/layout/PageMeta';
 import { useEffect, useState } from 'react';
@@ -59,4 +60,4 @@ export default function ChangelogPage() {
 }
 
 // No data of its own: the site's tables only (the header's Sponsored slot).
-export { siteTablesStaticProps as getStaticProps } from '@/lib/content/server';
+export const getStaticProps = siteTablesStaticProps;

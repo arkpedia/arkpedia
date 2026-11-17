@@ -1,3 +1,4 @@
+import { siteTablesStaticProps } from '@/lib/content/server';
 import Link from 'next/link';
 import PageMeta from '@/components/layout/PageMeta';
 import PageHeader from '@/components/ui/PageHeader';
@@ -20,4 +21,4 @@ export default function AboutPage() {
 }
 
 // No data of its own: the site's tables only (the header's Sponsored slot).
-export { siteTablesStaticProps as getStaticProps } from '@/lib/content/server';
+export const getStaticProps = siteTablesStaticProps;
