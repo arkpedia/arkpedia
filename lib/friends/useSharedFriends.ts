@@ -3,7 +3,8 @@ import { FRIENDS_STORAGE_KEY, FRIEND_STORAGE_KEY } from '@/lib/account/friendFil
 import { FRIEND_LINKS_KEY, isFriendLinkId, parseFriendLinks, type SharedFriend, type SharedFriendSummary } from './sharedProfile';
 
 export async function friendRequest<T>(query: string, options: RequestInit = {}): Promise<T> {
-  const response = await fetch(`/api/community/friends${query}`, {credentials:'same-origin',cache:'no-store',...options});
+  const params = query.startsWith('?') ? query.slice(1) : query;
+  const response = await fetch(`/api/community/friends?${params}`, {credentials:'same-origin',cache:'no-store',...options});
   const body = await response.json();
   if (!response.ok) throw Error(body.error ?? 'Shared profiles could not load.');
   return body as T;

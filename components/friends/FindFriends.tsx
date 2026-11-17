@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import ImportDialog from '@/components/account/ImportDialog';
 import SearchInput from '@/components/ui/SearchInput';
 import StyledSelect from '@/components/ui/StyledSelect';
+import LoadOnScroll from '@/components/ui/LoadOnScroll';
 import XButton from '@/components/ui/XButton';
 import InfoPopover from '@/components/ui/InfoPopover';
 import { matchesSearch, searchRelevance } from '@/lib/search/searchNormalize';
@@ -26,7 +27,7 @@ export default function FindFriends({operators,saved,onAdd,onOpen,onClose}:{oper
     const controller=new AbortController();setBusy(true);setError('');
     const timer=setTimeout(()=>{void friendRequest<{listings:(SupportPlayer&{collectionShared:boolean})[];next:number|null}>(`?${filters}&cursor=${cursor}`,{signal:AbortSignal.any([controller.signal,AbortSignal.timeout(15000)])})
       .then(result=>{if(!controller.signal.aborted){setRows(previous=>cursor?[...previous,...result.listings]:result.listings);setNext(result.next);}})
-      .catch(reason=>{if(!controller.signal.aborted){setRows([]);setNext(null);setError(reason instanceof Error?reason.message:'Friends could not load.');}})
+      .catch(reason=>{if(!controller.signal.aborted){setNext(null);setError(reason instanceof Error?reason.message:'Friends could not load.');}})
       .finally(()=>{if(!controller.signal.aborted)setBusy(false);});},250);
     return()=>{clearTimeout(timer);controller.abort();};
   },[filters,cursor,attempt]);
@@ -44,7 +45,7 @@ export default function FindFriends({operators,saved,onAdd,onOpen,onClose}:{oper
       <button type="button" className="ghost btn-sm" aria-haspopup="dialog" onClick={()=>onOpen(row.id)}>View profile</button>
       <button type="button" className="btn-sm" disabled={saved.includes(row.id)} onClick={()=>{try{onAdd(row.id);setMessage(`${row.friendTag} added to Friends.`);}catch(reason){setError(reason instanceof Error?reason.message:'This browser could not save your friend.');}}}>{saved.includes(row.id)?'Added':'Add friend'}</button>
     </>} />)}</div>
-    {next!==null&&!busy&&!error&&<button type="button" className="btn-sm" onClick={()=>setCursor(next)}>Load more friends</button>}
+    {next!==null&&!busy&&!error&&<LoadOnScroll shown={rows.length} total={rows.length+1} onMore={()=>setCursor(next)} />}
     {message&&<p role="status">{message}</p>}
   </ImportDialog>;
 }

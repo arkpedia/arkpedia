@@ -16,7 +16,7 @@ async function fixture(page:Page,theme:string){
     Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:async(text:string)=>{(window as any).__copiedProfile=text;}}});
   },{own,theme});
   await page.route('**/api/cloud-account',route=>route.fulfill({json:{user:{id:'test-user',name:'Private provider name'},profile:{username:'Community tester',friendTag:null,friendServer:null},linkedProviders:['google'],linkedAccounts:[{id:'g',providerId:'google'}],revision:0,syncReviewed:true,gameSync:false,personalSync:false,historySync:false,paused:false,data:{},providers:['google','discord']}}));
-  const state={available:true,collection:true,publishWait:null as Promise<void>|null,enabled:false,revision:0,communityRevision:0,choices:{stats:false,shareTag:false,openRequests:false},writes:[] as any[],searches:[] as URL[]};
+  const state={available:true,progressive:false,failPage:false,collection:true,publishWait:null as Promise<void>|null,enabled:false,revision:0,communityRevision:0,choices:{stats:false,shareTag:false,openRequests:false},writes:[] as any[],searches:[] as URL[]};
   await page.route('**/api/community/sharing',async route=>{
     if(route.request().method()!=='GET'){const body=route.request().postDataJSON();state.choices=body.choices;state.communityRevision++;}
     await route.fulfill({json:{...state.choices,revision:state.communityRevision,listed:state.choices.shareTag&&state.choices.openRequests,importedAt:own.importedAt}});
@@ -33,6 +33,13 @@ async function fixture(page:Page,theme:string){
     if(url.searchParams.has('ids'))return route.fulfill({json:{profiles:state.available?[summary]:[]}});
     if(url.searchParams.has('id'))return route.fulfill(state.available?{json:{...summary,profile:state.collection?profile:null}}:{status:404,json:{error:'This player is no longer sharing this profile.'}});
     state.searches.push(url);
+    if(state.progressive){
+      if(url.searchParams.get('cursor')==='50'){
+        if(state.failPage){state.failPage=false;return route.fulfill({status:503,json:{error:'Search temporarily unavailable.'}});}
+        return route.fulfill({json:{listings:[{...player,id:'d79bfde1-830c-41f4-bc12-5d8747bb70be',friendTag:'Second#3456',collectionShared:true}],next:null}});
+      }
+      return route.fulfill({json:{listings:[{...player,collectionShared:true}],next:50}});
+    }
     return route.fulfill({json:{listings:state.available?[{...player,collectionShared:true}]:[],next:null}});
   });
   return state;
@@ -117,3 +124,17 @@ for(const theme of ['dark','light']){
     expect(await page.evaluate(()=>(window as any).__copiedProfile)).toBeUndefined();
   });
 }
+
+
+test('scroll pagination preserves results and search filters across a failed next page',async({page})=>{
+  const state=await fixture(page,'dark');state.progressive=true;state.failPage=true;
+  await page.goto('/friends');await page.getByRole('button',{name:'Find Friends',exact:true}).click();
+  const dialog=page.getByRole('dialog',{name:'Find Friends',exact:true});
+  await expect(dialog.getByRole('alert')).toContainText('Search temporarily unavailable.');
+  await expect(dialog.getByText('Helpful#1234',{exact:true})).toBeVisible();
+  await dialog.getByRole('button',{name:'Retry',exact:true}).click();
+  await expect(dialog.getByText('Second#3456',{exact:true})).toBeVisible();
+  await expect(dialog.getByText('Helpful#1234',{exact:true})).toBeVisible();
+  expect(state.searches.at(-1)?.searchParams.get('cursor')).toBe('50');
+  expect(state.searches.every(url=>url.searchParams.get('server')==='en')).toBe(true);
+});
