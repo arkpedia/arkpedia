@@ -831,7 +831,7 @@ test('public discovery and permission checks use bounded reads without collectio
     assert.equal(h.queries.length,1,'one public read per directory, batch or permission check');
     assert.doesNotMatch(h.queries[0],/community_availability|p\.snapshot/);
     assert.doesNotMatch(JSON.stringify(response.result),/"roster"|"snapshot"|"operators"/);
-    assert.ok(Buffer.byteLength(JSON.stringify(response.result))<4000);
+    assert.equal(Object.hasOwn(response.result,'profile'),false,'permission summaries exclude the collection payload');
   }
   h.queries.length=0;await h.call('friends','alice','GET',undefined,{mine:'1'});
   assert.ok(h.queries.every(sql=>!/snapshot/.test(sql)),'copying a link must not read its collection');
