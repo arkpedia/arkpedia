@@ -61,3 +61,21 @@ test('production compilation leaves community catalogues and the Preview snapsho
     assert.equal(inputs.some(file=>file.endsWith('config/preview-community-statistics.json')),preview==='1','only Preview compiles its snapshot');
   }
 });
+
+test('event rewards remain intact through build copying and the Worker ASSETS fallback', async () => {
+  const rewards = { events: { collab: { packs: [{ source: 'CN', offers: [{ name: 'Preview pack', contents: [{ name: 'Orundum', count: 600 }] }] }] } } };
+  const bytes = JSON.stringify(rewards);
+  const root = tempRoot(Object.fromEntries(SHIPPED.map(file => [`data/${file}`, file === 'event-rewards.json' ? bytes : '[]'])));
+  shipTables(root);
+  const copied = fs.readFileSync(path.join(root, 'public/_tables/event-rewards.json'), 'utf8');
+  assert.equal(copied, bytes);
+  fs.rmSync(path.join(root, 'data'), { recursive: true });
+  const actual = await readShippedTable('event-rewards.json', { root, assets: { fetch: async request => {
+    assert.equal(new URL(request.url).pathname, '/_tables/event-rewards.json');
+    return new Response(copied);
+  } } });
+  assert.deepEqual(actual, rewards);
+  const page = fs.readFileSync('pages/events/[slug].tsx', 'utf8');
+  assert.doesNotMatch(page, /import\(['"]@\/data\/event-rewards\.json/);
+  assert.match(page, /readShippedTable<EventRewardsFile>\('event-rewards.json'\)/);
+});
