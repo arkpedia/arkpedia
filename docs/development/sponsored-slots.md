@@ -6,7 +6,7 @@ third-party script runs, and nothing is sticky, fixed or laid over content.
 | Placement | Where | Notes |
 | --- | --- | --- |
 | `home` | Home page, a panel directly under Events (the same on a phone) | full column width |
-| `header` | The free space to the right of a page's title, on every page that opens with `PageHeader` | shrunk to 240-360 px wide; desktop widths only (hidden below 1000 px); not on a compact header, whose actions stand there |
+| `header` | The free space to the right of a page's title, on every page that opens with `PageHeader` | shrunk to 240-360 px wide; desktop widths only (hidden below 1000 px); not on a compact or slim header |
 | `support` | The "Our sponsor" section of `/support` | at the artwork's own width |
 
 A page shows at most one slot besides `/support`'s section. The header slot is laid over padding
@@ -35,8 +35,10 @@ below it moves.
 
 `withContentPage` attaches the campaigns to every content route (`SITE_TABLES`) and drops the
 ones outside their dates at each request, so the server's HTML never holds an expired slot. The
-browser re-checks with the reader's clock after mount, which only differs for a page cached
-across a campaign's first or last minutes. A page that is not a content route (`/about`,
+browser does not re-check with the reader's clock, so a slot never appears or disappears under a
+reader mid-visit; a campaign's start and end reach a page with its next revalidation. A record
+this deployment cannot read stops the export that carries it, and at request time shows no
+sponsor instead of failing the page. A page that is not a content route (`/about`,
 `/changelog`, the optimizer) carries no campaigns and shows no slot.
 
 ## Reviewing a draft

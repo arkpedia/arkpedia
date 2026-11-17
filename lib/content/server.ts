@@ -3,7 +3,7 @@ import { defaultContentRevalidate } from './revalidation';
 import { REGIONAL_ROUTES, missingPageTables, pageTables } from './tables.mjs';
 import { operatorPageRoute } from '../operators/operatorPagePaths';
 import { loadRelease, readPageProps } from './release';
-import { checkSponsorCampaigns, currentSponsorCampaigns } from '../sponsors/campaigns';
+import { checkSponsorCampaigns, currentSponsorCampaigns, type SponsorCampaignTable } from '../sponsors/campaigns';
 export { contentChannel } from './release';
 import type { GetStaticProps, GetStaticPropsContext, GetStaticPropsResult, Redirect } from 'next';
 import { contentRoute } from './types';
@@ -17,6 +17,7 @@ export type ContentTableLoaders = Record<string, () => Promise<unknown>>;
 const moment = (): PageClockMoment => process.env.ARKPEDIA_EXPORT_CONTENT === '1' ? { exporting: true } : { now: Date.now() };
 
 const warnedTables = new Set<string>();
+let warnedSponsors = false;
 /** Give props every table the route declares, without touching a cached payload. A
  *  table the props already carry (the release's copy) always wins. */
 async function attachTables<P extends object>(template: string, props: P, loaders: ContentTableLoaders, release?: string): Promise<P> {
@@ -42,9 +43,17 @@ async function attachTables<P extends object>(template: string, props: P, loader
  */
 async function attachSponsors<P extends object>(props: P): Promise<P> {
   const tables = (props as { __contentTables?: Record<string, unknown> }).__contentTables ?? {};
-  const table = checkSponsorCampaigns(tables['sponsor-campaigns'] ?? (await import('../../data/sponsor-campaigns.json')).default);
   const now = moment();
-  return { ...props, __contentTables: { ...tables, 'sponsor-campaigns': 'exporting' in now ? table : currentSponsorCampaigns(table, now.now) } };
+  const read = async () => checkSponsorCampaigns(tables['sponsor-campaigns'] ?? (await import('../../data/sponsor-campaigns.json')).default);
+  // The export throws on a record it cannot show honestly, which stops that release. A
+  // request must not: a record this deployment's code rejects (a placement added later,
+  // say) would otherwise fail every page's revalidation, so it shows no sponsor instead.
+  if ('exporting' in now) return { ...props, __contentTables: { ...tables, 'sponsor-campaigns': await read() } };
+  let table: SponsorCampaignTable = { version: 1, campaigns: [] };
+  try { table = currentSponsorCampaigns(await read(), now.now); } catch (error) {
+    if (!warnedSponsors) { warnedSponsors = true; console.warn('[content] Sponsor campaigns unreadable; showing none:', error instanceof Error ? error.message : error); }
+  }
+  return { ...props, __contentTables: { ...tables, 'sponsor-campaigns': table } };
 }
 
 /**

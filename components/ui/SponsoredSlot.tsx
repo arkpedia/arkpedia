@@ -1,7 +1,6 @@
 import { useContext, useState } from 'react';
 import { ContentImg } from '@/components/content/ContentImage';
 import { ContentTablesContext } from '@/lib/content/context';
-import { useReaderValue } from '@/lib/time/readerClock';
 import { sponsorCampaignFor, type SponsorCampaign, type SponsorCampaignTable, type SponsorPlacement } from '@/lib/sponsors/campaigns';
 import { SPONSOR_STRINGS as S } from '@/lib/sponsors/strings';
 
@@ -12,19 +11,16 @@ const DRAFTS = process.env.NODE_ENV !== 'production' || process.env.NEXT_PUBLIC_
 /**
  * The campaign a placement shows now, or null.
  *
- * The first render takes the table as the server sent it: withContentPage has already
- * dropped the campaigns outside their dates at the request (lib/content/server.ts), so
- * the markup matches. After mount the reader's clock decides, which only differs for a
- * page cached across a campaign's first or last minutes. A page that is not a content
- * route (no withContentPage) carries no table and shows nothing.
+ * The server decides: withContentPage has already dropped the campaigns outside their
+ * dates at the request (lib/content/server.ts), and the page shows what it was sent. The
+ * reader's clock is deliberately not consulted, so a slot never appears or disappears
+ * under a reader mid-visit and moves the content beside it; a campaign's start and end
+ * reach a page with its next revalidation. A page that is not a content route (no
+ * withContentPage) carries no table and shows nothing.
  */
 export function useSponsorCampaign(placement: SponsorPlacement): SponsorCampaign | null {
   const table = useContext(ContentTablesContext)['sponsor-campaigns'] as SponsorCampaignTable | undefined;
-  return useReaderValue(
-    table ? sponsorCampaignFor(table, placement, null, DRAFTS) : null,
-    readerMs => table ? sponsorCampaignFor(table, placement, readerMs, DRAFTS) : null,
-    { onFocus: true },
-  );
+  return table ? sponsorCampaignFor(table, placement, null, DRAFTS) : null;
 }
 
 /**
