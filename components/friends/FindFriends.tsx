@@ -41,7 +41,7 @@ export default function FindFriends({operators,saved,onAdd,onOpen,onClose}:{oper
     {error&&<p role="alert">{error} <button type="button" className="btn-sm" onClick={()=>setAttempt(value=>value+1)}>Retry</button></p>}
     {!busy&&!error&&!rows.length&&<div className="waiting-box"><h3>No matching friends</h3><p>Try another operator, in-game friend tag or server.</p></div>}
     <div className={styles.friendList}>{rows.map(row=><SharedFriendCard key={row.id} summary={{player:row,collectionShared:row.collectionShared,profileUpdatedAt:null}} map={map} operators={operators} onOpen={()=>onOpen(row.id)} actions={<>
-      <button type="button" className="ghost btn-sm" onClick={()=>onOpen(row.id)}>View profile</button>
+      <button type="button" className="ghost btn-sm" aria-haspopup="dialog" onClick={()=>onOpen(row.id)}>View profile</button>
       <button type="button" className="btn-sm" disabled={saved.includes(row.id)} onClick={()=>{try{onAdd(row.id);setMessage(`${row.friendTag} added to Friends.`);}catch(reason){setError(reason instanceof Error?reason.message:'This browser could not save your friend.');}}}>{saved.includes(row.id)?'Added':'Add friend'}</button>
     </>} />)}</div>
     {next!==null&&!busy&&!error&&<button type="button" className="btn-sm" onClick={()=>setCursor(next)}>Load more friends</button>}

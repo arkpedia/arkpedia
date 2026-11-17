@@ -22,9 +22,9 @@ const fullProfile = (row: PlayerRow) => !!(row.enabled && row.gameKey && row.gam
 const summary = (row: PlayerRow) => ({player: publicPlayer(row), collectionShared: fullProfile(row), profileUpdatedAt: fullProfile(row) ? row.profileUpdatedAt : null});
 const accountRow = (db: D1Database, owner: string) => db.prepare('SELECT revision,gameKey,listingId,server,importedAt,stats,shareTag,openRequests,friendTag FROM community_account WHERE userId=?').bind(owner).first<AccountRow>();
 const profileRow = (db: D1Database, owner: string) => db.prepare('SELECT revision,enabled,gameKey,snapshot FROM community_friend_profile WHERE userId=?').bind(owner).first<ProfileRow>();
-function ownerState(account: AccountRow | null, profile: ProfileRow | null): ProfileSharingState {
+function ownerState(account: AccountRow | null, profile: ProfileRow | null, owner: string): ProfileSharingState {
   const enabled = !!(profile?.enabled && account?.shareTag && account.openRequests && account.gameKey === profile.gameKey);
-  return { revision: profile?.revision ?? 0, enabled, communityRevision: account?.revision ?? 0,
+  return { owner, revision: profile?.revision ?? 0, enabled, communityRevision: account?.revision ?? 0,
     id: account?.listingId ?? null, server: account?.server ?? null,
     importedAt: enabled && profile?.snapshot ? publicFriendFile(JSON.parse(profile.snapshot)).account.importedAt : null,
     accountImportedAt: account?.importedAt ?? null, choices: {stats:!!account?.stats,shareTag:!!account?.shareTag,openRequests:!!account?.openRequests} };
@@ -63,11 +63,11 @@ export async function friendProfiles(req: NextApiRequest, res: NextApiResponse, 
       args.push(operator, operator);
     }
     const rows = (await db.prepare(`WITH reports AS (${reportQuery}) SELECT ${playerFields},a.gameKey,p.enabled,p.gameKey AS profileGameKey ${joins} WHERE ${conditions.join(' AND ')} ORDER BY a.importedAt DESC,a.listingId LIMIT 51 OFFSET ?`).bind(reportsSince, ...args, +cursor).all<PlayerRow>()).results;
-    return res.json({ listings: rows.slice(0,50).map(row=>({...publicPlayer(row),collectionShared:fullProfile(row)})), next: rows.length > 50 ? +cursor + 50 : null });
+    return res.json({ listings: rows.slice(0,50).map(row=>({...publicPlayer(row),collectionShared:fullProfile(row)})), next: rows.length > 50 && +cursor + 50 <= 10000 ? +cursor + 50 : null });
   }
   if (!owner) return res.status(401).json({ error: 'Sign in to publish your profile.' });
   const [account, profile] = await Promise.all([accountRow(db, owner), profileRow(db, owner)]);
-  if (req.method === 'GET') return res.json(ownerState(account, profile));
+  if (req.method === 'GET') return res.json(ownerState(account, profile, owner));
   if (req.body?.owner !== owner) return res.status(409).json({ error: 'Your signed-in account changed. Reopen profile sharing.' });
   if (!Number.isSafeInteger(req.body.revision) || req.body.revision !== (profile?.revision ?? 0)) return res.status(409).json({ error: 'Profile sharing changed on another device. Review it again.' });
   if (!await db.prepare(`INSERT INTO community_write_limit(userId,window,count) VALUES(?,?,1) ON CONFLICT(userId) DO UPDATE SET window=excluded.window,count=CASE WHEN window=excluded.window THEN count+1 ELSE 1 END WHERE window!=excluded.window OR count<10 RETURNING count`).bind(owner,Math.floor(now/60000)).first()) {
@@ -75,13 +75,13 @@ export async function friendProfiles(req: NextApiRequest, res: NextApiResponse, 
   }
   const nonce = crypto.randomUUID(), time = new Date(now).toISOString();
   if (req.method === 'DELETE') {
-    if (!profile) return res.json(ownerState(account, null));
+    if (!profile) return res.json(ownerState(account, null, owner));
     const result = await db.batch([
       db.prepare('UPDATE community_friend_profile SET enabled=0,gameKey=NULL,snapshot=NULL,revision=revision+1,mutationId=?,updatedAt=? WHERE userId=? AND revision=? RETURNING userId').bind(nonce,time,owner,profile.revision),
       db.prepare('DELETE FROM community_friend_operator WHERE userId=? AND EXISTS(SELECT 1 FROM community_friend_profile WHERE userId=? AND mutationId=?)').bind(owner,owner,nonce),
     ]);
     if (result[0].results.length !== 1) return res.status(409).json({ error: 'Profile sharing changed. Review it again.' });
-    return res.json(ownerState(await accountRow(db,owner),await profileRow(db,owner)));
+    return res.json(ownerState(await accountRow(db,owner),await profileRow(db,owner),owner));
   }
   if (!account?.gameKey || !account.shareTag || !account.openRequests || !account.friendTag || req.body.communityRevision !== account.revision) return res.status(409).json({ error: 'Review Share my friend tag and support units before publishing.' });
   if (!['consent','refresh'].includes(req.body.action) || (req.body.action === 'refresh' && (!profile?.enabled || profile.gameKey !== account.gameKey))) return res.status(409).json({ error: 'Explicit full-profile consent is required.' });
@@ -100,5 +100,5 @@ export async function friendProfiles(req: NextApiRequest, res: NextApiResponse, 
     db.prepare(`INSERT INTO community_friend_operator(userId,operator) SELECT ?,value FROM json_each(?) WHERE ${mutationGuard}`).bind(owner,JSON.stringify(shared.account.operators),owner,nonce),
   ]);
   if (result[0].results.length !== 1) return res.status(409).json({ error: 'Profile sharing changed. Review it again.' });
-  return res.json(ownerState(await accountRow(db,owner),await profileRow(db,owner)));
+  return res.json(ownerState(await accountRow(db,owner),await profileRow(db,owner),owner));
 }

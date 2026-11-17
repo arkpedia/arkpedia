@@ -6,7 +6,7 @@ export const PUBLIC_PROFILE_MAX_BYTES = 500_000;
 export const isFriendLinkId = (value: unknown): value is string => typeof value === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
 export interface SharedFriend { player: SupportPlayer; profile: FriendFile | null; collectionShared: boolean; profileUpdatedAt: string | null }
 export type SharedFriendSummary = Omit<SharedFriend, 'profile'>;
-export interface ProfileSharingState { revision: number; enabled: boolean; communityRevision: number; id: string | null; server: string | null; importedAt: string | null; accountImportedAt: string | null; choices: CommunityChoices }
+export interface ProfileSharingState { owner: string; revision: number; enabled: boolean; communityRevision: number; id: string | null; server: string | null; importedAt: string | null; accountImportedAt: string | null; choices: CommunityChoices }
 
 /** Store references, never a cached copy of another player's public collection. */
 export function parseFriendLinks(raw: string | null): string[] {
