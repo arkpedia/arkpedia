@@ -82,10 +82,10 @@ test('CN shared base terms use game IDs, consistent English and the same member 
   const orchidGroup = orchid.baseSkills!.flatMap(skill => skill.keywords ?? []).find(term => term.term === 'cc.tag.mh2')!;
   const reconGroup = recon.baseSkills!.flatMap(skill => skill.keywords ?? []).find(term => term.term === 'cc.tag.mh2')!;
   assert.deepEqual(orchidGroup, reconGroup);
-  assert.equal(orchidGroup.name, 'Bubble Kingdom Hunting Squad');
+  assert.equal(orchidGroup.name, orchid.sourceRegion === 'CN' ? 'Bubble Kingdom Hunting Squad' : 'Houei Hunting Squad');
   for (const name of ['Violet Mizutsune Orchid', 'Zinogre S Catapult', 'Rhodes Island Recon']) assert.ok(orchidGroup.definition.includes(name));
   const helper = recon.baseSkills!.find(skill => skill.buffId === 'dorm_rec_single&tag[000]')!;
-  assert.match(helper.description!, /Monster Hunter Party/);
+  assert.match(helper.description!, recon.sourceRegion === 'CN' ? /Monster Hunter Party/ : /Soubo Adventurers/);
   assert.doesNotMatch(helper.description!, /Monster Hunter Squad/);
   const firstParty = helper.keywords!.find(term => term.term === 'cc.tag.mh')!;
   assert.match(firstParty.definition, /Kirin R Yato/);
@@ -97,7 +97,7 @@ test('CN shared base terms use game IDs, consistent English and the same member 
   assert.deepEqual(enrichOperatorText(official, {}, [], glossary).baseSkills, official.baseSkills, 'official Global prose and keywords remain exactly as published');
   const again = applyBaseSkillGlossary(recon.baseSkills, glossary)!;
   assert.deepEqual(again, recon.baseSkills, 're-enrichment does not duplicate keywords');
-  assert.match(recon.review!.official!, /Bubble Kingdom/);
+  assert.match(recon.review!.official!, recon.sourceRegion === 'CN' ? /Bubble Kingdom/ : /Houei/);
   assert.doesNotMatch(recon.review!.official!, /Land of Bubbles|Aigis/);
   assert.match(ops.find(op => op.name === 'Aegis')!.review!.official!, /Aegis/);
 });

@@ -120,7 +120,8 @@ export function RewardDetailsProvider({ tickets, children, recommendations, reco
           <p className="hint"><a href={active.ticket.source} target="_blank" rel="noopener noreferrer">Source announcement</a></p>
         </>}</div> : <>
           {active.pack.imagePath && <Image className={`event-pack-detail-image${active.pack.artworkLayout === 'promo' ? ' event-pack-detail-promo' : ''}`} src={active.pack.imagePath} alt={`${active.pack.name} artwork`} width={active.pack.artworkLayout === 'promo' ? 650 : 200} height={active.pack.artworkLayout === 'promo' ? 208 : 150} />}
-          {active.pack.start && <p className="hint">Sale window: {packDay(active.pack.start)} – {active.pack.end ? packDay(active.pack.end, { exclusiveEnd: true }) : 'Not announced'}</p>}
+          {active.pack.region === 'CN' && <p className="hint">CN pack preview. Global availability, contents and prices may differ. Sale dates are for CN.</p>}
+          {active.pack.start && <p className="hint">Sale window: {packDay(active.pack.start, { region: active.pack.region })} – {active.pack.end ? packDay(active.pack.end, { exclusiveEnd: true, region: active.pack.region }) : 'Not announced'}</p>}
           {active.pack.limit && <p className="hint">Purchase limit: {active.pack.limit}</p>}
           <div className="event-reward-totals">{active.pack.contents.map(item => <RewardTile key={item.name} {...item} />)}</div>
           {(active.pack.notes ?? []).map(line => <p className="hint" key={line}>{line}</p>)}

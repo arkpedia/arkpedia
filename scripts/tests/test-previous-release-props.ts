@@ -479,6 +479,9 @@ const REGENERATED: Record<string, (props: Record<string, unknown>, clock: { from
     assert.ok(pictures.every((picture) => picture.link?.title), 'every picture titled, by its link');
     assert.ok(map.elements.some((element) => element.type === 'line') && map.elements.some((element) => element.type === 'text'), 'the lines and the labels');
   },
+  '/story/read': props => {
+    assert.ok(props.chapters && typeof props.chapters === 'object', 'the bundled native story catalogue');
+  },
   // The official comics compiled into the bundle, each with its link and the latest first.
   '/manga': (props) => {
     const manga = props.manga as { url: string; updated?: string }[];

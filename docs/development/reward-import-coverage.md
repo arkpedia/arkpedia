@@ -83,3 +83,13 @@ Tests use synthetic responses: zero/partial/full purchases, item quantities,
 ten-pull permits, bad/missing records, regional shop windows, session sequencing,
 account round trips, account isolation, and automatic planner updates in both themes
 on desktop and mobile. No live authenticated account was used for verification.
+
+## Regional paid-pack previews
+
+The data importer's `cn-packs.mjs` reads paid offers from official CN news, retaining
+CN provenance and sale windows. Its existing pack-art stage publishes the corresponding
+CN promotional sheets before adopting their source-scoped paths. `preferredPackGroups`
+keeps the CN list only until a Global pack announcement is available; Global replaces
+all offers together, so unmatched CN-only packs do not linger. CN pack cards and contents
+dialogs use the CN clock and identify their information as a preview. Packs remain
+outside free reward totals. Future events follow the normal automatic content import.

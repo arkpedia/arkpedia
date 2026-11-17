@@ -1,0 +1,5 @@
+.reader { max-width: 76ch; margin-inline: auto; }
+.controls { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-block: 24px; }
+.controls > :nth-child(2) { flex: 1; min-width: 150px; }
+.line { white-space: pre-line; margin-block: 1.4em; }
+.speaker { display: block; margin-bottom: 0.25em; }

@@ -34,6 +34,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    at: '2026-11-17T05:29:00Z',
+    added: [
+      { title: 'CN event pack previews', detail: 'Upcoming events show CN pack art and contents until Global announces its own offers.', href: '/events' },
+      { title: 'Automatic updates for new event stories', detail: 'New English stories stay readable with a text reader when the external catalogue falls behind.', href: '/story?view=list' },
+    ],
+  },
+  {
     at: '2026-11-15T08:34:29Z',
     fixed: [{ title: 'Readable text over event artwork', detail: 'Stronger shading and clearer secondary text keep event titles, dates, tabs and panels readable over bright or dark art.', href: '/events' }],
   },

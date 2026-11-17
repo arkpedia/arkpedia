@@ -64,3 +64,11 @@ test('official sign-in replaces CN login and duplicate banner gift; Global selec
   assert.equal(groups.some(g => g.title === 'CN sign-in' || g.title === 'CN ten roll'), false);
   assert.deepEqual(tickets['Top Operator Transfer Permit'], detail);
 });
+
+test('ordinary events replace all CN packs once Global announces packs, independently of free rewards', () => {
+  const cn = { ...group('packs', 'CN sale', 'CN'), packs: [{ name: 'CN-only pack', contents: [] }] };
+  const login = group('login', 'Still CN login', 'CN');
+  const global = { ...group('packs', 'Official sale', 'Global'), packs: [{ name: 'Global-only pack', contents: [] }] };
+  assert.deepEqual(announcedRewards('No supplement', [cn, login]).groups, [cn, login]);
+  assert.deepEqual(announcedRewards('No supplement', [cn, global, login]).groups, [global, login]);
+});
