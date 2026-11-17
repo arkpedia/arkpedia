@@ -156,7 +156,7 @@ for (const theme of ['dark','light']) test(`personal and shared account tabs sta
       await expect(tabs.getByRole('tab',{name:'Profile',exact:true})).toHaveAttribute('aria-selected','true');
       for (const name of ['Import / export','Account settings','Export my account','View medals']) await expect(page.getByRole('button',{name,exact:true})).toHaveCount(0);
       await expect(page.getByRole('tab',{name:'Pull history',exact:true})).toHaveCount(0);
-      await expect(page.getByRole('tab',{name:'Friends',exact:true})).toHaveCount(0);
+      await expect(page.getByRole('tab',{name:'Following',exact:true})).toHaveCount(0);
       await expect(page.locator('main')).not.toContainText('SECRET-UID');
       await expect(page.locator('main')).not.toContainText('PRIVATE BIO');
       await tabs.getByRole('tab',{name:'Operators',exact:true}).click();
