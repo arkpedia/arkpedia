@@ -547,6 +547,9 @@ html[data-site-server="kr"] .maintenance-notice:not([data-server="kr"]) {
   .front-featured-ops-panel { order: 4; }
   .front-skins-panel { order: 5; }
   .front-community-panel { order: 6; }
+  /* Last, under every panel of the site's own (components/ui/SponsoredSlot); without an
+     order it would be first, above Events. */
+  .front-sponsored-panel { order: 7; }
 }
 
 /* Append to styles/home/front.css -- .front-events-main is now a <Link>

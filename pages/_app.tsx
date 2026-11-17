@@ -71,6 +71,7 @@ import '@/styles/survey/boxplot.css';
 import '@/styles/community/video.css';
 import '@/styles/maps/world.css';
 import '@/styles/ui/price-display.css';
+import '@/styles/ui/sponsored-slot.css';
 import '@/styles/gamemodes/gamemodes.css';
 import '@/styles/account/import.css';
 import '@/styles/story/story.css';

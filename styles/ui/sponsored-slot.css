@@ -1,0 +1,33 @@
+/* A sponsored image and link in the page's flow (components/ui/SponsoredSlot). The box
+   takes the artwork's own aspect ratio from an inline style, so it is the right height
+   before the image loads and stays that height if it never does. Never sticky, fixed or
+   overlaid: it scrolls with the content it follows. */
+.sponsored-slot { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.sponsored-slot-label {
+  margin: 0;
+  align-self: stretch;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+.sponsored-slot-art {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  overflow: hidden;
+  background: var(--well);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-frame);
+}
+a.sponsored-slot-art:hover,
+a.sponsored-slot-art:focus-visible { border-color: var(--teal); }
+.sponsored-slot-art img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.sponsored-slot-fallback { padding: 0 12px; font-size: 13px; color: var(--text-dim); text-align: center; }
+
+/* Under a spend page's content: set apart by a section gap and centred at the banner's width. */
+.sponsored-slot--spend { margin-top: var(--section-gap); }
+.sponsored-slot--spend .sponsored-slot-label { max-width: 900px; align-self: center; width: 100%; }
+/* /support: the banner under the section's copy, left with the text. */
+.sponsored-slot--support { align-items: flex-start; }

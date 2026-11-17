@@ -1,6 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import PageMeta from '@/components/layout/PageMeta';
 import PageHeader from '@/components/ui/PageHeader';
+import SponsoredSlot, { useSponsorCampaign } from '@/components/ui/SponsoredSlot';
+import { checkSponsorCampaigns } from '@/lib/sponsors/campaigns';
+import { SPONSOR_STRINGS } from '@/lib/sponsors/strings';
 import { withContentPage } from '@/lib/content/server';
 import { useReleaseTable } from '@/lib/content/context';
 import LocalTime from '@/components/ui/LocalTime';
@@ -155,6 +158,7 @@ export default function SupportPage() {
           </div>
           </> : <p className="hint">Thank you to everyone who supports Kukkikaze.</p>)}
         </section>
+        <SponsorSection />
       </main>
 
       <dialog
@@ -185,7 +189,19 @@ export default function SupportPage() {
   );
 }
 
+/* The section and its heading exist only while a campaign does, like the slot itself. */
+function SponsorSection() {
+  if (!useSponsorCampaign('support')) return null;
+  return (
+    <section className="op-section">
+      <h2>{SPONSOR_STRINGS.supportHeading}</h2>
+      <p className="support-copy">{SPONSOR_STRINGS.supportCopy}</p>
+      <SponsoredSlot placement="support" />
+    </section>
+  );
+}
+
 export const getStaticProps = withContentPage('/support', async () => ({ props: {} }), {
   bundledWhenUnpublished: true,
-  tables: { 'patreon-supporters': async () => (await import('@/data/patreon-supporters.json')).default },
+  tables: { 'sponsor-campaigns': async () => checkSponsorCampaigns((await import('@/data/sponsor-campaigns.json')).default), 'patreon-supporters': async () => (await import('@/data/patreon-supporters.json')).default },
 });

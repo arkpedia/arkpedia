@@ -6,6 +6,8 @@ import { useReaderClock } from '@/lib/time/readerClock';
 import { parseBannerWindow } from '@/lib/gacha/realGachaBanners';
 import { getEventFarmingMaterials } from '@/lib/farming/eventFarming';
 import { withContentPage } from '@/lib/content/server';
+import SponsoredSlot from '@/components/ui/SponsoredSlot';
+import { checkSponsorCampaigns } from '@/lib/sponsors/campaigns';
 import { parseGameWindow } from '@/lib/schedule/gameWindow';
 import { loadGameEvents } from '@/lib/home/frontPageContent';
 import { getAllSkins } from '@/lib/skins/skins';
@@ -152,6 +154,8 @@ export default function HomePage({
         <div className="front-page-left">
           <FarmableMaterialsPanel materials={farmableMaterials} now={now} />
           <SkinsCarousel skins={ongoingSkins} />
+          {/* Last in the column, under what the reader came for. Nothing when no campaign runs. */}
+          <SponsoredSlot placement="home" now={requestNow} className="front-panel front-home-panel front-sponsored-panel" />
           {/* A "Packs -- Coming soon" panel stood here. Placeholders stay hidden until
               they have content (decision of 2026-09-25). */}
         </div>
@@ -233,5 +237,6 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>('/',
   },
 } }), { finalize: finalizeHome, revalidate: 1500, tables: {
   // Only what the ticker reads: the record's own "about" stays in data/.
+  'sponsor-campaigns': async () => checkSponsorCampaigns((await import('@/data/sponsor-campaigns.json')).default),
   'sss-cycle': async () => { const { version, cycleEnd, periodDays } = checkSssCycle((await import('@/data/sss-cycle.json')).default); return { version, cycleEnd, periodDays }; },
 } });
