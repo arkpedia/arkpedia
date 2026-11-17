@@ -1,6 +1,6 @@
 # Sponsored slots
 
-A sponsored slot is one image and one link in the page's flow, with no visible label (the owner's choice, 2026-11-18; the link keeps rel="sponsored" and its accessible name says it is sponsored). No
+A sponsored slot is one image and one link in the page's flow, marked by a small "Ad" tag in the artwork's corner. No
 third-party script runs, and nothing is sticky, fixed or laid over content.
 
 | Placement | Where | Notes |

@@ -98,14 +98,15 @@ export default function SponsoredSlot({ placement, className = '' }: { placement
   const art = failed === campaign.id
     ? <span className="sponsored-slot-fallback">{S.fallback(campaign.sponsor)}</span>
     : <ContentImg src={campaign.image} alt={campaign.alt} width={campaign.width} height={campaign.height} referrerPolicy="no-referrer" onError={() => setFailed(campaign.id)} />;
+  const tag = <span className="sponsored-slot-tag">{S.tag}</span>;
   return (
     <aside ref={ref} className={`sponsored-slot sponsored-slot--${placement} ${className}`.trim()} data-clear={overlaid && clear ? '' : undefined} aria-label={S.region(campaign.sponsor)} data-sponsor-campaign={campaign.id}>
       {campaign.url ? (
         <a className="sponsored-slot-art" style={box} href={campaign.url} target="_blank" rel="sponsored noopener noreferrer" aria-label={S.linkLabel(campaign.sponsor, campaign.alt)}>
-          {art}
+          {art}{tag}
         </a>
       ) : (
-        <div className="sponsored-slot-art" style={box}>{art}</div>
+        <div className="sponsored-slot-art" style={box}>{art}{tag}</div>
       )}
     </aside>
   );
