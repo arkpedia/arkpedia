@@ -273,16 +273,18 @@ test('native channel masks reveal artwork without drawing masks or retaining the
   ], textures: [], materials: [], shaders: [], curves: [{ node: 1, property: 'position.1', keys: [[0, 0, null, null, 0, 1/3, 1/3], [3, 0, null, null, 0, 1/3, 1/3], [4, 250, null, null, 0, 1/3, 1/3]] }] } }));
   const link = await open(page); await link.click();
   await expect(dialog(page)).toHaveAttribute('data-phase', 'playing');
-  const pixels = () => page.locator('.event-entrance canvas').evaluate(canvas => new Promise<{ center: number[]; edge: number[]; moved: number[]; error: number }>(resolve => requestAnimationFrame(() => {
+  const pixels = () => page.locator('.event-entrance canvas').evaluate(canvas => {
     const element = canvas as HTMLCanvasElement, gl = element.getContext('webgl2')!, fit = Math.max(element.width / 1280, element.height / 720);
     const read = (y: number) => { const pixel = new Uint8Array(4); gl.readPixels(Math.floor(element.width / 2), Math.round(element.height / 2 + y * fit), 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, pixel); return [...pixel].slice(0, 3); };
-    resolve({ center: read(0), edge: read(70), moved: read(250), error: gl.getError() });
-  })));
+    // The player preserves its drawing buffer; all samples read the same frame.
+    return { center: read(0), edge: read(70), moved: read(250), error: gl.getError() };
+  });
   // Hold the initial stencil layout through GPU startup, then inspect each state in one frame.
   // Separate awaited reads can otherwise observe different curve positions.
   await expect.poll(pixels).toMatchObject({ center: [0, 0, 255], edge: [0, 255, 0], moved: [0, 0, 0], error: 0 });
-  // Advance the native timeline explicitly instead of racing a short wall-clock window on busy GPUs.
-  await page.clock.runFor(4100);
+  // Check the final pose without queueing hundreds of intermediate GPU frames.
+  // fastForward fires one RAF at the target time; the preserved buffer is read above.
+  await page.clock.fastForward(4100);
   await expect.poll(pixels, { timeout: 5000 }).toMatchObject({ moved: [0, 255, 0], center: [0, 0, 0], error: 0 });
   await page.keyboard.press('Escape'); await unlocked(page);
 });
