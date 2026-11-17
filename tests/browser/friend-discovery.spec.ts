@@ -8,15 +8,16 @@ const id='c79bfde1-830c-41f4-bc12-5d8747bb70be';
 const own:AccountRecord={version:1,server:'en',importedAt:'2026-11-17T00:00:00.000Z',doctor:'My Doctor#1111',operators:['Angelina'],skins:[],cleared:['private-stage'],wallet:{orundum:123,originitePrime:0,permits:0,yellowCerts:0,monthlyCardUntil:null},operatorBuilds:{Angelina:{elite:2,level:90,potential:6,skillLevel:7,masteries:{0:3}}},profile:{level:120,registeredAt:null,secretary:null,bio:'PRIVATE BIO',uid:'SECRET-UID',friendSlots:{used:47,limit:50}}};
 const profile=publicFriendFile(makeFriendFile({...own,doctor:'Helpful#1234',operators:['Angelina','Kroos'],skins:['char_291_aglina@summer#5']},{Angelina:{elite:2,level:70,skillLevel:7,potential:1,masteries:{0:1,1:2,2:3}},Kroos:{elite:1,level:55,skillLevel:7,masteries:{}}}));
 const player={id,friendTag:'Helpful#1234',server:'en',slots:3,importedAt:own.importedAt,fullReports:0,openReports:0,supports:[],appearance:{avatar:'avatar_def_01',avatarType:'ICON',secretary:null,secretarySkin:null,nameCard:null,nameCardVariant:0,level:120,operators:2,skins:1}};
-async function fixture(page:Page,theme:string){
+async function fixture(page:Page,theme:string,operators?:string[]){
   await readOnly(page);
   await page.addInitScript(({own,theme})=>{
     localStorage.setItem('theme',theme);localStorage.setItem('arkpediaAccount',JSON.stringify(own));
     localStorage.setItem('plannerRoster',JSON.stringify({Angelina:{elite:2,level:90,potential:6,skillLevel:7,masteries:{0:3}},Thorns:{elite:2,level:90}}));
-    Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:async(text:string)=>{(window as any).__copiedProfile=text;}}});
-  },{own,theme});
+    Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:async(text:string)=>{await (window as any).captureProfileLink(text);}}});
+  },{own:operators?{...own,operators}:own,theme});
   await page.route('**/api/cloud-account',route=>route.fulfill({json:{user:{id:'test-user',name:'Private provider name'},profile:{username:'Community tester',friendTag:null,friendServer:null},linkedProviders:['google'],linkedAccounts:[{id:'g',providerId:'google'}],revision:0,syncReviewed:true,gameSync:false,personalSync:false,historySync:false,paused:false,data:{},providers:['google','discord']}}));
-  const state={available:true,progressive:false,failPage:false,collection:true,publishWait:null as Promise<void>|null,enabled:false,revision:0,communityRevision:0,choices:{stats:false,shareTag:false,openRequests:false},writes:[] as any[],searches:[] as URL[]};
+  const state={copiedLink:undefined as string|undefined,profile:structuredClone(profile),available:true,progressive:false,failPage:false,collection:true,publishWait:null as Promise<void>|null,enabled:false,revision:0,communityRevision:0,choices:{stats:false,shareTag:false,openRequests:false},writes:[] as any[],searches:[] as URL[]};
+  await page.exposeFunction('captureProfileLink',(text:string)=>{state.copiedLink=text;});
   await page.route('**/api/community/sharing',async route=>{
     if(route.request().method()!=='GET'){const body=route.request().postDataJSON();state.choices=body.choices;state.communityRevision++;}
     await route.fulfill({json:{...state.choices,revision:state.communityRevision,listed:state.choices.shareTag&&state.choices.openRequests,importedAt:own.importedAt}});
@@ -31,7 +32,7 @@ async function fixture(page:Page,theme:string){
     if(url.searchParams.has('mine'))return route.fulfill({json:mine()});
     const summary={player,collectionShared:state.collection,profileUpdatedAt:own.importedAt};
     if(url.searchParams.has('ids'))return route.fulfill({json:{profiles:state.available?[summary]:[]}});
-    if(url.searchParams.has('id'))return route.fulfill(state.available?{json:{...summary,profile:state.collection?profile:null}}:{status:404,json:{error:'This player is no longer sharing this profile.'}});
+    if(url.searchParams.has('id'))return route.fulfill(state.available?{json:{...summary,profile:state.collection?state.profile:null}}:{status:404,json:{error:'This player is no longer sharing this profile.'}});
     state.searches.push(url);
     if(state.progressive){
       if(url.searchParams.get('cursor')==='50'){
@@ -63,7 +64,7 @@ for(const theme of ['dark','light']){
     await expect(operator.getByRole('heading',{name:/Stats E2 Lv 70/})).toBeVisible();
     await expect(operator.getByRole('heading',{name:/Stats E2 Lv 90/})).toHaveCount(0);
     await page.keyboard.press('Escape');
-    await shared.getByRole('button',{name:/^Skins/}).click();
+    await shared.getByRole('tab',{name:'Skins',exact:true}).click();
     await expect(shared.getByRole('button',{name:/Angelina.*Summer Flower FA017/})).toBeVisible();
     expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
     await page.reload();
@@ -84,7 +85,7 @@ for(const theme of ['dark','light']){
     await dialog.getByRole('checkbox',{name:'Make this collection public',exact:true}).check();
     await publish.click();
     await expect.poll(()=>state.writes.length).toBe(1);
-    await expect.poll(()=>page.evaluate(()=>(window as any).__copiedProfile)).toBe(`${new URL(page.url()).origin}/friends/profile?id=${id}`);
+    await expect.poll(()=>state.copiedLink).toBe(`${new URL(page.url()).origin}/friends/profile?id=${id}`);
     const body=state.writes[0];expect(body.action).toBe('consent');expect(body.profile.account.operators).toEqual(['Angelina']);
     expect(JSON.stringify(body.profile)).not.toMatch(/SECRET-UID|PRIVATE BIO|orundum|private-stage|Thorns/);
     expect(state.choices).toEqual({stats:false,shareTag:true,openRequests:true});
@@ -94,6 +95,7 @@ for(const theme of ['dark','light']){
   });
   test(`public collection withdrawal clears the open roster and supports remain separate (${theme})`,async({page})=>{
     const state=await fixture(page,theme);await page.goto(`/friends/profile?id=${id}`);
+    await page.getByRole('tab',{name:'Operators',exact:true}).click();
     await expect(page.getByRole('button',{name:/^Angelina: E2 Level 70/})).toBeVisible();
     await page.getByRole('button',{name:'Add friend',exact:true}).click();
     await expect(page.getByRole('button',{name:'Added to Friends',exact:true})).toBeDisabled();
@@ -121,7 +123,7 @@ for(const theme of ['dark','light']){
     finish();await response;state.publishWait=null;
     await page.getByRole('button',{name:'Copy Profile Link',exact:true}).click();
     await expect(dialog.getByRole('checkbox',{name:'Make this collection public',exact:true})).not.toBeChecked();
-    expect(await page.evaluate(()=>(window as any).__copiedProfile)).toBeUndefined();
+    expect(state.copiedLink).toBeUndefined();
   });
 }
 
@@ -137,4 +139,39 @@ test('scroll pagination preserves results and search filters across a failed nex
   await expect(dialog.getByText('Helpful#1234',{exact:true})).toBeVisible();
   expect(state.searches.at(-1)?.searchParams.get('cursor')).toBe('50');
   expect(state.searches.every(url=>url.searchParams.get('server')==='en')).toBe(true);
+});
+
+const longRoster = "Angelina,Kroos,Amiya,Thorns,Surtr,SilverAsh,Exusiai,Texas,Lappland,Ifrit,Saria,Nightingale,Shining,Hoshiguma,Siege,Skadi,Suzuran,Eyjafjalla,Mostima,Blaze,Ceobe,Weedy,Phantom,W,Rosmontis,Mudrock,Mountain,Saga,Archetto,Passenger,Kal'tsit,Carnelian,Pallas,Saileach,Fartooth,Flametail,Gnosis,Goldenglow,Horn,Irene,Lumen,Ebenholz,Dorothy,Młynar,Penance,Reed the Flame Shadow,Chongyue,Lin,Qiubai,Ines,Ho'olheyak,Muelsyse,Typhon,Executor the Ex Foedere,Swire the Elegant Wit,Jessica the Liberated,Hoederer,Viviana,Virtuosa,Degenbrecher".split(',');
+for (const theme of ['dark','light']) test(`personal and shared account tabs stay reachable through long collections (${theme})`, async ({page}) => {
+  const state=await fixture(page,theme,longRoster);
+  state.profile.account.operators=longRoster;
+  for (const shared of [false,true]) {
+    await page.goto(shared?`/friends/profile?id=${id}`:'/account?panel=operators');
+    const tabs=page.getByRole('tablist',{name:shared?'Shared profile':'Account content',exact:true});
+    await expect(tabs).toBeVisible();
+    if (shared) {
+      await expect(tabs.getByRole('tab')).toHaveText(['Profile','Operators','Skins']);
+      await expect(tabs.getByRole('tab',{name:'Profile',exact:true})).toHaveAttribute('aria-selected','true');
+      for (const name of ['Import / export','Account settings','Export my account','View medals']) await expect(page.getByRole('button',{name,exact:true})).toHaveCount(0);
+      await expect(page.getByRole('tab',{name:'Pull history',exact:true})).toHaveCount(0);
+      await expect(page.getByRole('tab',{name:'Friends',exact:true})).toHaveCount(0);
+      await expect(page.locator('main')).not.toContainText('SECRET-UID');
+      await expect(page.locator('main')).not.toContainText('PRIVATE BIO');
+      await tabs.getByRole('tab',{name:'Operators',exact:true}).click();
+      await expect(page.getByRole('button',{name:/^Angelina: E2 Level 70/})).toBeVisible();
+    }
+    await expect(page.getByRole('button',{name:/^Angelina: E2 Level/})).toBeVisible();
+    const bar=page.locator('.sticky-controls').filter({has:tabs});
+    await expect(bar).toHaveAttribute('data-sticky','true');
+    const start=await bar.evaluate(el=>el.getBoundingClientRect().top+scrollY);
+    await page.evaluate(top=>window.scrollTo({top:top+600,behavior:'instant'}),start);
+    await expect.poll(()=>bar.evaluate(el=>Math.abs(el.getBoundingClientRect().top-(parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--nav-h'))||60)))).toBeLessThan(2);
+    await tabs.getByRole('tab',{name:'Skins',exact:true}).click();
+    const search=page.getByRole('searchbox',{name:shared?'Search friend skins':'Search your skins',exact:true});
+    await expect(search).toBeInViewport();
+    expect(await search.evaluate(el=>el.getBoundingClientRect().top)).toBeGreaterThanOrEqual((await bar.boundingBox())!.y+(await bar.boundingBox())!.height-1);
+    await tabs.getByRole('tab',{name:'Profile',exact:true}).click();
+    await expect(page.locator('.account-card').first()).toBeInViewport();
+    expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
+  }
 });

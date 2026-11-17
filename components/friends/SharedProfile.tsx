@@ -1,7 +1,9 @@
 import { useCallback, useMemo, useState } from 'react';
 import ImportDialog from '@/components/account/ImportDialog';
 import ProfileCard from '@/components/account/ProfileCard';
-import SegmentedControl from '@/components/ui/SegmentedControl';
+import { tabPanelProps } from '@/components/ui/Tabs';
+import AccountContentTabs from '@/components/account/AccountContentTabs';
+import { useHeightFloor } from '@/components/ui/useHeightFloor';
 import FriendCollection from './FriendCollection';
 import FriendSupportDetails from './FriendSupportDetails';
 import SharedFriendCard from './SharedFriendCard';
@@ -14,18 +16,27 @@ import { useSharedFriend } from '@/lib/friends/useSharedFriends';
 import type { SharedFriend } from '@/lib/friends/sharedProfile';
 import styles from './Friends.module.css';
 
-export function SharedProfileContent({record,operators,skins}:{record:SharedFriend;operators:FriendOperator[];skins:FriendSkin[]}) {
+export function SharedProfileContent({record,operators,skins,standalone=false}:{record:SharedFriend;operators:FriendOperator[];skins:FriendSkin[];standalone?:boolean}) {
   const map=useReleaseTable<GameAccountMap>('game-account-map');
-  const [view,setView]=useState<'operators'|'skins'>('operators'),[supportsOpen,setSupportsOpen]=useState(false);
+  const [view,setView]=useState<'profile'|'operators'|'skins'>(standalone?'profile':'operators'),[supportsOpen,setSupportsOpen]=useState(false);
   const closeSupports=useCallback(()=>setSupportsOpen(false),[]);
   const {outfitArt,outfitNames}=useMemo(()=>assistantCatalogue(map,skins),[map,skins]);
   const shared=record.profile;
+  const floor=useHeightFloor(record.player.id);
+  const tabId=standalone?'shared-account-content':'shared-profile-content';
+  const tabs=shared&&<AccountContentTabs id={tabId} label="Shared profile" sticky={standalone} value={view} onChange={setView} options={[
+    {value:'profile',label:'Profile'}, {value:'operators',label:'Operators'}, {value:'skins',label:'Skins'},
+  ]} />;
   return <>
     {shared?<>
-      <ProfileCard account={shared.account} map={map} outfits={shared.account.skins.length} outfitArt={outfitArt} outfitNames={outfitNames} onOperators={()=>setView('operators')} onSkins={()=>setView('skins')} />
-      <p className="hint">Shared collection · imported {new Date(shared.account.importedAt).toLocaleDateString()}. Recorded builds are self-reported snapshots.</p>
-      <SegmentedControl label="Shared collection" value={view} onChange={setView} options={[{value:'operators',label:'Operators',count:shared.account.operators.length},{value:'skins',label:'Skins',count:shared.account.skins.length}]} />
-      <FriendCollection key={view} friend={shared} operators={operators} skins={skins} view={view} onClose={()=>{}} inline />
+      {tabs}
+      <div ref={standalone?floor.ref:undefined} {...tabPanelProps(tabId,view)} className="account-tab-content">
+        {view==='profile'?<section className="op-section">
+          <ProfileCard account={shared.account} map={map} outfits={shared.account.skins.length} outfitArt={outfitArt} outfitNames={outfitNames} onOperators={()=>setView('operators')} onSkins={()=>setView('skins')} />
+          <p className="hint">Shared collection · imported {new Date(shared.account.importedAt).toLocaleDateString()}. Recorded builds are self-reported snapshots.</p>
+        </section>:<FriendCollection key={view} friend={shared} operators={operators} skins={skins} view={view} onClose={()=>{}} inline />}
+        {standalone&&floor.spacer}
+      </div>
     </>:<>
       <p>This player shares their equipped supports. Their full collection is not public.</p>
       <SharedFriendCard summary={record} map={map} operators={operators} onOpen={()=>setSupportsOpen(true)} actions={<button type="button" className="btn-sm" onClick={()=>setSupportsOpen(true)}>View support builds</button>} />
