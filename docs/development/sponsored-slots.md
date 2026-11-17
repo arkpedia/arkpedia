@@ -1,12 +1,12 @@
 # Sponsored slots
 
-A sponsored slot is one image and one link in the page's flow, labelled "Sponsored". No
+A sponsored slot is one image and one link in the page's flow, with no visible label (the owner's choice, 2026-11-18; the link keeps rel="sponsored" and its accessible name says it is sponsored). No
 third-party script runs, and nothing is sticky, fixed or laid over content.
 
 | Placement | Where | Notes |
 | --- | --- | --- |
 | `home` | Home page, a panel directly under Events (the same on a phone) | full column width |
-| `header` | The free space to the right of a page's title, on every page that opens with `PageHeader` | shrunk to the title block's height: 84 px (252 px wide) beside a header with a lede, 75 px (225 px wide) beside one without; its label is an "Ad" tag in the artwork's corner; desktop widths only (hidden below 1000 px) |
+| `header` | The free space to the right of a page's title, on every page that opens with `PageHeader` | shrunk to 84 px tall (252 px wide), the height of an eyebrow, title and one line of lede, on every header; desktop widths only (hidden below 1000 px) |
 | `support` | The "Our sponsor" section of `/support` | at the artwork's own width |
 
 A page shows at most one slot besides `/support`'s section. The header slot is laid over the
@@ -51,7 +51,7 @@ The error pages and the development-only pages carry none and show no slot.
 ## Reviewing a draft
 
 `draft` campaigns render in `npm run dev` and in a build made with `NEXT_PUBLIC_SPONSOR_PREVIEW=1`,
-labelled "Sponsored · draft preview", with or without a link and whatever their dates. Never set
+with or without a link and whatever their dates. Never set
 that variable on the public site.
 
 A malformed record throws when a page's tables are attached (`checkSponsorCampaigns`), which stops the

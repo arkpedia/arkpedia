@@ -3,14 +3,6 @@
    before the image loads and stays that height if it never does. Never sticky, fixed or
    overlaid: it scrolls with the content it follows. */
 .sponsored-slot { display: flex; flex-direction: column; align-items: center; gap: 6px; }
-.sponsored-slot-label {
-  margin: 0;
-  align-self: stretch;
-  font-size: 11px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--text-faint);
-}
 .sponsored-slot-art {
   display: flex;
   align-items: center;
@@ -27,41 +19,27 @@ a.sponsored-slot-art:focus-visible { border-color: var(--teal); }
 .sponsored-slot-fallback { padding: 0 12px; font-size: 13px; color: var(--text-dim); text-align: center; }
 
 /* Beside a page's title (components/ui/PageHeader): the artwork laid over the empty space
-   to the right of the title, as tall as the title block: the eyebrow, title and one line of
-   lede (84px) where the header has a lede, and what a header without one can hold (75px)
-   otherwise. It is out of the flow and the header reserves nothing for it, so every header
-   and everything under it measures the same with or without a campaign. Its label is a
-   small tag in the artwork's corner. It stays hidden until SponsoredSlot has measured that
-   nothing of the header reaches under it (a long title, a control in the title row), and
-   below 1000px there is no free space beside a title, so there is no slot (a lazy image
-   that is not displayed is not fetched). --header-sponsor-ratio is the artwork's width over
-   its height, set by PageHeader. */
-.page-header.page-header-sponsored { position: relative; --header-sponsor-h: 75px; }
-.page-header.page-header-sponsored:has(> .sub) { --header-sponsor-h: 84px; }
+   to the right of the title, 84px tall on every header: the height of the eyebrow, title
+   and one line of lede. Beside a header with a lede it starts level with the eyebrow;
+   beside one without it is centred in the header, which is a few pixels taller than it.
+   It is out of the flow and the header reserves nothing for it, so every header and
+   everything under it measures the same with or without a campaign. It stays hidden until
+   SponsoredSlot has measured that nothing of the header reaches under it (a long title, a
+   control in the title row), and below 1000px there is no free space beside a title, so
+   there is no slot (a lazy image that is not displayed is not fetched).
+   --header-sponsor-ratio is the artwork's width over its height, set by PageHeader. */
+.page-header.page-header-sponsored { position: relative; --header-sponsor-h: 84px; }
 .sponsored-slot--header {
   position: absolute;
-  top: 8px;
+  top: 50%;
   right: var(--page-gutter);
   height: var(--header-sponsor-h);
+  transform: translateY(-50%);
   visibility: hidden;
 }
 .sponsored-slot--header[data-clear] { visibility: visible; }
-.page-header:has(> .sub) > .sponsored-slot--header { top: 28px; }
+.page-header:has(> .sub) > .sponsored-slot--header { top: 28px; transform: none; }
 .page-header-slim:has(> .sub) > .sponsored-slot--header { top: 16px; }
-.sponsored-slot--header .sponsored-slot-label {
-  position: absolute;
-  left: 5px;
-  bottom: 5px;
-  z-index: 1;
-  padding: 2px 5px;
-  font-size: 9px;
-  line-height: 1;
-  white-space: nowrap;
-  color: #fff;
-  background: rgb(0 0 0 / 0.6);
-  border-radius: 2px;
-  pointer-events: none;
-}
 .sponsored-slot--header .sponsored-slot-art { width: auto; height: 100%; }
 .sponsored-slot--header .sponsored-slot-fallback { padding: 0 6px; font-size: 11px; line-height: 1.2; }
 @media (max-width: 1000px) {

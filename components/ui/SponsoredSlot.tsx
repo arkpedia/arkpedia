@@ -93,7 +93,6 @@ export default function SponsoredSlot({ placement, className = '' }: { placement
   const overlaid = placement === 'header';
   const clear = useClearSpace(ref, overlaid && campaign !== null);
   if (!campaign) return null;
-  const draft = campaign.status === 'draft';
   // Beside a title the stylesheet gives the height and the ratio gives the width.
   const box = overlaid ? { aspectRatio: `${campaign.width} / ${campaign.height}` } : { aspectRatio: `${campaign.width} / ${campaign.height}`, maxWidth: campaign.width };
   const art = failed === campaign.id
@@ -101,7 +100,6 @@ export default function SponsoredSlot({ placement, className = '' }: { placement
     : <ContentImg src={campaign.image} alt={campaign.alt} width={campaign.width} height={campaign.height} referrerPolicy="no-referrer" onError={() => setFailed(campaign.id)} />;
   return (
     <aside ref={ref} className={`sponsored-slot sponsored-slot--${placement} ${className}`.trim()} data-clear={overlaid && clear ? '' : undefined} aria-label={S.region(campaign.sponsor)} data-sponsor-campaign={campaign.id}>
-      <p className="sponsored-slot-label">{overlaid ? (draft ? S.draftTag : S.tag) : draft ? S.draftLabel : S.label}</p>
       {campaign.url ? (
         <a className="sponsored-slot-art" style={box} href={campaign.url} target="_blank" rel="sponsored noopener noreferrer" aria-label={S.linkLabel(campaign.sponsor, campaign.alt)}>
           {art}
