@@ -1,4 +1,5 @@
 import { useState, type JSX } from 'react';
+import { createPortal } from 'react-dom';
 import dynamic from 'next/dynamic';
 import type { EventExtras } from '@/lib/events/tableRewards';
 import { REGIONAL_MATERIAL } from '@/lib/i18n/regionalMaterial';
@@ -59,7 +60,7 @@ export function EventPacks({ groups }: { groups: EventExtras['packs'] }) {
         </div>;
       })}
     </div>
-    {opened && <PackArtViewer image={opened.image} name={opened.name} dynamic={null} onClose={() => setOpened(null)} />}
+    {opened && createPortal(<PackArtViewer image={opened.image} name={opened.name} dynamic={null} onClose={() => setOpened(null)} />, document.body)}
   </>;
 }
 
