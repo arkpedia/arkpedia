@@ -113,6 +113,9 @@ flag defaults off. Enable it only after a clean production build advertises
 Deploy the compatible app first, verify its checked-source Preview and production
 journeys, then enable both repository flags and run the normal data publication.
 Keep the existing 5,000,000,000-byte/run and 60,000,000,000-byte total limits.
+Small media files publish with up to 16 concurrent transfers, reserving each body
+before reading it and retaining a combined 256 MB in-flight limit. Interrupted
+publications verify existing native paths before resuming.
 
 A completed native receipt can carry `native: {version: 1, baseRevision,
 overrides}`. This is a sparse map from a source revision's complete directories to
@@ -130,7 +133,12 @@ media dependencies. Original Git JSON, indexes, blob identities and historical
 URLs remain unchanged. Media readiness precedes data readiness; the live pointer
 still moves only after publication. Maps total at most 64 KB per data release.
 The app fetches them alongside the manifest before adopting a release and retains
-the previous release on invalid/unavailable metadata. It serializes the small map
+the previous release on invalid/unavailable metadata.
+Build-time maps keep full metadata for game-data catalogues and primary asset pins.
+An independently pinned entrance catalogue needs only its complete `event-transitions`
+subtree, including nested audio/textures and shared runtime files; unrelated historical
+model overrides are omitted. A revision referenced by any broad catalogue keeps its
+full map. Every retained target is unchanged and the combined 64 KB limit still applies. It serializes the small map
 with the page. Each media request still goes straight to R2/CDN, with no lookup
 Worker or per-file mapping request. Build hydration loads the same immutable maps
 for bundled fallback pages, independently pinned application art and static art

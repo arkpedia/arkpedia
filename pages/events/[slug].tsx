@@ -9,6 +9,7 @@ import type { ScheduleEvent } from '@/lib/schedule/scheduleTypes';
 import { permanentEventListing, modeDetails, type ModeDetails } from '@/lib/events/modeDetails';
 import { useRegionalTime } from '@/lib/time/useRegionalTime';
 import { regionalArt, regionalRange, regionalScheduleSlice, type RegionalSchedules } from '@/lib/time/regional';
+import { readShippedTable } from '@/lib/content/shippedTable';
 import { withContentPage } from '@/lib/content/server';
 import { readPublishedContentPageProps } from '@/lib/content/release';
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
@@ -591,7 +592,7 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/ev
 
   const skinImageByName = new Map(allSkins.filter((s) => s.image).map((s) => [s.name, s.image as string]));
   const skinNameById = new Map(allSkins.filter((s) => s.skinId && s.name).map((s) => [s.skinId as string, s.name]));
-  const eventRewards = (await import('@/data/event-rewards.json')).default as EventRewardsFile;
+  const eventRewards = await readShippedTable<EventRewardsFile>('event-rewards.json');
   const videos = ((await import('@/data/event-videos.json')).default as EventVideosFile).events[event.name] ?? [];
   // The store's Chinese item names in English, where the Global tables have them.
   const storeNames = eventRewards.storeNames ?? {};
