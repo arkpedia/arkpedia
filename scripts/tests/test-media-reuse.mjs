@@ -25,6 +25,7 @@ test('build loads reuse maps for independently pinned event menus', async t => {
   await writeFile(join(root, 'data/assets/revisions.json'), JSON.stringify({ [image]: a }));
   for (const name of ['dynamic-art', 'chibi-art', 'medal-set-layouts']) await writeFile(join(root, `data/${name}.json`), '{}');
   await writeFile(join(root, 'config/community-project-art.json'), JSON.stringify({ repository: image, revision: a }));
+  await writeFile(join(root, 'config/is-game-art.json'), JSON.stringify({ repository: image, revision: c }));
   await writeFile(join(root, 'config/pull-poll-art.json'), JSON.stringify({ banner: { repository: image, revision: c, path: 'headhunting-banner-images/banner.webp' } }));
   await writeFile(join(root, 'config/event-entrances.json'), JSON.stringify({ baseUrl: `https://assets.arkpedia.net/arkpedia/${art}/${b}/` }));
   const mock = join(root, 'readiness.mjs');

@@ -14,6 +14,10 @@ if (process.env.ARKPEDIA_CONTENT_DISABLED !== '1') {
   }
   const project = JSON.parse(await fs.readFile('config/community-project-art.json', 'utf8'));
   refs.push({ repository: project.repository, revision: project.revision });
+  // The Integrated Strategies and Contingency Contract game art has its own pin too. Without its map
+  // the pages ask for every file at that revision, and only the files new in it are stored there.
+  const gameArt = JSON.parse(await fs.readFile('config/is-game-art.json', 'utf8'));
+  refs.push({ repository: gameArt.repository, revision: gameArt.revision });
   await Promise.all([...new Map(refs.map(ref => [`${ref.repository}/${ref.revision}`, ref])).values()].map(async ({ repository, revision }) => {
     const response = await fetchAsset(`https://assets.arkpedia.net/__ready/${repository}/${revision}`, { signal: AbortSignal.timeout(20_000) });
     if (!response.ok) throw Error(`Bundled media not ready: ${repository}/${revision} (${response.status})`);
