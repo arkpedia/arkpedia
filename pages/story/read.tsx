@@ -5,6 +5,7 @@ import Link from 'next/link';
 import PageMeta from '@/components/layout/PageMeta';
 import PageHeader from '@/components/ui/PageHeader';
 import StyledSelect from '@/components/ui/StyledSelect';
+import { fetchAsset } from '@/lib/assets/assetRetry';
 import { withContentPage } from '@/lib/content/server';
 import { nativeStoryData } from '@/lib/story/nativeStoryData';
 import { nativeScriptUrl, parseNativeStory, type NativeStories, type StoryLine } from '@/lib/story/nativeStory';
@@ -29,7 +30,7 @@ export default function StoryReader({ chapters }: Props) {
     setError('');
     if (!url) return;
     const controller = new AbortController();
-    void fetch(url, { signal: AbortSignal.any([controller.signal, AbortSignal.timeout(20000)]) }).then(async response => {
+    void fetchAsset(url, { signal: AbortSignal.any([controller.signal, AbortSignal.timeout(20000)]) }).then(async response => {
       if (!response.ok) throw Error('The story could not load.');
       const lines = parseNativeStory(await response.text());
       if (!lines.length) throw Error('This script has no readable text.');
@@ -44,7 +45,7 @@ export default function StoryReader({ chapters }: Props) {
   const read = !!selected && !!progress[`native_${key}`]?.includes(selected.index);
   return <>
     <PageMeta title={chapter ? `${chapter.title} · Story reader` : 'Story reader'} description="Read released event stories from the English game scripts." path="/story/read" noindex />
-    <PageHeader eyebrow="Arknights // Story" title={chapter?.title ?? 'Story reader'} sub="English game text. Choices and their alternate dialogue are shown in reading order." />
+    <PageHeader className={styles.reader} eyebrow="Arknights // Story" title={chapter?.title ?? 'Story reader'} sub="English game text. Choices and their alternate dialogue are shown in reading order." />
     <main className={styles.reader}>
       <Link className="ghost btn-sm" href={{pathname:'/story',query:{view:'list',q:chapter?.title??''}}}>← Story library</Link>
       {!chapter || !selected ? <div className="waiting-box"><h2>Choose a story from the library</h2><p>This chapter or section is unavailable in this content release.</p></div> : <>

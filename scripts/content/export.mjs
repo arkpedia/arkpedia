@@ -1,3 +1,4 @@
+import '../build/seed-native-story.mjs';
 import { assertCompleteness } from './check-completeness.mjs';
 import fs from 'node:fs';
 import path from 'node:path';

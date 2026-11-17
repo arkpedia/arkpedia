@@ -1,3 +1,4 @@
+import { pinnedRef } from '../content/pin-upstream.mjs';
 /** Missing reader groups may use the game's English scripts, never guessed Timo indices. */
 export const STORY_SCRIPT_ROOT = 'https://raw.githubusercontent.com/ArknightsAssets/ArknightsGamedata/';
 const id = /^[a-zA-Z0-9_-]{1,80}$/;
@@ -24,6 +25,7 @@ export function nativeStoryEntries(chapters) {
   return Object.entries(chapters).map(([id, chapter]) => ({ id: `native_${id}`, title: chapter.title, category: chapter.category, url: `/story/read?chapter=${encodeURIComponent(id)}` }));
 }
 export function storyScriptUrl(revision, path) {
+  revision ??= pinnedRef('ArknightsAssets/ArknightsGamedata');
   if (!/^[a-f0-9]{40}$/.test(revision ?? '') || !script.test(path ?? '') || path.includes('..')) throw Error('Invalid story script.');
   return `${STORY_SCRIPT_ROOT}${revision}/en/gamedata/story/${path}.txt`;
 }
