@@ -1,5 +1,7 @@
 # Arkpedia project guidance
 
+Game reference pages must use actual in-game icons and artwork wherever available. Reuse shared image components and publish missing assets through the asset/CDN pipeline; avoid text-only catalogues when native art exists.
+
 Event-reward infographic previews must show the entire image within the viewport,
 with no cropping or scrolling and with Copy link and Save image visible. Keep the
 full-resolution saved image unchanged; these overviews support at-a-glance reading

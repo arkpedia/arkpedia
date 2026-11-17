@@ -26,6 +26,8 @@ test('without a release the static pages alone are listed, and the XML is well f
 /* Every static page is accounted for: in the release (scripts/content/pages.json), in STATIC_ROUTES, in
  * UNLISTED_ROUTES, or here with why it is not for a search engine. */
 const NOT_FOR_SEARCH: Record<string, string> = {
+  '/ccb': 'Preview-only historical helper, excluded from production discovery until promotion.',
+  '/game-modes/integrated-strategies': 'Preview-only reference, intentionally excluded from production discovery until promotion.',
   '/404': 'the error page', '/500': 'the error page', '/home': 'a redirect', '/events': 'a redirect', '/sitemap.xml': 'the sitemap itself',
   '/optimizer': 'development only', '/bases/whole-base-optimizer': 'development only',
   '/music/[albumId]': 'a redirect', '/world': 'listed by the release under its old name, /community',
