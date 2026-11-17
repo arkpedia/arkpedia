@@ -4,6 +4,7 @@ export const CCB_TEXT = {
   eyebrow: 'Contingency Contract // Battleplan',
   sub: 'Pick a season and a battlefield, stack contracts, and see what they do to your operators and the enemy.',
   back: '← Game Modes',
+  loading: 'Loading the battleplan…',
   seasons: 'Seasons',
   seasonLabel: (n: number) => `CCB #${n}`,
   permanent: 'Permanent site',

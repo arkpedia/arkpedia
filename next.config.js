@@ -57,6 +57,10 @@ const nextConfig = {
     if (!isServer) config.plugins.push(new ClientDataGuard(__dirname));
     // Account-import transport is browser-only; its WASM must not enter the Worker.
     if (isServer) config.plugins.push(new webpack.IgnorePlugin({ resourceRegExp: /^libcurl\.js(\/|$)/ }));
+    // The Contingency Contract workspace and the Integrated Strategies reference render in the
+    // browser only (their pages load them with ssr: false); without this the server build still
+    // compiles them into the Worker's bundle.
+    if (isServer) config.plugins.push(new webpack.IgnorePlugin({ resourceRegExp: /\/(?:ccb\/BattleplanWorkspace|gamemodes\/IsReference)$/ }));
     return config;
   },
   experimental: {

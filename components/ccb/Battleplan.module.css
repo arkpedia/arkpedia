@@ -205,3 +205,6 @@
 .bonus { padding: 0 5px; font-family: var(--font-mono); font-size: 11px; white-space: nowrap; background: var(--panel); color: var(--text-dim); }
 .bonusOn { background: var(--cc); color: var(--cc-ink); }
 .bonusRow .points { background: var(--cc); color: #fff; }
+
+.textLink { text-decoration: underline; text-decoration-color: rgb(255 255 255 / .4); text-underline-offset: 3px; }
+.textLink:hover, .textLink:focus-visible { color: var(--scrim-teal); text-decoration-color: currentColor; }

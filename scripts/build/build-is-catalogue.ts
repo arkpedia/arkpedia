@@ -15,7 +15,8 @@ const [cn, global, stages] = await Promise.all([load('Kengxxiao/ArknightsGameDat
 const artResponse = await fetchAsset(`https://raw.githubusercontent.com/arkpedia/${gameArt.repository}/${gameArt.revision}/sources/is-game-art.json`, { signal: AbortSignal.timeout(30000) });
 if (!artResponse.ok) throw new Error('Pinned IS artwork manifest is unavailable');
 const art = await artResponse.json();
-const topics = projectIs(cn, global, stages, art);
+const requirements = JSON.parse(await fs.readFile('config/is-ending-requirements.json', 'utf8')).endings;
+const topics = projectIs(cn, global, stages, art, requirements);
 if (!topics.length || topics.some(t => !t.name || !t.sections.items.length || !t.sections.stages.length)) throw new Error('Incomplete IS catalogue; keeping the previous deployment');
 await fs.mkdir('public/_is', { recursive: true });
 for (const topic of topics) await fs.writeFile(`public/_is/${topic.id}.json`, JSON.stringify(topic));

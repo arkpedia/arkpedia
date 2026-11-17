@@ -7,7 +7,9 @@ export interface IsRecord { id: string; name: string; text: string; source: 'Glo
   /** Squads: every effect a random-effect squad can roll. */ variants?: { text: string }[];
   /** Squads: an upgraded form of another squad. */ upgraded?: boolean;
   /** Squads and endings: how the game says it is unlocked or reached. */ unlock?: string;
-  /** Endings: position in the game's own order, from 1. */ number?: number }
+  /** Endings: position in the game's own order, from 1. */ number?: number;
+  /** Endings: how to reach it. Editorial: the game tables do not record this. */ requirements?: IsEndingRequirements }
+export interface IsEndingRequirements { needs?: string; avoid?: string[]; steps: string[] }
 export type IsItemCategory = 'collectibles' | 'coins' | 'vouchers' | 'other';
 const CATEGORY: Record<string, IsItemCategory> = { RELIC: 'collectibles', COPPER: 'coins', RECRUIT_TICKET: 'vouchers', UPGRADE_TICKET: 'vouchers', CUSTOM_TICKET: 'vouchers' };
 /** Counters and per-variant duplicates the game stores as items but never lists as ones. */
@@ -27,7 +29,7 @@ function mechanics(value: unknown, source: 'Global' | 'CN', path = '', art?: IsA
   if ((row.name || row.title) && ['description', 'functionDesc', 'ruleDesc', 'desc', 'usage'].some(k => text(row[k]))) return [record(row, source, path, art, topic)];
   return Object.entries(row).flatMap(([key, child]) => mechanics(child, source, `${path}/${key}`, art, topic));
 }
-export function projectIs(cn: Table, global: Table, stages: { id: string; slug: string; image?: string }[] = [], art?: IsArt): IsTopic[] {
+export function projectIs(cn: Table, global: Table, stages: { id: string; slug: string; image?: string }[] = [], art?: IsArt, requirements: Record<string, IsEndingRequirements> = {}): IsTopic[] {
   const stageLinks = new Map(stages.map(s => [s.id.toLowerCase(), s]));
   const topicIds = new Set([...Object.keys(cn.topics ?? {}), ...Object.keys(global.topics ?? {})]);
   return [...topicIds].map(id => {
@@ -49,7 +51,7 @@ export function projectIs(cn: Table, global: Table, stages: { id: string; slug: 
             if (ref && Number(ref.bandLevel) > 0) r.upgraded = true;
             if (text(row.unlockCondDesc)) { r.unlock = text(row.unlockCondDesc); r.text = text(row.usage) || r.text; }
           }
-          if (section === 'endings') { r.number = index + 1; const cg = isIcon(art, id, text(row.bgId)); if (cg) r.cg = cg; if (text(row.changeEndingDesc)) r.unlock = text(row.changeEndingDesc); }
+          if (section === 'endings') { r.number = index + 1; if (requirements[r.id]) r.requirements = requirements[r.id]; const cg = isIcon(art, id, text(row.bgId)); if (cg) r.cg = cg; if (text(row.changeEndingDesc)) r.unlock = text(row.changeEndingDesc); }
           if (section === 'stages') { const stage = stageLinks.get(text(row.levelId).toLowerCase()); if (stage) { r.href = `/stages/browse?s=${encodeURIComponent(stage.slug)}`; if (stage.image) { r.image = `/stages-images/${stage.image}`; r.imageKind = 'map'; } } }
           if (!r.image && (section === 'encounters' || section === 'overview')) { const icon = isNodeIcon(art, section === 'encounters' ? 'adventure' : 'battle'); if (icon) { r.image = icon; r.imageKind = 'mask'; } }
           merged.set(r.id, r);
