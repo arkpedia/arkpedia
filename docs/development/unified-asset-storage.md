@@ -113,6 +113,9 @@ flag defaults off. Enable it only after a clean production build advertises
 Deploy the compatible app first, verify its checked-source Preview and production
 journeys, then enable both repository flags and run the normal data publication.
 Keep the existing 5,000,000,000-byte/run and 60,000,000,000-byte total limits.
+Small media files publish with up to 16 concurrent transfers, reserving each body
+before reading it and retaining a combined 256 MB in-flight limit. Interrupted
+publications verify existing native paths before resuming.
 
 A completed native receipt can carry `native: {version: 1, baseRevision,
 overrides}`. This is a sparse map from a source revision's complete directories to
