@@ -452,6 +452,7 @@ const REGENERATED: Record<string, (props: Record<string, unknown>, clock: { from
     const tables = props.__contentTables as Record<string, {chars?:Record<string,unknown>}>;
     assert.ok(Object.keys(tables['game-account-map'].chars ?? {}).length > 400, 'the profile id map is attached');
   },
+  '/friends/profile': (props, context) => REGENERATED['/friends'](props, context),
   '/community': (props, { from, to }) => {
     const campaigns = (props.directory as { webEvents: { url: string; name: string; expiresAt: string }[] }).webEvents;
     assert.ok((require('../../data/community-web-events.json') as { url: string }[]).every(known => campaigns.some(event => event.url === known.url)), 'this deployment\'s campaigns survive an older published Community directory');

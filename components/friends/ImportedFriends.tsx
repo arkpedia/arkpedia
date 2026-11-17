@@ -5,6 +5,12 @@ import ImportDialog from '@/components/account/ImportDialog';
 import InfoPopover from '@/components/ui/InfoPopover';
 import { ICONS } from '@/components/layout/NavIcons';
 import FriendCollection from '@/components/friends/FriendCollection';
+import FindFriends from '@/components/friends/FindFriends';
+import ProfileLink from '@/components/friends/ProfileLink';
+import SharedFriendCard from '@/components/friends/SharedFriendCard';
+import SharedProfileDialog from '@/components/friends/SharedProfile';
+import { useSharedFriends } from '@/lib/friends/useSharedFriends';
+import { FRIEND_LINKS_KEY, parseFriendLinks } from '@/lib/friends/sharedProfile';
 import FriendCard, { FriendSupports } from '@/components/friends/FriendCard';
 import { useReleaseTable } from '@/lib/content/context';
 import { useAccount, useOtherAccounts } from '@/lib/account/accountStore';
@@ -20,6 +26,11 @@ import styles from '@/components/friends/Friends.module.css';
 interface Props { operators: FriendOperator[]; skins: FriendSkin[] }
 
 export default function ImportedFriends({ operators, skins }: Props) {
+  const shared = useSharedFriends();
+  const [directoryOpen,setDirectoryOpen] = useState(false);
+  const [sharedId,setSharedId] = useState<string|null>(null);
+  const closeDirectory = useCallback(()=>setDirectoryOpen(false),[]);
+  const closeShared = useCallback(()=>setSharedId(null),[]);
   const account = useAccount();
   const others = useOtherAccounts();
   const map = useReleaseTable<GameAccountMap>('game-account-map');
@@ -33,6 +44,7 @@ export default function ImportedFriends({ operators, skins }: Props) {
   const closeCollection = useCallback(() => { setView(null); setProfileOpen(false); requestAnimationFrame(() => opener.current?.focus({ preventScroll: true })); }, []);
   const [message, setMessage] = useState('');
   const [error, setError] = useState(false);
+  const announce = useCallback((text:string,failed=false)=>{setMessage(text);setError(failed);},[]);
   useEffect(() => {
     try {
       const raw = localStorage.getItem(FRIENDS_STORAGE_KEY);
@@ -69,7 +81,8 @@ export default function ImportedFriends({ operators, skins }: Props) {
       const shared = parseFriendFile(await file.text());
       if (generation !== importGeneration.current) return;
       const next = [...friends.filter(entry => friendKey(entry) !== friendKey(shared)), shared];
-      if (next.length > 50) throw new Error('Remove a friend before importing more than 50 profiles.');
+      let linkedCount=0;try{linkedCount=parseFriendLinks(localStorage.getItem(FRIEND_LINKS_KEY)).length;}catch{/* Manual imports still work in this tab when storage is blocked. */}
+      if (next.length + linkedCount > 50) throw new Error('Remove a friend before importing more than 50 profiles.');
       const saved = JSON.stringify({ version: 1, friends: next });
       if (saved.length > MAX_IMPORT_BYTES) throw new Error('The saved friend list is too large. Remove a profile first.');
       setFriends(next); setFriend(null); setView(null); setProfileOpen(false);
@@ -85,19 +98,28 @@ export default function ImportedFriends({ operators, skins }: Props) {
 
   return <>
     <div className={`${styles.actions} ${styles.toolbar}`}>
-      <button type="button" className="primary btn-sm" onClick={() => input.current?.click()}>Import a friend</button>
-      <button type="button" className="ghost btn-sm" disabled={!account} onClick={exportAccount} title={!account ? 'Import your own Arknights account on My account first' : undefined}>Export my account</button>
+      <div className={styles.toolbarGroup}><button type="button" className="primary btn-sm" aria-haspopup="dialog" onClick={()=>setDirectoryOpen(true)}>Find Friends</button><ProfileLink onMessage={announce} /></div>
+      <div className={styles.toolbarGroup}>
+      <button type="button" className="btn-sm" onClick={() => input.current?.click()}>Import a friend</button>
+      <button type="button" className="btn-sm" disabled={!account} onClick={exportAccount} title={!account ? 'Import your own Arknights account on My account first' : undefined}>Export my account</button>
       <InfoPopover label="Friend sharing details">
-        <p>Friends currently supports manual sharing only: ask your friend to export their account, then import their JSON file here. Import a newer export to update their profile.</p>
-        <p>Shared files contain your profile, operators and skins. Imported friends are kept in this browser, separate from your account and planners.</p>
+        <p>Find Friends lists opted-in players. A full collection is visible only when that player explicitly publishes it. Saved public links are checked again when you open them.</p>
+        <p>Shared files contain your profile, operators and skins. Manual sharing still works: ask a friend to export their account, then import their JSON file here. Import a newer export to update it. Friends are kept in this browser, separate from your account and planners.</p>
         <p>Pull history, resources, credentials and unrelated planner saves are excluded.</p>
         {!account && <><p>Import your own Arknights account to enable Export my account.</p><DataLink /></>}
       </InfoPopover>
+      </div>
     </div>
       <input ref={input} className={styles.file} type="file" accept=".json,application/json" aria-label="Friend account file" onChange={event => {
         void importFriend(event.currentTarget.files?.[0]); event.currentTarget.value = '';
       }} />
       <p className={styles.status} role={error ? 'alert' : 'status'} hidden={!message}>{message}</p>
+      {shared.error&&<p role="alert">{shared.error} <button type="button" className="btn-sm" onClick={shared.retry}>Retry shared friends</button></p>}
+      {!!shared.ids.length&&<section className={`op-section ${styles.friendList}`} aria-label="Shared friends">{shared.ids.map(id=>{
+        const summary=shared.profiles.get(id);
+        const remove=()=>{try{shared.remove(id);announce("Friend removed.");}catch{announce("This browser could not save the updated friend list.",true);}};
+        return summary?<SharedFriendCard key={id} summary={summary} map={map} operators={operators} onOpen={()=>setSharedId(id)} actions={<><button type="button" className="ghost btn-sm" aria-haspopup="dialog" disabled={shared.checking} onClick={()=>setSharedId(id)}>View profile</button><button type="button" className="btn-sm" onClick={remove}>Remove friend</button></>} />:<div key={id} className="panel"><p>{shared.checking?"Checking shared friend…":"This friend’s shared profile is unavailable."}</p><button type="button" className="btn-sm" onClick={remove}>Remove friend</button></div>;
+      })}</section>}
       {friends.length ? <section className={`op-section ${styles.friendList}`} aria-label="Imported friends">
         {friends.map(entry => {
           const show = (kind: 'profile' | 'operators' | 'skins', trigger: HTMLElement) => { opener.current = trigger; setFriend(entry); setProfileOpen(kind === 'profile'); setView(kind === 'profile' ? null : kind); };
@@ -113,7 +135,9 @@ export default function ImportedFriends({ operators, skins }: Props) {
               <button type="button" className="ghost btn-sm" aria-label={`Show ${name}'s skins`} aria-haspopup="dialog" onClick={event => show('skins', event.currentTarget)}><span className="site-nav-icon" aria-hidden="true">{ICONS.skins}</span>Skins</button>
             </>} />;
         })}
-      </section> : <section className={styles.empty}><h2>No friend imported yet</h2><p className="hint">Ask a friend to export their account here, then open their JSON file.</p></section>}
+      </section> : !shared.ids.length&&<section className={styles.empty}><h2>No friends yet</h2><p className="hint">Find an opted-in player, or import a friend’s exported account file.</p></section>}
+    {directoryOpen&&<FindFriends operators={operators} saved={shared.ids} onAdd={shared.add} onOpen={setSharedId} onClose={closeDirectory} />}
+    {sharedId&&<SharedProfileDialog key={sharedId} id={sharedId} operators={operators} skins={skins} onClose={closeShared} />}
     {friend && profileOpen && <ImportDialog title={`${friend.account.doctor ?? 'Friend'} · Profile`} className={styles.profileDialog} onClose={closeCollection}>
       <div className={styles.profile}><ProfileCard account={friend.account} map={map} outfits={friend.account.skins.length} outfitArt={outfitArt} outfitNames={outfitNames} onOperators={() => { setProfileOpen(false); setView('operators'); }} onSkins={() => { setProfileOpen(false); setView('skins'); }} /></div>
       <button type="button" className="ghost btn-sm" onClick={() => {
