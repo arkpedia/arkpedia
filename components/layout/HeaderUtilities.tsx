@@ -41,7 +41,7 @@ export default function HeaderUtilities({ search, mobile = false, onOpen }: { se
       {accountLink('pulls', 'Pull history', 'history')}
       {accountLink('operators', 'Operators', 'roster')}
       {accountLink('skins', 'Skins', 'skins')}
-      {accountLink('friends', 'Friends', 'friends')}
+      {accountLink('following', 'Following', 'friends')}
     </ActionPopover>
     </div>
   </div>;

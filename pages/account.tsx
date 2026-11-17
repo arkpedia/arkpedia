@@ -75,7 +75,7 @@ export default function AccountPage({ skins, operators }: Props) {
     void router.push({ pathname: '/account', query }, undefined, { shallow: true, scroll: false });
   };
   const closePanel = () => { const query = { ...router.query }; delete query.panel; void router.replace({ pathname: '/account', query }, undefined, { shallow: true, scroll: false }); };
-  const tab = panel === 'pulls' || panel === 'operators' || panel === 'skins' || panel === 'friends' ? panel : 'profile';
+  const tab = panel === 'pulls' || panel === 'operators' || panel === 'skins' || panel === 'following' ? panel : panel === 'friends' ? 'following' : 'profile';
   const view = panel === 'operators' || panel === 'skins' ? panel : null;
   const floor = useHeightFloor(account?.server);
   const collectionOperators = useMemo(() => operators ?? friendOperators(map, []), [operators, map]);
@@ -99,10 +99,10 @@ export default function AccountPage({ skins, operators }: Props) {
       <main>
         <CloudAccountPanel hideSettingsButton onOpenSettings={() => actions.open('settings')} onOpenData={() => actions.open('import')} />
         <AccountContentTabs id="account-content" label="Account content" value={tab} onChange={openPanel} options={[
-          { value: 'profile', label: 'Profile' }, { value: 'pulls', label: 'Pull history' }, { value: 'operators', label: 'Operators' }, { value: 'skins', label: 'Skins' }, { value: 'friends', label: 'Friends' },
+          { value: 'profile', label: 'Profile' }, { value: 'pulls', label: 'Pull history' }, { value: 'operators', label: 'Operators' }, { value: 'skins', label: 'Skins' }, { value: 'following', label: 'Following' },
         ]} />
         <div ref={floor.ref} {...tabPanelProps('account-content', tab)} className="account-tab-content">
-        {tab === 'friends' && <ImportedFriends operators={collectionOperators} skins={collectionSkins} />}
+        {tab === 'following' && <ImportedFriends operators={collectionOperators} skins={collectionSkins} />}
         {tab === 'pulls' && <PullHistory key={account ? `${account.server}:${account.importedAt}` : 'empty'} account={account} map={map} />}
         {view && (account ? <FriendCollection key={view} inline own friend={makeFriendFile(account, shareableRoster(account, Object.values(others), readRoster()))} operators={collectionOperators} skins={collectionSkins} view={view} onClose={closePanel} /> : <p className="hint">Import your Arknights account to see your {view}.</p>)}
         {tab === 'profile' && !settingUp && <>

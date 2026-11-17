@@ -12,6 +12,6 @@ export default function SharedFriendCard({summary,map,operators,actions,onOpen}:
   const strip=`${card}-strip${variants?`-${Math.min(appearance?.nameCardVariant??0,variants-1)}`:''}`;
   return <FriendCard name={row.friendTag} avatar={avatarSources(appearance??{},map.chars,new Map())[0]} background={profileArtPath('profile-namecards',strip)}
     onProfile={onOpen} profileLabel={`View ${row.friendTag} shared profile`}
-    metadata={<><span className="hint">{SERVERS[row.server].label}{appearance?.level?` · Level ${appearance.level}`:''} · {row.slots??0} open slots</span><span className="hint">{summary.collectionShared?'Shared collection':'Supports only'} · Imported {new Date(row.importedAt).toLocaleDateString()}</span></>}
-    supports={<FriendSupports units={playerSupportUnits(row,operators)} map={map} />} actions={actions} />;
+    metadata={<><span className="hint">{SERVERS[row.server].label}{appearance?.level?` · Level ${appearance.level}`:''}{summary.supportsShared?` · ${row.slots??0} open slots`:''}</span><span className="hint">{summary.collectionShared?'Shared collection':summary.supportsShared?'Supports only':'Basic profile'} · Imported {new Date(row.importedAt).toLocaleDateString()}</span></>}
+    supports={summary.supportsShared?<FriendSupports units={playerSupportUnits(row,operators)} map={map} />:undefined} actions={actions} />;
 }

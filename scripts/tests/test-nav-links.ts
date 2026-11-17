@@ -146,7 +146,7 @@ test('nothing bakes a deploy-time slug into the nav any more', () => {
 
 
 test('legacy Friends links open the account tab even in an older search index',()=>{
-  assert.equal(canonicalPublicHref('/friends'),'/account?panel=friends');
-  assert.equal(canonicalPublicHref('/friends?panel=profile#collection'),'/account?panel=friends#collection');
-  assert.ok(isActiveLink(NAV_ORDER.find(link=>link.label==='Friends')!,'/account','/account?panel=friends'));
+  assert.equal(canonicalPublicHref('/friends'),'/account?panel=following');
+  assert.equal(canonicalPublicHref('/friends?panel=profile#collection'),'/account?panel=following#collection');
+  assert.ok(isActiveLink(NAV_ORDER.find(link=>link.label==='Following')!,'/account','/account?panel=following'));
 });

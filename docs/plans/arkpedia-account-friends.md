@@ -1,21 +1,28 @@
-# Friends discovery and future account requests
+# Following and independent public profile links
 
-The Friends tab at `/account?panel=friends` retains manual import/export. Imported files are snapshots stored separately from the viewer's own account; updating one requires another export/import.
+The account tab is **Following** (`/account?panel=following`). Old `/friends` bookmarks and `panel=friends` still open it. Existing exported-file formats, browser storage keys and public profile URLs stay compatible. Following is one-way and stores profile IDs in the viewer's browser; it creates no server relationship, request, acceptance or notification.
 
-## Discovery and public profile links
+## Consent
 
-The November 17 implementation is for checked-source Preview review. Production promotion needs maintainer approval and account migration `0022_public_friend_profiles.sql`; Preview applies it only to `arkpedia-preview-accounts` after its recovery bookmark is verified.
+Account settings → Saving & sharing contains four independent checkboxes:
 
-Find Friends searches recent players who enabled “Share my friend tag and support units,” have open friend slots, and meet the existing support listing and availability-report rules. Operator searches use their equipped supports, plus owned operators from collections they explicitly published. Anonymous statistics never supply an identified roster.
+- Contribute to community stats: anonymous aggregate contribution.
+- Share my friend tag and support units: the existing support finder, including its freshness, slots and availability rules.
+- Allow following: discoverable basic profiles and locally saved followed references. No dependency on support sharing, import age or in-game friend slots.
+- Direct profile link: explicit publication of Profile Card, owned operators, recorded builds and owned skins. Save community choices to enable/update it or disable the URL. Copy link appears for an enabled link. Following and support searchability are not enabled by this choice.
 
-Add friend saves a stable profile reference in this browser. It does not send an Arkpedia or in-game friend request. Shared references are rechecked on opening, every 30 seconds while visible, and on tab return. Withdrawn or expired profiles become unavailable. Full collections are fetched only while viewing them; saved references contain no cached roster. Manual files and shared references have a combined limit of 50 friends.
+A full collection is visible through its direct URL while Direct profile link is enabled. Following can show that same published collection, or just the basic profile when full publication is off. Turning off Following removes discovery and followed access without invalidating an independently enabled direct link. Turning off Direct profile link invalidates the direct URL and clears the full collection and operator index, while leaving basic following and supports controlled by their own choices. An imported game-identity change or Stop all sharing withdraws publication. Previously exported files cannot be recalled.
 
-Copy Profile Link requires login and a separate “Make this collection public” confirmation. Publication shares owned operators, recorded builds, skins, profile appearance and equipped supports; it also enables the disclosed friend-tag/support listing choice. It excludes game UID, biography, registration date, resources, pull history, credentials, stage progress, medals and unowned planner goals. Existing anonymous-statistics or support consent does not authorize a full collection. The link shows the snapshot explicitly published; publish again after importing to update it.
+Public projections exclude game UID, biography, resources, pull history, registration date, credentials, stage progress, medals and unowned planner goals. Support builds and slots are omitted from following views when support sharing is off. Revisions and conditional atomic writes prevent stale requests from resurrecting consent or replacing a newer account's collection.
 
-Account settings exposes Public profile link so owners can stop full-profile sharing independently of support sharing. Turning support sharing off or changing the imported game identity also withdraws the collection and its operator search index. Revision checks and atomic mutations prevent stale publication from undoing withdrawal or overwriting a newer account's data. Previously exported manual files cannot be recalled.
+## Migration and release
 
-Shared views reuse FriendCard, ProfileCard, FriendCollection and recorded support builds. A friend's preview never substitutes the viewer's planner goals or builds. Imported builds and availability are self-reported, not verified in-game state.
+`0023_allow_following.sql` adds independent flags and changes the publication-withdrawal trigger. Only existing explicitly published profiles retain following and direct-link consent; support-only users default to off. Apply and verify this additive migration against Preview with a recovery bookmark before publishing code there, and separately against production before production promotion. Never copy databases between environments or restore old account data for a code rollback.
 
-## Future mutual account requests
+## Cost boundaries
 
-The earlier November 5 request for account-to-account friend requests remains separate. That future flow would send requests from support search, show pending requests above accepted friends, and persist relationships through Arkpedia accounts. Discovery and public profile references do not implement mutual requests. Do not show a requests section until that feature exists.
+Follow/Unfollow remains local. Directory pages are bounded to 50 results and saved-reference revalidation batches at most 50 IDs. Public discovery and summary checks each execute one bounded read, skip session authentication and never scan support-availability reports. Full collections are fetched only while open; visible views recheck small summaries every 30 seconds and on focus, without downloading unchanged snapshots or running background jobs. Full snapshots are bounded to 500 KB. Unrelated settings saves do not republish them, and republishing updates only added/removed operator-index rows. Consent writes retain existing rate and revision limits. Preserve immediate withdrawal checks instead of caching private consent responses.
+
+## Future mutual friends
+
+Sending and accepting friend requests would be a separate account-backed Friends feature. Do not imply a mutual relationship or display request controls in Following.

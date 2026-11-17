@@ -33,6 +33,7 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {at:'2026-11-18T00:00:00Z',changed:[{title:'Renamed Friends to Following',detail:'Allow other users to follow your account independently of support searchability.',href:'/account?panel=following'}],added:[{title:'A shareable profile link',detail:'Share your Profile Card, Operators and owned skins with a simple link.',href:'/account?settings=community'},{title:'Control following and direct profile links',detail:'Disable either at any time in Account settings under Saving & sharing.',href:'/account?settings=community'}]},
   {
     at: '2026-11-17T05:29:00Z',
     added: [
