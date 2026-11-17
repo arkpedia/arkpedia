@@ -34,7 +34,7 @@ function harness(){
   const limiter={limit:async()=>({success:true})};
   const env={ARKPEDIA_ACCOUNTS_DB:db,ARKPEDIA_AUTH_URL:'https://preview.example.invalid',BETTER_AUTH_SECRET:'test-only-secret-long-enough-for-hmac-01234567',GOOGLE_CLIENT_ID:'test',GOOGLE_CLIENT_SECRET:'test',DISCORD_CLIENT_ID:'',DISCORD_CLIENT_SECRET:'',ACCOUNT_TRAFFIC_LIMIT:limiter,ACCOUNT_IP_LIMIT:limiter};
   function user(id:string){sqlite.prepare('INSERT INTO "user"(id,name,email,createdAt,updatedAt)VALUES(?,?,?,?,?)').run(id,'Private Provider Name',id+'@example.invalid','2026-01-01','2026-01-01');sqlite.prepare('INSERT INTO arkpedia_profile(userId,username,usernameKey,updatedAt)VALUES(?,?,?,?)').run(id,id,id,'2026-01-01');}
-  async function call(kind:'sharing'|'stats'|'supports'|'availability'|'rankings'|'skin-poll',owner:string|null,method='GET',body?:unknown,query:Record<string,string>={},headers:Record<string,string>={}){
+  async function call(kind:'sharing'|'stats'|'supports'|'availability'|'rankings'|'skin-poll'|'friends',owner:string|null,method='GET',body?:unknown,query:Record<string,string>={},headers:Record<string,string>={}){
     let status=200,result:any;const response={setHeader:()=>{},status:(n:number)=>{status=n;return response;},json:(v:unknown)=>{result=v;return response;},end:()=>{}};
     await createCommunityHandler(kind,{resolveEnv:()=>env,authenticate:async()=>owner,now:()=>clock,pollSkinIds:async()=>pollIds})({method,headers:{origin:env.ARKPEDIA_AUTH_URL,'content-type':'application/json',...headers},query,body:body&&typeof body==='object'?{owner,...body}:body} as NextApiRequest,response as unknown as NextApiResponse);
     return {status,result};
@@ -642,4 +642,98 @@ test('daily music chart counts each opted-in active save once per catalogue song
   assert.deepEqual((await snapshot()).likes, { abcdefghijk: 1, 'msr:123': 2 });
   assert.equal((await call('sharing', 'one', 'DELETE', {revision:1})).status, 200);
   assert.deepEqual((await snapshot()).likes, { 'msr:123': 1 });
+});
+
+
+function publicFriendFixture() {
+  return {kind:'arkpedia-friend',version:1,exportedAt:new Date(clock).toISOString(),
+    account:{version:1,server:'en',importedAt:new Date(clock).toISOString(),doctor:'Doctor#1234',operators:['Thorns','Amiya'],skins:['skin@thorns#1'],cleared:['main_01-01'],
+      wallet:{orundum:999,originitePrime:100,permits:2,yellowCerts:3,monthlyCardUntil:null},
+      profile:{level:120,bio:'PRIVATE BIO',registeredAt:null,secretary:'Thorns',uid:'PRIVATE GAME UID',supports:[]}},
+    roster:{Thorns:{elite:2,level:60,skillLevel:7,masteries:{2:3},modules:{0:2},potential:5},Unowned:{elite:2,level:90,skillLevel:7,masteries:{}}}};
+}
+
+test('Friends never turns support/statistics consent into an identified full roster',async()=>{
+  const h=harness();h.user('alice');
+  await h.publish('alice','100',all,{operators:[{operator:'Amiya',elite:2,level:60,m0:0,m1:3,m2:0,modules:{}}]});
+  const mine=(await h.call('friends','alice','GET',undefined,{mine:'1'})).result;
+  assert.equal(mine.enabled,false);assert.equal(mine.revision,0);
+  let shown=await h.call('friends',null,'GET',undefined,{id:mine.id});
+  assert.equal(shown.status,200);assert.equal(shown.result.profile,null);
+  assert.deepEqual(shown.result.player.supports.map((s:any)=>s.operator),['Thorns']);
+  assert.equal((await h.call('friends',null,'GET',undefined,{operator:'Amiya'})).result.listings.length,0);
+  const body={revision:0,communityRevision:mine.communityRevision,profile:publicFriendFixture()};
+  assert.equal((await h.call('friends','alice','PUT',{...body,action:'refresh'})).status,409);
+  const published=await h.call('friends','alice','PUT',{...body,action:'consent'});
+  assert.equal(published.status,200);assert.equal(published.result.enabled,true);
+  shown=await h.call('friends',null,'GET',undefined,{id:mine.id});
+  assert.deepEqual(shown.result.profile.account.operators,['Thorns','Amiya']);
+  assert.equal(shown.result.profile.roster.Thorns.potential,5);
+  assert.equal(shown.result.profile.roster.Thorns.masteries[2],3);
+  const serialized=JSON.stringify(shown.result);
+  for(const secret of ['PRIVATE','orundum','Unowned','main_01-01','userId','gameKey'])assert.ok(!serialized.includes(secret),secret);
+  assert.equal((await h.call('friends',null,'GET',undefined,{operator:'Amiya'})).result.listings.length,1);
+  const persisted=h.sqlite.prepare('SELECT snapshot FROM community_friend_profile').get() as {snapshot:string};
+  assert.ok(!persisted.snapshot.includes('PRIVATE'));
+  // Statistics remain independent of explicit full-profile publication.
+  assert.equal((await h.call('sharing','alice','PUT',{revision:1,choices:{...all,stats:false}})).status,200);
+  assert.ok((await h.call('friends',null,'GET',undefined,{id:mine.id})).result.profile);
+});
+
+test('Friends publication is owner-bound, same-origin, revision-bound and separately withdrawable',async()=>{
+  const h=harness();h.user('alice');h.user('bob');await h.publish('alice','100');
+  const mine=(await h.call('friends','alice','GET',undefined,{mine:'1'})).result;
+  const body={revision:0,communityRevision:1,action:'consent',profile:publicFriendFixture()};
+  assert.equal((await h.call('friends',null,'GET',undefined,{mine:'1'})).status,401);
+  assert.equal((await h.call('friends',null,'PUT',body)).status,401);
+  assert.equal((await h.call('friends','bob','PUT',{...body,owner:'alice'})).status,409);
+  assert.equal((await h.call('friends','alice','PUT',body,{}, {origin:'https://other.invalid'})).status,403);
+  assert.equal((await h.call('friends','alice','PUT',{...body,communityRevision:0})).status,409);
+  assert.equal((await h.call('friends','alice','PUT',{...body,profile:{...publicFriendFixture(),extra:'x'.repeat(500001)}})).status,400);
+  assert.equal((await h.call('friends','alice','PUT',body)).status,200);
+  assert.equal((await h.call('friends','alice','PUT',body)).status,409);
+  assert.equal((await h.call('friends','alice','DELETE',{revision:1})).status,200);
+  assert.equal((await h.call('friends',null,'GET',undefined,{id:mine.id})).result.profile,null);
+  assert.equal(h.sqlite.prepare('SELECT COUNT(*) AS n FROM community_friend_operator').get().n,0);
+  assert.equal((await h.call('friends','alice','PUT',{...body,revision:1,action:'refresh'})).status,409);
+  assert.equal((await h.call('friends','alice','PUT',{...body,revision:2,action:'refresh'})).status,409);
+});
+
+test('support withdrawal and game-owner changes atomically revoke profiles and indexed owned operators',async()=>{
+  for(const change of ['withdraw','game'] as const){
+    const h=harness();h.user('alice');await h.publish('alice','100');
+    const mine=(await h.call('friends','alice','GET',undefined,{mine:'1'})).result;
+    await h.call('friends','alice','PUT',{revision:0,communityRevision:1,action:'consent',profile:publicFriendFixture()});
+    if(change==='withdraw')await h.call('sharing','alice','DELETE',{});
+    else await h.call('sharing','alice','PUT',{revision:1,action:'consent',choices:all,snapshot:snapshot('200')});
+    assert.equal((await h.call('friends',null,'GET',undefined,{id:mine.id})).status,404);
+    const stored=h.sqlite.prepare('SELECT enabled,snapshot,revision FROM community_friend_profile').get();
+    assert.equal(stored.enabled,0);assert.equal(stored.snapshot,null);assert.equal(stored.revision,2);
+    assert.equal(h.sqlite.prepare('SELECT COUNT(*) AS n FROM community_friend_operator').get().n,0);
+    assert.equal((await h.call('friends','alice','PUT',{revision:1,communityRevision:1,action:'refresh',profile:publicFriendFixture()})).status,409);
+  }
+});
+
+test('racing full-profile publications cannot replace newer consent or resurrect withdrawn data',async()=>{
+  const h=harness();h.user('alice');await h.publish('alice','100');
+  const body={revision:0,communityRevision:1,action:'consent',profile:publicFriendFixture()};
+  const initial=await Promise.all([h.call('friends','alice','PUT',body),h.call('friends','alice','PUT',body)]);
+  assert.deepEqual(initial.map(r=>r.status).sort(),[200,409]);
+  await Promise.all([h.call('friends','alice','PUT',{...body,revision:1,action:'refresh'}),h.call('sharing','alice','DELETE',{})]);
+  const profile=h.sqlite.prepare('SELECT enabled,snapshot FROM community_friend_profile').get();
+  assert.equal(profile.enabled,0);assert.equal(profile.snapshot,null);
+  assert.equal(h.sqlite.prepare('SELECT COUNT(*) AS n FROM community_friend_operator').get().n,0);
+});
+
+test('saved friend references revalidate in one bounded request without downloading collections',async()=>{
+  const h=harness();h.user('alice');await h.publish('alice','100');
+  const mine=(await h.call('friends','alice','GET',undefined,{mine:'1'})).result;
+  await h.call('friends','alice','PUT',{revision:0,communityRevision:1,action:'consent',profile:publicFriendFixture()});
+  const checked=await h.call('friends',null,'GET',undefined,{ids:mine.id});
+  assert.equal(checked.status,200);assert.equal(checked.result.profiles[0].collectionShared,true);
+  const text=JSON.stringify(checked.result);
+  for(const secret of ['snapshot','roster','Amiya','gameKey','userId','PRIVATE'])assert.ok(!text.includes(secret),secret);
+  assert.equal((await h.call('friends',null,'GET',undefined,{ids:'__proto__'})).status,400);
+  await h.call('sharing','alice','DELETE',{});
+  assert.deepEqual((await h.call('friends',null,'GET',undefined,{ids:mine.id})).result.profiles,[]);
 });

@@ -13,7 +13,7 @@ import LoadOnScroll from '@/components/ui/LoadOnScroll';
 import FilterSheet from '@/components/ui/FilterSheet';
 import { useSwitchHold } from '@/components/ui/useSwitchHold';
 import FriendSupportDetails from '@/components/friends/FriendSupportDetails';
-import type { SupportUnit } from '@/lib/account/accountStore';
+import { playerSupportUnits } from '@/lib/community/supportUnits';
 import FriendCard, { FriendSupports } from '@/components/friends/FriendCard';
 import { avatarSources, profileArtPath } from '@/lib/account/portraits';
 import { useQueryState } from '@/lib/hooks/useQueryState';
@@ -41,8 +41,7 @@ export default function SupportUnits({operators}:Props){
   const [preview,setPreview]=useState<SupportPlayer|null>(null);
   const closePreview=useCallback(()=>setPreview(null),[]);
   const map=useReleaseTable<GameAccountMap>('game-account-map');
-  const supportUnits=(row:SupportPlayer):SupportUnit[]=>row.supports.map(s=>({name:s.operator,rarity:catalogue.get(normalizeForSearch(s.operator))?.rarity??null,
-    elite:s.elite,level:s.level,potential:s.potential??0,skill:s.skill,skillMastery:s.mastery,skillLevel:s.skillLevel,skillMasteries:s.skillMasteries,module:s.module,moduleLevel:s.moduleLevel,skillId:s.skillId,skin:s.skin,allMastered:s.allMastered===true}));
+  const supportUnits=(row:SupportPlayer)=>playerSupportUnits(row,operators);
   const hold=useSwitchHold('community-supports');
   const catalogue=useMemo(()=>new Map(operators.map(op=>[normalizeForSearch(op.name),op])),[operators]);
   const selected=catalogue.get(normalizeForSearch(query.trim()));
