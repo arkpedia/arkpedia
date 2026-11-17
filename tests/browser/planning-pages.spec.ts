@@ -317,7 +317,7 @@ test.describe('home', () => {
       const context = await browser.newContext(use);
       const page = await context.newPage();
       await page.goto('/');
-      await expect(page.locator('.front-events-info')).toBeVisible();
+      await expect(page.locator('.front-events-slide[data-current] .front-events-info')).toBeVisible();
       const dots = page.locator('.front-events-dots button');
       const slides = Math.max(await dots.count(), 1);
       const shapes: { name: string; height: number; below: boolean }[] = [];
@@ -335,7 +335,7 @@ test.describe('home', () => {
             return { actual: getComputedStyle(button, '::before').backgroundColor, expected };
           }).filter(colour => colour.actual !== colour.expected)), { message: 'Carousel dots settle to their exact selected/unselected token colours' }).toEqual([]);
         }
-        shapes.push(await page.locator('.front-events-info').evaluate((el) => {
+        shapes.push(await page.locator('.front-events-slide[data-current] .front-events-info').evaluate((el) => {
           const name = el.querySelector('.front-events-name')!, timer = el.querySelector('.countdown-timer')!;
           return { name: name.textContent ?? '', height: el.getBoundingClientRect().height, below: timer.getBoundingClientRect().top >= name.getBoundingClientRect().bottom - 0.5 };
         }));
