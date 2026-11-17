@@ -14,7 +14,8 @@ export type IsItemCategory = 'collectibles' | 'coins' | 'vouchers' | 'other';
 const CATEGORY: Record<string, IsItemCategory> = { RELIC: 'collectibles', COPPER: 'coins', RECRUIT_TICKET: 'vouchers', UPGRADE_TICKET: 'vouchers', CUSTOM_TICKET: 'vouchers' };
 /** Counters and per-variant duplicates the game stores as items but never lists as ones. */
 const HIDDEN_ITEMS = new Set(['COPPER_BUFF', 'COPPER_DRAW_NUM', 'STASH_RECRUIT_LIMIT', 'HPMAX', 'SQUAD_CAPACITY', 'SPECIAL_ZONE_AP']);
-export interface IsTopic { id: string; name: string; intro: string; source: 'Global' | 'CN'; sections: Record<string, IsRecord[]>; resources?: IsRecord[]; tabIcons?: Record<string, string>; keyArt?: IsKeyArt }
+export interface IsTopic { id: string; name: string; intro: string; source: 'Global' | 'CN'; sections: Record<string, IsRecord[]>; resources?: IsRecord[]; tabIcons?: Record<string, string>; keyArt?: IsKeyArt;
+  /** Art folders the CDN stores under another revision than the pin (unchanged files are stored once, under the revision that introduced them): folder -> revision. */ stored?: Record<string, string> }
 type Row = Record<string, unknown>;
 type Table = { topics?: Record<string, Row>; details?: Record<string, Row>; modules?: Record<string, unknown> };
 const rows = (value: unknown): Row[] => value && typeof value === 'object' ? Object.values(value).filter((v): v is Row => !!v && typeof v === 'object') : [];

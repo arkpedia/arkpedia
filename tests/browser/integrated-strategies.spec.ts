@@ -1,6 +1,5 @@
 import { expect, test } from '@playwright/test';
 import { setTheme } from './overlay-checks';
-import gameArt from '../../config/is-game-art.json';
 
 for (const theme of ['dark', 'light'] as const) test(`IS native artwork loads through every section (${theme})`, async ({ page }, info) => {
   await page.goto('/game-modes/integrated-strategies?theme=rogue_3&tab=items');
@@ -8,7 +7,8 @@ for (const theme of ['dark', 'light'] as const) test(`IS native artwork loads th
   const panel = page.getByRole('tabpanel');
   const art = panel.locator('img').first();
   await expect(art).toBeVisible();
-  await expect(art).toHaveAttribute('src', new RegExp(`${gameArt.revision}.*integrated-strategies`));
+  // Pinned art: the address names a commit (the pin, or the revision the CDN stores an unchanged folder under).
+  await expect(art).toHaveAttribute('src', /arkpedia-image-assets(?:%2F|\/)[a-f0-9]{40}(?:%2F|\/)content-art(?:%2F|\/)integrated-strategies/);
   await expect.poll(() => art.evaluate((img: HTMLImageElement) => img.naturalWidth)).toBeGreaterThan(0);
   await page.screenshot({ path: info.outputPath(`is-items-${theme}.png`), scale: 'css' });
   for (const name of ['Overview', 'Stages', 'Squads', 'Encounters', 'Special mechanics', 'Endings']) {

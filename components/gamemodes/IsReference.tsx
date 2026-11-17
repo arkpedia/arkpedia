@@ -38,7 +38,8 @@ const T = {
   dataNote: (source: string) => `${source} game data. CN records fill gaps until Global has them, so unreleased content can appear.`,
 };
 /** Global numbering: Ceobe's Fungimist counts as #1, so the game's rogue_1 is #2. */
-const art = (path: string) => ({ ...gameArt, repository: 'arkpedia-image-assets' as const, path });
+/** A game art file at the revision the CDN stores it under: the pin, unless the theme's catalogue names another for its folder. */
+const artAt = (stored: Record<string, string> | undefined, path: string) => ({ repository: 'arkpedia-image-assets' as const, revision: stored?.[path.slice(0, path.lastIndexOf('/'))] ?? gameArt.revision, path });
 const themeNumber = (id: string) => Number(id.split('_')[1]) + 1;
 const DEFAULT_THEME = 'rogue_5';
 const REQUIREMENTS_SOURCE = 'https://arknights.wiki.gg';
@@ -72,6 +73,7 @@ export default function IsReference({ themes }: { themes: Theme[] }) {
   const theme = themes.find(t => t.id === themeId) ?? themes[0];
   const topic = loadedTopic?.id === theme.id ? loadedTopic : topicCache.get(theme.id) ?? null;
   const section = SECTIONS.includes(tab as typeof SECTIONS[number]) ? tab : 'overview';
+  const art = (path: string) => artAt({ ...theme.stored, ...topic?.stored }, path);
   useEffect(() => {
     const controller = new AbortController(); setError(false);
     const cached = topicCache.get(theme.id);
@@ -116,7 +118,7 @@ export default function IsReference({ themes }: { themes: Theme[] }) {
     </section>
     <ScrollRow label={T.themes} className={styles.rail}>
       {ordered.map(t => <button type="button" key={t.id} className={`btn-bare ${styles.themeCard}`} aria-pressed={t.id === theme.id} onClick={() => choose(setTheme)(t.id)}>
-        <span className={styles.themeThumb}>{t.keyArt?.art.map(path => <ApplicationImage key={path} asset={art(path)} alt="" width={t.keyArt!.art.length > 1 ? 195 : 390} height={240} sizes="240px" />)}</span>
+        <span className={styles.themeThumb}>{t.keyArt?.art.map(path => <ApplicationImage key={path} asset={artAt(t.stored, path)} alt="" width={t.keyArt!.art.length > 1 ? 195 : 390} height={240} sizes="240px" />)}</span>
         <span className={styles.kicker}>{T.number(themeNumber(t.id))}{t.source === 'CN' && <span className={styles.cn}>{T.cnOnly}</span>}</span>
         <strong>{t.name}</strong>
       </button>)}
