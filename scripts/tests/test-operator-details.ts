@@ -398,7 +398,9 @@ test('potential replacement chains render as one talent while independent number
     assert(talent, id);
     assert.equal(talent.rows.length, 6, id);
     assert(!talent.name?.match(/(?:\s[1-6]|\s(?:I|II|III|IV|V|VI))$/), id);
-    assert.deepEqual(talent.rows.map(row => row.name), Array.from({ length: 6 }, (_, index) => `${talent.name} ${index + 1}`), id);
+    // Recon's Global release uses Roman ranks; its earlier CN translation used digits.
+    const ranks = id === 'char_4215_buddy' && normalized.get(id)?.sourceRegion !== 'CN' ? ['I', 'II', 'III', 'IV', 'V', 'VI'] : ['1', '2', '3', '4', '5', '6'];
+    assert.deepEqual(talent.rows.map(row => row.name), ranks.map(rank => `${talent.name} ${rank}`), id);
   }
 
   assert.deepEqual(normalized.get(op('CONFESS-47').internalName)?.talents?.[0]?.rows.map(row => row.name),
