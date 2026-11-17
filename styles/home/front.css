@@ -567,3 +567,13 @@ html[data-site-server="kr"] .maintenance-notice:not([data-server="kr"]) {
 .front-gacha-poster-wrap:focus-visible, .front-gacha-poster-wrap:focus-within,
 .front-gacha-thumb:focus-visible, .front-skin-item:focus-visible,
 .front-featured-op:focus-visible, .front-community-item:focus-visible { border-color: var(--teal); }
+
+.front-broadcast-regions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+  padding: 0;
+  margin: 10px 0 0;
+  list-style: none;
+  font-size: 12px;
+}

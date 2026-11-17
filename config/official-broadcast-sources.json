@@ -1,0 +1,10 @@
+{
+  "about": "Reviewed official sources only. Endfield channel identity is resolved from its own website's embedded official trailers, not guessed from a display name.",
+  "sources": [
+    {"id":"arknights-global","game":"arknights","region":"global","platform":"youtube","channelId":"UCR0J2NYGuC8epsa1O4DMmXQ","provenance":"data/official-video-channels.json"},
+    {"id":"arknights-jp","game":"arknights","region":"jp","platform":"youtube","channelId":"UCvoQlzEzqa6vQA8hq9GNNug","provenance":"data/official-video-channels.json"},
+    {"id":"arknights-kr","game":"arknights","region":"kr","platform":"youtube","channelId":"UCnnbUv4urnbWgb_lgGUfeBw","provenance":"data/official-video-channels.json"},
+    {"id":"arknights-cn","game":"arknights","region":"cn","platform":"bilibili","uid":161775300,"roomId":5555734,"provenance":"https://ak.hypergryph.com/"},
+    {"id":"endfield-global","game":"endfield","region":"global","platform":"youtube","seedVideoIds":["4f3PxzS5iFc","3V-CiDX_EcQ"],"provenance":"https://endfield.gryphline.com/en-us"}
+  ]
+}

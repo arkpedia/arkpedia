@@ -326,15 +326,14 @@ test.describe('home', () => {
         await page.waitForTimeout(150);
         if (slides > 1) {
           await expect(page.locator('.front-events-dot[aria-current="true"]')).toHaveCount(1);
-          const colours = await dots.evaluateAll((buttons) => buttons.map((button) => {
+          await expect.poll(async () => dots.evaluateAll((buttons) => buttons.map((button) => {
             const swatch = document.createElement('span');
             swatch.style.color = button.getAttribute('aria-current') === 'true' ? 'var(--teal)' : 'var(--text-dim)';
             button.appendChild(swatch);
             const expected = getComputedStyle(swatch).color;
             swatch.remove();
             return { actual: getComputedStyle(button, '::before').backgroundColor, expected };
-          }));
-          for (const colour of colours) expect(colour.actual).toBe(colour.expected);
+          }).filter(colour => colour.actual !== colour.expected)), { message: 'Carousel dots settle to their exact selected/unselected token colours' }).toEqual([]);
         }
         shapes.push(await page.locator('.front-events-info').evaluate((el) => {
           const name = el.querySelector('.front-events-name')!, timer = el.querySelector('.countdown-timer')!;

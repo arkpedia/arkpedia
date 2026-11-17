@@ -34,6 +34,7 @@ export default function YouTubeVideoGallery({ videos, query, now, context = EMPT
       ]} />
       <InfoPopover label="How videos are grouped">
         <p>Current Global event guides and available operator/outfit showcases come first, including older videos.</p>
+        <p>Guides teach stage or event strategies. Stage clears show runs and challenges. Pulls show summoning; resource plans, tools and probability discussions belong in Discussions.</p>
       </InfoPopover>
     </div>
     {!grouped && topic === 'all' ? <>
