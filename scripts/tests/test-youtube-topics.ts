@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import fs from 'node:fs';
 import { classifyVideoTopic, videoTopicRequest, VIDEO_TOPIC_CRITERIA } from '../sync/jev-video-classifier';
-import { applyVideoTopicAssignments, TOPIC_POLICY_VERSION } from '../../lib/music/youtubeTopicAssignments';
+import { applyVideoTopicAssignments, TOPIC_POLICY_VERSION, videoTopicInputHash } from '../../lib/music/youtubeTopicAssignments';
 import { discoveryVideoTopic, videoTopic, VIDEO_TOPICS } from '../../lib/music/youtubeDiscovery';
 import { rankDiscoveryVideos, EMPTY_VIDEO_CONTEXT } from '../../lib/music/youtubeRelevance';
 import { recordFiles } from '../content/records.mjs';
@@ -14,7 +14,7 @@ const video: YouTubeVideo = { videoId: 'fixture0001', title: 'Violet Mizutsune O
   publishedAt: '', thumbnail: '', url: '', liveStatus: 'none', isLivestream: false };
 const answer = (topic: VideoTopic = 'operators', probability = 1, confidence = 1) => ({ model: 'jev-test', answers: { topic: {
   type: 'choice', choice: topic, confidence,
-  probabilities: Object.fromEntries(VIDEO_TOPICS.map(({ value }) => [value, value === topic ? probability : (1 - probability) / 8])),
+  probabilities: Object.fromEntries(VIDEO_TOPICS.map(({ value }) => [value, value === topic ? probability : (1 - probability) / (VIDEO_TOPICS.length - 1)])),
 } } });
 const mockFetch = (body: unknown, status = 200): typeof fetch => async () => new Response(JSON.stringify(body), { status });
 
@@ -75,6 +75,22 @@ test('provider failures and malformed answers are errors rather than cached cate
   }
 });
 
+test('the split rejects old model categories without losing old gameplay videos or canonical showcases', () => {
+  const tracker = { ...video, videoId: '4ABl1mNq2qI', title: 'New Arknights Players Can Get 700 FREE PULLS (and counting) | Arkpedia' };
+  const old = { inputHash: videoTopicInputHash(tracker), policyVersion: 1, topic: 'guides' as const,
+    model: 'jev-1.14.0', requestedModel: 'jev-latest', probability: 0.99, confidence: 0.99, checkedAt: new Date().toISOString() };
+  const [updated] = applyVideoTopicAssignments([{ ...tracker, classifiedTopic: 'guides' }], { [tracker.videoId]: old });
+  assert.equal(updated.classifiedTopic, undefined);
+  assert.equal(discoveryVideoTopic(updated), 'discussions');
+  for (const [title, expected] of [['MT-8 3 operators | Arknights', 'clears'], ['Talulah and Tocka Pulls!! [Arknights]', 'pulls']]) {
+    const legacy = JSON.parse(JSON.stringify({ ...video, title, classifiedTopic: 'gameplay' }));
+    assert.equal(discoveryVideoTopic(legacy), expected);
+  }
+  const catalogue = { ...old, inputHash: videoTopicInputHash(video), model: 'catalogue-v1', topic: 'operators' as const, probability: 1, confidence: 1 };
+  assert.equal(applyVideoTopicAssignments([video], { [video.videoId]: catalogue })[0].classifiedTopic, 'operators');
+  assert.equal(applyVideoTopicAssignments([{ ...video, description: 'changed' }], { [video.videoId]: catalogue })[0].classifiedTopic, undefined);
+});
+
 test('the content workflow classifies with the secret, preserves cache, and publishes categories as content records', () => {
   const workflow = fs.readFileSync('.github/workflows/prepare-content.yml', 'utf8');
   assert.match(workflow, /TYPESAFE_API_KEY: \$\{\{ secrets\.TYPESAFE_API_KEY \}\}/);
@@ -92,5 +108,5 @@ test('rule fallback recognizes reported reviews and trailers without changing ou
   assert.equal(videoTopic('Should You Get and Build Orchid alter? | Orchid alter Review [Arknights]'), 'operators');
   assert.equal(videoTopic('Arknights Official Trailer - Thunder in the Azure Dream'), 'media');
   assert.equal(videoTopic('Arknights Official Teaser Trailer - Thunder in the Azure Dream'), 'media');
-  assert.equal(videoTopic('【Arknights】Summoning on Viviana & Pozemka Banner'), 'gameplay');
+  assert.equal(videoTopic('【Arknights】Summoning on Viviana & Pozemka Banner'), 'pulls');
 });

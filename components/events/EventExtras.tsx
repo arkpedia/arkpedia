@@ -15,8 +15,7 @@ const PackArtViewer = dynamic(() => import('@/components/skins/SkinZoomOverlay')
  * Each names its source (the official post, or the game's furniture data).
  */
 
-/** Show the final sale day in fixed Global time. A close at server midnight belongs to
- * the preceding sale day; the interval itself keeps its exact exclusive timestamp. */
+/** Sale dates follow the offer’s own region; the underlying interval stays exclusive. */
 
 export function EventPacks({ groups }: { groups: EventExtras['packs'] }) {
   const [opened, setOpened] = useState<{ image: string; name: string } | null>(null);
@@ -24,7 +23,7 @@ export function EventPacks({ groups }: { groups: EventExtras['packs'] }) {
     {pack.imagePath && pack.artworkLayout !== 'promo' && <Image className="event-pack-card-image" src={pack.imagePath} alt="" width={112} height={84} />}
     <span className="event-pack-card-copy">
       <span className="event-pack-card-name">{pack.name}</span>
-      {pack.start && <span className="event-pack-window">{packDay(pack.start)}{pack.end ? ` – ${packDay(pack.end, { exclusiveEnd: true })}` : ''}</span>}
+      {pack.start && <span className="event-pack-window">{packDay(pack.start, { region: pack.region })}{pack.end ? ` – ${packDay(pack.end, { exclusiveEnd: true, region: pack.region })}` : ''}</span>}
       <span className="event-pack-preview">{pack.contents.slice(0, 2).map(item => `${item.name} ×${item.count.toLocaleString('en-US')}`).join(' · ')}</span>
       <span className="event-pack-more">View contents ↗</span>
     </span>
@@ -40,6 +39,7 @@ export function EventPacks({ groups }: { groups: EventExtras['packs'] }) {
           else offers.push({ image, packs: [pack] });
         }
         return <div key={group.title + group.source} className="event-extras-group">
+          {group.region === 'CN' && <p className="hint"><strong>CN packs</strong> · Global packs have not been announced yet. These are the CN offers, artwork and sale dates; Global availability, contents and prices may differ.</p>}
           <div className="event-pack-offers">
             {offers.map((offer, index) => {
               const single = !!offer.image && offer.packs.length === 1;
@@ -55,7 +55,7 @@ export function EventPacks({ groups }: { groups: EventExtras['packs'] }) {
               </div>;
             })}
           </div>
-          <p className="hint">Pack information: <a href={group.source} target="_blank" rel="noopener noreferrer">source announcement</a>. Prices differ by region.</p>
+          <p className="hint">{group.region === 'CN' ? 'CN pack information' : 'Pack information'}: <a href={group.source} target="_blank" rel="noopener noreferrer">source announcement</a>. Prices differ by region.</p>
         </div>;
       })}
     </div>

@@ -39,6 +39,9 @@ stage upstream-en --invariant --timeout-minutes 20 -- bash scripts/lib/upstream.
 # the Story page's complete library and chapter popups: read from the reader's catalogue as data,
 # independently of the map, so a failed canvas import cannot block new stories.
 stage story-chapters -- node scripts/imports/import-story-chapters.mjs
+# New English game stories remain readable through a catalogue outage. This stage
+# deliberately runs from the retained library even when story-chapters fails.
+stage story-native -- node scripts/imports/import-story-native.mjs
 # Reader cover images, staged under .cache/story-covers/ for the staged-art stage (the daily
 # release's), so an art-source outage cannot discard stories.
 stage story-covers -- node scripts/imports/import-story-covers.mjs

@@ -162,7 +162,21 @@ export function importClaimedBeginner(rewards: readonly FreeReward[], claims: { 
 }
 
 /** A welfare operator as its event's page lists it: one per operator, with how it is earned. */
-export interface EventWelfareOperator { name: string; rarity: number; task: string | null; source: string }
+export interface EventWelfareOperator { name: string; rarity: number; task: string | null; source: string; characterId?: string }
+/** Resolve game display names through character IDs, including rows from older releases.
+ * Never guess identity by rearranging names: alternate forms can share those words. */
+export function canonicalEventWelfare(operators: readonly EventWelfareOperator[], rewards: readonly FreeReward[], catalogue: readonly { name: string; rarity: number; charIds: readonly string[] }[]): EventWelfareOperator[] {
+  const byId = new Map(catalogue.flatMap(op => op.charIds.map(id => [id, op] as const)));
+  const legacyIds = new Map(rewards.flatMap(row => row.rewards.filter(isOperatorReward).map(item => [item.name, item.id] as const)));
+  const result = new Map<string, EventWelfareOperator>();
+  for (const operator of operators) {
+    const characterId = operator.characterId ?? legacyIds.get(operator.name);
+    const canonical = characterId && byId.get(characterId);
+    const resolved = canonical ? { ...operator, characterId, name: canonical.name, rarity: canonical.rarity } : operator;
+    if (!result.has(resolved.name)) result.set(resolved.name, resolved);
+  }
+  return [...result.values()];
+}
 /** The welfare operators the event at `href` (its page, `/events/<name>`) gives: the Reward
  *  Tracker's own rows (withWelfareEventLinks links each to its event), so the two always agree. */
 export function eventWelfareOperators(rewards: readonly FreeReward[], href: string): EventWelfareOperator[] {
@@ -172,7 +186,7 @@ export function eventWelfareOperators(rewards: readonly FreeReward[], href: stri
     const { task, source } = welfareCardFacts(reward, 0);
     for (const item of reward.rewards) {
       if (!isOperatorReward(item) || out.has(item.name)) continue;
-      out.set(item.name, { name: item.name, rarity: item.rarity ?? 0, task: task ?? null, source });
+      out.set(item.name, { name: item.name, rarity: item.rarity ?? 0, task: task ?? null, source, characterId: item.id });
     }
   }
   return [...out.values()];

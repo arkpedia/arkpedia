@@ -19,6 +19,9 @@ export function resolveCanonicalVideoTopic(video: YouTubeVideo, assignment: Vide
   if (new Set(subjects).size < 2 || !subjects.every(name => known.has(name))) return assignment;
   // Ignore credits/social boilerplate, but retain an explicit genre in the intro.
   const introduction = (video.description ?? '').split(/\n\s*\n|={3,}|-{3,}/)[0];
+  // An explicit tutorial remains ambiguous when its stage/event scope is missing;
+  // narrowing Guides must not turn a generic AFK guide into a name-only showcase.
+  if (/\b(guide|tutorial|walkthrough|afk)\b|攻略|공략/i.test(introduction)) return assignment;
   if (!['other', 'operators'].includes(videoTopic(introduction))) return assignment;
   return { ...assignment, topic: 'operators', model: 'catalogue-v1', confidence: 1, probability: 1,
     fallbackFrom: { model: assignment.model, confidence: assignment.confidence, probability: assignment.probability } };

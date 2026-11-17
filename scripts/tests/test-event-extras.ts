@@ -131,3 +131,19 @@ test('the event name rules load in plain Node, as a pipeline script would import
   assert.equal(result.status, 0, result.stderr);
   assert.deepEqual(JSON.parse(result.stdout), ['Path of Life Rerun', true, '']);
 });
+
+test('CN pack previews keep CN dates, provenance and official artwork until the complete Global list replaces them', () => {
+  const cn = group('packs', 'CN sale', [], { region: 'CN', source: 'https://ak.hypergryph.com/news/9686', packs: [{ name: 'CN-only offer', start: '2026-07-10T04:00:00.000Z', end: '2026-07-30T20:00:00.000Z', contents: [{ name: 'Orundum', count: 500, kind: 'currency' }] }] });
+  const art = (name: string, source: string) => ({ path: source.includes('hypergryph') ? '/content-art/cn-sale.webp' : '/content-art/global-sale.webp', layout: 'promo' as const });
+  const preview = eventExtras([cn], () => null, art);
+  const html = render(createElement(EventPacks, { groups: preview.packs }));
+  assert.match(html, /CN packs/); assert.match(html, /Global availability, contents and prices may differ/);
+  assert.match(html, /10 Jul 2026 – 31 Jul 2026/);
+  assert.match(html, /cn-sale.webp/);
+  assert.equal(preview.packs[0].packs[0].region, 'CN');
+  const global = group('packs', 'Global sale', [], { region: 'Global', source: 'https://www.arknights.global/news/9999', packs: [{ name: 'Different Global offer', contents: [{ name: 'Orundum', count: 600, kind: 'currency' }] }] });
+  const current = eventExtras([cn, global], () => null, art);
+  assert.deepEqual(current.packs.map(g => g.packs.map(p => p.name)), [['Different Global offer']]);
+  assert.equal(current.packs[0].packs[0].contents[0].count, 600);
+  assert.equal(current.packs[0].packs[0].imagePath, '/content-art/global-sale.webp');
+});

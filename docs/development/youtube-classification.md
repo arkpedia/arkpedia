@@ -22,7 +22,7 @@ input hashes, so category updates require no new application deployment.
 
 ## Inputs, cache, and fallbacks
 
-`scripts/sync/jev-video-classifier.ts` owns the typed Choice question, all nine
+`scripts/sync/jev-video-classifier.ts` owns the typed Choice question, all ten
 category descriptions, and the API adapter. State contains public title, creator,
 up to 2,000 description characters, and matching canonical operator/outfit names.
 No account information, browsing history, video downloads, or API key appears in
@@ -59,9 +59,29 @@ content-record wiring with a mocked provider. Browser category tests cover the
 reported review, name-only operator showcase and trailers at both viewport sizes
 and themes. These tests do not spend API credits.
 
-**Evaluate YouTube categories** runs 20 labeled public examples once when this
-integration's PR opens, and on explicit manual dispatch. It uses the repository
+**Evaluate YouTube categories** runs at most 20 labeled public examples on explicit
+manual dispatch with a separately authorized call budget. PR events never spend
+evaluation credits. It uses the repository
 secret and uploads the exact public request/answer pairs. Acceptance requires all
 four screenshot examples and at least 85% of the complete sample to match the
 labels. This small sample is an integration check, not a general accuracy claim.
-Manual reruns spend another 20 calls and require a corresponding authorized budget.
+Manual reruns need a corresponding new authorized budget. The harness counts each
+attempt, makes no retries, and saves partial results and exact typed answers on failure.
+
+Policy version 2 separates instructional stage/event **Guides** from combat-run
+**Stage clears**, and replaces the combined gameplay category with actual **Pulls**
+(summoning sessions and results). General resource planning, pull trackers and RNG
+essays belong in **Discussions**. Official announcements remain **News**. Old model
+assignments are invalidated and reclassified within the normal producer limit;
+deferred videos use the revised rules. Retired gameplay values are read through
+those rules so videos remain visible. Unchanged v1 catalogue-only operator proofs
+remain valid for this one-version migration; metadata edits still invalidate them.
+
+The revised category evaluation on 16 November 2026 used exactly 20 authorized
+metadata-only calls to Jev 1.14.0 (workflow run 43973343419): 19/20 hybrid decisions
+matched the labels. Both reported videos became Discussions, and all required
+Guides/Stage clears/Pulls boundary cases passed. The single disagreement was
+“Upcoming outfits announced”: News versus the fixture's Skins label. This small
+sample does not establish general accuracy. The raw requests, typed answers and
+call count are retained in that run's evaluation artifact. The 20-call budget is
+exhausted; another live evaluation needs a new budget.

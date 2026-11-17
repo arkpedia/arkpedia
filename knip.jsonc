@@ -31,7 +31,10 @@
   "exclude": ["enumMembers", "duplicates"],
   // Modules shared with arkpedia-data's importer (test-importer-copies.ts holds them equal), whose
   // exports the import's own scripts use.
-  "ignoreIssues": { "scripts/lib/youtube-uploads.mjs": ["exports"] },
+  "ignoreIssues": {
+    "scripts/lib/youtube-uploads.mjs": ["exports"],
+    "scripts/lib/event-records.mjs": ["exports"]
+  },
   "next": true,
   "eslint": ["eslint.config.mjs"],
   "playwright": true
