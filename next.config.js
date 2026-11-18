@@ -118,6 +118,7 @@ const nextConfig = {
       },
       { source: '/friends', destination: '/account?panel=following', permanent: true },
       { source: '/community/livestreams', destination: '/world/videos', permanent: true },
+      { source: '/story/read', destination: '/story?view=list', permanent: false },
       // arkpedia.net/?s=<query> is the site search too (pages/search.tsx), for anyone who
       // sets the site up as a search engine by hand. Only on the home page: /stages/browse
       // already reads ?s= as its selected stage. The query string is carried across.

@@ -34,6 +34,10 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    at: '2026-11-18T17:08:00Z',
+    fixed: [{ title: 'Thunder in the Azure Dream story links', detail: 'Open the chapter dialog to track progress and read all 18 parts in Timo’s reader.', href: '/story?view=list&chapter=act50side' }],
+  },
+  {
     at: '2026-11-18T14:45:00Z',
     fixed: [{ title: 'Module and talent range grids', detail: 'See module range changes and tile effects, including melee redeployment areas on talents and modules.', href: '/operators' }],
   },

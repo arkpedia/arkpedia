@@ -1,39 +1,63 @@
-import {test,expect} from '@playwright/test';
-import fs from 'node:fs';
-import path from 'node:path';
-import {STORY_PROGRESS_KEY} from '../../lib/story/storyProgress';
+import { expect, test } from '@playwright/test';
+import { STORY_PROGRESS_KEY } from '../../lib/story/storyProgress';
+import type { Section, SectionTag } from '../../lib/story/storyChapters';
 import review from '../../scripts/tests/fixtures/story-monster-hunter.json';
 
-for(const theme of ['dark','light'])test(`new event discovery and text reading retain independent progress (${theme})`,async({page,context})=>{
-  await context.addInitScript(({theme,key})=>{localStorage.setItem('theme',theme);localStorage.setItem('arkpedia:privacy:v1',JSON.stringify({version:1,analytics:false,externalMedia:false,externalMediaChosen:true,savedAt:Date.now()}));localStorage.setItem(key,JSON.stringify({act50side:[99]}));},{theme,key:STORY_PROGRESS_KEY});
-  const chapter={title:'Thunder in the Azure Dream',category:'side',revision:'e0cd8f274ffbcf57ed0b0684cb681620478ffe0e',sections:review.act50side.infoUnlockDatas.slice(0,2).map(row=>({index:row.storySort,code:row.storyCode,title:row.storyName,path:row.storyTxt,tag:''}))};
-  await context.route('**/en/gamedata/story/activities/act50side/*.txt',async route=>{
-    const first=route.request().url().includes('_st01.txt');
-    await route.fulfill({body:fs.readFileSync(path.resolve('tests/fixtures/story',first?'monster-hunter-prologue.txt':'monster-hunter-first-stage.txt')),contentType:'text/plain',headers:{'access-control-allow-origin':'*'}});
+const title = 'Thunder in the Azure Dream';
+const reader = 'https://arknights.timo.beer/story.html#side&act50side&';
+const tags: Record<string, SectionTag> = { 'Before Operation': 'before', 'After Operation': 'after' };
+const sections = review.act50side.infoUnlockDatas.map((row, index): Section =>
+  [index, row.storyCode, row.storyName, tags[row.avgTag] ?? '']);
+
+for (const theme of ['dark', 'light']) test(`Thunder opens the Timo chapter dialog (${theme})`, async ({ page }) => {
+  await page.addInitScript(({ theme, key }) => {
+    localStorage.setItem('theme', theme);
+    localStorage.setItem(key, JSON.stringify({ native_act50side: [1] }));
+  }, { theme, key: STORY_PROGRESS_KEY });
+
+  // Exercise the current chapter alongside a stale fallback row from an older release.
+  await page.route(/\/story\?/, async route => {
+    if (route.request().resourceType() !== 'document') return route.continue();
+    const response = await route.fetch();
+    const html = await response.text();
+    const match = /<script id="__NEXT_DATA__" type="application\/json">([\s\S]*?)<\/script>/.exec(html)!;
+    const data = JSON.parse(match[1]);
+    const props = data.props.pageProps;
+    props.chapters = { ...props.chapters, act50side: sections };
+    props.library = [
+      ...props.library.filter((entry: { id: string }) => !['act50side', 'native_act50side'].includes(entry.id)),
+      { id: 'act50side', title, category: 'side', url: reader + '0' },
+      { id: 'native_act50side', title, category: 'side', url: '/story/read?chapter=act50side' },
+    ];
+    await route.fulfill({ response, body: html.replace(match[1], JSON.stringify(data).replace(/</g, '\\u003c')) });
   });
-  // A published content snapshot may predate the new fallback metadata.
-  await context.route(/\/story(?:\/read)?(?:\?|$)/,async route=>{
-    if(route.request().resourceType()!=='document')return route.continue();
-    const response=await route.fetch(),html=await response.text();
-    const match=/<script id="__NEXT_DATA__" type="application\/json">([\s\S]*?)<\/script>/.exec(html)!;
-    const data=JSON.parse(match[1]);
-    if(data.page==='/story/read')data.props.pageProps.chapters={act50side:chapter};
-    else data.props.pageProps.library=[...data.props.pageProps.library.filter((e:{id:string})=>e.id!=='native_act50side'),{id:'native_act50side',category:'side',title:chapter.title,url:'/story/read?chapter=act50side'}];
-    await route.fulfill({response,body:html.replace(match[1],JSON.stringify(data).replace(/</g,'\\u003c'))});
-  });
-  await page.goto('/story?view=list&q=Thunder%20in%20the%20Azure%20Dream');
-  const [reader]=await Promise.all([context.waitForEvent('page'),page.getByRole('link',{name:/Thunder in the Azure Dream/}).click()]);
-  await expect(reader.getByRole('article',{name:'Story text'})).toContainText('Orchid');
-  await reader.getByRole('button',{name:'Mark as read',exact:true}).click();
-  await expect(reader.getByRole('button',{name:'Mark unread',exact:true})).toHaveAttribute('aria-pressed','true');
-  await reader.getByRole('button',{name:'Next',exact:true}).click();
-  await expect(reader).toHaveURL(/part=2$/);
-  await expect(reader.getByRole('article',{name:'Story text'})).toBeVisible();
-  await reader.goBack();
-  await expect(reader.getByRole('button',{name:'Mark unread',exact:true})).toBeVisible();
-  expect(await reader.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
-  expect(await reader.evaluate(key=>JSON.parse(localStorage.getItem(key)??'{}').act50side,STORY_PROGRESS_KEY)).toEqual([99]);
-  expect(await reader.evaluate(key=>JSON.parse(localStorage.getItem(key)??'{}').native_act50side,STORY_PROGRESS_KEY)).toContain(1);
-  await reader.goto('/story/read?chapter=__proto__');
-  await expect(reader.getByRole('heading',{name:'Choose a story from the library',exact:true})).toBeVisible();
+
+  await page.goto(`/story?view=list&q=${encodeURIComponent(title)}`);
+  const card = page.getByRole('link', { name: new RegExp(title) });
+  await expect(card).toHaveCount(1);
+  await expect(card).toContainText('Unread');
+  await card.press('Enter');
+  const dialog = page.getByRole('dialog', { name: title });
+  await expect(dialog).toBeVisible();
+  await expect(dialog).toContainText('8 stages · 18 parts');
+  const next = dialog.getByRole('link', { name: 'Continue reading' });
+  await expect(next).toHaveAttribute('href', reader + '0');
+  const before = dialog.getByRole('link', { name: /TD-1 Shellbound Cowards, before/ });
+  const after = dialog.getByRole('link', { name: /TD-1 Shellbound Cowards, after/ });
+  await expect(before).toHaveAttribute('href', reader + '1');
+  await expect(after).toHaveAttribute('href', reader + '2');
+  await expect(after).toHaveAttribute('target', '_blank');
+  await expect(dialog.getByRole('link', { name: /TD-ST-2 The Hunt Goes On/ })).toHaveAttribute('href', reader + '17');
+
+  await dialog.getByRole('button', { name: 'Mark TD-ST-1 Sandstorm Rising as read' }).click();
+  await expect(next).toHaveAttribute('href', reader + '1');
+  expect(await page.evaluate(key => JSON.parse(localStorage.getItem(key) || '{}'), STORY_PROGRESS_KEY))
+    .toMatchObject({ act50side: [0], native_act50side: [1] });
+  await page.keyboard.press('Escape');
+  await expect(dialog).toBeHidden();
+
+  await page.goto('/story/read?chapter=act50side&part=2');
+  expect(new URL(page.url()).pathname).toBe('/story');
+  expect(new URL(page.url()).searchParams.get('view')).toBe('list');
+  await expect(dialog).toBeVisible();
 });

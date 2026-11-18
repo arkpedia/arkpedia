@@ -541,7 +541,7 @@ test('the daily refresh runs every command as a uniquely named stage that needs 
   // sources, the story pages, the checks) cost only their own stage; arkpedia-data's import runs
   // the rest (importer/scripts/tests/test-import-stages.ts holds it to the same rules).
   assert.deepEqual(stages.filter(stage => stage.invariant).map(stage => stage.name), ['upstream-cn', 'upstream-en', 'completeness']);
-  assert.deepEqual(stages.map(stage => stage.name), ['pin-upstream', 'upstream-cn', 'upstream-en', 'story-chapters', 'story-native', 'story-covers', 'story-art', 'pulls', 'odds-rules', 'payload-budgets', 'completeness']);
+  assert.deepEqual(stages.map(stage => stage.name), ['pin-upstream', 'upstream-cn', 'upstream-en', 'story-chapters', 'story-covers', 'story-art', 'pulls', 'odds-rules', 'payload-budgets', 'completeness']);
   // Run on its own, the stage-data refresh settles the CN tables itself, right after its pin.
   assert.match(fs.readFileSync('scripts/sync/refresh-stage-data.sh', 'utf8'),
     /stage pin-upstream -- node scripts\/content\/pin-upstream\.mjs\n(?:\s*#[^\n]*\n)*\s*stage upstream-cn --invariant --timeout-minutes \d+ -- node scripts\/content\/cn-tables\.mjs\nfi\n/);
