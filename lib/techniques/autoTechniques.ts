@@ -49,6 +49,7 @@ import type { Operator, Skill, SkillTechnique, Talent } from '../operators/opera
  */
 interface AutoTechniqueRule {
   keywords?: string[]; // matches if ANY of these appear -- mutually exclusive with requireAllOf
+  matchPatterns?: RegExp[]; // matches the first pattern that identifies the effect and the text to highlight
   requireAllOf?: string[][]; // AND-of-ORs matching -- every inner group needs at least one match. E.g. [['recover','recovers','restore','restores'], ['hp']] means (recover-family) AND (hp) must BOTH be present. Word-boundary matched, so short keywords like "sp" don't false-positive inside longer words like "ASPD".
   requireOrdered?: boolean; // for a 2-group requireAllOf, the first group's match must occur BEFORE the last group's match -- e.g. "recovers 20 DP... restores the HP" has an unrelated "recovers" before the real "restores...HP" pair; without order-awareness the wrong (earlier, unrelated) verb gets picked for both validity and highlighting. Picks the CLOSEST valid before/after pair, not just the first occurrence of each.
   maxGap?: number; // caps how far apart (in characters) the requireOrdered pair can be -- without this, a generic word like "take" with no closer match could still pair with a distant, unrelated occurrence of the second group. Omit for unlimited (Self-Sustain's recover/hp pairing has no such risk since both are specific enough).
@@ -564,24 +565,29 @@ const AUTO_TECHNIQUE_RULES: AutoTechniqueRule[] = [
     maxRarity: 6,
   },
   {
-    keywords: ['arts damage taken'],
-    excludePatterns: [/reduces[^.;]*?arts damage taken/gi],
+    // Saria's percentage, Logos's flat increase, and Skyfire's talent and module.
+    // Ordinary damage text such as "take 75% ATK as Arts damage" has no increase.
+    matchPatterns: [
+      /\barts damage taken by (?:\w+ )*enemies \+\d+(?:\.\d+)?%/i,
+      /\barts damage taken \+\d+(?: \(\+\d+\))? on targets?\b/i,
+      /\bincreases? (?:the )?arts damage taken by (?:\w+ )*enemies by \d+(?:\.\d+)?%/i,
+      /\benemies(?: \w+){0,6} takes? \+\d+(?:\.\d+)?% arts damage\b/i,
+    ],
     name: 'Arts Damage Taken',
-    description: 'Increase the arts damage taken by enemies.',
+    description: 'Increases the Arts damage enemies take.',
     minRarity: 1,
     maxRarity: 6,
   },
   {
-    // Same technique, different phrasing -- "Enemies in range take +18%
-    // Arts damage when Stunned" instead of "Arts damage taken +18%".
+    // The first anchor mention gives the summon. The second describes the move.
     requireAllOf: [
-      ['take', 'takes'],
-      ['arts damage'],
+      ['tactical anchor point'],
+      ['moves to its position'],
     ],
     requireOrdered: true,
-    maxGap: 30,
-    name: 'Arts Damage Taken',
-    description: 'Increase the arts damage taken by enemies.',
+    skillsOnly: true,
+    name: 'Repositioning',
+    description: 'Moves the operator to the Tactical Anchor Point and lets up to two nearby allies redeploy within the new attack range.',
     minRarity: 1,
     maxRarity: 6,
   },
@@ -803,14 +809,15 @@ export function detectAutoTechniqueMatches(
           highlightSeparately: true,
         });
       }
-    } else if (rule.keywords) {
+    } else if (rule.keywords || rule.matchPatterns) {
       /* An operator's own name is not a status. Silence's talent reads "when Silence is
          deployed", so searching her own text for the keyword "Silence" filed her under
          the Silence status -- and her alter with her. The name is removed before the
          keyword search only; statPattern above is unaffected, since a name carries no
          stat and no number. */
       const searchable = ownName ? combined.split(ownName).join(' ') : combined;
-      const matchedKeyword = rule.keywords.find((kw) => searchable.includes(kw.toLowerCase())) || null;
+      const matchedKeyword = rule.matchPatterns?.map((pattern) => searchable.match(pattern)?.[0]).find(Boolean)
+        ?? rule.keywords?.find((kw) => searchable.includes(kw.toLowerCase()));
       if (matchedKeyword) {
         matches.push({ name: rule.name, description: rule.description, viaBranch: false, matchedKeyword, matchedKeywordEnd: null, highlightSeparately: false });
       }
