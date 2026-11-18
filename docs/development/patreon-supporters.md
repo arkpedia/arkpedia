@@ -46,17 +46,4 @@ The public route never returns provider responses or credentials. The additive
 failure/recovery timestamps. Inspect this private health record or the Worker's
 safe error code to distinguish provider HTTP errors, incomplete data and network
 failures. Raw responses and credentials are never recorded in diagnostics.
-
-`patreon_sync_audit` stores the latest complete provider read's timestamp and fixed
-aggregate counts: membership pages, members read, inactive memberships, masked
-member names, hidden pledges, unexpected privacy values, masked user names,
-members without a paid entitled tier, eligible memberships, duplicate display
-names and published names. Exclusion reasons are counted in filter order, once
-per excluded membership. Eligible memberships equal published names plus duplicate
-names. No member identities, emails or provider bodies are stored in this audit,
-and it is never returned by the public endpoint. Failed/incomplete provider reads
-retain the prior audit. This adds one small private D1 write to the existing daily
-refresh and no provider requests or public-visit refreshes. The additive `0024`
-migration matches the integration's idempotent initialization. A deployment does
-not backfill these counts; they become available after the next scheduled refresh.
 See [Patreon's API documentation](https://docs.patreon.com/) for scopes and token renewal.

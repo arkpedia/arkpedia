@@ -59,17 +59,14 @@ test('nullable pledge privacy includes paid supporters across pages without expo
       if (!url.searchParams.has('page[cursor]')) return page([
         member('1', 'Unset privacy', 'active_patron', ['10', '20']),
         member('2', 'Public privacy'), member('3', 'Hidden pledge'),
-      ], [user('1', 'Unset privacy', null), user('2', 'Public privacy', false), user('3', 'Hidden pledge', true)], 'next', 12);
+      ], [user('1', 'Unset privacy', null), user('2', 'Public privacy', false), user('3', 'Hidden pledge', true)], 'next', 9);
       return page([
         member('4', 'Second page'), member('5', ''), member('6', 'Masked profile'),
         member('7', 'Former', 'former_patron'), member('8', 'Free', null, []),
         member('9', 'Unexpected privacy'),
-        member('10', 'Public privacy'), member('11', 'No paid tier', 'active_patron', []),
-        member('12', 'Declined', 'declined_patron'),
       ], [user('4', 'Second page', null), user('5', 'Do not reconstruct', null),
         user('6', '', null), user('7', 'Former', null), user('8', 'Free', null),
-        user('9', 'Unexpected privacy', 'false'), user('10', 'Public privacy'),
-        user('11', 'No paid tier'), user('12', 'Declined')], null, 12);
+        user('9', 'Unexpected privacy', 'false')], null, 9);
     } });
     const snapshot = await readSupporters(h.env);
     assert.deepEqual(snapshot['supporter-tier'].map(t => [t.name, t.supporters]), [
@@ -77,20 +74,6 @@ test('nullable pledge privacy includes paid supporters across pages without expo
     ]);
     assert(!JSON.stringify(snapshot).includes('PRIVATE'));
     assert(!JSON.stringify(snapshot).includes('user-'));
-    const audit = h.sqlite.prepare('SELECT updated_at, counts_json FROM patreon_sync_audit').get();
-    assert.equal(audit.updated_at, now);
-    const counts = JSON.parse(audit.counts_json);
-    assert.deepEqual(counts, { pages: 2, members: 12, inactive: 3, maskedMemberName: 1,
-      hiddenPledge: 1, unexpectedPledgePrivacy: 1, maskedUserName: 1, noPaidTier: 1,
-      eligibleMembers: 4, duplicateNames: 1, publishedNames: 3 });
-    assert.equal(counts.members, counts.inactive + counts.maskedMemberName + counts.hiddenPledge +
-      counts.unexpectedPledgePrivacy + counts.maskedUserName + counts.noPaidTier + counts.eligibleMembers);
-    assert.equal(counts.eligibleMembers, counts.duplicateNames + counts.publishedNames);
-    assert(!Object.hasOwn(snapshot, 'counts'));
-    const auditColumns = h.sqlite.prepare('PRAGMA table_info(patreon_sync_audit)').all();
-    h.sqlite.exec('DROP TABLE patreon_sync_audit');
-    h.sqlite.exec(fs.readFileSync('migrations/accounts/0024_patreon_sync_audit.sql', 'utf8'));
-    assert.deepEqual(h.sqlite.prepare('PRAGMA table_info(patreon_sync_audit)').all(), auditColumns);
   } finally { h.sqlite.close(); }
 });
 
@@ -118,10 +101,8 @@ test('provider failure keeps the last complete snapshot and applies a retry cool
   const h = harness();
   const good = async input => new URL(input).pathname.endsWith('/123') ? campaign() : page([member('1', 'Alpha')], [user('1', 'Alpha')]);
   await syncPatreon(h.env, { now, fetch: good }); const before = h.state().snapshot_json;
-  const auditBefore = h.sqlite.prepare('SELECT * FROM patreon_sync_audit').get();
   await assert.rejects(syncPatreon(h.env, { now: now + 86400_000, fetch: async () => new Response('PRIVATE_ERROR', { status: 429 }) }), /HTTP 429/);
   assert.equal(h.state().snapshot_json, before); assert.equal(h.state().lease_id, null);
-  assert.deepEqual(h.sqlite.prepare('SELECT * FROM patreon_sync_audit').get(), auditBefore);
   let called = false; await syncPatreon(h.env, { now: now + 86400_001, fetch: () => { called = true; } }); assert.equal(called, false);
   h.sqlite.close();
 });
