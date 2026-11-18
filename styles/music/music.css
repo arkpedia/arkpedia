@@ -696,6 +696,8 @@ body:has([data-music-widget]) main { padding-bottom: calc(var(--page-gutter) + 7
    and its note opens under the row over the page: in the row it would widen the header's
    actions column and move the title and Playlists. */
 .music-settings { display: grid; gap: 2px; margin-top: 4px; padding: 6px 0 0 12px; border-top: 1px solid var(--line-soft); }
+/* The Endfield music setting under Playlists, in the sidebar and the phone's menu. */
+.music-nav-settings { min-width: 0; }
 .music-setting { display: grid; gap: 6px; }
 .music-setting-row { display: flex; align-items: center; gap: 4px; }
 .music-setting-info-btn { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border: 1px solid transparent; border-radius: var(--radius); color: var(--text-dim); cursor: pointer; }

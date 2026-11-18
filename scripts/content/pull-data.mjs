@@ -105,6 +105,11 @@ async function main(argv) {
   const { ref, revision: pinned, release } = await resolveDataRef(wanted);
   const revision = fetchSource(cache, pinned ?? ref);
   execFileSync(process.execPath, ['scripts/content/hydrate-source.mjs', cache], { cwd: root, stdio: 'inherit' });
+  // The sponsor campaigns are read by every page (lib/content/server.ts), so the build needs
+  // the file even from records older than it: the browser specs' pinned commit
+  // (tests/browser/data-pin.json) predates it, and those specs then run with no campaign.
+  const campaigns = path.join(root, 'data/sponsor-campaigns.json');
+  if (!fs.existsSync(campaigns)) fs.writeFileSync(campaigns, `${JSON.stringify({ version: 1, campaigns: [] }, null, 2)}\n`);
   // Compact catalogues are built from the records, not published (export.mjs leaves them out).
   // Build them from what was just pulled, as the release job does before its tests.
   for (const builder of ['scripts/build/build-operator-search.ts', 'scripts/build/build-selector-catalogue.ts', 'scripts/build/build-community-stage-catalogue.ts']) {
