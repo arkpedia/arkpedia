@@ -28,7 +28,7 @@ for (const theme of ['dark', 'light']) for (const source of ['account', 'friends
     await page.goto(`/${source}`);
     if (source === 'friends') {
       await expect(page.getByRole('button', { name: 'Export my account', exact: true })).toBeEnabled();
-      await page.getByLabel('Friend account file').setInputFiles({ name: 'artwork-friend.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(friend)) });
+      await page.getByLabel('Profile account file').setInputFiles({ name: 'artwork-friend.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(friend)) });
       await page.getByRole('button', { name: "Show Artwork Doctor#1111's skins", exact: true }).click();
     } else await page.getByRole('tab', { name: 'Skins', exact: true }).click();
     const collection = source === 'friends'
