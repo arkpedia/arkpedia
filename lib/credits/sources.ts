@@ -46,6 +46,7 @@ export const CREDIT_GROUPS: CreditGroup[] = [
     id: 'tools',
     title: 'Tools and maps',
     sources: [
+      { name: 'OpenBachelorS — historical CC Battleplan contracts', links: ['https://github.com/pfyy/OpenBachelorS'] },
       { name: "Timo's story reader", links: ['https://arknights.timo.beer'] },
       { name: 'Stronghold Protocol — English, by Yuri', links: ['https://github.com/YuriRestia/Stronghold-Protocol-EN-translation', 'https://stronghold-en.dev'] },
       { name: 'Arknights Story Map', links: ['https://www.canva.com/design/DAHBABXJpds/tgUQ72n0pCw8HHq56-OBOA/view'] },

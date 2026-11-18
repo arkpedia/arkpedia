@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import regional from '../../data/regional-schedules.json';
+import type { UpcomingBanner } from '../../lib/pulls/pulls';
 const NAME = '[Celebration] Sealed With Time';
 const EVENT = '[Celebration] Critical Phase Transition';
 test.beforeEach(async ({ page }) => {
@@ -108,17 +109,33 @@ test('regional event and shop deadlines stay distinct on schedule and skin plann
 
 
 test('a saved Global deadline cannot keep a JP/KR goal reserved after its regional close', async ({ page }) => {
-  // A banner JP still runs at the real time of the run: the planner's props drop a banner once
-  // every server has closed it (currentPullPlan, per request on the real clock), so a fixed
-  // name goes stale the day its last window closes (Sealed With Time, 2026-10-28).
-  const [name, jp] = Object.entries(regional.servers.jp.banners).filter(([n, w]) => Date.parse(w.endAt) > Date.now() + 86_400_000 && regional.servers.en.banners[n as keyof typeof regional.servers.en.banners])
-    .sort((a, b) => a[1].endAt.localeCompare(b[1].endAt))[0] as [string, { endAt: string }];
-  const global = regional.servers.en.banners[name as keyof typeof regional.servers.en.banners] as { endAt: string };
-  const close = new Date(jp.endAt), globalDay = global.endAt.slice(0, 10);
-  const plan = { version: 1, orundum: '12345', originite: '60', permits: '10', reservedOP: '42', until: globalDay, manualEventDate: '', bannerName: '', monthlyCard: true, includeBacklog: false, annihilationDone: false, doneEvents: [], doneKeys: [], clearedReruns: [], future: {}, goals: [{ banner: name, spendOn: globalDay, bannerEndAt: global.endAt, pulls: 80, ticketUsed: true, targets: [{ name: 'Amiya', copies: 2 }] }] };
+  const close = new Date('2030-10-31T19:00:00Z');
+  const globalDay = '2030-11-01';
+  const banner: UpcomingBanner = {
+    name: 'Regional planner fixture', category: 'Standard', start: '2030-10-25', end: globalDay,
+    startAt: '2030-10-25T11:00:00Z', endAt: `${globalDay}T11:00:00Z`, days: 7,
+    sixStars: ['Amiya'], alsoRatedUp: [], image: null, event: null, rerun: false, op: 0,
+    opSource: 'none', cnAct: null, inBacklog: false, poolId: null, ruleType: null,
+    freeDaily: 0, freeTicket: 0, freePulls: 0, wishActId: null, wishDays: 0, wishOrundum: 0, hasShop: false,
+  };
+  // The pinned data eventually has no open banners on both servers. Supply fixed windows
+  // through client navigation so this test exercises the planner's regional logic every day.
+  const response = await page.request.get('/pull-planner');
+  expect(response.ok()).toBeTruthy();
+  const html = await response.text();
+  const data = JSON.parse(html.match(/<script id="__NEXT_DATA__" type="application\/json">([\s\S]*?)<\/script>/)![1]).props;
+  const props = data.pageProps;
+  props.scheduledBanners = [banner];
+  for (const server of ['jp', 'kr']) props.__contentTables['regional-schedules'].servers[server].banners[banner.name] = {
+    startAt: '2030-10-24T19:00:00Z', endAt: close.toISOString(), status: 'announced',
+  };
+  await page.route('**/_next/data/**/pull-planner.json*', route => route.fulfill({ json: data }));
+  const plan = { version: 1, orundum: '12345', originite: '60', permits: '10', reservedOP: '42', until: globalDay, manualEventDate: '', bannerName: '', monthlyCard: true, includeBacklog: false, annihilationDone: false, doneEvents: [], doneKeys: [], clearedReruns: [], future: {}, goals: [{ banner: banner.name, spendOn: globalDay, bannerEndAt: banner.endAt, pulls: 80, ticketUsed: true, targets: [{ name: 'Amiya', copies: 2 }] }] };
   await page.addInitScript(plan => localStorage.setItem('arkpedia.pull-plan.v1', JSON.stringify(plan)), plan);
   await page.clock.setFixedTime(new Date(close.getTime() - 60_000));
-  await page.goto("/pull-planner");await account(page,'jp');
+  await page.goto('/stages/supplies');
+  await account(page, 'jp');
+  await page.evaluate(() => Reflect.get(window, 'next').router.push('/pull-planner'));
   await expect(page.getByRole('heading',{name:/Your banners 1/})).toBeVisible();
   await expectClock(page, '03:59');
   const before = await page.evaluate(()=>JSON.parse(localStorage.getItem('arkpedia.pull-plan.v1')!));
