@@ -1,5 +1,4 @@
 import Link from 'next/link';
-import { useRouter } from 'next/router';
 import { useEffect, useMemo, useState } from 'react';
 import { fetchAsset } from '@/lib/assets/assetRetry';
 import Image, { ApplicationImage, ApplicationArt } from '@/components/content/ContentImage';
@@ -8,7 +7,7 @@ import Tabs, { tabPanelProps } from '@/components/ui/Tabs';
 import SearchInput from '@/components/ui/SearchInput';
 import { useSwitchHold } from '@/components/ui/useSwitchHold';
 import LoadOnScroll from '@/components/ui/LoadOnScroll';
-import { useQueryState } from '@/lib/hooks/useQueryState';
+import { useQueryRecord } from '@/lib/hooks/useQueryState';
 import { matchesSearch } from '@/lib/search/searchNormalize';
 import type { IsTopic, IsRecord } from '@/lib/gamemodes/integratedStrategies';
 import ScrollRow from '@/components/ui/ScrollRow';
@@ -41,7 +40,7 @@ const T = {
 /** A game art file at the revision the CDN stores it under: the pin, unless the theme's catalogue names another for its folder. */
 const artAt = (stored: Record<string, string> | undefined, path: string) => ({ repository: 'arkpedia-image-assets' as const, revision: stored?.[path.slice(0, path.lastIndexOf('/'))] ?? gameArt.revision, path });
 const themeNumber = (id: string) => Number(id.split('_')[1]) + 1;
-const DEFAULT_THEME = 'rogue_5';
+const QUERY_DEFAULTS = { theme: 'rogue_5', tab: 'overview', q: '', kind: 'collectibles' };
 const REQUIREMENTS_SOURCE = 'https://arknights.wiki.gg';
 
 
@@ -56,21 +55,20 @@ const LABELS = ['Overview', 'Stages', 'Items', 'Squads', 'Encounters', 'Special 
 const plain = (value: string) => value.replace(/<\/>|<\/?(?:@[^>]*|color(?:=[^>]*)?|size(?:=[^>]*)?|b|i)>/gi, '').replace(/\\n/g, '\n');
 /** The whole reference below the page heading. Loaded in the browser only (pages/game-modes/integrated-strategies.tsx): its records are fetched there anyway, and none of this is worth a place in the Worker's server bundle. */
 export default function IsReference({ themes }: { themes: Theme[] }) {
-  const router = useRouter();
-  const initial = (key: string, fallback: string) => typeof router.query[key] === 'string' ? router.query[key] as string : fallback;
-  const [themeId, setTheme] = useQueryState('theme', initial('theme', themes.find(t => t.id === DEFAULT_THEME)?.id ?? themes.find(t => t.source === 'Global')?.id ?? themes[0]?.id ?? ''));
-  const [tab, setTab] = useQueryState('tab', initial('tab', 'overview'));
-  const [query, setQuery] = useQueryState('q', initial('q', ''));
-  const [kind, setKind] = useQueryState('kind', initial('kind', 'collectibles'));
-  const [loadedTopic, setTopic] = useState<IsTopic | null>(() => topicCache.get(themeId) ?? null);
+  // A single URL update keeps the saved scroll position associated with the visible filters.
+  const [{ theme: themeId, tab, q: query, kind }, setQueryRecord] = useQueryRecord(QUERY_DEFAULTS);
+  const theme = themes.find(t => t.id === themeId) ?? themes.find(t => t.source === 'Global') ?? themes[0];
+  const [loadedTopic, setTopic] = useState<IsTopic | null>(() => topicCache.get(theme.id) ?? null);
   const [error, setError] = useState(false);
   const [attempt, setAttempt] = useState(0);
   const [limit, setLimit] = useState({ key: '', count: 60 });
   const [open, setOpen] = useState<IsRecord | null>(null);
   const ordered = useMemo(() => [...themes].sort((a, b) => themeNumber(a.id) - themeNumber(b.id)), [themes]);
   const hold = useSwitchHold('is-reference');
-  const choose = (set: (value: string) => void) => (value: string) => { hold.capture(); set(value); };
-  const theme = themes.find(t => t.id === themeId) ?? themes[0];
+  const choose = (key: keyof typeof QUERY_DEFAULTS) => (value: string) => {
+    hold.capture();
+    setQueryRecord({ [key]: value });
+  };
   const topic = loadedTopic?.id === theme.id ? loadedTopic : topicCache.get(theme.id) ?? null;
   const section = SECTIONS.includes(tab as typeof SECTIONS[number]) ? tab : 'overview';
   const art = (path: string) => artAt({ ...theme.stored, ...topic?.stored }, path);
@@ -117,15 +115,15 @@ export default function IsReference({ themes }: { themes: Theme[] }) {
       </div>
     </section>
     <ScrollRow label={T.themes} className={styles.rail}>
-      {ordered.map(t => <button type="button" key={t.id} className={`btn-bare ${styles.themeCard}`} aria-pressed={t.id === theme.id} onClick={() => choose(setTheme)(t.id)}>
+      {ordered.map(t => <button type="button" key={t.id} className={`btn-bare ${styles.themeCard}`} aria-pressed={t.id === theme.id} onClick={() => choose('theme')(t.id)}>
         <span className={styles.themeThumb}>{t.keyArt?.art.map(path => <ApplicationImage key={path} asset={artAt(t.stored, path)} alt="" width={t.keyArt!.art.length > 1 ? 195 : 390} height={240} sizes="240px" />)}</span>
         <span className={styles.kicker}>{T.number(themeNumber(t.id))}{t.source === 'CN' && <span className={styles.cn}>{T.cnOnly}</span>}</span>
         <strong>{t.name}</strong>
       </button>)}
     </ScrollRow>
-    <Tabs id="is-reference" label="Integrated Strategies sections" value={section} onChange={choose(setTab)} options={SECTIONS.map((value, i) => ({ value, label: <>{theme.tabIcons?.[value] && glyph(theme.tabIcons[value])}{LABELS[i]}</>, count: theme.counts[value] }))} />
+    <Tabs id="is-reference" label="Integrated Strategies sections" value={section} onChange={choose('tab')} options={SECTIONS.map((value, i) => ({ value, label: <>{theme.tabIcons?.[value] && glyph(theme.tabIcons[value])}{LABELS[i]}</>, count: theme.counts[value] }))} />
     <div ref={hold.ref} style={hold.style}><section {...tabPanelProps('is-reference', section)}>
-      {section !== 'overview' && <div className={styles.controls}><SearchInput label={`Search ${section}`} value={query} onChange={choose(setQuery)} placeholder={`Search ${LABELS[SECTIONS.indexOf(section as typeof SECTIONS[number])].toLowerCase()}`} />{section === 'items' && categories.length > 1 && <SegmentedControl label={T.itemCategory} value={category} onChange={choose(setKind)} options={categories.map(value => ({ value, label: T.categories[value] }))} />}</div>}
+      {section !== 'overview' && <div className={styles.controls}><SearchInput label={`Search ${section}`} value={query} onChange={choose('q')} placeholder={`Search ${LABELS[SECTIONS.indexOf(section as typeof SECTIONS[number])].toLowerCase()}`} />{section === 'items' && categories.length > 1 && <SegmentedControl label={T.itemCategory} value={category} onChange={choose('kind')} options={categories.map(value => ({ value, label: T.categories[value] }))} />}</div>}
       {error ? <div className="panel"><p role="alert">The theme could not be loaded.</p><button className="btn" onClick={() => setAttempt(n => n + 1)}>Try again</button></div> : !topic ? <p role="status">Loading theme…</p> : <>
         {section === 'overview' && !!topic.resources?.length && <div className={styles.resources} aria-label="Exploration resources">{topic.resources.map(r => <div className="panel" key={r.id}>{picture(r)}<span>{plain(r.name)}</span></div>)}</div>}
         {section === 'overview' && <p className="hint">Difficulty rules from the game. Choose a tab above for the full reference.</p>}
