@@ -46,6 +46,7 @@ export function applyModuleAttackRange(base: CroppedRange, change: ModuleAttackR
  * character_table.json: Frostleaf's talent rangeId and Tachanka's
  * ability_range_forward_extend. Other talent rangeIds commonly describe buff
  * areas, substitutes or skill-only effects, so they must not be applied blindly.
+ * Source: https://github.com/Kengxxiao/ArknightsGameData_YoStar/blob/main/en_US/gamedata/excel/character_table.json
  */
 const PASSIVE_RANGE_CHANGES: Record<string, {
   elite: number; talent: string; rangeId?: string; forwardExtend?: number;
