@@ -99,23 +99,8 @@ mirrored covers and does not block the chapter catalogue. New main-story chapter
 the community canvas prefer their reader cover to a stage/event banner; their popups fall back
 to that same library artwork. Existing canvas cover geometry is preserved.
 
-## Automatic fallback for new English stories
+## Reading destination
 
-The independent local `story-native` refresh checks the pinned English client's
-`story_review_table.json` after the normal Timo refresh. Released event/main-story
-sections missing from that reader use `/story/read`, a text reader for the exact
-English scripts at the same immutable game-data revision. Every new script is
-verified before its link enters the library; at most 512 new scripts are checked per
-refresh. Existing metadata is retained when a source is unavailable. The native
-reader displays dialogue, narration, subtitles and labelled alternative choices;
-it does not execute scene, sound, animation or HTML commands.
-
-`data/story-native.json` carries verified script paths and revision IDs, statically
-bundled for older content releases. Text is fetched from the pinned public game
-source when opened, with cancellation, a timeout and a retry action. The existing
-daily/patch content preparation updates the catalogue automatically. A Timo outage
-keeps its existing failure report while the independent native stage supplies new stories.
-When Timo gains readable sections for a group, its original links and indices take
-precedence. Native progress uses the separate `native_<group>` namespace and game
-section orders, so it cannot overwrite or mislabel existing Timo read progress.
-Previously issued native links remain usable after that handoff.
+The story library uses Timo’s reader for available sections. If the catalogue
+refresh fails, the last complete import stays in use. Legacy Arkpedia reader
+bookmarks return to the story library with their chapter query intact.
