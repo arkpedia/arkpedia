@@ -2,6 +2,7 @@ import { ReactNode, useState } from 'react';
 import type { Talent, TalentRow } from '@/lib/operators/operatorTypes';
 import { talentDisplayName } from '@/lib/operators/operatorIconPaths';
 import OperatorGameIcon from './OperatorGameIcon';
+import { MeleeRedeploymentArea } from './OperatorRangeComparison';
 import CombatText from './CombatText';
 import { highlightStats } from '../ui/HighlightedText';
 import styles from './OperatorPage.module.css';
@@ -61,6 +62,7 @@ export default function OperatorTalents({ talents, elites, renderDetails, note }
             style={{ visibility: row === selected ? 'visible' : 'hidden' }}>{row === selected ? <CombatText text={row.description} /> : highlightStats(row.description)}</p>)}
           {!selected && <p>Unlocks at Elite {unlock}.</p>}
         </div>
+        {selected?.redeploymentRange && <MeleeRedeploymentArea range={selected.redeploymentRange} />}
         {renderDetails(talent, Boolean(selected))}
       </article>;
     })}

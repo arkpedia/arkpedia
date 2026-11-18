@@ -34,6 +34,10 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    at: '2026-11-18T14:45:00Z',
+    fixed: [{ title: 'Module and talent range grids', detail: 'See module range changes and tile effects, including melee redeployment areas on talents and modules.', href: '/operators' }],
+  },
+  {
     at: '2026-11-18T12:45:00Z',
     added: [{ title: 'Sponsor banners', detail: 'Banners marked "Ad" help pay for hosting and never cover a page\'s content.', href: '/support' }],
     changed: [{ title: 'Endfield music setting moved', detail: 'It is now in the Music sidebar, under Playlists.', href: '/music' }],

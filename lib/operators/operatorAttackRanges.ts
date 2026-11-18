@@ -1,12 +1,6 @@
-import type { Operator } from './operatorTypes';
+import type { CroppedRange, ModuleAttackRange, Operator } from './operatorTypes';
 
-/** Cropped operator range, with the operator tile retained separately. */
-export interface CroppedRange {
-  cols: number;
-  rows: number;
-  opCell: [number, number];
-  rangeCells: [number, number][];
-}
+export type { CroppedRange } from './operatorTypes';
 
 /** The deployment dataset stores offsets as [forward, lateral]. */
 export type AttackRangeTable = Record<string, number[][]>;
@@ -15,6 +9,37 @@ export interface OperatorAttackRange {
   elite: number;
   range: CroppedRange;
   talent: string | null;
+}
+
+function extendForward(cells: number[][], distance: number): number[][] {
+  const edges = new Map<number, number>();
+  for (const [forward, lateral] of cells) {
+    edges.set(lateral, Math.max(forward, edges.get(lateral) ?? -Infinity));
+  }
+  return [...cells, ...[...edges].flatMap(([lateral, edge]) =>
+    Array.from({ length: distance }, (_, step) => [edge + step + 1, lateral]))];
+}
+
+function cropAttackRange(cells: number[][]): CroppedRange {
+  const minCol = Math.min(...cells.map(cell => cell[0]));
+  const maxCol = Math.max(...cells.map(cell => cell[0]));
+  const minRow = Math.min(...cells.map(cell => cell[1]));
+  const maxRow = Math.max(...cells.map(cell => cell[1]));
+  return {
+    cols: maxCol - minCol + 1,
+    rows: maxRow - minRow + 1,
+    opCell: [1 - minRow, 1 - minCol],
+    rangeCells: cells.filter(([forward, lateral]) => forward !== 0 || lateral !== 0)
+      .map(([forward, lateral]) => [lateral - minRow + 1, forward - minCol + 1]),
+  };
+}
+
+export function applyModuleAttackRange(base: CroppedRange, change: ModuleAttackRange): CroppedRange {
+  if ('grid' in change) return change.grid;
+  const [opRow, opCol] = base.opCell;
+  const cells = base.rangeCells.map(([row, col]) => [col - opCol, row - opRow]);
+  cells.push([0, 0]);
+  return cropAttackRange(extendForward(cells, change.forward));
 }
 
 /* Permanent changes to the operator's own normal attack range. Verified against
@@ -50,34 +75,17 @@ export function getOperatorAttackRanges(
     const rangeId = change?.rangeId ?? phase.rangeId;
     const raw = table[rangeId];
     if (!raw?.length) throw new Error(`${operator.name}: missing E${phase.elite} attack range ${rangeId}`);
-    const cells = raw.map(([forward, lateral]) => [forward, lateral]);
-    if (change?.forwardExtend) {
-      // Extend each occupied row's forward edge, retaining the original tiles.
-      for (const lateral of new Set(cells.map(cell => cell[1]))) {
-        const edge = Math.max(...cells.filter(cell => cell[1] === lateral).map(cell => cell[0]));
-        for (let step = 1; step <= change.forwardExtend; step++) cells.push([edge + step, lateral]);
-      }
-    }
+    const cells = change?.forwardExtend ? extendForward(raw, change.forwardExtend) : [...raw];
     if (!cells.some(([forward, lateral]) => forward === 0 && lateral === 0)) cells.push([0, 0]);
     const unique = [...new Map(cells.map(cell => [cell.join(','), cell])).values()]
       .sort(([af, al], [bf, bl]) => al - bl || af - bf);
     const key = JSON.stringify(unique);
     if (seen.has(key)) continue;
     seen.add(key);
-    const minCol = Math.min(...unique.map(cell => cell[0]));
-    const maxCol = Math.max(...unique.map(cell => cell[0]));
-    const minRow = Math.min(...unique.map(cell => cell[1]));
-    const maxRow = Math.max(...unique.map(cell => cell[1]));
     choices.push({
       elite: phase.elite,
       talent: change?.talent ?? null,
-      range: {
-        cols: maxCol - minCol + 1,
-        rows: maxRow - minRow + 1,
-        opCell: [1 - minRow, 1 - minCol],
-        rangeCells: unique.filter(([forward, lateral]) => forward !== 0 || lateral !== 0)
-          .map(([forward, lateral]) => [lateral - minRow + 1, forward - minCol + 1]),
-      },
+      range: cropAttackRange(unique),
     });
   }
   return choices;
