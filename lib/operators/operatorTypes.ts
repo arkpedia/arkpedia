@@ -1,5 +1,6 @@
 import type { OperatorStats, OperatorFile } from './operatorStats';
 import type { ObtainMethod, WelfareSource } from './obtainMethods';
+import type { CroppedRange, ModuleAttackRange } from './operatorAttackRanges';
 
 export interface CostItem {
   name: string;
@@ -122,6 +123,11 @@ export interface ModuleStage {
   attributesIncreased: string | null;
   effectLabel: string | null;
   effectText: string | null;
+  attackRange?: ModuleAttackRange;
+  tileMechanics?: (
+    | { kind: 'redeployment'; grid: CroppedRange }
+    | { kind: 'effect'; name: string; grid: CroppedRange }
+  )[];
   cost?: CostGroup; // new schema: this stage's own build requirement materials
 }
 
