@@ -17,13 +17,14 @@ Do not put credentials in build variables, public variables, source files or cha
 Preview and local development never contact Patreon. An unconfigured deployment uses
 the existing published `config/patreon_supporters.json` acknowledgements as a fallback.
 
-`lib/patreon/sync.mjs` requests only tier titles/amounts, membership status, display
-names and profile privacy. Only active paid members with unmasked identities and no
-explicit pledge-privacy opt-out are acknowledged, once under their highest entitled
-tier. Patreon's nullable `hide_pledges` field accepts `false` or `null`; `true`
-excludes the member. Missing privacy fields fail the refresh, and unexpected values
-remain excluded. Hidden or masked identities
-are omitted; emails, addresses and payment histories are never published. The public
+`lib/patreon/sync.mjs` requests only tier titles/amounts, membership status and display
+names. Active paid members with unmasked identities are acknowledged once under
+their highest entitled tier. The maintainer confirmed on 2026-11-18 that affected
+supporters consented to Arkpedia credits independently of their Patreon profile's
+supported-creator visibility. `hide_pledges` is therefore neither requested nor used
+as a credits filter. Membership identity masking remains respected: empty or null
+names on either the member or user resource are omitted, and missing identity fields
+fail the refresh. Emails, addresses and payment histories are never published. The public
 API accepts only the closed names/tiers/update-time projection.
 
 The additive `0019_patreon_supporters.sql` migration stores the public snapshot and
