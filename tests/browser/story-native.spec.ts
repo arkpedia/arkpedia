@@ -56,8 +56,14 @@ for (const theme of ['dark', 'light']) test(`Thunder opens the Timo chapter dial
   await page.keyboard.press('Escape');
   await expect(dialog).toBeHidden();
 
-  await page.goto('/story/read?chapter=act50side&part=2');
-  expect(new URL(page.url()).pathname).toBe('/story');
-  expect(new URL(page.url()).searchParams.get('view')).toBe('list');
+  const bookmark = await page.request.get('/story/read?chapter=act50side&part=2', { maxRedirects: 0 });
+  expect(bookmark.status()).toBe(307);
+  const destination = new URL(bookmark.headers().location, bookmark.url());
+  expect(destination.pathname).toBe('/story');
+  expect(destination.searchParams.get('view')).toBe('list');
+  expect(destination.searchParams.get('chapter')).toBe('act50side');
+  // Playwright interception applies to the initial request in a redirect chain.
+  // Open the destination directly so the older CI snapshot receives our fixture.
+  await page.goto(destination.href);
   await expect(dialog).toBeVisible();
 });
