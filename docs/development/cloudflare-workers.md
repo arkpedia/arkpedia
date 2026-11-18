@@ -120,7 +120,10 @@ isolate loads all of it before it answers. On 2026-10-23 it was 36.6 MB (6.5 MB 
   read from the Worker's static files through its `ASSETS` binding. Unlike `readDataTable`, that
   works at request time too, so the fallbacks below still get it. A table moves here by adding it to
   both lists (`test-shipped-tables.ts` holds them equal) and reading it through `readShippedTable`
-  behind `process.env.ARKPEDIA_WORKER`.
+  behind `process.env.ARKPEDIA_WORKER` when a local static import is also needed.
+  Event rewards use this path in every environment (1.67 MB on 2026-11-17), preserving
+  the full CN/Global offers table for prerendering and request-time fallbacks without
+  compiling it into each Worker cold start.
 
 `npm run cf:build` ends with `scripts/audits/check-worker-bundle.mjs`. It fails over a size
 budget, or when a browser-only package is in the bundle, and lists the largest parts.

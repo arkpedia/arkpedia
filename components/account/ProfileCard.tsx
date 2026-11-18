@@ -299,7 +299,7 @@ export default function ProfileCard({ account, map, outfits, outfitArt, outfitNa
           )}
           </div>
         </div>
-        {(!profile.medals?.length || !panels.includes('module_medal')) && (
+        {(collectionOwner === 'self' || !!profile.medals?.length || !!profile.medalCollection?.length) && (!profile.medals?.length || !panels.includes('module_medal')) && (
           <button type="button" className="btn-sm account-card-box account-card-view-medals" aria-haspopup="dialog" onClick={() => setMedalsOpen(true)}>
             View medals ↗
           </button>

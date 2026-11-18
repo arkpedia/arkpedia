@@ -8,7 +8,7 @@ export function canonicalPublicHref(href: string): string {
   if (pathname === '/friends') {
     const url = new URL(href, 'https://arkpedia.net');
     url.pathname = '/account';
-    url.searchParams.set('panel', 'friends');
+    url.searchParams.set('panel', 'following');
     return `${url.pathname}${url.search}${url.hash}`;
   }
   const destination = Object.hasOwn(aliases.routes,pathname) ? (aliases.routes as Record<string,string>)[pathname] : undefined;

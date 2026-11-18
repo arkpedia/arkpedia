@@ -21,11 +21,11 @@ test('friend import, nested preview, skin collection and reload leave the own ac
   // Wait for the imported own account to hydrate before firing the SSR file input.
   await expect(page.getByRole('button',{name:'Export my account',exact:true})).toBeEnabled();
   await expect(page.getByText('Shared files contain your profile, operators and skins.', {exact:false})).not.toBeVisible();
-  await page.getByRole('button', {name:'Friend sharing details', exact:true}).click();
+  await page.getByRole('button', {name:'About following and imports', exact:true}).click();
   await expect(page.getByText('Shared files contain your profile, operators and skins.', {exact:false})).toBeVisible();
   await page.keyboard.press('Escape');
-  await page.getByLabel('Friend account file').setInputFiles(file);
-  await expect(page.getByRole('tabpanel',{name:'Friends',exact:true}).getByRole('status')).toContainText('Imported Friend Doctor#2222');
+  await page.getByLabel('Profile account file').setInputFiles(file);
+  await expect(page.getByRole('tabpanel',{name:'Following',exact:true}).getByRole('status')).toContainText('Imported Friend Doctor#2222');
   await page.getByRole('button',{name:"Show Friend Doctor#2222's operators",exact:true}).click();
   const collection=page.getByRole('dialog',{name:'Friend Doctor#2222 · Operators',exact:true});
   await collection.getByRole('combobox',{name:'Operator rarity',exact:true}).click();
@@ -65,7 +65,7 @@ test('friend import, nested preview, skin collection and reload leave the own ac
   await expect(skins.getByRole('img',{name:'Angelina — Summer Flower FA017',exact:true})).toBeVisible();
   await page.keyboard.press('Escape');
   await expect(outfit).toBeFocused();
-  await page.getByRole('searchbox',{name:'Search friend skins'}).fill('zz-no-match');
+  await page.getByRole('searchbox',{name:'Search player skins'}).fill('zz-no-match');
   await expect(page.getByText('No skins match.',{exact:true})).toBeVisible();
   await page.keyboard.press('Escape');
   expect(await page.evaluate(()=>JSON.parse(localStorage.getItem('arkpediaAccount')!).doctor)).toBe(own.doctor);
@@ -85,9 +85,9 @@ test('export shares the own profile and build data without resources; damaged im
   expect(shared.account.doctor).toBe(own.doctor);
   expect(shared.roster.Angelina).toEqual(roster.Angelina);
   expect(shared.account.wallet).toBeUndefined();
-  await page.getByLabel('Friend account file').setInputFiles(file);
-  await expect(page.getByRole('tabpanel',{name:'Friends',exact:true}).getByRole('status')).toContainText('Imported Friend Doctor');
-  await page.getByLabel('Friend account file').setInputFiles({name:'damaged.json',mimeType:'application/json',buffer:Buffer.from('{')});
+  await page.getByLabel('Profile account file').setInputFiles(file);
+  await expect(page.getByRole('tabpanel',{name:'Following',exact:true}).getByRole('status')).toContainText('Imported Friend Doctor');
+  await page.getByLabel('Profile account file').setInputFiles({name:'damaged.json',mimeType:'application/json',buffer:Buffer.from('{')});
   await expect(page.getByRole('alert').filter({hasText:'That file is not valid JSON.'})).toBeVisible();
   await expect(page.getByText('Friend Doctor#2222',{exact:true}).last()).toBeVisible();
 });
@@ -175,11 +175,11 @@ test(`friend sharing help uses themed links without an imported account (${theme
   await page.goto('/account');
   await page.goto('/friends');
   await expect(page.getByRole('button', {name:'Export my account', exact:true})).toBeDisabled();
-  const help = page.getByRole('button', {name:'Friend sharing details', exact:true});
+  const help = page.getByRole('button', {name:'About following and imports', exact:true});
   await expect(help).toHaveCSS('border-top-width', '0px');
   await expect(help.locator('svg circle')).toHaveCount(2);
   await help.click();
-  const importTools = page.getByRole('region',{name:'Friend sharing details',exact:true}).getByRole('button', {name:'Import / export', exact:true});
+  const importTools = page.getByRole('region',{name:'About following and imports',exact:true}).getByRole('button', {name:'Import / export', exact:true});
   await expect(importTools).toBeVisible();
   await expect(importTools).toHaveAttribute('aria-haspopup', 'dialog');
   if (process.env.ARKPEDIA_QA_CAPTURE) await page.screenshot({path:`${process.env.ARKPEDIA_QA_CAPTURE}/friend-help-${theme}-${info.project.name}.png`});
@@ -193,11 +193,11 @@ test(`multiple imported friends stay visible, update in place and open separate 
   await page.addInitScript(theme => localStorage.setItem('theme', theme), theme);
   await page.goto('/friends');
   await expect(page.getByRole('button', {name:'Export my account', exact:true})).toBeEnabled();
-  await page.getByLabel('Friend account file').setInputFiles(file);
+  await page.getByLabel('Profile account file').setInputFiles(file);
   const second = makeFriendFile({...own, doctor:'Another Doctor#3333', profile:{...own.profile!, nameCard:'nc_as2024_throne', supports:[{name:'Angelina', rarity:6, elite:2, level:90, potential:6, skill:1}, {name:'Kroos', rarity:3, elite:1, level:55, potential:6, skill:1}, {name:'Amiya', rarity:5, elite:2, level:80, potential:6, skill:1}]}}, roster);
-  await page.getByLabel('Friend account file').setInputFiles({name:'second.json', mimeType:'application/json', buffer:Buffer.from(JSON.stringify(second))});
+  await page.getByLabel('Profile account file').setInputFiles({name:'second.json', mimeType:'application/json', buffer:Buffer.from(JSON.stringify(second))});
   await expect(page.getByRole('article')).toHaveCount(2);
-  await page.getByLabel('Friend account file').setInputFiles(file);
+  await page.getByLabel('Profile account file').setInputFiles(file);
   await expect(page.getByRole('article')).toHaveCount(2);
   const row = page.getByRole('article').filter({hasText:'Friend Doctor#2222'});
   await row.getByRole('button', {name:'View Friend Doctor#2222 profile', exact:true}).click();
