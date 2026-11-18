@@ -1,12 +1,6 @@
-import type { Operator } from './operatorTypes';
+import type { CroppedRange, ModuleAttackRange, Operator } from './operatorTypes';
 
-/** Cropped operator range, with the operator tile retained separately. */
-export interface CroppedRange {
-  cols: number;
-  rows: number;
-  opCell: [number, number];
-  rangeCells: [number, number][];
-}
+export type { CroppedRange } from './operatorTypes';
 
 /** The deployment dataset stores offsets as [forward, lateral]. */
 export type AttackRangeTable = Record<string, number[][]>;
@@ -16,10 +10,6 @@ export interface OperatorAttackRange {
   range: CroppedRange;
   talent: string | null;
 }
-
-export type ModuleAttackRange =
-  | { grid: CroppedRange; whileSkillActive?: true }
-  | { forward: number };
 
 function extendForward(cells: number[][], distance: number): number[][] {
   const edges = new Map<number, number>();
@@ -56,7 +46,6 @@ export function applyModuleAttackRange(base: CroppedRange, change: ModuleAttackR
  * character_table.json: Frostleaf's talent rangeId and Tachanka's
  * ability_range_forward_extend. Other talent rangeIds commonly describe buff
  * areas, substitutes or skill-only effects, so they must not be applied blindly.
- * Source: https://github.com/Kengxxiao/ArknightsGameData_YoStar/blob/main/en_US/gamedata/excel/character_table.json
  */
 const PASSIVE_RANGE_CHANGES: Record<string, {
   elite: number; talent: string; rangeId?: string; forwardExtend?: number;

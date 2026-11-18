@@ -1,6 +1,17 @@
 import type { OperatorStats, OperatorFile } from './operatorStats';
 import type { ObtainMethod, WelfareSource } from './obtainMethods';
-import type { CroppedRange, ModuleAttackRange } from './operatorAttackRanges';
+
+/** Cropped range grid with one-based row and column coordinates. */
+export interface CroppedRange {
+  cols: number;
+  rows: number;
+  opCell: [number, number];
+  rangeCells: [number, number][];
+}
+
+export type ModuleAttackRange =
+  | { grid: CroppedRange; whileSkillActive?: true }
+  | { forward: number };
 
 export interface CostItem {
   name: string;
