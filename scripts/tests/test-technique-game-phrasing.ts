@@ -43,6 +43,48 @@ test('"slowly" is not the Slow status, and Slows is', () => {
   assert.ok(rules('Deals Arts damage and Slows the target for a short time').includes('Slow'));
 });
 
+test('Arts Damage Taken requires an increase in damage received by enemies', () => {
+  for (const text of [
+    'The Arts damage taken by nearby enemies +55% and their Movement Speed -60%',
+    'Attacks inflict RES -10 and Arts damage taken +165 (+15) on targets for 5s.',
+    'Increases the Arts damage taken by all blocked enemies by 18% (+3%) when deployed',
+    'When deployed, all blocked enemies take +23% Arts damage',
+  ]) assert.ok(rules(text).includes('Arts Damage Taken'), text);
+
+  for (const text of [
+    'Enemies take 75% ATK as Arts damage per second.',
+    'While being pulled, enemies take Arts damage proportional to the distance traveled.',
+    'When the target takes Arts damage, it takes an additional hit.',
+    'This unit takes +20% Arts damage.',
+    'Increases the Arts damage taken by nearby allies by 20%.',
+    'Physical and Arts damage taken from units in front is reduced by 35%.',
+    'Chained enemies deal 25% of the Arts damage taken to other chained enemies as extra damage.',
+    'Inflicts 20% Arts Fragility on enemies.',
+  ]) assert.ok(!rules(text).includes('Arts Damage Taken'), text);
+});
+
+test('the technique index keeps verified amplification sources and lists Esperanta under Repositioning', () => {
+  const groups = buildTechniqueGroups();
+  const artsDamageTaken = groups.find(group => group.name === 'Arts Damage Taken')!;
+  for (const name of ['Saria', 'Logos', 'Skyfire']) {
+    assert.ok(artsDamageTaken.entries.some(entry => entry.operatorName === name), name);
+  }
+  for (const name of ['Tin Man', 'Clementia', 'Astgenne the Lightchaser']) {
+    assert.ok(!artsDamageTaken.entries.some(entry => entry.operatorName === name), name);
+  }
+
+  const esperanta = getAllOperators().find(operator => operator.internalName === 'char_1052_kalts2')!;
+  const skill = getSkillList(esperanta)[2];
+  assert.ok(skillTechniques(esperanta, skill).some(technique => technique.name === 'Repositioning'));
+  const repositioning = groups.find(group => group.name === 'Repositioning')!;
+  const entry = repositioning.entries.find(entry => entry.operatorName === esperanta.name);
+  assert.ok(entry, "Esperanta is listed under Repositioning");
+  assert.equal(entry.badges.length, 1);
+  assert.equal(entry.badges[0].skillNumber, 3);
+  assert.equal(entry.badges[0].label, skill.name);
+  assert.ok(repositioning.entries.some(entry => entry.operatorName === 'Exusiai the New Covenant'));
+});
+
 test('the page lists module traits and operator traits, without crediting what a trait does for others', () => {
   const groups = buildTechniqueGroups();
   const members = (name: string) => new Set(groups.find((g) => g.name === name)?.entries.map((e) => e.operatorName) ?? []);
