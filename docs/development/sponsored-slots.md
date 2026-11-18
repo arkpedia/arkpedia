@@ -50,9 +50,9 @@ The error pages and the development-only pages carry none and show no slot.
 
 ## Reviewing a draft
 
-`draft` campaigns render in `npm run dev` and in a build made with `NEXT_PUBLIC_SPONSOR_PREVIEW=1`,
-with or without a link and whatever their dates. Never set
-that variable on the public site.
+`draft` campaigns render in `npm run dev` and on the Preview site (the staging build role sets
+`ARKPEDIA_PREVIEW`), with or without a link and whatever their dates. The public site never
+shows them.
 
 A malformed record throws when a page's tables are attached (`checkSponsorCampaigns`), which stops the
 release that carries it: an active campaign without a link, a date without a timezone, an image

@@ -4,9 +4,9 @@ import { ContentTablesContext } from '@/lib/content/context';
 import { sponsorCampaignFor, type SponsorCampaign, type SponsorCampaignTable, type SponsorPlacement } from '@/lib/sponsors/campaigns';
 import { SPONSOR_STRINGS as S } from '@/lib/sponsors/strings';
 
-/* Draft campaigns show in `next dev` and in a build made with NEXT_PUBLIC_SPONSOR_PREVIEW=1
-   (a review deployment), never on the public site. */
-const DRAFTS = process.env.NODE_ENV !== 'production' || process.env.NEXT_PUBLIC_SPONSOR_PREVIEW === '1';
+/* Draft campaigns show in `next dev` and on the Preview site (ARKPEDIA_PREVIEW, which
+   next.config.js sets for the staging build role), never on the public site. */
+const DRAFTS = process.env.NODE_ENV !== 'production' || process.env.ARKPEDIA_PREVIEW === '1';
 
 /**
  * The campaign a placement shows now, or null.
