@@ -1,4 +1,4 @@
-import { useContext, useLayoutEffect, useRef, useState } from 'react';
+import { useContext, useLayoutEffect, useRef, useState, type CSSProperties } from 'react';
 import { ContentImg } from '@/components/content/ContentImage';
 import { ContentTablesContext } from '@/lib/content/context';
 import { sponsorCampaignFor, type SponsorCampaign, type SponsorCampaignTable, type SponsorPlacement } from '@/lib/sponsors/campaigns';
@@ -86,15 +86,20 @@ function useClearSpace(ref: React.RefObject<HTMLElement | null>, enabled: boolea
  * keeps that size if the image never does (a content blocker): it then holds a line of
  * text instead, so nothing around it moves.
  */
-export default function SponsoredSlot({ placement, className = '' }: { placement: SponsorPlacement; className?: string }) {
-  const campaign = useSponsorCampaign(placement);
+export default function SponsoredSlot({ placement, className = '' }: { placement: SponsorPlacement | 'mobile-menu'; className?: string }) {
+  const inMobileMenu = placement === 'mobile-menu';
+  const campaign = useSponsorCampaign(inMobileMenu ? 'header' : placement);
   const [failed, setFailed] = useState<string | null>(null);
   const ref = useRef<HTMLElement>(null);
   const overlaid = placement === 'header';
   const clear = useClearSpace(ref, overlaid && campaign !== null);
   if (!campaign) return null;
-  // Beside a title the stylesheet gives the height and the ratio gives the width.
-  const box = overlaid ? { aspectRatio: `${campaign.width} / ${campaign.height}` } : { aspectRatio: `${campaign.width} / ${campaign.height}`, maxWidth: campaign.width };
+  const ratio = campaign.width / campaign.height;
+  const box = {
+    aspectRatio: ratio,
+    maxWidth: overlaid ? undefined : campaign.width,
+    ...(inMobileMenu && { '--sponsored-menu-ratio': ratio }),
+  } as CSSProperties;
   const art = failed === campaign.id
     ? <span className="sponsored-slot-fallback">{S.fallback(campaign.sponsor)}</span>
     : <ContentImg src={campaign.image} alt={campaign.alt} width={campaign.width} height={campaign.height} referrerPolicy="no-referrer" onError={() => setFailed(campaign.id)} />;

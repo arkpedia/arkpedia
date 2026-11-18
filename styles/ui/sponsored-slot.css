@@ -63,5 +63,9 @@ a.sponsored-slot-art:focus-visible { border-color: var(--teal); }
 @media (max-width: 1000px) {
   .sponsored-slot--header { display: none; }
 }
+/* On phones the same compact artwork fits under the clock in the shared menu. */
+.sponsored-slot--mobile-menu { align-items: flex-start; margin-top: 12px; }
+.sponsored-slot--mobile-menu .sponsored-slot-art { width: min(100%, calc(60px * var(--sponsored-menu-ratio))); }
+
 /* /support: the banner under the section's copy, left with the text. */
 .sponsored-slot--support { align-items: flex-start; }
