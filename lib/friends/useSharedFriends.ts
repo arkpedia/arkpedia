@@ -56,7 +56,7 @@ export function useSharedFriends(loadProfiles = true) {
     if (!isFriendLinkId(id)) throw Error('Invalid profile link.');
     const previous = parseFriendLinks(localStorage.getItem(FRIEND_LINKS_KEY));
     if (previous.includes(id)) return;
-    if (previous.length + manualCount() >= 50) throw Error('Remove a friend before saving more than 50 profiles.');
+    if (previous.length + manualCount() >= 50) throw Error('Unfollow a player or remove an import before saving more than 50 profiles.');
     const next = [...previous,id];localStorage.setItem(FRIEND_LINKS_KEY,JSON.stringify(next));setIds(next);
   },[]);
   const remove = useCallback((id: string) => {
@@ -67,7 +67,7 @@ export function useSharedFriends(loadProfiles = true) {
 }
 
 /** An open collection rechecks permission, including after tab return or withdrawal. */
-export function useSharedFriend(id: string | null) {
+export function useSharedFriend(id: string | null, directLink = false) {
   const [record,setRecord] = useState<SharedFriend|null>(null), [error,setError] = useState('');
   const [attempt,setAttempt] = useState(0);
   const current = useRef<SharedFriend|null>(null);current.current = record;
@@ -80,13 +80,13 @@ export function useSharedFriend(id: string | null) {
       const signal = AbortSignal.any([request.signal,AbortSignal.timeout(15000)]);
       try {
         if (check && current.current) {
-          const result = await friendRequest<{profiles:SharedFriendSummary[]}>(`?ids=${id}`,{signal});
+          const result = directLink ? {profiles:[await friendRequest<SharedFriendSummary>(`?id=${id}&link=1&summary=1`,{signal})]} : await friendRequest<{profiles:SharedFriendSummary[]}>(`?ids=${id}`,{signal});
           if (!active || request.signal.aborted) return;
           const summary = result.profiles[0], previous = current.current;
-          if (summary && summary.collectionShared === previous.collectionShared && summary.profileUpdatedAt === previous.profileUpdatedAt && JSON.stringify(summary.player) === JSON.stringify(previous.player)) return;
+          if (summary && summary.collectionShared === previous.collectionShared && summary.supportsShared === previous.supportsShared && summary.followingAllowed === previous.followingAllowed && summary.profileUpdatedAt === previous.profileUpdatedAt && JSON.stringify(summary.player) === JSON.stringify(previous.player)) return;
         }
         setRecord(null);setError('');
-        const result = await friendRequest<SharedFriend>(`?id=${id}`,{signal});
+        const result = await friendRequest<SharedFriend>(`?id=${id}${directLink?'&link=1':''}`,{signal});
         if (active && !request.signal.aborted) setRecord(result);
       } catch(reason) {
         if (!active || request.signal.aborted) return;
@@ -94,10 +94,10 @@ export function useSharedFriend(id: string | null) {
       }
     };
     void load();
-    const focus = () => { if(document.visibilityState === 'visible') void load(); };
+    const focus = () => { if(document.visibilityState === 'visible') void load(true); };
     const timer = setInterval(()=>{if(document.visibilityState==='visible')void load(true);},30000);
     window.addEventListener('focus',focus);document.addEventListener('visibilitychange',focus);
     return()=>{active=false;controller?.abort();clearInterval(timer);window.removeEventListener('focus',focus);document.removeEventListener('visibilitychange',focus);};
-  },[id,attempt]);
+  },[id,attempt,directLink]);
   return {record,error,retry:()=>setAttempt(value=>value+1)};
 }

@@ -6,10 +6,10 @@ export const COMMUNITY_MIN_SAMPLE = 10;
 export const SUPPORT_MAX_AGE = 7 * 86400_000;
 export const AVAILABILITY_MAX_AGE = 86400_000;
 export const FULL_REPORT_THRESHOLD = 3;
-export interface CommunityChoices { stats: boolean; shareTag: boolean; openRequests: boolean }
-export const COMMUNITY_OFF: CommunityChoices = { stats: false, shareTag: false, openRequests: false };
+export interface CommunityChoices { stats: boolean; shareTag: boolean; openRequests: boolean; allowFollowing: boolean; profileLink: boolean }
+export const COMMUNITY_OFF: CommunityChoices = { stats: false, shareTag: false, openRequests: false, allowFollowing: false, profileLink: false };
 export interface CommunityState extends CommunityChoices {
-  revision: number; server?: ServerId; importedAt?: string; friendTag?: string | null; listed?: boolean; reportedFull?: boolean;
+  revision: number; profileImportedAt?: string | null; server?: ServerId; importedAt?: string; friendTag?: string | null; listed?: boolean; reportedFull?: boolean;
 }
 export interface SharedOperator { skillLevel?: number | null; operator: string; elite: number | null; level?: number | null; m0: number | null; m1: number | null; m2: number | null; modules: Record<string, number> | null }
 export interface SharedSupport { skillLevel?:number|null; skillMasteries?:(number|null)[]; operator: string; elite: number; level: number; skill: number | null; mastery: number | null; module: string | null; moduleLevel: number | null; potential?:number|null; skin?:string|null; skillId?:string|null; allMastered?:boolean|null }
@@ -36,15 +36,16 @@ const nullable = (v: unknown, low: number, high: number) => v === null || intege
 export function parseCommunityChoices(value: unknown): CommunityChoices {
   const v=value as CommunityChoices;
   if(!v || ['stats','shareTag','openRequests'].some(key=>typeof (v as unknown as Record<string,unknown>)[key]!=='boolean')) throw Error('Choose each community sharing option.');
-  return {stats:v.stats,shareTag:v.shareTag,openRequests:v.shareTag && v.openRequests};
+  if(['allowFollowing','profileLink'].some(key=>(v as unknown as Record<string,unknown>)[key]!==undefined&&typeof (v as unknown as Record<string,unknown>)[key]!=='boolean')) throw Error('Choose each profile sharing option.');
+  return {stats:v.stats,shareTag:v.shareTag,openRequests:v.shareTag && v.openRequests,allowFollowing:v.allowFollowing===true,profileLink:v.profileLink===true};
 }
 /** Deliberately projects only requested community fields, never a private save or wallet. */
 export function communitySnapshot(account: AccountRecord, choices: CommunityChoices): CommunitySnapshot {
   const profile=account.profile, builds=account.operatorBuilds;
   return {
-    server:account.server, uid:profile?.uid ?? '', doctor:choices.shareTag && choices.openRequests ? account.doctor : null,
+    server:account.server, uid:profile?.uid ?? '', doctor:choices.profileLink || choices.allowFollowing || (choices.shareTag && choices.openRequests) ? account.doctor : null,
     importedAt:account.importedAt, slots:choices.shareTag && choices.openRequests && profile?.friendSlots ? Math.max(0,profile.friendSlots.limit-profile.friendSlots.used) : null,
-    appearance:choices.shareTag && choices.openRequests ? {
+    appearance:choices.profileLink || choices.allowFollowing || (choices.shareTag && choices.openRequests) ? {
       avatar:profile?.avatar??null,avatarType:profile?.avatarType??null,secretary:profile?.secretary??null,secretarySkin:profile?.secretarySkin??null,
       nameCard:profile?.nameCard??null,nameCardVariant:profile?.nameCardVariant??0,level:profile?.level??null,
       operators:new Set(account.operators).size,skins:new Set(account.skins).size,
@@ -110,7 +111,7 @@ export function parseCommunitySnapshot(raw: unknown, choices: CommunityChoices, 
   });
   if(new Set(operators.map(o=>o.operator)).size!==operators.length || new Set(skins.map(s=>s.skin)).size!==skins.length || new Set(supports.map(s=>s.operator)).size!==supports.length) throw Error('Duplicate community records.');
   // Ignore unconsented fields even if another client sends them.
-  return {server:v.server,uid:v.uid,importedAt:new Date(at).toISOString(),doctor:choices.shareTag&&choices.openRequests ? v.doctor : null,slots:choices.shareTag&&choices.openRequests?v.slots:null,
-    appearance:choices.shareTag&&choices.openRequests?appearance:null,
+  return {server:v.server,uid:v.uid,importedAt:new Date(at).toISOString(),doctor:choices.profileLink || choices.allowFollowing || (choices.shareTag&&choices.openRequests) ? v.doctor : null,slots:choices.shareTag&&choices.openRequests?v.slots:null,
+    appearance:choices.profileLink || choices.allowFollowing || (choices.shareTag&&choices.openRequests)?appearance:null,
     equipmentKnown:choices.stats&&v.equipmentKnown,operators:choices.stats?operators:[],skins:choices.stats?skins:[],supports:choices.shareTag&&choices.openRequests?supports:[]};
 }

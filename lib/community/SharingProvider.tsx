@@ -1,6 +1,9 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 import { useCloudSync } from '@/lib/cloud-account/SyncProvider';
-import { useAccount } from '@/lib/account/accountStore';
+import { publicFriendFile } from '@/lib/friends/sharedProfile';
+import { makeFriendFile, shareableRoster } from '@/lib/account/friendFile';
+import { readRoster } from '@/lib/planner/roster';
+import { useAccount, useOtherAccounts } from '@/lib/account/accountStore';
 import { communitySnapshot, type CommunityChoices, type CommunityState } from './model';
 
 interface Sharing {
@@ -10,10 +13,12 @@ interface Sharing {
 const Context=createContext<Sharing|null>(null);
 export const useCommunitySharing=()=>{const value=useContext(Context);if(!value)throw Error('Missing community sharing provider');return value;};
 export default function SharingProvider({children}:{children:ReactNode}){
-  const {remote}=useCloudSync(),account=useAccount(),owner=remote?.user.id??null;
+  const {remote}=useCloudSync(),account=useAccount(),others=useOtherAccounts(),owner=remote?.user.id??null;
   const [state,setState]=useState<CommunityState|null>(null),[busy,setBusy]=useState(false),[error,setError]=useState('');
   const [loadedFor,setLoadedFor]=useState<string|null>(null);
   const activeState=loadedFor===owner?state:null;
+  const accountIdentity=`${owner}:${account?.server}:${account?.profile?.uid}:${account?.importedAt}`;
+  const importedIdentity=useRef(accountIdentity);importedIdentity.current=accountIdentity;
   const ownerRef=useRef(owner),current=useRef(state),inflight=useRef(false),seen=useRef('');
   ownerRef.current=owner;current.current=activeState;
   const request=useCallback(async(method:string,body?:unknown)=>{
@@ -28,27 +33,28 @@ export default function SharingProvider({children}:{children:ReactNode}){
   useEffect(()=>{setState(null);setLoadedFor(null);setError('');seen.current='';void refresh();},[owner,refresh]);
   useEffect(()=>{const focus=()=>void refresh();window.addEventListener('focus',focus);return()=>window.removeEventListener('focus',focus);},[refresh]);
   async function write(choices:CommunityChoices,action:'consent'|'refresh'='consent'){
-    const identity=ownerRef.current,previous=current.current;
+    const identity=ownerRef.current,previous=current.current,capture=accountIdentity;
     if(!identity||!previous||inflight.current)return false;
-    const off=!choices.stats&&!choices.shareTag&&!choices.openRequests;
+    const off=!choices.stats&&!choices.shareTag&&!choices.openRequests&&!choices.allowFollowing&&!choices.profileLink;
     const withdrawing=Object.entries(choices).every(([key,value])=>!value||previous[key as keyof CommunityChoices])&&Object.entries(choices).some(([key,value])=>!value&&previous[key as keyof CommunityChoices]);
     if(!off&&!account&&!withdrawing){setError('Import your game account before sharing.');return false;}
     inflight.current=true;setBusy(true);setError('');
     try{
-      const data=await request(off?'DELETE':'PUT',{owner:identity,revision:previous.revision,action,choices,...(!off&&account&&!withdrawing?{snapshot:communitySnapshot(account,choices)}:action==='refresh'&&account?{snapshot:communitySnapshot(account,choices)}:{})});
+      const data=await request(off?'DELETE':'PUT',{owner:identity,revision:previous.revision,action,choices,...(choices.profileLink&&account&&!withdrawing&&action==='consent'&&(!previous.profileLink||account.importedAt!==previous.profileImportedAt)?{publicProfile:publicFriendFile(makeFriendFile(account,shareableRoster(account,Object.values(others),readRoster())))}:{}),...(!off&&account&&!withdrawing?{snapshot:communitySnapshot(account,choices)}:action==='refresh'&&account?{snapshot:communitySnapshot(account,choices)}:{})});
       if(ownerRef.current!==identity)return false;
+      if(importedIdentity.current!==capture){void refresh();return false;}
       seen.current=`${identity}:${account?.server}:${account?.profile?.uid}:${account?.importedAt}`;setState(data);return true;
     }catch(e){if(ownerRef.current===identity)setError(e instanceof Error?e.message:'Community sharing could not update.');return false;}
     finally{inflight.current=false;setBusy(false);}
   }
   // An import can refresh an existing opt-in, never create consent or change game identity.
   useEffect(()=>{
-    if(!owner||loadedFor!==owner||!state||!account||(!state.stats&&!state.shareTag&&!state.openRequests)||account.importedAt===state.importedAt)return;
+    if(!owner||loadedFor!==owner||!state||!account||(!state.stats&&!state.shareTag&&!state.openRequests&&!state.allowFollowing&&!state.profileLink)||account.importedAt===state.importedAt)return;
     const key=`${owner}:${account.server}:${account.profile?.uid}:${account.importedAt}`;
     if(seen.current===key||inflight.current)return;seen.current=key;
-    void write({stats:state.stats,shareTag:state.shareTag,openRequests:state.openRequests},'refresh');
+    void write({stats:state.stats,shareTag:state.shareTag,openRequests:state.openRequests,allowFollowing:state.allowFollowing,profileLink:state.profileLink},'refresh');
     // The import timestamp is the only automatic publication trigger; choices are server-checked.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   },[owner,loadedFor,account?.importedAt,state?.revision]);
-  return <Context.Provider value={{state:activeState,busy,error,save:choices=>write(choices),stop:()=>write({stats:false,shareTag:false,openRequests:false}),refresh}}>{children}</Context.Provider>;
+  return <Context.Provider value={{state:activeState,busy,error,save:choices=>write(choices),stop:()=>write({stats:false,shareTag:false,openRequests:false,allowFollowing:false,profileLink:false}),refresh}}>{children}</Context.Provider>;
 }

@@ -50,11 +50,11 @@ export default function FriendCollection({ friend, operators, skins, view, onClo
     element.showModal();
     return () => { element.close(); document.body.style.overflow = overflow; focus?.focus({ preventScroll: true }); };
   }, [inline]);
-  const heading = `${friend.account.doctor ?? 'Friend'} · ${view === 'operators' ? 'Operators' : 'Skins'}`;
+  const heading = `${friend.account.doctor ?? 'Player'} · ${view === 'operators' ? 'Operators' : 'Skins'}`;
   const content = <>
-      {!inline && <div className={styles.dialogHead}><h2 className="entity-title">{heading}</h2><XButton onClick={onClose} label={`Close ${own ? 'your' : "friend's"} ${view}`} /></div>}
+      {!inline && <div className={styles.dialogHead}><h2 className="entity-title">{heading}</h2><XButton onClick={onClose} label={`Close ${own ? 'your' : "player's"} ${view}`} /></div>}
         <div className={styles.filters}>
-          <SearchInput label={`Search ${own ? 'your' : 'friend'} ${view}`} placeholder={view === 'operators' ? 'Search operators…' : 'Search skins…'} value={query} onChange={setQuery} />
+          <SearchInput label={`Search ${own ? 'your' : 'player'} ${view}`} placeholder={view === 'operators' ? 'Search operators…' : 'Search skins…'} value={query} onChange={setQuery} />
           {view === 'operators' && <>
             <StyledSelect label="Operator rarity" value={rarity} onChange={setRarity} options={[{value:'all',label:'All rarities'}, ...[6,5,4,3,2,1].map(n=>({value:String(n),label:`${n}★`}))]} />
             <StyledSelect label="Sort operators" value={sort} onChange={setSort} options={[{value:'built',label:'Built level'},{value:'rarity',label:'Rarity'},{value:'name',label:'Name'}]} />

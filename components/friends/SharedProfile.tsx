@@ -38,8 +38,8 @@ export function SharedProfileContent({record,operators,skins,standalone=false}:{
         {standalone&&floor.spacer}
       </div>
     </>:<>
-      <p>This player shares their equipped supports. Their full collection is not public.</p>
-      <SharedFriendCard summary={record} map={map} operators={operators} onOpen={()=>setSupportsOpen(true)} actions={<button type="button" className="btn-sm" onClick={()=>setSupportsOpen(true)}>View support builds</button>} />
+      <p>{record.supportsShared?'This player shares their equipped supports. Their full collection is not public.':'This player allows following. Their collection and support units are not public.'}</p>
+      <SharedFriendCard summary={record} map={map} operators={operators} onOpen={()=>setSupportsOpen(true)} actions={record.supportsShared&&<button type="button" className="btn-sm" onClick={()=>setSupportsOpen(true)}>View support builds</button>} />
     </>}
     {supportsOpen&&<FriendSupportDetails name={record.player.friendTag} units={playerSupportUnits(record.player,operators)} map={map} operators={operators} onClose={closeSupports} />}
   </>;
