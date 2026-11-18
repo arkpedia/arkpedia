@@ -10,6 +10,7 @@ import ServerClock from './ServerClock';
 import { getEssentialIconPath } from '@/lib/operators/operatorIconPaths';
 import type { MobileNavOverride } from '@/lib/nav/mobileNavOverride';
 import { useChangelogUnseen } from '@/lib/changelog/seen';
+import SponsoredSlot from '@/components/ui/SponsoredSlot';
 
 // The drawer renders on the server with every page: there a layout effect only warns.
 
@@ -273,6 +274,7 @@ export default function MobileNavDrawer({ mobileNav, search }: { mobileNav?: Mob
               already brand, menu button and theme toggle across a phone's width, while
               the header is a column with room for the strip on one line. */}
           <ServerClock variant="drawer" />
+          <SponsoredSlot placement="mobile-menu" />
         </div>
         <div className="mobile-nav-drawer-links">
           {/* The desktop bar's own menus, as sections that fold (GROUPS), then its loose
