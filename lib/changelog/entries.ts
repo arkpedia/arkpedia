@@ -34,6 +34,10 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    at: '2026-11-18T10:54:00Z',
+    fixed: [{ title: 'Pull goals stay in sync', detail: 'The poll highlights higher potential goals and clears them when you remove the targets in the Pull Planner.', href: '/polls/pull-or-skip' }],
+  },
+  {
     at: '2026-11-18T09:30:00Z',
     added: [{ title: 'Automatic updates for shared profiles', detail: 'Enable Update after each import to keep the same link current and show visitors when the collection was last imported.', href: '/account?settings=community' }],
   },

@@ -26,7 +26,7 @@ import { formatDayMonthYear } from '@/lib/pulls/format';
 import { parsePullPlan, PULL_PLAN_KEY, MAX_PLAN_FILE_SIZE } from '@/lib/pulls/plan';
 import { withContentPage } from '@/lib/content/server';
 import { useReaderClock } from '@/lib/time/readerClock';
-import { bannerChoice, decodeBallot, importGoals, currentBallot, constrainOwned, activePollBanners, PULL_POLL_DRAFT, pullWant, setBannerChoice, walletMood, type PollPortrait, type Ballot, type PollBanner, type Want } from '@/lib/polls/pull-poll';
+import { bannerChoice, decodeBallot, importGoals, currentBallot, constrainOwned, activePollBanners, PULL_POLL_DRAFT, pullIntent, pullWant, setBannerChoice, walletMood, type PollPortrait, type Ballot, type PollBanner, type Want } from '@/lib/polls/pull-poll';
 import styles from '@/components/community/PullPoll.module.css';
 
 interface Props { banners: PollBanner[]; now: number; portraits?:Record<string,PollPortrait> }
@@ -199,13 +199,13 @@ function PullPoll({banners,now,owner,portraits={}}:Props&{owner:string|null}) {
         {notice&&<p className="notice" role="status">{notice}</p>}
         {error&&<p className="notice notice-danger" role="alert">{error} Your draft stays in this browser. <button className="ghost btn-sm" onClick={()=>{setReady(false);setError('');setReload(value=>value+1);}}>Refresh entry</button></p>}
         <div ref={hold.ref} style={hold.style} className={styles.banners}>
-          {visible.map((banner,index)=>{const verdict=bannerChoice(ballot[banner.id],banner,owned),open=!!expanded[banner.id];return <article key={banner.id} className={`${styles.banner} poll-banner-surface`} data-verdict={verdict} aria-label={banner.name}>
-            <BannerArt banner={banner} choices={ballot[banner.id]} portraits={portraits} owned={owned}/>
+          {visible.map((banner,index)=>{const choices=ballot[banner.id],verdict=bannerChoice(choices,banner,owned),pullSelected=pullIntent(choices)==='pull',open=!!expanded[banner.id];return <article key={banner.id} className={`${styles.banner} poll-banner-surface`} data-verdict={verdict} aria-label={banner.name}>
+            <BannerArt banner={banner} choices={choices} portraits={portraits} owned={owned}/>
             <div className={styles.identity}><div><h2 className="entity-title entity-title-sm entity-title-name">{bannerTitle(banner)}</h2><div className="hint"><time dateTime={banner.start}>{formatDayMonthYear(banner.start)}</time> – <time dateTime={banner.end}>{formatDayMonthYear(banner.end)}</time>{banner.estimated?' · estimated':''}</div></div>
               <div className={styles.portraits}>{banner.operators.map(name=><OperatorTile key={name} name={name} want={ballot[banner.id]?.[name]} portraits={portraits} owned={owned[name]??0}/>)}{!banner.operators.length&&<span className="hint">Lineup still classified</span>}</div>
             </div>
             <div className={styles.bannerActions}>
-              <div className="poll-choice-group" role="group" aria-label={`Plan for ${banner.name}`}>{(['pull','maybe','skip'] as const).map(choice=><button key={choice} type="button" data-choice={choice} aria-pressed={verdict===choice} disabled={choice==='pull'&&banner.operators.length>0&&banner.operators.every(name=>pullWant(banner,name)<=0||(owned[name]??0)>=6)} onClick={()=>chooseBanner(banner,choice)}>{choice==='pull'&&<ContentImg src="/material-icons/Headhunting%20Permit.webp" alt="" width="22" height="22"/>}{choice[0].toUpperCase()+choice.slice(1)}</button>)}</div>
+              <div className="poll-choice-group" role="group" aria-label={`Plan for ${banner.name}`}>{(['pull','maybe','skip'] as const).map(choice=><button key={choice} type="button" data-choice={choice} aria-pressed={choice==='pull'?pullSelected:verdict===choice} disabled={choice==='pull'&&banner.operators.length>0&&banner.operators.every(name=>pullWant(banner,name)<=0||(owned[name]??0)>=6)} onClick={()=>chooseBanner(banner,choice)}>{choice==='pull'&&<ContentImg src="/material-icons/Headhunting%20Permit.webp" alt="" width="22" height="22"/>}{choice[0].toUpperCase()+choice.slice(1)}</button>)}</div>
               {!!banner.operators.length&&<button className={`ghost ${styles.expand}`} aria-label={`${open?'Hide':'Choose'} per operator for ${bannerTitle(banner)}`} title="Choose per operator" aria-expanded={open} aria-controls={`pull-banner-detail-${index}`} onClick={()=>{hold.capture();setExpanded(prev=>({...prev,[banner.id]:!open}));}}>{open?'▴':'▾'}</button>}
             </div>
             {open&&<div id={`pull-banner-detail-${index}`} className={styles.details}>{banner.operators.map(name=>{

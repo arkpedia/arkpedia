@@ -52,6 +52,7 @@ for(const theme of ['dark','light'])test(`mockup banner rows, inline potentials,
   await banner.getByRole('button',{name:'Pull',exact:true}).click();await expect(banner).toHaveAttribute('data-verdict','pull');await expect(banner.getByText('Pulling!',{exact:true})).toBeVisible();expect(state.writes).toHaveLength(0);
   if(process.env.ARKPEDIA_QA_CAPTURE)await page.screenshot({path:`${process.env.ARKPEDIA_QA_CAPTURE}/pull-poll-compact-${theme}-${info.project.name}.png`,animations:'disabled'});
   await expand(page);await potential(page,4).click();await expect(potential(page,4)).toHaveAttribute('aria-pressed','true');await expect(banner).toHaveAttribute('data-verdict','custom');await expect(banner.getByText('Whale!',{exact:true})).toBeVisible();
+  await expect(banner.getByRole('button',{name:'Pull',exact:true})).toHaveAttribute('aria-pressed','true');
   await potential(page,6).click();const levi=banner.getByText('Leviathan!!',{exact:true});await expect(levi).toBeVisible();await expect.poll(()=>levi.evaluate(el=>{const stamp=el.getBoundingClientRect(),art=el.parentElement!.getBoundingClientRect();return stamp.left>=art.left&&stamp.right<=art.right&&stamp.top>=art.top&&stamp.bottom<=art.bottom;})).toBe(true);await potential(page,4).click();
   await banner.getByRole('button',{name:/^Hide per operator/}).click();await expand(page);await expect(potential(page,4)).toHaveAttribute('aria-pressed','true');
   await page.reload({waitUntil:'domcontentloaded'});await expand(page);await expect(potential(page,4)).toHaveAttribute('aria-pressed','true');expect(state.writes).toHaveLength(0);
@@ -70,10 +71,58 @@ test('Maybe, deselection, planner import and opt-in two-way sync',async({page})=
   await page.evaluate(plan=>localStorage.setItem('arkpedia.pull-plan.v1',JSON.stringify(plan)),plan);
   await page.getByRole('button',{name:'Import plan',exact:true}).click();await page.getByRole('button',{name:'Use this browser’s plan',exact:true}).click();await expect(potential(page,3)).toHaveAttribute('aria-pressed','true');expect(await page.evaluate(()=>JSON.parse(localStorage.getItem('arkpedia.pull-plan.v1')!))).toEqual(plan);
   await page.getByRole('button',{name:'Yes, sync',exact:true}).click();await potential(page,5).click();
+  const pull=banner.getByRole('button',{name:'Pull',exact:true});
+  await expect(pull).toHaveAttribute('aria-pressed','true');
   await expect.poll(()=>page.evaluate(()=>JSON.parse(localStorage.getItem('arkpedia.pull-plan.v1')!).goals[0].targets[0].copies)).toBe(5);
   expect(await page.evaluate(()=>JSON.parse(localStorage.getItem('arkpedia.pull-plan.v1')!).orundum)).toBe('12345');
   await page.evaluate(event=>{const key='arkpedia.pull-plan.v1',plan=JSON.parse(localStorage.getItem(key)!);plan.goals[0].targets[0].copies=2;localStorage.setItem(key,JSON.stringify(plan));window.dispatchEvent(new Event(event));},PULL_PLAN_EVENT);
-  await expect(potential(page,2)).toHaveAttribute('aria-pressed','true');await page.getByRole('button',{name:'Stop syncing',exact:true}).click();await potential(page,6).click();expect(await page.evaluate(()=>JSON.parse(localStorage.getItem('arkpedia.pull-plan.v1')!).goals[0].targets[0].copies)).toBe(2);expect(state.writes).toHaveLength(0);
+  await expect(potential(page,2)).toHaveAttribute('aria-pressed','true');
+  await expect(pull).toHaveAttribute('aria-pressed','true');
+  await page.getByRole('button',{name:'Stop syncing',exact:true}).click();await potential(page,6).click();
+  await expect(pull).toHaveAttribute('aria-pressed','true');
+  expect(await page.evaluate(()=>JSON.parse(localStorage.getItem('arkpedia.pull-plan.v1')!).goals[0].targets[0].copies)).toBe(2);expect(state.writes).toHaveLength(0);
+});
+for(const theme of ['dark','light'])test(`higher potentials round-trip through the Pull Planner (${theme})`,async({page})=>{
+  const state=await setup(page,theme);
+  state.signedIn=true;
+  await page.addInitScript(()=>{
+    localStorage.setItem('arkpediaAccount',JSON.stringify({
+      version:1,server:'en',importedAt:new Date().toISOString(),doctor:'Poll tester',operators:['Aphrissa'],skins:[],cleared:[],
+      operatorBuilds:{Aphrissa:{elite:0,level:1,skillLevel:1,masteries:{},potential:1}},
+    }));
+  });
+  await page.goto('/polls/pull-or-skip',{waitUntil:'domcontentloaded'});
+  const banner=page.getByRole('article',{name:'Deterministic Chaos',exact:true});
+  await banner.getByRole('button',{name:/^Choose per operator/}).click();
+  await expect(banner.getByRole('button',{name:'Potential 1 for Aphrissa',exact:true})).toBeDisabled();
+  const pull=banner.getByRole('button',{name:'Pull',exact:true});
+  const target=(potential:number)=>banner.getByRole('button',{name:`Potential ${potential} for Aphrissa`,exact:true});
+  await target(6).click();
+  await page.getByRole('button',{name:'Yes, sync',exact:true}).click();
+  await expect(target(6)).toHaveAttribute('aria-pressed','true');
+  await expect(pull).toHaveAttribute('aria-pressed','true');
+
+  const planner=await page.context().newPage();
+  try{
+    await setup(planner,theme);
+    await planner.goto('/pull-planner',{waitUntil:'domcontentloaded'});
+    await planner.getByRole('button',{name:/^Edit .*Deterministic Chaos/}).click();
+    const copies=planner.getByRole('combobox',{name:'Copies wanted of Aphrissa',exact:true});
+    await expect(copies).toHaveText('5');
+    await copies.click();
+    await planner.getByRole('option',{name:'3',exact:true}).click();
+    await expect(target(4)).toHaveAttribute('aria-pressed','true');
+    await expect(pull).toHaveAttribute('aria-pressed','true');
+
+    await target(6).click();
+    await expect(copies).toHaveText('5');
+    await planner.getByRole('button',{name:/^Aphrissa/}).click();
+    await expect(copies).toHaveCount(0);
+    await expect(target(6)).toHaveAttribute('aria-pressed','false');
+    await expect(target(2)).toHaveAttribute('aria-pressed','false');
+    await expect(pull).toHaveAttribute('aria-pressed','false');
+    expect(state.writes).toHaveLength(0);
+  }finally{await planner.close();}
 });
 for(const theme of ['dark','light'])test(`real result projections and a complete share PNG (${theme})`,async({page},info)=>{
   const state=await setup(page,theme);await page.goto('/polls/pull-or-skip',{waitUntil:'domcontentloaded'});const banner=firstBanner(page);await banner.getByRole('button',{name:'Pull',exact:true}).click();
