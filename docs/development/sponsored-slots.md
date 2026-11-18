@@ -6,7 +6,7 @@ third-party script runs, and nothing is sticky, fixed or laid over content.
 | Placement | Where | Notes |
 | --- | --- | --- |
 | `home` | Home page, a panel directly under Events (the same on a phone) | full column width |
-| `header` | The free space to the right of a page's title, on every page that opens with `PageHeader` | shrunk to 84 px tall (252 px wide), the height of an eyebrow, title and one line of lede, on every header; desktop widths only (hidden below 1000 px) |
+| `header` | The free space to the right of a page's title, on every page that opens with `PageHeader` | shrunk to 84 px tall, the height of an eyebrow, title and one line of lede, on every header (60 px on an operator page, where it shares the information panel's width with the search); desktop widths only (hidden below 1000 px) |
 | `support` | The "Our sponsor" section of `/support` | at the artwork's own width |
 
 A page shows at most one slot besides `/support`'s section. The header slot is laid over the

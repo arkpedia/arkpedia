@@ -28,6 +28,9 @@
 /* While a campaign runs the search ends short of the Sponsored slot in the header's corner
    (styles/ui/sponsored-slot.css); its left edge stays where it is. Narrower than this the
    column cannot hold both, the search keeps it and the slot stays hidden. */
+/* The slot is smaller here than elsewhere (60px, not 84px): the search and the slot share
+   the information panel's width. */
+.frame > header:global(.page-header-sponsored) { --header-sponsor-h: 60px; }
 @media (min-width: 1200px) {
   .frame > header:global(.page-header-sponsored) > :global(.page-header-actions) { margin-right: calc(var(--header-sponsor-h) * var(--header-sponsor-ratio) + 24px); }
 }
