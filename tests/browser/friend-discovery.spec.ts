@@ -16,21 +16,34 @@ async function fixture(page:Page,theme:string,operators?:string[]){
     Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:async(text:string)=>{await (window as any).captureProfileLink(text);}}});
   },{own:operators?{...own,operators}:own,theme});
   await page.route('**/api/cloud-account',route=>route.fulfill({json:{user:{id:'test-user',name:'Private provider name'},profile:{username:'Community tester',friendTag:null,friendServer:null},linkedProviders:['google'],linkedAccounts:[{id:'g',providerId:'google'}],revision:0,syncReviewed:true,gameSync:false,personalSync:false,historySync:false,paused:false,data:{},providers:['google','discord']}}));
-  const state={copiedLink:undefined as string|undefined,profile:structuredClone(profile),available:true,progressive:false,failPage:false,collection:true,supportsShared:true,publishWait:null as Promise<void>|null,enabled:false,revision:0,communityRevision:0,choices:{stats:false,shareTag:false,openRequests:false,allowFollowing:false,profileLink:false},profileImportedAt:null as string|null,writes:[] as any[],searches:[] as URL[]};
+  const state={copiedLink:undefined as string|undefined,profile:structuredClone(profile),available:true,progressive:false,failPage:false,collection:true,supportsShared:true,publishWait:null as Promise<void>|null,enabled:false,revision:0,communityRevision:0,choices:{stats:false,shareTag:false,openRequests:false,allowFollowing:false,profileLink:false,profileAutoUpdate:false},accountImportedAt:own.importedAt,profileImportedAt:null as string|null,writes:[] as any[],searches:[] as URL[]};
   await page.exposeFunction('captureProfileLink',(text:string)=>{state.copiedLink=text;});
   await page.route('**/api/community/sharing',async route=>{
-    if(route.request().method()!=='GET'){const body=route.request().postDataJSON();state.writes.push(body);if(state.publishWait)await state.publishWait;state.choices=body.choices;state.enabled=body.choices.profileLink;if(body.publicProfile)state.profileImportedAt=body.publicProfile.account.importedAt;if(!state.enabled)state.profileImportedAt=null;state.communityRevision++;}
-    await route.fulfill({json:{...state.choices,revision:state.communityRevision,profileImportedAt:state.profileImportedAt,listed:state.choices.shareTag&&state.choices.openRequests,importedAt:own.importedAt}});
+    if(route.request().method()!=='GET'){
+      const body=route.request().postDataJSON();
+      state.writes.push(body);
+      if(state.publishWait)await state.publishWait;
+      state.choices=body.choices;
+      state.enabled=state.collection=body.choices.profileLink;
+      state.accountImportedAt=body.snapshot?.importedAt??state.accountImportedAt;
+      if(body.publicProfile){
+        state.profile=body.publicProfile;
+        state.profileImportedAt=body.publicProfile.account.importedAt;
+      }
+      if(!state.enabled)state.profileImportedAt=null;
+      state.communityRevision++;
+    }
+    await route.fulfill({json:{...state.choices,revision:state.communityRevision,profileImportedAt:state.profileImportedAt,listed:state.choices.shareTag&&state.choices.openRequests,importedAt:state.accountImportedAt}});
   });
   await page.route('**/api/community/friends**',async route=>{
     const request=route.request(),url=new URL(request.url());
-    const mine=()=>({owner:'test-user',revision:state.revision,enabled:state.enabled,communityRevision:state.communityRevision,id,server:'en',importedAt:state.enabled?own.importedAt:null,accountImportedAt:own.importedAt,choices:state.choices});
+    const mine=()=>({owner:'test-user',revision:state.revision,enabled:state.enabled,communityRevision:state.communityRevision,id,server:'en',importedAt:state.enabled?state.profileImportedAt:null,accountImportedAt:state.accountImportedAt,choices:state.choices});
     if(request.method()!=='GET'){
       const body=request.postDataJSON();state.writes.push(body);if(state.publishWait)await state.publishWait;state.enabled=request.method()==='PUT';state.revision++;
       return route.fulfill({json:mine()});
     }
     if(url.searchParams.has('mine'))return route.fulfill({json:mine()});
-    const summary={player,supportsShared:state.supportsShared,followingAllowed:true,collectionShared:state.collection,profileUpdatedAt:own.importedAt};
+    const summary={player,supportsShared:state.supportsShared,followingAllowed:true,collectionShared:state.collection,profileUpdatedAt:state.profileImportedAt??own.importedAt};
     if(url.searchParams.has('ids'))return route.fulfill({json:{profiles:state.available?[summary]:[]}});
     if(url.searchParams.has('summary'))return route.fulfill(state.available&&state.collection?{json:summary}:{status:404,json:{error:'This player is no longer sharing this profile.'}});
     if(url.searchParams.has('id'))return route.fulfill(state.available&&(!url.searchParams.has('link')||state.collection)?{json:{...summary,profile:state.collection?state.profile:null}}:{status:404,json:{error:'This player is no longer sharing this profile.'}});
@@ -86,17 +99,74 @@ for(const theme of ['dark','light']){
     await expect(direct).not.toBeChecked();await expect(following).not.toBeChecked();
     await expect(dialog.getByRole('button',{name:'Public profile link',exact:true})).toHaveCount(0);
     await direct.check();expect(state.writes).toHaveLength(0);
+    await expect(dialog.getByRole('checkbox',{name:'Update after each import',exact:true})).toBeChecked();
     await expect(following).not.toBeChecked();await expect(supports).not.toBeChecked();
     await dialog.getByRole('button',{name:'Save community choices',exact:true}).click();
     await expect.poll(()=>state.writes.length).toBe(1);
     const body=state.writes[0];expect(body.action).toBe('consent');expect(body.publicProfile.account.operators).toEqual(['Angelina']);
     expect(JSON.stringify(body.publicProfile)).not.toMatch(/SECRET-UID|PRIVATE BIO|orundum|private-stage|Thorns/);
-    expect(state.choices).toEqual({stats:false,shareTag:false,openRequests:false,allowFollowing:false,profileLink:true});
+    expect(state.choices).toEqual({stats:false,shareTag:false,openRequests:false,allowFollowing:false,profileLink:true,profileAutoUpdate:true});
     await dialog.getByRole('button',{name:'Copy link',exact:true}).click();
     await expect.poll(()=>state.copiedLink).toBe(`${new URL(page.url()).origin}/friends/profile?id=${id}`);
     await direct.uncheck();await dialog.getByRole('button',{name:'Save community choices',exact:true}).click();
     await expect.poll(()=>state.writes.length).toBe(2);expect(state.enabled).toBe(false);
     await expect(dialog.getByRole('button',{name:'Copy link',exact:true})).toHaveCount(0);
+  });
+  test(`an existing direct link can opt in to newer imports (${theme})`,async({page})=>{
+    const state=await fixture(page,theme);
+    state.enabled=true;
+    state.choices.profileLink=true;
+    state.profileImportedAt=own.importedAt;
+    await page.goto('/account?settings=community');
+    const dialog=page.getByRole('dialog',{name:'Account settings',exact:true});
+    const automatic=dialog.getByRole('checkbox',{name:'Update after each import',exact:true});
+    const save=dialog.getByRole('button',{name:'Save community choices',exact:true});
+    const copy=dialog.getByRole('button',{name:'Copy link',exact:true});
+    const help=dialog.getByRole('button',{name:'About direct profile links',exact:true});
+    await expect(automatic).toBeVisible();
+    await expect(automatic).not.toBeChecked();
+    await help.focus();
+    await page.keyboard.press('Enter');
+    await expect(page.getByText(/Enable Update after each import/)).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(help).toBeFocused();
+    await copy.click();
+    await expect.poll(()=>state.copiedLink).toBe(`${new URL(page.url()).origin}/friends/profile?id=${id}`);
+    const originalLink=state.copiedLink!;
+    let finishSaving!:()=>void;
+    state.publishWait=new Promise(resolve=>{finishSaving=resolve;});
+    await automatic.check();
+    await save.click();
+    await expect.poll(()=>state.writes.length).toBe(1);
+    expect(state.writes[0].choices.profileAutoUpdate).toBe(true);
+    expect(state.writes[0].publicProfile).toBeUndefined();
+    await expect(automatic).toBeChecked();
+    expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
+    await page.keyboard.press('Escape');
+    await expect(dialog).toHaveCount(0);
+
+    const importedAt='2026-11-19T12:00:00.000Z';
+    await page.evaluate(importedAt=>{
+      const account=JSON.parse(localStorage.getItem('arkpediaAccount')!);
+      account.importedAt=importedAt;
+      account.operatorBuilds.Angelina.level=85;
+      localStorage.setItem('arkpediaAccount',JSON.stringify(account));
+      window.dispatchEvent(new Event('arkpediaAccountChanged'));
+    },importedAt);
+    state.publishWait=null;
+    finishSaving();
+    await expect.poll(()=>state.profileImportedAt).toBe(importedAt);
+    expect(state.writes.map(write=>write.action)).toEqual(['consent','refresh']);
+    expect(JSON.stringify(state.writes[1].publicProfile)).not.toMatch(/SECRET-UID|PRIVATE BIO|orundum|private-stage/);
+
+    await page.goto(originalLink);
+    const date=page.locator('header.page-header time');
+    await expect(date).toBeVisible();
+    await expect(date).toHaveAttribute('datetime',importedAt);
+    await expect(date.locator('..')).toContainText('Last imported');
+    await page.getByRole('tab',{name:'Operators',exact:true}).click();
+    await expect(page.getByRole('button',{name:/^Angelina: E2 Level 85/})).toBeVisible();
+    expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
   });
   test(`public collection withdrawal clears the open roster and supports remain separate (${theme})`,async({page})=>{
     const state=await fixture(page,theme);await page.goto(`/friends/profile?id=${id}`);

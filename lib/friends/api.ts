@@ -5,7 +5,7 @@ import { assertNoCredentials } from '@/lib/cloud-account/data';
 import { type SupportPlayer } from '@/lib/community/model';
 import { isFriendLinkId, publicFriendFile, type ProfileSharingState } from './sharedProfile';
 
-interface ProfileRow { revision: number; enabled: number; gameKey: string | null; importedAt: string | null }
+interface ProfileRow { revision: number; enabled: number; gameKey: string | null; importedAt: string | null; autoUpdate: number }
 interface AccountRow { revision: number; gameKey: string | null; listingId: string; server: string; importedAt: string; stats: number; shareTag: number; openRequests: number; allowFollowing: number; profileLink: number; friendTag: string | null }
 type PlayerRow = Omit<SupportPlayer, 'supports' | 'appearance'> & { appearance: string | null; supports: string; userId: string; gameKey: string | null; snapshot: string | null; enabled: number; profileGameKey: string | null; profileUpdatedAt: string | null; shareTag: number; openRequests: number; allowFollowing: number };
 const playerFields = `a.listingId AS id,a.friendTag,a.server,a.slots,a.importedAt,a.appearance,a.shareTag,a.openRequests,a.allowFollowing,
@@ -20,13 +20,13 @@ const publicPlayer = (row: PlayerRow): SupportPlayer => ({
 const fullProfile = (row: PlayerRow) => !!(row.enabled && row.gameKey && row.gameKey === row.profileGameKey);
 const summary = (row: PlayerRow) => ({player: publicPlayer(row), collectionShared: fullProfile(row), supportsShared: !!(row.shareTag && row.openRequests), followingAllowed: !!row.allowFollowing, profileUpdatedAt: fullProfile(row) ? row.profileUpdatedAt : null});
 const accountRow = (db: D1Database, owner: string) => db.prepare('SELECT revision,gameKey,listingId,server,importedAt,stats,shareTag,openRequests,allowFollowing,profileLink,friendTag FROM community_account WHERE userId=?').bind(owner).first<AccountRow>();
-const profileRow = (db: D1Database, owner: string) => db.prepare('SELECT revision,enabled,gameKey,importedAt FROM community_friend_profile WHERE userId=?').bind(owner).first<ProfileRow>();
+const profileRow = (db: D1Database, owner: string) => db.prepare('SELECT revision,enabled,gameKey,importedAt,autoUpdate FROM community_friend_profile WHERE userId=?').bind(owner).first<ProfileRow>();
 function ownerState(account: AccountRow | null, profile: ProfileRow | null, owner: string): ProfileSharingState {
   const enabled = !!(profile?.enabled && account?.profileLink && account.gameKey === profile.gameKey);
   return { owner, revision: profile?.revision ?? 0, enabled, communityRevision: account?.revision ?? 0,
     id: account?.listingId ?? null, server: account?.server ?? null,
     importedAt: enabled ? profile?.importedAt??null : null,
-    accountImportedAt: account?.importedAt ?? null, choices: {stats:!!account?.stats,shareTag:!!account?.shareTag,openRequests:!!account?.openRequests,allowFollowing:!!account?.allowFollowing,profileLink:!!account?.profileLink} };
+    accountImportedAt: account?.importedAt ?? null, choices: {stats:!!account?.stats,shareTag:!!account?.shareTag,openRequests:!!account?.openRequests,allowFollowing:!!account?.allowFollowing,profileLink:!!account?.profileLink,profileAutoUpdate:enabled&&!!profile?.autoUpdate} };
 }
 
 /** Full rosters are published separately from support sharing and anonymous statistics. */
@@ -84,7 +84,7 @@ export async function friendProfiles(req: NextApiRequest, res: NextApiResponse, 
     return res.json(ownerState(await accountRow(db,owner),await profileRow(db,owner),owner));
   }
   if (!account?.gameKey || !account.profileLink || !account.friendTag || req.body.communityRevision !== account.revision) return res.status(409).json({ error: 'Review Direct profile link before publishing.' });
-  if (!['consent','refresh'].includes(req.body.action) || (req.body.action === 'refresh' && (!profile?.enabled || profile.gameKey !== account.gameKey))) return res.status(409).json({ error: 'Explicit full-profile consent is required.' });
+  if (!['consent','refresh'].includes(req.body.action) || (req.body.action === 'refresh' && (!profile?.enabled || !profile.autoUpdate || profile.gameKey !== account.gameKey))) return res.status(409).json({ error: 'Explicit full-profile consent is required.' });
   assertNoCredentials(req.body.profile);
   let shared;
   try { shared = publicFriendFile(req.body.profile); } catch { return res.status(400).json({ error: 'Invalid public profile.' }); }
