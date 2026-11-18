@@ -6,12 +6,13 @@ third-party script runs, and nothing is sticky, fixed or laid over content.
 | Placement | Where | Notes |
 | --- | --- | --- |
 | `home` | Home page, a panel directly under Events (the same on a phone) | full column width |
-| `header` | The free space to the right of a page's title, on every page that opens with `PageHeader` | shrunk to 60 px tall, the height of an eyebrow and title, on every header; desktop widths only (hidden below 1000 px) |
+| `header` | Beside a page title on desktop, or below the server clock inside the shared mobile navigation menu | Up to 60 px tall. The mobile banner scales to fit the drawer. |
 | `support` | The "Our sponsor" section of `/support` | at the artwork's own width |
 
-A page shows at most one slot besides `/support`'s section. The header slot is laid over the
-empty space beside the title and takes no room of its own: the header reserves nothing for it, so
-every header and everything under it measures the same with or without a campaign. The slot stays
+Page content shows at most one slot besides `/support`'s section. The mobile navigation
+menu uses the same `header` campaign and keeps the page's title and controls in place.
+On desktop the header slot uses the empty space beside the title. The header reserves no extra
+room for the slot, so the page layout stays the same with or without a campaign. The slot stays
 hidden until it has measured that nothing in the header reaches under it (a long title, a control
 in the title row). The operator page's search starts on the information panel's left edge and,
 from 1200 px up, ends short of the slot while a campaign runs. The music

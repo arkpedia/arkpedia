@@ -34,6 +34,10 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    at: '2026-11-18T19:10:00Z',
+    fixed: [{ title: 'Sponsor banner in the mobile menu', detail: 'The compact sponsor banner appears below the server clock in the mobile navigation menu.', href: '/support' }],
+  },
+  {
     at: '2026-11-18T17:08:00Z',
     fixed: [{ title: 'Thunder in the Azure Dream story links', detail: 'Open the chapter dialog to track progress and read all 18 parts in Timo’s reader.', href: '/story?view=list&chapter=act50side' }],
   },
