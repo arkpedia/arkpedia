@@ -35,7 +35,7 @@ export interface ChangelogEntry {
 export const CHANGELOG: ChangelogEntry[] = [
   {
     at: '2026-11-18T14:45:00Z',
-    fixed: [{ title: 'Module range and effect grids', detail: 'The Modules section shows range changes and tile effects such as melee redeployment areas.', href: '/operators' }],
+    fixed: [{ title: 'Module and talent range grids', detail: 'See module range changes and tile effects, including melee redeployment areas on talents and modules.', href: '/operators' }],
   },
   {
     at: '2026-11-18T12:45:00Z',

@@ -55,6 +55,7 @@ import { highlightStats } from '@/components/ui/HighlightedText';
 import { CroppedRange } from '@/lib/operators/operatorAttackRanges';
 import { applyModuleAttackRange, getOperatorAttackRanges, OperatorAttackRange as AttackRangeChoice } from '@/lib/operators/operatorAttackRanges';
 import OperatorAttackRange from '@/components/operators/OperatorAttackRange';
+import RangeComparison, { MeleeRedeploymentArea } from '@/components/operators/OperatorRangeComparison';
 import { operatorBelongsToFaction } from '@/lib/operators/factionAliases';
 import OPERATOR_FORMS from '@/data/operator-forms.json';
 import OperatorChibi from '@/components/operators/OperatorChibi';
@@ -212,53 +213,6 @@ function sumCostGroups(groups: (CostGroup | null | undefined)[]): CostGroup {
     }
   }
   return Array.from(totals.entries()).map(([name, quantity]) => ({ name, quantity }));
-}
-
-function RangeGridBox({ range, label }: { range: CroppedRange; label: string }) {
-  const CELL_PX = 16;
-  return (
-    <div className="op-range-grid-wrap" role="img" aria-label={label} title={label}>
-      <div
-        className="op-range-grid"
-        style={{
-          gridTemplateColumns: `repeat(${range.cols}, ${CELL_PX}px)`,
-          gridTemplateRows: `repeat(${range.rows}, ${CELL_PX}px)`,
-        }}
-      >
-        <div
-          className="op-range-cell op-range-cell-self"
-          style={{ gridColumn: range.opCell[1], gridRow: range.opCell[0] }}
-        />
-        {range.rangeCells.map((c, i) => (
-          <div key={i} className="op-range-cell" style={{ gridColumn: c[1], gridRow: c[0] }} />
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function RangeComparison({ label, before, after, afterLabel, note }: {
-  label: string;
-  before: CroppedRange | null;
-  after: CroppedRange;
-  afterLabel: string;
-  note?: string;
-}) {
-  return (
-    <div className="op-skill-range">
-      <span className="op-skill-range-label">{label}</span>
-      <div className="op-skill-range-pair">
-        {before && (
-          <>
-            <RangeGridBox range={before} label="Normal attack range" />
-            <span className="op-skill-range-arrow" aria-hidden="true">→</span>
-          </>
-        )}
-        <RangeGridBox range={after} label={afterLabel} />
-      </div>
-      {note && <span className="op-skill-range-note">{note}</span>}
-    </div>
-  );
 }
 
 function CostRow({ cost, order, promotion = false }: { cost: CostGroup | null | undefined; order: readonly string[]; promotion?: boolean }) {
@@ -1387,18 +1341,9 @@ export default function OperatorDetailPage({ chibis = {}, summons = [], epTrack,
                               />
                             )}
                             {activeStage.tileMechanics?.map(mechanic => {
-                              const redeployment = mechanic.kind === 'redeployment';
-                              const label = redeployment ? 'Melee redeployment area' : `${mechanic.name} area`;
-                              return (
-                                <RangeComparison
-                                  key={label}
-                                  label={label}
-                                  before={null}
-                                  after={mechanic.grid}
-                                  afterLabel={label}
-                                  note={redeployment ? 'Filled tile marks the previous deployment position.' : undefined}
-                                />
-                              );
+                              if (mechanic.kind === 'redeployment') return <MeleeRedeploymentArea key="redeployment" range={mechanic.grid} />;
+                              const label = `${mechanic.name} area`;
+                              return <RangeComparison key={mechanic.name} label={label} after={mechanic.grid} afterLabel={label} />;
                             })}
                             <div className={pageStyles.costs}>
                               <label htmlFor="module-cost-scope">Material costs</label>

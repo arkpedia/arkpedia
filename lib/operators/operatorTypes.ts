@@ -83,6 +83,7 @@ export interface TalentRow {
   stage: string | null;
   potential: string | null;
   description: string | null;
+  redeploymentRange?: CroppedRange;
 }
 
 export interface Talent {
