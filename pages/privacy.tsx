@@ -1,3 +1,4 @@
+import { siteTablesStaticProps } from '@/lib/content/server';
 import Link from 'next/link';
 import PageMeta from '@/components/layout/PageMeta';
 import PageHeader from '@/components/ui/PageHeader';
@@ -42,3 +43,6 @@ export default function PrivacyPage() {
       <p>Where applicable, you can request access, correction, deletion or portability, object to processing, request restriction, withdraw consent, and complain to your local data-protection authority. Contact the email above privately. We may need proportionate verification before acting on account data; do not post personal data in public GitHub issues.</p>
     </section></InformationLayout></>;
 }
+
+// No data of its own: the site's tables only (the header's Sponsored slot).
+export const getStaticProps = siteTablesStaticProps;

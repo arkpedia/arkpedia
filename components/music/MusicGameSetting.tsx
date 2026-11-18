@@ -9,14 +9,14 @@ export const ENDFIELD_SETTING_ABOUT = 'Endfield songs play from YouTube, so back
 
 /**
  * The player's Endfield music setting (lib/music/musicPlayerContext.tsx, setIncludeEndfield): a
- * real checkbox and an ⓘ, drawn as Data saver is (components/music/MusicSetting.tsx). Beside
- * Playlists in the music pages' header, and in the player bar's ⋯ menu with Data saver, so the
+ * real checkbox and an ⓘ, drawn as Data saver is (components/music/MusicSetting.tsx). Under
+ * Playlists in the music pages' sidebar (the menu on a phone), and in the player bar's ⋯ menu with Data saver, so the
  * corner player on any page reaches it too. Off until the reader turns it on; their choice is
  * kept in this browser (lib/music/songFilter.ts). On a touch screen, turning it on also opens
  * the player's pop-up about background play (components/music/EndfieldNoticeDialog.tsx).
  */
-export default function MusicGameSetting({ header = false }: { header?: boolean }) {
+export default function MusicGameSetting() {
   const { includeEndfield, setIncludeEndfield } = useMusicPlayer();
   return <MusicSetting label="Endfield music" topic="Endfield music" checked={includeEndfield} onChange={setIncludeEndfield}
-    about={ENDFIELD_SETTING_ABOUT} header={header} />;
+    about={ENDFIELD_SETTING_ABOUT} />;
 }

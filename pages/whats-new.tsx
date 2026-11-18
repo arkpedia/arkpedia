@@ -1,2 +1,2 @@
 // Canonical public route; retain the existing content-release key in its implementation.
-export { default } from './changelog';
+export { default, getStaticProps } from './changelog';

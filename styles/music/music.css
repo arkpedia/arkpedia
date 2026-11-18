@@ -696,6 +696,8 @@ body:has([data-music-widget]) main { padding-bottom: calc(var(--page-gutter) + 7
    and its note opens under the row over the page: in the row it would widen the header's
    actions column and move the title and Playlists. */
 .music-settings { display: grid; gap: 2px; margin-top: 4px; padding: 6px 0 0 12px; border-top: 1px solid var(--line-soft); }
+/* The Endfield music setting under Playlists, in the sidebar and the phone's menu. */
+.music-nav-settings { min-width: 0; }
 .music-setting { display: grid; gap: 6px; }
 .music-setting-row { display: flex; align-items: center; gap: 4px; }
 .music-setting-info-btn { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border: 1px solid transparent; border-radius: var(--radius); color: var(--text-dim); cursor: pointer; }
@@ -705,7 +707,6 @@ body:has([data-music-widget]) main { padding-bottom: calc(var(--page-gutter) + 7
 .music-setting-note.action-popover { z-index: 130; display: flex; align-items: flex-start; gap: 6px; }
 .music-setting-note > p { flex: 1; min-width: 0; margin: 0; color: var(--text); font-size: 12px; line-height: 1.5; }
 .music-setting-note > .btn-x { flex: none; }
-.music-setting-header > .music-setting-row { white-space: nowrap; }
 .music-hidden-endfield-hint { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; }
 /* The pop-up a touch screen shows when Endfield music is turned on (components/music/MusicGameSetting.tsx). */
 .music-endfield-dialog { width: min(380px, calc(100vw - 24px)); }
@@ -824,8 +825,7 @@ body:has([data-music-widget]) main { padding-bottom: calc(var(--page-gutter) + 7
 .audio-debug-events li { overflow-wrap: anywhere; }
 
 .music-phone-heading,
-.music-phone-header-actions,
-.music-phone-settings { display: none; }
+.music-phone-header-actions { display: none; }
 .music-nav-dropdown[hidden] { display: none; }
 .music-nav-dropdown .music-workspace-rail { display: flex; position: static; max-height: none; padding: 0; border: 0; }
 .music-nav-dropdown .music-workspace-collection { padding: 12px 0 0; }
@@ -924,7 +924,6 @@ body:has([data-music-widget]) main { padding-bottom: calc(var(--page-gutter) + 7
   .music-desktop-heading { display: none; }
   .music-phone-heading { display: inline; }
   .music-phone-header-actions { display: flex; gap: 8px; }
-  .music-phone-settings { display: block; }
   .music-workspace-content > .music-workspace-title,
   .music-workspace-content .music-song-list-heading > h2 { display: none; }
   .music-song-list-heading:has(> .music-queue-tools) { justify-content: flex-end; }

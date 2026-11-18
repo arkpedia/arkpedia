@@ -1,3 +1,4 @@
+import { siteTablesStaticProps } from '@/lib/content/server';
 import { useEffect, useState } from 'react';
 import { getSetting, setSetting } from '@/lib/settings/siteSettings';
 import AutoplayMusicChoice from '@/components/music/AutoplayMusicChoice';
@@ -31,3 +32,6 @@ export default function CookiesPage() {
       <p>For purposes, recipients and your rights, see the <Link href="/privacy">Privacy notice</Link>. EU guidance distinguishes technically necessary storage from optional tracking: <a href="https://europa.eu/youreurope/business/growing/digitalising/online-privacy/index_en.htm">European Commission guidance</a>.</p>
     </section></InformationLayout></>;
 }
+
+// No data of its own: the site's tables only (the header's Sponsored slot).
+export const getStaticProps = siteTablesStaticProps;
