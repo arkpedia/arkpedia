@@ -55,5 +55,11 @@ test('Worker sync rotates credentials, saves a complete snapshot and rejects red
     const db = await mf.getD1Database('ARKPEDIA_ACCOUNTS_DB');
     const retained = await db.prepare('SELECT snapshot_json FROM patreon_supporter_sync').first();
     assert.deepEqual(JSON.parse(retained.snapshot_json), snapshot, 'failed refresh retains last good public snapshot');
+    const audit = await db.prepare('SELECT updated_at, counts_json FROM patreon_sync_audit').first();
+    assert.equal(audit.updated_at, 1794571200000, 'failed refresh retains last complete audit');
+    const counts = JSON.parse(audit.counts_json);
+    assert.equal(counts.pages, 1);
+    assert.equal(counts.members, 0);
+    assert(Object.entries(counts).every(([, value]) => Number.isInteger(value) && value >= 0), 'audit contains only fixed aggregate counts');
   } finally { await mf.dispose(); }
 });
