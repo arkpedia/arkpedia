@@ -34,6 +34,11 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    at: '2026-11-18T12:45:00Z',
+    added: [{ title: 'Sponsor banners', detail: 'Banners marked "Ad" help pay for hosting. They never cover a page\'s content.', href: '/support' }],
+    changed: [{ title: 'Endfield music setting moved', detail: 'It is now in the Music sidebar, under Playlists.', href: '/music' }],
+  },
+  {
     at: '2026-11-18T10:54:00Z',
     fixed: [{ title: 'Pull goals stay in sync', detail: 'The poll highlights higher potential goals and clears them when you remove the targets in the Pull Planner.', href: '/polls/pull-or-skip' }],
   },
