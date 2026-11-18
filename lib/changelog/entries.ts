@@ -33,6 +33,14 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    at: '2026-11-18T10:54:00Z',
+    fixed: [{ title: 'Pull goals stay in sync', detail: 'The poll highlights higher potential goals and clears them when you remove the targets in the Pull Planner.', href: '/polls/pull-or-skip' }],
+  },
+  {
+    at: '2026-11-18T09:30:00Z',
+    added: [{ title: 'Automatic updates for shared profiles', detail: 'Enable Update after each import to keep the same link current and show visitors when the collection was last imported.', href: '/account?settings=community' }],
+  },
   {at:'2026-11-18T00:00:00Z',changed:[{title:'Renamed Friends to Following',detail:'Allow other users to follow your account independently of support searchability.',href:'/account?panel=following'}],added:[{title:'A shareable profile link',detail:'Share your Profile Card, Operators and owned skins with a simple link.',href:'/account?settings=community'},{title:'Control following and direct profile links',detail:'Disable either at any time in Account settings under Saving & sharing.',href:'/account?settings=community'}]},
   {
     at: '2026-11-17T05:29:00Z',

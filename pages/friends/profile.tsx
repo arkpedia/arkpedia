@@ -21,9 +21,10 @@ export default function PublicFriendPage({operators,skins}:Props) {
   const catalogue=useMemo(()=>operators??friendOperators(map,[]),[operators,map]);
   const {record,error,retry}=useSharedFriend(id,true),friends=useSharedFriends(false);
   const [message,setMessage]=useState('');
+  const importedAt=record?.profile?.account.importedAt;
   return <>
     <PageMeta title={record?`${record.player.friendTag} · Shared profile`:'Shared profile'} description="An explicitly shared Arknights profile, collection and recorded builds." path="/friends/profile" noindex />
-    <PageHeader eyebrow="Rhodes Island // Following" title={record?.player.friendTag??'Shared profile'} sub="A self-reported Arknights import snapshot."
+    <PageHeader eyebrow="Rhodes Island // Following" title={record?.player.friendTag??'Shared profile'} sub={importedAt&&<>Last imported <time dateTime={importedAt}>{new Date(importedAt).toLocaleDateString(undefined,{dateStyle:'medium'})}</time></>}
       actions={<><Link className="btn btn-sm" href="/account?panel=following">Following</Link>
         {record?.followingAllowed&&id&&<button type="button" className="btn-sm" disabled={friends.ids.includes(id)} onClick={()=>{try{friends.add(id);setMessage('Following this player in this browser.');}catch(reason){setMessage(reason instanceof Error?reason.message:'This browser could not follow this player.');}}}>{friends.ids.includes(id)?'Following':'Follow'}</button>}
       </>} />

@@ -11,8 +11,15 @@ import { SERVERS } from '@/lib/account-import/yostar';
 export default function CommunitySettings(){
   const account=useAccount(),sharing=useCommunitySharing();
   const [choices,setChoices]=useState<CommunityChoices>(COMMUNITY_OFF),[dirty,setDirty]=useState(false);
-  useEffect(()=>{if(!dirty)setChoices(sharing.state?{stats:sharing.state.stats,allowFollowing:!!sharing.state.allowFollowing,profileLink:!!sharing.state.profileLink,shareTag:sharing.state.shareTag&&sharing.state.openRequests,openRequests:sharing.state.shareTag&&sharing.state.openRequests}:COMMUNITY_OFF);},[sharing.state,dirty]);
-  const change=(key:'stats'|'supports'|'allowFollowing'|'profileLink',value:boolean)=>{setDirty(true);setChoices(previous=>({...previous,...(key==='supports'?{shareTag:value,openRequests:value}:{[key]:value})}));};
+  useEffect(()=>{if(!dirty)setChoices(sharing.state?{stats:sharing.state.stats,allowFollowing:!!sharing.state.allowFollowing,profileLink:!!sharing.state.profileLink,profileAutoUpdate:!!sharing.state.profileAutoUpdate,shareTag:sharing.state.shareTag&&sharing.state.openRequests,openRequests:sharing.state.shareTag&&sharing.state.openRequests}:COMMUNITY_OFF);},[sharing.state,dirty]);
+  const change=(key:'stats'|'supports'|'allowFollowing'|'profileLink'|'profileAutoUpdate',value:boolean)=>{
+    setDirty(true);
+    setChoices(previous=>({
+      ...previous,
+      ...(key==='supports'?{shareTag:value,openRequests:value}:{[key]:value}),
+      ...(key==='profileLink'?{profileAutoUpdate:value&&(!sharing.state?.profileLink||!!sharing.state.profileAutoUpdate)}:{}),
+    }));
+  };
   const slots=account?.profile?.friendSlots,available=slots?Math.max(0,slots.limit-slots.used):null;
   const onlyWithdrawing=!!sharing.state&&Object.entries(choices).every(([key,value])=>!value||sharing.state![key as keyof CommunityChoices]);
   return <div className={`${styles.sharing} reading-copy`}>
@@ -30,10 +37,13 @@ export default function CommunitySettings(){
       <InfoPopover label="About following"><p>Lets people find and follow your basic profile on Arkpedia: your imported friend tag, server, avatar, banner, account level, operator and skin counts, and import date.</p><p>Independent of support searchability and in-game friend slots. Following saves a profile link in the viewer’s browser; it sends no friend request. Your equipped supports appear only if you also share them.</p><p>Your full operators, builds and skins need separate Direct profile link consent below. Turning off Allow following removes your profile from discovery and followed lists. Your direct link has its own switch.</p></InfoPopover>
     </div>
     <div className="account-shortcuts">
-      <label className="check"><input type="checkbox" checked={choices.profileLink} disabled={sharing.busy||(!account&&!choices.profileLink)} onChange={e=>change('profileLink',e.target.checked)} />Direct profile link</label>
-      <InfoPopover label="About direct profile links"><p>Publishes your Profile Card, owned operators, recorded builds and owned skins for anyone with the link. Save community choices to publish the selected import or disable the link.</p><p>Independent of Allow following and support searchability. With this off, the direct link stops working and your full collection is removed. People may still follow your basic profile if you allow following.</p><p>Your game UID, resources, pull history, biography and login details stay private. Previously copied files cannot be recalled. New imports do not automatically replace the published collection; save these choices to publish the latest import.</p></InfoPopover>
+      <label className="check"><input type="checkbox" checked={choices.profileLink} disabled={sharing.busy||!sharing.state||(!account&&!choices.profileLink)} onChange={e=>change('profileLink',e.target.checked)} />Direct profile link</label>
+      <InfoPopover label="About direct profile links"><p>Anyone with the link can view your Profile Card, owned operators, recorded builds and owned skins. Save community choices to publish or revoke the link. Allow following and support searchability have their own settings.</p><p>Enable Update after each import to publish future imports of this game account at the same link. With updates off, save these choices again to publish a newer import.</p><p>Your game UID, resources, pull history, biography and login details stay private.</p></InfoPopover>
       {choices.profileLink&&sharing.state?.profileLink&&<ProfileLink label="Copy link" />}
     </div>
+    {choices.profileLink&&<div className="account-shortcuts">
+      <label className="check"><input type="checkbox" checked={choices.profileAutoUpdate} disabled={sharing.busy||(!account&&!choices.profileAutoUpdate)} onChange={e=>change('profileAutoUpdate',e.target.checked)} />Update after each import</label>
+    </div>}
     <p role="status">{sharing.state?.reportedFull?'Your listing is hidden after recent full friend-list reports. Re-import to update availability.':sharing.state?.listed?'Your equipped supports are listed.':choices.openRequests
       ? available===null?'Re-import to check your friend slots. Your listing stays hidden until availability is known.':available===0?'Your friend list is full. Your listing stays hidden.':`${available} open friend slots in the last import. Save your choices to publish; listings expire after seven days.`
       :'Your support listing is off.'}</p>
