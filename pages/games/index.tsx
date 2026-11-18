@@ -1,3 +1,4 @@
+import { siteTablesStaticProps } from '@/lib/content/server';
 import Link from 'next/link';
 import PageMeta from '@/components/layout/PageMeta';
 import PageHeader from '@/components/ui/PageHeader';
@@ -25,3 +26,6 @@ export default function GamesPage() {
     </main>
   </>;
 }
+
+// No data of its own: the site's tables only (the header's Sponsored slot).
+export const getStaticProps = siteTablesStaticProps;

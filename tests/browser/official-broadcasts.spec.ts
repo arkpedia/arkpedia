@@ -8,10 +8,20 @@ for(const theme of ['dark','light']) test(`official broadcasts roll over regiona
   await page.route('https://i.ytimg.com/**',route=>route.fulfill({contentType:'image/svg+xml',body:'<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720"><rect width="1280" height="720" fill="#17383c"/><text x="640" y="330" text-anchor="middle" fill="#fff" font-size="64">ARKNIGHTS</text><text x="640" y="420" text-anchor="middle" fill="#68d6c5" font-size="40">ANNIVERSARY BROADCAST</text></svg>'}));
   await page.goto('/');
   const panel=page.locator('.front-events-panel');
-  const hero=panel.locator('.front-events-main');
+  const dots=panel.locator('.front-events-dots');
+  const hero=panel.locator('.front-events-slide[data-current] .front-events-main');
   await expect(hero).toHaveAttribute('href',/jp000000001/);
   await expect(panel.getByLabel('Other regional broadcasts').getByRole('link',{name:'Global',exact:true})).toBeVisible();
   await expect(panel.locator('time').first()).toHaveAttribute('datetime',start);
+  // Switching between a regional broadcast and ordinary event must not move the controls.
+  const position=await dots.evaluate(el=>el.getBoundingClientRect().top+scrollY);
+  const eventDot=panel.locator('.front-events-dot').last();
+  await eventDot.click();
+  await expect(hero).toHaveAttribute('href',/^\/events\//);
+  expect(await dots.evaluate(el=>el.getBoundingClientRect().top+scrollY)).toBeCloseTo(position, 0);
+  await panel.locator('.front-events-dot').first().click();
+  await expect(hero).toHaveAttribute('href',/jp000000001/);
+  expect(await dots.evaluate(el=>el.getBoundingClientRect().top+scrollY)).toBeCloseTo(position, 0);
   records=[{...records[0],status:'live'}, {...records[1],status:'live'},{...records[2],status:'live'}];
   await page.evaluate(()=>window.dispatchEvent(new Event('focus')));
   await expect(panel.getByText('Live now',{exact:true})).toBeVisible();
@@ -30,6 +40,7 @@ for(const theme of ['dark','light']) test(`official broadcasts roll over regiona
   records=[records[0],{...records[1],status:'live'},records[2]];
   await page.evaluate(()=>window.dispatchEvent(new Event('focus')));
   await expect(hero).toHaveAttribute('href',/kr000000001/);
+  await expect(panel.getByRole('link',{name:'Global · Live now',exact:true})).toBeVisible();
   records=records.map(record=>({...record,status:'ended'}));
   await page.evaluate(()=>window.dispatchEvent(new Event('focus')));
   await expect(hero).toHaveAttribute('href',/^\/events\//);

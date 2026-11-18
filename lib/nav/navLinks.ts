@@ -52,7 +52,7 @@ export const LINKS: NavLink[] = [
   { href: "/pull-planner", label: 'Pull Planner', icon: 'calculator' },
   { href: '/skin-planner', label: 'Skin Planner', icon: 'skins' },
   { href: "/world", label: 'World', icon: 'world' },
-  { href: '/account?panel=friends', label: 'Friends', icon: 'roster' },
+  { href: '/account?panel=following', label: 'Following', icon: 'roster' },
   { href: "/gacha-simulator", label: 'Gacha Simulator', icon: 'gacha' },
   { href: '/recruitment', label: 'Recruitment', icon: 'recruitment' },
   { href: '/selector-tickets', label: 'Selector Tickets', icon: 'selector' },
@@ -121,7 +121,7 @@ export const LOOSE: NavLink[] = [];
  * Derived, not written out again. A second hand-maintained list is a second thing to
  * forget when an entry moves between menus.
  */
-export const PROFILE_LINKS = [at('/account'), at('/account?panel=friends')];
+export const PROFILE_LINKS = [at('/account'), at('/account?panel=following')];
 export const NAV_ORDER: NavLink[] = [...GROUPS.flatMap((g) => g.items), ...LOOSE, ...PROFILE_LINKS];
 
 /* Rows that are in LINKS on purpose while appearing in neither nav. Events is the only
@@ -151,7 +151,7 @@ if (orphanLinks.length > 0) {
  * disagreed with the desktop nav about which entry was lit.
  */
 export function isActiveLink(link: NavLink, pathname: string, asPath?: string): boolean {
-  if (link.href === '/account?panel=friends') return pathname === '/account' && /[?&]panel=friends(?:&|#|$)/.test(asPath ?? '');
+  if (link.href === '/account?panel=following') return pathname === '/account' && /[?&]panel=(?:following|friends)(?:&|#|$)/.test(asPath ?? '');
   if (link.href === "/world") return pathname === "/world";
   /* The Schedule menu's entries are one route with two views: the view is in the query,
      so the URL (asPath) decides which is lit. Without it only the route is known, and

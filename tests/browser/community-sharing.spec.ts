@@ -12,7 +12,7 @@ async function fixture(page:Page,theme:string){
   const remote={user:{id:'test-user',name:'Private provider name'},profile:{username:'Community tester',friendTag:null,friendServer:null},linkedProviders:['google'],linkedAccounts:[{id:'g',providerId:'google'}],revision:0,syncReviewed:true,gameSync:false,personalSync:false,historySync:false,paused:false,data:{},providers:['google','discord']};
   await page.route('**/api/cloud-account',route=>route.fulfill({json:remote}));
   await page.route('**/api/account-profile**',route=>route.fulfill({json:{available:true}}));
-  const state={choices:{stats:false,shareTag:false,openRequests:false,revision:0,listed:false,importedAt},writes:[] as any[],requests:[] as URL[],reports:[] as any[],statsRequests:[] as URL[]};
+  const state={choices:{stats:false,shareTag:false,profileLink:false,profileAutoUpdate:false,allowFollowing:false,openRequests:false,revision:0,listed:false,importedAt},writes:[] as any[],requests:[] as URL[],reports:[] as any[],statsRequests:[] as URL[]};
   await page.route('**/api/community/sharing',async route=>{
     if(route.request().method()==='GET')return route.fulfill({json:state.choices});
     const body=route.request().postDataJSON();state.writes.push(body);
@@ -52,7 +52,7 @@ for(const theme of ['dark','light']){
     await expect(stats).not.toBeChecked();await expect(supports).not.toBeChecked();await expect(supports).toBeEnabled();expect(state.writes).toHaveLength(0);
     await expect(dialog.getByRole('checkbox',{name:'Save settings and plans',exact:true})).toBeVisible();
     await expect(dialog.getByRole('tab',{name:'Community',exact:true})).toHaveCount(0);
-    for(const label of ['How cloud saving works','How community sharing works','About community stats','About support listings'])await help(page,label,info,`community-${theme}-${label.replaceAll(' ','-')}`);
+    for(const label of ['How cloud saving works','How community sharing works','About community stats','About support listings','About following','About direct profile links'])await help(page,label,info,`community-${theme}-${label.replaceAll(' ','-')}`);
     await stats.check();await dialog.getByRole('button',{name:'Save community choices',exact:true}).click();await expect.poll(()=>state.writes.length).toBe(1);
     expect(state.writes[0].snapshot.operators[0].m2).toBe(3);expect(state.writes[0].snapshot.doctor).toBeNull();expect(state.writes[0].snapshot.supports).toEqual([]);expect(JSON.stringify(state.writes[0])).not.toMatch(/PRIVATE BIO|orundum/);
     await supports.check();await dialog.getByRole('button',{name:'Save community choices',exact:true}).click();await expect.poll(()=>state.writes.length).toBe(2);
@@ -60,6 +60,21 @@ for(const theme of ['dark','light']){
     await capture(page,`community-settings-${theme}`,info);
     await dialog.getByRole('button',{name:'Stop all sharing',exact:true}).click();await expect(stats).not.toBeChecked();await expect(supports).not.toBeChecked();
     expect(state.writes.at(-1).snapshot).toBeUndefined();
+  });
+  test(`following, supports and direct links remain independent choices (${theme})`,async({page},info)=>{
+    const state=await fixture(page,theme);await page.goto('/account?settings=community');
+    const dialog=page.getByRole('dialog',{name:'Account settings',exact:true});
+    const following=dialog.getByRole('checkbox',{name:'Allow following',exact:true});
+    const supports=dialog.getByRole('checkbox',{name:'Share my friend tag and support units',exact:true});
+    const direct=dialog.getByRole('checkbox',{name:'Direct profile link',exact:true});
+    await following.check();await expect(supports).not.toBeChecked();await expect(direct).not.toBeChecked();
+    await dialog.getByRole('button',{name:'Save community choices',exact:true}).click();await expect.poll(()=>state.writes.length).toBe(1);
+    expect(state.writes[0].choices).toEqual({stats:false,shareTag:false,openRequests:false,allowFollowing:true,profileLink:false,profileAutoUpdate:false});
+    expect(state.writes[0].snapshot.doctor).toBe('Doctor#1234');expect(state.writes[0].snapshot.supports).toEqual([]);
+    await supports.check();await dialog.getByRole('button',{name:'Save community choices',exact:true}).click();await expect.poll(()=>state.writes.length).toBe(2);
+    await following.uncheck();await dialog.getByRole('button',{name:'Save community choices',exact:true}).click();await expect.poll(()=>state.writes.length).toBe(3);
+    await expect(supports).toBeChecked();expect(state.writes[2].choices.allowFollowing).toBe(false);
+    await capture(page,`following-settings-${theme}`,info);
   });
   test(`partial legacy support consent stays unlisted until explicitly enabled (${theme})`,async({page})=>{
     const state=await fixture(page,theme);state.choices.shareTag=true;
@@ -69,10 +84,10 @@ for(const theme of ['dark','light']){
     await expect(supports).not.toBeChecked();expect(state.writes).toHaveLength(0);
     await supports.check();await dialog.getByRole('button',{name:'Save community choices',exact:true}).click();
     await expect.poll(()=>state.writes.length).toBe(1);
-    expect(state.writes[0].choices).toEqual({stats:false,shareTag:true,openRequests:true});
+    expect(state.writes[0].choices).toEqual({stats:false,shareTag:true,openRequests:true,allowFollowing:false,profileLink:false,profileAutoUpdate:false});
     await supports.uncheck();await dialog.getByRole('button',{name:'Save community choices',exact:true}).click();
     await expect.poll(()=>state.writes.length).toBe(2);
-    expect(state.writes[1].choices).toEqual({stats:false,shareTag:false,openRequests:false});
+    expect(state.writes[1].choices).toEqual({stats:false,shareTag:false,profileLink:false,profileAutoUpdate:false,allowFollowing:false,openRequests:false});
   });
   test(`support finder combines exact build filters and reports availability (${theme})`,async({page},info)=>{
     const state=await fixture(page,theme);await page.goto('/community/support-units');await expect(page.getByText('Helpful#1234',{exact:true})).toBeVisible();
@@ -303,7 +318,7 @@ test('an opted-in snapshot refreshes after import while the settings dialog is c
   await dialog.getByRole('button',{name:'Save community choices',exact:true}).click();await expect.poll(()=>state.writes.length).toBe(1);
   await page.keyboard.press('Escape');await expect(dialog).toHaveCount(0);
   await page.evaluate(()=>{const account=JSON.parse(localStorage.getItem('arkpediaAccount')!);account.importedAt='2026-11-02T12:10:00.000Z';localStorage.setItem('arkpediaAccount',JSON.stringify(account));window.dispatchEvent(new Event('arkpediaAccountChanged'));});
-  await expect.poll(()=>state.writes.length).toBe(2);expect(state.writes[1].action).toBe('refresh');expect(state.writes[1].choices).toEqual({stats:true,shareTag:false,openRequests:false});
+  await expect.poll(()=>state.writes.length).toBe(2);expect(state.writes[1].action).toBe('refresh');expect(state.writes[1].choices).toEqual({stats:true,shareTag:false,profileLink:false,profileAutoUpdate:false,allowFollowing:false,openRequests:false});
 });
 
 test('support operator search accepts plain-letter aliases in links and suggestions', async ({ page }) => {

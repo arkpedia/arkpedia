@@ -34,6 +34,28 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    at: '2026-11-18T17:08:00Z',
+    fixed: [{ title: 'Thunder in the Azure Dream story links', detail: 'Open the chapter dialog to track progress and read all 18 parts in Timo’s reader.', href: '/story?view=list&chapter=act50side' }],
+  },
+  {
+    at: '2026-11-18T14:45:00Z',
+    fixed: [{ title: 'Module and talent range grids', detail: 'See module range changes and tile effects, including melee redeployment areas on talents and modules.', href: '/operators' }],
+  },
+  {
+    at: '2026-11-18T12:45:00Z',
+    added: [{ title: 'Sponsor banners', detail: 'Banners marked "Ad" help pay for hosting and never cover a page\'s content.', href: '/support' }],
+    changed: [{ title: 'Endfield music setting moved', detail: 'It is now in the Music sidebar, under Playlists.', href: '/music' }],
+  },
+  {
+    at: '2026-11-18T10:54:00Z',
+    fixed: [{ title: 'Pull goals stay in sync', detail: 'The poll highlights higher potential goals and clears them when you remove the targets in the Pull Planner.', href: '/polls/pull-or-skip' }],
+  },
+  {
+    at: '2026-11-18T09:30:00Z',
+    added: [{ title: 'Automatic updates for shared profiles', detail: 'Enable Update after each import to keep the same link current and show visitors when the collection was last imported.', href: '/account?settings=community' }],
+  },
+  {at:'2026-11-18T00:00:00Z',changed:[{title:'Renamed Friends to Following',detail:'Allow other users to follow your account independently of support searchability.',href:'/account?panel=following'}],added:[{title:'A shareable profile link',detail:'Share your Profile Card, Operators and owned skins with a simple link.',href:'/account?settings=community'},{title:'Control following and direct profile links',detail:'Disable either at any time in Account settings under Saving & sharing.',href:'/account?settings=community'}]},
+  {
     at: '2026-11-17T05:29:00Z',
     added: [
       { title: 'CN event pack previews', detail: 'Upcoming events show CN pack art and contents until Global announces its own offers.', href: '/events' },

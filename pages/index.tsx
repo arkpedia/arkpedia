@@ -6,6 +6,7 @@ import { useReaderClock } from '@/lib/time/readerClock';
 import { parseBannerWindow } from '@/lib/gacha/realGachaBanners';
 import { getEventFarmingMaterials } from '@/lib/farming/eventFarming';
 import { withContentPage } from '@/lib/content/server';
+import SponsoredSlot from '@/components/ui/SponsoredSlot';
 import { parseGameWindow } from '@/lib/schedule/gameWindow';
 import { loadGameEvents } from '@/lib/home/frontPageContent';
 import { getAllSkins } from '@/lib/skins/skins';
@@ -150,6 +151,8 @@ export default function HomePage({
           <GachaBannersPanel banners={deserializedBanners} activeIndex={activeBannerIndex} onSelect={setActiveBannerIndex} now={now} />
         </div>
         <div className="front-page-left">
+          {/* Directly under Events. Nothing when no campaign runs. */}
+          <SponsoredSlot placement="home" className="front-panel front-home-panel front-sponsored-panel" />
           <FarmableMaterialsPanel materials={farmableMaterials} now={now} />
           <SkinsCarousel skins={ongoingSkins} />
           {/* A "Packs -- Coming soon" panel stood here. Placeholders stay hidden until

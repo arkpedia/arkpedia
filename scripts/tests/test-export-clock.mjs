@@ -189,6 +189,7 @@ test('withContentPage itself never reads the clock while exporting', async () =>
     const result = await withContentPage('/schedule', async () => ({ props: { value: 'record' } }), { tables })({ revalidateReason: 'build' });
     const projected = await result.props;
     delete projected.__contentTables['regional-schedules'];
+    delete projected.__contentTables['sponsor-campaigns']; // the site table every content route carries
     assert.deepEqual(projected, { value: 'record', __contentTables: { event_colors: { event: '#fff' }, event_materials: {}, headhunting_banners: [] } });
   } finally {
     clock.restore();

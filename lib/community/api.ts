@@ -12,18 +12,20 @@ import { deploymentPreviewStatistics } from './preview-statistics';
 import { pullPoll } from '@/lib/polls/pull-poll-api';
 import { skinRatings } from '@/lib/polls/skin-ratings-api';
 import { skinPoll,skinPollIds } from '@/lib/polls/skin-poll-api';
+import { publicFriendFile } from '@/lib/friends/sharedProfile';
+import { friendProfiles } from '@/lib/friends/api';
 import { STAGE_ID } from '@/lib/replays/model';
 import { COMMUNITY_OFF, COMMUNITY_MIN_SAMPLE, SUPPORT_MAX_AGE, AVAILABILITY_MAX_AGE, FULL_REPORT_THRESHOLD, parseCommunityChoices, parseCommunitySnapshot, type CommunityState } from './model';
 
 type Limiter = { limit: (options:{key:string})=>Promise<{success:boolean}> };
 type Env = AccountsEnv & { ACCOUNT_TRAFFIC_LIMIT?: Limiter; ACCOUNT_IP_LIMIT?: Limiter; NEXT_INC_CACHE_R2_BUCKET?:RankingBucket };
-interface Row { userId:string; gameKey:string|null; listingId:string; server:'en'|'jp'|'kr'; importedAt:string; revision:number; stats:number; shareTag:number; openRequests:number; friendTag:string|null; slots:number|null; fullReports?:number; openReports?:number }
+interface Row { userId:string; gameKey:string|null; listingId:string; server:'en'|'jp'|'kr'; importedAt:string; revision:number; stats:number; shareTag:number; openRequests:number; allowFollowing:number; profileLink:number; profileAutoUpdate?:number|null; friendTag:string|null; slots:number|null; fullReports?:number; openReports?:number; profileImportedAt?:string|null }
 const reportedFull=(row:Row)=> (row.fullReports??0)>=FULL_REPORT_THRESHOLD&&(row.fullReports??0)>(row.openReports??0);
 const active=(row:Row,now:number)=>!!(row.shareTag&&row.openRequests&&row.friendTag&&(row.slots??0)>0&&Date.parse(row.importedAt)>=now-SUPPORT_MAX_AGE);
-const ownerState=(row:Row|null,now:number):CommunityState=>row ? {stats:!!row.stats,shareTag:!!row.shareTag,openRequests:!!row.openRequests,revision:row.revision,
+const ownerState=(row:Row|null,now:number):CommunityState=>row ? {stats:!!row.stats,shareTag:!!row.shareTag,openRequests:!!row.openRequests,allowFollowing:!!row.allowFollowing,profileLink:!!row.profileLink,profileAutoUpdate:!!row.profileAutoUpdate,profileImportedAt:row.profileImportedAt??null,revision:row.revision,
   server:row.server,importedAt:row.importedAt,friendTag:row.friendTag,listed:active(row,now)&&!reportedFull(row),reportedFull:reportedFull(row)} : {...COMMUNITY_OFF,revision:0};
 const reportCounts=`SELECT targetId,snapshotAt,sum(isFull) AS fullReports,sum(1-isFull) AS openReports FROM community_availability WHERE createdAt>=? GROUP BY targetId,snapshotAt`;
-const readRow=(db:D1Database,owner:string,time:number)=>db.prepare(`WITH reports AS (${reportCounts}) SELECT a.*,r.fullReports,r.openReports FROM community_account a LEFT JOIN reports r ON r.targetId=a.userId AND r.snapshotAt=a.importedAt WHERE a.userId=?`).bind(new Date(time-AVAILABILITY_MAX_AGE).toISOString(),owner).first<Row>();
+const readRow=(db:D1Database,owner:string,time:number)=>db.prepare(`WITH reports AS (${reportCounts}) SELECT a.*,p.importedAt AS profileImportedAt,p.autoUpdate AS profileAutoUpdate,r.fullReports,r.openReports FROM community_account a LEFT JOIN community_friend_profile p ON p.userId=a.userId LEFT JOIN reports r ON r.targetId=a.userId AND r.snapshotAt=a.importedAt WHERE a.userId=?`).bind(new Date(time-AVAILABILITY_MAX_AGE).toISOString(),owner).first<Row>();
 async function allowWrite(db:D1Database,owner:string,time:number){
   return !!await db.prepare(`INSERT INTO community_write_limit(userId,window,count) VALUES(?,?,1)
     ON CONFLICT(userId) DO UPDATE SET window=excluded.window,count=CASE WHEN window=excluded.window THEN count+1 ELSE 1 END
@@ -33,7 +35,7 @@ async function withdraw(db:D1Database,owner:string,time:number){
   // Retain a consent tombstone so an in-flight first publication cannot resurrect sharing.
   await db.batch([
     db.prepare(`INSERT INTO community_account(userId,gameKey,listingId,server,importedAt,revision,mutationId,stats,shareTag,openRequests,friendTag,slots,equipmentKnown,updatedAt)
-      VALUES(?,NULL,?,'en',?,1,?,0,0,0,NULL,NULL,0,?) ON CONFLICT(userId) DO UPDATE SET gameKey=NULL,revision=revision+1,mutationId=excluded.mutationId,stats=0,shareTag=0,openRequests=0,friendTag=NULL,slots=NULL,appearance=NULL,equipmentKnown=0,updatedAt=excluded.updatedAt`)
+      VALUES(?,NULL,?,'en',?,1,?,0,0,0,NULL,NULL,0,?) ON CONFLICT(userId) DO UPDATE SET gameKey=NULL,revision=revision+1,mutationId=excluded.mutationId,stats=0,shareTag=0,openRequests=0,allowFollowing=0,profileLink=0,friendTag=NULL,slots=NULL,appearance=NULL,equipmentKnown=0,updatedAt=excluded.updatedAt`)
       .bind(owner,crypto.randomUUID(),new Date(time).toISOString(),crypto.randomUUID(),new Date(time).toISOString()),
     ...['community_operator','community_skin','community_support'].map(table=>db.prepare(`DELETE FROM ${table} WHERE userId=?`).bind(owner)),
     db.prepare('DELETE FROM community_availability WHERE targetId=? OR reporterId=?').bind(owner,owner),
@@ -45,7 +47,7 @@ export async function gameFingerprint(secret:string,server:string,uid:string) {
   return Array.from(new Uint8Array(await crypto.subtle.sign('HMAC',key,new TextEncoder().encode(`community-v1:${server}:${uid}`)))).map(v=>v.toString(16).padStart(2,'0')).join('');
 }
 /** Isolated rows, explicit consent, revision checks and fixed public projections. */
-export function createCommunityHandler(kind:'sharing'|'stats'|'supports'|'availability'|'rankings'|'skin-poll'|'pull-poll',{
+export function createCommunityHandler(kind:'sharing'|'stats'|'supports'|'availability'|'rankings'|'skin-poll'|'pull-poll'|'friends',{
   resolveEnv=accountsEnv, authenticate=async(req:NextApiRequest,env:AccountsEnv)=>(await accountAuth(env).api.getSession({headers:fromNodeHeaders(req.headers)}))?.user.id??null, now=()=>Date.now(),
   pollSkinIds=skinPollIds,
 }:{resolveEnv?:()=>Env|null;authenticate?:(req:NextApiRequest,env:AccountsEnv)=>Promise<string|null>;now?:()=>number;pollSkinIds?:()=>Promise<ReadonlySet<string>>}={}) {
@@ -53,7 +55,7 @@ export function createCommunityHandler(kind:'sharing'|'stats'|'supports'|'availa
     res.setHeader('Cache-Control','private, no-store'); res.setHeader('Vary','Cookie'); res.setHeader('X-Robots-Tag','noindex');
     const env=resolveEnv();
     if(!env) return res.status(503).json({error:'Community sharing is not configured on this deployment.'});
-    const methods=kind==='pull-poll'?['GET','PUT']:['sharing','skin-poll'].includes(kind)?['GET','PUT','DELETE']:kind==='availability'?['POST','DELETE']:['GET'];
+    const methods=kind==='pull-poll'?['GET','PUT']:['sharing','skin-poll','friends'].includes(kind)?['GET','PUT','DELETE']:kind==='availability'?['POST','DELETE']:['GET'];
     if(!methods.includes(req.method??'')){res.setHeader('Allow',methods.join(', '));return res.status(405).end();}
     if(req.method!=='GET'&&(req.headers.origin!==env.ARKPEDIA_AUTH_URL||!req.headers['content-type']?.startsWith('application/json'))) return res.status(403).json({error:'This request must come from Arkpedia.'});
     try{
@@ -76,7 +78,9 @@ export function createCommunityHandler(kind:'sharing'|'stats'|'supports'|'availa
       }
       if(kind==='stats')return await stats(req,res,db);
       if(kind==='supports')return await supports(req,res,db,time);
+      if(kind==='friends'&&req.method==='GET'&&req.query.mine!=='1')return await friendProfiles(req,res,db,null,time);
       const owner=await authenticate(req,env);
+      if(kind==='friends')return await friendProfiles(req,res,db,owner,time);
       if(kind==='pull-poll')return await pullPoll(req,res,db,owner);
       if(kind==='skin-poll')return await (req.query.mode==='ratings'?skinRatings:skinPoll)(req,res,db,owner,pollSkinIds);
       if(!owner)return res.status(401).json({error:kind==='availability'?'Sign in to report availability.':'Sign in to choose community sharing.'});
@@ -88,14 +92,26 @@ export function createCommunityHandler(kind:'sharing'|'stats'|'supports'|'availa
         return res.json(await withdraw(db,owner,time));
       }
       if(!Number.isSafeInteger(req.body?.revision)||req.body.revision!==(row?.revision??0))return res.status(409).json({error:'Your sharing choices changed on another device. Review them again.'});
-      const choices=parseCommunityChoices(req.body.choices);
-      if(!choices.stats&&!choices.shareTag&&!choices.openRequests){
+      const {action, choices: inputChoices}=req.body;
+      const choices=parseCommunityChoices(inputChoices,!!row?.profileAutoUpdate);
+      const refreshing=action==='refresh';
+      // Automatic imports use saved consent. An older client may omit the new choice.
+      if(refreshing&&(!row||Object.entries(choices).some(([key,value])=>value!==!!row[key as keyof typeof choices]))){
+        return res.status(409).json({error:'Your sharing choices changed. Review them again.'});
+      }
+      if(refreshing&&req.body.publicProfile!==undefined&&!choices.profileAutoUpdate){
+        return res.status(409).json({error:'Turn on automatic profile updates before publishing after import.'});
+      }
+      if(!choices.stats&&!choices.shareTag&&!choices.openRequests&&!choices.allowFollowing&&!choices.profileLink){
         return res.json(await withdraw(db,owner,time));
       }
-      if(req.body.snapshot===undefined&&row&&Object.entries(choices).every(([key,value])=>!value||!!row[key as 'stats'|'shareTag'|'openRequests'])){
+      if(!refreshing&&req.body.snapshot===undefined&&row&&Object.entries(choices).every(([key,value])=>!value||!!row[key as keyof typeof choices])){
         const nonce=crypto.randomUUID(),revision=row.revision+1;
-        const statements=[db.prepare(`UPDATE community_account SET stats=?,shareTag=?,openRequests=?,revision=?,mutationId=?,appearance=CASE WHEN ?=1 AND ?=1 THEN appearance ELSE NULL END,friendTag=CASE WHEN ?=1 AND ?=1 THEN friendTag ELSE NULL END WHERE userId=? AND revision=? RETURNING userId`)
-          .bind(+choices.stats,+choices.shareTag,+choices.openRequests,revision,nonce,+choices.shareTag,+choices.openRequests,+choices.shareTag,+choices.openRequests,owner,row.revision)];
+        const statements=[db.prepare(`UPDATE community_account SET stats=?,shareTag=?,openRequests=?,allowFollowing=?,profileLink=?,revision=?,mutationId=?,appearance=CASE WHEN ?=1 OR ?=1 OR (?=1 AND ?=1) THEN appearance ELSE NULL END,friendTag=CASE WHEN ?=1 OR ?=1 OR (?=1 AND ?=1) THEN friendTag ELSE NULL END,slots=CASE WHEN ?=1 AND ?=1 THEN slots ELSE NULL END WHERE userId=? AND revision=? RETURNING userId`)
+          .bind(+choices.stats,+choices.shareTag,+choices.openRequests,+choices.allowFollowing,+choices.profileLink,revision,nonce,+choices.profileLink,+choices.allowFollowing,+choices.shareTag,+choices.openRequests,+choices.profileLink,+choices.allowFollowing,+choices.shareTag,+choices.openRequests,+choices.shareTag,+choices.openRequests,owner,row.revision)];
+        if(choices.profileLink&&choices.profileAutoUpdate!==!!row.profileAutoUpdate){
+          statements.push(db.prepare('UPDATE community_friend_profile SET autoUpdate=0 WHERE userId=? AND EXISTS(SELECT 1 FROM community_account WHERE userId=? AND mutationId=?)').bind(owner,owner,nonce));
+        }
         for(const table of [...(!choices.stats?['community_operator','community_skin']:[]),...(!choices.shareTag||!choices.openRequests?['community_support']:[])])statements.push(db.prepare(`DELETE FROM ${table} WHERE userId=? AND EXISTS(SELECT 1 FROM community_account WHERE userId=? AND mutationId=?)`).bind(owner,owner,nonce));
         if(!choices.shareTag||!choices.openRequests)statements.push(db.prepare('DELETE FROM community_availability WHERE targetId=? AND EXISTS(SELECT 1 FROM community_account WHERE userId=? AND mutationId=?)').bind(owner,owner,nonce));
         const result=await db.batch(statements);
@@ -105,19 +121,25 @@ export function createCommunityHandler(kind:'sharing'|'stats'|'supports'|'availa
       const allowed=await allowWrite(db,owner,time);
       if(!allowed){res.setHeader('Retry-After','60');return res.status(429).json({error:'Please wait a minute before updating your shared snapshot.'});}
       const snapshot=parseCommunitySnapshot(req.body.snapshot,choices,time),key=await gameFingerprint(env.BETTER_AUTH_SECRET,snapshot.server,snapshot.uid);
-      if(req.body.action==='refresh'&&(!row||row.gameKey!==key))return res.status(409).json({error:'The imported game account changed. Review community sharing before publishing it.'});
+      if(refreshing&&row?.gameKey!==key)return res.status(409).json({error:'The imported game account changed. Review community sharing before publishing it.'});
       if(row?.gameKey===key&&snapshot.importedAt<row.importedAt)return res.status(409).json({error:'A newer import is already shared. Import again before replacing it.'});
-      if(!['consent','refresh'].includes(req.body.action))return res.status(400).json({error:'Review community sharing first.'});
-      // An automatic refresh can update the snapshot, never consent from another tab/device.
-      if(req.body.action==='refresh'&&(!row||choices.stats!==!!row.stats||choices.shareTag!==!!row.shareTag||choices.openRequests!==!!row.openRequests))return res.status(409).json({error:'Your sharing choices changed. Review them again.'});
+      if(!['consent','refresh'].includes(action))return res.status(400).json({error:'Review community sharing first.'});
+      if(row?.gameKey!==key&&inputChoices.profileAutoUpdate===undefined)choices.profileAutoUpdate=false;
+      let publicProfile;
+      if(choices.profileLink&&req.body.publicProfile!==undefined){
+        try{publicProfile=publicFriendFile(req.body.publicProfile);}catch{return res.status(400).json({error:'Invalid public profile.'});}
+        if(publicProfile.account.server!==snapshot.server||publicProfile.account.importedAt!==snapshot.importedAt)return res.status(409).json({error:'The imported game account changed. Review sharing again.'});
+        publicProfile.account.doctor=snapshot.doctor;
+      }
+      if(choices.profileLink&&(!row?.profileLink||row.gameKey!==key)&&!publicProfile)return res.status(400).json({error:'Invalid public profile. Review Direct profile link before publishing.'});
       const profile=await db.prepare('SELECT userId FROM arkpedia_profile WHERE userId=?').bind(owner).first();
       if(!profile)return res.status(428).json({error:'Finish your Arkpedia profile before sharing.'});
       const listingId=row?.gameKey===key?row.listingId:crypto.randomUUID(),revision=(row?.revision??0)+1,updatedAt=new Date(time).toISOString(),mutationId=crypto.randomUUID();
       const statements=[row
-        ? db.prepare(`UPDATE community_account SET gameKey=?,listingId=?,server=?,importedAt=?,revision=?,mutationId=?,stats=?,shareTag=?,openRequests=?,friendTag=?,slots=?,equipmentKnown=?,appearance=?,updatedAt=? WHERE userId=? AND revision=? RETURNING userId`)
-          .bind(key,listingId,snapshot.server,snapshot.importedAt,revision,mutationId,+choices.stats,+choices.shareTag,+choices.openRequests,snapshot.doctor,snapshot.slots,+snapshot.equipmentKnown,snapshot.appearance?JSON.stringify(snapshot.appearance):null,updatedAt,owner,row.revision)
-        : db.prepare(`INSERT INTO community_account(userId,gameKey,listingId,server,importedAt,revision,mutationId,stats,shareTag,openRequests,friendTag,slots,equipmentKnown,appearance,updatedAt) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) RETURNING userId`)
-          .bind(owner,key,listingId,snapshot.server,snapshot.importedAt,revision,mutationId,+choices.stats,+choices.shareTag,+choices.openRequests,snapshot.doctor,snapshot.slots,+snapshot.equipmentKnown,snapshot.appearance?JSON.stringify(snapshot.appearance):null,updatedAt),
+        ? db.prepare(`UPDATE community_account SET gameKey=?,listingId=?,server=?,importedAt=?,revision=?,mutationId=?,stats=?,shareTag=?,openRequests=?,allowFollowing=?,profileLink=?,friendTag=?,slots=?,equipmentKnown=?,appearance=?,updatedAt=? WHERE userId=? AND revision=? RETURNING userId`)
+          .bind(key,listingId,snapshot.server,snapshot.importedAt,revision,mutationId,+choices.stats,+choices.shareTag,+choices.openRequests,+choices.allowFollowing,+choices.profileLink,snapshot.doctor,snapshot.slots,+snapshot.equipmentKnown,snapshot.appearance?JSON.stringify(snapshot.appearance):null,updatedAt,owner,row.revision)
+        : db.prepare(`INSERT INTO community_account(userId,gameKey,listingId,server,importedAt,revision,mutationId,stats,shareTag,openRequests,allowFollowing,profileLink,friendTag,slots,equipmentKnown,appearance,updatedAt) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) RETURNING userId`)
+          .bind(owner,key,listingId,snapshot.server,snapshot.importedAt,revision,mutationId,+choices.stats,+choices.shareTag,+choices.openRequests,+choices.allowFollowing,+choices.profileLink,snapshot.doctor,snapshot.slots,+snapshot.equipmentKnown,snapshot.appearance?JSON.stringify(snapshot.appearance):null,updatedAt),
       ];
       const guard='EXISTS(SELECT 1 FROM community_account WHERE userId=? AND revision=? AND mutationId=?)';
       for(const table of ['community_operator','community_skin','community_support'])statements.push(db.prepare(`DELETE FROM ${table} WHERE userId=? AND ${guard}`).bind(owner,owner,revision,mutationId));
@@ -130,6 +152,18 @@ export function createCommunityHandler(kind:'sharing'|'stats'|'supports'|'availa
       statements.push(db.prepare(`INSERT INTO community_support(userId,slot,operator,elite,level,skill,mastery,module,moduleLevel,potential,skin,skillId,allMastered,skillLevel,skillMasteries)
         SELECT ?,CAST(key AS INTEGER),json_extract(value,'$.operator'),json_extract(value,'$.elite'),json_extract(value,'$.level'),json_extract(value,'$.skill'),json_extract(value,'$.mastery'),json_extract(value,'$.module'),json_extract(value,'$.moduleLevel'),json_extract(value,'$.potential'),json_extract(value,'$.skin'),json_extract(value,'$.skillId'),json_extract(value,'$.allMastered'),json_extract(value,'$.skillLevel'),json_extract(value,'$.skillMasteries') FROM json_each(?) WHERE ${guard}`)
         .bind(owner,JSON.stringify(snapshot.supports),owner,revision,mutationId));
+      if(publicProfile){
+        statements.push(db.prepare(`INSERT INTO community_friend_profile(userId,enabled,gameKey,snapshot,importedAt,autoUpdate,revision,mutationId,updatedAt)
+          SELECT ?,1,?,?,?,?,1,?,? WHERE ${guard}
+          ON CONFLICT(userId) DO UPDATE SET enabled=1,gameKey=excluded.gameKey,snapshot=excluded.snapshot,importedAt=excluded.importedAt,
+          autoUpdate=excluded.autoUpdate,revision=revision+1,mutationId=excluded.mutationId,updatedAt=excluded.updatedAt`)
+          .bind(owner,key,JSON.stringify(publicProfile),publicProfile.account.importedAt,+choices.profileAutoUpdate,mutationId,updatedAt,owner,revision,mutationId));
+        statements.push(db.prepare(`DELETE FROM community_friend_operator WHERE userId=? AND operator NOT IN (SELECT value FROM json_each(?)) AND ${guard}`).bind(owner,JSON.stringify(publicProfile.account.operators),owner,revision,mutationId));
+        statements.push(db.prepare(`INSERT OR IGNORE INTO community_friend_operator(userId,operator) SELECT ?,value FROM json_each(?) WHERE ${guard}`).bind(owner,JSON.stringify(publicProfile.account.operators),owner,revision,mutationId));
+      }else if(choices.profileLink&&choices.profileAutoUpdate!==!!row?.profileAutoUpdate){
+        statements.push(db.prepare(`UPDATE community_friend_profile SET autoUpdate=? WHERE userId=? AND enabled=1 AND gameKey=? AND ${guard}`)
+          .bind(+choices.profileAutoUpdate,owner,key,owner,revision,mutationId));
+      }
       const result=await db.batch(statements);
       if(result[0].results.length!==1)return res.status(409).json({error:'Sharing changed on another device. Review it again.'});
       return res.json(ownerState(await readRow(db,owner,time),time));

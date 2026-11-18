@@ -2,7 +2,8 @@ import { contentPageClock, type PageClockField, type PageClockMoment } from './p
 import { defaultContentRevalidate } from './revalidation';
 import { REGIONAL_ROUTES, missingPageTables, pageTables } from './tables.mjs';
 import { operatorPageRoute } from '../operators/operatorPagePaths';
-import { loadRelease, readPageProps } from './release';
+import { loadRelease, readPageProps, readPublishedContentPageProps } from './release';
+import { checkSponsorCampaigns, currentSponsorCampaigns, type SponsorCampaignTable } from '../sponsors/campaigns';
 export { contentChannel } from './release';
 import type { GetStaticProps, GetStaticPropsContext, GetStaticPropsResult, Redirect } from 'next';
 import { contentRoute } from './types';
@@ -12,7 +13,11 @@ import { contentRoute } from './types';
  *  browser build along with it: the tables reach the browser only through props. */
 export type ContentTableLoaders = Record<string, () => Promise<unknown>>;
 
+// Exports stay clock-free; every other path is a request and gets its moment.
+const moment = (): PageClockMoment => process.env.ARKPEDIA_EXPORT_CONTENT === '1' ? { exporting: true } : { now: Date.now() };
+
 const warnedTables = new Set<string>();
+let warnedSponsors = false;
 /** Give props every table the route declares, without touching a cached payload. A
  *  table the props already carry (the release's copy) always wins. */
 async function attachTables<P extends object>(template: string, props: P, loaders: ContentTableLoaders, release?: string): Promise<P> {
@@ -31,6 +36,48 @@ async function attachTables<P extends object>(template: string, props: P, loader
 }
 
 /**
+ * The site table every content route carries (SITE_TABLES in lib/content/tables.mjs): the
+ * sponsor campaigns, the release's copy when it has one, else this deployment's. A request
+ * gets them as of its moment, so the server never renders a campaign outside its dates; an
+ * export stays clock-free and carries every campaign.
+ */
+async function attachSponsors<P extends object>(props: P): Promise<P> {
+  const tables = (props as { __contentTables?: Record<string, unknown> }).__contentTables ?? {};
+  const now = moment();
+  const read = async () => checkSponsorCampaigns(tables['sponsor-campaigns'] ?? (await import('../../data/sponsor-campaigns.json')).default);
+  // The export throws on a record it cannot show honestly, which stops that release. A
+  // request must not: a record this deployment's code rejects (a placement added later,
+  // say) would otherwise fail every page's revalidation, so it shows no sponsor instead.
+  if ('exporting' in now) return { ...props, __contentTables: { ...tables, 'sponsor-campaigns': await read() } };
+  let table: SponsorCampaignTable = { version: 1, campaigns: [] };
+  try { table = currentSponsorCampaigns(await read(), now.now); } catch (error) {
+    if (!warnedSponsors) { warnedSponsors = true; console.warn('[content] Sponsor campaigns unreadable; showing none:', error instanceof Error ? error.message : error); }
+  }
+  return { ...props, __contentTables: { ...tables, 'sponsor-campaigns': table } };
+}
+
+/**
+ * The sponsor campaigns for a page that is not a content route (About, Privacy, the video
+ * pages): it has no release props of its own, so it takes the table the live release
+ * published with /support, else this deployment's copy, as of now. The header's Sponsored
+ * slot (components/ui/PageHeader) reads it. Never fails the page: unreadable means no sponsor.
+ */
+export async function withSiteTables<P extends object>(props: P): Promise<P> {
+  let table: SponsorCampaignTable = { version: 1, campaigns: [] };
+  try {
+    const published = await readPublishedContentPageProps<{ __contentTables?: Record<string, unknown> }>('/support').catch(() => null);
+    table = currentSponsorCampaigns(checkSponsorCampaigns(published?.__contentTables?.['sponsor-campaigns'] ?? (await import('../../data/sponsor-campaigns.json')).default), Date.now());
+  } catch (error) {
+    if (!warnedSponsors) { warnedSponsors = true; console.warn('[content] Sponsor campaigns unreadable; showing none:', error instanceof Error ? error.message : error); }
+  }
+  return { ...props, __contentTables: { ...(props as { __contentTables?: Record<string, unknown> }).__contentTables, 'sponsor-campaigns': table } };
+}
+
+/** getStaticProps for a page with no data of its own that still shows the site's tables.
+ *  Revalidated so a campaign starts and ends there without a deploy. */
+export const siteTablesStaticProps: GetStaticProps = async () => ({ props: await withSiteTables({}), revalidate: 1500 });
+
+/**
  * What a page's own data builder returns. No `revalidate`: a page served from the
  * release never calls its builder, so an interval set there silently never reached
  * Next (/schedule's 1200 did nothing). Pass it as withContentPage's option. No clock
@@ -43,8 +90,6 @@ export type ContentPageBuilder<P> = (context: GetStaticPropsContext) => Promise<
   | { redirect: Redirect; revalidate?: never }
 >;
 
-// Exports stay clock-free; every other path is a request and gets its moment.
-const moment = (): PageClockMoment => process.env.ARKPEDIA_EXPORT_CONTENT === '1' ? { exporting: true } : { now: Date.now() };
 
 export interface ContentPageOptions<P> {
   /** Runs on every request's props, the release's or the builder's (never in the export).
@@ -103,7 +148,7 @@ export function withContentPage<P extends object>(template: string, builder: Con
         if (template.includes('[')) return { notFound: true, revalidate: process.env.ARKPEDIA_CONTENT_TEST === '1' ? 1 : 60 };
         if (!bundledFallbackAvailable && !options.bundledWhenUnpublished) throw new Error(`Published content is missing ${route}`);
         const fallback = await bundled(context);
-        if ('props' in fallback) fallback.props = await attachTables(template, contentPageClock(template, await fallback.props, moment()), loaders);
+        if ('props' in fallback) fallback.props = await attachSponsors(await attachTables(template, contentPageClock(template, await fallback.props, moment()), loaders));
         if ('props' in fallback && options.finalize) fallback.props = await options.finalize(await fallback.props, context);
         return { ...fallback, revalidate: revalidate() };
       }
@@ -113,7 +158,7 @@ export function withContentPage<P extends object>(template: string, builder: Con
           if (template.includes('[')) return { notFound: true, revalidate: process.env.ARKPEDIA_CONTENT_TEST === '1' ? 1 : 60 };
           throw new Error('Published content page disappeared');
         }
-        const currentProps = await attachTables(template, contentPageClock(template, { ...props, __contentRelease: loaded.context } as unknown as P, moment()), loaders, loaded.context.release);
+        const currentProps = await attachSponsors(await attachTables(template, contentPageClock(template, { ...props, __contentRelease: loaded.context } as unknown as P, moment()), loaders, loaded.context.release));
         return { props: options.finalize ? await options.finalize(currentProps, context) : currentProps, revalidate: revalidate() };
       } catch (error) {
         // An ISR failure preserves Next's previous valid page. A cold request can
@@ -125,7 +170,7 @@ export function withContentPage<P extends object>(template: string, builder: Con
     if (!bundledFallbackAvailable) throw new Error(`Published content is unavailable for ${contentRoute(template, context.params)}`);
     const fallback = await bundled(context);
     // The content export takes this path too, so this is where a release gets its tables.
-    if ('props' in fallback) fallback.props = await attachTables(template, contentPageClock(template, await fallback.props, moment()), loaders);
+    if ('props' in fallback) fallback.props = await attachSponsors(await attachTables(template, contentPageClock(template, await fallback.props, moment()), loaders));
     if ('props' in fallback && options.finalize && process.env.ARKPEDIA_EXPORT_CONTENT !== '1') fallback.props = await options.finalize(await fallback.props, context);
     return { ...fallback, revalidate: revalidate() };
   };

@@ -73,31 +73,31 @@ export default function EventsPanel({ ongoing, upcoming, now }: Props) {
     );
   }
 
-  const active = slides[Math.min(activeIndex, slides.length - 1)];
-  // Stages closed, store still open: the event stays, counting down to the store's close.
-  const shopEnd = active.event ? eventShopEnd(active.event) : null;
-  const shopOnly = !!shopEnd && active.event && clock >= active.event.end.getTime();
-
   return (
     <section className="front-panel front-home-panel front-events-panel">
       <h2 className="section-title">Events</h2>
-      {/* The event's own page. This was a button whose only effect was to pause the
-          slideshow, which is not what a reader pressing an event expects. */}
-      {active.broadcast ? <BroadcastSlide group={active.broadcast} now={clock} /> : <Link prefetch={false} href={`/events/${encodeURIComponent(active.event.name)}`} className="front-events-main">
-        {/* The box keeps its size without art: a poster the image repository has not
-            published yet is null (publishedArt), never a broken image. */}
-        <div className="front-events-poster-wrap">
-          {/* The first slide is the home page's hero at 1440 (its LCP), so it is fetched at
-              once and first; the slides after it come in on screen, as the carousel turns. */}
-          {active.event.poster && <Image src={active.event.poster} alt={active.event.name} fill sizes="600px" style={{ objectFit: 'contain' }} priority={activeIndex === 0} />}
-        </div>
-        <div className="front-events-info">
-          <span className="front-events-name">{active.event.name}</span>
-          {shopOnly
-            ? <CountdownTimer target={shopEnd!} label="Stages closed · Shop closes in" closed />
-            : <CountdownTimer start={active.event.start} target={active.event.end} />}
-        </div>
-      </Link>}
+      {/* Overlap the slides in one grid cell so the tallest caption reserves the space
+          for every selection, including broadcasts with regional links. */}
+      <div className="front-events-slides">
+        {slides.map((slide, index) => {
+          const current = index === activeIndex;
+          const shopEnd = slide.event ? eventShopEnd(slide.event) : null;
+          const shopOnly = !!shopEnd && slide.event && clock >= slide.event.end.getTime();
+          return <div key={slide.key} className="front-events-slide" data-current={current ? '' : undefined} inert={!current}>
+            {slide.broadcast ? <BroadcastSlide group={slide.broadcast} now={clock} showArtwork={current} /> : <Link prefetch={false} href={`/events/${encodeURIComponent(slide.event.name)}`} className="front-events-main">
+              <div className="front-events-poster-wrap">
+                {current && slide.event.poster && <Image src={slide.event.poster} alt={slide.event.name} fill sizes="600px" style={{ objectFit: 'contain' }} priority={index === 0} />}
+              </div>
+              <div className="front-events-info">
+                <span className="front-events-name">{slide.event.name}</span>
+                {shopOnly
+                  ? <CountdownTimer target={shopEnd!} label="Stages closed · Shop closes in" closed />
+                  : <CountdownTimer start={slide.event.start} target={slide.event.end} />}
+              </div>
+            </Link>}
+          </div>;
+        })}
+      </div>
 
       {slides.length > 1 && (
         <div className="front-events-dots">
@@ -119,12 +119,12 @@ export default function EventsPanel({ ongoing, upcoming, now }: Props) {
   );
 }
 
-function BroadcastSlide({group,now}:{group:BroadcastGroup;now:number}) {
+function BroadcastSlide({group,now,showArtwork}:{group:BroadcastGroup;now:number;showArtwork:boolean}) {
   const broadcast=group.primary;
   return <>
     <a href={broadcast.url} target="_blank" rel="noopener noreferrer" className="front-events-main">
       <div className="front-events-poster-wrap">
-        {broadcast.thumbnail && <Image src={broadcast.thumbnail} alt={broadcast.title} fill sizes="600px" style={{objectFit:'contain'}} />}
+        {showArtwork && broadcast.thumbnail && <Image src={broadcast.thumbnail} alt={broadcast.title} fill sizes="600px" style={{objectFit:'contain'}} />}
       </div>
       <div className="front-events-info">
         <span className={broadcast.status==='live'?'badge-live':'badge-upcoming'}>{broadcast.status==='live'?'Live now':Date.parse(broadcast.startsAt)<=now?'Starting soon':'Upcoming broadcast'}</span>

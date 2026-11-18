@@ -238,7 +238,7 @@ export default function MusicPage({ songLookup }: Props) {
 
       <MusicHeader current={view} favourites={router.query.scope === 'favorites'} open={musicMenuOpen} onOpen={() => setMusicMenuOpen(value => !value)} />
       <main className="music-player-page" data-lyrics-expanded={lyricsExpanded || undefined}>
-        <MusicNav current={view} open={musicMenuOpen} onOpenChange={setMusicMenuOpen}>{returnFocus => <><MusicPlaylists songs={songLookup} onClose={returnFocus} /><div className="music-phone-settings" onChange={() => setMusicMenuOpen(false)}><MusicGameSetting /></div></>}</MusicNav>
+        <MusicNav current={view} open={musicMenuOpen} onOpenChange={setMusicMenuOpen}>{returnFocus => <><MusicPlaylists songs={songLookup} onClose={returnFocus} /><div className="music-nav-settings" onChange={() => setMusicMenuOpen(false)}><MusicGameSetting /></div></>}</MusicNav>
         <div className="music-workspace-content">
         {view === 'player' && <h2 className="section-title music-workspace-title">Now playing</h2>}
         <div className="visually-hidden" aria-live="polite">

@@ -7,7 +7,8 @@ import PageHeader from '@/components/ui/PageHeader';
 import ProfileCard from '@/components/account/ProfileCard';
 import PullHistory from '@/components/account/PullHistory';
 import CloudAccountPanel from '@/components/account/CloudAccountPanel';
-import Tabs, { tabPanelProps } from '@/components/ui/Tabs';
+import { tabPanelProps } from '@/components/ui/Tabs';
+import AccountContentTabs from '@/components/account/AccountContentTabs';
 import { useHeightFloor } from '@/components/ui/useHeightFloor';
 import { useAccountActions } from '@/components/account/AccountActions';
 import { useCloudSync } from '@/lib/cloud-account/SyncProvider';
@@ -25,7 +26,6 @@ import { showAccount, useAccount, useOtherAccounts } from '@/lib/account/account
 import { assistantCatalogue, type CardOutfit } from '@/lib/account/portraits';
 import { SERVER_IDS, SERVERS } from '@/lib/account-import/yostar';
 import SegmentedControl from '@/components/ui/SegmentedControl';
-import styles from '@/components/account/AccountPage.module.css';
 // The eyebrow names Rhodes Island's AI as the reader's story has it: PRTS, ZOOT after Episode 15.
 
 /*
@@ -59,7 +59,6 @@ export default function AccountPage({ skins, operators }: Props) {
   const router = useRouter();
   const actions = useAccountActions();
   const account = useAccount();
-  const floor = useHeightFloor(account?.server);
   const { remote, providers } = useCloudSync();
   const cloudAvailable = providers.length > 0 || !!remote;
   const settingUp = !!remote && !remote.profile;
@@ -76,8 +75,9 @@ export default function AccountPage({ skins, operators }: Props) {
     void router.push({ pathname: '/account', query }, undefined, { shallow: true, scroll: false });
   };
   const closePanel = () => { const query = { ...router.query }; delete query.panel; void router.replace({ pathname: '/account', query }, undefined, { shallow: true, scroll: false }); };
-  const tab = panel === 'pulls' || panel === 'operators' || panel === 'skins' || panel === 'friends' ? panel : 'profile';
+  const tab = panel === 'pulls' || panel === 'operators' || panel === 'skins' || panel === 'following' ? panel : panel === 'friends' ? 'following' : 'profile';
   const view = panel === 'operators' || panel === 'skins' ? panel : null;
+  const floor = useHeightFloor(account?.server);
   const collectionOperators = useMemo(() => operators ?? friendOperators(map, []), [operators, map]);
   const collectionSkins = useMemo(() => skins.map(skin => ({ ...skin, model: skin.model ?? null, series: skin.series ?? '' })), [skins]);
 
@@ -98,11 +98,11 @@ export default function AccountPage({ skins, operators }: Props) {
 
       <main>
         <CloudAccountPanel hideSettingsButton onOpenSettings={() => actions.open('settings')} onOpenData={() => actions.open('import')} />
-        <Tabs id="account-content" label="Account content" className={styles.contentTabs} value={tab} onChange={openPanel} options={[
-          { value: 'profile', label: 'Profile' }, { value: 'pulls', label: 'Pull history' }, { value: 'operators', label: 'Operators' }, { value: 'skins', label: 'Skins' }, { value: 'friends', label: 'Friends' },
+        <AccountContentTabs id="account-content" label="Account content" value={tab} onChange={openPanel} options={[
+          { value: 'profile', label: 'Profile' }, { value: 'pulls', label: 'Pull history' }, { value: 'operators', label: 'Operators' }, { value: 'skins', label: 'Skins' }, { value: 'following', label: 'Following' },
         ]} />
         <div ref={floor.ref} {...tabPanelProps('account-content', tab)} className="account-tab-content">
-        {tab === 'friends' && <ImportedFriends operators={collectionOperators} skins={collectionSkins} />}
+        {tab === 'following' && <ImportedFriends operators={collectionOperators} skins={collectionSkins} />}
         {tab === 'pulls' && <PullHistory key={account ? `${account.server}:${account.importedAt}` : 'empty'} account={account} map={map} />}
         {view && (account ? <FriendCollection key={view} inline own friend={makeFriendFile(account, shareableRoster(account, Object.values(others), readRoster()))} operators={collectionOperators} skins={collectionSkins} view={view} onClose={closePanel} /> : <p className="hint">Import your Arknights account to see your {view}.</p>)}
         {tab === 'profile' && !settingUp && <>

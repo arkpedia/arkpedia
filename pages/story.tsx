@@ -36,7 +36,9 @@ interface Props {
   chaptersComplete?: boolean;
 }
 
-export default function StoryPage({ map, chapters = {}, library = [] }: Props) {
+export default function StoryPage({ map, chapters = {}, library: publishedLibrary = [] }: Props) {
+  // Older releases may still carry fallback links from when the native reader was enabled.
+  const library = useMemo(() => publishedLibrary.filter(entry => !entry.id.startsWith('native_')), [publishedLibrary]);
   const [chapter, setChapter] = useQueryState('chapter', '');
   const [viewQuery, setView] = useQueryState('view', 'map');
   const view = viewQuery === 'list' ? 'list' : 'map';

@@ -576,10 +576,10 @@
   text-transform: uppercase;
   color: var(--text-faint);
 }
-.op-skill-range-pair { display: flex; align-items: center; gap: 12px; }
+.op-skill-range-pair { display: flex; align-items: center; gap: 12px; overflow-x: auto; }
 /* The before grid reads as the thing being left behind, so it is dimmer than the after
    one rather than the same weight. */
-.op-skill-range-pair .op-range-grid-wrap:first-child { opacity: 0.55; }
+.op-skill-range-pair .op-range-grid-wrap:first-child:not(:only-child) { opacity: 0.55; }
 .op-skill-range-arrow {
   font-size: 15px;
   color: var(--text-dim);

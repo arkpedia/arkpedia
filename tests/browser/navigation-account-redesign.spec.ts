@@ -49,7 +49,7 @@ for (const theme of ['dark', 'light']) {
     await page.reload();
     await expect(bar.locator('.profile-avatar-trigger img')).toHaveCount(0);
     await bar.locator('.profile-avatar-trigger').click();
-    await page.locator('.action-popover').getByRole('link', { name: 'Friends', exact: true }).focus();
+    await page.locator('.action-popover').getByRole('link', { name: 'Following', exact: true }).focus();
     await page.keyboard.press('Shift+Tab');
     await page.locator('.action-popover').getByRole('link', { name: 'Profile', exact: true }).click();
     await expect(page).toHaveURL(/\/account$/);

@@ -418,7 +418,7 @@ export default function DiscoverPage({ songs: releaseSongs, characters, origins,
           between Discover and the player's views moves nothing. */}
       <MusicHeader current="discover" open={musicMenuOpen} onOpen={() => setMusicMenuOpen(value => !value)} />
       <main className="music-discover-page">
-        <MusicNav current="discover" open={musicMenuOpen} onOpenChange={setMusicMenuOpen}>{returnFocus => <><MusicPlaylists songs={playlistSongs} onClose={returnFocus} /><div className="music-phone-settings" onChange={() => setMusicMenuOpen(false)}><MusicGameSetting /></div></>}</MusicNav>
+        <MusicNav current="discover" open={musicMenuOpen} onOpenChange={setMusicMenuOpen}>{returnFocus => <><MusicPlaylists songs={playlistSongs} onClose={returnFocus} /><div className="music-nav-settings" onChange={() => setMusicMenuOpen(false)}><MusicGameSetting /></div></>}</MusicNav>
         <div className="music-workspace-content">
         {!facets.artist && <h2 className="section-title music-workspace-title">Discover</h2>}
         <div className="music-discover-search-row">

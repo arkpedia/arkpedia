@@ -108,7 +108,7 @@ export function importGoals(goals: readonly BannerGoal[], banners: readonly Poll
     const goal = goals.find(g => g.banner === banner.name || banner.aliases.includes(g.banner));
     if (!goal) continue;
     result[banner.id] = Object.fromEntries(banner.operators.map(name => [name,
-      goal.targets?.length ? (goal.targets.find(t => t.name === name)?Math.min(6,(goal.targets.find(t => t.name === name)?.copies??0)+(owned[name]??0)):0) : pullWant(banner,name)])) as Record<string, Want>;
+      goal.targets ? (goal.targets.find(t => t.name === name)?Math.min(6,(goal.targets.find(t => t.name === name)?.copies??0)+(owned[name]??0)):0) : pullWant(banner,name)])) as Record<string, Want>;
   }
   return constrainOwned(result,owned);
 }

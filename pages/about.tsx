@@ -1,3 +1,4 @@
+import { siteTablesStaticProps } from '@/lib/content/server';
 import Link from 'next/link';
 import PageMeta from '@/components/layout/PageMeta';
 import PageHeader from '@/components/ui/PageHeader';
@@ -18,3 +19,6 @@ export default function AboutPage() {
       <div className="account-shortcuts"><Link className="btn ghost btn-sm" href="/privacy">Privacy notice</Link><Link className="btn ghost btn-sm" href="/cookies">Cookies & privacy choices</Link></div>
     </section></InformationLayout></>;
 }
+
+// No data of its own: the site's tables only (the header's Sponsored slot).
+export const getStaticProps = siteTablesStaticProps;

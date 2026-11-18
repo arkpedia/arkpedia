@@ -53,8 +53,9 @@ import { appearanceSkinId, operatorDynamicArt } from '@/lib/skins/dynamicArt';
 import { withOperatorDynamicArt, loadDynamicArtIndex } from '@/lib/skins/dynamicArtFallback';
 import { highlightStats } from '@/components/ui/HighlightedText';
 import { CroppedRange } from '@/lib/operators/operatorAttackRanges';
-import { getOperatorAttackRanges, OperatorAttackRange as AttackRangeChoice } from '@/lib/operators/operatorAttackRanges';
+import { applyModuleAttackRange, getOperatorAttackRanges, OperatorAttackRange as AttackRangeChoice } from '@/lib/operators/operatorAttackRanges';
 import OperatorAttackRange from '@/components/operators/OperatorAttackRange';
+import RangeComparison, { MeleeRedeploymentArea } from '@/components/operators/OperatorRangeComparison';
 import { operatorBelongsToFaction } from '@/lib/operators/factionAliases';
 import OPERATOR_FORMS from '@/data/operator-forms.json';
 import OperatorChibi from '@/components/operators/OperatorChibi';
@@ -212,35 +213,6 @@ function sumCostGroups(groups: (CostGroup | null | undefined)[]): CostGroup {
     }
   }
   return Array.from(totals.entries()).map(([name, quantity]) => ({ name, quantity }));
-}
-
-/** Renders a branch's cropped range grid as a small box -- amber tile
- * for the operator's own position, teal tiles for where they can
- * attack, using the operator-specific offsets from operatorAttackRanges.ts. A
- * branch like Fortress still shows the real gap between the operator
- * and their range. */
-function RangeGridBox({ range, label }: { range: CroppedRange | null; label?: string }) {
-  if (!range) return null;
-  const CELL_PX = 16;
-  return (
-    <div className="op-range-grid-wrap" title={label ?? 'Elite 1 attack range'}>
-      <div
-        className="op-range-grid"
-        style={{
-          gridTemplateColumns: `repeat(${range.cols}, ${CELL_PX}px)`,
-          gridTemplateRows: `repeat(${range.rows}, ${CELL_PX}px)`,
-        }}
-      >
-        <div
-          className="op-range-cell op-range-cell-self"
-          style={{ gridColumn: range.opCell[1], gridRow: range.opCell[0] }}
-        />
-        {range.rangeCells.map((c, i) => (
-          <div key={i} className="op-range-cell" style={{ gridColumn: c[1], gridRow: c[0] }} />
-        ))}
-      </div>
-    </div>
-  );
 }
 
 function CostRow({ cost, order, promotion = false }: { cost: CostGroup | null | undefined; order: readonly string[]; promotion?: boolean }) {
@@ -921,6 +893,14 @@ export default function OperatorDetailPage({ chibis = {}, summons = [], epTrack,
 
   const activeModule = activeModuleIndex != null ? modules[activeModuleIndex] : null;
   const activeStage = activeModule?.stages[activeModuleStage];
+  const baseModuleRange = overviewRanges.at(-1)?.range;
+  const moduleRangeChange = activeStage?.attackRange;
+  const activeModuleRange = baseModuleRange && moduleRangeChange
+    ? applyModuleAttackRange(baseModuleRange, moduleRangeChange)
+    : null;
+  const moduleRangeLabel = moduleRangeChange && 'grid' in moduleRangeChange && moduleRangeChange.whileSkillActive
+    ? 'Range with module while skill is active'
+    : 'Range with module';
 
   function costForModuleStage(): CostGroup | null {
     if (!activeStage) return null;
@@ -1195,32 +1175,13 @@ export default function OperatorDetailPage({ chibis = {}, summons = [], epTrack,
                         </dl>
                         <p><CombatText text={activeStep.description} /></p>
                         {skillRange && activeSkillRange && (
-                          <div className="op-skill-range">
-                            <span className="op-skill-range-label">Range while active</span>
-                            <div className="op-skill-range-pair">
-                              {skillRange.baseRange && (
-                                <>
-                                  <RangeGridBox range={skillRange.baseRange} label="Normal attack range" />
-                                  <span className="op-skill-range-arrow" aria-hidden="true">→</span>
-                                </>
-                              )}
-                              {/* The range at the level the slider is on, not the skill's
-                                  final one. Four skills differ between the two. */}
-                              <RangeGridBox
-                                range={activeSkillRange}
-                                label={`Attack range while this skill is active${activeStepLabel ? ` at ${activeStepLabel}` : ''}`}
-                              />
-                            </div>
-                            {/* Only for the four skills whose range is not the same at every
-                                level. Named rather than called a mastery: three step up at M1
-                                but Swire's Command and Dispatch widens at plain level 7, so
-                                "at mastery" was wrong for her. */}
-                            {skillRange.changesAt.length > 0 && (
-                              <span className="op-skill-range-note">
-                                {`Changes at ${formatLevelList(skillRange.changesAt)}`}
-                              </span>
-                            )}
-                          </div>
+                          <RangeComparison
+                            label="Range while active"
+                            before={skillRange.baseRange}
+                            after={activeSkillRange}
+                            afterLabel={`Attack range while this skill is active${activeStepLabel ? ` at ${activeStepLabel}` : ''}`}
+                            note={skillRange.changesAt.length > 0 ? `Changes at ${formatLevelList(skillRange.changesAt)}` : undefined}
+                          />
                         )}
 
                         {(
@@ -1371,6 +1332,19 @@ export default function OperatorDetailPage({ chibis = {}, summons = [], epTrack,
                                 <b>{effect.label}:</b> <CombatText text={effect.text} />
                               </p>
                             ))}
+                            {baseModuleRange && activeModuleRange && (
+                              <RangeComparison
+                                label={moduleRangeLabel}
+                                before={baseModuleRange}
+                                after={activeModuleRange}
+                                afterLabel={moduleRangeLabel}
+                              />
+                            )}
+                            {activeStage.tileMechanics?.map(mechanic => {
+                              if (mechanic.kind === 'redeployment') return <MeleeRedeploymentArea key="redeployment" range={mechanic.grid} />;
+                              const label = `${mechanic.name} area`;
+                              return <RangeComparison key={mechanic.name} label={label} after={mechanic.grid} afterLabel={label} />;
+                            })}
                             <div className={pageStyles.costs}>
                               <label htmlFor="module-cost-scope">Material costs</label>
                               <StyledSelect id="module-cost-scope" align="end" label="Module material costs" className={pageStyles.costSelect}
