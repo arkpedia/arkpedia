@@ -15,8 +15,8 @@ import { statisticsRefreshToken } from '../deploy/statistics-schedule.mjs';
 import type { RankingBucket } from '../../lib/community/sharedRankingsCache';
 
 const clock=Date.parse('2026-11-02T12:00:00Z');
-const all:CommunityChoices={stats:true,shareTag:true,openRequests:true,allowFollowing:true,profileLink:false};
-const statsOnly:CommunityChoices={stats:true,shareTag:false,openRequests:false,allowFollowing:false,profileLink:false};
+const all:CommunityChoices={stats:true,shareTag:true,openRequests:true,allowFollowing:true,profileLink:false,profileAutoUpdate:false};
+const statsOnly:CommunityChoices={stats:true,shareTag:false,openRequests:false,allowFollowing:false,profileLink:false,profileAutoUpdate:false};
 function snapshot(uid='100'):CommunitySnapshot{return {server:'en',uid,doctor:'Doctor#1234',importedAt:new Date(clock).toISOString(),slots:3,equipmentKnown:true,
   operators:[{operator:'Thorns',elite:2,level:60,m0:0,m1:0,m2:3,modules:{0:3}}],skins:[{skin:'char_293_thorns@test#1',equipped:true}],
   supports:[{operator:'Thorns',elite:2,level:60,skill:3,mastery:2,module:'uniequip_002_thorns',moduleLevel:3}]};}
@@ -87,7 +87,7 @@ test('masteries and exact module levels use all E2 owners including low and unkn
 test('public statistics use only opted-in contributors and wait for ten on the server',async()=>{
   const h=harness();
   try{
-    h.user('private');assert.equal((await h.publish('private','100',{stats:false,shareTag:true,openRequests:true,allowFollowing:false,profileLink:false})).status,200);
+    h.user('private');assert.equal((await h.publish('private','100',{stats:false,shareTag:true,openRequests:true,allowFollowing:false,profileLink:false,profileAutoUpdate:false})).status,200);
     assert.deepEqual((await h.call('stats',null,'GET',undefined,{server:'en',operator:'Thorns'})).result,{contributors:0,owned:null});
     for(let i=0;i<12;i++){
       h.user('u'+i);const s=snapshot(String(200+i));s.operators[0]={operator:'Thorns',elite:i<2?1:2,level:60,m0:0,m1:0,m2:i<2?0:3,modules:i<2?{}:{0:i<5?1:3}};s.skins[0].equipped=i<3;
@@ -632,7 +632,7 @@ test('daily music chart counts each opted-in active save once per catalogue song
   ] as const) {
     user(owner);
     if (enabled || owner === 'supportOnly') {
-      const choices = enabled ? statsOnly : { stats: false, shareTag: true, openRequests: true, allowFollowing:false, profileLink:false };
+      const choices = enabled ? statsOnly : { stats: false, shareTag: true, openRequests: true, allowFollowing:false, profileLink:false,profileAutoUpdate:false };
       assert.equal((await publish(owner, String(1000 + owner.charCodeAt(0)), choices)).status, 200);
     }
     const payload = { 'arkpedia:settings': { version: 2, values: { musicChartContribution: !enabled } },
@@ -743,7 +743,7 @@ test('saved friend references revalidate in one bounded request without download
 test('following and support searchability are independent in all consent combinations',async()=>{
   for(const allowFollowing of [false,true]) for(const supports of [false,true]){
     const h=harness();h.user('alice');
-    const choices={stats:false,shareTag:supports,openRequests:supports,allowFollowing,profileLink:false};
+    const choices={stats:false,shareTag:supports,openRequests:supports,allowFollowing,profileLink:false,profileAutoUpdate:false};
     assert.equal((await h.publish('alice','100',choices)).status,200);
     const state=(await h.call('sharing','alice')).result;
     assert.equal(state.allowFollowing,allowFollowing);
@@ -815,6 +815,10 @@ test('following migration preserves explicit publication only and defaults suppo
   sqlite.prepare("INSERT INTO community_friend_profile(userId,enabled,gameKey,snapshot,mutationId,updatedAt) VALUES('withdrawn',0,NULL,NULL,'m',?)").run(new Date(clock).toISOString());
   sqlite.exec(fs.readFileSync('migrations/accounts/0023_allow_following.sql','utf8'));
   assert.deepEqual(sqlite.prepare('SELECT userId,allowFollowing FROM community_account ORDER BY userId').all().map((r:any)=>[r.userId,r.allowFollowing]),[['published',1],['supportOnly',0],['withdrawn',0]]);
+  sqlite.exec(fs.readFileSync('migrations/accounts/0024_profile_auto_update.sql','utf8'));
+  const migrated=sqlite.prepare("SELECT enabled,autoUpdate FROM community_friend_profile WHERE userId='published'").get();
+  assert.equal(migrated.enabled,1);
+  assert.equal(migrated.autoUpdate,0);
   sqlite.close();h.sqlite.close();
 });
 
@@ -867,4 +871,67 @@ test('republishing updated builds only changes operator-index rows when ownershi
   updated.account.operators=['Thorns','Kroos'];
   assert.equal((await publish(2,updated)).status,200);
   assert.deepEqual(h.sqlite.prepare('SELECT kind,COUNT(*) AS n FROM index_writes GROUP BY kind ORDER BY kind').all().map((r:any)=>[r.kind,r.n]),[['delete',1],['insert',1]]);
+});
+
+test('opted-in imports replace the collection at the existing direct link',async()=>{
+  const h=harness();h.user('alice');
+  const choices={...statsOnly,profileLink:true};
+  const manual={...snapshot(),importedAt:new Date(clock-120_000).toISOString()};
+  const next={...manual,importedAt:new Date(clock-60_000).toISOString()};
+  const latest=snapshot();
+  const profileAt=(importedAt:string,level:number)=>{
+    const publicProfile=publicFriendFixture();
+    publicProfile.account.importedAt=importedAt;
+    publicProfile.roster.Thorns.level=level;
+    return publicProfile;
+  };
+  const call=(revision:number,action:'refresh'|'consent',selected:typeof choices,imported:CommunitySnapshot,publicProfile?:ReturnType<typeof publicFriendFixture>)=>
+    h.call('sharing','alice','PUT',{revision,action,choices:selected,snapshot:imported,publicProfile});
+  const publish=await call(0,'consent',choices,manual,profileAt(manual.importedAt,60));
+  assert.equal(publish.status,200);
+  assert.equal(publish.result.profileAutoUpdate,false);
+  const mine=(await h.call('friends','alice','GET',undefined,{mine:'1'})).result;
+  const read=()=>h.call('friends',null,'GET',undefined,{id:mine.id,link:'1'});
+  assert.equal((await call(1,'refresh',choices,next)).status,200);
+  assert.equal((await call(2,'refresh',choices,next,profileAt(next.importedAt,65))).status,409);
+  const automatic={...choices,profileAutoUpdate:true};
+  assert.equal((await call(2,'refresh',automatic,next,profileAt(next.importedAt,65))).status,409);
+  assert.equal((await read()).result.profile.account.importedAt,manual.importedAt);
+  assert.equal((await call(2,'consent',automatic,next)).result.profileAutoUpdate,true);
+  // Older open tabs can refresh community data without changing the saved opt-in.
+  const {profileAutoUpdate: _omitted,...oldClientChoices}=choices;
+  const oldClient=await h.call('sharing','alice','PUT',{revision:3,action:'refresh',choices:oldClientChoices,snapshot:latest});
+  assert.equal(oldClient.result.profileAutoUpdate,true);
+  assert.equal(oldClient.result.profileImportedAt,manual.importedAt);
+  assert.equal((await call(4,'refresh',automatic,{...latest,uid:'200'},profileAt(latest.importedAt,70))).status,409);
+  assert.equal((await call(4,'refresh',automatic,latest,profileAt(latest.importedAt,70))).status,200);
+  const readLatest=await read();
+  assert.equal(readLatest.status,200);
+  assert.equal(readLatest.result.profile.account.importedAt,latest.importedAt);
+  assert.equal(readLatest.result.profile.roster.Thorns.level,70);
+  assert.equal(h.sqlite.prepare('SELECT COUNT(*) AS n FROM community_friend_profile').get().n,1);
+  assert.equal((await call(5,'refresh',automatic,next,profileAt(next.importedAt,65))).status,409);
+  assert.equal((await h.call('sharing','alice','PUT',{revision:5,choices})).result.profileAutoUpdate,false);
+  assert.equal((await read()).result.profile.roster.Thorns.level,70);
+  assert.equal((await call(6,'refresh',choices,latest,profileAt(latest.importedAt,80))).status,409);
+});
+
+test('withdrawal clears automatic consent and a pending import cannot revive the link',async()=>{
+  const h=harness();h.user('alice');
+  const choices={...statsOnly,profileLink:true,profileAutoUpdate:true};
+  const publicProfile=publicFriendFixture();
+  assert.equal((await h.call('sharing','alice','PUT',{revision:0,action:'consent',choices,snapshot:snapshot(),publicProfile})).status,200);
+  const mine=(await h.call('friends','alice','GET',undefined,{mine:'1'})).result;
+  const importedAt=new Date(clock+60_000).toISOString();
+  publicProfile.account.importedAt=importedAt;
+  const refresh={revision:1,action:'refresh',choices,snapshot:{...snapshot(),importedAt},publicProfile};
+  const [,withdrawal]=await Promise.all([
+    h.call('sharing','alice','PUT',refresh),
+    h.call('sharing','alice','DELETE',{}),
+  ]);
+  assert.equal(withdrawal.status,200);
+  assert.equal(withdrawal.result.profileAutoUpdate,false);
+  assert.equal(h.sqlite.prepare('SELECT autoUpdate FROM community_friend_profile').get().autoUpdate,0);
+  assert.equal((await h.call('sharing','alice','PUT',{...refresh,revision:withdrawal.result.revision})).status,409);
+  assert.equal((await h.call('friends',null,'GET',undefined,{id:mine.id,link:'1'})).status,404);
 });

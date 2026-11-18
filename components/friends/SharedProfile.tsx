@@ -33,7 +33,7 @@ export function SharedProfileContent({record,operators,skins,standalone=false}:{
       <div ref={standalone?floor.ref:undefined} {...tabPanelProps(tabId,view)} className="account-tab-content">
         {view==='profile'?<section className="op-section">
           <ProfileCard account={shared.account} map={map} outfits={shared.account.skins.length} outfitArt={outfitArt} outfitNames={outfitNames} onOperators={()=>setView('operators')} onSkins={()=>setView('skins')} />
-          <p className="hint">Shared collection · imported {new Date(shared.account.importedAt).toLocaleDateString()}. Recorded builds are self-reported snapshots.</p>
+          <p className="hint">Recorded builds are self-reported.{!standalone&&<> Last imported <time dateTime={shared.account.importedAt}>{new Date(shared.account.importedAt).toLocaleDateString()}</time>.</>}</p>
         </section>:<FriendCollection key={view} friend={shared} operators={operators} skins={skins} view={view} onClose={()=>{}} inline />}
         {standalone&&floor.spacer}
       </div>

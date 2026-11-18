@@ -6,8 +6,8 @@ export const COMMUNITY_MIN_SAMPLE = 10;
 export const SUPPORT_MAX_AGE = 7 * 86400_000;
 export const AVAILABILITY_MAX_AGE = 86400_000;
 export const FULL_REPORT_THRESHOLD = 3;
-export interface CommunityChoices { stats: boolean; shareTag: boolean; openRequests: boolean; allowFollowing: boolean; profileLink: boolean }
-export const COMMUNITY_OFF: CommunityChoices = { stats: false, shareTag: false, openRequests: false, allowFollowing: false, profileLink: false };
+export interface CommunityChoices { stats: boolean; shareTag: boolean; openRequests: boolean; allowFollowing: boolean; profileLink: boolean; profileAutoUpdate: boolean }
+export const COMMUNITY_OFF: CommunityChoices = { stats: false, shareTag: false, openRequests: false, allowFollowing: false, profileLink: false, profileAutoUpdate: false };
 export interface CommunityState extends CommunityChoices {
   revision: number; profileImportedAt?: string | null; server?: ServerId; importedAt?: string; friendTag?: string | null; listed?: boolean; reportedFull?: boolean;
 }
@@ -33,11 +33,11 @@ const id = (v: unknown) => typeof v === 'string' && /^[\w@#+-]{1,100}$/.test(v);
 const name = (v: unknown): v is string => typeof v === 'string' && v.length > 0 && v.length <= 200 && !/[\x00-\x1f]/.test(v) && !['__proto__','constructor','prototype'].includes(v);
 const integer = (v: unknown, low: number, high: number): v is number => typeof v === 'number' && Number.isInteger(v) && v >= low && v <= high;
 const nullable = (v: unknown, low: number, high: number) => v === null || integer(v, low, high);
-export function parseCommunityChoices(value: unknown): CommunityChoices {
+export function parseCommunityChoices(value: unknown, savedProfileAutoUpdate = false): CommunityChoices {
   const v=value as CommunityChoices;
   if(!v || ['stats','shareTag','openRequests'].some(key=>typeof (v as unknown as Record<string,unknown>)[key]!=='boolean')) throw Error('Choose each community sharing option.');
-  if(['allowFollowing','profileLink'].some(key=>(v as unknown as Record<string,unknown>)[key]!==undefined&&typeof (v as unknown as Record<string,unknown>)[key]!=='boolean')) throw Error('Choose each profile sharing option.');
-  return {stats:v.stats,shareTag:v.shareTag,openRequests:v.shareTag && v.openRequests,allowFollowing:v.allowFollowing===true,profileLink:v.profileLink===true};
+  if(['allowFollowing','profileLink','profileAutoUpdate'].some(key=>(v as unknown as Record<string,unknown>)[key]!==undefined&&typeof (v as unknown as Record<string,unknown>)[key]!=='boolean')) throw Error('Choose each profile sharing option.');
+  return {stats:v.stats,shareTag:v.shareTag,openRequests:v.shareTag && v.openRequests,allowFollowing:v.allowFollowing===true,profileLink:v.profileLink===true,profileAutoUpdate:v.profileLink===true&&(v.profileAutoUpdate??savedProfileAutoUpdate)};
 }
 /** Deliberately projects only requested community fields, never a private save or wallet. */
 export function communitySnapshot(account: AccountRecord, choices: CommunityChoices): CommunitySnapshot {

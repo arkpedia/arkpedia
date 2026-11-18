@@ -4,7 +4,7 @@ import { publicFriendFile } from '@/lib/friends/sharedProfile';
 import { makeFriendFile, shareableRoster } from '@/lib/account/friendFile';
 import { readRoster } from '@/lib/planner/roster';
 import { useAccount, useOtherAccounts } from '@/lib/account/accountStore';
-import { communitySnapshot, type CommunityChoices, type CommunityState } from './model';
+import { COMMUNITY_OFF, communitySnapshot, type CommunityChoices, type CommunityState } from './model';
 
 interface Sharing {
   state:CommunityState|null; busy:boolean; error:string;
@@ -25,11 +25,14 @@ export default function SharingProvider({children}:{children:ReactNode}){
     const response=await fetch('/api/community/sharing',{method,credentials:'same-origin',cache:'no-store',headers:body?{'Content-Type':'application/json'}:{},...(body?{body:JSON.stringify(body)}:{})});
     const data=await response.json();if(!response.ok)throw Error(data.error??'Community sharing could not update.');return data as CommunityState;
   },[]);
+  const acceptState=useCallback((data:CommunityState)=>{
+    setState(previous=>previous&&previous.revision>data.revision?previous:data);
+  },[]);
   const refresh=useCallback(async()=>{
     const identity=ownerRef.current;if(!identity)return;
-    try{const data=await request('GET');if(ownerRef.current===identity){setState(data);setLoadedFor(identity);setError('');}}
+    try{const data=await request('GET');if(ownerRef.current===identity){acceptState(data);setLoadedFor(identity);setError('');}}
     catch(e){if(ownerRef.current===identity)setError(e instanceof Error?e.message:'Could not read community choices.');}
-  },[request]);
+  },[request,acceptState]);
   useEffect(()=>{setState(null);setLoadedFor(null);setError('');seen.current='';void refresh();},[owner,refresh]);
   useEffect(()=>{const focus=()=>void refresh();window.addEventListener('focus',focus);return()=>window.removeEventListener('focus',focus);},[refresh]);
   async function write(choices:CommunityChoices,action:'consent'|'refresh'='consent'){
@@ -40,21 +43,35 @@ export default function SharingProvider({children}:{children:ReactNode}){
     if(!off&&!account&&!withdrawing){setError('Import your game account before sharing.');return false;}
     inflight.current=true;setBusy(true);setError('');
     try{
-      const data=await request(off?'DELETE':'PUT',{owner:identity,revision:previous.revision,action,choices,...(choices.profileLink&&account&&!withdrawing&&action==='consent'&&(!previous.profileLink||account.importedAt!==previous.profileImportedAt)?{publicProfile:publicFriendFile(makeFriendFile(account,shareableRoster(account,Object.values(others),readRoster())))}:{}),...(!off&&account&&!withdrawing?{snapshot:communitySnapshot(account,choices)}:action==='refresh'&&account?{snapshot:communitySnapshot(account,choices)}:{})});
+      const publishProfile=account&&choices.profileLink&&!withdrawing&&(action==='consent'||choices.profileAutoUpdate)&&
+        (!previous.profileLink||account.importedAt!==previous.profileImportedAt);
+      const data=await request(off?'DELETE':'PUT',{
+        owner:identity,revision:previous.revision,action,choices,
+        ...(!off&&account&&!withdrawing?{snapshot:communitySnapshot(account,choices)}:{}),
+        ...(publishProfile?{publicProfile:publicFriendFile(makeFriendFile(account,shareableRoster(account,Object.values(others),readRoster())))}:{}),
+      });
       if(ownerRef.current!==identity)return false;
-      if(importedIdentity.current!==capture){void refresh();return false;}
-      seen.current=`${identity}:${account?.server}:${account?.profile?.uid}:${account?.importedAt}`;setState(data);return true;
+      // The saved choices still apply to the signed-in owner if another import arrived during the write.
+      acceptState(data);
+      return importedIdentity.current===capture;
     }catch(e){if(ownerRef.current===identity)setError(e instanceof Error?e.message:'Community sharing could not update.');return false;}
     finally{inflight.current=false;setBusy(false);}
   }
   // An import can refresh an existing opt-in, never create consent or change game identity.
   useEffect(()=>{
-    if(!owner||loadedFor!==owner||!state||!account||(!state.stats&&!state.shareTag&&!state.openRequests&&!state.allowFollowing&&!state.profileLink)||account.importedAt===state.importedAt)return;
-    const key=`${owner}:${account.server}:${account.profile?.uid}:${account.importedAt}`;
-    if(seen.current===key||inflight.current)return;seen.current=key;
-    void write({stats:state.stats,shareTag:state.shareTag,openRequests:state.openRequests,allowFollowing:state.allowFollowing,profileLink:state.profileLink},'refresh');
-    // The import timestamp is the only automatic publication trigger; choices are server-checked.
+    if(!owner||loadedFor!==owner||!state||!account||busy||inflight.current)return;
+    const {stats,shareTag,openRequests,allowFollowing,profileLink,profileAutoUpdate=false}=state;
+    if(!stats&&!shareTag&&!openRequests&&!allowFollowing&&!profileLink)return;
+    const latest=Date.parse(state.importedAt??'');
+    const selected=Date.parse(account.importedAt);
+    const collectionBehind=profileAutoUpdate&&account.importedAt!==state.profileImportedAt;
+    if(selected<latest||(selected===latest&&!collectionBehind))return;
+    const key=`${accountIdentity}:${state.revision}`;
+    if(seen.current===key)return;
+    seen.current=key;
+    void write({stats,shareTag,openRequests,allowFollowing,profileLink,profileAutoUpdate},'refresh');
+    // Only a newer import or a collection that still needs that import can trigger publication.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  },[owner,loadedFor,account?.importedAt,state?.revision]);
-  return <Context.Provider value={{state:activeState,busy,error,save:choices=>write(choices),stop:()=>write({stats:false,shareTag:false,openRequests:false,allowFollowing:false,profileLink:false}),refresh}}>{children}</Context.Provider>;
+  },[owner,loadedFor,accountIdentity,state?.revision,busy]);
+  return <Context.Provider value={{state:activeState,busy,error,save:choices=>write(choices),stop:()=>write(COMMUNITY_OFF),refresh}}>{children}</Context.Provider>;
 }
