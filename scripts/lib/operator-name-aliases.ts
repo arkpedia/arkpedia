@@ -1,9 +1,8 @@
-import { buildAliasMap } from '../../lib/operators/operatorAliases';
 import type { Operator } from '../../lib/operators/operatorTypes';
 import { normalizeForSearch } from '../../lib/search/searchNormalize';
 import { hanReadings, kanaReadings, romanizeHangul } from './credit-romanization';
 
-type OperatorNames = Pick<Operator, 'name' | 'internalName' | 'aliases' | 'alternate' | 'otherLanguages'>;
+type OperatorNames = Pick<Operator, 'name' | 'internalName' | 'aliases' | 'otherLanguages'>;
 
 // The public operator file gives this name in addition to the codename Тоска.
 const BIOGRAPHICAL_NAMES: Readonly<Record<string, readonly string[]>> = {
@@ -32,13 +31,11 @@ function readings(name: string, language: string): string[] {
 
 /** Names in the records and their Latin spellings. The indexes carry the results. */
 export function buildOperatorNameAliases(operators: OperatorNames[]): Record<string, string[]> {
-  const alters = buildAliasMap(operators);
   return Object.fromEntries(operators.map(operator => {
     const localized = Object.entries(operator.otherLanguages ?? {})
       .filter(([, name]) => typeof name === 'string' && name.trim() !== '');
     const otherNames = [
       ...(operator.aliases ?? []),
-      ...(alters[operator.name] ?? []),
       ...(BIOGRAPHICAL_NAMES[operator.internalName ?? ''] ?? []),
     ];
     const seen = new Set([normalizeForSearch(operator.name)]);

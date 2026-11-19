@@ -500,13 +500,14 @@ test('operator aliases come from localized records and support new Cyrillic name
     assert.equal(getOperatorSearchResults(rows, query)[0]?.name, name, query);
     assert.ok(Number.isFinite(operatorSearchMatcher(query, table)({ name })), query);
   }
-  const example = { name: 'Север', aliases: ['Old name'], alternate: null, otherLanguages: {
+  const example = { name: 'Север', aliases: ['Old name'], otherLanguages: {
     Japanese: '青雪', Korean: '북극', 'Simplified Chinese': '北方',
   } };
   const generated = buildOperatorNameAliases([example])['Север'];
   for (const alias of ['sever', 'Old name', '青雪', '북극', 'bukgeuk', '北方', 'beifang']) assert.ok(generated.includes(alias), alias);
   assert.ok(!generated.includes('qingxue'), 'do not read Japanese kanji as Mandarin');
   assert.equal(operatorSearchMatcher('fyodor', table)({ name: 'Amiya' }), Infinity);
+  assert.deepEqual(getOperatorSearchResults(rows, 'Zima the Raging Tide').map(row => row.name), ['Zima the Raging Tide']);
 });
 
 test('older operator search indexes gain bundled aliases without changing their roster', async () => {

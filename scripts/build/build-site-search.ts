@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { getAllOperators } from '../../lib/operators/operators';
 import { portraitStatus } from '../../lib/operators/operatorPortrait';
+import { buildAliasMap } from '../../lib/operators/operatorAliases';
 import { OPERATOR_NAME_ALIASES_VERSION } from '../../lib/operators/operatorSearch';
 import { buildOperatorNameAliases } from '../lib/operator-name-aliases';
 import { getEventCalendar } from '../../lib/home/frontPageContent';
@@ -24,6 +25,8 @@ const root = process.cwd();
 const readJson = <T>(file: string): T => JSON.parse(fs.readFileSync(path.join(root, file), 'utf8')) as T;
 
 const operators = getAllOperators();
+const operatorAliases = buildOperatorNameAliases(operators);
+for (const [name, alters] of Object.entries(buildAliasMap(operators))) operatorAliases[name].push(...alters);
 const stages = readJson<{ slug: string; code: string | null; name: string | null; variantOf: string | null; contentId: string | null; contentName: string | null }[]>('public/stages-index.json');
 // The same rule as /stages/content/[id]'s getStaticPaths: content with no stage of its own
 // builds no page, so it gets no row to 404 on.
@@ -39,7 +42,7 @@ const people = siteSearchPeople();
 const entries = buildSiteSearchEntries({
   pages: NAV_ORDER,
   operators: operators.map((op) => ({ name: op.name, rarity: op.rarity, ...portraitStatus(op) })),
-  operatorAliases: buildOperatorNameAliases(operators),
+  operatorAliases,
   events: getEventCalendar(),
   contents,
   stages,
