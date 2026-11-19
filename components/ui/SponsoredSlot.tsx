@@ -1,6 +1,7 @@
 import { useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import Link from 'next/link';
 import { ContentImg } from '@/components/content/ContentImage';
+import { loadAssetImage } from '@/lib/assets/assetRetry';
 import { ContentTablesContext, useContentUrl } from '@/lib/content/context';
 import { sitePath, sponsorCampaignsFor, type SponsorCampaign, type SponsorCampaignTable, type SponsorPlacement } from '@/lib/sponsors/campaigns';
 import { SPONSOR_STRINGS as S } from '@/lib/sponsors/strings';
@@ -45,7 +46,8 @@ function useTurn(ref: React.RefObject<HTMLElement | null>, campaigns: SponsorCam
     const slot = ref.current;
     if (count < 2 || !slot || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
     const next = campaigns[(turn + 1) % count];
-    new Image().src = contentUrl(next.image);
+    // Ahead of its turn; a failure here is not an error, the slot's own image shows its fallback.
+    void loadAssetImage(contentUrl(next.image)).catch(() => {});
     const timer = window.setInterval(() => {
       if (document.hidden || slot.matches(':hover, :focus-within') || getComputedStyle(slot).display === 'none') return;
       setTurn(value => (value + 1) % count);
