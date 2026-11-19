@@ -9,7 +9,7 @@ import { GetStaticProps } from 'next';
 import { useRouter } from 'next/router';
 import Image from '@/components/content/ContentImage';
 import BannerArtworkFallback, { BannerArtworkThumbnail } from '@/components/gacha/BannerArtworkFallback';
-import { officialBannerArtwork, type BannerArtworkOperator } from '@/lib/gacha/bannerArtwork';
+import type { BannerArtworkOperator } from '@/lib/gacha/bannerArtwork';
 import { buildBannerArtwork, readBannerShopRows } from '@/lib/gacha/bannerArtworkServer';
 import { useContentUrl } from '@/lib/content/context';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
@@ -1469,14 +1469,6 @@ export default function GachaSimulator({ pools, banners: globalBanners, fallback
   const banners = useMemo(() => regionalBanners(globalBanners, schedule, server), [globalBanners, schedule, server]);
   const router = useRouter();
   const contentUrl = useContentUrl();
-  const [failedArtwork, setFailedArtwork] = useState<Set<string>>(() => new Set());
-  function bannerArtwork(banner: HeadhuntingBanner) {
-    const art = officialBannerArtwork(banner);
-    return art && !failedArtwork.has(art) ? art : null;
-  }
-  function artworkFailed(art: string) {
-    setFailedArtwork(failed => failed.has(art) ? failed : new Set(failed).add(art));
-  }
   // What is live or upcoming is judged on the reader's clock, not the server's: the
   // first render uses the request's `now`, so it matches the markup, and the reader's
   // clock takes over after mount (a tab left open follows a banner's end, too).
@@ -1494,14 +1486,13 @@ export default function GachaSimulator({ pools, banners: globalBanners, fallback
   const [guidePhase, setGuidePhase] = useState<'question' | 'basics' | 'banner'>('question');
   const [guidePageIndex, setGuidePageIndex] = useState(0);
   const selectedBanner = categoryBanners.find((b) => b.name === selectedBannerName) || categoryBanners[0];
-  const selectedArt = selectedBanner && bannerArtwork(selectedBanner);
+  const selectedArt = selectedBanner?.banner_image;
   const selectedFallback = selectedBanner && !selectedBanner.globalLineupPending && fallbackArtwork[selectedBanner.name];
   const bannerArtworkView = !selectedBanner ? null : selectedArt ? (
     <a className="gacha-banner-art-link" href={contentUrl(selectedArt)} target="_blank" rel="noreferrer"
       aria-label={`Open full-size banner artwork for ${bannerDisplayName(selectedBanner.name)} (opens in a new tab)`}>
       <Image src={selectedArt} alt={bannerDisplayName(selectedBanner.name)} width={1600} height={900}
-        className="gacha-banner-main-image" priority
-        onError={selectedBanner.banner_image ? undefined : () => artworkFailed(selectedArt)} />
+        className="gacha-banner-main-image" priority />
     </a>
   ) : selectedFallback ? (
     <BannerArtworkFallback operators={selectedFallback} kernel={selectedBanner.pull_type === 'kernel'} />
@@ -1832,7 +1823,7 @@ export default function GachaSimulator({ pools, banners: globalBanners, fallback
                 <div className="gacha-banner-sidebar-spacer" style={{ height: bannerWindow.before }} aria-hidden="true" />
                 {visibleBanners.map((b) => {
                   const isCurrentlyActive = category === 'upcoming' && isBannerLive(b, clock);
-                  const art = bannerArtwork(b);
+                  const art = b.banner_image;
                   const fallback = !b.globalLineupPending && fallbackArtwork[b.name];
                   return (
                     <button
@@ -1844,8 +1835,7 @@ export default function GachaSimulator({ pools, banners: globalBanners, fallback
                       title={bannerDisplayName(b.name)}
                     >
                       {art
-                        ? <Image src={art} alt="" fill sizes="260px" className="gacha-banner-sidebar-bg"
-                            onError={b.banner_image ? undefined : () => artworkFailed(art)} />
+                        ? <Image src={art} alt="" fill sizes="260px" className="gacha-banner-sidebar-bg" />
                         : fallback && <BannerArtworkThumbnail operators={fallback} />}
                       {isCurrentlyActive && <span className="badge-live gacha-banner-sidebar-live-badge">LIVE NOW</span>}
                       <span className="gacha-banner-sidebar-text">

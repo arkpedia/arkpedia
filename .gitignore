@@ -82,8 +82,6 @@ public/**/*.gif
 public/**/*.svg
 public/**/*.avif
 public/**/*.ico
-# The official Pool #180 poster is bundled while the normal asset mirror lacks it.
-!public/gacha-art/standard-pool-180-global.webp
 
 # Python importer caches
 __pycache__/
