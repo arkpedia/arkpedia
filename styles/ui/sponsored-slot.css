@@ -40,8 +40,9 @@ a.sponsored-slot-art:focus-visible { border-color: var(--teal); }
 
 /* Beside a page's title (components/ui/PageHeader): the artwork laid over the empty space
    to the right of the title, 60px tall on every header: the height of the eyebrow and
-   title. Beside a header with a lede it starts level with the eyebrow; beside one without
-   it is centred in the header.
+   title. It starts 16px below the header's top edge on every header, with or without a
+   lede and slim or not, so it stays at one height from page to page (the shortest header,
+   91px, still holds it).
    It is out of the flow and the header reserves nothing for it, so every header and
    everything under it measures the same with or without a campaign. It stays hidden until
    SponsoredSlot has measured that nothing of the header reaches under it (a long title, a
@@ -51,15 +52,12 @@ a.sponsored-slot-art:focus-visible { border-color: var(--teal); }
 .page-header.page-header-sponsored { position: relative; --header-sponsor-h: 60px; }
 .sponsored-slot--header {
   position: absolute;
-  top: 50%;
+  top: 16px;
   right: var(--page-gutter);
   height: var(--header-sponsor-h);
-  transform: translateY(-50%);
   visibility: hidden;
 }
 .sponsored-slot--header[data-clear] { visibility: visible; }
-.page-header:has(> .sub) > .sponsored-slot--header { top: 28px; transform: none; }
-.page-header-slim:has(> .sub) > .sponsored-slot--header { top: 16px; }
 .sponsored-slot--header .sponsored-slot-art { width: auto; height: 100%; }
 .sponsored-slot--header .sponsored-slot-fallback { padding: 0 6px; font-size: 11px; line-height: 1.2; }
 @media (max-width: 1000px) {
