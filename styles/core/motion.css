@@ -23,6 +23,13 @@
    --dur-2 (styles/core/shared.css). */
 
 @media (prefers-reduced-motion: no-preference) {
+  .schedule-event-art-frame { transition: opacity var(--dur-2) var(--ease); }
+  .schedule-fullscreen-panel.open .schedule-event-art { animation: calendar-art-reveal calc(2 * var(--dur-2)) var(--ease); }
+  @keyframes calendar-art-reveal {
+    from { scale: 1.045; filter: brightness(.72); }
+    to { scale: 1; filter: none; }
+  }
+
   /* A click-triggered original game entrance. Only the modal media frame moves;
      the event page and its banner keep their normal document layout. */
   .event-entrance[open]::backdrop { animation: event-entrance-black 160ms linear; transition: background-color 180ms linear; }
@@ -132,7 +139,7 @@
     .front-gacha-poster-wrap,
     .front-gacha-thumb,
     .front-featured-op,
-    .front-skin-item,
+    button.skin-shelf-card,
     .front-community-item,
     .gacha-banner-sidebar-item,
     .skin-card,
@@ -164,7 +171,7 @@
     .front-gacha-poster-wrap,
     .front-gacha-thumb,
     .front-featured-op,
-    .front-skin-item,
+    button.skin-shelf-card,
     .front-community-item,
     .gacha-banner-sidebar-item,
     .skin-card,
@@ -198,7 +205,7 @@
       .front-gacha-poster-wrap,
       .front-gacha-thumb,
       .front-featured-op,
-      .front-skin-item,
+      button.skin-shelf-card,
       .front-community-item,
       .gacha-banner-sidebar-item,
       .skin-card,
@@ -230,12 +237,12 @@
     /* In a scroller that leaves a card no room around it, the contact shadow that fits
        (--shadow-lift-tight, shared.css): the full one was cut flat at the scroller's
        edge. A scroller clips at its padding box, so the room is its padding. */
-    :is(.scroll-row, .score-rail, .enemy-grid-pane) :is(.lift, .roster-card, .enemy-tile, .front-skin-item, .skin-card, .skins-current-item, .video-card, .music-discover-album-tile, .music-discover-character-tile, .music-discover-artist-card, .score-node):hover {
+    :is(.scroll-row, .score-rail, .enemy-grid-pane) :is(.lift, .roster-card, .enemy-tile, button.skin-shelf-card, .skin-card, .skins-current-item, .video-card, .music-discover-album-tile, .music-discover-character-tile, .music-discover-artist-card, .score-node):hover {
       box-shadow: var(--shadow-lift-tight);
     }
   }
   .front-gacha-thumb.active:focus-visible { box-shadow: inset 0 0 0 1px var(--teal), var(--shadow-lift); }
-  :is(.scroll-row, .score-rail, .enemy-grid-pane) :is(.lift, .roster-card, .enemy-tile, .front-skin-item, .skin-card, .skins-current-item, .video-card, .music-discover-album-tile, .music-discover-character-tile, .music-discover-artist-card, .score-node):focus-visible {
+  :is(.scroll-row, .score-rail, .enemy-grid-pane) :is(.lift, .roster-card, .enemy-tile, button.skin-shelf-card, .skin-card, .skins-current-item, .video-card, .music-discover-album-tile, .music-discover-character-tile, .music-discover-artist-card, .score-node):focus-visible {
     box-shadow: var(--shadow-lift-tight);
   }
 

@@ -33,10 +33,12 @@ import { portraitStatus } from '@/lib/operators/operatorPortrait';
 import { getEventCalendar } from '@/lib/home/frontPageContent';
 import { currentEventRows, currentPullBannerLinks, pastScheduleEvents, pruneScheduleProps, timelineOperatorsAt, type EventRow, type EventRowView, type ExportedTimelineOperator, type PullBannerWindows } from '@/lib/schedule/eventRows';
 import { toServerTime } from '@/lib/time/servers.mjs';
-import { getDisplayFeaturedSixStars } from '@/lib/gacha/realGachaBanners';
-import { isLineupPending, lineupPendingNote } from '@/lib/gacha/bannerLineup';
+import { getBannerLineup, isLineupPending, lineupPendingNote } from '@/lib/gacha/bannerLineup';
 import { publishedArt } from '@/lib/art/publishedArt';
-import { ReleaseDateLookup } from '@/lib/operators/operatorReleaseDates';
+import { getEventCgImages } from '@/lib/events/eventCg';
+import { eventTitle } from '@/lib/events/eventName.mjs';
+import CalendarEventArt from '@/components/schedule/CalendarEventArt';
+import SkinShelf from '@/components/skins/SkinShelf';
 import SkinDetailDialog from '@/components/skins/SkinDetailDialog';
 import { withSkinArtwork } from '@/lib/skins/dynamicArtFallback';
 import PageHeader from '@/components/ui/PageHeader';
@@ -46,7 +48,6 @@ import { useSwitchHold } from '@/components/ui/useSwitchHold';
 import StyledSelect from '@/components/ui/StyledSelect';
 import { renderMonthValue, steadyValue } from '@/components/schedule/CalendarMonthValue';
 import CalendarSubscription from '@/components/schedule/CalendarSubscription';
-import ScrollRow from '@/components/ui/ScrollRow';
 import { getEventColor } from '@/lib/schedule/eventColors';
 import { parsePrices, formatPrices } from '@/lib/skins/skinPrice';
 import { ScheduleEvent } from '@/lib/schedule/scheduleTypes';
@@ -61,7 +62,7 @@ interface Props {
   events: ScheduleEvent[];
   operators: ExportedTimelineOperator[];
   skins: Skin[];
-  releaseLookup: ReleaseDateLookup;
+  eventScenes?: Record<string, string[]>;
   /** The Events list's rows: every calendar event with its window. Named apart from
    *  `events`, which is the calendar's schedule data and a different shape entirely.
    *  Which rows are ongoing or upcoming is decided at render, from `now`. */
@@ -109,7 +110,7 @@ function ScheduleRowLink({ name, modeId, bannerName, onOpen, children }: { name:
     : <Link prefetch={false} href={`/events/${encodeURIComponent(name)}`} className="events-row-main">{children}</Link>;
 }
 
-export default function SchedulePage({ events: globalEvents, operators: exportedOperators, skins, releaseLookup, eventRows: calendarRows, pullBanners, pullBannerLinks: legacyPullBannerLinks, now: requestNow }: Props) {
+export default function SchedulePage({ events: globalEvents, operators: exportedOperators, skins, eventScenes, eventRows: calendarRows, pullBanners, pullBannerLinks: legacyPullBannerLinks, now: requestNow }: Props) {
   /* The release's tables, which the page's props always carry (lib/content/tables.mjs). The
      bundled copies behind them are gone: a page rendered from a newer release read them
      whenever a table was missing, and the banner list alone was 223 KB of the chunk. */
@@ -262,30 +263,54 @@ export default function SchedulePage({ events: globalEvents, operators: exported
   const panelBanner = displayEvent?.bannerName
     ? banners.map(globalBannerPreview).find(banner => banner.name === displayEvent.bannerName) ?? null
     : displayEvent ? getBannerForEvent(displayEvent.name, confirmedGlobalRange(displayEvent.global), banners.filter((banner) => !waitsForGlobal(banner))) : null;
-  const panelBannerSixStars = panelBanner ? getDisplayFeaturedSixStars(panelBanner, releaseLookup) : [];
+  const panelFeatured = panelBanner && !isLineupPending(panelBanner) ? getBannerLineup(panelBanner).featured : [];
+  const openerRef = useRef<HTMLElement | null>(null);
+  const closeRef = useRef<HTMLButtonElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const selectedName = selectedEvent?.name;
+  const eventKind = /^\[([^\]]+)\]/.exec(displayEvent?.name ?? '')?.[1];
 
-  function openEvent(e: ScheduleEvent) {
+  function openEvent(e: ScheduleEvent, trigger?: HTMLElement) {
+    if (trigger) openerRef.current = trigger;
+    else if (document.activeElement instanceof HTMLElement && !panelRef.current?.contains(document.activeElement)) {
+      openerRef.current = document.activeElement;
+    }
+    if (displayEvent?.name !== e.name) setShowNewestOnly(false);
     setDisplayEvent(e);
     setSelectedEvent(e);
   }
+
   function closePanel() {
     setSelectedEvent(null);
+    openerRef.current?.focus({ preventScroll: true });
   }
 
-  const panelRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!selectedName) return;
+    const panel = panelRef.current;
+    if (panel) panel.scrollTop = 0;
+    closeRef.current?.focus({ preventScroll: true });
+  }, [selectedName]);
 
   useEffect(() => {
-    if (!selectedEvent || activeSkin || collabArt) return;
+    if (!selectedName || activeSkin || collabArt || showAllSkins) return;
     function handleClickOutside(e: MouseEvent) {
       const target = e.target as HTMLElement;
-      if (target.closest('.schedule-bar')) return; // clicking another event is a switch, not a close -- let openEvent's own state update handle it
-      if (panelRef.current && !panelRef.current.contains(target)) {
-        closePanel();
-      }
+      if (!target.closest('.schedule-bar') && !panelRef.current?.contains(target)) setSelectedEvent(null);
+    }
+    function handleEscape(e: KeyboardEvent) {
+      if (e.key !== 'Escape' || e.defaultPrevented) return;
+      e.preventDefault();
+      setSelectedEvent(null);
+      openerRef.current?.focus({ preventScroll: true });
     }
     document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [selectedEvent, activeSkin, collabArt]);
+    document.addEventListener('keydown', handleEscape);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleEscape);
+    };
+  }, [selectedName, activeSkin, collabArt, showAllSkins]);
 
   function goPrevMonth() {
     if (month === 0) {
@@ -545,7 +570,7 @@ export default function SchedulePage({ events: globalEvents, operators: exported
                     <div
                       key={wi}
                       className="timeline-week-grid"
-                      style={{ gridTemplateRows: `minmax(${showBirthdays ? 46 : 30}px, max-content) repeat(${laneCount}, 42px) minmax(12px, 1fr)` }}
+                      style={{ gridTemplateRows: `minmax(${showBirthdays ? 46 : 30}px, max-content) repeat(${laneCount}, 26px) minmax(5px, 1fr)` }}
                     >
                       {week.map((cell, ci) => (
                         <div key={cell.dateKey} style={{ display: 'contents' }}>
@@ -614,7 +639,7 @@ export default function SchedulePage({ events: globalEvents, operators: exported
                                 ? ({ '--bar-accent': extractedColor.background } as CSSProperties)
                                 : {}),
                             }}
-                            onClick={() => openEvent(eventByName.get(bar.key)!)}
+                            onClick={event => openEvent(eventByName.get(bar.key)!, event.currentTarget)}
                           >
                             {eventByName.get(bar.key)?.externalGame ? '[Collab] ' : ''}{bar.name}{/estimated|predicted/i.test(eventByName.get(bar.key)?.global.note ?? '') ? ' · Estimated' : ''}
                           </button>
@@ -636,182 +661,103 @@ export default function SchedulePage({ events: globalEvents, operators: exported
               whole calendar 180px left to make room beside it. Always rendered, so the
               drawer can animate both ways; closed, it is visibility: hidden, which takes it
               out of the tab order and the accessibility tree. */}
-          <div ref={panelRef} className={`schedule-fullscreen-panel${selectedEvent ? ' open' : ''}`} role="dialog" aria-label={displayEvent ? displayEvent.name : 'Event'}>
+          {selectedEvent && <div className="schedule-panel-scrim" aria-hidden="true" />}
+          <div ref={panelRef} inert={!selectedEvent} className={`schedule-fullscreen-panel${selectedEvent ? ' open' : ''}`} role="dialog" aria-label={displayEvent ? displayEvent.name : 'Event'}>
             {displayEvent && (
-              <div className="schedule-panel">
-                <XButton className="schedule-panel-close-btn" onClick={closePanel} label="Close" />
-                {displayEvent.poster && (
-                  displayEvent.externalGame ? <button className="btn-bare" type="button" aria-label={`Enlarge ${displayEvent.name} artwork`} onClick={() => setCollabArt({ image: displayEvent.poster!, name: displayEvent.name })}>
-                    <Image src={displayEvent.poster} alt={displayEvent.name} width={1600} height={900} className="schedule-panel-poster" style={{ width: '100%', height: 'auto' }} />
-                  </button> : <Image
-                    src={displayEvent.poster}
-                    alt={displayEvent.name}
-                    width={1600}
-                    height={900}
-                    className="schedule-panel-poster"
-                    style={{ width: '100%', height: displayEvent.modeId ? 220 : 'auto', objectFit: 'contain' }}
-                  />
-                )}
-                <h2 className="entity-title entity-title-sm schedule-panel-title">{displayEvent.name}</h2>
-                {displayEvent.externalGame ? <>
-                  <p className="hint">[Confirmed] · External game collaboration · {displayEvent.externalGame.region}</p>
-                  <p>{displayEvent.externalGame.launchOnly ? displayEvent.global.dateRange?.split('–')[0] : displayEvent.global.dateRange}{displayEvent.externalGame.launchOnly ? ' · Release day' : ' · Availability period'}</p>
-                  <p>{displayEvent.externalGame.description}</p>
-                  <a href={displayEvent.externalGame.source} target="_blank" rel="noopener noreferrer" className="ghost btn-sm schedule-panel-event-link">Official announcement ↗</a>
-                </> : <>
-                {displayEvent.modeId ? (
-                  <>
-                    <p className="hint">{displayEvent.global.note ? 'Predicted launch' : `${server.toUpperCase()} launch`}: {displayEvent.global.releaseDate} · Permanent mode</p>
-                    {displayEvent.global.note && <p className="hint">{displayEvent.global.note}</p>}
-                    <p className="hint">CN launch: {displayEvent.cn.releaseDate}. Available permanently after launch.</p>
-                    <Link prefetch={false} href={`/events/${encodeURIComponent(displayEvent.name)}`} className="ghost btn-sm schedule-panel-event-link">Event page</Link>
-                    {displayEvent.cn.timingSource && <a href={displayEvent.cn.timingSource} target="_blank" rel="noopener noreferrer" className="ghost btn-sm schedule-panel-event-link">CN game data</a>}
-                  </>
-                ) : (
-                  <>
-                    <p className="hint">{displayEvent.bannerName && displayEvent.global.note && displayEvent.global.dateRange ? 'Estimated Global: ' : ''}{displayEvent.global.dateRange ?? displayEvent.global.note}</p>
-                    <Link prefetch={false} href={displayEvent.bannerName ? { pathname: "/gacha-simulator", query: { banner: displayEvent.bannerName } } : `/events/${encodeURIComponent(displayEvent.name)}`} className="ghost btn-sm schedule-panel-event-link">{displayEvent.bannerName ? 'Banner page' : 'Event page'}</Link>
-                  </>
-                )}
-
-                {panelBanner && isLineupPending(panelBanner) && (
-                  <div className="schedule-panel-pullable">
-                    <h3 className="schedule-panel-subheading">Pullable Operators</h3>
-                    <p className="hint">{lineupPendingNote(panelBanner)}</p>
-                  </div>
-                )}
-                {panelBanner && !isLineupPending(panelBanner) && (panelBannerSixStars.length > 0 || panelBanner.five_stars.length > 0 || (panelBanner.four_stars || []).length > 0) && (
-                  <div className="schedule-panel-pullable">
-                    <h3 className="schedule-panel-subheading">Pullable Operators</h3>
-                    {pullBannerLinks[panelBanner.name.toLowerCase()] && (
-                      <p className="hint">
-                        <Link prefetch={false} href={{ pathname: "/pull-planner", query: { banner: pullBannerLinks[panelBanner.name.toLowerCase()] } }}>
-                          Add to Pull Planner
-                        </Link>
-                      </p>
-                    )}
-                    <div className="schedule-panel-pullable-row">
-                      {panelBannerSixStars.map((name) => {
-                        const op = operatorByName.get(name);
-                        return (
-                          <Link prefetch={false}
-                            key={name}
-                            href={operatorHref(name, null)}
-                            className="schedule-panel-pullable-op"
-                            title={name}
-                          >
-                            {op ? (
-                              <Image src={getOperatorIconPath(op)} alt={name} width={40} height={40} className="tier-6" />
-                            ) : (
-                              <div className="gacha-pull-icon-placeholder">6★</div>
-                            )}
-                          </Link>
-                        );
-                      })}
-                      {panelBanner.five_stars.map((name) => {
-                        const op = operatorByName.get(name);
-                        return (
-                          <Link prefetch={false}
-                            key={name}
-                            href={operatorHref(name, null)}
-                            className="schedule-panel-pullable-op"
-                            title={name}
-                          >
-                            {op ? (
-                              <Image src={getOperatorIconPath(op)} alt={name} width={40} height={40} className="tier-5" />
-                            ) : (
-                              <div className="gacha-pull-icon-placeholder">5★</div>
-                            )}
-                          </Link>
-                        );
-                      })}
-                      {(panelBanner.four_stars || []).map((name) => {
-                        const op = operatorByName.get(name);
-                        return (
-                          <Link prefetch={false}
-                            key={name}
-                            href={operatorHref(name, null)}
-                            className="schedule-panel-pullable-op"
-                            title={name}
-                          >
-                            {op ? (
-                              <Image src={getOperatorIconPath(op)} alt={name} width={40} height={40} className="tier-4" />
-                            ) : (
-                              <div className="gacha-pull-icon-placeholder">4★</div>
-                            )}
-                          </Link>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-
-                {!displayEvent.bannerName && <>
-                <div className="schedule-panel-skins-header">
-                  <h3 className="schedule-panel-subheading">Skins</h3>
-                  <div className="schedule-panel-skins-actions">
-                    {fashionReviewSkins.length > 0 && (
-                      <button
-                        type="button"
-                        className="filter-chip"
-                        aria-pressed={showNewestOnly}
-                        onClick={() => setShowNewestOnly((v) => !v)}
-                      >
-                        Newest only
-                      </button>
-                    )}
-                    {panelSkins.length > 0 && (
-                      <button type="button" className="ghost btn-sm" onClick={() => { setShowAllVisibleCount(20); setShowAllSkins(true); }}>
-                        Show All
-                      </button>
-                    )}
-                  </div>
+              <div>
+                <div className="schedule-panel-artwork" key={displayEvent.name}>
+                  <XButton ref={closeRef} className="schedule-panel-close-btn" onClick={closePanel} label="Close" />
+                  {displayEvent.externalGame && displayEvent.poster ? (
+                    <button className="btn-bare schedule-panel-artwork-link" type="button" aria-label={`Enlarge ${displayEvent.name} artwork`} onClick={() => setCollabArt({ image: displayEvent.poster!, name: displayEvent.name })}>
+                      <Image src={displayEvent.poster} alt="" width={1600} height={900} className="schedule-panel-poster" />
+                    </button>
+                  ) : displayEvent.modeId && displayEvent.poster ? (
+                    <Image src={displayEvent.poster} alt="" width={1600} height={900} className="schedule-panel-poster schedule-panel-mode-poster" />
+                  ) : (
+                    <CalendarEventArt poster={displayEvent.poster} scenes={eventScenes?.[displayEvent.name] ?? []} active={!!selectedEvent} />
+                  )}
                 </div>
-                {panelSkins.length > 0 ? (
-                  /* A row the reader scrolls, each skin once. It was a marquee on an
-                     endless CSS loop, the same pattern the home page's skins row lost. */
-                  <ScrollRow label={`Skins for ${displayEvent.name}`} className="schedule-panel-skins-row">
-                    {panelSkins.map((s) => {
-                      const prices = parsePrices(s.howToObtain);
-                      return (
-                        <button
-                          key={s.name}
-                          type="button"
-                          className="btn-bare schedule-panel-skin"
-                          onClick={() => setActiveSkin(s)}
-                        >
-                          {s.image && (
-                            <Image src={s.image} alt={s.name} width={110} height={147} />
+                <div className="schedule-panel-content">
+                  <div className="schedule-panel-intro">
+                    {eventKind && <p className="hint">{eventKind}</p>}
+                    <h2 className="entity-title schedule-panel-title">{eventTitle(displayEvent.name)}</h2>
+                    {displayEvent.externalGame ? <>
+                      <p className="hint">[Confirmed] · External game collaboration · {displayEvent.externalGame.region}</p>
+                      <p>{displayEvent.externalGame.launchOnly ? displayEvent.global.dateRange?.split('–')[0] : displayEvent.global.dateRange}{displayEvent.externalGame.launchOnly ? ' · Release day' : ' · Availability period'}</p>
+                      <a href={displayEvent.externalGame.source} target="_blank" rel="noopener noreferrer" className="ghost btn-sm schedule-panel-event-link">Official announcement ↗</a>
+                    </> : displayEvent.modeId ? <>
+                      <p className="hint">{displayEvent.global.note ? 'Predicted launch' : `${server.toUpperCase()} launch`}: {displayEvent.global.releaseDate} · Permanent mode</p>
+                      {displayEvent.global.note && <p className="hint">{displayEvent.global.note}</p>}
+                      <p className="hint">CN launch: {displayEvent.cn.releaseDate}. Available permanently after launch.</p>
+                      <Link prefetch={false} href={`/events/${encodeURIComponent(displayEvent.name)}`} className="ghost btn-sm schedule-panel-event-link">Event page</Link>
+                      {displayEvent.cn.timingSource && <a href={displayEvent.cn.timingSource} target="_blank" rel="noopener noreferrer" className="ghost btn-sm schedule-panel-event-link">CN game data</a>}
+                    </> : (
+                      <div className="schedule-panel-meta">
+                        <div>
+                          <p className="hint">{displayEvent.global.dateRange ?? displayEvent.global.note}</p>
+                          {displayEvent.global.dateRange && /estimated|predicted/i.test(displayEvent.global.note ?? '') && <p className="hint">Estimated dates</p>}
+                        </div>
+                        <Link prefetch={false} href={displayEvent.bannerName ? { pathname: "/gacha-simulator", query: { banner: displayEvent.bannerName } } : `/events/${encodeURIComponent(displayEvent.name)}`} className="ghost btn-sm schedule-panel-event-link">{displayEvent.bannerName ? 'Banner page' : 'Event page'}</Link>
+                      </div>
+                    )}
+                  </div>
+                  {!displayEvent.externalGame && <>
+
+                    {panelBanner && (isLineupPending(panelBanner) || panelFeatured.length > 0) && (
+                      <section className="schedule-panel-section">
+                        <div className="schedule-panel-section-head">
+                          <h2 className="section-title">Featured operators</h2>
+                          {pullBannerLinks[panelBanner.name.toLowerCase()] && !isLineupPending(panelBanner) && (
+                            <p className="hint"><Link prefetch={false} href={{ pathname: "/pull-planner", query: { banner: pullBannerLinks[panelBanner.name.toLowerCase()] } }}>
+                              Add to Pull Planner
+                            </Link></p>
                           )}
-                          {prices.length > 0 && (
-                            <span className="schedule-panel-skin-price">{formatPrices(prices)}</span>
-                          )}
-                        </button>
-                      );
-                    })}
-                  </ScrollRow>
-                ) : (
-                  <p className="hint">No matched skins for this event.</p>
-                )}
-                </>}
+                        </div>
+                        {isLineupPending(panelBanner) ? <p className="hint">{lineupPendingNote(panelBanner)}</p> : (
+                          <div className="schedule-panel-pullable-row">
+                            {panelFeatured.map(({ name, rarity }) => {
+                              const op = operatorByName.get(name);
+                              return (
+                                <Link prefetch={false} key={name} href={operatorHref(name, null)} className="schedule-panel-pullable-op">
+                                  {op ? <Image src={getOperatorIconPath(op)} alt="" width={40} height={40} className={`tier-${rarity}`} /> : <span>{rarity}★</span>}
+                                  <span>{name}</span>
+                                </Link>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </section>
+                    )}
 
-                {panelMaterials && panelMaterials.length > 0 && (
-                  <>
-                    <h3 className="schedule-panel-subheading">Materials to Farm</h3>
-                    <div className="schedule-panel-materials-row">
-                      {panelMaterials.map((m) => (
-                        <Image key={m} src={`/material-icons/${m}.webp`} alt={m} title={m} className="schedule-panel-material-icon" width={48} height={48} />
-                      ))}
-                    </div>
-                  </>
-                )}
+                    {!displayEvent.bannerName && <section className="schedule-panel-section">
+                      <SkinShelf key={displayEvent.name} newestOnly={showNewestOnly} label={`Skins for ${displayEvent.name}`} skins={panelSkins}
+                        active={!!selectedEvent && !activeSkin && !showAllSkins} onOpen={setActiveSkin} empty="No matched skins for this event."
+                        actions={<>
+                          {fashionReviewSkins.length > 0 && <button type="button" className="filter-chip" aria-pressed={showNewestOnly} onClick={() => setShowNewestOnly(value => !value)}>Newest only</button>}
+                          {panelSkins.length > 0 && <button type="button" className="ghost btn-sm" onClick={() => { setShowAllVisibleCount(20); setShowAllSkins(true); }}>Show All</button>}
+                        </>} />
+                    </section>}
 
-                {!displayEvent.modeId && !displayEvent.bannerName && <>
-                  <h3 className="schedule-panel-subheading">Pulls Needed</h3>
-                  <p className="hint">{displayEvent.pullsNeeded || 'Not available yet.'}</p>
-                </>}
+                    {panelMaterials && panelMaterials.length > 0 && (
+                      <>
+                        <h3 className="schedule-panel-subheading">Materials to Farm</h3>
+                        <div className="schedule-panel-materials-row">
+                          {panelMaterials.map((m) => (
+                            <Image key={m} src={`/material-icons/${m}.webp`} alt={m} title={m} className="schedule-panel-material-icon" width={48} height={48} />
+                          ))}
+                        </div>
+                      </>
+                    )}
 
-                </>}
+                    {!displayEvent.modeId && !displayEvent.bannerName && <>
+                      <div className="schedule-panel-section schedule-panel-section-head">
+                        <h3 className="schedule-panel-subheading">Pulls Needed</h3>
+                        <p className="hint">{displayEvent.pullsNeeded || 'Not available yet.'}</p>
+                      </div>
+                    </>}
+
+                  </>}
+                </div>
               </div>
             )}
           </div>
@@ -850,6 +796,17 @@ export default function SchedulePage({ events: globalEvents, operators: exported
   );
 }
 
+function listFeaturedOperators(banner: HeadhuntingBanner): EventRow['featuredOperators'] {
+  return getBannerLineup(banner).featured.filter((op): op is EventRow['featuredOperators'][number] => op.rarity !== 4);
+}
+
+function scheduleEventScenes(events: ScheduleEvent[]): Record<string, string[]> {
+  return Object.fromEntries(events.flatMap(event => {
+    const scenes = event.bannerName || event.modeId ? [] : getEventCgImages(event.name);
+    return scenes.length ? [[event.name, scenes]] : [];
+  }));
+}
+
 export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/schedule", async () => {
   // Timeline only ever reads name/rarity/isFuture (for icon paths) and
   // the birthdate (for the birthday row) -- trimming out the heavy
@@ -867,12 +824,6 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/sc
     basicInfo: op.basicInfo?.['Date of Birth'] ? { 'Date of Birth': op.basicInfo['Date of Birth'] } : null,
   }));
 
-  const releaseLookup: ReleaseDateLookup = {};
-  for (const op of allOperators) {
-    const releaseDate = op.characterInfo?.['Release Date'];
-    if (releaseDate) releaseLookup[op.name] = releaseDate;
-  }
-
   /* The Events list's rows, which used to be their own page's getStaticProps. Built here
      because the list is now a view of this page, and both views are wanted before the
      first paint: switching between them is a tab, not a navigation, so neither may
@@ -885,11 +836,7 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/sc
   );
   const eventRows: EventRow[] = getEventCalendar().map((e) => {
     const banner = getBannerForEvent(e.name, e.isPredicted ? null : e.dateRange, getAllHeadhuntingBanners());
-    const featuredOperators: { name: string; rarity: 6 | 5 }[] = [];
-    if (banner) {
-      (banner.six_stars || []).forEach((name) => featuredOperators.push({ name, rarity: 6 }));
-      (banner.five_stars || []).forEach((name) => featuredOperators.push({ name, rarity: 5 }));
-    }
+    const featuredOperators = banner ? listFeaturedOperators(banner) : [];
     return {
       name: e.name,
       poster: e.poster,
@@ -913,7 +860,7 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/sc
       name: event.name, bannerName: event.bannerName, poster: event.poster, dateRange: event.global.dateRange ?? 'Global date unannounced',
       isPredicted: !!range && !!banner.global_date_estimated, start: range?.start.getTime() ?? Number.MAX_SAFE_INTEGER, end: range?.end.getTime() ?? Number.MAX_SAFE_INTEGER,
       pullBanner: pullBanners[banner.name.toLowerCase()] ?? null,
-      featuredOperators: [...banner.six_stars.map(name => ({ name, rarity: 6 as const })), ...banner.five_stars.map(name => ({ name, rarity: 5 as const }))],
+      featuredOperators: listFeaturedOperators(banner),
     });
   }
   for (const event of events) {
@@ -923,10 +870,10 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/sc
   eventRows.sort((a, b) => a.start - b.start);
   return {
     // The panel's poster, like every other: null until the image repository has it.
-    props: { events, operators: trimmedOperators, skins: await withSkinArtwork(getAllSkins()), releaseLookup, eventRows, pullBanners },
+    props: { events, operators: trimmedOperators, skins: await withSkinArtwork(getAllSkins()), eventScenes: scheduleEventScenes(events), eventRows, pullBanners },
   };
 }, {
-  finalize: async (props) => withLightRegionalTable(pruneScheduleProps(fillMissingModeLaunches({ ...props, skins: await withSkinArtwork(props.skins) }))),
+  finalize: async (props) => withLightRegionalTable(pruneScheduleProps(fillMissingModeLaunches({ ...props, eventScenes: props.eventScenes ?? scheduleEventScenes(props.events), skins: await withSkinArtwork(props.skins) }))),
 
   tables: {
     event_colors: async () => (await import('@/data/event_colors.json')).default,

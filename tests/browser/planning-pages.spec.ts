@@ -346,29 +346,19 @@ test.describe('home', () => {
     }
   });
 
-  test('the skins row scrolls by hand, with nothing moving on its own (GE-09)', async ({ page }) => {
+  test('the home skin shelf respects reduced motion (GE-09)', async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' });
     await page.goto('/');
-    const panel = page.locator('.front-skins-panel');
-    await expect(panel).toBeVisible();
-    const state = await panel.evaluate((el) => {
-      // r11 quiet polish: a skin's picture fades in once as it arrives (img-arrive, rule 23:
-      // one 0.3s opacity fade, then its mark comes off). That is not the row moving on its
-      // own, so it alone is set aside, and only while it is that one finite fade; any other
-      // animation here, a marquee above all, still counts.
-      const arriving = (node: Element) => node instanceof HTMLImageElement && getComputedStyle(node).animationName === 'img-arrive'
-        && node.getAnimations().every((a) => a.effect?.getComputedTiming().iterations === 1);
-      const animated = Array.from(el.querySelectorAll('*')).filter((node) => getComputedStyle(node).animationName !== 'none' && !arriving(node));
-      const row = el.querySelector('.scroll-row');
-      const names = Array.from(el.querySelectorAll('.front-skin-name')).map((n) => n.textContent);
-      return {
-        animated: animated.length,
-        overflowX: row ? getComputedStyle(row).overflowX : null,
-        duplicated: names.length - new Set(names).size,
-      };
-    });
-    expect(state.animated, 'no animation in the skins panel').toBe(0);
-    if (state.overflowX !== null) expect(state.overflowX).toBe('auto');
-    expect(state.duplicated, 'each skin appears once (the marquee doubled the track)').toBe(0);
+    const shelf = page.locator('.front-skins-panel');
+    await expect(shelf).toBeVisible();
+    await expect(shelf.getByRole('button', { name: 'Pause skins' })).toHaveCount(0);
+    await expect(shelf.locator('.skin-shelf-copy')).toHaveCount(0);
+    const row = shelf.locator('.skin-shelf-viewport');
+    if (await row.count()) {
+      const first = row.locator('.skin-shelf-art').first();
+      expect(await first.evaluate(el => el.getBoundingClientRect().height)).toBe(192);
+      expect(await row.evaluate(el => el.scrollLeft)).toBe(0);
+    }
   });
 
   test('the Packs placeholder is hidden', async ({ page }) => {
@@ -562,6 +552,54 @@ test.describe("/gacha-simulator", () => {
 });
 
 test.describe('/schedule calendar', () => {
+  test('shows the featured lineup and loops through the last outfit without jumping', async ({ page }) => {
+    await page.goto('/schedule?view=calendar');
+    await page.getByRole('combobox', { name: 'Year' }).click();
+    await page.getByRole('option', { name: '2027' }).click();
+    await page.getByRole('combobox', { name: 'Month' }).click();
+    await page.getByRole('option', { name: 'January' }).click();
+
+    const event = page.getByRole('button', { name: /Till the Lands Become an Orange/ }).first();
+    await event.click();
+    const drawer = page.getByRole('dialog', { name: /Till the Lands Become an Orange/ });
+    await expect(drawer.getByRole('heading', { name: 'Featured operators' })).toBeVisible();
+    await expect(drawer.locator('.schedule-panel-pullable-op')).toHaveText(['Angelina the Mellow Wish', 'Thumpy', 'Jacinta']);
+
+    const row = drawer.getByRole('region', { name: /Skins for/ });
+    await expect(row.locator('.skin-shelf-copy').first()).toBeAttached();
+    await row.scrollIntoViewIfNeeded();
+    await page.mouse.move(3, 3);
+    const seam = await row.evaluate(async el => {
+      const row = el as HTMLDivElement;
+      const track = row.firstElementChild as HTMLElement;
+      const period = (track.querySelector('.skin-shelf-copy') as HTMLElement).offsetLeft - (track.firstElementChild as HTMLElement).offsetLeft;
+      row.scrollLeft = period - 12;
+      return new Promise<{ crossed: boolean; largestStep: number }>(resolve => {
+        const deadline = performance.now() + 1900;
+        let last: number | undefined;
+        let crossed = false, largestStep = 0;
+        const read = (now: number) => {
+          const value = row.scrollLeft - (parseFloat(track.style.translate) || 0);
+          if (last !== undefined && value !== last) {
+            crossed ||= last > period - 12 && value < 12;
+            largestStep = Math.max(largestStep, (value - last + period) % period);
+          }
+          last = value;
+          if (now >= deadline) resolve({ crossed, largestStep });
+          else requestAnimationFrame(read);
+        };
+        requestAnimationFrame(read);
+      });
+    });
+    expect(seam.crossed).toBe(true);
+    expect(seam.largestStep).toBeLessThan(4);
+    await drawer.getByRole('button', { name: 'Pause skins' }).click();
+    await expect(drawer.getByRole('button', { name: 'Play skins' })).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(drawer).toBeHidden();
+    await expect(event).toBeFocused();
+  });
+
   test('stays in the frame and does not move when an event opens (4.3 A)', async ({ page }) => {
     await page.goto('/schedule?view=calendar');
     const grid = page.locator('.timeline-month-large');

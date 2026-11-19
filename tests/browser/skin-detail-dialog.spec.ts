@@ -109,7 +109,7 @@ for (const surface of ['home', 'event', 'schedule']) {
       await page.getByRole('option', { name: 'October', exact: true }).click();
       await page.locator('.schedule-bar').filter({ hasText: 'Critical Phase Transition' }).first().click();
     }
-    const card = page.locator(surface === 'home' ? '.front-skin-item' : surface === 'event' ? '.event-detail-skin-item' : '.schedule-panel-skin').first();
+    const card = page.locator(surface === 'event' ? '.event-detail-skin-item' : 'button.skin-shelf-card').first();
     await card.click();
     const dialog = page.locator('dialog.skin-modal');
     await expect(dialog).toBeVisible();
@@ -145,9 +145,7 @@ for (const theme of ['dark', 'light']) {
         await page.getByRole('option', { name: 'October', exact: true }).click();
         await page.locator('.schedule-bar').filter({ hasText: "The Masses' Travels" }).first().click();
       }
-      const card = surface === 'home' ? page.locator('.front-skin-item').filter({ hasText: 'Supernova' })
-        : surface === 'event' ? page.locator('.event-detail-skin-item').filter({ hasText: 'Supernova' })
-        : page.locator('.schedule-panel-skin').filter({ has: page.getByRole('img', { name: 'Supernova', exact: true }) });
+      const card = page.locator(surface === 'event' ? '.event-detail-skin-item' : 'button.skin-shelf-card').filter({ hasText: 'Supernova' });
       if (surface !== 'gallery') await card.click();
       const dialog = page.getByRole('dialog', { name: 'Supernova', exact: true });
       const artwork = dialog.getByRole('button', { name: 'View full artwork of Supernova', exact: true });
