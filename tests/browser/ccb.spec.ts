@@ -3,7 +3,7 @@ import { setTheme } from './overlay-checks';
 
 for (const theme of ['dark', 'light'] as const) {
   test(`CC contracts change enemy stats, add the whole-group bonus, and keep each battlefield's selection (${theme})`, async ({ page }, info) => {
-    await page.goto('/ccb');
+    await page.goto('/game-modes/ccb');
     await setTheme(page, theme);
     // Every season is one press away; CCB #4's maps are in every data snapshot.
     const seasons = page.getByRole('group', { name: 'Seasons' });
@@ -54,7 +54,7 @@ for (const theme of ['dark', 'light'] as const) {
   });
 
   test(`CC operator build controls update comparison without writing account data (${theme})`, async ({ page }, info) => {
-    await page.goto('/ccb');
+    await page.goto('/game-modes/ccb');
     await setTheme(page, theme);
     const before = await page.evaluate(() => localStorage.getItem('arkpediaAccount'));
     const search = page.getByRole('combobox', { name: 'Search operators' });

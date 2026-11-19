@@ -39,7 +39,7 @@ for (const theme of ['dark', 'light'] as const) test(`IS native artwork loads th
 test('IS reference keeps theme and tab in the URL, searches collectibles and opens stage maps', async ({ page }) => {
   await page.goto('/game-modes');
   const cc = page.getByRole('link', { name: /Contingency Contract/ });
-  await expect(cc).toHaveAttribute('href', '/ccb');
+  await expect(cc).toHaveAttribute('href', '/game-modes/ccb');
   await cc.click();
   await expect(page.getByRole('heading', { name: 'Contingency Contract', exact: true })).toBeVisible();
   await page.goBack();

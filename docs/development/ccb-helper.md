@@ -1,6 +1,6 @@
 # CCB helper
 
-Local route: `/ccb`. The paired `feat/ccb-helper` branch in `arkpedia-data` owns
+Local route: `/game-modes/ccb`. The paired `feat/ccb-helper` branch in `arkpedia-data` owns
 `source/data/ccb/archive.json`, its offline normalizer, and account-map trust thresholds.
 Data dependency: `6d03e6bb4a968b94ed6480611e383178f62a77e2` (branch `feat/ccb-helper-season5`).
 Preview pins the recovered archive in `config/ccb-archive.json`; normal content hydration cannot overwrite it.
