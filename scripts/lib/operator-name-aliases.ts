@@ -1,5 +1,5 @@
 import type { Operator } from '../../lib/operators/operatorTypes';
-import { operatorAlterFamilies } from '../../lib/operators/operatorAliases';
+import { buildAliasMap } from '../../lib/operators/operatorAliases';
 import { normalizeForSearch } from '../../lib/search/searchNormalize';
 import { hanReadings, kanaReadings, romanizeHangul } from './credit-romanization';
 
@@ -57,9 +57,14 @@ function biographyNames(operator: OperatorNames): readonly string[] {
   return BIOGRAPHICAL_NAMES[operator.internalName ?? ''] ?? [];
 }
 
-function characterAliases(operators: readonly OperatorNames[]): Map<string, string[]> {
+function characterAliases(operators: OperatorNames[]): Map<string, string[]> {
   const aliases = new Map(operators.map(operator => [operator.name, [...biographyNames(operator)]]));
-  for (const [base, ...alters] of operatorAlterFamilies(operators)) {
+  const byName = new Map(operators.map(operator => [operator.name, operator]));
+  const related = buildAliasMap(operators);
+  for (const base of operators) {
+    if (!base.alternate?.trim()) continue;
+    // The shared resolver validates the targets and keeps the base's recorded order.
+    const alters = (related[base.name] ?? []).map(name => byName.get(name)!);
     const names = [...new Set([base, ...alters].flatMap(biographyNames))];
     aliases.set(base.name, names);
     // Numbered names count the original as 1. Each successive alter

@@ -525,6 +525,9 @@ test('character names follow their operator forms and numbered searches select o
     [['reed2', 'reed alter', 'loughshinny alter'], 'Reed the Flame Shadow'],
     [['texas2', 'texas 2', 'texas alter'], 'Texas the Omertosa'],
     [['phantom2', 'phantom alter'], 'Tragodia'],
+    [['w2', 'w 2'], "Wiš'adel"],
+    [['zima2', 'zima 2'], 'Zima the Raging Tide'],
+    [['specter2', 'specter 2'], 'Specter the Unchained'],
   ] as const) {
     for (const query of queries) assert.equal(matches(query)[0], name, query);
   }
