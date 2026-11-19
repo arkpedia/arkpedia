@@ -159,6 +159,7 @@
      over white art, and --scrim-ink-dim 5.3:1 on an 86% plate (only there: 3.6:1 on the
      72% badge). scripts/tests/test-ui-tokens.ts checks both, and
      tests/browser/overlay-badges.spec.ts every overlay's text, at 4.5:1 in both themes. */
+  --scrim-ground: #0f151b;
   --scrim-ink: #BCC8CF;
   --scrim-ink-dim: #93a6b1;
   /* The amber a figure takes on a scrim: the stage map HUD's DP cost, which took the

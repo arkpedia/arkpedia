@@ -94,8 +94,7 @@ export default function SkinsGallery({ skins, now, availabilityWindows, dynamicA
   const account = useAccount();
   const ownedSkins = useMemo(() => new Set(account?.skins ?? []), [account]);
   const shortDate = (value: string) => new Date(value).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', timeZone: SERVER_TIME.en.timeZone });
-  function availabilityText(skin: Skin): string | null {
-    const window = availability.get(skinKey(skin));
+  function availabilityText(window: ReturnType<typeof availability.get>): string | null {
     if (!window) return null;
     return window.live ? `${acquisitionLabel(window)} · until ${shortDate(window.endAt)}` : `${window.estimated ? 'Estimated ' : ''}${shortDate(window.startAt)}`;
   }
@@ -192,6 +191,8 @@ export default function SkinsGallery({ skins, now, availabilityWindows, dynamicA
     return list.map((skin, i) => {
       const prices = parsePrices(skin.howToObtain);
       const window = availability.get(skinKey(skin));
+      const available = isAvailableNow(window);
+      const price = window?.live && window.kind === 'draw' ? '' : formatPrices(prices);
       return (
         <button
           key={`${keyPrefix}${skin.series}-${skin.name}-${i}`}
@@ -201,17 +202,21 @@ export default function SkinsGallery({ skins, now, availabilityWindows, dynamicA
         >
           <div className="skin-image-wrap">
             {skin.image ? (
-              <ResponsiveSkinArtwork src={skin.image} alt={skin.name} fill sizes="(max-width: 480px) 170px, 220px" />
+              <ResponsiveSkinArtwork src={skin.image} alt="" fill sizes="(max-width: 480px) 170px, 260px" />
             ) : (
               <div className="skin-image-placeholder">No image</div>
             )}
-
+            {(available || price) && (
+              <div className="art-meta-strip skin-card-art-meta">
+                {available && <strong className="skin-card-available">Now Available</strong>}
+                {price && <span className="skin-card-price">{price}</span>}
+              </div>
+            )}
           </div>
           <div className="skin-card-info">
             <span className="skin-card-operator">{skin.model}</span>
             <span className="skin-card-name">{skin.name}</span>
-            <span className="skin-card-price">{window?.live && window.kind === 'draw' ? window.label : prices.length > 0 ? formatPrices(prices) : 'Special acquisition'}</span>
-            <span className={`skin-card-status${window?.live ? ' is-live' : ''}`}>{availabilityText(skin) || 'No scheduled availability'}</span>
+            <span className="skin-card-status">{availabilityText(window) ?? 'No scheduled availability'}</span>
           </div>
         </button>
       );
