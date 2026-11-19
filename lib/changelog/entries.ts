@@ -34,6 +34,15 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    at: '2026-11-19T15:00:00Z',
+    title: 'Calendar and outfit shelves',
+    changed: [
+      { title: 'A clearer event calendar', detail: 'Scan more of the month and open a richer event preview with artwork, operators and outfits.', href: '/schedule?view=calendar' },
+      { title: 'Larger, looping outfit shelves', detail: 'Browse larger outfit art on the homepage and pause or scroll either shelf yourself.', href: '/' },
+    ],
+    fixed: [{ title: 'Correct featured operators in the calendar', detail: 'Limited banners now show their featured lineup even when operator release dates are missing.', href: '/schedule?view=calendar' }],
+  },
+  {
     at: '2026-11-19T06:45:00Z',
     added: [{ title: 'Character names and alter shortcuts', detail: 'Find operators by documented names like Eblana and Loughshinny, or use shortcuts like Chen2 and Chen3 to pick a specific alter.', href: '/operator-planner' }],
   },

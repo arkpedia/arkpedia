@@ -1302,8 +1302,7 @@ a.primary:where(:has(~ :is(button, a).ghost)),
    The focus ring is drawn inside, because the scroller would clip one outside.
    r11 quiet polish: 4px of room above the cards, given back by the margin so they sit
    where they did: a card lifts 3px on hover (styles/core/motion.css), and the scroller
-   clipped its top edge off. A row with a margin of its own takes the 4px off it too
-   (.front-skins-row). */
+   clipped its top edge off. */
 .scroll-row {
   display: flex;
   gap: 12px;

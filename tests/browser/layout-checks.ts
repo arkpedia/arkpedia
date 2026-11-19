@@ -51,7 +51,7 @@ export const SECTION_GAP = 36;
 /* --- end r9 headings and spacing ---------------------------------------------------- */
 
 /* The home page's cards: no visible border at rest, the teal edge on hover (desktop). */
-export const HOME_CARDS = ['.front-events-main', '.front-gacha-poster-wrap', '.front-featured-op', '.front-skin-item', '.front-community-item'];
+export const HOME_CARDS = ['.front-events-main', '.front-gacha-poster-wrap', '.front-featured-op', 'button.skin-shelf-card', '.front-community-item'];
 
 /*
  * The picture-card census. #65 took the frame off the cards it named and left seventeen

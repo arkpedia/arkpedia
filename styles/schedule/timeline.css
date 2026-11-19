@@ -75,7 +75,7 @@
 
 .timeline-month-large {
   /* Month density changes only the inner scroll area, never the page's height. */
-  height: clamp(680px, 100svh, 960px);
+  height: clamp(560px, calc(100svh - 248px), 760px);
   display: flex;
   flex-direction: column;
   background: var(--panel);
@@ -104,11 +104,11 @@
   scrollbar-gutter: stable;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 5px;
 }
 .timeline-week-grid {
   flex: 1 0 auto;
-  min-height: 132px;
+  min-height: 80px;
   border: 1px solid var(--line);
   border-radius: var(--radius-frame);
   display: grid;
@@ -161,7 +161,7 @@
    the same colour at a tenth of its strength across the bar. Two bars are still told
    apart at a glance; neither takes the grid over. */
 .timeline-bar {
-  align-self: start;
+  align-self: stretch;
   min-width: 0;
   margin-bottom: 2px;
   font-family: var(--font-mono);
@@ -171,7 +171,7 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  cursor: help;
+  cursor: pointer;
   z-index: 1;
   /* Sentence case, not caps. Six lines of uppercase at 10px is a wall of even-height
      letters with no word shapes to catch, which is most of why this felt like a lot. */
@@ -306,12 +306,12 @@
   right: 0;
   bottom: 0;
   z-index: 300;
-  width: min(420px, 100vw);
+  width: min(520px, 100vw);
   overflow-y: auto;
   overscroll-behavior: contain;
   background: var(--panel);
   border-left: 1px solid var(--line);
-  box-shadow: -18px 0 40px rgb(0 0 0 / 0.28);
+  box-shadow: var(--shadow-panel);
   visibility: hidden;
   transform: translateX(100%);
   transition: transform 0.25s ease, visibility 0s linear 0.25s;
@@ -324,58 +324,71 @@
 @media (prefers-reduced-motion: reduce) {
   .schedule-fullscreen-panel, .schedule-fullscreen-panel.open { transition: none; }
 }
-
-.schedule-panel {
-  position: relative;
-  padding: 20px 20px 28px;
+.schedule-panel-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 299;
+  background: var(--well);
+  opacity: .45;
+  pointer-events: none;
 }
-
-@media (max-width: 900px) {
-  .timeline-daybox,
-  .timeline-daybox-lanes {
-    padding: 3px 4px;
-  }
-  .timeline-daynum-large {
-    font-size: 9px;
-  }
-}
-
-@media (max-width: 480px) {
-  .schedule-fullscreen-panel { border-left: 0; box-shadow: none; }
-  .timeline-week-grid {
-    gap: 0 2px;
-  }
-  .timeline-daybox,
-  .timeline-daybox-lanes {
-    padding: 2px 3px;
-  }
-  .schedule-panel {
-    padding: 16px var(--page-gutter) 24px;
-  }
-}
-
-/* An XButton (the borderless × in a control-height square), pinned to the drawer's
-   corner above the poster (the poster starts 36px down, under it). */
+.schedule-panel-artwork { position: relative; min-height: calc(var(--control-h) + 8px); overflow: hidden; background: var(--panel-dim); }
 .schedule-panel-close-btn {
   position: absolute;
-  top: 12px;
-  right: 12px;
-  z-index: 1;
+  top: 4px;
+  right: 8px;
+  z-index: 2;
 }
-.schedule-panel-poster {
-  width: 100%;
-  border-radius: var(--radius);
-  margin: 36px 0 10px;
+@media (min-width: 521px) {
+  .schedule-panel-artwork:has(img)::after {
+    content: '';
+    position: absolute;
+    inset: 0 0 auto auto;
+    width: 100px;
+    height: 70px;
+    background: radial-gradient(at top right, var(--panel) 28%, transparent 82%);
+    pointer-events: none;
+  }
 }
-/* The drawer's title names the event: .entity-title .entity-title-sm (18px, shared.css)
-   for a 420px column. */
-.schedule-panel-title { margin: 0 0 4px; padding-right: 40px; }
-.schedule-panel-event-link { margin: 6px 0 4px; }
-/* Sub-sections in the drawer use the global h3 (they were teal, which means on). */
-.schedule-panel-subheading { margin: 18px 0 10px; }
+.schedule-panel-artwork-link { display: block; width: 100%; }
+.schedule-panel-poster { display: block; width: 100%; height: auto; }
+.schedule-panel-mode-poster { height: 220px; object-fit: contain; }
+.schedule-event-art { position: relative; aspect-ratio: 1024 / 328; overflow: hidden; }
+.schedule-event-art-cg { aspect-ratio: 16 / 9; }
+.schedule-event-art-frame { position: absolute; inset: 0; opacity: 0; }
+.schedule-event-art-frame img { object-fit: cover; }
+.schedule-event-art-frame.schedule-event-art-current { opacity: 1; }
+.schedule-event-art-control { position: absolute; bottom: 8px; left: 8px; }
+.schedule-panel-content { padding: 0 20px 20px; }
+.schedule-panel-intro { padding-block: 12px; }
+.schedule-panel-title { margin: 3px 0 6px; }
+.schedule-panel-meta, .schedule-panel-section-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px 12px;
+}
+.schedule-panel-meta p { margin: 0; }
+.schedule-panel-event-link { margin: 4px 0; }
+.schedule-panel-subheading { margin: 0; }
+.schedule-panel-section { border-top: 1px solid var(--line); padding-top: 10px; margin-bottom: 11px; }
+.schedule-panel-section-head h2 { margin: 0; }
+.schedule-panel-section-head p { margin: 0; }
 
-.schedule-panel-skins-row { margin-bottom: 6px; padding-bottom: 4px; }
-.schedule-panel-skins-row > .schedule-panel-skin { width: 110px; }
+@media (max-width: 900px) {
+  .timeline-daybox, .timeline-daybox-lanes { padding: 3px 4px; }
+  .timeline-daynum-large { font-size: 9px; }
+}
+@media (max-width: 520px) {
+  .schedule-fullscreen-panel { border-left: 0; box-shadow: none; }
+  .schedule-panel-content { padding-inline: 15px; }
+  .schedule-panel-artwork { padding-top: calc(var(--control-h) + 8px); }
+}
+@media (max-width: 480px) {
+  .timeline-week-grid { gap: 0 2px; }
+  .timeline-daybox, .timeline-daybox-lanes { padding: 2px 3px; }
+}
 
 /* A skin opens its sheet: a .btn-bare card whose art carries the control border. */
 .schedule-panel-skin {
@@ -448,42 +461,33 @@
 }
 .birthday-icon:hover .birthday-portrait { border-color: var(--teal); }
 
-.schedule-panel-pullable {
-  margin-bottom: 4px;
-}
 .schedule-panel-pullable-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(108px, 1fr));
+  gap: 8px;
+  margin-top: 8px;
 }
-/* An operator link; its bottom edge is its rarity (.tier-N). */
 .schedule-panel-pullable-op {
-  width: 40px;
-  height: 40px;
-  border-radius: var(--radius);
-  border: 1px solid var(--control-border);
-  overflow: hidden;
-  transition: border-color 0.15s ease;
   display: flex;
   align-items: center;
-  justify-content: center;
-  background: var(--panel-2);
+  gap: 6px;
+  min-width: 0;
+  color: var(--text-bright);
+  font-size: 11px;
+  line-height: 1.25;
+  text-decoration: none;
 }
-.schedule-panel-pullable-op:hover { border-color: var(--teal); }
+.schedule-panel-pullable-op:hover { color: var(--teal); }
 .schedule-panel-pullable-op img {
-  width: 100%;
-  height: 100%;
+  display: block;
+  flex: none;
+  border-radius: var(--radius);
   object-fit: cover;
 }
-
-.schedule-panel-skins-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  margin-bottom: 4px;
+@media (max-width: 520px) {
+  .schedule-panel-pullable-row { grid-template-columns: repeat(auto-fit, minmax(95px, 1fr)); }
+  .schedule-panel-pullable-op { flex-direction: column; text-align: center; }
 }
-.schedule-panel-skins-actions { display: flex; gap: 6px; }
 
 .schedule-show-all-modal {
   max-width: 1100px;

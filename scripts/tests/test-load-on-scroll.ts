@@ -33,8 +33,12 @@ test('no button offers to show more of a list', () => {
 
 test('lists watch the reader through the one loader', () => {
   // A list with its own IntersectionObserver is how /skins' copy came to differ from every
-  // other list's button. The image-arrival hold watches images, not a list.
-  const own = sources.filter(({ file, text }) => /new IntersectionObserver\b/.test(text) && file !== path.join('components', 'ui', 'LoadOnScroll.tsx'));
+  // other list's button. SkinShelf observes visibility to pause motion offscreen.
+  const visibilityObservers = new Set([
+    path.join('components', 'ui', 'LoadOnScroll.tsx'),
+    path.join('components', 'skins', 'SkinShelf.tsx'),
+  ]);
+  const own = sources.filter(({ file, text }) => /new IntersectionObserver\b/.test(text) && !visibilityObservers.has(file));
   assert.deepEqual(own.map(({ file }) => file), []);
   const users = sources.filter(({ text }) => /<LoadOnScroll\b/.test(text)).map(({ file }) => file);
   assert.ok(users.length >= 9, `the lists use the loader (${users.join(', ')})`);
