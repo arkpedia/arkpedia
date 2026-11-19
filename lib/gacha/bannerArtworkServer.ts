@@ -2,7 +2,7 @@ import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { servedAssetExists } from '@/lib/assets/publicAssets';
 import type { Operator } from '@/lib/operators/operatorTypes';
-import { isGlobalPool180, type BannerArtworkOperator } from './bannerArtwork';
+import type { BannerArtworkOperator } from './bannerArtwork';
 import { getBannerLineup, isLineupPending } from './bannerLineup';
 import type { HeadhuntingBanner } from './headhuntingBanners';
 
@@ -54,7 +54,8 @@ export function buildBannerArtwork(
     const shop = row?.lineup.length === roster.size && row.lineup.every(name => roster.has(name))
       ? row.shop
       // The official Pool #180 poster and the matching wiki row agree on these shop operators.
-      : isGlobalPool180(banner) ? ['Stainless', 'Sand Reckoner'] : [];
+      : banner.name === 'Standard Pool #180 (Global)' && banner.global_date === '2026/11/20–2026/12/04'
+        ? ['Stainless', 'Sand Reckoner'] : [];
     const shopSix = featured.filter(operator => operator.rarity === 6 && shop.includes(canonical(operator.name)));
     result[banner.name] = featured.map((operator): BannerArtworkOperator => {
       const { name, rarity } = operator;
