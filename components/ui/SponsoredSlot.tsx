@@ -1,7 +1,9 @@
-import { useContext, useLayoutEffect, useRef, useState, type CSSProperties } from 'react';
+import { useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
+import Link from 'next/link';
 import { ContentImg } from '@/components/content/ContentImage';
-import { ContentTablesContext } from '@/lib/content/context';
-import { sponsorCampaignFor, type SponsorCampaign, type SponsorCampaignTable, type SponsorPlacement } from '@/lib/sponsors/campaigns';
+import { loadAssetImage } from '@/lib/assets/assetRetry';
+import { ContentTablesContext, useContentUrl } from '@/lib/content/context';
+import { sitePath, sponsorCampaignsFor, type SponsorCampaign, type SponsorCampaignTable, type SponsorPlacement } from '@/lib/sponsors/campaigns';
 import { SPONSOR_STRINGS as S } from '@/lib/sponsors/strings';
 
 /* Draft campaigns show in `next dev` and on the Preview site (ARKPEDIA_PREVIEW, which
@@ -18,9 +20,41 @@ const DRAFTS = process.env.NODE_ENV !== 'production' || process.env.ARKPEDIA_PRE
  * reach a page with its next revalidation. A page that is not a content route (no
  * withContentPage) carries no table and shows nothing.
  */
-export function useSponsorCampaign(placement: SponsorPlacement): SponsorCampaign | null {
+export function useSponsorCampaigns(placement: SponsorPlacement): SponsorCampaign[] {
   const table = useContext(ContentTablesContext)['sponsor-campaigns'] as SponsorCampaignTable | undefined;
-  return table ? sponsorCampaignFor(table, placement, null, DRAFTS) : null;
+  return useMemo(() => table ? sponsorCampaignsFor(table, placement, null, DRAFTS) : [], [table, placement]);
+}
+/** The first of them: the one the server's HTML shows, and the one whose shape sizes the slot. */
+export function useSponsorCampaign(placement: SponsorPlacement): SponsorCampaign | null {
+  return useSponsorCampaigns(placement)[0] ?? null;
+}
+
+/** How long each campaign shows where a placement has more than one. */
+const TURN_MS = 8000;
+
+/**
+ * Whose turn it is, where a placement has several campaigns: the first on the server and at
+ * hydration, then the next every TURN_MS. It waits while the pointer or the keyboard focus is
+ * on the slot and while the tab is hidden, and never turns for a reader who asked for reduced
+ * motion. The next campaign's image is fetched ahead of its turn so the change is not a blank.
+ */
+function useTurn(ref: React.RefObject<HTMLElement | null>, campaigns: SponsorCampaign[]): SponsorCampaign | null {
+  const [turn, setTurn] = useState(0);
+  const contentUrl = useContentUrl();
+  const count = campaigns.length;
+  useEffect(() => {
+    const slot = ref.current;
+    if (count < 2 || !slot || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const next = campaigns[(turn + 1) % count];
+    // Ahead of its turn; a failure here is not an error, the slot's own image shows its fallback.
+    void loadAssetImage(contentUrl(next.image)).catch(() => {});
+    const timer = window.setInterval(() => {
+      if (document.hidden || slot.matches(':hover, :focus-within') || getComputedStyle(slot).display === 'none') return;
+      setTurn(value => (value + 1) % count);
+    }, TURN_MS);
+    return () => window.clearInterval(timer);
+  }, [ref, campaigns, count, turn, contentUrl]);
+  return campaigns[turn % Math.max(count, 1)] ?? null;
 }
 
 /** How near the header's own text or controls may come to the slot, in px, before it stays hidden. */
@@ -88,30 +122,42 @@ function useClearSpace(ref: React.RefObject<HTMLElement | null>, enabled: boolea
  */
 export default function SponsoredSlot({ placement, className = '' }: { placement: SponsorPlacement | 'mobile-menu'; className?: string }) {
   const inMobileMenu = placement === 'mobile-menu';
-  const campaign = useSponsorCampaign(inMobileMenu ? 'header' : placement);
+  // Beside a title (and in the phone menu) the campaigns take turns; elsewhere the first shows.
+  const all = useSponsorCampaigns(inMobileMenu ? 'header' : placement);
+  const turning = placement === 'header' || inMobileMenu;
   const [failed, setFailed] = useState<string | null>(null);
   const ref = useRef<HTMLElement>(null);
   const overlaid = placement === 'header';
-  const clear = useClearSpace(ref, overlaid && campaign !== null);
-  if (!campaign) return null;
-  const ratio = campaign.width / campaign.height;
+  const first = all[0] ?? null;
+  const clear = useClearSpace(ref, overlaid && first !== null);
+  const shown = useTurn(ref, turning ? all : all.slice(0, 1));
+  const campaign = shown ?? first;
+  if (!campaign || !first) return null;
+  // The box keeps the first campaign's shape through every turn, so a turn moves nothing.
+  const ratio = first.width / first.height;
+  const own = sitePath(campaign.url);
   const box = {
     aspectRatio: ratio,
-    maxWidth: overlaid ? undefined : campaign.width,
+    maxWidth: overlaid ? undefined : first.width,
     ...(inMobileMenu && { '--sponsored-menu-ratio': ratio }),
   } as CSSProperties;
   const art = failed === campaign.id
     ? <span className="sponsored-slot-fallback">{S.fallback(campaign.sponsor)}</span>
     : <ContentImg src={campaign.image} alt={campaign.alt} width={campaign.width} height={campaign.height} referrerPolicy="no-referrer" onError={() => setFailed(campaign.id)} />;
-  const tag = <span className="sponsored-slot-tag">{S.tag}</span>;
+  // Arkpedia's own banner is not an advertisement: no "Ad" tag, and it opens in this tab.
+  const tag = own ? null : <span className="sponsored-slot-tag">{S.tag}</span>;
   return (
-    <aside ref={ref} className={`sponsored-slot sponsored-slot--${placement} ${className}`.trim()} data-clear={overlaid && clear ? '' : undefined} aria-label={S.region(campaign.sponsor)} data-sponsor-campaign={campaign.id}>
-      {campaign.url ? (
-        <a className="sponsored-slot-art" style={box} href={campaign.url} target="_blank" rel="sponsored noopener noreferrer" aria-label={S.linkLabel(campaign.sponsor, campaign.alt)}>
+    <aside ref={ref} className={`sponsored-slot sponsored-slot--${placement} ${className}`.trim()} data-clear={overlaid && clear ? '' : undefined} aria-label={own ? S.ownRegion : S.region(campaign.sponsor)} data-sponsor-campaign={campaign.id}>
+      {own ? (
+        <Link key={campaign.id} className="sponsored-slot-art" style={box} href={campaign.url!} prefetch={false} aria-label={S.ownLinkLabel(campaign.alt)}>
+          {art}
+        </Link>
+      ) : campaign.url ? (
+        <a key={campaign.id} className="sponsored-slot-art" style={box} href={campaign.url} target="_blank" rel="sponsored noopener noreferrer" aria-label={S.linkLabel(campaign.sponsor, campaign.alt)}>
           {art}{tag}
         </a>
       ) : (
-        <div className="sponsored-slot-art" style={box}>{art}{tag}</div>
+        <div key={campaign.id} className="sponsored-slot-art" style={box}>{art}{tag}</div>
       )}
     </aside>
   );

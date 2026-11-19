@@ -17,6 +17,8 @@
 a.sponsored-slot-art:hover,
 a.sponsored-slot-art:focus-visible { border-color: var(--teal); }
 .sponsored-slot-art img { display: block; width: 100%; height: 100%; object-fit: cover; }
+/* A placement with several campaigns shows them in turn (SponsoredSlot useTurn); each one
+   fades in inside the same box (styles/core/motion.css). */
 /* The "Ad" tag: in the artwork's bottom-left corner, over it, so it takes no room. */
 .sponsored-slot-tag {
   position: absolute;

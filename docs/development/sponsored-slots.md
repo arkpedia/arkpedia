@@ -19,6 +19,17 @@ from 1200 px up, ends short of the slot while a campaign runs. The music
 pages keep their Endfield music setting in the sidebar, not the title row, to leave that space
 free.
 
+## Taking turns, and Arkpedia's own banners
+
+Where the `header` placement has more than one usable campaign, they take turns in the same box
+every 8 seconds (`useTurn` in `components/ui/SponsoredSlot.tsx`), in the record's order. The
+server's HTML always shows the first. The turn waits while the pointer or keyboard focus is on
+the slot and while the tab is hidden, and never happens for a reader who asked for reduced
+motion. The box keeps the first campaign's shape, so use artwork of the same proportions.
+
+A campaign whose `url` is a path on this site (`/music/discover`) is one of Arkpedia's own
+banners: it opens in the same tab, is not marked `rel="sponsored"` and carries no "Ad" tag.
+
 ## Where things live
 
 - **Campaigns:** arkpedia-data `source/data/sponsor-campaigns.json`, which reaches every content

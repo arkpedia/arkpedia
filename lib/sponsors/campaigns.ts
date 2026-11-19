@@ -17,7 +17,9 @@ export interface SponsorCampaign {
   sponsor: string;
   /** Only "active" is shown to readers; "draft" is for local development and preview builds. */
   status: 'draft' | 'active' | 'ended';
-  /** The click-through link. A campaign without one is never shown to readers. */
+  /** The click-through link: an https address, or a path on this site for one of Arkpedia's
+   *  own banners (not an advertisement, so it carries no "Ad" tag). A campaign without one
+   *  is never shown to readers. */
   url: string | null;
   /** ISO instants with a timezone; endAt is exclusive. null leaves that side open. */
   startAt: string | null;
@@ -31,6 +33,9 @@ export interface SponsorCampaign {
 }
 
 export interface SponsorCampaignTable { version: 1; campaigns: SponsorCampaign[] }
+
+/** A path on this site, for Arkpedia's own banners: "/music/discover". Never "//host". */
+export const sitePath = (value: unknown): value is string => typeof value === 'string' && /^\/(?!\/)[A-Za-z0-9\-._~/?=&%#]*$/.test(value);
 
 function httpsUrl(value: unknown): value is string {
   if (typeof value !== 'string') return false;
@@ -62,7 +67,7 @@ export function checkSponsorCampaigns(value: unknown): SponsorCampaignTable {
     else ids.add(c.id);
     if (typeof c.sponsor !== 'string' || !c.sponsor.trim()) fail('sponsor is missing');
     if (c.status !== 'draft' && c.status !== 'active' && c.status !== 'ended') fail('status must be draft, active or ended');
-    if (c.url !== null && !httpsUrl(c.url)) fail('url must be an https link or null');
+    if (c.url !== null && !httpsUrl(c.url) && !sitePath(c.url)) fail('url must be an https link, a path on this site (/music/discover) or null');
     if (c.status === 'active' && c.url === null) fail('an active campaign needs its url');
     if (c.startAt !== null && !instant(c.startAt)) fail('startAt must be an ISO instant with a timezone, or null');
     if (c.endAt !== null && !instant(c.endAt)) fail('endAt must be an ISO instant with a timezone, or null');
@@ -87,18 +92,24 @@ export function currentSponsorCampaigns(table: SponsorCampaignTable, nowMs: numb
 }
 
 /**
- * The campaign a placement shows at `nowMs`, or null.
+ * The campaigns a placement shows at `nowMs`, in the record's order.
  *
- * Readers get the first listed campaign that is active, linked and inside its window.
- * `drafts` (local development and preview builds only) also admits draft campaigns,
- * linked or not and whatever their dates, so the artwork can be reviewed in place.
+ * Readers get every listed campaign that is active, linked and inside its window; a
+ * placement with more than one takes turns (components/ui/SponsoredSlot). `drafts` (local
+ * development and preview builds only) also admits draft campaigns, linked or not and
+ * whatever their dates, so the artwork can be reviewed in place.
  */
-export function sponsorCampaignFor(table: SponsorCampaignTable, placement: SponsorPlacement, nowMs: number | null, drafts = false): SponsorCampaign | null {
-  return table.campaigns.find(campaign => {
+export function sponsorCampaignsFor(table: SponsorCampaignTable, placement: SponsorPlacement, nowMs: number | null, drafts = false): SponsorCampaign[] {
+  return table.campaigns.filter(campaign => {
     if (!campaign.placements.includes(placement)) return false;
     if (campaign.status === 'draft') return drafts;
     if (campaign.status !== 'active' || !campaign.url) return false;
     if (nowMs === null) return true;
     return inWindow(campaign, nowMs);
-  }) ?? null;
+  });
+}
+
+/** The first campaign a placement shows at `nowMs`, or null. */
+export function sponsorCampaignFor(table: SponsorCampaignTable, placement: SponsorPlacement, nowMs: number | null, drafts = false): SponsorCampaign | null {
+  return sponsorCampaignsFor(table, placement, nowMs, drafts)[0] ?? null;
 }
