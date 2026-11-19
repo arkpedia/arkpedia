@@ -233,6 +233,20 @@ test('the index is read from the content release, falling back to the deployment
   await assert.rejects(() => loadSiteSearch(SITE_SEARCH_PATH, undefined, async () => ({ ok: true, status: 200, json: async () => ({ rows: [] }) })), /invalid/);
 });
 
+test('site search can use the bundled operator aliases with an older content index', async () => {
+  const url = contentUrl(SITE_SEARCH_PATH, release);
+  const target: SiteSearchEntry = { kind: 'operator', title: 'Тоска', href: '/operators/Тоска', terms: ['冻河'] };
+  const event: SiteSearchEntry = { kind: 'event', title: 'Existing event', href: '/events' };
+  const entries = await loadSiteSearch(url, undefined, async input => ({
+    ok: true, status: 200, json: async () => input === url ? { entries: [target, event] }
+      : { operators: [{ name: 'Тоска', rarity: 6, aliases: ['toska', 'Fyodor'] }] },
+  }));
+  assert.deepEqual(entries[1], event);
+  assert.equal(searchSite(entries, 'toska')[0]?.entry.title, 'Тоска');
+  assert.equal(searchSite(entries, 'fyodor')[0]?.entry.title, 'Тоска');
+  assert.equal(searchSite(entries, '冻河')[0]?.entry.title, 'Тоска');
+});
+
 /* /search shipped without a data function, so it carried no release and read the deployment's
    copy of the index -- 70 rows behind dev's release within the hour. It is where ?s= and a
    browser's search engine land, so it has to be a release page. */

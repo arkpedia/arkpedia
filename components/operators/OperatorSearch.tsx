@@ -2,10 +2,10 @@ import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/router';
 import Image from '@/components/content/ContentImage';
 import SearchInput from '@/components/ui/SearchInput';
-import { useContentUrl } from '@/lib/content/context';
 import { operatorHref, OperatorSection } from '@/lib/operators/operatorHref';
 import { getOperatorIconPath } from '@/lib/operators/operatorIcon';
-import { getOperatorSearchResults, loadOperatorSearch, SearchableOperatorRecord } from '@/lib/operators/operatorSearch';
+import { getOperatorSearchResults } from '@/lib/operators/operatorSearch';
+import { useOperatorSearchCatalogue } from '@/lib/operators/useOperatorSearchCatalogue';
 import type { Operator } from '@/lib/operators/operatorTypes';
 
 /**
@@ -17,22 +17,11 @@ import type { Operator } from '@/lib/operators/operatorTypes';
  * The next operator opens at `section`, the one the reader is on (operatorHref).
  */
 export default function OperatorSearch({ section }: { section: OperatorSection | null }) {
-  const contentUrl = useContentUrl();
   const router = useRouter();
-  const [operators, setOperators] = useState<SearchableOperatorRecord[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { operators, loading } = useOperatorSearchCatalogue(true);
   const [query, setQuery] = useState('');
   const results = useMemo(() => getOperatorSearchResults(operators, query), [operators, query]);
 
-  useEffect(() => {
-    const controller = new AbortController();
-    setLoading(true);
-    loadOperatorSearch(contentUrl('/operator-search.json'), controller.signal)
-      .then(setOperators)
-      .catch(error => { if (!controller.signal.aborted) console.error(error); })
-      .finally(() => { if (!controller.signal.aborted) setLoading(false); });
-    return () => controller.abort();
-  }, [contentUrl]);
   useEffect(() => { setQuery(''); }, [router.asPath]);
 
   function select(name: string) {

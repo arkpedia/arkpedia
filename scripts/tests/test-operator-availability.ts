@@ -3,6 +3,8 @@ import test from 'node:test';
 import { isOperatorReleased, operatorRelease, operatorReleaseLabel } from '../../lib/operators/operatorAvailability';
 import { getAllOperators } from '../../lib/operators/operators';
 import { portraitStatus } from '../../lib/operators/operatorPortrait';
+import { OPERATOR_NAME_ALIASES_VERSION } from '../../lib/operators/operatorSearch';
+import { buildOperatorNameAliases } from '../lib/operator-name-aliases';
 import operatorSearch from '../../public/operator-search.json';
 
 const opening = Date.parse('2026-09-16T15:00:00Z');
@@ -47,9 +49,14 @@ test('the shared operator search catalogue uses the current release source', () 
   // as build-operator-search.ts writes it: left out here, the test held while every portrait was
   // published, and failed the content run of 2026-10-15, whose asset pin lacked the art Global
   // had renamed (GALLUS², Kal'tsit Esperanta) -- portraits check-completeness holds anyway.
-  const expected = getAllOperators().map((operator) => ({
+  const records = getAllOperators();
+  const names = buildOperatorNameAliases(records);
+  // Check also runs against the preceding live snapshot during a deployment.
+  const hasAliases = (operatorSearch as { operatorNameAliasesVersion?: number }).operatorNameAliasesVersion === OPERATOR_NAME_ALIASES_VERSION;
+  const expected = records.map((operator) => ({
     name: operator.name,
     rarity: operator.rarity,
+    ...(hasAliases && names[operator.name].length ? { aliases: names[operator.name] } : {}),
     ...portraitStatus(operator),
     ...(operator.sourceRegion ? { sourceRegion: operator.sourceRegion } : {}),
   }));

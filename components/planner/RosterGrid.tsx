@@ -5,7 +5,8 @@ import { useEffect, useMemo, useRef } from 'react';
 import { getClassIconPath } from '@/lib/operators/classBranchIcons';
 import { getOperatorIconPath } from '@/lib/operators/operatorIcon';
 import type { PlannerOperatorSummary } from '@/lib/operators/operatorTypes';
-import { matchesSearch, searchRelevance } from '@/lib/search/searchNormalize';
+import { operatorSearchMatcher } from '@/lib/operators/operatorSearch';
+import { useOperatorSearchCatalogue } from '@/lib/operators/useOperatorSearchCatalogue';
 import type { Roster } from '@/lib/planner/roster';
 import SearchInput from '@/components/ui/SearchInput';
 import OperatorGameIcon from '@/components/operators/OperatorGameIcon';
@@ -120,14 +121,12 @@ export function RosterGrid({
     [operators],
   );
 
+  const { aliases, loading: searchLoading } = useOperatorSearchCatalogue(!!query.trim());
   const shown = useMemo(() => {
     const q = query.trim();
-    const hit = (o: PlannerOperatorSummary) =>
-      !q || matchesSearch(o.name, q) || (o.aliases ?? []).some((a) => matchesSearch(a, q));
-    const rank = (o: PlannerOperatorSummary) =>
-      Math.min(searchRelevance(o.name, q), ...(o.aliases ?? []).map((a) => searchRelevance(a, q)));
+    const rank = operatorSearchMatcher(q, aliases);
     return operators
-      .filter((o) => hit(o)
+      .filter((o) => Number.isFinite(rank(o))
         && (classFilter === null || o.className === classFilter)
         && (rarityFilter === null || o.rarity === rarityFilter)
         && (ownedFilter === 'all' || (ownedFilter === 'owned') === (o.name in roster)))
@@ -138,7 +137,7 @@ export function RosterGrid({
         || (b.rarity || 0) - (a.rarity || 0)
         || a.name.localeCompare(b.name)
       ));
-  }, [operators, roster, query, classFilter, rarityFilter, ownedFilter]);
+  }, [operators, roster, query, classFilter, rarityFilter, ownedFilter, aliases]);
 
   const ownedCount = useMemo(() => operators.filter((o) => o.name in roster).length, [operators, roster]);
   const order = useMemo(() => shown.map((o) => o.name), [shown]);
@@ -235,7 +234,7 @@ export function RosterGrid({
       <div className="wizard-body">
         {shown.length === 0 ? (
           <p className="hint plan-hint">
-            {query.trim()
+            {searchLoading ? 'Loading operators…' : query.trim()
               ? <>Nothing matches &ldquo;{query}&rdquo;{mode === 'goal' && ownedFilter === 'owned' ? ' among the operators you own — press Add a new operator to reach the rest' : ''}.</>
               : mode === 'goal' && ownedFilter === 'owned'
                 ? 'You have not recorded any operators yet. Press Add a new operator, or fill in Your roster first.'

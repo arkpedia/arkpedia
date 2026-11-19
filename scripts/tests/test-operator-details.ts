@@ -7,7 +7,8 @@ import { readCsv } from '../lib/operator-csv';
 import { getBaseSkillIconPath, getSkillIconPath, baseSkillDisplayName, talentDisplayName, getEssentialIconPath } from '../../lib/operators/operatorIconPaths';
 import { getOperatorIconPath, OPERATOR_PORTRAIT_PLACEHOLDER } from '../../lib/operators/operatorIcon';
 import { isPortraitPending } from '../../lib/operators/operatorPortrait';
-import { getOperatorSearchResults, loadOperatorSearch } from '../../lib/operators/operatorSearch';
+import { getOperatorSearchResults, loadOperatorSearch, operatorSearchMatcher } from '../../lib/operators/operatorSearch';
+import { buildOperatorNameAliases } from '../lib/operator-name-aliases';
 import { getOperatorAppearances } from '../../lib/operators/operatorAppearances';
 import { getOperatorArtworkCredits } from '../../lib/operators/operatorArtworkCredits';
 import { getAllSkins } from '../../lib/skins/skins';
@@ -482,6 +483,42 @@ test('operator quick search ranks normalized prefixes first without mutating its
   assert.deepEqual(getOperatorSearchResults(candidates, 'an').map(op => op.name), ['Andreana', 'Ansel', 'Franka', 'Manticore']);
   assert.equal(candidates[0].name, 'Franka');
   assert.equal(getOperatorSearchResults(operators, 'a').length, 8);
+});
+
+test('operator aliases come from localized records and support new Cyrillic names, pinyin and typos', () => {
+  const catalogue = getAllOperators();
+  const aliases = buildOperatorNameAliases(catalogue);
+  const rows = catalogue.map(operator => ({ name: operator.name, aliases: aliases[operator.name] }));
+  const table = new Map(Object.entries(aliases));
+  for (const [query, name] of [
+    ['Toska', 'Тоска'], ['Tosca', 'Тоска'], ['Fyodor', 'Тоска'], ['冻河', 'Тоска'],
+    ['dong he', 'Тоска'], ['dōnghé', 'Тоска'], ['Тоска', 'Тоска'],
+    ['Olga', 'Ольга'], ['Territoriya', 'Территория'], ['Territoria', 'Территория'],
+    ['阿米娅', 'Amiya'], ['アーミヤ', 'Amiya'], ['아미야', 'Amiya'],
+    ['wi sha del', "Wiš'adel"], ['mlyanr', 'Młynar'],
+  ]) {
+    assert.equal(getOperatorSearchResults(rows, query)[0]?.name, name, query);
+    assert.ok(Number.isFinite(operatorSearchMatcher(query, table)({ name })), query);
+  }
+  const example = { name: 'Север', aliases: ['Old name'], otherLanguages: {
+    Japanese: '青雪', Korean: '북극', 'Simplified Chinese': '北方',
+  } };
+  const generated = buildOperatorNameAliases([example])['Север'];
+  for (const alias of ['sever', 'Old name', '青雪', '북극', 'bukgeuk', '北方', 'beifang']) assert.ok(generated.includes(alias), alias);
+  assert.ok(!generated.includes('qingxue'), 'do not read Japanese kanji as Mandarin');
+  assert.equal(operatorSearchMatcher('fyodor', table)({ name: 'Amiya' }), Infinity);
+  assert.deepEqual(getOperatorSearchResults(rows, 'Zima the Raging Tide').map(row => row.name), ['Zima the Raging Tide']);
+});
+
+test('older operator search indexes gain bundled aliases without changing their roster', async () => {
+  const released = 'https://example.test/release/public/operator-search.json';
+  const fetcher = async (url: string) => ({ ok: true, status: 200, json: async () => url === released
+    ? { operators: [{ name: 'Тоска', rarity: 6 }, { name: 'Published only', rarity: 4 }] }
+    : { operators: [{ name: 'Тоска', rarity: 6, aliases: ['toska'] }, { name: 'Bundled only', rarity: 5 }] },
+  });
+  assert.deepEqual(await loadOperatorSearch(released, undefined, fetcher), [
+    { name: 'Тоска', rarity: 6, aliases: ['toska'] }, { name: 'Published only', rarity: 4 },
+  ]);
 });
 
 test('operator quick search falls back to the bundled catalogue when a content release is incomplete', async () => {

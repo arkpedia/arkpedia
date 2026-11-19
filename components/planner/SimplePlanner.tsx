@@ -8,7 +8,8 @@ import type {
   CostGroup,
 } from "@/lib/operators/operatorTypes";
 import { getOperatorIconPath } from "@/lib/operators/operatorIcon";
-import { matchesSearch, searchRelevance } from "@/lib/search/searchNormalize";
+import { operatorSearchMatcher } from "@/lib/operators/operatorSearch";
+import { useOperatorSearchCatalogue } from "@/lib/operators/useOperatorSearchCatalogue";
 import type { BuilderState } from "@/lib/planner/builderStates";
 import { upgradeCostGroups } from "@/lib/planner/upgradeCostGroups";
 import { usePlannerContent } from "@/lib/content/planner";
@@ -137,28 +138,26 @@ export function SimplePlanner({
   onRetry: (name: string) => void;
 }) {
   const [query, setQuery] = useState("");
+  const { aliases, loading: searchLoading } = useOperatorSearchCatalogue(!!query.trim());
   /* An operator's dossier is taller than All materials, so switching back to All (or
      removing the operator on show) from the foot of a dossier can shorten the page
      under the reader: the Anti-Page Jump hold, taken in the handler before the switch.
      (A 249px clamp on a phone was seen in one test run; it did not reproduce.) */
   const viewHold = useSwitchHold("planner-simple");
   const matches = useMemo(
-    () =>
-      operators
-        .filter((op) =>
-          [op.name, ...(op.aliases ?? [])].some((n) =>
-            matchesSearch(n, query.trim()),
-          ),
-        )
+    () => {
+      const rank = operatorSearchMatcher(query, aliases);
+      return operators
+        .filter((op) => Number.isFinite(rank(op)))
         .sort(
           (a, b) =>
-            searchRelevance(a.name, query.trim()) -
-              searchRelevance(b.name, query.trim()) ||
+            rank(a) - rank(b) ||
             (b.rarity || 0) - (a.rarity || 0) ||
             a.name.localeCompare(b.name),
         )
-        .slice(0, 20),
-    [operators, query],
+        .slice(0, 20);
+    },
+    [operators, query, aliases],
   );
   const name = selected && selectedNames.includes(selected) ? selected : null;
   const summary = operators.find((o) => o.name === name);
@@ -190,7 +189,7 @@ export function SimplePlanner({
         suggestions={matches}
         getKey={(o) => o.name}
         suggestLabel="Matching operators"
-        emptyText="No operators found"
+        emptyText={searchLoading ? "Loading operators…" : "No operators found"}
         renderSuggestion={(o) => (
           <>
             <Image src={getOperatorIconPath(o)} alt="" width={36} height={36} className={o.rarity ? `tier-${rarityLevel(o.rarity)}` : undefined} />
