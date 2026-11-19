@@ -30,7 +30,6 @@
 .gacha-composite .gacha-composite-panel {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  background: var(--panel-2);
   overflow: hidden;
 }
 .gacha-composite-panel:has(.gacha-composite-support) { grid-template-columns: minmax(0, 7fr) minmax(0, 3fr); }
@@ -90,6 +89,7 @@
     grid-template-columns: repeat(auto-fit, minmax(min(85px, 100%), 1fr));
     border-inline-start: 0;
     border-top: 1px solid var(--line-soft);
+    text-align: center;
   }
   .gacha-composite-support-item { grid-template-columns: minmax(0, 1fr); grid-template-rows: 48px 1fr; padding: 4px 4px 6px; }
   .gacha-composite-support-item + .gacha-composite-support-item { border-top: 0; border-inline-start: 1px solid var(--line-soft); }

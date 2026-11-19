@@ -141,9 +141,13 @@ for (const [title, operator, skin] of [
         else draw.call(this, text, x, y, maxWidth);
       };
     });
-    // This quantity check needs one stable export, not a late CDN-menu fallback
-    // cancelling its first canvas render (the fallback itself is covered above).
-    await page.route('**/event-transitions/players/**/menu.webp', route => route.fulfill({ contentType: 'image/png', body: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aL1cAAAAASUVORK5CYII=', 'base64') }));
+    // This test asserts the text drawn and downloaded. Keep image transfer and
+    // decoding deterministic on mobile. The other tests cover artwork and fallback.
+    const pixel = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aL1cAAAAASUVORK5CYII=', 'base64');
+    await page.route('**/event-transitions/players/**/menu.webp', route => route.fulfill({ contentType: 'image/png', body: pixel }));
+    await page.route(/\/arkpedia-(?:image|skin)-assets\//, route => route.request().resourceType() === 'image'
+      ? route.fulfill({ contentType: 'image/png', headers: { 'Access-Control-Allow-Origin': '*' }, body: pixel })
+      : route.fallback());
     await page.goto('/events/' + encodeURIComponent(title));
     const tab = page.getByRole('tab', { name: 'Rewards', exact: true });
     if (await tab.count()) await tab.click();
