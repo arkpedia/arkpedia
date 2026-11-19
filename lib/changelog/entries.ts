@@ -34,6 +34,10 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    at: '2026-11-19T11:40:00Z',
+    fixed: [{ title: 'Azure Dream farming recommendations', detail: 'Removed the Event Store recommendation for the randomized shop in Thunder in the Azure Dream.', href: '/farming' }],
+  },
+  {
     at: '2026-11-19T06:45:00Z',
     added: [{ title: 'Character names and alter shortcuts', detail: 'Find operators by documented names like Eblana and Loughshinny, or use shortcuts like Chen2 and Chen3 to pick a specific alter.', href: '/operator-planner' }],
   },
