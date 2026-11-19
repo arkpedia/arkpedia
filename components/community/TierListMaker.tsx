@@ -5,7 +5,7 @@ import SearchInput from '@/components/ui/SearchInput';
 import XButton from '@/components/ui/XButton';
 import { useHeightFloor } from '@/components/ui/useHeightFloor';
 import { matchesSearch } from '@/lib/search/searchNormalize';
-import { catalogueItems, TIER_KINDS, TIER_RARITIES, type TierCatalogue, type TierItem } from '@/lib/tier-list/catalogue';
+import { catalogueItems, OPERATOR_KINDS, TIER_KINDS, TIER_RARITIES, type TierCatalogue, type TierItem } from '@/lib/tier-list/catalogue';
 import { quizPool, scoreQuiz, type QuizScore } from '@/lib/tier-list/quiz';
 import { decodeTierList, sharePayload, type SharedTierList } from '@/lib/tier-list/share';
 import { addRow, clearRows, defaultTierList, deleteRow, labelInk, moveRow, placeItems, poolItems, returnToPool, ROW_COLORS, setZoom, toggleKind, toggleRarity, updateRow, MAX_LABEL, MAX_TITLE, ZOOM, type TierListState, type TierRow } from '@/lib/tier-list/state';
@@ -190,35 +190,53 @@ export default function TierListMaker({ catalogue }: { catalogue: TierCatalogue 
         </div>
       )}
 
-      <section className="op-section" aria-labelledby="tier-setup">
-        <h2 id="tier-setup">{T.setupHeading}</h2>
-        <div className={`panel ${styles.setup}`}>
-          {!quiz && <div className={styles.group} role="group" aria-labelledby="tier-rarity">
-            <span className="label-tag" id="tier-rarity">{T.rarityGroup}</span>
-            <div className={styles.checks}>
-              {TIER_RARITIES.map((rarity) => (
-                <label key={rarity} className="check">
-                  <input type="checkbox" aria-label={T.rarityName(rarity)} checked={state.rarities.includes(rarity)} onChange={(event) => update((current) => toggleRarity(current, rarity, event.target.checked))} />
-                  {T.rarity(rarity)}
-                </label>
-              ))}
-            </div>
-            <span className="hint">{T.rarityNote}</span>
-          </div>}
-          {!quiz && <div className={styles.group} role="group" aria-labelledby="tier-kind">
-            <span className="label-tag" id="tier-kind">{T.kindGroup}</span>
-            <div className={styles.checks}>
-              {TIER_KINDS.map((kind) => (
-                <label key={kind} className="check">
-                  <input type="checkbox" aria-label={T.kindNames[kind]} checked={state.kinds.includes(kind)} onChange={(event) => update((current) => toggleKind(current, kind, event.target.checked))} />
-                  {T.kinds[kind]}
-                </label>
-              ))}
-            </div>
-          </div>}
-          <div className={styles.group} role="group" aria-labelledby="tier-zoom">
-            <span className="label-tag" id="tier-zoom">{T.zoomGroup}</span>
-            <div className={styles.zoom}>
+      {/* What goes in the pool, in three labelled rows on one grid: the operator art, the
+          rarities that narrow it, and the kinds that have no rarity. A quiz sets its own pool. */}
+      {!quiz && (
+        <section className="op-section" aria-labelledby="tier-setup">
+          <h2 id="tier-setup">{T.setupHeading}</h2>
+          <div className={`panel ${styles.setup}`}>
+            {([
+              ['tier-operator-kinds', T.operatorGroup, TIER_KINDS.filter((kind) => OPERATOR_KINDS.has(kind))],
+              ['tier-other-kinds', T.otherGroup, TIER_KINDS.filter((kind) => !OPERATOR_KINDS.has(kind))],
+            ] as const).map(([id, label, kinds], index) => [
+              <span key={`${id}-label`} className="label-tag" id={id}>{label}</span>,
+              <div key={id} className={styles.checks} role="group" aria-labelledby={id}>
+                {kinds.map((kind) => (
+                  <label key={kind} className="check">
+                    <input type="checkbox" aria-label={T.kindNames[kind]} checked={state.kinds.includes(kind)} onChange={(event) => update((current) => toggleKind(current, kind, event.target.checked))} />
+                    {T.kinds[kind]}
+                  </label>
+                ))}
+              </div>,
+              // The rarities sit under the operator art they narrow.
+              ...(index === 0 ? [
+                <span key="rarity-label" className="label-tag" id="tier-rarity">{T.rarityGroup}</span>,
+                <div key="rarity" className={styles.checks} role="group" aria-labelledby="tier-rarity">
+                  {TIER_RARITIES.map((rarity) => (
+                    <label key={rarity} className="check">
+                      <input type="checkbox" aria-label={T.rarityName(rarity)} checked={state.rarities.includes(rarity)} onChange={(event) => update((current) => toggleRarity(current, rarity, event.target.checked))} />
+                      {T.rarity(rarity)}
+                    </label>
+                  ))}
+                </div>,
+              ] : []),
+            ])}
+          </div>
+        </section>
+      )}
+
+      <section className="op-section" aria-labelledby="tier-board">
+        <h2 id="tier-board">{T.boardHeading}</h2>
+        <div ref={floor.ref}>
+          {/* The list's name, and how its tiles are drawn: beside the tiles they change. */}
+          <div className={styles.boardHead}>
+            <input type="text" className={styles.name} value={state.title} maxLength={MAX_TITLE} readOnly={!!quiz} aria-label={T.titleLabel} placeholder={T.titlePlaceholder} onChange={(event) => update((current) => ({ ...current, title: event.target.value }))} />
+            <label className="check">
+              <input type="checkbox" checked={state.names} onChange={(event) => update((current) => ({ ...current, names: event.target.checked }))} />
+              {T.names}
+            </label>
+            <div className={styles.zoom} role="group" aria-label={T.zoomGroup}>
               <svg className={styles.zoomIcon} viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><circle cx="7" cy="7" r="4.5" fill="none" stroke="currentColor" strokeWidth="1.4" /><path d="M10.4 10.4L14 14" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" /></svg>
               <button type="button" className="ghost btn-icon" aria-label={T.zoomOut} title={state.zoom <= ZOOM.min ? T.zoomSmallest : T.zoomOut} disabled={state.zoom <= ZOOM.min} onClick={() => update((current) => setZoom(current, current.zoom - ZOOM.step))}>
                 <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M3.5 8h9" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /></svg>
@@ -229,20 +247,6 @@ export default function TierListMaker({ catalogue }: { catalogue: TierCatalogue 
               </button>
             </div>
           </div>
-          <div className={styles.group}>
-            <span className="label-tag">{T.namesGroup}</span>
-            <label className="check">
-              <input type="checkbox" checked={state.names} onChange={(event) => update((current) => ({ ...current, names: event.target.checked }))} />
-              {T.names}
-            </label>
-          </div>
-        </div>
-      </section>
-
-      <section className="op-section" aria-labelledby="tier-board">
-        <h2 id="tier-board">{T.boardHeading}</h2>
-        <div ref={floor.ref}>
-          <input type="text" className={styles.name} value={state.title} maxLength={MAX_TITLE} readOnly={!!quiz} aria-label={T.titleLabel} placeholder={T.titlePlaceholder} onChange={(event) => update((current) => ({ ...current, title: event.target.value }))} />
           {state.rows.length ? (
             <ol className={styles.board}>
               {state.rows.map((row, index) => {
@@ -281,7 +285,14 @@ export default function TierListMaker({ catalogue }: { catalogue: TierCatalogue 
               <button type="button" className="danger" onClick={() => { if (window.confirm(T.startOverConfirm)) { update(() => defaultTierList()); setQuery(''); } }}>{T.startOver}</button>
             </div>
           )}
-          <p className={`hint ${styles.notice}`} role="status" data-score={score ? score.percent : undefined}>{quiz ? (score ? T.quizScore(score.percent, score.correct, score.total) : T.quizHint) : shared ? T.notSaved : T.saved}</p>
+          {quiz ? (
+            // The score keeps its place and size before it is known, so checking moves nothing.
+            <p className={styles.score} role="status" data-score={score ? score.percent : undefined}>
+              <span className="label-tag">{T.quizScoreLabel}</span>
+              <strong>{score ? T.quizPercent(score.percent) : T.quizUnchecked}</strong>
+              <span className="hint">{score ? T.quizDetail(score.correct, score.total) : T.quizHint}</span>
+            </p>
+          ) : <p className={`hint ${styles.notice}`} role="status">{shared ? T.notSaved : T.saved}</p>}
           {floor.spacer}
         </div>
       </section>

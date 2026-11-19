@@ -396,7 +396,9 @@ test('a quiz link offers only what its maker placed and scores the reader agains
   await place(page, info, 1); // second -> A: wrong
   await place(page, info, 2); // third -> B: right
   await page.getByRole('button', { name: 'Check answers', exact: true }).click();
-  await expect(page.getByText('Score: 50% · 2 of 4 in the right tier')).toBeVisible();
+  await expect(page.locator('[data-score="50"]')).toHaveText(/Score\s*50%\s*2 of 4 in the right tier/);
+  // The result is the largest text on the tool, not a footnote.
+  expect(await page.locator('[data-score] strong').evaluate((element) => parseFloat(getComputedStyle(element).fontSize))).toBeGreaterThanOrEqual(26);
   await expect(page.locator('[data-row] [data-mark="right"]')).toHaveCount(2);
   await expect(page.locator('[data-row] [data-mark="wrong"]')).toHaveCount(1);
   await expect(page.getByRole('img', { name: `${second} (wrong tier)`, exact: true })).toBeVisible();
@@ -407,7 +409,7 @@ test('a quiz link offers only what its maker placed and scores the reader agains
   await expect(page.getByText('Not checked yet.')).toBeVisible();
   await place(page, info, 4);
   await page.getByRole('button', { name: 'Check answers', exact: true }).click();
-  await expect(page.getByText('Score: 100% · 4 of 4 in the right tier')).toBeVisible();
+  await expect(page.locator('[data-score="100"]')).toHaveText(/Score\s*100%\s*4 of 4 in the right tier/);
   // The reader's own list (what they made the quiz from) is untouched.
   await page.getByRole('button', { name: 'Back to mine', exact: true }).click();
   await expect.poll(() => rowItems(page)).toEqual([[first, second], [], [third], [], [fourth]]);

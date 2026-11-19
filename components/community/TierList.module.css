@@ -3,14 +3,23 @@
 /* A tile's side follows the zoom the reader set (--zoom, from the saved list). */
 .maker { --tile-base: 64px; --tile: calc(var(--tile-base) * var(--zoom, 1)); min-width:0; }
 
-.setup { display:flex; flex-wrap:wrap; gap:12px 40px; padding:14px 16px; }
-.group { display:grid; gap:4px; min-width:0; }
-.checks { display:flex; flex-wrap:wrap; gap:0 18px; }
+/* Three labelled rows on one grid, so every row's first checkbox starts on one line. */
+.setup { display:grid; grid-template-columns:max-content minmax(0,1fr); align-items:start; gap:2px 0; padding:10px 16px; }
+.checks { display:flex; flex-wrap:wrap; gap:0 20px; min-width:0; }
+/* The rarities belong to the operator art above them; a hairline sets the last row, the
+   kinds no rarity narrows, apart from the pair. */
+.setup > :nth-child(3), .setup > :nth-child(4) { padding-bottom:6px; }
+.setup > :nth-child(n+5) { padding-top:6px; border-top:1px solid var(--line-soft); }
+/* A label sits on its group's first line of boxes (a checkbox row is 32px tall), also where
+   the group wraps to more lines; its padding is the column gap, so the hairline runs unbroken. */
+.setup > :global(.label-tag) { display:flex; align-items:center; box-sizing:content-box; height:32px; padding-right:24px; }
+
+.boardHead { display:flex; flex-wrap:wrap; align-items:center; gap:8px 20px; margin-bottom:12px; }
 .zoom { display:flex; align-items:center; gap:6px; }
 .zoomIcon { flex:none; color:var(--text-dim); }
 .zoomValue { min-width:5ch; font-family:var(--font-mono); font-size:13px; text-align:center; color:var(--text); }
 
-.name { display:block; box-sizing:border-box; width:min(100%,420px); margin-bottom:12px; }
+.name { flex:1 1 240px; box-sizing:border-box; min-width:0; max-width:420px; margin-right:auto; }
 
 /* Rows share one grid, so every label cell is as wide as the widest label needs. */
 .board { display:grid; grid-template-columns:minmax(72px,max-content) minmax(0,1fr) auto; gap:4px 0; margin:0; padding:0; list-style:none; }
@@ -76,6 +85,11 @@
 .shared { display:flex; flex-wrap:wrap; align-items:center; gap:8px 12px; margin-bottom:var(--section-gap); padding:10px 12px; }
 .shared > span { flex:1 1 280px; font-size:13px; }
 .notice { margin:10px 0 0; }
+/* A quiz's result is the point of the quiz: the percent at the page title's size. */
+.score { display:flex; flex-wrap:wrap; align-items:baseline; gap:4px 12px; margin:16px 0 0; }
+.score > strong { font-family:var(--font-display); font-size:30px; font-weight:700; line-height:1; color:var(--text-bright); }
+.score[data-score] > strong { color:var(--amber); }
+.score[data-score="100"] > strong { color:var(--cat-green); }
 
 .imageDialog { --dialog-w: 860px; }
 .imageCanvas { display:block; width:100%; height:auto; max-height:60vh; object-fit:contain; background:var(--well); border:1px solid var(--line-soft); border-radius:var(--radius); }
