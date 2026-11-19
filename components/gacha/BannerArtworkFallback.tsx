@@ -28,7 +28,7 @@ export default function BannerArtworkFallback({ operators, kernel }: { operators
   const shopLabel = kernel ? 'Certificate shop' : 'Distinctions shop';
   return (
     <figure className="gacha-composite">
-      <div className="gacha-composite-panel gacha-banner-main-image">
+      <div className="gacha-composite-panel gacha-banner-main-image panel">
         <div className="gacha-composite-leads">
           {leads.map(operator => (
             <div key={operator.name} className="gacha-composite-lead">
