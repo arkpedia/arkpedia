@@ -64,6 +64,10 @@
   /* The site search pop-up rises into place over a fading ground (components/layout/SiteSearch.tsx). */
   .site-search-overlay { animation: site-search-ground-in 0.16s ease; }
   .site-search-dialog { animation: site-search-in 0.18s var(--ease); }
+  /* A sponsored slot whose campaigns take turns: the next artwork fades in, in the same box. */
+  .sponsored-slot--header .sponsored-slot-art img,
+  .sponsored-slot--mobile-menu .sponsored-slot-art img { animation: sponsored-slot-turn 0.4s var(--ease); }
+  @keyframes sponsored-slot-turn { from { opacity: 0; } to { opacity: 1; } }
   @keyframes site-search-ground-in { from { opacity: 0; } to { opacity: 1; } }
   @keyframes site-search-in { from { opacity: 0; transform: translateY(-8px) scale(0.985); } to { opacity: 1; transform: none; } }
   /* A list's filter sheet on a phone (components/ui/FilterSheet.tsx) arrives the same way:

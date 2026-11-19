@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { checkSponsorCampaigns, currentSponsorCampaigns, sponsorCampaignFor, type SponsorCampaign } from '../../lib/sponsors/campaigns';
+import { checkSponsorCampaigns, currentSponsorCampaigns, sitePath, sponsorCampaignFor, sponsorCampaignsFor, type SponsorCampaign } from '../../lib/sponsors/campaigns';
 import record from '../../data/sponsor-campaigns.json';
 
 const campaign = (over: Partial<SponsorCampaign> = {}): SponsorCampaign => ({
@@ -54,4 +54,21 @@ test('a malformed campaign stops the release, naming each problem', () => {
   bad({ alt: ' ' }, /alt is missing/);
   assert.throws(() => checkSponsorCampaigns({ version: 1, campaigns: [campaign(), campaign()] }), /used twice/);
   assert.throws(() => checkSponsorCampaigns({ campaigns: [] }), /version: 1/);
+});
+
+test('a placement with several campaigns lists them all in the record\'s order, and the first is the one a single slot shows', () => {
+  const t = table(campaign({ id: 'a', placements: ['header'] }), campaign({ id: 'b', placements: ['home'] }), campaign({ id: 'c', placements: ['header', 'support'] }), campaign({ id: 'd', status: 'ended', placements: ['header'] }));
+  const now = at('2026-11-17T00:00:00Z');
+  assert.deepEqual(sponsorCampaignsFor(t, 'header', now).map(c => c.id), ['a', 'c']);
+  assert.equal(sponsorCampaignFor(t, 'header', now)?.id, 'a');
+  assert.deepEqual(sponsorCampaignsFor(t, 'support', now).map(c => c.id), ['c']);
+});
+
+test('a link is an https address or a path on this site, never another scheme or host-relative', () => {
+  checkSponsorCampaigns({ version: 1, campaigns: [campaign({ url: '/music/discover' })] });
+  for (const url of ['//evil.example/a', 'http://example.com', 'javascript:alert(1)', 'music/discover', '/a b']) {
+    assert.throws(() => checkSponsorCampaigns({ version: 1, campaigns: [campaign({ url })] }), /url must be/, url);
+  }
+  assert.equal(sitePath('/music/discover'), true);
+  assert.equal(sitePath('https://example.com/a'), false);
 });

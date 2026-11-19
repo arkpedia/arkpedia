@@ -4,6 +4,9 @@ export const SPONSOR_STRINGS = {
   tag: 'Ad',
   region: (sponsor: string) => `Sponsored: ${sponsor}`,
   linkLabel: (sponsor: string, alt: string) => `${alt} (sponsored link to ${sponsor}, opens in a new tab)`,
+  /** Arkpedia's own banner, linking to a page of the site. */
+  ownRegion: 'From Arkpedia',
+  ownLinkLabel: (alt: string) => alt,
   /** Shown in the slot's box when the artwork does not load (a content blocker, a failed request). */
   fallback: (sponsor: string) => `Arkpedia is supported by ${sponsor}`,
   supportHeading: 'Our sponsor',
