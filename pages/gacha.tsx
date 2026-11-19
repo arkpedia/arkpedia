@@ -8,6 +8,10 @@ import { withContentPage } from '@/lib/content/server';
 import { GetStaticProps } from 'next';
 import { useRouter } from 'next/router';
 import Image from '@/components/content/ContentImage';
+import BannerArtworkFallback, { BannerArtworkThumbnail } from '@/components/gacha/BannerArtworkFallback';
+import { officialBannerArtwork, type BannerArtworkOperator } from '@/lib/gacha/bannerArtwork';
+import { buildBannerArtwork, readBannerShopRows } from '@/lib/gacha/bannerArtworkServer';
+import { useContentUrl } from '@/lib/content/context';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { getGachaIconPools, GachaIconPools } from '@/lib/gacha/gachaIconPools';
 import type { HeadhuntingBanner } from '@/lib/gacha/headhuntingBanners';
@@ -38,6 +42,7 @@ import { bannerTimingLabel as bannerDateLabel } from '@/lib/gacha/bannerTimingLa
 interface Props {
   pools: GachaIconPools;
   banners: HeadhuntingBanner[]; // sorted newest-first
+  fallbackArtwork?: Record<string, BannerArtworkOperator[]>;
   kernelLookup: KernelAdditionLookup;
   releaseLookup: ReleaseDateLookup;
   kernelExclusiveNames: string[];
@@ -1459,10 +1464,19 @@ function bannerTutorialPages(banner: BannerConfig | null) {
   return [{ Visual: SelectionExample, text: name + ' counts every pull on this banner, including early rate-ups. After 150 total pulls, your next 6★ is one of the two rate-ups. After 300 total pulls, your next 6★ is the other one. Each guarantee triggers once. The selection count resets when this banner ends.' }, ...pages];
 }
 
-export default function GachaSimulator({ pools, banners: globalBanners, kernelLookup, releaseLookup, kernelExclusiveNames, howToObtainLookup, operatorSeriesMap, now }: Props) {
+export default function GachaSimulator({ pools, banners: globalBanners, fallbackArtwork = {}, kernelLookup, releaseLookup, kernelExclusiveNames, howToObtainLookup, operatorSeriesMap, now }: Props) {
   const { server, schedule } = useRegionalTime();
   const banners = useMemo(() => regionalBanners(globalBanners, schedule, server), [globalBanners, schedule, server]);
   const router = useRouter();
+  const contentUrl = useContentUrl();
+  const [failedArtwork, setFailedArtwork] = useState<Set<string>>(() => new Set());
+  function bannerArtwork(banner: HeadhuntingBanner) {
+    const art = officialBannerArtwork(banner);
+    return art && !failedArtwork.has(art) ? art : null;
+  }
+  function artworkFailed(art: string) {
+    setFailedArtwork(failed => failed.has(art) ? failed : new Set(failed).add(art));
+  }
   // What is live or upcoming is judged on the reader's clock, not the server's: the
   // first render uses the request's `now`, so it matches the markup, and the reader's
   // clock takes over after mount (a tab left open follows a banner's end, too).
@@ -1480,6 +1494,18 @@ export default function GachaSimulator({ pools, banners: globalBanners, kernelLo
   const [guidePhase, setGuidePhase] = useState<'question' | 'basics' | 'banner'>('question');
   const [guidePageIndex, setGuidePageIndex] = useState(0);
   const selectedBanner = categoryBanners.find((b) => b.name === selectedBannerName) || categoryBanners[0];
+  const selectedArt = selectedBanner && bannerArtwork(selectedBanner);
+  const selectedFallback = selectedBanner && !selectedBanner.globalLineupPending && fallbackArtwork[selectedBanner.name];
+  const bannerArtworkView = !selectedBanner ? null : selectedArt ? (
+    <a className="gacha-banner-art-link" href={contentUrl(selectedArt)} target="_blank" rel="noreferrer"
+      aria-label={`Open full-size banner artwork for ${bannerDisplayName(selectedBanner.name)} (opens in a new tab)`}>
+      <Image src={selectedArt} alt={bannerDisplayName(selectedBanner.name)} width={1600} height={900}
+        className="gacha-banner-main-image" priority
+        onError={selectedBanner.banner_image ? undefined : () => artworkFailed(selectedArt)} />
+    </a>
+  ) : selectedFallback ? (
+    <BannerArtworkFallback operators={selectedFallback} kernel={selectedBanner.pull_type === 'kernel'} />
+  ) : null;
   const visibleBanners = categoryBanners.slice(bannerWindow.firstIndex, bannerWindow.lastIndex);
 
   const [state, setState] = useState<GachaState>(createInitialState());
@@ -1806,6 +1832,8 @@ export default function GachaSimulator({ pools, banners: globalBanners, kernelLo
                 <div className="gacha-banner-sidebar-spacer" style={{ height: bannerWindow.before }} aria-hidden="true" />
                 {visibleBanners.map((b) => {
                   const isCurrentlyActive = category === 'upcoming' && isBannerLive(b, clock);
+                  const art = bannerArtwork(b);
+                  const fallback = !b.globalLineupPending && fallbackArtwork[b.name];
                   return (
                     <button
                       key={b.name}
@@ -1815,9 +1843,10 @@ export default function GachaSimulator({ pools, banners: globalBanners, kernelLo
                       aria-pressed={b.name === selectedBanner?.name}
                       title={bannerDisplayName(b.name)}
                     >
-                      {b.banner_image && (
-                        <Image src={b.banner_image} alt="" fill sizes="260px" className="gacha-banner-sidebar-bg" />
-                      )}
+                      {art
+                        ? <Image src={art} alt="" fill sizes="260px" className="gacha-banner-sidebar-bg"
+                            onError={b.banner_image ? undefined : () => artworkFailed(art)} />
+                        : fallback && <BannerArtworkThumbnail operators={fallback} />}
                       {isCurrentlyActive && <span className="badge-live gacha-banner-sidebar-live-badge">LIVE NOW</span>}
                       <span className="gacha-banner-sidebar-text">
                         <span className="gacha-banner-sidebar-name">{getDisplayFeaturedSixStarsWithRerunLabel(b, releaseLookup).join(' / ') || bannerDisplayName(b.name)}</span>
@@ -1835,6 +1864,7 @@ export default function GachaSimulator({ pools, banners: globalBanners, kernelLo
             {category === 'other' && selectedBanner ? (
               <section className="op-section">
                 <h2>{bannerDisplayName(selectedBanner.name)}</h2>
+                {bannerArtworkView}
                 <p className="hint">
                   This banner&apos;s type couldn&apos;t be confidently determined from the scraped data, so no
                   simulator is available for it. Showing what&apos;s known below.
@@ -1863,21 +1893,7 @@ export default function GachaSimulator({ pools, banners: globalBanners, kernelLo
                       {banner.label} <span className="gacha-banner-date">({bannerDateLabel(selectedBanner)})</span>
                     </h2>
                     {!selectedBanner?.global_date && <p className="hint">Global release date unannounced.</p>}
-                    {selectedBanner?.banner_image ? (
-                      /* The page's hero (its LCP at 1440 and 390): fetched at once and first. */
-                      <Image
-                        src={selectedBanner.banner_image}
-                        alt={banner.label}
-                        width={1600}
-                        height={900}
-                        className="gacha-banner-main-image"
-                        priority
-                      />
-                    ) : (
-                      /* No art yet (null until the image repository publishes it): the
-                         site's art placeholder (.art-placeholder), framed the size the art
-                         will have, so switching between a banner with art and one without
-                         moves nothing below it. The home page's banners use it too. */
+                    {bannerArtworkView ?? (
                       <div className="gacha-banner-main-image gacha-banner-main-placeholder art-placeholder">No art yet</div>
                     )}
                     <div className="gacha-banner-actions">
@@ -2480,12 +2496,13 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/ga
   const pools = getGachaIconPools();
   const banners = resolveGachaSimulatorBanners(getBannersSortedByDate());
   const derivedReleaseDates = deriveReleaseDatesFromBanners(banners);
+  const operators = getAllOperators();
 
   const kernelLookup: KernelAdditionLookup = {};
   const releaseLookup: ReleaseDateLookup = {};
   const kernelExclusiveNames: string[] = [];
   const howToObtainLookup: HowToObtainLookup = {};
-  for (const op of getAllOperators()) {
+  for (const op of operators) {
     const kernelDate = op.characterInfo?.['Kernel Addition Date'];
     if (kernelDate) kernelLookup[op.name] = kernelDate;
     // The operator's own recorded Release Date takes priority; when
@@ -2536,10 +2553,17 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/ga
     linked_event: b.linked_event ?? null,
   }));
 
-  return { props: { pools, banners: trimmedBanners, kernelLookup, releaseLookup, kernelExclusiveNames, howToObtainLookup, operatorSeriesMap } };
+  const fallbackArtwork = buildBannerArtwork(banners, operators, readBannerShopRows());
+  return { props: { pools, banners: trimmedBanners, fallbackArtwork, kernelLookup, releaseLookup, kernelExclusiveNames, howToObtainLookup, operatorSeriesMap } };
   // No request-time estimating: the content export runs this against the release's own
   // banners and calendar, so every estimate above arrives with the release. The old
   // hook re-estimated CN-only dates on each request from this deployment's bundled
   // banners and events, which lag the release (411 banners against its 412). The one
   // request-time step is clock-free: the regional table without its provenance links.
-}, { finalize: async props => withLightRegionalTable(props) });
+}, {
+  finalize: async props => withLightRegionalTable(props.fallbackArtwork ? props : {
+    ...props,
+    // Releases exported before lineup artwork still carry the featured operators.
+    fallbackArtwork: buildBannerArtwork(props.banners, getAllOperators(), readBannerShopRows()),
+  }),
+});
