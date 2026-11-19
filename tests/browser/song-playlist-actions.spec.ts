@@ -153,16 +153,23 @@ test('playlist picker flips above a low button and stays within the viewport as 
   await playAllSongs(page);
   const buttons = page.locator('.music-queue-list .music-song-mobile-actions button[aria-haspopup="dialog"]');
   await expect(buttons.first()).toBeVisible();
-  // Pick a visible row near the queue's bottom without scrolling it into a new position.
+  await page.evaluate(() => Promise.all(document.getAnimations()
+    .filter(animation => animation.effect?.getComputedTiming().endTime !== Infinity)
+    .map(animation => animation.finished.catch(() => undefined))));
+  // A locator click may scroll the queue and move the anchor. Choose a button
+  // the pointer can already reach and press its on-screen center.
   const positions = await buttons.evaluateAll(elements => elements.map(el => {
     const r = el.getBoundingClientRect();
     const list = el.closest('.music-queue-list')!.getBoundingClientRect();
-    return { top: r.top, bottom: r.bottom, visible: r.top >= list.top && r.bottom <= list.bottom };
+    const x = r.x + r.width / 2;
+    const y = r.y + r.height / 2;
+    return { x, y, top: r.top, bottom: r.bottom,
+      visible: r.top >= list.top && r.bottom <= list.bottom && el.contains(document.elementFromPoint(x, y)) };
   }));
   const index = positions.reduce((last, r, i) => r.visible && r.top > page.viewportSize()!.height / 2 && r.bottom < page.viewportSize()!.height - 160 ? i : last, -1);
   expect(index).toBeGreaterThanOrEqual(0);
   const plus = buttons.nth(index);
-  await plus.click();
+  await page.mouse.click(positions[index].x, positions[index].y);
   await page.getByRole('dialog', { name: 'Song actions', exact: true }).getByRole('button', { name: 'Add to playlist', exact: true }).click();
   const picker = page.getByRole('dialog', { name: 'Add to playlists', exact: true });
   await expect(picker).toBeVisible();
