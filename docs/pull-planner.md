@@ -82,7 +82,7 @@ The existing monthly-card model assumes purchases covering the selected window, 
 
 - `npm run audit:pulls` — existing reward and income calculations.
 - `npm run test:pull-plan` — budgets, free-pull isolation, shortfalls, persistence validation, schedule corrections, skin pricing, and legacy-save compatibility.
-- `scripts/tests/test-pulls-format.ts` (in `npm test`) — fails a number or date formatted anywhere in `pages/pulls.tsx`, `components/pulls` or `lib/pulls` but `lib/pulls/format.ts`, and a formatter there without a fixed locale or, for dates, UTC.
+- `scripts/tests/test-pulls-format.ts` (in `npm test`) — fails a number or date formatted anywhere in `pages/pull-planner.tsx`, `components/pulls` or `lib/pulls` but `lib/pulls/format.ts`, and a formatter there without a fixed locale or, for dates, UTC.
 - `npm run typecheck`, `npm run lint -- --max-warnings 15`, strict rendered-class check, and production build.
 - Browser coverage: desktop/mobile layout, shared artwork, multi-banner selection, persistent picker behavior, direct schedule links, and horizontal overflow.
 

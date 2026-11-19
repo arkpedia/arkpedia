@@ -184,7 +184,7 @@ test('the feeds are the deployment\'s route, read from the pages\' own feeds and
   const route = fs.readFileSync('pages/api/search-feeds.ts', 'utf8');
   assert.match(route, /rankDiscoveryVideos\(filterDiscoveryVideos\(\[\.\.\.enriched, \.\.\.archive\]\.filter\(video => !video\.isLivestream\)\), context, now\)/, 'the shared discovery filter keeps current Global relevance ranking');
   assert.match(route, /s-maxage=1500/, 'as old as the pages\' revalidate: 1500, and no older');
-  const community = fs.readFileSync('pages/community.tsx', 'utf8');
+  const community = fs.readFileSync('pages/world.tsx', 'utf8');
   assert.match(community, /revalidate: 1500/);
   assert.match(community, /filterDiscoveryVideos\(\[\.\.\.enriched, \.\.\.archive\]\.filter\(\(v\) => !v\.isLivestream\)\)/);
   const gallery = fs.readFileSync('components/community/YouTubeVideoGallery.tsx', 'utf8');

@@ -5,13 +5,16 @@ import { createHash } from 'node:crypto';
 import { createRequire } from 'node:module';
 import { build } from 'esbuild';
 import { pageFilePath } from '../../lib/content/pagePaths.mjs';
+import { pageSource } from './page-source.mjs';
 import { exportClockVerdict, guardExportClock, KNOWN_EXPORT_CLOCK_READS } from './export-clock.mjs';
 const [route, destination] = process.argv.slice(2);
 if (!route || !destination) throw new Error('Expected route and output directory');
 process.env.ARKPEDIA_EXPORT_CONTENT = '1';
 process.env.NODE_ENV = 'production';
-const stem = `pages${route}`;
-const page = fs.existsSync(`${stem}.tsx`) ? `${stem}.tsx` : `${stem}/index.tsx`;
+// A renamed page keeps its old address as its key and lives under its public name
+// (page-source.mjs): /gamemodes/... is built from pages/game-modes/....
+const page = pageSource(route);
+if (!page) throw new Error(`No page file for ${route}`);
 const dynamic = route.includes('[');
 const bundle = path.resolve('.cache/content', createHash('sha256').update(route).digest('hex') + '.cjs');
 await build({

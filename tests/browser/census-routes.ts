@@ -117,7 +117,7 @@ const goal = (elite: number, level: number, skillLevel: number, masteryTargets: 
   elite, level, skillLevel, masteryTargets, moduleStageTargets: {},
   startingElite: 0, startingLevel: 1, startingSkillLevel: 1, startingMasteryLevels: {}, startingModuleStages: {},
 });
-/** What a reader's planner keeps, by localStorage key (pages/planner.tsx, lib/planner/). */
+/** What a reader's planner keeps, by localStorage key (pages/operator-planner.tsx, lib/planner/). */
 export type PlannerStorage = Record<string, unknown>;
 export const PLANNER_PLAN: PlannerStorage = {
   plannerState: {
@@ -232,7 +232,7 @@ export const CENSUS_STATES: CensusState[] = [
   { id: 'stronghold items', route: "/game-modes/stronghold-protocol", act: (page) => tabIn(page, '.gm-lookup', 'Items') },
   { id: 'stronghold enemies', route: "/game-modes/stronghold-protocol", act: (page) => tabIn(page, '.gm-lookup', 'Enemies') },
   { id: 'stage guesser custom list', route: '/games/stage-guesser', act: (page) => clickIn(page, 'main', 'Custom') },
-  // The Income popup: the forecast banner and the condensed report (pages/pulls.tsx).
+  // The Income popup: the forecast banner and the condensed report (pages/pull-planner.tsx).
   { id: 'pulls income', route: "/pull-planner", act: async (page) => { await page.locator('#tab-income').click(); await page.locator('dialog.pulls-income-dialog .pulls-report').waitFor(); } },
   { id: 'enemies stages tab', route: '/enemies', act: (page) => tabIn(page, '.enemy-tabs', 'Stages') },
   // r10 x-buttons: dialogs whose close became the borderless × (XButton). The planner's goal

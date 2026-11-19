@@ -1,5 +1,5 @@
 /*
- * What's new on the site (pages/changelog.tsx), newest first, in the reader's words: what
+ * What's new on the site (pages/whats-new.tsx), newest first, in the reader's words: what
  * they can now do, what works differently, and what was broken and is not. Each item a short
  * title and at most one short sentence (ChangeItem). Written at each
  * release to the main site, for what that release brings. Not every merge: tests, CI and

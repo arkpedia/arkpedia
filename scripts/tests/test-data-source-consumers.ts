@@ -47,7 +47,7 @@ test('every canonical event-year file is part of the runtime event loader', () =
 test('release-sensitive games use the shared timestamp-aware availability source', () => {
   // The palette exports release markers (releaseMarker) and filters them at render
   // (isReleasedAt, lib/minigames/logic.ts): both are the same shared source.
-  for (const file of ['pages/games/operator-guesser.tsx', 'lib/minigames/data.ts', 'lib/minigames/logic.ts', 'pages/planner.tsx']) {
+  for (const file of ['pages/games/operator-guesser.tsx', 'lib/minigames/data.ts', 'lib/minigames/logic.ts', 'pages/operator-planner.tsx']) {
     const source = read(file);
     assert.match(source, /isOperatorReleased|releaseMarker\(|isReleasedAt\(/);
     assert.doesNotMatch(source, /parseDate\([^\n]*Release Date/);

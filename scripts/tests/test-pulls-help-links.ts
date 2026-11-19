@@ -10,7 +10,7 @@ import path from 'node:path';
  * went nowhere. Every link's target must be something /pulls renders.
  */
 // The skin section is the Skin Planner's component (components/skins/SkinPlanner), rendered here too.
-const files = [...fs.readdirSync('components/pulls').map((name) => path.join('components/pulls', name)), 'pages/pulls.tsx', 'components/skins/SkinPlanner.tsx']
+const files = [...fs.readdirSync('components/pulls').map((name) => path.join('components/pulls', name)), 'pages/pull-planner.tsx', 'components/skins/SkinPlanner.tsx']
   .filter((file) => file.endsWith('.tsx'));
 const source = files.map((file) => fs.readFileSync(file, 'utf8')).join('\n');
 const classNames = new Set([...source.matchAll(/className=(?:"([^"]+)"|\{`([^`]+)`\}|\{'([^']+)'\})/g)]

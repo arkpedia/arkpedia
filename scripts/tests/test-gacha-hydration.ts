@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createElement } from 'react';
 import './css-modules';
-import GachaSimulator from '../../pages/gacha';
+import GachaSimulator from '../../pages/gacha-simulator';
 import type { HeadhuntingBanner } from '../../lib/gacha/headhuntingBanners';
 import { renderOnHost } from './host-clock';
 

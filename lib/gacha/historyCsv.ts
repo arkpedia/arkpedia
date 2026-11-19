@@ -1,5 +1,5 @@
 /**
- * The Gacha Simulator's pull history as CSV (pages/gacha.tsx, Export CSV): one row per pulled
+ * The Gacha Simulator's pull history as CSV (pages/gacha-simulator.tsx, Export CSV): one row per pulled
  * operator, oldest first, in columns a spreadsheet charts as they are -- numbers as numbers, yes /
  * no as 1 / 0. A ten-pull is ten rows with ten pull numbers. A guaranteed bonus (the 300-pull
  * limited copy) is a row of its own that shares the pull number it came with and adds nothing to
