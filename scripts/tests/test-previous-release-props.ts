@@ -13,6 +13,7 @@ import { renderOnHost } from './host-clock';
 import { pageFilePath } from '../../lib/content/pagePaths.mjs';
 import { CONTENT_SCHEMA, type ContentManifest, type ContentPointer } from '../../lib/content/types';
 import App from '../../pages/_app';
+import { pageSource } from '../content/page-source.mjs';
 import { getSeasonalChallenge, seasonalFromRelease } from '../../lib/stages/terminal';
 import { discoverFromRelease, getDiscoverPageData, type DiscoverPageData } from '../../lib/music/albumsDataServer';
 import CONTENT_ROUTES from '../content/pages.json';
@@ -110,9 +111,10 @@ const UNPUBLISHED = (CONTENT_ROUTES as string[]).filter((template) => !PREVIOUS.
 
 type PageModule = { default: ComponentType<object>; getStaticProps: GetStaticProps<object> };
 async function pageModule(template: string): Promise<PageModule> {
-  const rel = template === '/' ? 'index' : template.slice(1);
-  const file = [`${rel}.tsx`, `${rel}/index.tsx`].map((name) => path.join(ROOT, 'pages', name)).find((name) => fs.existsSync(name));
-  assert.ok(file, `a page file for ${template}`);
+  // A renamed page's file is under its public name (scripts/content/page-source.mjs).
+  const source = pageSource(template);
+  assert.ok(source, `a page file for ${template}`);
+  const file = path.join(ROOT, source);
   // Loaded as CommonJS, the module's exports can arrive as the namespace's default.
   const loaded = await import(file) as Partial<PageModule> & { default: PageModule | ComponentType<object> };
   return typeof loaded.getStaticProps === 'function' ? loaded as PageModule : loaded.default as PageModule;

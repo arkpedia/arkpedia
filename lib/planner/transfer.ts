@@ -22,7 +22,7 @@ import { MAX_IMPORT_BYTES } from './untrusted';
  * The builder states ride through UNVALIDATED on purpose. Their rules --
  * skill ranks 5-7 need E1, a mastery needs E2 and rank 7, a module needs a
  * rarity-dependent level -- depend on the operator's rarity, which lives in
- * getStaticProps' props and not here. `clampBuilderStates` in pages/planner.tsx
+ * getStaticProps' props and not here. `clampBuilderStates` in pages/operator-planner.tsx
  * already applies them to whatever comes out of localStorage, and an import is
  * the same untrusted input arriving by a different door, so it goes through the
  * same gate rather than a second copy of the rules that could drift from it.

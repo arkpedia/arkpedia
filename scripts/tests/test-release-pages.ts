@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import { test } from 'node:test';
+import { pageSource, releaseKey } from '../content/page-source.mjs';
 
 /*
  * Every page that builds props from game data is a page of the content release.
@@ -14,12 +15,12 @@ import { test } from 'node:test';
  */
 const OUTSIDE_THE_RELEASE: Record<string, string> = {
   'pages/community/projects.tsx': 'Code-owned project directory; companion metadata has immutable asset pins and ships with the UI.',
-  'pages/community/twitch.tsx': 'Twitch listings fetched at ISR, no game data',
-  'pages/community/videos.tsx': 'YouTube listings fetched at ISR, no game data',
-  'pages/community/youtube-live.tsx': 'YouTube listings fetched at ISR, no game data',
+  'pages/world/twitch.tsx': 'Twitch listings fetched at ISR, no game data',
+  'pages/world/videos.tsx': 'YouTube listings fetched at ISR, no game data',
+  'pages/world/youtube-live.tsx': 'YouTube listings fetched at ISR, no game data',
   'pages/events/index.tsx': 'a permanent redirect to /schedule',
   'pages/about.tsx': 'no data of its own; only the site tables the live release published (siteTablesStaticProps)',
-  'pages/changelog.tsx': 'no data of its own; only the site tables the live release published (siteTablesStaticProps)',
+  'pages/whats-new.tsx': 'no data of its own; only the site tables the live release published (siteTablesStaticProps)',
   'pages/cookies.tsx': 'no data of its own; only the site tables the live release published (siteTablesStaticProps)',
   'pages/credits.tsx': 'no data of its own; only the site tables the live release published (siteTablesStaticProps)',
   'pages/games/index.tsx': 'no data of its own; only the site tables the live release published (siteTablesStaticProps)',
@@ -30,6 +31,14 @@ const OUTSIDE_THE_RELEASE: Record<string, string> = {
   'pages/dev/ui.tsx': 'development only (devOnlyStaticProps): the UI primitives gallery',
   'pages/sitemap.xml.tsx': 'the sitemap, written per request from the live release\'s page list (lib/seo/sitemap.ts)',
 };
+
+test('former page addresses resolve to canonical sources and keep their release keys', () => {
+  assert.equal(pageSource('/gamemodes'), 'pages/game-modes/index.tsx');
+  assert.equal(pageSource('/gamemodes/stronghold-protocol'), 'pages/game-modes/stronghold-protocol.tsx');
+  assert.equal(pageSource('/gacha'), 'pages/gacha-simulator.tsx');
+  assert.equal(releaseKey('/game-modes', ['/gamemodes']), '/gamemodes');
+  assert.equal(releaseKey('/polls/tier-list', ['/polls/tier-list']), '/polls/tier-list');
+});
 
 function pageFiles(dir = 'pages'): string[] {
   return fs.readdirSync(dir, { withFileTypes: true }).flatMap(entry => {
@@ -49,7 +58,8 @@ test('a page with a data function is in the content release, or listed here with
   for (const file of pageFiles()) {
     const text = fs.readFileSync(file, 'utf8');
     if (!/export (?:const|async function) get(?:StaticProps|ServerSideProps)\b/.test(text)) continue;
-    const route = routeOf(file);
+    // A renamed page is in the release under its old address (scripts/content/page-source.mjs).
+    const route = releaseKey(routeOf(file), released);
     const inRelease = released.includes(route);
     if (inRelease !== /withContentPage\s*(?:<[^>]*>)?\s*\(\s*['"]/.test(text)) problems.push(`${file}: pages.json ${inRelease ? 'lists' : 'omits'} ${route} but the page ${inRelease ? 'does not use' : 'uses'} withContentPage`);
     if (!inRelease && !OUTSIDE_THE_RELEASE[file]) problems.push(`${file}: builds props outside the content release; add ${route} to scripts/content/pages.json, or list it in OUTSIDE_THE_RELEASE with why`);

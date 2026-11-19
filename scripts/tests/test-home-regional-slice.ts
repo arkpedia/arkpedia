@@ -51,7 +51,7 @@ test('the home page slices and strips its regional table in finalize', () => {
 });
 // The other regional routes strip theirs the same way.
 test('the schedule, pulls and gacha routes strip their regional table in finalize', () => {
-  for (const route of ['pages/schedule.tsx', 'pages/pulls.tsx', 'pages/gacha.tsx']) {
+  for (const route of ['pages/schedule.tsx', 'pages/pull-planner.tsx', 'pages/gacha-simulator.tsx']) {
     assert.match(fs.readFileSync(route, 'utf8'), /withLightRegionalTable\(/, route);
   }
 });

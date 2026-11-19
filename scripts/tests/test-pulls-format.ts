@@ -13,7 +13,7 @@ import { formatDayMonth, formatDayMonthYear, formatNumber, formatOneDecimal } fr
  * kukkikaze/Arkpedia's pull-planner branch, scripts/test-pull-plan.ts).
  */
 const ROOT = join(__dirname, '../..');
-const PLANNER_SOURCES = ['pages/pulls.tsx', 'components/pulls', 'lib/pulls'];
+const PLANNER_SOURCES = ['pages/pull-planner.tsx', 'components/pulls', 'lib/pulls'];
 const PLANNER_FORMATTER = 'lib/pulls/format.ts';
 const LOCALE_CALL = /\.toLocale(?:String|DateString|TimeString)\s*\(|\bIntl\.(?:NumberFormat|DateTimeFormat|RelativeTimeFormat|PluralRules|ListFormat|DisplayNames|Collator)\s*\(/g;
 
@@ -53,7 +53,7 @@ test('the planner renders every number and date with a fixed locale, through lib
     return statSync(full).isDirectory() ? readdirSync(full).flatMap(name => walk(join(path, name))) : /\.tsx?$/.test(path) ? [relative(ROOT, full).split(sep).join('/')] : [];
   };
   const files = PLANNER_SOURCES.flatMap(walk);
-  for (const file of ['pages/pulls.tsx', 'components/pulls/PullBannerRow.tsx', 'components/pulls/BannerPicker.tsx', 'lib/pulls/plan.ts', PLANNER_FORMATTER]) assert.ok(files.includes(file), `scanned ${file}`);
+  for (const file of ['pages/pull-planner.tsx', 'components/pulls/PullBannerRow.tsx', 'components/pulls/BannerPicker.tsx', 'lib/pulls/plan.ts', PLANNER_FORMATTER]) assert.ok(files.includes(file), `scanned ${file}`);
   assert.deepEqual(files.flatMap(file => localeViolations(file, readFileSync(join(ROOT, file), 'utf8'))), []);
   assert.equal(formatNumber(49700), '49,700');
   assert.equal(formatNumber(-1205.5), '-1,205.5');

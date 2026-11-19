@@ -1,6 +1,5 @@
+import { pageSource } from '../content/page-source.mjs';
 import assert from 'node:assert/strict';
-import fs from 'node:fs';
-import path from 'node:path';
 import test from 'node:test';
 import React, { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
@@ -32,8 +31,8 @@ test('the changelog is newest first, each entry at a real UTC instant, and every
       }
       if (item.href) {
         const pathname = new URL(item.href, 'https://arkpedia.net').pathname;
-        const page = pathname === '/' ? 'index' : pathname.slice(1);
-        assert.ok(['tsx', 'ts'].some((ext) => fs.existsSync(path.join('pages', `${page}.${ext}`)) || fs.existsSync(path.join('pages', page, `index.${ext}`))), `${item.href}: a page the site has`);
+        // An old address still counts: it redirects to the page that took its place.
+        assert.ok(pageSource(pathname), `${item.href}: a page the site has`);
       }
     }
   }

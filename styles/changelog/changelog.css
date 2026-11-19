@@ -1,4 +1,4 @@
-/* What's new (pages/changelog.tsx): each day, its Added / Changed / Fixed. */
+/* What's new (pages/whats-new.tsx): each day, its Added / Changed / Fixed. */
 .changelog-entry { display:grid; grid-template-columns:160px minmax(0, 72ch); column-gap:40px; padding-bottom:28px; border-bottom:1px solid var(--line-soft); }
 .changelog-entry > h2 { margin:0; }
 .changelog-title { display:block; margin-top:8px; font-family: var(--font-body); text-transform: none; letter-spacing: 0; }

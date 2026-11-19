@@ -1,6 +1,6 @@
+import { pageSource } from '../content/page-source.mjs';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import fs from 'node:fs';
 import { CLOCK_ROUTES } from '../../lib/content/pageClock';
 
 // eslint ships no type declarations, and this is the only place a script needs its API.
@@ -20,20 +20,20 @@ const rules = async (filePath: string) => (await eslint.calculateConfigForFile(f
 const guarded = async (filePath: string) => 'no-restricted-syntax' in await rules(filePath)
   && JSON.stringify((await rules(filePath))['no-restricted-syntax']).includes("NewExpression[callee.name='Date'][arguments.length=0]");
 
-/** The page file Next serves a route from. */
+/** The page file a clock-guarded route (a content-release key) is built from: under its
+ *  public name where the page was renamed (scripts/content/page-source.mjs). */
 function pageFile(route: string): string {
-  const base = route === '/' ? 'pages/index' : `pages${route}`;
-  const file = [`${base}.tsx`, `${base}/index.tsx`].find((candidate) => fs.existsSync(candidate));
+  const file = pageSource(route);
   assert.ok(file, `no page file for ${route}`);
   return file;
 }
 
 // Every page contentPageClock gives a clock, and the components that render from it.
-const GUARDED = [...new Set([...CLOCK_ROUTES.map(pageFile), 'pages/gacha.tsx', 'components/schedule/EventsPanel.tsx', 'components/home/GachaBannersPanel.tsx'])];
+const GUARDED = [...new Set([...CLOCK_ROUTES.map(pageFile), 'pages/gacha-simulator.tsx', 'components/schedule/EventsPanel.tsx', 'components/home/GachaBannersPanel.tsx'])];
 
 test('debug globals cannot retain page data after navigation; internal reads remain allowed', async () => {
   const code = 'window.__operators = []; const x = window.__operators; window.__assetRetry = true;';
-  for (const filePath of ['pages/base.tsx', 'pages/gacha.tsx', 'lib/assets/assetRetry.ts']) {
+  for (const filePath of ['pages/base.tsx', 'pages/gacha-simulator.tsx', 'lib/assets/assetRetry.ts']) {
     const messages = (await eslint.lintText(code, { filePath }))[0].messages.filter(m => m.ruleId === 'no-restricted-syntax');
     assert.equal(messages.length, 1, filePath);
   }

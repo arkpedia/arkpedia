@@ -8,7 +8,7 @@
  *
  * A page declares it as a static property on its own component:
  *
- *   CompanionPage.mobileNav = { back: { href: '/gamemodes/...', label: 'Stronghold' } };
+ *   CompanionPage.mobileNav = { back: { href: '/game-modes/...', label: 'Stronghold' } };
  *
  * and _app reads it off `Component` and hands it down. Deliberately NOT a route test in
  * the nav: the nav would then hold a copy of the companion's own address, a second copy
