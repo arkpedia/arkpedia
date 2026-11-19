@@ -401,6 +401,11 @@ const REGENERATED: Record<string, (props: Record<string, unknown>, clock: { from
     assert.ok(skins.length>400);
     assert.ok(skins.some(s=>s.id==='char_002_amiya@winter#1'&&s.name==='Newsgirl'));
   },
+  '/polls/tier-list': (props) => {
+    const operators=(props.catalogue as {operators:{id:string;rarity:number;icon:string|null;skins:unknown[];skills:unknown[]}[]}).operators;
+    assert.ok(operators.length>400 && operators.every(op=>op.id && op.rarity>=1 && op.rarity<=6));
+    assert.ok(operators.some(op=>op.id==='char_002_amiya' && op.icon && op.skins.length && op.skills.length===3));
+  },
   '/polls': (props) => {
     const showcase=props.showcase as {image:string;name:string;operator:string}[];
     assert.equal(showcase.length,3);assert.ok(showcase.every(skin=>skin.image.startsWith('/')&&skin.name&&skin.operator));

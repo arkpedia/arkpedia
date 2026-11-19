@@ -26,6 +26,7 @@ export const NOT_RECORDS = new Set([
   'data/community-operator-catalogue.json',
   'data/community-poll-catalogue.json',
   'data/account-catalogue.json',
+  'data/tier-list-catalogue.json',
   'data/community-stage-catalogue.json',
 ]);
 

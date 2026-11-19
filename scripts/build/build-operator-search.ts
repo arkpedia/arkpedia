@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { getAllOperators } from '../../lib/operators/operators';
 import { getSkillList } from '../../lib/operators/operatorTypes';
-import { getSkillIconPath } from '../../lib/operators/operatorIconPaths';
+import { baseSkillDisplayName, getBaseSkillIconPath, getSkillIconPath } from '../../lib/operators/operatorIconPaths';
 import { getOperatorIconPath } from '../../lib/operators/operatorIcon';
 import map from '../../data/game-account-map.json';
 import { portraitStatus } from '../../lib/operators/operatorPortrait';
@@ -12,6 +12,8 @@ import { friendOperators } from '../../lib/account/friendCatalogue';
 import type { GameAccountMap } from '../../lib/planner/gameAccount';
 import { buildOperatorNameAliases } from '../lib/operator-name-aliases';
 import { OPERATOR_NAME_ALIASES_VERSION } from '../../lib/operators/operatorSearch';
+import { publicFileExists } from '../../lib/assets/publicAssets';
+import { artPath, baseSkillPath, skillPath, TIER_ART_STAGES, type TierCatalogue, type TierCatalogueOperator } from '../../lib/tier-list/catalogue';
 
 const operators = getAllOperators();
 const aliases = buildOperatorNameAliases(operators);
@@ -69,3 +71,46 @@ fs.writeFileSync(path.join(process.cwd(),'data/account-catalogue.json'),JSON.str
   operators:friendOperators(map as GameAccountMap,operators),
   skins:getAllSkins().flatMap(skin=>skin.skinId?[{id:skin.skinId,name:skin.name,model:skin.model,series:skin.series,image:skin.image}]:[]),
 })+'\n');
+
+// The Tier List maker's art (lib/tier-list/catalogue.ts): every operator portrait,
+// promotion illustration, outfit illustration, skill icon and base skill icon the asset index holds. Each path is checked here because none of the
+// three lookups is guarded at render: a missing file is a blank tile, so it is left out,
+// with a warning for the ones a published operator should have. No server filter: art that
+// exists is offered, whichever region the record came from.
+const published = (file: string | null | undefined): file is string => { try { return !!file && publicFileExists(decodeURIComponent(file)); } catch { return false; } };
+// A path the names already give is left out of the file (lib/tier-list/catalogue.ts derives it).
+const lean = (image: string, derived: string): [] | [string] => (image === derived ? [] : [image]);
+const tierIds = new Set<string>();
+const tierId = (id: string) => { if (!id || tierIds.has(id)) throw new Error(`[tier list catalogue] duplicate or empty item id "${id}"`); tierIds.add(id); return id; };
+const skinsByModel = new Map<string, ReturnType<typeof getAllSkins>>();
+for (const skin of getAllSkins()) if (skin.model && skin.skinId) skinsByModel.set(skin.model, [...(skinsByModel.get(skin.model) ?? []), skin]);
+const tierOperators: TierCatalogueOperator[] = operators.flatMap((op) => {
+  if (!op.rarity) return [];
+  // Item ids travel in shared links, so they are the game's own (char_...), never our English name.
+  if (!/^char_\d+_\w+$/.test(op.internalName ?? '')) throw new Error(`[tier list catalogue] "${op.name}" has no game id (internalName) to build its item ids from`);
+  const id = tierId(op.internalName!);
+  const icon = op.portraitPending ? null : getOperatorIconPath(op);
+  if (icon && !published(icon)) throw new Error(`[tier list catalogue] ${op.name}'s portrait ${icon} is not in the asset index, and portraitPending does not say so`);
+  const art = TIER_ART_STAGES.filter((stage) => published(artPath(op.name, op.rarity!, stage)));
+  // Each outfit by its full illustration, already resolved (quote- and slash-stripped names included).
+  const skins = (skinsByModel.get(op.name) ?? []).flatMap((skin): [string, string, string?][] => {
+    // A new outfit names its art in full, pinned to the skin-asset commit that added it
+    // (the catalogue externalises it that way): that is published art too.
+    const pinned = !!skin.image?.startsWith('https://raw.githubusercontent.com/arkpedia/arkpedia-skin-assets/');
+    if (!skin.image || !(pinned || published(skin.image))) { console.warn(`[tier list catalogue] no illustration for the outfit "${op.name} - ${skin.name}"`); return []; }
+    return [[tierId(`skin:${skin.skinId}`).slice(5), skin.name, ...lean(skin.image, artPath(op.name, op.rarity!, skin.name))]];
+  });
+  const skills = getSkillList(op).flatMap((skill, i): [number, string, string?][] => {
+    const image = skill.icon || getSkillIconPath(op.name, skill.name);
+    if (!skill.name || !image || !published(image)) { if (!op.portraitPending) console.warn(`[tier list catalogue] no skill icon for "${op.name} - ${skill.name}"`); return []; }
+    return [[i + 1, skill.name, ...lean(image, skillPath(op.name, skill.name))]];
+  });
+  const baseSkills = (op.baseSkills ?? []).flatMap((skill): [string, string, string?][] => {
+    const image = getBaseSkillIconPath(op.name, skill);
+    const buff = (skill as { buffId?: string }).buffId;
+    if (!buff || !image || !published(image)) { if (!op.portraitPending) console.warn(`[tier list catalogue] no base skill icon for "${op.name} - ${skill.name}"`); return []; }
+    return [[tierId(`base:${id}:${buff}`).slice(6 + id.length), baseSkillDisplayName(skill), ...lean(image, baseSkillPath(op.name, baseSkillDisplayName(skill)))]];
+  });
+  return [{ id, name: op.name, rarity: op.rarity, icon, art, skins, skills, baseSkills }];
+});
+fs.writeFileSync(path.join(process.cwd(), 'data/tier-list-catalogue.json'), JSON.stringify({ operators: tierOperators } satisfies TierCatalogue) + '\n');

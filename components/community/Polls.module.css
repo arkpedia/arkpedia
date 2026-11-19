@@ -33,6 +33,12 @@
 .archiveArt figure { display:grid; grid-template-rows:minmax(0,1fr) auto; height:88%; margin:0; min-width:0; }
 .archiveArt figure:nth-child(2) { height:100%; }
 .archiveArt img { width:100%; height:100%; object-fit:contain; }
+/* The Tier List maker's card: a small tier list drawn in the default rows' colours. */
+.makerCard { min-height:140px; }
+.makerArt { position:absolute; inset:0 20px 0 auto; display:grid; align-content:center; gap:4px; width:34%; pointer-events:none; }
+.makerArt span { display:grid; grid-template-columns:30px minmax(0,1fr); gap:4px; height:22px; }
+.makerArt b { display:grid; place-items:center; background:var(--tier-color); color:#14181c; font-family:var(--font-display); font-size:13px; font-weight:700; border-radius:var(--radius); }
+.makerArt i { background:var(--panel-2); border-radius:var(--radius); }
 @media (max-width:720px) {
   .page { gap:24px; }
   .featureBody { grid-template-columns:minmax(0,1fr); }
@@ -45,4 +51,5 @@
   .archive { display:grid; grid-template-columns:minmax(0,1fr); gap:12px; }
   .archiveCopy { max-width:none; padding:2px 0; }
   .archiveArt { position:static; width:100%; height:180px; }
+  .makerArt { position:static; width:100%; }
 }
