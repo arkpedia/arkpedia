@@ -35,6 +35,22 @@ export const ICONS: Record<string, JSX.Element> = {
       <circle cx="10" cy="10" r="0.6" fill="currentColor" stroke="none" />
     </svg>
   ),
+  /* The Tier List maker: three tiers, each a label block and its row. */
+  tiers: (
+    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="2.5" y="3" width="4" height="3.4" rx="0.6" /><path d="M9.5 4.7h8" />
+      <rect x="2.5" y="8.3" width="4" height="3.4" rx="0.6" /><path d="M9.5 10h6" />
+      <rect x="2.5" y="13.6" width="4" height="3.4" rx="0.6" /><path d="M9.5 15.3h4" />
+    </svg>
+  ),
+  /* The chart maker: two axes, with a point placed in each of two quadrants. */
+  axes: (
+    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M10 2.5v15M2.5 10h15" />
+      <rect x="12.6" y="4.4" width="3" height="3" rx="0.6" />
+      <rect x="4.4" y="12.6" width="3" height="3" rx="0.6" />
+    </svg>
+  ),
   /* The in-game Operator archive glyph. */
   roster: glyph('/essential-icons/Operators.webp'),
   microphone: (

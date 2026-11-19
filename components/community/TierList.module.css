@@ -1,0 +1,212 @@
+/* The Tier List maker (pages/polls/tier-list.tsx). Layout and the tiles' own look only:
+   buttons, checkboxes, panels, headings and the dialog frame are the site's primitives. */
+/* A tile's side follows the zoom the reader set (--zoom, from the saved list). */
+.maker { --tile-base: 64px; --tile: calc(var(--tile-base) * var(--zoom, 1)); min-width:0; }
+
+/* Three labelled rows on one grid, so every row's first checkbox starts on one line. */
+.setup { display:grid; grid-template-columns:max-content minmax(0,1fr); align-items:start; gap:2px 0; padding:10px 16px; }
+.checks { display:flex; flex-wrap:wrap; gap:0 20px; min-width:0; }
+/* The rarities belong to the operator art above them; a hairline sets the last row, the
+   kinds no rarity narrows, apart from the pair. */
+.setup > :nth-child(3), .setup > :nth-child(4) { padding-bottom:6px; }
+.setup > :nth-child(n+5) { padding-top:6px; border-top:1px solid var(--line-soft); }
+/* A label sits on its group's first line of boxes (a checkbox row is 32px tall), also where
+   the group wraps to more lines; its padding is the column gap, so the hairline runs unbroken. */
+.setup > :global(.label-tag) { display:flex; align-items:center; box-sizing:content-box; height:32px; padding-right:24px; }
+
+.boardHead { display:flex; flex-wrap:wrap; align-items:center; gap:8px 20px; margin-bottom:12px; }
+.zoom { display:flex; align-items:center; gap:6px; }
+.zoomIcon { flex:none; color:var(--text-dim); }
+.zoomValue { min-width:5ch; font-family:var(--font-mono); font-size:13px; text-align:center; color:var(--text); }
+
+.name { flex:1 1 240px; box-sizing:border-box; min-width:0; max-width:420px; margin-right:auto; }
+
+/* Rows share one grid, so every label cell is as wide as the widest label needs. */
+.board { display:grid; grid-template-columns:minmax(72px,max-content) minmax(0,1fr) auto; gap:4px 0; margin:0; padding:0; list-style:none; }
+.row { display:grid; grid-template-columns:subgrid; grid-column:1/-1; min-height:calc(var(--tile) + 10px); background:var(--row-grad); border:1px solid var(--line); border-radius:var(--radius); overflow:hidden; }
+
+/* The label: the reader's colour, with ink picked for it (labelInk), the same in both
+   themes because the ground is theirs, not the theme's. The hidden copy of the text sizes
+   the cell and the field lies over it, so the text wraps and stays centred as it is typed. */
+.label { display:grid; align-content:center; box-sizing:border-box; max-width:132px; padding:6px 8px; background:var(--tier-color); color:#14181c; }
+.label[data-ink="light"] { color:#fff; }
+.label > span, .label > textarea { grid-area:1/1; min-width:0; margin:0; padding:0; border:0; font-family:var(--font-display); font-size:18px; font-weight:700; line-height:1.2; text-align:center; overflow-wrap:anywhere; white-space:pre-wrap; }
+.label > span { visibility:hidden; }
+.label > textarea { width:100%; height:100%; min-height:0; resize:none; overflow:hidden; background:transparent; color:inherit; border-radius:0; }
+.label > textarea::placeholder { color:inherit; opacity:.55; }
+
+.items { display:flex; flex-wrap:wrap; align-content:flex-start; gap:4px; min-width:0; padding:4px; }
+.items[data-drop] { background:var(--teal-dim); }
+.rowActions { display:flex; align-items:center; gap:2px; padding:0 6px; border-left:1px solid var(--line-soft); }
+.noRows { margin:0; padding:20px 0; }
+.boardActions { display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin-top:12px; }
+
+/* A tile is a picture you drag: no resting edge, the teal edge under the pointer. */
+.tile { position:relative; flex:none; display:block; box-sizing:border-box; width:var(--tile); height:var(--tile); border:1px solid transparent; border-radius:var(--radius); overflow:hidden; background:var(--panel-2); background-clip:padding-box; cursor:grab; user-select:none; -webkit-user-select:none; -webkit-touch-callout:none; }
+.tile img { display:block; width:100%; height:100%; object-fit:cover; pointer-events:none; }
+/* A full illustration is cut to the square from its top edge: the figure's head and shoulders. */
+.tile[data-kind="e0"] img, .tile[data-kind="e2"] img, .tile[data-kind="skins"] img, .ghost img { object-position:50% 0; }
+.tile:hover { border-color:var(--teal); }
+/* A faction's emblem is white line art: it sits on a fixed dark plate in both themes, as the
+   game draws it, with room around it. */
+.tile[data-kind="factions"] { background-color:rgb(20 27 34); }
+.tile[data-kind="factions"] img { object-fit:contain; padding:12%; box-sizing:border-box; }
+/* The name plate, as the enemy handbook's tiles carry theirs: a fixed scrim along the bottom
+   edge, so its ink is the scrim's in both themes. One line for whose it is, one for which. */
+.plate { display:none; position:absolute; left:0; right:0; bottom:0; padding:2px 3px; background:rgb(0 0 0 / 74%); color:var(--scrim-ink); font-size:9px; line-height:1.25; text-align:center; pointer-events:none; }
+.maker[data-names] .plate { display:block; }
+.plate > span { display:block; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
+.plate > span + span { color:var(--scrim-amber); }
+/* A quiz's marks: an edge and a corner flag, drawn in the site's state colours. */
+.tile[data-mark="right"] { border-color:var(--cat-green); outline:2px solid var(--cat-green); outline-offset:-3px; }
+.tile[data-mark="wrong"] { border-color:var(--danger); outline:2px solid var(--danger); outline-offset:-3px; }
+.tile[data-dragging] { opacity:.35; }
+.maker[data-dragging-any], .maker[data-dragging-any] .tile { cursor:grabbing; }
+
+/* The pool is pinned under the tier list, at a fixed height: ticking a box, searching or
+   zooming changes what scrolls inside it and never how long the page is (the Anti-Page
+   Jump rule). Its arrow detaches it into a window that floats over the page, which the
+   reader drags by its head and resizes; the arrow there pins it back. */
+.poolHead { display:flex; flex-wrap:wrap; align-items:center; gap:8px 12px; margin-bottom:var(--heading-gap); }
+.poolHead h2 { margin:0; }
+.search { flex:1 1 180px; min-width:0; max-width:320px; margin-left:auto; }
+.pin { flex:none; }
+.status { margin:0 0 8px; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
+.poolItems { display:grid; grid-template-columns:repeat(auto-fill,var(--tile)); grid-auto-rows:var(--tile); justify-content:space-between; align-content:start; gap:4px; box-sizing:border-box; height:clamp(240px,44vh,480px); padding:4px; overflow-y:auto; overscroll-behavior:contain; background:var(--well); border:1px solid var(--line-soft); border-radius:var(--radius); }
+.poolEmpty { grid-column:1/-1; margin:0; padding:24px 16px; text-align:center; }
+
+/* Detached. Parked left of the site's music tab, which holds the bottom right corner. */
+.pool[data-detached] { position:fixed; right:76px; bottom:16px; z-index:40; display:flex; flex-direction:column; box-sizing:border-box; width:468px; height:430px; min-width:320px; min-height:160px; max-width:calc(100vw - 32px); max-height:calc(100vh - 32px); padding:0 10px 10px; resize:both; overflow:hidden; }
+.pool[data-detached][data-moved] { left:var(--pool-x); top:var(--pool-y); right:auto; bottom:auto; }
+.pool[data-detached] .poolHead { flex:none; margin:0 -10px 8px; padding:4px 4px 4px 12px; border-bottom:1px solid var(--line-soft); cursor:move; touch-action:none; user-select:none; -webkit-user-select:none; }
+.pool[data-detached] .status { flex:none; }
+.pool[data-detached] .poolItems { flex:1 1 auto; height:auto; min-height:0; }
+
+/* The chart maker's boards (components/community/ChartMaker.tsx). */
+.chartBar { display:flex; flex-wrap:wrap; align-items:center; gap:8px 24px; margin-bottom:12px; }
+/* The grid is edited from its own edges: one frame holds a × over every column and beside
+   every row, the cells, and a + down the right side and along the bottom. The cells share
+   the frame's tracks (subgrid), so each × sits on the line it removes. The chart is kept
+   narrower than the page and centred, with the pool under it. */
+.chartFrame { width:min(100%,820px); margin:0 auto; display:grid; grid-template-columns:calc(var(--control-h) - 12px) repeat(var(--chart-cols),minmax(0,1fr)) var(--control-h); grid-template-rows:calc(var(--control-h) - 12px) repeat(var(--chart-rows),auto) var(--control-h); gap:4px; }
+.chartGrid { grid-column:2 / span var(--chart-cols); grid-row:2 / span var(--chart-rows); display:grid; grid-template-columns:subgrid; grid-template-rows:subgrid; }
+.lineRemove { place-self:center; }
+/* Two classes: the button primitive's own padding is wider than the column this one fills. */
+.chartFrame .lineAdd { box-sizing:border-box; min-width:0; padding:0; border-style:dashed; }
+.chartFrame .lineAdd svg { flex:none; }
+.lineAdd[data-line="col"] { grid-column:calc(var(--chart-cols) + 2); grid-row:2 / span var(--chart-rows); align-self:stretch; }
+.lineAdd[data-line="row"] { grid-row:calc(var(--chart-rows) + 2); grid-column:2 / span var(--chart-cols); }
+/* A cell: room for its tiles over a label bar in the cell's accent (cellColor), with ink
+   picked for that fixed colour as a tier's label has. It lights while a tile is over it. */
+.chartCell { display:grid; grid-template-rows:minmax(calc(var(--tile) * 1.4 + 20px),1fr) auto; min-width:0; background:var(--row-grad); border:1px solid var(--line); border-radius:var(--radius); overflow:hidden; }
+.chartCell:has([data-drop]) { border-color:var(--teal); }
+.cellItems { display:flex; flex-wrap:wrap; align-content:center; justify-content:center; gap:4px; min-width:0; padding:6px; }
+.cellItems[data-drop] { background:var(--teal-dim); }
+/* The bar wears the cell's colour: its accent, or the one the reader picks with the swatch
+   at its end; the ink is chosen for that colour (labelInk), the same in both themes. */
+.cellBar { display:flex; align-items:stretch; min-width:0; background:var(--cell-color); color:#14181c; }
+.chartCell[data-ink="light"] .cellBar { color:#fff; }
+.cellColor { position:relative; flex:none; display:grid; place-items:center; width:28px; cursor:pointer; opacity:.7; }
+.cellColor:hover, .cellColor:focus-within { opacity:1; }
+.cellColor:focus-within { outline:2px solid currentColor; outline-offset:-3px; }
+.cellColor input { position:absolute; inset:0; box-sizing:border-box; width:100%; height:100%; min-height:0; padding:0; border:0; opacity:0; cursor:pointer; }
+.cellLabel { flex:1 1 auto; box-sizing:border-box; width:100%; min-width:0; padding:6px 0 6px 28px; border:0; border-radius:0; background:transparent; color:inherit; font-family:var(--font-display); font-size:15px; font-weight:700; text-align:center; text-overflow:ellipsis; }
+.cellLabel::placeholder { color:inherit; opacity:.55; }
+/* The plane: a square with its two axes drawn through the middle and an item anywhere on it
+   by its centre. Its labels stand outside it, at the end of the axis each names: above and
+   below, and to either side (on a narrow screen, in a row over the plane's two top corners),
+   so nothing ever lies over an item. The side columns keep their width when an axis is
+   hidden, and the plane stays centred. While a tile is dragged over the plane, two dashed
+   lines run from the landing point to both axes. */
+.planeFrame { display:grid; grid-template-columns:minmax(0,150px) minmax(0,640px) minmax(0,150px); grid-template-areas:". top ." "left plane right" ". bottom ."; justify-content:center; align-items:center; gap:6px 10px; }
+.plane { grid-area:plane; position:relative; box-sizing:border-box; width:100%; aspect-ratio:1; background:var(--row-grad); border:1px solid var(--line); border-radius:var(--radius); overflow:hidden; }
+.plane[data-drop] { border-color:var(--teal); }
+.plane::before, .plane::after { content:""; position:absolute; background:var(--text-dim); pointer-events:none; }
+.plane::before { left:calc(50% - 1px); top:0; bottom:0; width:2px; }
+.plane::after { top:calc(50% - 1px); left:0; right:0; height:2px; }
+/* A hidden axis takes its line with it (its labels are not rendered). */
+.plane[data-no-vertical]::before, .plane[data-no-horizontal]::after { display:none; }
+.plane .tile { position:absolute; transform:translate(-50%,-50%); z-index:1; }
+.plane .tile:hover { z-index:3; }
+.planeGuide { display:none; position:absolute; inset:0; z-index:2; pointer-events:none; }
+.plane[data-drop] .planeGuide { display:block; }
+.planeGuide::before, .planeGuide::after { content:""; position:absolute; }
+.planeGuide::before { left:var(--drop-x); top:0; bottom:0; border-left:1px dashed var(--teal); }
+.planeGuide::after { top:var(--drop-y); left:0; right:0; border-top:1px dashed var(--teal); }
+/* An axis label is a field the reader types in: it shows its box until it holds text. */
+.axisLabel { box-sizing:border-box; width:100%; min-width:0; padding:3px 8px; border:1px dashed var(--control-border); border-radius:var(--radius); background:transparent; color:var(--text-bright); font-family:var(--font-display); font-size:18px; font-weight:700; text-align:center; text-overflow:ellipsis; }
+.axisLabel:not(:placeholder-shown) { border-color:transparent; }
+.axisLabel:hover, .axisLabel:focus { border-style:solid; border-color:var(--control-border); }
+.axisLabel[data-end="top"] { grid-area:top; justify-self:center; max-width:320px; }
+.axisLabel[data-end="bottom"] { grid-area:bottom; justify-self:center; max-width:320px; }
+.axisLabel[data-end="left"] { grid-area:left; text-align:right; }
+.axisLabel[data-end="right"] { grid-area:right; text-align:left; }
+@media (max-width:900px) {
+  .planeFrame { grid-template-columns:minmax(0,1fr) minmax(0,1fr); grid-template-areas:"top top" "left right" "plane plane" "bottom bottom"; }
+  .axisLabel[data-end="left"] { text-align:left; }
+  .axisLabel[data-end="right"] { text-align:right; }
+}
+
+.shared { display:flex; flex-wrap:wrap; align-items:center; gap:8px 12px; margin-bottom:var(--section-gap); padding:10px 12px; }
+.shared > span { flex:1 1 280px; font-size:13px; }
+.notice { margin:10px 0 0; }
+/* A quiz's result is the point of the quiz: the percent at the page title's size. */
+.score { display:flex; flex-wrap:wrap; align-items:baseline; gap:4px 12px; margin:16px 0 0; }
+.score > strong { font-family:var(--font-display); font-size:30px; font-weight:700; line-height:1; color:var(--text-bright); }
+.score[data-score] > strong { color:var(--amber); }
+.score[data-score="100"] > strong { color:var(--cat-green); }
+
+.imageDialog { --dialog-w: 860px; }
+.imageCanvas { display:block; width:100%; height:auto; max-height:60vh; object-fit:contain; background:var(--well); border:1px solid var(--line-soft); border-radius:var(--radius); }
+.imageActions { display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin-top:12px; }
+.imageActions > span { flex:1 1 200px; }
+
+/* The dragged tile and the insertion mark, both moved by transform from the corner. */
+.ghost, .mark { position:fixed; left:0; top:0; z-index:60; pointer-events:none; }
+.ghost { width:var(--tile); height:var(--tile); margin:calc(var(--tile) / -2) 0 0 calc(var(--tile) / -2); border:1px solid var(--teal); border-radius:var(--radius); background:var(--panel-2); opacity:.92; }
+.ghost > [data-art], .ghost img { display:block; width:100%; height:100%; object-fit:cover; }
+.ghost > [data-count] { position:absolute; right:-8px; top:-8px; min-width:20px; box-sizing:border-box; padding:1px 5px; border-radius:var(--radius); background:var(--teal-fill); color:var(--teal-ink); font-family:var(--font-mono); font-size:11px; font-weight:700; line-height:16px; text-align:center; }
+.mark { width:3px; border-radius:var(--radius); background:var(--teal); }
+.ghost[hidden], .mark[hidden] { display:none; }
+
+.dialog { --dialog-w: 440px; }
+.dialogBody { display:grid; gap:16px; }
+.field { display:grid; gap:6px; min-width:0; }
+.swatches { display:flex; flex-wrap:wrap; align-items:center; gap:6px; }
+.swatch { box-sizing:border-box; width:var(--control-h); height:var(--control-h); padding:0; border:1px solid var(--control-border); border-radius:var(--radius); background:var(--tier-color); background-clip:padding-box; }
+.swatch:hover, .swatch:focus-visible { border-color:var(--teal); }
+.swatch[aria-checked="true"] { border-color:var(--teal); outline:2px solid var(--teal); outline-offset:1px; }
+.custom { display:inline-flex; align-items:center; gap:8px; font-size:13px; color:var(--text-dim); }
+.custom input { box-sizing:border-box; width:var(--control-h); height:var(--control-h); padding:2px; }
+.shareModes { display:grid; gap:10px; margin:0; padding:0; list-style:none; }
+.shareMode { display:flex; align-items:center; gap:12px; padding:10px 12px; border:1px solid var(--line-soft); border-radius:var(--radius); }
+.shareMode > div { flex:1 1 auto; min-width:0; }
+.shareMode h3 { margin:0 0 2px; }
+.shareMode p { margin:0; font-size:13px; line-height:1.45; color:var(--text-dim); }
+.shareStatus { margin:12px 0 0; }
+.shareLink { display:block; box-sizing:border-box; width:100%; margin-top:8px; font-family:var(--font-mono); font-size:12px; }
+.dialogActions { display:flex; flex-wrap:wrap; gap:8px; }
+.done { margin-left:auto; }
+
+@media (max-width:720px) {
+  .maker { --tile-base: 52px; --sheet: min(48vh, 400px); }
+  /* Detached on a phone, the pool is a sheet along the bottom edge, and the page keeps the
+     sheet's height free under its last line so the sheet never covers the end of it. */
+  .maker[data-detached] { padding-bottom:var(--sheet); }
+  .pool[data-detached], .pool[data-detached][data-moved] { left:0; right:0; top:auto; bottom:0; width:auto; max-width:none; height:var(--sheet); max-height:none; padding:0 var(--page-gutter) 10px; resize:none; border-left:0; border-right:0; border-bottom:0; border-radius:0; }
+  /* The site's music tab floats in this corner (styles/music/music.css): the tiles can scroll clear of it. */
+  .pool[data-detached] .poolHead { margin:0 calc(var(--page-gutter) * -1) 8px; padding:4px var(--page-gutter); cursor:default; touch-action:auto; }
+  .pool[data-detached] .poolItems { padding-bottom:64px; }
+  .cellLabel { padding:5px 0 5px 22px; font-size:13px; }
+  .cellColor { width:22px; }
+  .axisLabel { font-size:15px; }
+  .search { flex:1 1 90px; max-width:none; }
+  .poolHead { flex-wrap:nowrap; gap:8px; }
+  .poolHead > :global(.hint) { flex:none; }
+  .board { grid-template-columns:minmax(56px,max-content) minmax(0,1fr) auto; }
+  .label { max-width:84px; padding:4px 6px; }
+  .label > span, .label > textarea { font-size:15px; }
+  .rowActions { padding:0 2px; }
+  /* A phone's row has room for one control: the dialog it opens deletes the row too. */
+  .rowActions .rowDelete { display:none; }
+}

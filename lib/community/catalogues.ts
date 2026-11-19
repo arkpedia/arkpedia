@@ -3,6 +3,7 @@ import { readShippedTable } from '@/lib/content/shippedTable';
 type Operators = typeof import('@/data/community-operator-catalogue.json');
 type Stages = typeof import('@/data/community-stage-catalogue.json');
 type Poll = typeof import('@/data/community-poll-catalogue.json');
+type TierList = import('@/lib/tier-list/catalogue').TierCatalogue;
 type Account = typeof import('@/data/account-catalogue.json');
 
 // Keep public catalogues in ASSETS, outside the code every cold isolate loads.
@@ -19,3 +20,6 @@ export const communityPoll = async ():Promise<Poll> => process.env.ARKPEDIA_WORK
 export const accountCatalogue = async ():Promise<Account> => process.env.ARKPEDIA_WORKER === '1'
   ? readShippedTable<Account>('account-catalogue.json')
   : (await import('@/data/account-catalogue.json')).default;
+export const tierListCatalogue = async ():Promise<TierList> => process.env.ARKPEDIA_WORKER === '1'
+  ? readShippedTable<TierList>('tier-list-catalogue.json')
+  : (await import('@/data/tier-list-catalogue.json')).default as TierList;

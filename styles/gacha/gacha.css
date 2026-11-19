@@ -24,6 +24,76 @@
   display: flex;
   aspect-ratio: 1024 / 559;
 }
+.gacha-banner-art-link { display: block; cursor: zoom-in; }
+.gacha-composite { margin: 0; }
+.gacha-composite figcaption { margin-top: 5px; text-align: right; }
+.gacha-composite .gacha-composite-panel {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  overflow: hidden;
+}
+.gacha-composite-panel:has(.gacha-composite-support) { grid-template-columns: minmax(0, 7fr) minmax(0, 3fr); }
+.gacha-composite-leads { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); min-height: 0; }
+.gacha-composite-lead {
+  position: relative;
+  display: flex;
+  align-items: end;
+  min-width: 0;
+  isolation: isolate;
+  background: linear-gradient(145deg, var(--panel-2) 48%, var(--line) 48%, var(--line) 48.3%, var(--well) 48.3%);
+}
+.gacha-composite-lead + .gacha-composite-lead { border-inline-start: 1px solid var(--line-soft); }
+.gacha-composite-art { object-fit: contain; object-position: center; }
+.gacha-composite-lead .gacha-composite-art { object-fit: cover; object-position: center 30%; }
+.gacha-composite-caption {
+  position: relative;
+  display: flex;
+  flex: 1;
+  flex-wrap: wrap;
+  align-items: end;
+  justify-content: space-between;
+  gap: 2px 8px;
+  min-width: 0;
+  padding: 15px var(--card-inset) 8px;
+  background: linear-gradient(transparent, var(--scrim-ground) 42%);
+  color: var(--scrim-ink);
+}
+.gacha-composite-name { overflow-wrap: anywhere; }
+.gacha-composite-notes {
+  display: grid;
+  justify-items: start;
+  margin-bottom: 2px;
+  color: var(--scrim-ink-dim);
+  font: 10px/1.35 var(--font-mono);
+}
+.gacha-composite-support { display: grid; grid-auto-rows: 1fr; border-inline-start: 1px solid var(--line-soft); }
+.gacha-composite-support-item {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
+  align-items: center;
+  min-width: 0;
+  gap: 4px;
+  padding-inline-end: 6px;
+}
+.gacha-composite-support-item + .gacha-composite-support-item { border-top: 1px solid var(--line-soft); }
+.gacha-composite-support-art { position: relative; align-self: stretch; min-height: 44px; }
+.gacha-composite-shop { color: var(--amber); font: 10px/1.35 var(--font-mono); }
+.gacha-composite-thumb { position: absolute; inset: 0; display: flex; justify-content: center; }
+.gacha-composite-thumb > span { position: relative; flex: 1 1 0; }
+.gacha-composite-thumb img { object-fit: cover; object-position: center 24%; }
+
+@media (max-width: 720px) {
+  .gacha-composite-panel:has(.gacha-composite-support) { grid-template-columns: minmax(0, 1fr); aspect-ratio: auto; }
+  .gacha-composite-leads { aspect-ratio: 1024 / 559; }
+  .gacha-composite-support {
+    grid-template-columns: repeat(auto-fit, minmax(min(85px, 100%), 1fr));
+    border-inline-start: 0;
+    border-top: 1px solid var(--line-soft);
+    text-align: center;
+  }
+  .gacha-composite-support-item { grid-template-columns: minmax(0, 1fr); grid-template-rows: 48px 1fr; padding: 4px 4px 6px; }
+  .gacha-composite-support-item + .gacha-composite-support-item { border-top: 0; border-inline-start: 1px solid var(--line-soft); }
+}
 .gacha-banner-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 8px; }
 /* Details and How does this work? are .ghost .btn-sm: they were teal on teal-dim at
    rest, and teal means on or current. */

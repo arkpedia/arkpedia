@@ -1,7 +1,8 @@
 import Link from 'next/link';
 import PullPollIndexCard from '@/components/community/PullPollIndexCard';
 import type {PollBanner,PollPortrait} from '@/lib/polls/pull-poll';
-import {useMemo} from 'react';
+import {useMemo,type CSSProperties} from 'react';
+import {defaultTierList} from '@/lib/tier-list/state';
 import {useSkinRatings} from '@/lib/polls/useSkinRatings';
 import {skinRatingRows} from '@/lib/polls/skin-rating-statistics';
 import type {PollSkin} from '@/lib/polls/skin-poll';
@@ -10,6 +11,9 @@ import PageMeta from '@/components/layout/PageMeta';
 import PageHeader from '@/components/ui/PageHeader';
 import ResponsiveSkinArtwork from '@/components/skins/ResponsiveSkinArtwork';
 import { withContentPage } from '@/lib/content/server';
+import { TIER_LIST_STRINGS as TIER } from '@/lib/tier-list/strings';
+import { CHART_STRINGS as CHART } from '@/lib/tier-list/chartStrings';
+import { cellColor } from '@/lib/tier-list/chart';
 import styles from '@/components/community/Polls.module.css';
 
 interface Outfit {image:string;name:string;operator:string}
@@ -52,6 +56,27 @@ export default function Polls({skins=[],previousLeaders=[],pullBanners=[],pullPo
         <dl className={styles.ratingFacts} aria-label="How skin ratings work">
           <div><dt>Rating scale</dt><dd>1–10</dd></div><div><dt>No limit</dt><dd>Any skin</dd></div><div><dt>Progress saved</dt><dd>Any time</dd></div>
         </dl>
+      </section>
+      <section className={styles.previous} aria-labelledby="make-your-own-title">
+        <h2 id="make-your-own-title" className="section-title">{TIER.indexHeading}</h2>
+        <Link className={`directory-card lift ${styles.archive} ${styles.makerCard}`} href="/polls/tier-list" aria-label={TIER.indexTitle}>
+          <div className={styles.archiveCopy}>
+            <span className="label-tag">{TIER.indexTag}</span>
+            <h3 className={`entity-title entity-title-name ${styles.archiveTitle}`}>{TIER.indexTitle}</h3>
+            <p>{TIER.indexBody}</p>
+            <span className={styles.archiveAction}>{TIER.indexAction} <span aria-hidden="true">↗</span></span>
+          </div>
+          <div className={styles.makerArt} aria-hidden="true">{defaultTierList().rows.slice(0,4).map(row=><span key={row.id} style={{'--tier-color':row.color} as CSSProperties}><b>{row.label}</b><i/></span>)}</div>
+        </Link>
+        <Link className={`directory-card lift ${styles.archive} ${styles.makerCard}`} href="/polls/chart-maker" aria-label={CHART.indexTitle}>
+          <div className={styles.archiveCopy}>
+            <span className="label-tag">{TIER.indexTag}</span>
+            <h3 className={`entity-title entity-title-name ${styles.archiveTitle}`}>{CHART.indexTitle}</h3>
+            <p>{CHART.indexBody}</p>
+            <span className={styles.archiveAction}>{CHART.indexAction} <span aria-hidden="true">↗</span></span>
+          </div>
+          <div className={styles.chartArt} aria-hidden="true">{Array.from({length:9},(_,i)=><i key={i} style={{'--cell-color':cellColor(i,3,3)} as CSSProperties}/>)}</div>
+        </Link>
       </section>
       <section className={styles.previous} aria-labelledby="previous-polls-title">
         <h2 id="previous-polls-title" className="section-title">Previous results</h2>

@@ -34,6 +34,18 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    at: '2026-11-19T16:30:00Z',
+    title: 'Tier lists, charts and banner artwork',
+    added: [
+      { title: 'Tier List Maker', detail: 'Rank operators and other game artwork, then share your board, a template or a quiz.', href: '/polls/tier-list' },
+      { title: 'Chart Maker', detail: 'Arrange artwork on a grid or between two axes and share your chart as a link or image.', href: '/polls/chart-maker' },
+    ],
+    changed: [
+      { title: 'Outfit prices and availability at a glance', detail: 'Prices and current availability sit on the artwork, with shop dates below the outfit name.', href: '/skins' },
+      { title: 'Artwork for more gacha banners', detail: 'See official posters where available and featured operator artwork while a poster is missing.', href: '/gacha-simulator' },
+    ],
+  },
+  {
     at: '2026-11-19T15:00:00Z',
     title: 'Calendar and outfit shelves',
     changed: [
