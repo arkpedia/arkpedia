@@ -144,9 +144,9 @@ export default function ChartMaker({ catalogue }: { catalogue: TierCatalogue }) 
                       {/* The label bar: its text, and the colour the reader gives it (its accent until they do). */}
                       <div className={styles.cellBar}>
                         <input type="text" className={styles.cellLabel} value={cell.label} maxLength={MAX_CHART_LABEL} readOnly={!!quiz} aria-label={C.cellLabel(row, col)} placeholder={C.cellPlaceholder} onChange={(event) => update((current) => setCellLabel(current, index, event.target.value))} />
-                        {/* The colour field is the whole swatch: a drop drawn in the bar's ink over the native picker. */}
+                        {/* The colour field is the whole swatch: the tier list's edit pencil, in the bar's ink, over the native picker. */}
                         {!quiz && <label className={styles.cellColor} title={C.cellColor(row, col)}>
-                          <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M8 2.2c2.2 2.6 3.6 4.5 3.6 6.4a3.6 3.6 0 0 1-7.2 0c0-1.9 1.4-3.8 3.6-6.4z" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round" /></svg>
+                          <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M2.5 13.5l.7-3 7.6-7.6a1.4 1.4 0 0 1 2 0l.3.3a1.4 1.4 0 0 1 0 2l-7.6 7.6-3 .7zM9.8 3.9l2.3 2.3" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round" strokeLinecap="round" /></svg>
                           <input type="color" value={color} aria-label={C.cellColor(row, col)} onChange={(event) => update((current) => setCellColor(current, index, event.target.value))} />
                         </label>}
                       </div>
