@@ -581,6 +581,28 @@ a.ghost.panel:focus-visible { border-color: var(--teal); }
   background: currentColor;
 }
 
+/* A short row at the foot of catalogue art. The fade keeps the artwork and text
+   visually connected while holding a legible, theme-matched ground behind the text. */
+.art-meta-strip {
+  background: color-mix(in srgb, var(--panel-2) 94%, transparent);
+  color: var(--text);
+}
+.art-meta-strip::before {
+  content: '';
+  position: absolute;
+  inset: auto 0 100%;
+  height: 20px;
+  pointer-events: none;
+  background: linear-gradient(transparent, color-mix(in srgb, var(--panel-2) 94%, transparent));
+}
+.art-meta-accent { color: var(--scrim-amber); font-weight: 700; }
+.art-meta-ink {
+  --text: var(--scrim-ink);
+  --rarity-4: var(--rarity-fill-4);
+  --rarity-5: var(--rarity-fill-5);
+  --rarity-6: var(--rarity-fill-6);
+}
+
 /* Where art goes before the image repository publishes it (publishedArt is null): the
    frame the art will fill, on --panel-2, saying so quietly. It fills its box and sizes
    nothing, so a record with art and one without lay out the same. /gacha's banner (which

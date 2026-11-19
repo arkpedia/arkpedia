@@ -120,6 +120,10 @@ All values are in `styles/core/shared.css`. `scripts/tests/test-ui-tokens.ts` ch
 
 ### Surfaces and text
 
+Use `.art-meta-strip` on a positioned row at the foot of catalogue artwork. It
+fades into the picture using the active theme. Keep acquisition details in the
+card body and use `--amber` for the current availability label.
+
 | Token | Dark | Light | Use |
 |---|---|---|---|
 | `--bg` | #0f151b | #F1F3F5 | Page ground. Also the `theme-color` meta (`lib/nav/themeColor.ts`). |

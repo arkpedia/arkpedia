@@ -50,11 +50,21 @@
    phone, before). */
 .skin-card-info { display: flex; flex-direction: column; gap: 4px; width: 100%; min-width: 0; padding: var(--card-inset); border-top: 1px solid var(--line-soft); }
 .skin-card-operator { min-height: 1.3em; color: var(--text-dim); font-size: 11px; }
-.skin-card-name { min-height: 2.4em; font: 700 15px/1.2 var(--font-display); overflow-wrap: anywhere; }
-.skin-card-price { min-height: 1.3em; color: var(--text); font-size: 11px; }
-.skin-card-status { min-height: 2.8em; color: var(--text-dim); font-size: 10px; line-height: 1.4; }
-/* On sale now: a current state. */
-.skin-card-status.is-live { color: var(--teal); }
+.skin-card-name { font: 700 15px/1.2 var(--font-display); overflow-wrap: anywhere; }
+.skin-card-status { color: var(--text-dim); font-size: 11px; }
+.skin-card-art-meta {
+  position: absolute;
+  inset: auto 0 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) fit-content(42%);
+  align-items: baseline;
+  gap: 6px;
+  padding: 4px var(--card-inset) 8px;
+  font: 600 13px/1.2 var(--font-body);
+}
+.skin-card-available { color: var(--amber); }
+.skin-card-price { grid-column: 2; justify-self: end; text-align: right; }
+.skin-card-art-meta > * { min-width: 0; overflow-wrap: anywhere; }
 
 /* --- the detail dialog ---------------------------------------------------------------- */
 .skin-modal { --dialog-w: 1080px; }
@@ -132,6 +142,7 @@
 }
 @media (max-width: 480px) {
   .skin-grid { grid-template-columns: repeat(2, 1fr); }
+  .skin-card-art-meta { gap: 4px; padding-inline: 8px; font-size: 12px; }
 }
 
 /* Reserve a separate row for illustration variants, never a blank slot beside Still/Animated. */
