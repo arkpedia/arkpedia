@@ -11,10 +11,11 @@ import { useEffect, useRef, type RefObject } from 'react';
  * never wraps and unwraps under the pointer.
  *
  * Markup contract, all inside `root`: a draggable is `[data-item="<id>"]`; a row's tile
- * container is `[data-row="<row id>"]`; the pool is `[data-pool-window]`. A drag that ends
- * on a row places the item there; one that ends anywhere else puts it back in the pool.
+ * container is `[data-row="<row id>"]` (a tier, or a chart's cell); a chart's free plane is
+ * `[data-plane]`; the pool is `[data-pool-window]`. A drag that ends on a row or a plane
+ * places the item there; one that ends anywhere else puts it back in the pool.
  */
-export type TierDrop = { row: string; index: number } | { pool: true };
+export type TierDrop = { row: string; index: number } | { plane: true; x: number; y: number } | { pool: true };
 
 interface Options {
   root: RefObject<HTMLElement | null>;
@@ -73,7 +74,14 @@ export function useTierDrag({ root, ghost, mark, carried, onDrop }: Options): { 
         }
         return;
       }
-      // Anywhere that is not a row: the item goes back to the pool.
+      // A plane takes an item anywhere on it: where the pointer is, as fractions of its box.
+      const plane = under?.closest('[data-pool-window]') ? null : under?.closest<HTMLElement>('[data-plane]');
+      if (plane && host.contains(plane)) {
+        const box = plane.getBoundingClientRect();
+        active.drop = { plane: true, x: Math.max(0, Math.min(1, (active.x - box.left) / box.width)), y: Math.max(0, Math.min(1, (active.y - box.top) / box.height)) };
+        return;
+      }
+      // Anywhere that is not a row or a plane: the item goes back to the pool.
       active.drop = { pool: true };
     };
 

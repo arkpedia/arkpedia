@@ -408,6 +408,10 @@ const REGENERATED: Record<string, (props: Record<string, unknown>, clock: { from
     assert.ok(operators.length>400 && operators.every(op=>op.id && op.rarity>=1 && op.rarity<=6));
     assert.ok(operators.some(op=>op.id==='char_002_amiya' && op.icon && op.skins.length && op.skills.length===3));
   },
+  '/polls/chart-maker': (props) => {
+    const catalogue=props.catalogue as {operators:unknown[];enemies:unknown[];factions:unknown[];stories:unknown[]};
+    assert.ok(catalogue.operators.length>400 && catalogue.enemies.length>1000 && catalogue.factions.length>30 && catalogue.stories.length>60);
+  },
   '/polls': (props) => {
     const showcase=props.showcase as {image:string;name:string;operator:string}[];
     assert.equal(showcase.length,3);assert.ok(showcase.every(skin=>skin.image.startsWith('/')&&skin.name&&skin.operator));

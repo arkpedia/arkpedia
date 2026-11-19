@@ -62,24 +62,17 @@ async function pump(bytes: Uint8Array, through: TransformStream<BufferSource, Ui
   return out;
 }
 
-/** The link payload for a list (what follows `#list=`). */
-export async function encodeTierList(state: TierListState, mode: ShareMode = 'full'): Promise<string> {
-  const payload: Payload = {
-    v: TIER_LIST_VERSION, m: mode[0], t: state.title, z: state.zoom, ...(state.names ? {} : { n: 0 }),
-    f: [state.rarities, state.kinds],
-    r: state.rows.map((row) => [row.label, row.color, mode === 'template' ? [] : row.items]),
-  };
-  const bytes = new TextEncoder().encode(JSON.stringify(payload));
+/** Any small JSON as a link payload: deflated where the browser can ("1"), plain otherwise ("0"). */
+export async function packPayload(value: unknown): Promise<string> {
+  const bytes = new TextEncoder().encode(JSON.stringify(value));
   if (typeof CompressionStream === 'function') {
     try { return `1${toBase64Url(await pump(bytes, new CompressionStream('deflate-raw') as TransformStream<BufferSource, Uint8Array>, MAX_SHARE_BYTES))}`; } catch { /* plain below */ }
   }
   return `0${toBase64Url(bytes)}`;
 }
 
-/** What a link payload holds, or null for anything that is not a tier list. The list has
- *  been through parseTierList, so it is as safe to draw as a saved one. A quiz comes back
- *  with its rows emptied and the placements as `solution`. */
-export async function decodeTierList(text: string): Promise<SharedTierList | null> {
+/** The JSON a link payload holds, or null: too long, not base64url, or inflating past any real list. */
+export async function unpackPayload(text: string): Promise<unknown> {
   if (!text || text.length > MAX_SHARE_CHARS || !/^[01][A-Za-z0-9_-]+$/.test(text)) return null;
   try {
     let bytes: Uint8Array = fromBase64Url(text.slice(1));
@@ -88,7 +81,28 @@ export async function decodeTierList(text: string): Promise<SharedTierList | nul
       bytes = await pump(bytes, new DecompressionStream('deflate-raw') as TransformStream<BufferSource, Uint8Array>, MAX_SHARE_BYTES);
     }
     if (bytes.length > MAX_SHARE_BYTES) return null;
-    const payload = JSON.parse(new TextDecoder().decode(bytes)) as Partial<Payload> | null;
+    return JSON.parse(new TextDecoder().decode(bytes)) as unknown;
+  } catch {
+    return null;
+  }
+}
+
+/** The link payload for a list (what follows `#list=`). */
+export async function encodeTierList(state: TierListState, mode: ShareMode = 'full'): Promise<string> {
+  const payload: Payload = {
+    v: TIER_LIST_VERSION, m: mode[0], t: state.title, z: state.zoom, ...(state.names ? {} : { n: 0 }),
+    f: [state.rarities, state.kinds],
+    r: state.rows.map((row) => [row.label, row.color, mode === 'template' ? [] : row.items]),
+  };
+  return packPayload(payload);
+}
+
+/** What a link payload holds, or null for anything that is not a tier list. The list has
+ *  been through parseTierList, so it is as safe to draw as a saved one. A quiz comes back
+ *  with its rows emptied and the placements as `solution`. */
+export async function decodeTierList(text: string): Promise<SharedTierList | null> {
+  try {
+    const payload = await unpackPayload(text) as Partial<Payload> | null;
     if (!payload || payload.v !== TIER_LIST_VERSION || !Array.isArray(payload.r)) return null;
     const mode = payload.m == null ? 'full' : MODES[payload.m];
     if (!mode) return null;
@@ -114,7 +128,7 @@ export async function decodeTierList(text: string): Promise<SharedTierList | nul
 }
 
 /** The payload in an address's fragment (`#list=...`), or null. */
-export function sharePayload(hash: string): string | null {
-  const value = new URLSearchParams(hash.replace(/^#/, '')).get(SHARE_PARAM);
+export function sharePayload(hash: string, param: string = SHARE_PARAM): string | null {
+  const value = new URLSearchParams(hash.replace(/^#/, '')).get(param);
   return value || null;
 }

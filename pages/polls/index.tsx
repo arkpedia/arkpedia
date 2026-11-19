@@ -12,6 +12,8 @@ import PageHeader from '@/components/ui/PageHeader';
 import ResponsiveSkinArtwork from '@/components/skins/ResponsiveSkinArtwork';
 import { withContentPage } from '@/lib/content/server';
 import { TIER_LIST_STRINGS as TIER } from '@/lib/tier-list/strings';
+import { CHART_STRINGS as CHART } from '@/lib/tier-list/chartStrings';
+import { cellColor } from '@/lib/tier-list/chart';
 import styles from '@/components/community/Polls.module.css';
 
 interface Outfit {image:string;name:string;operator:string}
@@ -65,6 +67,15 @@ export default function Polls({skins=[],previousLeaders=[],pullBanners=[],pullPo
             <span className={styles.archiveAction}>{TIER.indexAction} <span aria-hidden="true">↗</span></span>
           </div>
           <div className={styles.makerArt} aria-hidden="true">{defaultTierList().rows.slice(0,4).map(row=><span key={row.id} style={{'--tier-color':row.color} as CSSProperties}><b>{row.label}</b><i/></span>)}</div>
+        </Link>
+        <Link className={`directory-card lift ${styles.archive} ${styles.makerCard}`} href="/polls/chart-maker" aria-label={CHART.indexTitle}>
+          <div className={styles.archiveCopy}>
+            <span className="label-tag">{TIER.indexTag}</span>
+            <h3 className={`entity-title entity-title-name ${styles.archiveTitle}`}>{CHART.indexTitle}</h3>
+            <p>{CHART.indexBody}</p>
+            <span className={styles.archiveAction}>{CHART.indexAction} <span aria-hidden="true">↗</span></span>
+          </div>
+          <div className={styles.chartArt} aria-hidden="true">{Array.from({length:9},(_,i)=><i key={i} style={{'--cell-color':cellColor(i,3,3)} as CSSProperties}/>)}</div>
         </Link>
       </section>
       <section className={styles.previous} aria-labelledby="previous-polls-title">

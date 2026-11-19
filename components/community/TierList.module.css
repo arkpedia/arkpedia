@@ -82,6 +82,31 @@
 .pool[data-detached] .status { flex:none; }
 .pool[data-detached] .poolItems { flex:1 1 auto; height:auto; min-height:0; }
 
+/* The chart maker's boards (components/community/ChartMaker.tsx). */
+.chartBar { display:flex; flex-wrap:wrap; align-items:center; gap:8px 24px; margin-bottom:12px; }
+.stepper { display:flex; align-items:center; gap:6px; }
+.stepper > :global(.label-tag) { margin-right:4px; }
+/* The grid: equal columns the reader counts, each cell its tiles over its label, with the
+   cell's accent (cellColor) along its top edge and in its label. */
+.chartGrid { display:grid; grid-template-columns:repeat(var(--chart-cols),minmax(0,1fr)); gap:4px; }
+.chartCell { display:grid; grid-template-rows:minmax(calc(var(--tile) + 12px),1fr) auto; min-width:0; background:var(--row-grad); border:1px solid var(--line); border-top:3px solid var(--cell-color); border-radius:var(--radius); overflow:hidden; }
+.cellItems { display:flex; flex-wrap:wrap; align-content:center; justify-content:center; gap:4px; min-width:0; padding:5px; }
+.cellItems[data-drop] { background:var(--teal-dim); }
+.cellLabel { box-sizing:border-box; width:100%; min-width:0; padding:4px 6px 6px; border:0; border-radius:0; background:transparent; color:var(--text); font-family:var(--font-display); font-size:15px; font-weight:700; text-align:center; text-overflow:ellipsis; }
+/* The plane: a square with its two axes drawn through the middle, an item anywhere on it by
+   its centre, and a label at each end of each axis laid over the edge it names. */
+.plane { position:relative; box-sizing:border-box; width:min(100%,760px); aspect-ratio:1; margin:0 auto; background:var(--row-grad); border:1px solid var(--line); border-radius:var(--radius); overflow:hidden; }
+.plane::before, .plane::after { content:""; position:absolute; background:var(--text-dim); pointer-events:none; }
+.plane::before { left:calc(50% - 1px); top:0; bottom:0; width:2px; }
+.plane::after { top:calc(50% - 1px); left:0; right:0; height:2px; }
+.plane .tile { position:absolute; transform:translate(-50%,-50%); z-index:1; }
+.axisLabel { position:absolute; z-index:2; box-sizing:border-box; width:min(38%,220px); padding:2px 6px; border:1px solid transparent; border-radius:var(--radius); background:var(--row-grad); color:var(--text-bright); font-family:var(--font-display); font-size:15px; font-weight:700; text-align:center; text-overflow:ellipsis; }
+.axisLabel:hover, .axisLabel:focus { border-color:var(--control-border); }
+.axisLabel[data-end="top"] { left:50%; top:6px; transform:translateX(-50%); }
+.axisLabel[data-end="bottom"] { left:50%; bottom:6px; transform:translateX(-50%); }
+.axisLabel[data-end="left"] { left:6px; top:50%; transform:translateY(-50%); width:min(26%,160px); text-align:left; }
+.axisLabel[data-end="right"] { right:6px; top:50%; transform:translateY(-50%); width:min(26%,160px); text-align:right; }
+
 .shared { display:flex; flex-wrap:wrap; align-items:center; gap:8px 12px; margin-bottom:var(--section-gap); padding:10px 12px; }
 .shared > span { flex:1 1 280px; font-size:13px; }
 .notice { margin:10px 0 0; }

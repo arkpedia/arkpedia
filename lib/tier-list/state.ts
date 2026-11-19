@@ -86,11 +86,16 @@ export function parseTierList(raw: string | null): TierListState | null {
   };
 }
 
+/** Whether the checkboxes let an item into a pool. The rarity boxes narrow what is an
+ *  operator's; an enemy, a faction or a story has no rarity. */
+export function passesFilters(item: TierItem, filters: { rarities: readonly number[]; kinds: readonly TierKind[] }): boolean {
+  return filters.kinds.includes(item.kind) && (!OPERATOR_KINDS.has(item.kind) || filters.rarities.includes(item.rarity));
+}
+
 /** The pool: every item the filters let through that is in no row. */
 export function poolItems(items: readonly TierItem[], state: TierListState): TierItem[] {
   const held = new Set(state.rows.flatMap((row) => row.items));
-  // The rarity checkboxes narrow what is an operator's; an enemy, a faction or a story has none.
-  return items.filter((item) => state.kinds.includes(item.kind) && (!OPERATOR_KINDS.has(item.kind) || state.rarities.includes(item.rarity)) && !held.has(item.id));
+  return items.filter((item) => passesFilters(item, state) && !held.has(item.id));
 }
 
 const without = (list: string[], gone: ReadonlySet<string>) => (list.some((id) => gone.has(id)) ? list.filter((id) => !gone.has(id)) : list);

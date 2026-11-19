@@ -1,35 +1,21 @@
-import { memo, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import ImportDialog from '@/components/account/ImportDialog';
-import { ContentImg } from '@/components/content/ContentImage';
-import SearchInput from '@/components/ui/SearchInput';
 import XButton from '@/components/ui/XButton';
 import { useHeightFloor } from '@/components/ui/useHeightFloor';
 import { matchesSearch } from '@/lib/search/searchNormalize';
-import { catalogueItems, OPERATOR_KINDS, TIER_KINDS, TIER_RARITIES, type TierCatalogue, type TierItem } from '@/lib/tier-list/catalogue';
+import { catalogueItems, type TierCatalogue } from '@/lib/tier-list/catalogue';
 import { quizPool, scoreQuiz, type QuizScore } from '@/lib/tier-list/quiz';
-import { decodeTierList, sharePayload, type SharedTierList } from '@/lib/tier-list/share';
-import { addRow, clearRows, defaultTierList, deleteRow, labelInk, moveRow, placeItems, poolItems, returnToPool, ROW_COLORS, setZoom, toggleKind, toggleRarity, updateRow, MAX_LABEL, MAX_TITLE, ZOOM, type TierListState, type TierRow } from '@/lib/tier-list/state';
+import { decodeTierList, encodeTierList, SHARE_PARAM, sharePayload, type SharedTierList, type ShareMode } from '@/lib/tier-list/share';
+import { addRow, clearRows, defaultTierList, deleteRow, labelInk, moveRow, placeItems, poolItems, returnToPool, ROW_COLORS, setZoom, toggleKind, toggleRarity, updateRow, MAX_LABEL, MAX_TITLE, type TierListState, type TierRow } from '@/lib/tier-list/state';
 import { useTierList, writeTierList } from '@/lib/tier-list/store';
 import { TIER_LIST_STRINGS as T } from '@/lib/tier-list/strings';
-import TierListShareDialog from './TierListShareDialog';
+import ShareLinkDialog from './ShareLinkDialog';
 import TierListShareImage from './TierListShareImage';
-import { tileImage } from './tierTile';
+import { KindFilters, PoolWindow, Tile, TileControls } from './makerParts';
 import { useTierDrag, type TierDrop } from './useTierDrag';
 import styles from './TierList.module.css';
 
 type Change = (state: TierListState) => TierListState;
-
-/** A tile is dragged, never pressed: it is a picture with a name, not a button. The plate
- *  names whose it is and, for a skill, an outfit or a promotion, which of theirs. */
-const Tile = memo(function Tile({ item, mark }: { item: TierItem; mark?: 'right' | 'wrong' }) {
-  const name = mark ? `${item.name} (${mark === 'right' ? T.quizRight : T.quizWrong})` : item.name;
-  return (
-    <div className={styles.tile} data-item={item.id} data-kind={item.kind} data-mark={mark} role="img" aria-label={name} title={item.name}>
-      <ContentImg src={tileImage(item)} alt="" width={64} height={64} draggable={false} />
-      <span className={styles.plate} aria-hidden="true"><span>{item.label}</span>{item.sub && <span>{item.sub}</span>}</span>
-    </div>
-  );
-});
 
 const rowStyle = (color: string) => ({ '--tier-color': color }) as CSSProperties;
 
@@ -103,38 +89,6 @@ function useShownTierList() {
   return { state: shared?.state ?? saved, update, shared, broken, dismissBroken: () => setBroken(false), leave };
 }
 
-/** The floating pool's place on a wide screen: null until the reader moves it (CSS parks it
- *  in the bottom right corner), then a corner kept inside the window. */
-function usePoolPlace() {
-  const box = useRef<HTMLElement>(null);
-  const [place, setPlace] = useState<{ x: number; y: number } | null>(null);
-  const clamp = useCallback((x: number, y: number) => {
-    const size = box.current?.getBoundingClientRect();
-    const w = size?.width ?? 0, h = Math.min(size?.height ?? 0, 48);
-    // Never under the site's bar, which is fixed above everything: the head would be out of reach.
-    const bar = Math.max(0, document.querySelector('.site-nav')?.getBoundingClientRect().bottom ?? 0);
-    return { x: Math.max(0, Math.min(window.innerWidth - w, x)), y: Math.max(bar, Math.min(window.innerHeight - h, y)) };
-  }, []);
-  useEffect(() => {
-    const again = () => setPlace((current) => (current ? clamp(current.x, current.y) : current));
-    window.addEventListener('resize', again);
-    return () => window.removeEventListener('resize', again);
-  }, [clamp]);
-  const grab = useCallback((event: ReactPointerEvent<HTMLElement>) => {
-    if (event.button !== 0 || (event.target as Element).closest('button, input, a') || !box.current) return;
-    const rect = box.current.getBoundingClientRect();
-    const dx = event.clientX - rect.left, dy = event.clientY - rect.top;
-    const handle = event.currentTarget;
-    handle.setPointerCapture(event.pointerId);
-    const move = (next: PointerEvent) => setPlace(clamp(next.clientX - dx, next.clientY - dy));
-    const done = () => { handle.removeEventListener('pointermove', move); handle.removeEventListener('pointerup', done); handle.removeEventListener('pointercancel', done); };
-    handle.addEventListener('pointermove', move);
-    handle.addEventListener('pointerup', done);
-    handle.addEventListener('pointercancel', done);
-  }, [clamp]);
-  return { box, place, grab };
-}
-
 export default function TierListMaker({ catalogue }: { catalogue: TierCatalogue }) {
   const items = useMemo(() => catalogueItems(catalogue), [catalogue]);
   const byId = useMemo(() => new Map(items.map((item) => [item.id, item])), [items]);
@@ -151,15 +105,12 @@ export default function TierListMaker({ catalogue }: { catalogue: TierCatalogue 
   const ghost = useRef<HTMLDivElement>(null);
   const mark = useRef<HTMLDivElement>(null);
   const floor = useHeightFloor('tier-list');
-  // Detaching the pool takes it out of the page under a reader who is at the page's end.
-  const dock = useHeightFloor('tier-list-pool');
-  const poolPlace = usePoolPlace();
 
   useTierDrag({
     root, ghost, mark,
     carried: useCallback((id: string) => [id], []),
     onDrop: useCallback((ids: string[], drop: TierDrop) => {
-      update((current) => ('pool' in drop ? returnToPool(current, ids) : placeItems(current, ids, drop.row, drop.index)));
+      update((current) => ('row' in drop ? placeItems(current, ids, drop.row, drop.index) : returnToPool(current, ids)));
       setScore(null); // a quiz's marks are for the placements they were worked out from
     }, [update]),
   });
@@ -176,7 +127,6 @@ export default function TierListMaker({ catalogue }: { catalogue: TierCatalogue 
   useEffect(() => { setScore(null); }, [quiz]);
 
   const makerStyle = { '--zoom': state.zoom / 100 } as CSSProperties;
-  const poolStyle = detached && poolPlace.place ? ({ '--pool-x': `${poolPlace.place.x}px`, '--pool-y': `${poolPlace.place.y}px` } as CSSProperties) : undefined;
 
   return (
     <div ref={root} className={styles.maker} style={makerStyle} data-detached={detached ? '' : undefined} data-names={state.names ? '' : undefined}>
@@ -190,41 +140,8 @@ export default function TierListMaker({ catalogue }: { catalogue: TierCatalogue 
         </div>
       )}
 
-      {/* What goes in the pool, in three labelled rows on one grid: the operator art, the
-          rarities that narrow it, and the kinds that have no rarity. A quiz sets its own pool. */}
-      {!quiz && (
-        <section className="op-section" aria-labelledby="tier-setup">
-          <h2 id="tier-setup">{T.setupHeading}</h2>
-          <div className={`panel ${styles.setup}`}>
-            {([
-              ['tier-operator-kinds', T.operatorGroup, TIER_KINDS.filter((kind) => OPERATOR_KINDS.has(kind))],
-              ['tier-other-kinds', T.otherGroup, TIER_KINDS.filter((kind) => !OPERATOR_KINDS.has(kind))],
-            ] as const).map(([id, label, kinds], index) => [
-              <span key={`${id}-label`} className="label-tag" id={id}>{label}</span>,
-              <div key={id} className={styles.checks} role="group" aria-labelledby={id}>
-                {kinds.map((kind) => (
-                  <label key={kind} className="check">
-                    <input type="checkbox" aria-label={T.kindNames[kind]} checked={state.kinds.includes(kind)} onChange={(event) => update((current) => toggleKind(current, kind, event.target.checked))} />
-                    {T.kinds[kind]}
-                  </label>
-                ))}
-              </div>,
-              // The rarities sit under the operator art they narrow.
-              ...(index === 0 ? [
-                <span key="rarity-label" className="label-tag" id="tier-rarity">{T.rarityGroup}</span>,
-                <div key="rarity" className={styles.checks} role="group" aria-labelledby="tier-rarity">
-                  {TIER_RARITIES.map((rarity) => (
-                    <label key={rarity} className="check">
-                      <input type="checkbox" aria-label={T.rarityName(rarity)} checked={state.rarities.includes(rarity)} onChange={(event) => update((current) => toggleRarity(current, rarity, event.target.checked))} />
-                      {T.rarity(rarity)}
-                    </label>
-                  ))}
-                </div>,
-              ] : []),
-            ])}
-          </div>
-        </section>
-      )}
+      {/* A quiz sets its own pool. */}
+      {!quiz && <KindFilters rarities={state.rarities} kinds={state.kinds} onRarity={(rarity, on) => update((current) => toggleRarity(current, rarity, on))} onKind={(kind, on) => update((current) => toggleKind(current, kind, on))} />}
 
       <section className="op-section" aria-labelledby="tier-board">
         <h2 id="tier-board">{T.boardHeading}</h2>
@@ -232,20 +149,7 @@ export default function TierListMaker({ catalogue }: { catalogue: TierCatalogue 
           {/* The list's name, and how its tiles are drawn: beside the tiles they change. */}
           <div className={styles.boardHead}>
             <input type="text" className={styles.name} value={state.title} maxLength={MAX_TITLE} readOnly={!!quiz} aria-label={T.titleLabel} placeholder={T.titlePlaceholder} onChange={(event) => update((current) => ({ ...current, title: event.target.value }))} />
-            <label className="check">
-              <input type="checkbox" checked={state.names} onChange={(event) => update((current) => ({ ...current, names: event.target.checked }))} />
-              {T.names}
-            </label>
-            <div className={styles.zoom} role="group" aria-label={T.zoomGroup}>
-              <svg className={styles.zoomIcon} viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><circle cx="7" cy="7" r="4.5" fill="none" stroke="currentColor" strokeWidth="1.4" /><path d="M10.4 10.4L14 14" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" /></svg>
-              <button type="button" className="ghost btn-icon" aria-label={T.zoomOut} title={state.zoom <= ZOOM.min ? T.zoomSmallest : T.zoomOut} disabled={state.zoom <= ZOOM.min} onClick={() => update((current) => setZoom(current, current.zoom - ZOOM.step))}>
-                <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M3.5 8h9" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /></svg>
-              </button>
-              <output className={styles.zoomValue} aria-label={T.zoomName(state.zoom)}>{T.zoomValue(state.zoom)}</output>
-              <button type="button" className="ghost btn-icon" aria-label={T.zoomIn} title={state.zoom >= ZOOM.max ? T.zoomLargest : T.zoomIn} disabled={state.zoom >= ZOOM.max} onClick={() => update((current) => setZoom(current, current.zoom + ZOOM.step))}>
-                <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M3.5 8h9M8 3.5v9" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /></svg>
-              </button>
-            </div>
+            <TileControls names={state.names} zoom={state.zoom} onNames={(names) => update((current) => ({ ...current, names }))} onZoom={(zoom) => update((current) => setZoom(current, zoom))} />
           </div>
           {state.rows.length ? (
             <ol className={styles.board}>
@@ -297,26 +201,7 @@ export default function TierListMaker({ catalogue }: { catalogue: TierCatalogue 
         </div>
       </section>
 
-      {/* The pool: pinned under the tier list, or detached (the arrow) into a window that
-          floats over the page, a sheet at the bottom of a phone. Either way it is inside this
-          root, where the drag hook listens. */}
-      <div ref={dock.ref}>
-        <section ref={poolPlace.box} className={`${detached ? 'panel ' : 'op-section '}${styles.pool}`} data-pool-window="" data-detached={detached ? '' : undefined} data-moved={detached && poolPlace.place ? '' : undefined} style={poolStyle} aria-labelledby="tier-pool">
-          <div className={styles.poolHead} onPointerDown={detached ? poolPlace.grab : undefined} title={detached ? T.movePool : undefined}>
-            <h2 id="tier-pool" className={detached ? 'section-title' : undefined}>{T.poolHeading}</h2>
-            <span className="hint" role="status">{T.poolCount(shown.length)}</span>
-            <SearchInput className={styles.search} label={T.searchLabel} placeholder={T.searchPlaceholder} value={query} onChange={setQuery} />
-            <button type="button" className={`ghost btn-icon ${styles.pin}`} aria-pressed={detached} aria-label={detached ? T.pinPool : T.detachPool} title={detached ? T.pinPool : T.detachPool} onClick={() => setDetached((now) => !now)}>
-              <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d={detached ? 'M4 6l4 4 4-4' : 'M4 10l4-4 4 4'} fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
-            </button>
-          </div>
-          <p className={`hint ${styles.status}`}>{T.hint}</p>
-          <div className={styles.poolItems} data-pool-list="" role="group" aria-label={T.poolHeading}>
-            {shown.length ? shown.map((item) => <Tile key={item.id} item={item} />) : <p className={`hint ${styles.poolEmpty}`}>{empty}</p>}
-          </div>
-        </section>
-        {dock.spacer}
-      </div>
+      <PoolWindow items={shown} query={query} onQuery={setQuery} detached={detached} onDetached={setDetached} empty={empty} floorKey="tier-list-pool" />
 
       <div ref={ghost} className={styles.ghost} hidden aria-hidden="true"><span data-art /><span data-count hidden /></div>
       <div ref={mark} className={styles.mark} hidden aria-hidden="true" />
@@ -332,7 +217,11 @@ export default function TierListMaker({ catalogue }: { catalogue: TierCatalogue 
         />
       )}
       {imaging && <TierListShareImage state={state} byId={byId} onClose={() => setImaging(false)} />}
-      {sharing && <TierListShareDialog state={state} onClose={() => setSharing(false)} />}
+      {sharing && (
+        <ShareLinkDialog title={T.shareDialog} param={SHARE_PARAM} note={T.shareNote} onClose={() => setSharing(false)}
+          modes={(['full', 'template', 'quiz'] as const).map((mode) => ({ id: mode, ...T.shareModes[mode], needsItems: mode !== 'template' }))}
+          hasItems={placedCount > 0} encode={(mode) => encodeTierList(state, mode as ShareMode)} />
+      )}
     </div>
   );
 }

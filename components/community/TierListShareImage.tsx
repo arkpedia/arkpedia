@@ -1,11 +1,11 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import ImportDialog from '@/components/account/ImportDialog';
-import { loadAssetImage } from '@/lib/assets/assetRetry';
 import { useContentUrl } from '@/lib/content/context';
 import type { TierItem } from '@/lib/tier-list/catalogue';
 import { labelInk, type TierListState } from '@/lib/tier-list/state';
 import { TIER_LIST_STRINGS as T } from '@/lib/tier-list/strings';
-import { cropsFromTop, tileImage } from './tierTile';
+import { drawTile, fitText, loadCanvasFonts, loadTileArt, wrapText } from './shareCanvas';
+import { tileImage } from './tierTile';
 import styles from './TierList.module.css';
 
 const WIDTH = 1200;
@@ -38,11 +38,9 @@ export default function TierListShareImage({ state: initial, byId, onClose }: { 
     setReady(false);
     setMessage(T.imagePreparing);
     void (async () => {
-      await Promise.race([document.fonts.ready, new Promise((resolve) => window.setTimeout(resolve, 1500))]);
-      const images = new Map<string, HTMLImageElement>();
-      const wanted = [...new Set(rows.flatMap((row) => row.items.map(tileImage)))];
-      const deadline = new Promise<void>((resolve) => { const timer = window.setTimeout(resolve, 15000); abort.signal.addEventListener('abort', () => { window.clearTimeout(timer); resolve(); }, { once: true }); });
-      await Promise.race([Promise.all(wanted.map(async (path) => { try { images.set(path, await loadAssetImage(url(path), { crossOrigin: 'anonymous', signal: abort.signal })); } catch { /* drawn as its name */ } })), deadline]);
+      await loadCanvasFonts();
+      const placed = rows.flatMap((row) => row.items);
+      const images = await loadTileArt(placed, url, abort.signal);
       const element = canvas.current;
       if (disposed || !element) return;
       const tile = Math.round(Math.max(56, Math.min(240, TILE * state.zoom / 100)));
@@ -56,18 +54,9 @@ export default function TierListShareImage({ state: initial, byId, onClose }: { 
       if (!c) return;
       const theme = getComputedStyle(document.documentElement);
       const ink = (token: string) => theme.getPropertyValue(token).trim();
-      const fit = (text: string, width: number) => { let value = text; while (value.length && c.measureText(value).width > width) value = value.slice(0, -1); return value === text ? value : `${value.slice(0, -1)}…`; };
-      const wrap = (text: string, width: number, lines: number) => {
-        const out: string[] = [];
-        let line = '';
-        for (const word of text.split(/\s+/).filter(Boolean)) {
-          const next = line ? `${line} ${word}` : word;
-          if (c.measureText(next).width <= width || !line) line = next; else { out.push(line); line = word; }
-        }
-        if (line) out.push(line);
-        return out.length > lines ? [...out.slice(0, lines - 1), fit(out.slice(lines - 1).join(' '), width)] : out.map((value) => fit(value, width));
-      };
-      const scrimInk = ink('--scrim-ink'), scrimAmber = ink('--scrim-amber');
+      const fit = (text: string, width: number) => fitText(c, text, width);
+      const wrap = (text: string, width: number, lines: number) => wrapText(c, text, width, lines);
+      const inks = { ground: ink('--panel-2'), dim: ink('--text-dim'), scrimInk: ink('--scrim-ink'), scrimAmber: ink('--scrim-amber') };
       c.fillStyle = ink('--bg'); c.fillRect(0, 0, WIDTH, height);
       c.textBaseline = 'middle';
       if (state.title.trim()) { c.font = '700 40px Rajdhani'; c.fillStyle = ink('--text-bright'); c.textAlign = 'left'; c.fillText(fit(state.title.trim(), WIDTH - PAD * 2), PAD, 46); }
@@ -81,32 +70,7 @@ export default function TierListShareImage({ state: initial, byId, onClose }: { 
         lines.forEach((line, i) => c.fillText(line, PAD + LABEL / 2, y + h / 2 + (i - (lines.length - 1) / 2) * 32));
         row.items.forEach((item, i) => {
           const x = PAD + LABEL + GAP + (i % perLine) * (tile + GAP), top = y + GAP + Math.floor(i / perLine) * (tile + GAP);
-          const emblem = item.kind === 'factions';
-          // A faction's white emblem keeps its fixed dark plate, whatever the theme.
-          c.fillStyle = emblem ? 'rgb(20 27 34)' : ink('--panel-2'); c.fillRect(x, top, tile, tile);
-          const image = images.get(tileImage(item));
-          if (image && emblem) {
-            const room = tile * 0.76, scale = Math.min(room / image.naturalWidth, room / image.naturalHeight);
-            const w = image.naturalWidth * scale, h2 = image.naturalHeight * scale;
-            c.drawImage(image, x + (tile - w) / 2, top + (tile - h2) / 2, w, h2);
-          } else if (image) {
-            // Cover the square: an illustration from its top edge (the figure's upper body), an icon from its centre.
-            const side = Math.min(image.naturalWidth, image.naturalHeight);
-            const sx = (image.naturalWidth - side) / 2, sy = cropsFromTop(item) ? 0 : (image.naturalHeight - side) / 2;
-            c.drawImage(image, sx, sy, side, side, x, top, tile, tile);
-          } else {
-            c.font = '600 13px Inter'; c.textAlign = 'center'; c.fillStyle = ink('--text-dim');
-            const name = wrap(item.name, tile - 10, 4);
-            name.forEach((line, n) => c.fillText(line, x + tile / 2, top + tile / 2 + (n - (name.length - 1) / 2) * 16));
-          }
-          if (state.names && image) {
-            // The name plate, as on the page: whose it is, then which of theirs.
-            const lines = [item.label, ...(item.sub ? [item.sub] : [])];
-            const lineHeight = 15, plate = lines.length * lineHeight + 5;
-            c.fillStyle = 'rgb(0 0 0 / 74%)'; c.fillRect(x, top + tile - plate, tile, plate);
-            c.font = '500 12px Inter'; c.textAlign = 'center';
-            lines.forEach((line, n) => { c.fillStyle = n ? scrimAmber : scrimInk; c.fillText(fit(line, tile - 6), x + tile / 2, top + tile - plate + 3 + lineHeight / 2 + n * lineHeight); });
-          }
+          drawTile(c, item, images.get(tileImage(item)), x, top, tile, state.names, inks);
         });
         y += h + GAP;
       });
@@ -114,7 +78,7 @@ export default function TierListShareImage({ state: initial, byId, onClose }: { 
       c.font = '400 14px "JetBrains Mono"'; c.textAlign = 'right'; c.fillStyle = ink('--text-dim'); c.fillText(T.imageSource, WIDTH - PAD, height - foot / 2);
       abort.abort();
       setReady(true);
-      setMessage(wanted.some((path) => !images.has(path)) ? T.imageMissingArt : T.imageReady(WIDTH, height));
+      setMessage(placed.some((item) => !images.has(tileImage(item))) ? T.imageMissingArt : T.imageReady(WIDTH, height));
     })().catch(() => { abort.abort(); if (!disposed) setMessage(T.imageFailed); });
     return () => { disposed = true; abort.abort(); };
     // The dialog owns one snapshot of the list; it redraws on an explicit retry only.

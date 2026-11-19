@@ -1,3 +1,4 @@
+import { CHART_STRINGS } from '@/lib/tier-list/chartStrings';
 import { isGamePath } from '@/lib/minigames/catalogue';
 
 /*
@@ -62,6 +63,10 @@ export const LINKS: NavLink[] = [
   { href: '/schedule', label: 'Events', icon: 'events' },
   { href: '/schedule?view=calendar', label: 'Calendar', icon: 'timeline' },
   { href: '/music', label: 'Music', icon: 'music' },
+  /* The two makers, between Music and Games in Extras (the owner, 2026-11-19). The chart
+     maker's name is not final: its label is CHART_STRINGS.navLabel, changed there. */
+  { href: '/polls/tier-list', label: 'Tier List Maker', icon: 'rate' },
+  { href: '/polls/chart-maker', label: CHART_STRINGS.navLabel, icon: 'grid' },
   { href: "/whats-new", label: "What's new", icon: 'changelog' },
   { href: '/credits', label: 'Credits', icon: 'credits' },
   { href: '/support', label: 'Support', icon: 'support' },
@@ -69,7 +74,7 @@ export const LINKS: NavLink[] = [
 
 /**
  * One shared grouping for the desktop menus and mobile drawer. Community's
- * participation links lead its menu; Music and Games have their own Extras menu.
+ * participation links lead its menu; Music, the two makers and Games have their own Extras menu.
  * Personal destinations open tabs of My account through the profile shortcuts.
  */
 export interface NavGroup {
@@ -96,7 +101,7 @@ export const GROUPS: NavGroup[] = [
   { id: 'guides', label: 'Guides', items: [at('/farming'), at('/base'), at('/recruitment'), at("/gacha-simulator"), at('/selector-tickets'), at("/game-modes")] },
   { id: 'own', label: 'Planner', items: [at("/operator-planner"), at("/pull-planner"), at('/skin-planner'), at("/reward-tracker")] },
   { id: 'community', label: 'Community', dividersAfter: ['/community/support-units'], items: [at('/polls'),at('/community/statistics'),at('/community/support-units'),at('/community/projects'),at('/world')] },
-  { id: 'extras', label: 'Extras', items: [at('/music'),at('/games')] },
+  { id: 'extras', label: 'Extras', items: [at('/music'),at('/polls/tier-list'),at('/polls/chart-maker'),at('/games')] },
   /* The owner asked for the two views as a menu instead of tabs on the page (2026-10-29). */
   { id: 'schedule', label: 'Schedule', icon: 'timeline', items: [at('/schedule'), at('/schedule?view=calendar')] },
   /* About stays last (the owner, 2026-10-29). */
@@ -142,6 +147,8 @@ if (orphanLinks.length > 0) {
   );
 }
 
+const MAKER_PATHS = ['/polls/tier-list', '/polls/chart-maker'];
+
 /**
  * Whether a nav entry's section contains the current route. A section's own detail
  * pages count as being in it: router.pathname is the ROUTE, so an event page reads
@@ -161,6 +168,8 @@ export function isActiveLink(link: NavLink, pathname: string, asPath?: string): 
     return link.href === '/schedule?view=calendar' ? calendar : !calendar;
   }
   if (link.href === '/games') return isGamePath(pathname);
+  /* The two makers live under /polls/ but belong to Extras: Community polls is not lit on them. */
+  if (link.href === '/polls' && MAKER_PATHS.includes(pathname)) return false;
   const section = link.href;
   return pathname === section || (section !== '/' && pathname.startsWith(`${section}/`));
 }
