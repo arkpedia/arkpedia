@@ -10,12 +10,17 @@ import { FINAL_STATS_ROWS } from '../../lib/results/finalPollResults';
 import { getAllSkins,skinImagePath } from '../../lib/skins/skins';
 import { friendOperators } from '../../lib/account/friendCatalogue';
 import type { GameAccountMap } from '../../lib/planner/gameAccount';
+import { buildOperatorNameAliases } from '../lib/operator-name-aliases';
+import { OPERATOR_NAME_ALIASES_VERSION } from '../../lib/operators/operatorSearch';
 
 const operators = getAllOperators();
+const aliases = buildOperatorNameAliases(operators);
 const output = {
+  operatorNameAliasesVersion: OPERATOR_NAME_ALIASES_VERSION,
   operators: operators.map((operator) => ({
     name: operator.name,
     rarity: operator.rarity,
+    ...(aliases[operator.name].length ? { aliases: aliases[operator.name] } : {}),
     // No release state: the header search draws a record from its name, rarity and
     // portraitStatus. An isFuture judged when this file was built used to sit here, frozen
     // until the next build, and nothing read it.

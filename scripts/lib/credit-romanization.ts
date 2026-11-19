@@ -67,14 +67,14 @@ export function romanizeHangul(text: string): string {
 
 /** Hepburn with its long vowels written out ("tarou", "nuudoru") and as most people type
  *  them ("taro", "nudoru"). */
-function kanaReadings(name: string): string[] {
+export function kanaReadings(name: string): string[] {
   const full = toRomaji(name).replace(/\s+/g, ' ').trim();
   const short = full.replace(/ou/g, 'o').replace(/([aiueo])\1/g, '$1');
   return [full, short];
 }
 
 /** pinyin of the Han runs, the rest kept: spaced by syllable, and run together. */
-function hanReadings(name: string): string[] {
+export function hanReadings(name: string): string[] {
   const parts = pinyin(name, { toneType: 'none', type: 'array', nonZh: 'consecutive', v: true })
     .map((part) => part.replace(/[^\p{L}\p{N}]+/gu, ' ').trim()).filter(Boolean);
   const spaced = parts.join(' ');

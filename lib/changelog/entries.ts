@@ -34,6 +34,10 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    at: '2026-11-19T01:46:00Z',
+    added: [{ title: 'Search operators in more languages', detail: 'Find operators by their localized names, Latin spellings and common typos in the planner, roster and site search.', href: '/operator-planner' }],
+  },
+  {
     at: '2026-11-19T00:40:00Z',
     fixed: [{ title: 'Corrected Skill Effects lists', detail: 'Removed incorrect sources and filled gaps in True Damage, Damage Over Time, Camouflage, Frighten and Reflection Damage.', href: '/techniques' }],
   },

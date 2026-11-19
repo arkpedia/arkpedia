@@ -1,5 +1,6 @@
 import { foldForSearch, lookalikeForSearch, normalizeForSearch, withinEdits } from './searchNormalize';
 import { canonicalPublicHref } from '@/lib/nav/publicRoutes';
+import { loadOperatorSearch, OPERATOR_NAME_ALIASES_VERSION, OPERATOR_SEARCH_PATH } from '@/lib/operators/operatorSearch';
 
 /*
  * The site-wide search: the nav's search box and /search?s=<query>.
@@ -75,6 +76,7 @@ export interface SiteSearchEntry {
 
 export interface SiteSearchIndex {
   entries: SiteSearchEntry[];
+  operatorNameAliasesVersion?: number;
 }
 
 /** The handbook's usual icon file for an enemy, the one build-enemies-index writes for
@@ -100,12 +102,12 @@ export const SITE_SEARCH_PATH = '/site-search.json';
 
 type FetchSiteSearch = (input: string, init?: RequestInit) => Promise<Pick<Response, 'ok' | 'status' | 'json'>>;
 
-async function fetchSiteSearch(url: string, signal: AbortSignal | undefined, fetcher: FetchSiteSearch): Promise<SiteSearchEntry[]> {
+async function fetchSiteSearch(url: string, signal: AbortSignal | undefined, fetcher: FetchSiteSearch): Promise<SiteSearchIndex> {
   const response = await fetcher(url, { signal });
   if (!response.ok) throw new Error(`Site search data returned ${response.status}`);
-  const data = await response.json() as { entries?: unknown };
-  if (!Array.isArray(data.entries)) throw new Error('Site search data is invalid');
-  return (data.entries as SiteSearchEntry[]).map(entry => ({ ...entry, href: canonicalPublicHref(entry.href) }));
+  const data = await response.json() as SiteSearchIndex | null;
+  if (!data || !Array.isArray(data.entries)) throw new Error('Site search data is invalid');
+  return { ...data, entries: data.entries.map(entry => ({ ...entry, href: canonicalPublicHref(entry.href) })) };
 }
 
 /**
@@ -119,12 +121,21 @@ export async function loadSiteSearch(
   signal?: AbortSignal,
   fetcher: FetchSiteSearch = fetch,
 ): Promise<SiteSearchEntry[]> {
+  let index: SiteSearchIndex;
   try {
-    return await fetchSiteSearch(releaseUrl, signal, fetcher);
+    index = await fetchSiteSearch(releaseUrl, signal, fetcher);
   } catch (error) {
     if (signal?.aborted || releaseUrl === SITE_SEARCH_PATH) throw error;
-    return fetchSiteSearch(SITE_SEARCH_PATH, signal, fetcher);
+    return (await fetchSiteSearch(SITE_SEARCH_PATH, signal, fetcher)).entries;
   }
+  if (releaseUrl === SITE_SEARCH_PATH || index.operatorNameAliasesVersion === OPERATOR_NAME_ALIASES_VERSION) return index.entries;
+  // Older snapshots still own their non-operator results and operator roster.
+  const bundled = await loadOperatorSearch(OPERATOR_SEARCH_PATH, signal, fetcher).catch(() => []);
+  const aliases = new Map(bundled.map(operator => [operator.name, operator.aliases]));
+  return index.entries.map(entry => {
+    const names = entry.kind === 'operator' ? aliases.get(entry.title) : undefined;
+    return names?.length ? { ...entry, terms: [...new Set([...(entry.terms ?? []), ...names])] } : entry;
+  });
 }
 
 /** The deployment's own route, not the release's: the feeds are fetched live, never exported. */
@@ -132,7 +143,7 @@ export const SITE_SEARCH_FEEDS_PATH = '/api/search-feeds';
 
 /** The YouTube videos and live Twitch streams (pages/api/search-feeds.ts). */
 export async function loadSiteSearchFeeds(signal?: AbortSignal, fetcher: FetchSiteSearch = fetch): Promise<SiteSearchEntry[]> {
-  return fetchSiteSearch(SITE_SEARCH_FEEDS_PATH, signal, fetcher);
+  return (await fetchSiteSearch(SITE_SEARCH_FEEDS_PATH, signal, fetcher)).entries;
 }
 
 /** Lower is better. Exact name, start of the name, start of a word in it, anywhere in it,

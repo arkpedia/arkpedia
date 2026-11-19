@@ -22,7 +22,8 @@ import {
 import { getLimitedBannerInfoLookup, getCelebrationBannerDates, type LimitedOperatorInfo } from '@/lib/gacha/limitedBannerType';
 import { getAllHeadhuntingBanners } from '@/lib/gacha/headhuntingBannerData';
 import { limitedOperatorNote } from '@/lib/gacha/limitedRerunNotes';
-import { matchesSearch, searchRelevance } from '@/lib/search/searchNormalize';
+import { operatorSearchMatcher } from '@/lib/operators/operatorSearch';
+import { useOperatorSearchCatalogue } from '@/lib/operators/useOperatorSearchCatalogue';
 import { operatorBelongsToFaction, expandFactionAliases } from '@/lib/operators/factionAliases';
 import { publicFiles } from '@/lib/assets/publicAssets';
 import PageHeader from '@/components/ui/PageHeader';
@@ -65,6 +66,8 @@ export default function OperatorsIndex({ operators, limitedBannerInfo = NO_LIMIT
   // doesn't carry -- an explicit query string always wins over whatever
   // this browser happened to have saved last time.
   const [search, setSearch] = useQueryState('q');
+  const { aliases, loading: searchLoading } = useOperatorSearchCatalogue(!!search.trim());
+  const searchRank = useMemo(() => operatorSearchMatcher(search, aliases), [search, aliases]);
   const [rarityFilter, setRarityFilter] = useQueryState('rarity', 'all');
   const [classFilter, setClassFilter] = useQueryState('class', 'all');
   const [branchFilter, setBranchFilter] = useQueryState('branch', 'all');
@@ -206,17 +209,17 @@ export default function OperatorsIndex({ operators, limitedBannerInfo = NO_LIMIT
       return true;
     }));
     if (search.trim()) {
-      list = list.filter((op) => matchesSearch(op.name, search));
+      list = list.filter((op) => Number.isFinite(searchRank(op)));
     }
     return list;
-  }, [operators, showUnreleased, rarityValues, classValues, branchValues, factionValues, obtainValues, subtypeValues, limitedBannerInfo, search, clock]);
+  }, [operators, showUnreleased, rarityValues, classValues, branchValues, factionValues, obtainValues, subtypeValues, limitedBannerInfo, search, searchRank, clock]);
   const ownedCounts = useMemo(() => countOwned(matching, (op) => ownedNames.has(op.name)), [matching, ownedNames]);
 
   const filtered = useMemo(() => {
     const list = account && owned !== 'all' ? matching.filter((op) => ownedNames.has(op.name) === (owned === 'owned')) : matching;
     return [...list].sort((a, b) => {
       if (search.trim()) {
-        const relDiff = searchRelevance(a.name, search) - searchRelevance(b.name, search);
+        const relDiff = searchRank(a) - searchRank(b);
         if (relDiff !== 0) return relDiff;
       }
       // Show CN view: earliest release date first, then rarity as a
@@ -282,7 +285,7 @@ export default function OperatorsIndex({ operators, limitedBannerInfo = NO_LIMIT
       if (ra !== rb) return sortDir === 'desc' ? rb - ra : ra - rb;
       return a.name.localeCompare(b.name);
     });
-  }, [matching, showUnreleased, factionFilter, search, sortDir, sortField, clock, account, owned, ownedNames]);
+  }, [matching, showUnreleased, factionFilter, searchRank, search, sortDir, sortField, clock, account, owned, ownedNames]);
   /* A filter chip's press paints before the roster is refiltered: the chips read the filters,
      the grid this deferred copy (360 ms per press in the field, 2026-10-27). */
   const shown = useDeferredValue(filtered);
@@ -500,8 +503,8 @@ export default function OperatorsIndex({ operators, limitedBannerInfo = NO_LIMIT
         <div ref={hold.ref} style={hold.style}>
         {shown.length === 0 ? (
           <div className="waiting-box">
-            <h2>No operators match</h2>
-            <p className="hint">Try adjusting or resetting your filters.</p>
+            <h2>{searchLoading ? 'Loading operators…' : 'No operators match'}</h2>
+            {!searchLoading && <p className="hint">Try adjusting or resetting your filters.</p>}
           </div>
         ) : (
           <>

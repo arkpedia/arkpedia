@@ -2,7 +2,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { getAllOperators } from '../../lib/operators/operators';
 import { portraitStatus } from '../../lib/operators/operatorPortrait';
-import { buildAliasMap } from '../../lib/operators/operatorAliases';
+import { OPERATOR_NAME_ALIASES_VERSION } from '../../lib/operators/operatorSearch';
+import { buildOperatorNameAliases } from '../lib/operator-name-aliases';
 import { getEventCalendar } from '../../lib/home/frontPageContent';
 import { getStageContents } from '../../lib/stages/stages';
 import { getAllAlbums, getAllPlayerSongs } from '../../lib/music/albumsData';
@@ -38,7 +39,7 @@ const people = siteSearchPeople();
 const entries = buildSiteSearchEntries({
   pages: NAV_ORDER,
   operators: operators.map((op) => ({ name: op.name, rarity: op.rarity, ...portraitStatus(op) })),
-  operatorAliases: buildAliasMap(operators),
+  operatorAliases: buildOperatorNameAliases(operators),
   events: getEventCalendar(),
   contents,
   stages,
@@ -55,7 +56,7 @@ for (const kind of ['page', 'operator', 'artist', 'voice-actor', 'event', 'stage
   if (!counts[kind]) throw new Error(`Site search index has no ${kind} rows; refusing to write it`);
 }
 
-const output: SiteSearchIndex = { entries };
+const output: SiteSearchIndex = { entries, operatorNameAliasesVersion: OPERATOR_NAME_ALIASES_VERSION };
 const destination = path.join(root, 'public/site-search.json');
 fs.writeFileSync(destination, `${JSON.stringify(output)}\n`);
 for (const kind of ['artist', 'voice-actor'] as const) {

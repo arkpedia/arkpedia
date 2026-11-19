@@ -40,6 +40,7 @@ const NON_DECOMPOSABLE_MAP: Record<string, string> = {
   'æ': 'ae', 'Æ': 'AE',
   'œ': 'oe', 'Œ': 'OE',
 };
+const NON_DECOMPOSABLE = new RegExp(Object.keys(NON_DECOMPOSABLE_MAP).join('|'), 'g');
 
 /** Strips diacritics, the non-decomposable special letters above, and
  * common punctuation (apostrophes, periods, hyphens), then lowercases
@@ -47,10 +48,7 @@ const NON_DECOMPOSABLE_MAP: Record<string, string> = {
  * target string (operator name, etc.) before comparing -- normalizing
  * only one side won't match. */
 export function normalizeForSearch(str: string): string {
-  let result = str;
-  for (const [special, plain] of Object.entries(NON_DECOMPOSABLE_MAP)) {
-    result = result.split(special).join(plain);
-  }
+  let result = str.replace(NON_DECOMPOSABLE, letter => NON_DECOMPOSABLE_MAP[letter]);
   // NFD decomposes an accented character into its base letter plus a
   // separate combining mark; stripping the combining-marks Unicode
   // range afterward removes just the accent, leaving the base letter.
