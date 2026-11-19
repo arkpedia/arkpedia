@@ -112,10 +112,14 @@
 .cellColor input { position:absolute; inset:0; box-sizing:border-box; width:100%; height:100%; min-height:0; padding:0; border:0; opacity:0; cursor:pointer; }
 .cellLabel { flex:1 1 auto; box-sizing:border-box; width:100%; min-width:0; padding:6px 0 6px 28px; border:0; border-radius:0; background:transparent; color:inherit; font-family:var(--font-display); font-size:15px; font-weight:700; text-align:center; text-overflow:ellipsis; }
 .cellLabel::placeholder { color:inherit; opacity:.55; }
-/* The plane: a square with its two axes drawn through the middle, an item anywhere on it by
-   its centre, and a label at each end of each axis laid over the edge it names. While a tile
-   is dragged over it, two dashed lines run from the landing point to both axes. */
-.plane { position:relative; box-sizing:border-box; width:min(100%,640px); aspect-ratio:1; margin:0 auto; background:var(--row-grad); border:1px solid var(--line); border-radius:var(--radius); overflow:hidden; }
+/* The plane: a square with its two axes drawn through the middle and an item anywhere on it
+   by its centre. Its labels stand outside it, at the end of the axis each names: above and
+   below, and to either side (on a narrow screen, in a row over the plane's two top corners),
+   so nothing ever lies over an item. The side columns keep their width when an axis is
+   hidden, and the plane stays centred. While a tile is dragged over the plane, two dashed
+   lines run from the landing point to both axes. */
+.planeFrame { display:grid; grid-template-columns:minmax(0,150px) minmax(0,640px) minmax(0,150px); grid-template-areas:". top ." "left plane right" ". bottom ."; justify-content:center; align-items:center; gap:6px 10px; }
+.plane { grid-area:plane; position:relative; box-sizing:border-box; width:100%; aspect-ratio:1; background:var(--row-grad); border:1px solid var(--line); border-radius:var(--radius); overflow:hidden; }
 .plane[data-drop] { border-color:var(--teal); }
 .plane::before, .plane::after { content:""; position:absolute; background:var(--text-dim); pointer-events:none; }
 .plane::before { left:calc(50% - 1px); top:0; bottom:0; width:2px; }
@@ -130,18 +134,18 @@
 .planeGuide::before { left:var(--drop-x); top:0; bottom:0; border-left:1px dashed var(--teal); }
 .planeGuide::after { top:var(--drop-y); left:0; right:0; border-top:1px dashed var(--teal); }
 /* An axis label is a field the reader types in: it shows its box until it holds text. */
-.axisLabel { position:absolute; z-index:2; box-sizing:border-box; width:min(38%,220px); padding:3px 8px; border:1px dashed var(--control-border); border-radius:var(--radius); background:var(--row-grad); color:var(--text-bright); font-family:var(--font-display); font-size:18px; font-weight:700; text-align:center; text-overflow:ellipsis; }
+.axisLabel { box-sizing:border-box; width:100%; min-width:0; padding:3px 8px; border:1px dashed var(--control-border); border-radius:var(--radius); background:transparent; color:var(--text-bright); font-family:var(--font-display); font-size:18px; font-weight:700; text-align:center; text-overflow:ellipsis; }
 .axisLabel:not(:placeholder-shown) { border-color:transparent; }
-/* Where the browser can size a field to its text, a label is only as wide as its words, so
-   it does not lie over the items placed near an axis's end. */
-@supports (field-sizing:content) {
-  .axisLabel, .axisLabel[data-end="left"], .axisLabel[data-end="right"] { field-sizing:content; width:auto; min-width:56px; max-width:38%; }
-}
 .axisLabel:hover, .axisLabel:focus { border-style:solid; border-color:var(--control-border); }
-.axisLabel[data-end="top"] { left:50%; top:6px; transform:translateX(-50%); }
-.axisLabel[data-end="bottom"] { left:50%; bottom:6px; transform:translateX(-50%); }
-.axisLabel[data-end="left"] { left:6px; top:50%; transform:translateY(-50%); width:min(28%,180px); text-align:left; }
-.axisLabel[data-end="right"] { right:6px; top:50%; transform:translateY(-50%); width:min(28%,180px); text-align:right; }
+.axisLabel[data-end="top"] { grid-area:top; justify-self:center; max-width:320px; }
+.axisLabel[data-end="bottom"] { grid-area:bottom; justify-self:center; max-width:320px; }
+.axisLabel[data-end="left"] { grid-area:left; text-align:right; }
+.axisLabel[data-end="right"] { grid-area:right; text-align:left; }
+@media (max-width:900px) {
+  .planeFrame { grid-template-columns:minmax(0,1fr) minmax(0,1fr); grid-template-areas:"top top" "left right" "plane plane" "bottom bottom"; }
+  .axisLabel[data-end="left"] { text-align:left; }
+  .axisLabel[data-end="right"] { text-align:right; }
+}
 
 .shared { display:flex; flex-wrap:wrap; align-items:center; gap:8px 12px; margin-bottom:var(--section-gap); padding:10px 12px; }
 .shared > span { flex:1 1 280px; font-size:13px; }

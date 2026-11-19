@@ -187,6 +187,12 @@ test('the axes: four labels of the reader\'s own and an item anywhere between th
   await expect.poll(async () => (await points(page)).find((point) => point.name === first)!.x).toBeGreaterThan(0.45);
   expect((await points(page)).length).toBe(2);
 
+  // The labels stand outside the plane, each at its own end, so none lies over an item.
+  const planeBox = (await plane(page).boundingBox())!;
+  for (const [end, outside] of [['Top of the vertical axis', (b: { y: number; height: number }) => b.y + b.height <= planeBox.y + 1], ['Bottom of the vertical axis', (b: { y: number }) => b.y >= planeBox.y + planeBox.height - 1]] as const) {
+    expect(outside((await page.getByRole('textbox', { name: end, exact: true }).boundingBox())!)).toBe(true);
+  }
+  await expect(plane(page).locator('input')).toHaveCount(0);
   // One axis hidden: its line and both its labels go, the other axis and every item stay.
   const line = (pseudo: string) => plane(page).evaluate((element, which) => getComputedStyle(element, which).display, pseudo);
   const before = await points(page);
@@ -197,7 +203,7 @@ test('the axes: four labels of the reader\'s own and an item anywhere between th
   expect(await points(page)).toEqual(before);
   await page.getByRole('checkbox', { name: 'Horizontal axis', exact: true }).uncheck();
   expect([await line('::before'), await line('::after')]).toEqual(['none', 'none']);
-  await expect(plane(page).getByRole('textbox')).toHaveCount(0);
+  await expect(page.getByRole('textbox', { name: / axis$/ })).toHaveCount(0);
   await page.reload();
   await expect(page.getByRole('checkbox', { name: 'Horizontal axis', exact: true })).not.toBeChecked();
   // Shown again, an axis has the label it had.

@@ -173,13 +173,17 @@ export default function ChartMaker({ catalogue }: { catalogue: TierCatalogue }) 
               </button>}
             </div>
           ) : (
-            <div className={styles.plane} data-plane="" data-no-horizontal={state.lines.horizontal ? undefined : ''} data-no-vertical={state.lines.vertical ? undefined : ''} role="group" aria-label={C.plane}>
-              {state.points.map((point) => { const item = byId.get(point.id); return item ? <Tile key={point.id} item={item} style={{ left: `${point.x * 100}%`, top: `${point.y * 100}%` }} /> : null; })}
-              {/* Where a dragged item will land: lines to both axes, drawn while one is over the plane. */}
-              <span className={styles.planeGuide} aria-hidden="true" />
+            // The labels stand outside the plane, one at each end of each axis, so nothing lies
+            // over an item placed on it. The frame keeps their places when an axis is hidden.
+            <div className={styles.planeFrame}>
               {AXIS_ENDS.filter((end) => state.lines[AXIS_OF[end]]).map((end) => (
                 <input key={end} type="text" className={styles.axisLabel} data-end={end} value={state.axes[end]} maxLength={MAX_CHART_LABEL} aria-label={C.axisLabel[end]} placeholder={C.axisPlaceholder[end]} onChange={(event) => update((current) => setAxis(current, end, event.target.value))} />
               ))}
+              <div className={styles.plane} data-plane="" data-no-horizontal={state.lines.horizontal ? undefined : ''} data-no-vertical={state.lines.vertical ? undefined : ''} role="group" aria-label={C.plane}>
+                {state.points.map((point) => { const item = byId.get(point.id); return item ? <Tile key={point.id} item={item} style={{ left: `${point.x * 100}%`, top: `${point.y * 100}%` }} /> : null; })}
+                {/* Where a dragged item will land: lines to both axes, drawn while one is over the plane. */}
+                <span className={styles.planeGuide} aria-hidden="true" />
+              </div>
             </div>
           )}
 

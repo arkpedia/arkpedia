@@ -6,7 +6,7 @@ import { AXIS_ENDS, AXIS_OF, cellLabelColor, type ChartState } from '@/lib/tier-
 import { labelInk } from '@/lib/tier-list/state';
 import { CHART_STRINGS as C } from '@/lib/tier-list/chartStrings';
 import { TIER_LIST_STRINGS as T } from '@/lib/tier-list/strings';
-import { drawTile, fitText, loadCanvasFonts, loadTileArt, wrapText } from './shareCanvas';
+import { drawTile, fitText, loadCanvasFonts, loadTileArt } from './shareCanvas';
 import { tileImage } from './tierTile';
 import styles from './TierList.module.css';
 
@@ -14,6 +14,8 @@ const WIDTH = 1200;
 const PAD = 24;
 const GAP = 6;
 const TILE = 88;
+/** The margin round the axes plane that holds its labels. */
+const BAND = 44;
 
 /**
  * The chart as one picture, drawn from the version on screen when the dialog opens: the
@@ -90,27 +92,26 @@ export default function ChartShareImage({ state: initial, byId, onClose }: { sta
           y += h + GAP;
         }
       } else {
-        const x0 = PAD, y0 = head, mid = inner / 2;
-        c.fillStyle = ink('--panel'); c.fillRect(x0, y0, inner, inner);
+        // The plane, with a band on each side of it for the label at that end of an axis:
+        // outside the plane, as on the page, so no label lies over an item.
+        const side = inner - BAND * 2, x0 = PAD + BAND, y0 = head + BAND, mid = side / 2;
+        c.fillStyle = ink('--panel'); c.fillRect(x0, y0, side, side);
         c.strokeStyle = ink('--text-dim'); c.lineWidth = 3;
         c.beginPath();
-        if (state.lines.vertical) { c.moveTo(x0 + mid, y0); c.lineTo(x0 + mid, y0 + inner); }
-        if (state.lines.horizontal) { c.moveTo(x0, y0 + mid); c.lineTo(x0 + inner, y0 + mid); }
+        if (state.lines.vertical) { c.moveTo(x0 + mid, y0); c.lineTo(x0 + mid, y0 + side); }
+        if (state.lines.horizontal) { c.moveTo(x0, y0 + mid); c.lineTo(x0 + side, y0 + mid); }
         c.stroke();
-        for (const point of points) drawTile(c, point.item, images.get(tileImage(point.item)), x0 + point.x * inner - tile / 2, y0 + point.y * inner - tile / 2, tile, state.names, inks);
-        // The axis labels last, on a plate of the plane's own colour, so a tile never hides one.
-        c.font = '700 26px Rajdhani';
-        const plate = (text: string, cx: number, cy: number) => {
+        c.save(); c.beginPath(); c.rect(x0, y0, side, side); c.clip();
+        for (const point of points) drawTile(c, point.item, images.get(tileImage(point.item)), x0 + point.x * side - tile / 2, y0 + point.y * side - tile / 2, tile, state.names, inks);
+        c.restore();
+        c.font = '700 26px Rajdhani'; c.fillStyle = ink('--text-bright'); c.textAlign = 'center';
+        // Top and bottom read across; left and right read along their edge, turned to face the plane.
+        const along = (text: string, cx: number, cy: number, turn: number) => {
           if (!text.trim()) return;
-          const lines = wrapText(c, text.trim(), 300, 2);
-          const w = Math.max(...lines.map((line) => c.measureText(line).width)) + 20, h = lines.length * 30 + 8;
-          const left = Math.max(x0 + 4, Math.min(x0 + inner - w - 4, cx - w / 2)), top = Math.max(y0 + 4, Math.min(y0 + inner - h - 4, cy - h / 2));
-          c.fillStyle = ink('--panel'); c.fillRect(left, top, w, h);
-          c.fillStyle = ink('--text-bright'); c.textAlign = 'center';
-          lines.forEach((line, n) => c.fillText(line, left + w / 2, top + 4 + 15 + n * 30));
+          c.save(); c.translate(cx, cy); c.rotate(turn); c.fillText(fitText(c, text.trim(), side - 40), 0, 0); c.restore();
         };
-        if (state.lines.vertical) { plate(state.axes.top, x0 + mid, y0 + 26); plate(state.axes.bottom, x0 + mid, y0 + inner - 26); }
-        if (state.lines.horizontal) { plate(state.axes.left, x0, y0 + mid); plate(state.axes.right, x0 + inner, y0 + mid); }
+        if (state.lines.vertical) { along(state.axes.top, x0 + mid, head + BAND / 2, 0); along(state.axes.bottom, x0 + mid, y0 + side + BAND / 2, 0); }
+        if (state.lines.horizontal) { along(state.axes.left, PAD + BAND / 2, y0 + mid, -Math.PI / 2); along(state.axes.right, x0 + side + BAND / 2, y0 + mid, Math.PI / 2); }
       }
       c.font = '700 26px Rajdhani'; c.textAlign = 'left'; c.fillStyle = ink('--text-bright'); c.fillText(T.imageBrand, PAD, height - foot / 2);
       c.font = '400 14px "JetBrains Mono"'; c.textAlign = 'right'; c.fillStyle = ink('--text-dim'); c.fillText(C.imageSource, WIDTH - PAD, height - foot / 2);
