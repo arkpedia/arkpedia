@@ -63,26 +63,23 @@ export default function FarmingPage({ windows: globalWindows, countdowns: export
     { n: 1 as const, tier: tier1 },
   ];
 
-  // Builds the stages to actually display for a material. For Event
-  // Store materials, this UPDATES the existing "Event Store" entry with
-  // the real countdown rather than adding a second one (that was the
-  // duplication bug). For other materials, a genuinely new stage gets
-  // prepended, since there's no existing entry for that specific event
-  // stage code to update.
+  // The Azure Dream melding shops give randomized rewards.
+  const hasRandomizedStore = eventStoreCountdown?.event === '[Side Story – Crossover] Thunder in the Azure Dream';
+
   function displayStagesFor(material: FarmingMaterial): FarmingStage[] {
-    const isEventStore = material.stages.some((s) => s.label === 'Event Store');
-    if (isEventStore) {
-      if (!eventStoreCountdown) return material.stages;
-      return material.stages.map((s) =>
+    const stages = hasRandomizedStore ? material.stages.filter((s) => s.label !== 'Event Store') : material.stages;
+    if (stages.some((s) => s.label === 'Event Store')) {
+      if (!eventStoreCountdown) return stages;
+      return stages.map((s) =>
         s.label === 'Event Store' ? { ...s, countdown: eventStoreCountdown.text, active: eventStoreCountdown.status === 'now', event: eventStoreCountdown.event } : s
       );
     }
     const countdown = countdowns[material.name];
     if (countdown?.stageCode) {
       const extraStage: FarmingStage = { label: countdown.stageCode, kind: 'eventActive', countdown: countdown.text, active: countdown.status === 'now', event: countdown.event };
-      return [extraStage, ...material.stages];
+      return [extraStage, ...stages];
     }
-    return material.stages;
+    return stages;
   }
 
   return (
