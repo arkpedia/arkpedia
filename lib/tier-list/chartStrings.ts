@@ -3,7 +3,7 @@
  * (lib/tier-list/strings.ts), in one table. The tool's name is not final: it is `title`
  * here and `navLabel`, and nowhere else.
  */
-import type { AxisEnd, ChartKind } from './chart';
+import type { AxisEnd, AxisLine, ChartKind } from './chart';
 
 export const CHART_STRINGS = {
   title: 'Alignment chart maker',
@@ -29,6 +29,8 @@ export const CHART_STRINGS = {
   cellColorReset: 'Back to its own colour',
   axisLabel: { top: 'Top of the vertical axis', bottom: 'Bottom of the vertical axis', left: 'Left of the horizontal axis', right: 'Right of the horizontal axis' } satisfies Record<AxisEnd, string>,
   axisPlaceholder: { top: 'Top', bottom: 'Bottom', left: 'Left', right: 'Right' } satisfies Record<AxisEnd, string>,
+  axisLines: 'Axes shown',
+  axisLine: { horizontal: 'Horizontal axis', vertical: 'Vertical axis' } satisfies Record<AxisLine, string>,
   plane: 'The chart: drop items anywhere on it',
   hint: 'Drag items onto the chart. Drop one anywhere else to put it back.',
   empty: 'Empty the chart',

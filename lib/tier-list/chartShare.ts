@@ -14,9 +14,10 @@ export interface SharedChart { mode: ChartShareMode; state: ChartState; solution
 const MODES: Record<string, ChartShareMode> = { f: 'full', t: 'template', q: 'quiz' };
 
 /** k: the version on screen; g: [cols, rows, [label, items, colour?][]]; a: the four axis labels
- *  (top, bottom, left, right); p: [id, x, y][] in thousandths; f: [rarities, kinds]. Only
+ *  (top, bottom, left, right); l: [horizontal, vertical] as 0 or 1, present only when an
+ *  axis is hidden; p: [id, x, y][] in thousandths; f: [rarities, kinds]. Only
  *  the version on screen travels: the other is the maker's own business. */
-interface Payload { v: number; m: 'f' | 't' | 'q'; k: 'g' | 'a'; t: string; z: number; n?: number; f: [number[], string[]]; g?: [number, number, [string, string[], string?][]]; a?: string[]; p?: [string, number, number][] }
+interface Payload { v: number; m: 'f' | 't' | 'q'; k: 'g' | 'a'; t: string; z: number; n?: number; f: [number[], string[]]; g?: [number, number, [string, string[], string?][]]; a?: string[]; l?: [number, number]; p?: [string, number, number][] }
 
 export async function encodeChart(state: ChartState, mode: ChartShareMode = 'full'): Promise<string> {
   // A quiz is a grid's: the plane has no cells to be right or wrong in.
@@ -27,7 +28,7 @@ export async function encodeChart(state: ChartState, mode: ChartShareMode = 'ful
     f: [state.rarities, state.kinds],
     ...(state.kind === 'grid'
       ? { g: [state.cols, state.rows, state.cells.map((cell): [string, string[], string?] => (cell.color ? [cell.label, bare ? [] : cell.items, cell.color] : [cell.label, bare ? [] : cell.items]))] }
-      : { a: [state.axes.top, state.axes.bottom, state.axes.left, state.axes.right], p: bare ? [] : state.points.map((point): [string, number, number] => [point.id, Math.round(point.x * 1000), Math.round(point.y * 1000)]) }),
+      : { a: [state.axes.top, state.axes.bottom, state.axes.left, state.axes.right], ...(state.lines.horizontal && state.lines.vertical ? {} : { l: [state.lines.horizontal ? 1 : 0, state.lines.vertical ? 1 : 0] as [number, number] }), p: bare ? [] : state.points.map((point): [string, number, number] => [point.id, Math.round(point.x * 1000), Math.round(point.y * 1000)]) }),
   };
   return packPayload(payload);
 }
@@ -51,7 +52,7 @@ export async function decodeChart(text: string): Promise<SharedChart | null> {
     rarities: Array.isArray(payload.f?.[0]) ? payload.f[0] : base.rarities,
     kinds: Array.isArray(payload.f?.[1]) ? payload.f[1] : base.kinds,
     ...(grid ? { cols: grid[0], rows: grid[1], cells: (Array.isArray(grid[2]) ? grid[2] : []).map((cell) => (Array.isArray(cell) ? { label: cell[0], items: bare ? [] : cell[1], color: cell[2] } : {})) } : {}),
-    ...(axes ? { axes: { top: axes[0], bottom: axes[1], left: axes[2], right: axes[3] }, points: bare || !Array.isArray(payload.p) ? [] : payload.p.map((point) => (Array.isArray(point) ? { id: point[0], x: Number(point[1]) / 1000, y: Number(point[2]) / 1000 } : {})) } : {}),
+    ...(axes ? { axes: { top: axes[0], bottom: axes[1], left: axes[2], right: axes[3] }, lines: Array.isArray(payload.l) ? { horizontal: payload.l[0] !== 0, vertical: payload.l[1] !== 0 } : undefined, points: bare || !Array.isArray(payload.p) ? [] : payload.p.map((point) => (Array.isArray(point) ? { id: point[0], x: Number(point[1]) / 1000, y: Number(point[2]) / 1000 } : {})) } : {}),
   }));
   if (!state) return null;
   if (mode !== 'quiz') return { mode, state };

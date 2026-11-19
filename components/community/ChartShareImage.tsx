@@ -2,7 +2,7 @@ import { useEffect, useId, useRef, useState } from 'react';
 import ImportDialog from '@/components/account/ImportDialog';
 import { useContentUrl } from '@/lib/content/context';
 import type { TierItem } from '@/lib/tier-list/catalogue';
-import { AXIS_ENDS, cellLabelColor, type ChartState } from '@/lib/tier-list/chart';
+import { AXIS_ENDS, AXIS_OF, cellLabelColor, type ChartState } from '@/lib/tier-list/chart';
 import { labelInk } from '@/lib/tier-list/state';
 import { CHART_STRINGS as C } from '@/lib/tier-list/chartStrings';
 import { TIER_LIST_STRINGS as T } from '@/lib/tier-list/strings';
@@ -32,7 +32,7 @@ export default function ChartShareImage({ state: initial, byId, onClose }: { sta
   const points = state.points.flatMap((point) => { const item = byId.get(point.id); return item ? [{ ...point, item }] : []; });
   const description = state.kind === 'grid'
     ? cells.map((cell, i) => `${cell.label || C.cellItems('', Math.floor(i / state.cols) + 1, (i % state.cols) + 1)}: ${cell.items.map((item) => item.name).join(', ') || T.imageEmptyRow}`).join('. ')
-    : `${AXIS_ENDS.map((end) => state.axes[end]).filter(Boolean).join(', ')}. ${points.map((point) => point.item.name).join(', ')}`;
+    : `${AXIS_ENDS.filter((end) => state.lines[AXIS_OF[end]]).map((end) => state.axes[end]).filter(Boolean).join(', ')}. ${points.map((point) => point.item.name).join(', ')}`;
 
   useEffect(() => {
     const abort = new AbortController();
@@ -93,7 +93,10 @@ export default function ChartShareImage({ state: initial, byId, onClose }: { sta
         const x0 = PAD, y0 = head, mid = inner / 2;
         c.fillStyle = ink('--panel'); c.fillRect(x0, y0, inner, inner);
         c.strokeStyle = ink('--text-dim'); c.lineWidth = 3;
-        c.beginPath(); c.moveTo(x0 + mid, y0); c.lineTo(x0 + mid, y0 + inner); c.moveTo(x0, y0 + mid); c.lineTo(x0 + inner, y0 + mid); c.stroke();
+        c.beginPath();
+        if (state.lines.vertical) { c.moveTo(x0 + mid, y0); c.lineTo(x0 + mid, y0 + inner); }
+        if (state.lines.horizontal) { c.moveTo(x0, y0 + mid); c.lineTo(x0 + inner, y0 + mid); }
+        c.stroke();
         for (const point of points) drawTile(c, point.item, images.get(tileImage(point.item)), x0 + point.x * inner - tile / 2, y0 + point.y * inner - tile / 2, tile, state.names, inks);
         // The axis labels last, on a plate of the plane's own colour, so a tile never hides one.
         c.font = '700 26px Rajdhani';
@@ -106,8 +109,8 @@ export default function ChartShareImage({ state: initial, byId, onClose }: { sta
           c.fillStyle = ink('--text-bright'); c.textAlign = 'center';
           lines.forEach((line, n) => c.fillText(line, left + w / 2, top + 4 + 15 + n * 30));
         };
-        plate(state.axes.top, x0 + mid, y0 + 26); plate(state.axes.bottom, x0 + mid, y0 + inner - 26);
-        plate(state.axes.left, x0, y0 + mid); plate(state.axes.right, x0 + inner, y0 + mid);
+        if (state.lines.vertical) { plate(state.axes.top, x0 + mid, y0 + 26); plate(state.axes.bottom, x0 + mid, y0 + inner - 26); }
+        if (state.lines.horizontal) { plate(state.axes.left, x0, y0 + mid); plate(state.axes.right, x0 + inner, y0 + mid); }
       }
       c.font = '700 26px Rajdhani'; c.textAlign = 'left'; c.fillStyle = ink('--text-bright'); c.fillText(T.imageBrand, PAD, height - foot / 2);
       c.font = '400 14px "JetBrains Mono"'; c.textAlign = 'right'; c.fillStyle = ink('--text-dim'); c.fillText(C.imageSource, WIDTH - PAD, height - foot / 2);

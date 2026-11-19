@@ -4,7 +4,7 @@ import XButton from '@/components/ui/XButton';
 import { useHeightFloor } from '@/components/ui/useHeightFloor';
 import { matchesSearch } from '@/lib/search/searchNormalize';
 import { catalogueItems, TIER_KINDS, TIER_RARITIES, type TierCatalogue } from '@/lib/tier-list/catalogue';
-import { AXIS_ENDS, cellLabelColor, CHART_KINDS, CHART_SIDE, chartPlaced, chartPool, clearChart, defaultChart, MAX_CHART_LABEL, MAX_CHART_TITLE, placeInCell, placePoint, removeGridLine, resizeGrid, setAxis, setCellColor, setCellLabel, setChartKind, unplace, type ChartKind, type ChartState } from '@/lib/tier-list/chart';
+import { AXIS_ENDS, AXIS_LINES, AXIS_OF, cellLabelColor, CHART_KINDS, CHART_SIDE, chartPlaced, chartPool, clearChart, defaultChart, MAX_CHART_LABEL, MAX_CHART_TITLE, placeInCell, placePoint, removeGridLine, resizeGrid, setAxis, setAxisLine, setCellColor, setCellLabel, setChartKind, unplace, type ChartKind, type ChartState } from '@/lib/tier-list/chart';
 import { CHART_PARAM, decodeChart, encodeChart, type ChartShareMode, type SharedChart } from '@/lib/tier-list/chartShare';
 import { chartQuizPool, scoreChartQuiz, type QuizScore } from '@/lib/tier-list/quiz';
 import { useChart, writeChart } from '@/lib/tier-list/chartStore';
@@ -120,6 +120,17 @@ export default function ChartMaker({ catalogue }: { catalogue: TierCatalogue }) 
           </div>
           {!quiz && <div className={styles.chartBar}>
             <SegmentedControl label={C.version} value={state.kind} onChange={(kind: ChartKind) => update((current) => setChartKind(current, kind))} options={CHART_KINDS.map((kind) => ({ value: kind, label: C.kinds[kind] }))} />
+            {/* Either axis can go, or both: for a chart that ranks along one line, or none. */}
+            {state.kind === 'axes' && (
+              <div className={styles.checks} role="group" aria-label={C.axisLines}>
+                {AXIS_LINES.map((line) => (
+                  <label key={line} className="check">
+                    <input type="checkbox" checked={state.lines[line]} onChange={(event) => update((current) => setAxisLine(current, line, event.target.checked))} />
+                    {C.axisLine[line]}
+                  </label>
+                ))}
+              </div>
+            )}
           </div>}
 
           {state.kind === 'grid' ? (
@@ -162,11 +173,11 @@ export default function ChartMaker({ catalogue }: { catalogue: TierCatalogue }) 
               </button>}
             </div>
           ) : (
-            <div className={styles.plane} data-plane="" role="group" aria-label={C.plane}>
+            <div className={styles.plane} data-plane="" data-no-horizontal={state.lines.horizontal ? undefined : ''} data-no-vertical={state.lines.vertical ? undefined : ''} role="group" aria-label={C.plane}>
               {state.points.map((point) => { const item = byId.get(point.id); return item ? <Tile key={point.id} item={item} style={{ left: `${point.x * 100}%`, top: `${point.y * 100}%` }} /> : null; })}
               {/* Where a dragged item will land: lines to both axes, drawn while one is over the plane. */}
               <span className={styles.planeGuide} aria-hidden="true" />
-              {AXIS_ENDS.map((end) => (
+              {AXIS_ENDS.filter((end) => state.lines[AXIS_OF[end]]).map((end) => (
                 <input key={end} type="text" className={styles.axisLabel} data-end={end} value={state.axes[end]} maxLength={MAX_CHART_LABEL} aria-label={C.axisLabel[end]} placeholder={C.axisPlaceholder[end]} onChange={(event) => update((current) => setAxis(current, end, event.target.value))} />
               ))}
             </div>

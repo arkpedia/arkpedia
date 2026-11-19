@@ -120,6 +120,8 @@
 .plane::before, .plane::after { content:""; position:absolute; background:var(--text-dim); pointer-events:none; }
 .plane::before { left:calc(50% - 1px); top:0; bottom:0; width:2px; }
 .plane::after { top:calc(50% - 1px); left:0; right:0; height:2px; }
+/* A hidden axis takes its line with it (its labels are not rendered). */
+.plane[data-no-vertical]::before, .plane[data-no-horizontal]::after { display:none; }
 .plane .tile { position:absolute; transform:translate(-50%,-50%); z-index:1; }
 .plane .tile:hover { z-index:3; }
 .planeGuide { display:none; position:absolute; inset:0; z-index:2; pointer-events:none; }
@@ -130,6 +132,11 @@
 /* An axis label is a field the reader types in: it shows its box until it holds text. */
 .axisLabel { position:absolute; z-index:2; box-sizing:border-box; width:min(38%,220px); padding:3px 8px; border:1px dashed var(--control-border); border-radius:var(--radius); background:var(--row-grad); color:var(--text-bright); font-family:var(--font-display); font-size:18px; font-weight:700; text-align:center; text-overflow:ellipsis; }
 .axisLabel:not(:placeholder-shown) { border-color:transparent; }
+/* Where the browser can size a field to its text, a label is only as wide as its words, so
+   it does not lie over the items placed near an axis's end. */
+@supports (field-sizing:content) {
+  .axisLabel, .axisLabel[data-end="left"], .axisLabel[data-end="right"] { field-sizing:content; width:auto; min-width:56px; max-width:38%; }
+}
 .axisLabel:hover, .axisLabel:focus { border-style:solid; border-color:var(--control-border); }
 .axisLabel[data-end="top"] { left:50%; top:6px; transform:translateX(-50%); }
 .axisLabel[data-end="bottom"] { left:50%; bottom:6px; transform:translateX(-50%); }

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { catalogueItems, enemyItemId, operatorItemId, type TierCatalogue } from '../../lib/tier-list/catalogue';
-import { cellColor, cellLabelColor, setCellColor, chartPlaced, chartPool, clearChart, defaultChart, parseChart, placeInCell, placePoint, removeGridLine, resizeGrid, setAxis, setCellLabel, setChartKind, unplace, CHART_SIDE } from '../../lib/tier-list/chart';
+import { cellColor, cellLabelColor, setCellColor, chartPlaced, chartPool, clearChart, defaultChart, parseChart, placeInCell, placePoint, removeGridLine, resizeGrid, setAxis, setAxisLine, setCellLabel, setChartKind, unplace, CHART_SIDE } from '../../lib/tier-list/chart';
 import { decodeChart, encodeChart } from '../../lib/tier-list/chartShare';
 import { chartQuizPool, scoreChartQuiz } from '../../lib/tier-list/quiz';
 import { CHART_STRINGS } from '../../lib/tier-list/chartStrings';
@@ -75,6 +75,22 @@ test('the axes version places an item anywhere, moves it, and keeps its own plac
   chart = unplace(chart, [B]);
   assert.deepEqual([ids(chartPool(items, chart)), setChartKind(chart, 'grid').cells[0].items], [[B], [A]], 'switching back, the grid is as it was');
   assert.deepEqual(clearChart(chart).points, []);
+});
+
+test('either axis can be hidden, or both, and the choice is kept in a save and a link', async () => {
+  let chart = setChartKind(defaultChart(), 'axes');
+  assert.deepEqual(chart.lines, { horizontal: true, vertical: true });
+  chart = setAxisLine(placePoint(setAxis(chart, 'left', 'Weak'), A, 0.2, 0.5), 'vertical', false);
+  assert.deepEqual([chart.lines, chart.axes.left, chart.points.length], [{ horizontal: true, vertical: false }, 'Weak', 1], 'hiding an axis moves nothing and forgets no label');
+  assert.equal(setAxisLine(chart, 'vertical', false), chart);
+  assert.deepEqual(parseChart(JSON.stringify(chart))!.lines, { horizontal: true, vertical: false });
+  assert.deepEqual((await decodeChart(await encodeChart(chart)))!.state.lines, { horizontal: true, vertical: false });
+  const neither = setAxisLine(chart, 'horizontal', false);
+  assert.deepEqual((await decodeChart(await encodeChart(neither, 'template')))!.state.lines, { horizontal: false, vertical: false });
+  // A chart saved or shared before the toggles has both.
+  const { lines: _lines, ...old } = chart;
+  assert.deepEqual(parseChart(JSON.stringify(old))!.lines, { horizontal: true, vertical: true });
+  assert.deepEqual((await decodeChart(await encodeChart(setAxisLine(chart, 'vertical', true))))!.state.lines, { horizontal: true, vertical: true });
 });
 
 test('a saved chart round-trips, and a damaged one is repaired or refused', () => {

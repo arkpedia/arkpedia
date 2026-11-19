@@ -187,7 +187,22 @@ test('the axes: four labels of the reader\'s own and an item anywhere between th
   await expect.poll(async () => (await points(page)).find((point) => point.name === first)!.x).toBeGreaterThan(0.45);
   expect((await points(page)).length).toBe(2);
 
+  // One axis hidden: its line and both its labels go, the other axis and every item stay.
+  const line = (pseudo: string) => plane(page).evaluate((element, which) => getComputedStyle(element, which).display, pseudo);
+  const before = await points(page);
+  await page.getByRole('checkbox', { name: 'Vertical axis', exact: true }).uncheck();
+  expect([await line('::before'), await line('::after')]).toEqual(['none', 'block']);
+  await expect(page.getByRole('textbox', { name: 'Top of the vertical axis', exact: true })).toHaveCount(0);
+  await expect(page.getByRole('textbox', { name: 'Left of the horizontal axis', exact: true })).toHaveValue('Down bad');
+  expect(await points(page)).toEqual(before);
+  await page.getByRole('checkbox', { name: 'Horizontal axis', exact: true }).uncheck();
+  expect([await line('::before'), await line('::after')]).toEqual(['none', 'none']);
+  await expect(plane(page).getByRole('textbox')).toHaveCount(0);
   await page.reload();
+  await expect(page.getByRole('checkbox', { name: 'Horizontal axis', exact: true })).not.toBeChecked();
+  // Shown again, an axis has the label it had.
+  await page.getByRole('checkbox', { name: 'Vertical axis', exact: true }).check();
+  await page.getByRole('checkbox', { name: 'Horizontal axis', exact: true }).check();
   await expect(page.getByRole('textbox', { name: 'Top of the vertical axis', exact: true })).toHaveValue('Seiso');
   await expect.poll(async () => (await points(page)).length).toBe(2);
   // The grid kept nothing of this, and comes back as it was.

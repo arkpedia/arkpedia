@@ -20,6 +20,11 @@ export const MAX_POINTS = 2000;
 export type ChartKind = 'grid' | 'axes';
 export const CHART_KINDS: readonly ChartKind[] = ['grid', 'axes'];
 export type AxisEnd = 'top' | 'bottom' | 'left' | 'right';
+/** The plane's two axes: the horizontal one runs left to right, the vertical one top to bottom. */
+export type AxisLine = 'horizontal' | 'vertical';
+export const AXIS_LINES: readonly AxisLine[] = ['horizontal', 'vertical'];
+/** The ends each axis has, and so the labels that go with it. */
+export const AXIS_OF: Record<AxisEnd, AxisLine> = { top: 'vertical', bottom: 'vertical', left: 'horizontal', right: 'horizontal' };
 export const AXIS_ENDS: readonly AxisEnd[] = ['top', 'bottom', 'left', 'right'];
 
 /** `color` is the label bar's, when the reader chose one (#rrggbb); else the cell wears the
@@ -40,6 +45,9 @@ export interface ChartState {
   /** rows × cols cells, row by row. */
   cells: ChartCell[];
   axes: Record<AxisEnd, string>;
+  /** Which of the two axes are drawn: a reader who ranks along one line hides the other,
+   *  and its labels with it. Items still sit anywhere on the plane. */
+  lines: Record<AxisLine, boolean>;
   points: ChartPoint[];
 }
 
@@ -50,7 +58,7 @@ export function defaultChart(): ChartState {
   return {
     version: CHART_VERSION, kind: 'grid', title: '', rarities: [6, 5], kinds: ['icons'], zoom: ZOOM.base, names: true,
     cols: 3, rows: 3, cells: CLASSIC.map((label) => ({ label, items: [] })),
-    axes: { top: '', bottom: '', left: '', right: '' }, points: [],
+    axes: { top: '', bottom: '', left: '', right: '' }, lines: { horizontal: true, vertical: true }, points: [],
   };
 }
 
@@ -82,6 +90,7 @@ export function parseChart(raw: string | null): ChartState | null {
     return isId(entry.id) && !onPlane.has(entry.id) && onPlane.add(entry.id) ? [{ id: entry.id, x: unit(entry.x), y: unit(entry.y) }] : [];
   });
   const axes = data.axes && typeof data.axes === 'object' ? data.axes as Record<string, unknown> : {};
+  const lines = data.lines && typeof data.lines === 'object' ? data.lines as Record<string, unknown> : {};
   return {
     version: CHART_VERSION,
     kind: data.kind === 'axes' ? 'axes' : 'grid',
@@ -92,6 +101,8 @@ export function parseChart(raw: string | null): ChartState | null {
     names: data.names !== false,
     cols, rows, cells,
     axes: { top: text(axes.top, MAX_CHART_LABEL), bottom: text(axes.bottom, MAX_CHART_LABEL), left: text(axes.left, MAX_CHART_LABEL), right: text(axes.right, MAX_CHART_LABEL) },
+    // Drawn unless the chart says otherwise: one saved before the toggles has both.
+    lines: { horizontal: lines.horizontal !== false, vertical: lines.vertical !== false },
     points,
   };
 }
@@ -167,6 +178,7 @@ export function setCellColor(state: ChartState, cell: number, color: string | nu
 }
 
 export const setAxis = (state: ChartState, end: AxisEnd, label: string): ChartState => ({ ...state, axes: { ...state.axes, [end]: label.slice(0, MAX_CHART_LABEL) } });
+export const setAxisLine = (state: ChartState, line: AxisLine, shown: boolean): ChartState => (state.lines[line] === shown ? state : { ...state, lines: { ...state.lines, [line]: shown } });
 export const setChartKind = (state: ChartState, kind: ChartKind): ChartState => (state.kind === kind ? state : { ...state, kind });
 
 /** Empty the version on screen; its labels and size stay. */
