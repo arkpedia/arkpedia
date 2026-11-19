@@ -402,6 +402,8 @@ const REGENERATED: Record<string, (props: Record<string, unknown>, clock: { from
     assert.ok(skins.some(s=>s.id==='char_002_amiya@winter#1'&&s.name==='Newsgirl'));
   },
   '/polls/tier-list': (props) => {
+    const extra=props.catalogue as {enemies:unknown[];factions:unknown[];stories:unknown[]};
+    assert.ok(extra.enemies.length>1000 && extra.factions.length>30 && extra.stories.length>60);
     const operators=(props.catalogue as {operators:{id:string;rarity:number;icon:string|null;skins:unknown[];skills:unknown[]}[]}).operators;
     assert.ok(operators.length>400 && operators.every(op=>op.id && op.rarity>=1 && op.rarity<=6));
     assert.ok(operators.some(op=>op.id==='char_002_amiya' && op.icon && op.skins.length && op.skills.length===3));

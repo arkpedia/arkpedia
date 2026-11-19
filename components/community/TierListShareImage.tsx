@@ -67,6 +67,7 @@ export default function TierListShareImage({ state: initial, byId, onClose }: { 
         if (line) out.push(line);
         return out.length > lines ? [...out.slice(0, lines - 1), fit(out.slice(lines - 1).join(' '), width)] : out.map((value) => fit(value, width));
       };
+      const scrimInk = ink('--scrim-ink'), scrimAmber = ink('--scrim-amber');
       c.fillStyle = ink('--bg'); c.fillRect(0, 0, WIDTH, height);
       c.textBaseline = 'middle';
       if (state.title.trim()) { c.font = '700 40px Rajdhani'; c.fillStyle = ink('--text-bright'); c.textAlign = 'left'; c.fillText(fit(state.title.trim(), WIDTH - PAD * 2), PAD, 46); }
@@ -80,9 +81,15 @@ export default function TierListShareImage({ state: initial, byId, onClose }: { 
         lines.forEach((line, i) => c.fillText(line, PAD + LABEL / 2, y + h / 2 + (i - (lines.length - 1) / 2) * 32));
         row.items.forEach((item, i) => {
           const x = PAD + LABEL + GAP + (i % perLine) * (tile + GAP), top = y + GAP + Math.floor(i / perLine) * (tile + GAP);
-          c.fillStyle = ink('--panel-2'); c.fillRect(x, top, tile, tile);
+          const emblem = item.kind === 'factions';
+          // A faction's white emblem keeps its fixed dark plate, whatever the theme.
+          c.fillStyle = emblem ? 'rgb(20 27 34)' : ink('--panel-2'); c.fillRect(x, top, tile, tile);
           const image = images.get(tileImage(item));
-          if (image) {
+          if (image && emblem) {
+            const room = tile * 0.76, scale = Math.min(room / image.naturalWidth, room / image.naturalHeight);
+            const w = image.naturalWidth * scale, h2 = image.naturalHeight * scale;
+            c.drawImage(image, x + (tile - w) / 2, top + (tile - h2) / 2, w, h2);
+          } else if (image) {
             // Cover the square: an illustration from its top edge (the figure's upper body), an icon from its centre.
             const side = Math.min(image.naturalWidth, image.naturalHeight);
             const sx = (image.naturalWidth - side) / 2, sy = cropsFromTop(item) ? 0 : (image.naturalHeight - side) / 2;
@@ -91,6 +98,14 @@ export default function TierListShareImage({ state: initial, byId, onClose }: { 
             c.font = '600 13px Inter'; c.textAlign = 'center'; c.fillStyle = ink('--text-dim');
             const name = wrap(item.name, tile - 10, 4);
             name.forEach((line, n) => c.fillText(line, x + tile / 2, top + tile / 2 + (n - (name.length - 1) / 2) * 16));
+          }
+          if (state.names && image) {
+            // The name plate, as on the page: whose it is, then which of theirs.
+            const lines = [item.label, ...(item.sub ? [item.sub] : [])];
+            const lineHeight = 15, plate = lines.length * lineHeight + 5;
+            c.fillStyle = 'rgb(0 0 0 / 74%)'; c.fillRect(x, top + tile - plate, tile, plate);
+            c.font = '500 12px Inter'; c.textAlign = 'center';
+            lines.forEach((line, n) => { c.fillStyle = n ? scrimAmber : scrimInk; c.fillText(fit(line, tile - 6), x + tile / 2, top + tile - plate + 3 + lineHeight / 2 + n * lineHeight); });
           }
         });
         y += h + GAP;

@@ -1,8 +1,9 @@
 import { expect, test, type Locator, type Page, type TestInfo } from '@playwright/test';
 import { readOnly } from './census-routes';
 
-/* The Tier List maker (/polls/tier-list): the pool the checkboxes choose, pinned under the
-   board or detached into a floating window; placing by drag alone, where a drop anywhere
+/* The Tier List maker (/polls/tier-list): the pool the checkboxes choose, popped out into a
+   floating window or pinned under the board; name plates; the three links (full, template,
+   quiz); placing by drag alone, where a drop anywhere
    but a row puts the item back; rows, zoom, the saved list, the link and the image; and
    that none of it moves the page under the reader. */
 const rowItems = (page: Page) => page.evaluate(() => [...document.querySelectorAll('[data-row]')].map((row) => [...row.querySelectorAll('[data-item]')].map((tile) => tile.getAttribute('aria-label'))));
@@ -42,8 +43,8 @@ async function dragTo(page: Page, info: TestInfo, tile: Locator, to: { x: number
   await cdp.detach();
 }
 
-/** Drag the pool's first tile into a row. The pool is detached first, so that it and any row
- *  are on one screen (a phone's sheet, a window in the corner). */
+/** Drag the pool's first tile into a row. The pool is detached (as it is when the page opens),
+ *  so that it and any row are on one screen (a phone's sheet, a window in the corner). */
 async function place(page: Page, info: TestInfo, rowIndex: number) {
   if (!(await page.locator('[data-pool-window][data-detached]').count())) await detach(page);
   await row(page, rowIndex).evaluate((element) => window.scrollTo(0, element.getBoundingClientRect().top + window.scrollY - 160));
@@ -51,6 +52,15 @@ async function place(page: Page, info: TestInfo, rowIndex: number) {
   const box = (await row(page, rowIndex).boundingBox())!;
   await dragTo(page, info, pool(page).first(), { x: box.x + Math.min(box.width - 10, 150), y: box.y + box.height / 2 });
   await expect.poll(async () => (await rowItems(page))[rowIndex].length).toBe(before + 1);
+}
+
+/** Open Share, copy one kind of link, and read it back from the clipboard. */
+async function copyLink(page: Page, kind: 'Full tier list' | 'Template' | 'Quiz') {
+  await page.getByRole('button', { name: 'Share', exact: true }).click();
+  await page.getByRole('button', { name: `Copy link: ${kind}`, exact: true }).click();
+  await expect(page.getByText(`${kind}: Link copied.`)).toBeVisible();
+  await page.getByRole('button', { name: 'Close', exact: true }).click();
+  return page.evaluate(() => navigator.clipboard.readText());
 }
 
 test('the polls list links to the tier list maker', async ({ page }) => {
@@ -80,9 +90,20 @@ test('checkboxes choose the pool without changing the page height', async ({ pag
   await expect(page.locator('[data-pool-list] [data-item][data-kind="e0"]')).toHaveCount(sixStar);
   for (const name of ['Operator icons', 'Elite 2 art', 'Outfit art', 'Skill icons', 'Base skill icons']) await check(name).check();
   expect(await pool(page).count()).toBeGreaterThan(sixStar * 6);
+  // Enemies, factions and stories have no rarity: with every rarity unticked they are the pool.
+  await check('6-star').uncheck();
+  await expect(pool(page)).toHaveCount(0);
+  await check('Faction emblems').check();
+  const factions = await pool(page).count();
+  expect(factions).toBeGreaterThan(30);
+  await check('Story art').check();
+  expect(await pool(page).count()).toBeGreaterThan(factions + 60);
+  await check('Enemy icons').check();
+  expect(await pool(page).count()).toBeGreaterThan(1000);
+  await check('6-star').check();
   await page.getByRole('searchbox', { name: /Search the pool/ }).fill('zzzz no such operator');
   await expect(page.getByText('Nothing in the pool matches.')).toBeVisible();
-  for (const name of ['Operator icons', 'Elite 0 art', 'Elite 2 art', 'Outfit art', 'Skill icons', 'Base skill icons']) await check(name).uncheck();
+  for (const name of ['Operator icons', 'Elite 0 art', 'Elite 2 art', 'Outfit art', 'Skill icons', 'Base skill icons', 'Enemy icons', 'Faction emblems', 'Story art']) await check(name).uncheck();
   await page.getByRole('searchbox', { name: /Search the pool/ }).fill('');
   await expect(page.getByText('Tick a rarity and a kind of art to fill the pool.')).toBeVisible();
   expect(await height(page)).toBe(before);
@@ -161,7 +182,6 @@ test('a finger drags after a hold, and a swipe on a tile still scrolls the pool'
   test.skip(!mobile(info), 'touch dragging');
   await open(page);
   const [name] = await names(page, 1);
-  await detach(page);
   await row(page, 3).evaluate((element) => window.scrollTo(0, element.getBoundingClientRect().top + window.scrollY - 160));
   const scrolled = await page.evaluate(() => window.scrollY);
   await dragTo(page, info, pool(page).first(), await centre(row(page, 3)));
@@ -178,25 +198,34 @@ test('a finger drags after a hold, and a swipe on a tile still scrolls the pool'
   expect((await rowItems(page)).flat()).toEqual([name]);
 });
 
-test('the pool is pinned under the tier list until its arrow detaches it', async ({ page }, info) => {
+test('tiles carry a name plate: whose it is, and for a skill which one', async ({ page }) => {
+  await open(page);
+  const plate = (tile: Locator) => tile.locator('span > span').allInnerTexts();
+  const first = pool(page).first();
+  expect(await plate(first)).toEqual([await first.getAttribute('aria-label')]);
+  await expect(first.locator('span').first()).toBeVisible();
+  await page.getByRole('checkbox', { name: 'Operator icons', exact: true }).uncheck();
+  await page.getByRole('checkbox', { name: 'Skill icons', exact: true }).check();
+  const skills = await pool(page).evaluateAll((tiles) => tiles.slice(0, 3).map((tile) => [...tile.querySelectorAll('span > span')].map((line) => line.textContent)));
+  expect(skills.map((lines) => lines[1])).toEqual(['Skill 1', 'Skill 2', 'Skill 3']);
+  expect(new Set(skills.map((lines) => lines[0])).size).toBe(1);
+  expect((await pool(page).first().getAttribute('aria-label'))!.startsWith(`${skills[0][0]} - `)).toBe(true);
+  // The plate reads on its fixed scrim in either theme, and can be switched off.
+  const contrast = await pool(page).first().locator('span').first().evaluate((element) => {
+    const lum = (rgb: string) => { const [r, g, b] = rgb.match(/[\d.]+/g)!.slice(0, 3).map((value) => { const c = Number(value) / 255; return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4; }); return 0.2126 * r + 0.7152 * g + 0.0722 * b; };
+    return (lum(getComputedStyle(element).color) + 0.05) / 0.05;
+  });
+  expect(contrast).toBeGreaterThan(4.5);
+  await page.getByRole('checkbox', { name: 'Show names', exact: true }).uncheck();
+  await expect(pool(page).first().locator('span').first()).toBeHidden();
+});
+
+test('the pool opens popped out, and its arrow pins it under the tier list', async ({ page }, info) => {
   await open(page);
   const box = poolWindow(page);
-  // Pinned: in the page, after the board, moving with it.
-  expect(await box.evaluate((element) => getComputedStyle(element).position)).toBe('static');
-  const boardEnd = await page.locator('[data-row]').last().evaluate((element) => element.getBoundingClientRect().bottom);
-  expect((await box.boundingBox())!.y).toBeGreaterThan(boardEnd);
-  await expect(box.getByRole('button')).toHaveCount(1);
-
-  // Detached at the very end of the page: nothing above it moves.
-  await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
-  const anchor = page.getByRole('button', { name: 'Add row', exact: true });
-  const before = { y: await page.evaluate(() => window.scrollY), top: (await anchor.boundingBox())!.y };
-  await detach(page);
+  // Popped out when the page opens: over the page, not in it.
   expect(await box.evaluate((element) => getComputedStyle(element).position)).toBe('fixed');
-  await page.waitForTimeout(300);
-  expect(await page.evaluate(() => window.scrollY)).toBe(before.y);
-  expect(Math.abs((await anchor.boundingBox())!.y - before.top)).toBeLessThan(4);
-
+  await expect(box.getByRole('button')).toHaveCount(1);
   if (!mobile(info)) {
     const head = (await page.getByRole('heading', { name: 'Pool', exact: true }).boundingBox())!;
     await page.mouse.move(head.x + 4, head.y + 4); await page.mouse.down(); await page.mouse.move(300, 300, { steps: 5 }); await page.mouse.up();
@@ -209,19 +238,32 @@ test('the pool is pinned under the tier list until its arrow detaches it', async
     expect((await box.boundingBox())!.x).toBe(0);
     expect(Math.round((await box.boundingBox())!.y)).toBe(Math.round(bar.y + bar.height));
   } else {
-    // A phone's detached pool is a sheet along the bottom edge.
+    // A phone's popped-out pool is a sheet along the bottom edge.
     const sheet = (await box.boundingBox())!;
     expect(sheet.x).toBe(0);
     expect(Math.round(sheet.y + sheet.height)).toBe(page.viewportSize()!.height);
   }
   // It does not scroll with the page.
   const top = (await box.boundingBox())!.y;
-  await page.evaluate(() => window.scrollBy(0, -150));
+  await page.evaluate(() => window.scrollBy(0, 150));
   expect((await box.boundingBox())!.y).toBe(top);
 
+  // Pinned: in the page, after the board, moving with it.
   await pin(page);
   expect(await box.evaluate((element) => getComputedStyle(element).position)).toBe('static');
+  const boardEnd = await page.locator('[data-row]').last().evaluate((element) => element.getBoundingClientRect().bottom);
+  expect((await box.boundingBox())!.y).toBeGreaterThan(boardEnd);
   await expect(pool(page).first()).toBeAttached();
+
+  // Popped out again at the very end of the page: nothing above it moves.
+  await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+  const anchor = page.getByRole('button', { name: 'Add row', exact: true });
+  const before = { y: await page.evaluate(() => window.scrollY), top: (await anchor.boundingBox())!.y };
+  await detach(page);
+  expect(await box.evaluate((element) => getComputedStyle(element).position)).toBe('fixed');
+  await page.waitForTimeout(300);
+  expect(await page.evaluate(() => window.scrollY)).toBe(before.y);
+  expect(Math.abs((await anchor.boundingBox())!.y - before.top)).toBeLessThan(4);
 });
 
 test('zoom steps the tiles by percent and is kept', async ({ page }) => {
@@ -245,8 +287,7 @@ test('deleting the last row at the end of the page moves nothing', async ({ page
   test.skip(mobile(info), 'a phone deletes from the row dialog');
   await open(page);
   for (let i = 0; i < 8; i += 1) await page.getByRole('button', { name: 'Add row', exact: true }).click();
-  // With the pool detached and parked at the top, the board is the end of the page.
-  await detach(page);
+  // With the pool popped out and parked at the top, the board is the end of the page.
   const head = (await page.getByRole('heading', { name: 'Pool', exact: true }).boundingBox())!;
   await page.mouse.move(head.x + 4, head.y + 4); await page.mouse.down(); await page.mouse.move(40, 80, { steps: 4 }); await page.mouse.up();
   await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
@@ -270,9 +311,7 @@ test('a link shows the list without touching the reader\'s own, until they keep 
   await place(page, info, 0);
   await place(page, info, 0);
   await page.getByRole('button', { name: 'Zoom in', exact: true }).click();
-  await page.getByRole('button', { name: 'Copy link', exact: true }).click();
-  await expect(page.getByText('Link copied. Anyone who opens it sees this tier list.')).toBeVisible();
-  const link = await page.evaluate(() => navigator.clipboard.readText());
+  const link = await copyLink(page, 'Full tier list');
   expect(new URL(link).hash).toMatch(/^#list=[01][A-Za-z0-9_-]+$/);
   expect(new URL(link).search).toBe('');
 
@@ -308,6 +347,72 @@ test('a link shows the list without touching the reader\'s own, until they keep 
   await page.goto('/polls/tier-list#list=1nonsense'); await page.reload();
   await expect(page.getByText('That link does not hold a tier list. Showing your own.')).toBeVisible();
   await expect.poll(async () => (await rowItems(page))[0]).toEqual([first, second]);
+});
+
+test('a template link carries the tiers and filters with nothing placed', async ({ page, context }, info) => {
+  test.skip(mobile(info), 'the clipboard is read back on desktop Chromium');
+  await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+  await open(page);
+  await page.getByRole('checkbox', { name: '5-star', exact: true }).uncheck();
+  await page.getByRole('checkbox', { name: 'Faction emblems', exact: true }).check();
+  const offered = await pool(page).count();
+  await page.getByRole('textbox', { name: 'Row 1 label', exact: true }).fill('Goated');
+  await page.getByRole('button', { name: 'Add row', exact: true }).click();
+  await place(page, info, 0);
+  // Full and quiz links need something placed; a template never does.
+  const link = await copyLink(page, 'Template');
+  page.on('dialog', (dialog) => void dialog.accept());
+  await page.getByRole('button', { name: 'Start over', exact: true }).click();
+  await page.goto(link); await page.reload();
+  await expect(page.getByText(/You are looking at a shared template/)).toBeVisible();
+  await expect(page.locator('[data-row]')).toHaveCount(6);
+  await expect(page.getByRole('textbox', { name: 'Row 1 label', exact: true })).toHaveValue('Goated');
+  expect((await rowItems(page)).flat()).toEqual([]);
+  await expect(page.getByRole('checkbox', { name: '5-star', exact: true })).not.toBeChecked();
+  await expect(page.getByRole('checkbox', { name: 'Faction emblems', exact: true })).toBeChecked();
+  await expect(pool(page)).toHaveCount(offered);
+});
+
+test('a quiz link offers only what its maker placed and scores the reader against them', async ({ page, context }, info) => {
+  test.skip(mobile(info), 'the clipboard is read back on desktop Chromium');
+  await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+  await open(page);
+  const [first, second, third, fourth] = await names(page, 4);
+  await place(page, info, 0); await place(page, info, 0); await place(page, info, 2); await place(page, info, 4);
+  expect(await rowItems(page)).toEqual([[first, second], [], [third], [], [fourth]]);
+  const link = await copyLink(page, 'Quiz');
+  await page.goto(link); await page.reload();
+  await expect(page.getByText(/^Quiz: drag every item/)).toBeVisible();
+  // The tiers are the maker's, empty and locked; the pool is their four items and nothing else.
+  expect((await rowItems(page)).flat()).toEqual([]);
+  await expect(pool(page)).toHaveCount(4);
+  expect(await names(page, 4)).toEqual([first, second, third, fourth]);
+  for (const name of ['Add row', 'Share', 'Start over', 'Keep as mine', /^Edit row/, /^Delete row/]) await expect(page.getByRole('button', { name })).toHaveCount(0);
+  await expect(page.getByRole('checkbox', { name: '6-star', exact: true })).toHaveCount(0);
+  await expect(page.getByRole('textbox', { name: 'Row 1 label', exact: true })).not.toBeEditable();
+  await expect(page.getByRole('button', { name: 'Check answers', exact: true })).toBeDisabled();
+  // Two right (one of them in the maker's tier but placed second), one wrong, one left in the pool.
+  await place(page, info, 0); // first -> S: right
+  await place(page, info, 1); // second -> A: wrong
+  await place(page, info, 2); // third -> B: right
+  await page.getByRole('button', { name: 'Check answers', exact: true }).click();
+  await expect(page.getByText('Score: 50% · 2 of 4 in the right tier')).toBeVisible();
+  await expect(page.locator('[data-row] [data-mark="right"]')).toHaveCount(2);
+  await expect(page.locator('[data-row] [data-mark="wrong"]')).toHaveCount(1);
+  await expect(page.getByRole('img', { name: `${second} (wrong tier)`, exact: true })).toBeVisible();
+  // Moving a tile clears the marks; put right, the score is whole.
+  await row(page, 1).evaluate((element) => window.scrollTo(0, element.getBoundingClientRect().top + window.scrollY - 260));
+  await dragTo(page, info, row(page, 1).locator('[data-item]').first(), await centre(row(page, 0)));
+  await expect(page.locator('[data-mark]')).toHaveCount(0);
+  await expect(page.getByText('Not checked yet.')).toBeVisible();
+  await place(page, info, 4);
+  await page.getByRole('button', { name: 'Check answers', exact: true }).click();
+  await expect(page.getByText('Score: 100% · 4 of 4 in the right tier')).toBeVisible();
+  // The reader's own list (what they made the quiz from) is untouched.
+  await page.getByRole('button', { name: 'Back to mine', exact: true }).click();
+  await expect.poll(() => rowItems(page)).toEqual([[first, second], [], [third], [], [fourth]]);
+  await page.reload();
+  await expect.poll(() => rowItems(page)).toEqual([[first, second], [], [third], [], [fourth]]);
 });
 
 test('the tier list is saved as a PNG after its art has been on the page', async ({ page }, info) => {

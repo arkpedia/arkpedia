@@ -12,8 +12,9 @@ import { friendOperators } from '../../lib/account/friendCatalogue';
 import type { GameAccountMap } from '../../lib/planner/gameAccount';
 import { buildOperatorNameAliases } from '../lib/operator-name-aliases';
 import { OPERATOR_NAME_ALIASES_VERSION } from '../../lib/operators/operatorSearch';
-import { publicFileExists } from '../../lib/assets/publicAssets';
-import { artPath, baseSkillPath, skillPath, TIER_ART_STAGES, type TierCatalogue, type TierCatalogueOperator } from '../../lib/tier-list/catalogue';
+import { publicFileExists, publicFiles } from '../../lib/assets/publicAssets';
+import { bundledStoryLibrary } from '../../lib/story/storyMapData';
+import { artPath, baseSkillPath, enemyIconPath, enemyItemId, factionItemId, skillPath, storyArtPath, storyItemId, TIER_ART_STAGES, type TierCatalogue, type TierCatalogueOperator } from '../../lib/tier-list/catalogue';
 
 const operators = getAllOperators();
 const aliases = buildOperatorNameAliases(operators);
@@ -113,4 +114,21 @@ const tierOperators: TierCatalogueOperator[] = operators.flatMap((op) => {
   });
   return [{ id, name: op.name, rarity: op.rarity, icon, art, skins, skills, baseSkills }];
 });
-fs.writeFileSync(path.join(process.cwd(), 'data/tier-list-catalogue.json'), JSON.stringify({ operators: tierOperators } satisfies TierCatalogue) + '\n');
+// Enemies, from the handbook index build-enemy-details.mjs wrote just before this script
+// (generate:public runs it first): the ones the handbook shows, with an icon the index holds.
+const enemyIndex = JSON.parse(fs.readFileSync(path.join(process.cwd(), 'public/enemies-index.json'), 'utf8')) as { slug: string; name: string; icon?: string; hidden?: boolean }[];
+const tierEnemies = enemyIndex.flatMap((enemy): [string, string, string?][] => {
+  if (enemy.hidden || !enemy.icon || !published(enemy.icon)) return [];
+  // The handbook's slug is the enemy page's address, the stablest name the index gives it.
+  return [[tierId(enemyItemId(enemy.slug)).slice(6), enemy.name, ...lean(enemy.icon, enemyIconPath(enemy.name))]];
+});
+// Factions: every emblem in the image repository, by its file's name.
+const tierFactions = publicFiles('faction-icons').filter((file) => file.endsWith('.webp')).map((file) => tierId(factionItemId(file.slice(0, -5))).slice(8)).sort((a, b) => a.localeCompare(b));
+// Stories: the main story's chapters, the side stories and the vignettes, each with the art
+// the Story page shows for it.
+const tierStories = bundledStoryLibrary().flatMap((entry): [string, string, string?][] => {
+  if (!['main', 'side', 'mini'].includes(entry.category) || !entry.image || !published(entry.image)) return [];
+  return [[tierId(storyItemId(entry.id)).slice(6), entry.title, ...lean(entry.image, storyArtPath(entry.id))]];
+});
+if (tierEnemies.length < 1000 || tierFactions.length < 30 || tierStories.length < 60) throw new Error(`[tier list catalogue] too few records to be right: ${tierEnemies.length} enemies, ${tierFactions.length} factions, ${tierStories.length} stories`);
+fs.writeFileSync(path.join(process.cwd(), 'data/tier-list-catalogue.json'), JSON.stringify({ operators: tierOperators, enemies: tierEnemies, factions: tierFactions, stories: tierStories } satisfies TierCatalogue) + '\n');

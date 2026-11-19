@@ -6,7 +6,7 @@
  * through. The filters choose the pool only: unticking a rarity never takes a placed item
  * out of its row.
  */
-import { TIER_KINDS, TIER_RARITIES, type TierItem, type TierKind } from './catalogue';
+import { OPERATOR_KINDS, TIER_KINDS, TIER_RARITIES, type TierItem, type TierKind } from './catalogue';
 
 export const TIER_LIST_VERSION = 1;
 export const MAX_LABEL = 60;
@@ -26,6 +26,8 @@ export interface TierListState {
   kinds: TierKind[];
   /** How large the tiles are drawn, in percent (ZOOM). */
   zoom: number;
+  /** Whether tiles carry their name plate. */
+  names: boolean;
 }
 
 /** The label colours offered as swatches; the first five are the default rows'. */
@@ -40,6 +42,7 @@ export function defaultTierList(): TierListState {
     rarities: [6, 5],
     kinds: ['icons'],
     zoom: ZOOM.base,
+    names: true,
   };
 }
 
@@ -79,13 +82,15 @@ export function parseTierList(raw: string | null): TierListState | null {
     rarities: TIER_RARITIES.filter((r) => Array.isArray(data.rarities) && data.rarities.includes(r)),
     kinds: TIER_KINDS.filter((k) => Array.isArray(data.kinds) && data.kinds.includes(k)),
     zoom: clampZoom(data.zoom),
+    names: data.names !== false,
   };
 }
 
 /** The pool: every item the filters let through that is in no row. */
 export function poolItems(items: readonly TierItem[], state: TierListState): TierItem[] {
   const held = new Set(state.rows.flatMap((row) => row.items));
-  return items.filter((item) => state.rarities.includes(item.rarity) && state.kinds.includes(item.kind) && !held.has(item.id));
+  // The rarity checkboxes narrow what is an operator's; an enemy, a faction or a story has none.
+  return items.filter((item) => state.kinds.includes(item.kind) && (!OPERATOR_KINDS.has(item.kind) || state.rarities.includes(item.rarity)) && !held.has(item.id));
 }
 
 const without = (list: string[], gone: ReadonlySet<string>) => (list.some((id) => gone.has(id)) ? list.filter((id) => !gone.has(id)) : list);

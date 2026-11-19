@@ -9,8 +9,10 @@
  */
 import { getBaseSkillIconPath, getSkillIconPath } from '@/lib/operators/operatorIconPaths';
 
-export type TierKind = 'icons' | 'e0' | 'e2' | 'skins' | 'skills' | 'baseSkills';
-export const TIER_KINDS: readonly TierKind[] = ['icons', 'e0', 'e2', 'skins', 'skills', 'baseSkills'];
+export type TierKind = 'icons' | 'e0' | 'e2' | 'skins' | 'skills' | 'baseSkills' | 'enemies' | 'factions' | 'stories';
+export const TIER_KINDS: readonly TierKind[] = ['icons', 'e0', 'e2', 'skins', 'skills', 'baseSkills', 'enemies', 'factions', 'stories'];
+/** The kinds that are an operator's, which the rarity checkboxes narrow; the rest have no rarity. */
+export const OPERATOR_KINDS: ReadonlySet<TierKind> = new Set(['icons', 'e0', 'e2', 'skins', 'skills', 'baseSkills']);
 export const TIER_RARITIES: readonly number[] = [6, 5, 4, 3, 2, 1];
 /** The promotion art the asset repository holds, by its file label. The game draws no
  *  separate Elite 1 illustration, so there is none to offer. */
@@ -35,15 +37,29 @@ export interface TierCatalogueOperator {
   /** Base skills with an icon: [the game's buff id, skill name, icon path]. */
   baseSkills: [string, string, string?][];
 }
-export interface TierCatalogue { operators: TierCatalogueOperator[] }
+export interface TierCatalogue {
+  operators: TierCatalogueOperator[];
+  /** Enemies with a handbook icon: [the handbook slug (the enemy page's address), name,
+   *  icon path where it is not the name's own]. Absent from a catalogue built before they joined. */
+  enemies?: [string, string, string?][];
+  /** Factions with an emblem, by name (the emblem's file in /faction-icons/). */
+  factions?: string[];
+  /** Main story chapters, side stories and vignettes with art: [the game's id, title, art path]. */
+  stories?: [string, string, string?][];
+}
 
 export interface TierItem {
   id: string;
   kind: TierKind;
   rarity: number;
   operator: string;
-  /** What the tile is called: the operator, or "Operator - Outfit / Skill / Elite 2". */
+  /** What the tile is called in full: the operator, or "Operator - Outfit / Skill / Elite 2". */
   name: string;
+  /** The name plate on the tile: whose it is (the operator, the enemy, the faction, the story)... */
+  label: string;
+  /** ...and, under it, which of theirs: "Skill 2", "E2", the outfit's or base skill's name. */
+  sub?: string;
+  /** Rarity 0 is an item that has none (an enemy, a faction, a story). */
   /** The picture's path. A full illustration (kinds e0, e2 and skins) is drawn from its
    *  small rendition (tileImage), never from this file. */
   image: string;
@@ -62,15 +78,29 @@ export const skillItemId = (operatorId: string, slot: number) => `skill:${operat
 export const artItemId = (operatorId: string, stage: TierArtStage) => `art:${operatorId}:${stage === 'Base' ? 0 : 2}`;
 export const baseSkillItemId = (operatorId: string, buffId: string) => `base:${operatorId}:${buffId}`;
 
-/** Every rankable item, in pool order: rarity down, then operator, each operator's portrait,
- *  illustrations, outfits, skills and base skills together. */
+export const enemyItemId = (id: string) => `enemy:${id}`;
+export const factionItemId = (name: string) => `faction:${name}`;
+export const storyItemId = (id: string) => `story:${id}`;
+export const enemyIconPath = (name: string) => `/enemies-icons/${name}.webp`;
+export const factionIconPath = (name: string) => `/faction-icons/${name}.webp`;
+export const storyArtPath = (id: string) => `/content-art/${id}.webp`;
+
+/** Every rankable item, in pool order: operators by rarity down, then name, each operator's
+ *  portrait, illustrations, outfits, skills and base skills together; then the enemies, the
+ *  factions and the stories, in the catalogue's order. */
 export function catalogueItems(catalogue: TierCatalogue): TierItem[] {
   const operators = [...catalogue.operators].sort((a, b) => b.rarity - a.rarity || a.name.localeCompare(b.name));
-  return operators.flatMap((op) => [
-    ...(op.icon ? [{ id: operatorItemId(op.id), kind: 'icons' as const, rarity: op.rarity, operator: op.name, name: op.name, image: op.icon }] : []),
-    ...op.art.map((stage) => ({ id: artItemId(op.id, stage), kind: stage === 'Base' ? 'e0' as const : 'e2' as const, rarity: op.rarity, operator: op.name, name: `${op.name} - ${stage}`, image: artPath(op.name, op.rarity, stage) })),
-    ...op.skins.map(([id, name, image]) => ({ id: skinItemId(id), kind: 'skins' as const, rarity: op.rarity, operator: op.name, name: `${op.name} - ${name}`, image: image ?? artPath(op.name, op.rarity, name) })),
-    ...op.skills.map(([slot, name, image]) => ({ id: skillItemId(op.id, slot), kind: 'skills' as const, rarity: op.rarity, operator: op.name, name: `${op.name} - ${name}`, image: image ?? skillPath(op.name, name) })),
-    ...op.baseSkills.map(([buff, name, image]) => ({ id: baseSkillItemId(op.id, buff), kind: 'baseSkills' as const, rarity: op.rarity, operator: op.name, name: `${op.name} - ${name}`, image: image ?? baseSkillPath(op.name, name) })),
-  ]);
+  const of = (op: TierCatalogueOperator) => ({ rarity: op.rarity, operator: op.name, label: op.name });
+  return [
+    ...operators.flatMap((op): TierItem[] => [
+      ...(op.icon ? [{ ...of(op), id: operatorItemId(op.id), kind: 'icons' as const, name: op.name, image: op.icon }] : []),
+      ...op.art.map((stage) => ({ ...of(op), id: artItemId(op.id, stage), kind: stage === 'Base' ? 'e0' as const : 'e2' as const, name: `${op.name} - ${stage}`, sub: stage === 'Base' ? 'E0' : 'E2', image: artPath(op.name, op.rarity, stage) })),
+      ...op.skins.map(([id, name, image]) => ({ ...of(op), id: skinItemId(id), kind: 'skins' as const, name: `${op.name} - ${name}`, sub: name, image: image ?? artPath(op.name, op.rarity, name) })),
+      ...op.skills.map(([slot, name, image]) => ({ ...of(op), id: skillItemId(op.id, slot), kind: 'skills' as const, name: `${op.name} - ${name}`, sub: `Skill ${slot}`, image: image ?? skillPath(op.name, name) })),
+      ...op.baseSkills.map(([buff, name, image]) => ({ ...of(op), id: baseSkillItemId(op.id, buff), kind: 'baseSkills' as const, name: `${op.name} - ${name}`, sub: name, image: image ?? baseSkillPath(op.name, name) })),
+    ]),
+    ...(catalogue.enemies ?? []).map(([id, name, image]): TierItem => ({ id: enemyItemId(id), kind: 'enemies', rarity: 0, operator: name, name, label: name, image: image ?? enemyIconPath(name) })),
+    ...(catalogue.factions ?? []).map((name): TierItem => ({ id: factionItemId(name), kind: 'factions', rarity: 0, operator: name, name, label: name, image: factionIconPath(name) })),
+    ...(catalogue.stories ?? []).map(([id, title, image]): TierItem => ({ id: storyItemId(id), kind: 'stories', rarity: 0, operator: title, name: title, label: title, image: image ?? storyArtPath(id) })),
+  ];
 }

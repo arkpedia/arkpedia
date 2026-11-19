@@ -6,10 +6,12 @@ import XButton from '@/components/ui/XButton';
 import { useHeightFloor } from '@/components/ui/useHeightFloor';
 import { matchesSearch } from '@/lib/search/searchNormalize';
 import { catalogueItems, TIER_KINDS, TIER_RARITIES, type TierCatalogue, type TierItem } from '@/lib/tier-list/catalogue';
-import { decodeTierList, encodeTierList, LONG_LINK_CHARS, MAX_SHARE_CHARS, SHARE_PARAM, sharePayload } from '@/lib/tier-list/share';
+import { quizPool, scoreQuiz, type QuizScore } from '@/lib/tier-list/quiz';
+import { decodeTierList, sharePayload, type SharedTierList } from '@/lib/tier-list/share';
 import { addRow, clearRows, defaultTierList, deleteRow, labelInk, moveRow, placeItems, poolItems, returnToPool, ROW_COLORS, setZoom, toggleKind, toggleRarity, updateRow, MAX_LABEL, MAX_TITLE, ZOOM, type TierListState, type TierRow } from '@/lib/tier-list/state';
 import { useTierList, writeTierList } from '@/lib/tier-list/store';
 import { TIER_LIST_STRINGS as T } from '@/lib/tier-list/strings';
+import TierListShareDialog from './TierListShareDialog';
 import TierListShareImage from './TierListShareImage';
 import { tileImage } from './tierTile';
 import { useTierDrag, type TierDrop } from './useTierDrag';
@@ -17,11 +19,14 @@ import styles from './TierList.module.css';
 
 type Change = (state: TierListState) => TierListState;
 
-/** A tile is dragged, never pressed: it is a picture with a name, not a button. */
-const Tile = memo(function Tile({ item }: { item: TierItem }) {
+/** A tile is dragged, never pressed: it is a picture with a name, not a button. The plate
+ *  names whose it is and, for a skill, an outfit or a promotion, which of theirs. */
+const Tile = memo(function Tile({ item, mark }: { item: TierItem; mark?: 'right' | 'wrong' }) {
+  const name = mark ? `${item.name} (${mark === 'right' ? T.quizRight : T.quizWrong})` : item.name;
   return (
-    <div className={styles.tile} data-item={item.id} data-kind={item.kind} role="img" aria-label={item.name} title={item.name}>
+    <div className={styles.tile} data-item={item.id} data-kind={item.kind} data-mark={mark} role="img" aria-label={name} title={item.name}>
       <ContentImg src={tileImage(item)} alt="" width={64} height={64} draggable={false} />
+      <span className={styles.plate} aria-hidden="true"><span>{item.label}</span>{item.sub && <span>{item.sub}</span>}</span>
     </div>
   );
 });
@@ -68,7 +73,7 @@ function RowDialog({ row, index, count, onChange, onMove, onAddBelow, onDelete, 
  */
 function useShownTierList() {
   const [saved, save] = useTierList();
-  const [shared, setShared] = useState<TierListState | null>(null);
+  const [shared, setShared] = useState<SharedTierList | null>(null);
   const [broken, setBroken] = useState(false);
   const sharedRef = useRef(shared);
   useEffect(() => { sharedRef.current = shared; }, [shared]);
@@ -87,14 +92,15 @@ function useShownTierList() {
   }, []);
 
   const update = useCallback((change: Change) => {
-    if (sharedRef.current) setShared((list) => (list ? change(list) : list)); else save(change);
+    if (sharedRef.current) setShared((list) => (list ? { ...list, state: change(list.state) } : list)); else save(change);
   }, [save]);
   const leave = useCallback((keep: boolean) => {
-    if (keep && sharedRef.current) writeTierList(sharedRef.current);
+    // A quiz is never kept: its rows are someone's answer sheet, not a list of the reader's.
+    if (keep && sharedRef.current && sharedRef.current.mode !== 'quiz') writeTierList(sharedRef.current.state);
     window.history.replaceState(window.history.state, '', window.location.pathname + window.location.search);
     setShared(null);
   }, []);
-  return { state: shared ?? saved, update, shared: !!shared, broken, dismissBroken: () => setBroken(false), leave };
+  return { state: shared?.state ?? saved, update, shared, broken, dismissBroken: () => setBroken(false), leave };
 }
 
 /** The floating pool's place on a wide screen: null until the reader moves it (CSS parks it
@@ -135,9 +141,11 @@ export default function TierListMaker({ catalogue }: { catalogue: TierCatalogue 
   const { state, update, shared, broken, dismissBroken, leave } = useShownTierList();
   const [query, setQuery] = useState('');
   const [editing, setEditing] = useState<string | null>(null);
-  const [detached, setDetached] = useState(false);
+  // Popped out when the page opens, so the reader sees that the pool can float; its arrow pins it.
+  const [detached, setDetached] = useState(true);
   const [imaging, setImaging] = useState(false);
-  const [notice, setNotice] = useState('');
+  const [sharing, setSharing] = useState(false);
+  const [score, setScore] = useState<QuizScore | null>(null);
 
   const root = useRef<HTMLDivElement>(null);
   const ghost = useRef<HTMLDivElement>(null);
@@ -152,44 +160,31 @@ export default function TierListMaker({ catalogue }: { catalogue: TierCatalogue 
     carried: useCallback((id: string) => [id], []),
     onDrop: useCallback((ids: string[], drop: TierDrop) => {
       update((current) => ('pool' in drop ? returnToPool(current, ids) : placeItems(current, ids, drop.row, drop.index)));
+      setScore(null); // a quiz's marks are for the placements they were worked out from
     }, [update]),
   });
 
-  const pool = useMemo(() => poolItems(items, state), [items, state]);
+  const quiz = shared?.mode === 'quiz' ? shared.solution ?? null : null;
+  const pool = useMemo(() => (quiz ? quizPool(items, state, quiz) : poolItems(items, state)), [items, state, quiz]);
   const shown = useMemo(() => (query.trim() ? pool.filter((item) => matchesSearch(item.name, query)) : pool), [pool, query]);
   const placedCount = state.rows.reduce((n, row) => n + row.items.length, 0);
   const editingIndex = state.rows.findIndex((row) => row.id === editing);
   const rowName = (row: TierRow, index: number) => T.rowName(row.label, index + 1);
-  const empty = query.trim() && pool.length ? T.poolEmptySearch : !state.rarities.length || !state.kinds.length ? T.poolEmptyFilters : T.poolEmptyDone;
-
-  async function copyLink() {
-    let address: string;
-    try {
-      const payload = await encodeTierList(state);
-      // The same limit the reader's side applies: never hand out a link that will not open.
-      if (payload.length > MAX_SHARE_CHARS) { setNotice(T.linkTooLong); return; }
-      address = `${window.location.origin}${window.location.pathname}#${SHARE_PARAM}=${payload}`;
-    } catch { setNotice(T.linkFailed); return; }
-    try {
-      await navigator.clipboard.writeText(address);
-      setNotice(address.length > LONG_LINK_CHARS ? T.linkCopiedLong : T.linkCopied);
-    } catch {
-      // No clipboard here (a page not served over https, a refused permission): show the
-      // link to copy by hand.
-      window.prompt(T.linkManual, address);
-    }
-  }
+  const empty = query.trim() && pool.length ? T.poolEmptySearch : quiz ? T.poolEmptyQuiz : !state.kinds.length ? T.poolEmptyFilters : T.poolEmptyDone;
+  const markOf = (id: string) => (score?.right.has(id) ? 'right' as const : score?.wrong.has(id) ? 'wrong' as const : undefined);
+  // A quiz from another address is another quiz: its marks go with it.
+  useEffect(() => { setScore(null); }, [quiz]);
 
   const makerStyle = { '--zoom': state.zoom / 100 } as CSSProperties;
   const poolStyle = detached && poolPlace.place ? ({ '--pool-x': `${poolPlace.place.x}px`, '--pool-y': `${poolPlace.place.y}px` } as CSSProperties) : undefined;
 
   return (
-    <div ref={root} className={styles.maker} style={makerStyle} data-detached={detached ? '' : undefined}>
+    <div ref={root} className={styles.maker} style={makerStyle} data-detached={detached ? '' : undefined} data-names={state.names ? '' : undefined}>
       {(shared || broken) && (
         <div className={`panel ${styles.shared}`} role="status">
-          <span>{shared ? T.sharedNotice : T.sharedBroken}</span>
+          <span>{shared ? T.sharedNotice[shared.mode] : T.sharedBroken}</span>
           {shared ? <>
-            <button type="button" className="primary btn-sm" onClick={() => { if (window.confirm(T.keepSharedConfirm)) leave(true); }}>{T.keepShared}</button>
+            {!quiz && <button type="button" className="primary btn-sm" onClick={() => { if (window.confirm(T.keepSharedConfirm)) leave(true); }}>{T.keepShared}</button>}
             <button type="button" className="ghost" onClick={() => leave(false)}>{T.backToMine}</button>
           </> : <XButton label={T.done} onClick={dismissBroken} />}
         </div>
@@ -198,7 +193,7 @@ export default function TierListMaker({ catalogue }: { catalogue: TierCatalogue 
       <section className="op-section" aria-labelledby="tier-setup">
         <h2 id="tier-setup">{T.setupHeading}</h2>
         <div className={`panel ${styles.setup}`}>
-          <div className={styles.group} role="group" aria-labelledby="tier-rarity">
+          {!quiz && <div className={styles.group} role="group" aria-labelledby="tier-rarity">
             <span className="label-tag" id="tier-rarity">{T.rarityGroup}</span>
             <div className={styles.checks}>
               {TIER_RARITIES.map((rarity) => (
@@ -208,8 +203,9 @@ export default function TierListMaker({ catalogue }: { catalogue: TierCatalogue 
                 </label>
               ))}
             </div>
-          </div>
-          <div className={styles.group} role="group" aria-labelledby="tier-kind">
+            <span className="hint">{T.rarityNote}</span>
+          </div>}
+          {!quiz && <div className={styles.group} role="group" aria-labelledby="tier-kind">
             <span className="label-tag" id="tier-kind">{T.kindGroup}</span>
             <div className={styles.checks}>
               {TIER_KINDS.map((kind) => (
@@ -219,7 +215,7 @@ export default function TierListMaker({ catalogue }: { catalogue: TierCatalogue 
                 </label>
               ))}
             </div>
-          </div>
+          </div>}
           <div className={styles.group} role="group" aria-labelledby="tier-zoom">
             <span className="label-tag" id="tier-zoom">{T.zoomGroup}</span>
             <div className={styles.zoom}>
@@ -233,13 +229,20 @@ export default function TierListMaker({ catalogue }: { catalogue: TierCatalogue 
               </button>
             </div>
           </div>
+          <div className={styles.group}>
+            <span className="label-tag">{T.namesGroup}</span>
+            <label className="check">
+              <input type="checkbox" checked={state.names} onChange={(event) => update((current) => ({ ...current, names: event.target.checked }))} />
+              {T.names}
+            </label>
+          </div>
         </div>
       </section>
 
       <section className="op-section" aria-labelledby="tier-board">
         <h2 id="tier-board">{T.boardHeading}</h2>
         <div ref={floor.ref}>
-          <input type="text" className={styles.name} value={state.title} maxLength={MAX_TITLE} aria-label={T.titleLabel} placeholder={T.titlePlaceholder} onChange={(event) => update((current) => ({ ...current, title: event.target.value }))} />
+          <input type="text" className={styles.name} value={state.title} maxLength={MAX_TITLE} readOnly={!!quiz} aria-label={T.titleLabel} placeholder={T.titlePlaceholder} onChange={(event) => update((current) => ({ ...current, title: event.target.value }))} />
           {state.rows.length ? (
             <ol className={styles.board}>
               {state.rows.map((row, index) => {
@@ -248,30 +251,37 @@ export default function TierListMaker({ catalogue }: { catalogue: TierCatalogue 
                   <li key={row.id} className={styles.row}>
                     <div className={styles.label} style={rowStyle(row.color)} data-ink={labelInk(row.color)}>
                       <span aria-hidden="true">{row.label || T.rowLabelPlaceholder}{'\u200b'}</span>
-                      <textarea rows={1} value={row.label} maxLength={MAX_LABEL} aria-label={T.rowLabel(index + 1)} placeholder={T.rowLabelPlaceholder} onChange={(event) => update((current) => updateRow(current, row.id, { label: event.target.value.replace(/\n/g, ' ') }))} />
+                      <textarea rows={1} value={row.label} maxLength={MAX_LABEL} readOnly={!!quiz} aria-label={T.rowLabel(index + 1)} placeholder={T.rowLabelPlaceholder} onChange={(event) => update((current) => updateRow(current, row.id, { label: event.target.value.replace(/\n/g, ' ') }))} />
                     </div>
                     <div className={styles.items} data-row={row.id} role="group" aria-label={T.rowItems(name)}>
-                      {row.items.map((id) => { const item = byId.get(id); return item ? <Tile key={id} item={item} /> : null; })}
+                      {row.items.map((id) => { const item = byId.get(id); return item ? <Tile key={id} item={item} mark={markOf(id)} /> : null; })}
                     </div>
-                    <div className={styles.rowActions}>
+                    {!quiz && <div className={styles.rowActions}>
                       <button type="button" className="ghost btn-icon" aria-label={T.editRow(name)} title={T.editRow(name)} onClick={() => setEditing(row.id)}>
                         <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M2.5 13.5l.7-3 7.6-7.6a1.4 1.4 0 0 1 2 0l.3.3a1.4 1.4 0 0 1 0 2l-7.6 7.6-3 .7zM9.8 3.9l2.3 2.3" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round" strokeLinecap="round" /></svg>
                       </button>
                       <XButton className={styles.rowDelete} label={T.deleteRow(name)} title={T.deleteRow(name)} onClick={() => update((current) => deleteRow(current, row.id))} />
-                    </div>
+                    </div>}
                   </li>
                 );
               })}
             </ol>
           ) : <p className={`hint ${styles.noRows}`}>{T.noRows}</p>}
-          <div className={styles.boardActions}>
-            <button type="button" className="btn-sm" onClick={() => update((current) => addRow(current))}>{T.addRow}</button>
-            <button type="button" className="ghost" disabled={!placedCount} title={placedCount ? undefined : T.linkEmpty} onClick={() => void copyLink()}>{T.copyLink}</button>
-            <button type="button" className="ghost" disabled={!placedCount} title={placedCount ? undefined : T.linkEmpty} onClick={() => setImaging(true)}>{T.makeImage}</button>
-            <button type="button" className="ghost" disabled={!placedCount} title={placedCount ? undefined : T.emptyRowsNothing} onClick={() => update(clearRows)}>{T.emptyRows}</button>
-            <button type="button" className="danger" onClick={() => { if (window.confirm(T.startOverConfirm)) { update(() => defaultTierList()); setQuery(''); setNotice(''); } }}>{T.startOver}</button>
-          </div>
-          <p className={`hint ${styles.notice}`} role="status">{notice || (shared ? T.notSaved : T.saved)}</p>
+          {quiz ? (
+            <div className={styles.boardActions}>
+              <button type="button" className="primary btn-sm" disabled={!placedCount} title={placedCount ? undefined : T.quizNothing} onClick={() => setScore(scoreQuiz(state, quiz, (id) => byId.has(id)))}>{T.quizCheck}</button>
+              <button type="button" className="ghost" disabled={!placedCount} title={placedCount ? undefined : T.quizNothing} onClick={() => { update(clearRows); setScore(null); }}>{T.quizRetry}</button>
+            </div>
+          ) : (
+            <div className={styles.boardActions}>
+              <button type="button" className="btn-sm" onClick={() => update((current) => addRow(current))}>{T.addRow}</button>
+              <button type="button" className="ghost" onClick={() => setSharing(true)}>{T.share}</button>
+              <button type="button" className="ghost" disabled={!placedCount} title={placedCount ? undefined : T.linkEmpty} onClick={() => setImaging(true)}>{T.makeImage}</button>
+              <button type="button" className="ghost" disabled={!placedCount} title={placedCount ? undefined : T.emptyRowsNothing} onClick={() => update(clearRows)}>{T.emptyRows}</button>
+              <button type="button" className="danger" onClick={() => { if (window.confirm(T.startOverConfirm)) { update(() => defaultTierList()); setQuery(''); } }}>{T.startOver}</button>
+            </div>
+          )}
+          <p className={`hint ${styles.notice}`} role="status" data-score={score ? score.percent : undefined}>{quiz ? (score ? T.quizScore(score.percent, score.correct, score.total) : T.quizHint) : shared ? T.notSaved : T.saved}</p>
           {floor.spacer}
         </div>
       </section>
@@ -311,6 +321,7 @@ export default function TierListMaker({ catalogue }: { catalogue: TierCatalogue 
         />
       )}
       {imaging && <TierListShareImage state={state} byId={byId} onClose={() => setImaging(false)} />}
+      {sharing && <TierListShareDialog state={state} onClose={() => setSharing(false)} />}
     </div>
   );
 }

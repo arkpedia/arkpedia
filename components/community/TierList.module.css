@@ -33,11 +33,24 @@
 .boardActions { display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin-top:12px; }
 
 /* A tile is a picture you drag: no resting edge, the teal edge under the pointer. */
-.tile { flex:none; display:block; box-sizing:border-box; width:var(--tile); height:var(--tile); border:1px solid transparent; border-radius:var(--radius); overflow:hidden; background:var(--panel-2); background-clip:padding-box; cursor:grab; user-select:none; -webkit-user-select:none; -webkit-touch-callout:none; }
+.tile { position:relative; flex:none; display:block; box-sizing:border-box; width:var(--tile); height:var(--tile); border:1px solid transparent; border-radius:var(--radius); overflow:hidden; background:var(--panel-2); background-clip:padding-box; cursor:grab; user-select:none; -webkit-user-select:none; -webkit-touch-callout:none; }
 .tile img { display:block; width:100%; height:100%; object-fit:cover; pointer-events:none; }
 /* A full illustration is cut to the square from its top edge: the figure's head and shoulders. */
 .tile[data-kind="e0"] img, .tile[data-kind="e2"] img, .tile[data-kind="skins"] img, .ghost img { object-position:50% 0; }
 .tile:hover { border-color:var(--teal); }
+/* A faction's emblem is white line art: it sits on a fixed dark plate in both themes, as the
+   game draws it, with room around it. */
+.tile[data-kind="factions"] { background-color:rgb(20 27 34); }
+.tile[data-kind="factions"] img { object-fit:contain; padding:12%; box-sizing:border-box; }
+/* The name plate, as the enemy handbook's tiles carry theirs: a fixed scrim along the bottom
+   edge, so its ink is the scrim's in both themes. One line for whose it is, one for which. */
+.plate { display:none; position:absolute; left:0; right:0; bottom:0; padding:2px 3px; background:rgb(0 0 0 / 74%); color:var(--scrim-ink); font-size:9px; line-height:1.25; text-align:center; pointer-events:none; }
+.maker[data-names] .plate { display:block; }
+.plate > span { display:block; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
+.plate > span + span { color:var(--scrim-amber); }
+/* A quiz's marks: an edge and a corner flag, drawn in the site's state colours. */
+.tile[data-mark="right"] { border-color:var(--cat-green); outline:2px solid var(--cat-green); outline-offset:-3px; }
+.tile[data-mark="wrong"] { border-color:var(--danger); outline:2px solid var(--danger); outline-offset:-3px; }
 .tile[data-dragging] { opacity:.35; }
 .maker[data-dragging-any], .maker[data-dragging-any] .tile { cursor:grabbing; }
 
@@ -86,6 +99,13 @@
 .swatch[aria-checked="true"] { border-color:var(--teal); outline:2px solid var(--teal); outline-offset:1px; }
 .custom { display:inline-flex; align-items:center; gap:8px; font-size:13px; color:var(--text-dim); }
 .custom input { box-sizing:border-box; width:var(--control-h); height:var(--control-h); padding:2px; }
+.shareModes { display:grid; gap:10px; margin:0; padding:0; list-style:none; }
+.shareMode { display:flex; align-items:center; gap:12px; padding:10px 12px; border:1px solid var(--line-soft); border-radius:var(--radius); }
+.shareMode > div { flex:1 1 auto; min-width:0; }
+.shareMode h3 { margin:0 0 2px; }
+.shareMode p { margin:0; font-size:13px; line-height:1.45; color:var(--text-dim); }
+.shareStatus { margin:12px 0 0; }
+.shareLink { display:block; box-sizing:border-box; width:100%; margin-top:8px; font-family:var(--font-mono); font-size:12px; }
 .dialogActions { display:flex; flex-wrap:wrap; gap:8px; }
 .done { margin-left:auto; }
 
