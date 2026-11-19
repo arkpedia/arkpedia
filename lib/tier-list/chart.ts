@@ -22,7 +22,9 @@ export const CHART_KINDS: readonly ChartKind[] = ['grid', 'axes'];
 export type AxisEnd = 'top' | 'bottom' | 'left' | 'right';
 export const AXIS_ENDS: readonly AxisEnd[] = ['top', 'bottom', 'left', 'right'];
 
-export interface ChartCell { label: string; items: string[] }
+/** `color` is the label bar's, when the reader chose one (#rrggbb); else the cell wears the
+ *  accent its place in the grid gives it (cellColor). */
+export interface ChartCell { label: string; items: string[]; color?: string }
 /** An item on the plane: its centre, as fractions of the plane's width and height from the top left. */
 export interface ChartPoint { id: string; x: number; y: number }
 export interface ChartState {
@@ -52,6 +54,7 @@ export function defaultChart(): ChartState {
   };
 }
 
+const HEX = /^#[0-9a-f]{6}$/i;
 const side = (value: unknown, fallback: number) => (typeof value === 'number' && Number.isInteger(value) ? Math.max(CHART_SIDE.min, Math.min(CHART_SIDE.max, value)) : fallback);
 const text = (value: unknown, max: number) => (typeof value === 'string' ? value.slice(0, max) : '');
 const isId = (value: unknown): value is string => typeof value === 'string' && value.length > 0 && value.length <= 200;
@@ -71,7 +74,7 @@ export function parseChart(raw: string | null): ChartState | null {
   const cells: ChartCell[] = Array.from({ length: rows * cols }, (_, i) => {
     const cell = (data.cells as unknown[])[i];
     const entry = cell && typeof cell === 'object' ? cell as Record<string, unknown> : {};
-    return { label: text(entry.label, MAX_CHART_LABEL), items: (Array.isArray(entry.items) ? entry.items : []).filter((id): id is string => isId(id) && !inGrid.has(id) && !!inGrid.add(id)) };
+    return { label: text(entry.label, MAX_CHART_LABEL), items: (Array.isArray(entry.items) ? entry.items : []).filter((id): id is string => isId(id) && !inGrid.has(id) && !!inGrid.add(id)), ...(typeof entry.color === 'string' && HEX.test(entry.color) ? { color: entry.color.toLowerCase() } : {}) };
   });
   const onPlane = new Set<string>();
   const points = (Array.isArray(data.points) ? data.points : []).slice(0, MAX_POINTS).flatMap((point): ChartPoint[] => {
@@ -147,7 +150,22 @@ export function resizeGrid(state: ChartState, cols: number, rows: number): Chart
   return { ...state, cols: nextCols, rows: nextRows, cells };
 }
 
+/** Take one column or one row out of the grid, wherever it is. The others keep their labels
+ *  and items; what the removed line held goes back to the pool. A grid keeps at least one. */
+export function removeGridLine(state: ChartState, line: 'col' | 'row', index: number): ChartState {
+  const count = line === 'col' ? state.cols : state.rows;
+  if (count <= CHART_SIDE.min || index < 0 || index >= count) return state;
+  const cells = state.cells.filter((_, i) => (line === 'col' ? i % state.cols : Math.floor(i / state.cols)) !== index);
+  return line === 'col' ? { ...state, cols: state.cols - 1, cells } : { ...state, rows: state.rows - 1, cells };
+}
+
 export const setCellLabel = (state: ChartState, cell: number, label: string): ChartState => ({ ...state, cells: state.cells.map((entry, i) => (i === cell ? { ...entry, label: label.slice(0, MAX_CHART_LABEL) } : entry)) });
+/** Give a cell's label a colour of the reader's own, or (null) hand it back to its accent. */
+export function setCellColor(state: ChartState, cell: number, color: string | null): ChartState {
+  if (color !== null && !HEX.test(color)) return state;
+  return { ...state, cells: state.cells.map((entry, i) => { if (i !== cell) return entry; const { color: _old, ...rest } = entry; return color ? { ...rest, color: color.toLowerCase() } : rest; }) };
+}
+
 export const setAxis = (state: ChartState, end: AxisEnd, label: string): ChartState => ({ ...state, axes: { ...state.axes, [end]: label.slice(0, MAX_CHART_LABEL) } });
 export const setChartKind = (state: ChartState, kind: ChartKind): ChartState => (state.kind === kind ? state : { ...state, kind });
 
@@ -157,8 +175,15 @@ export function clearChart(state: ChartState): ChartState {
 }
 
 /** A cell's accent, from its place in the grid: the hue runs across the columns and the
- *  shade down the rows, so a grid reads as a field of colour without anyone choosing any. */
+ *  shade down the rows, so a grid reads as a field of colour without anyone choosing any.
+ *  As #rrggbb, the form a colour field takes and a reader's own choice is kept in. */
 export function cellColor(index: number, cols: number, rows: number): string {
   const col = cols > 1 ? (index % cols) / (cols - 1) : 0.5, row = rows > 1 ? Math.floor(index / cols) / (rows - 1) : 0.5;
-  return `hsl(${Math.round(190 - col * 180)} 62% ${Math.round(64 - row * 16)}%)`;
+  const h = 190 - col * 180, sat = 0.62, light = 0.64 - row * 0.16;
+  const a = sat * Math.min(light, 1 - light);
+  const channel = (n: number) => { const k = (n + h / 30) % 12; return Math.round(255 * (light - a * Math.max(-1, Math.min(k - 3, 9 - k, 1)))).toString(16).padStart(2, '0'); };
+  return `#${channel(0)}${channel(8)}${channel(4)}`;
 }
+
+/** The colour a cell's label bar is drawn in: the reader's, or the cell's accent. */
+export const cellLabelColor = (state: ChartState, index: number): string => state.cells[index]?.color ?? cellColor(index, state.cols, state.rows);

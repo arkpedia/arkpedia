@@ -1,8 +1,9 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { catalogueItems, enemyItemId, operatorItemId, type TierCatalogue } from '../../lib/tier-list/catalogue';
-import { cellColor, chartPlaced, chartPool, clearChart, defaultChart, parseChart, placeInCell, placePoint, resizeGrid, setAxis, setCellLabel, setChartKind, unplace, CHART_SIDE } from '../../lib/tier-list/chart';
+import { cellColor, cellLabelColor, setCellColor, chartPlaced, chartPool, clearChart, defaultChart, parseChart, placeInCell, placePoint, removeGridLine, resizeGrid, setAxis, setCellLabel, setChartKind, unplace, CHART_SIDE } from '../../lib/tier-list/chart';
 import { decodeChart, encodeChart } from '../../lib/tier-list/chartShare';
+import { chartQuizPool, scoreChartQuiz } from '../../lib/tier-list/quiz';
 import { CHART_STRINGS } from '../../lib/tier-list/chartStrings';
 import { GROUPS, LINKS, isActiveLink } from '../../lib/nav/navLinks';
 
@@ -48,6 +49,20 @@ test('resizing the grid keeps each cell in its column and row, and gives back wh
   assert.equal(resizeGrid(chart, 2, 2), chart);
 });
 
+test('any one column or row can be taken out, and the grid keeps at least one', () => {
+  let chart = placeInCell(placeInCell(defaultChart(), [A], 1), [B], 5);
+  chart = removeGridLine(chart, 'col', 1); // the middle column, which held A
+  assert.deepEqual([chart.cols, chart.rows, chart.cells.map((cell) => cell.label)], [2, 3, ['Lawful Good', 'Chaotic Good', 'Lawful Neutral', 'Chaotic Neutral', 'Lawful Evil', 'Chaotic Evil']]);
+  assert.deepEqual([chart.cells[3].items, ids(chartPool(items, chart))], [[B], [A]]);
+  chart = removeGridLine(chart, 'row', 0);
+  assert.deepEqual([chart.rows, chart.cells.map((cell) => cell.label), chart.cells[1].items], [2, ['Lawful Neutral', 'Chaotic Neutral', 'Lawful Evil', 'Chaotic Evil'], [B]]);
+  chart = removeGridLine(removeGridLine(chart, 'row', 1), 'col', 0);
+  assert.deepEqual([chart.cols, chart.rows, chart.cells.map((cell) => cell.label)], [1, 1, ['Chaotic Neutral']]);
+  assert.equal(removeGridLine(chart, 'col', 0), chart);
+  assert.equal(removeGridLine(chart, 'row', 0), chart);
+  assert.equal(removeGridLine(defaultChart(), 'col', 9).cols, 3);
+});
+
 test('the axes version places an item anywhere, moves it, and keeps its own placements', () => {
   let chart = setChartKind(placeInCell(defaultChart(), [A], 0), 'axes');
   assert.deepEqual(ids(chartPool(items, chart)), [A, B], 'what the grid holds is free on the plane');
@@ -87,18 +102,53 @@ test('a chart link carries the version on screen, and a template carries it empt
   assert.deepEqual((await decodeChart(await encodeChart(axes, 'template')))!.state.points, []);
 
   const plain = (value: unknown) => `0${Buffer.from(JSON.stringify(value)).toString('base64url')}`;
-  for (const text of ['', 'x', plain(null), plain({ v: 2, m: 'f', k: 'g' }), plain({ v: 1, m: 'q', k: 'g', g: [1, 1, []] }), plain({ v: 1, m: 'f', k: 'g' }), plain({ v: 1, m: 'f', k: 'z', g: [1, 1, []] })]) assert.equal(await decodeChart(text), null, text.slice(0, 16));
+  for (const text of ['', 'x', plain(null), plain({ v: 2, m: 'f', k: 'g' }), plain({ v: 1, m: 'z', k: 'g', g: [1, 1, []] }), plain({ v: 1, m: 'q', k: 'a', a: [], p: [] }), plain({ v: 1, m: 'f', k: 'g' }), plain({ v: 1, m: 'f', k: 'z', g: [1, 1, []] })]) assert.equal(await decodeChart(text), null, text.slice(0, 16));
   // A tier list's link is not a chart.
   const { encodeTierList } = await import('../../lib/tier-list/share');
   const { defaultTierList } = await import('../../lib/tier-list/state');
   assert.equal(await decodeChart(await encodeTierList(defaultTierList())), null);
 });
 
+test('a grid quiz empties the cells, offers only what was placed, and is scored against the maker', async () => {
+  const made = placeInCell(placeInCell(placeInCell({ ...defaultChart(), kinds: ['icons', 'enemies'] }, [A], 0), [B, SLUG], 4), [], 8);
+  const shared = (await decodeChart(await encodeChart(made, 'quiz')))!;
+  assert.equal(shared.mode, 'quiz');
+  assert.deepEqual([chartPlaced(shared.state), shared.solution, shared.state.cells[4].label], [[], { [A]: 0, [B]: 4, [SLUG]: 4 }, 'True Neutral']);
+  const solution = shared.solution!;
+  const known = (id: string) => items.some((item) => item.id === id);
+  assert.deepEqual(ids(chartQuizPool(items, { ...shared.state, kinds: [] }, solution)), [A, B, SLUG], 'the pool is what the maker placed, whatever the filters say');
+  let attempt = placeInCell(placeInCell(shared.state, [A], 0), [B], 3);
+  assert.deepEqual(ids(chartQuizPool(items, attempt, solution)), [SLUG]);
+  let score = scoreChartQuiz(attempt, solution, known);
+  assert.deepEqual([score.total, score.correct, score.percent, [...score.right], [...score.wrong]], [3, 1, 33, [A], [B]]);
+  attempt = placeInCell(attempt, [SLUG, B], 4);
+  score = scoreChartQuiz(attempt, solution, known);
+  assert.deepEqual([score.correct, score.percent, score.wrong.size], [3, 100, 0]);
+  assert.equal(scoreChartQuiz(attempt, { ...solution, 'op:gone': 2 }, known).total, 3);
+  // Only a grid with something placed makes a quiz.
+  assert.equal(await decodeChart(await encodeChart(defaultChart(), 'quiz')), null);
+  await assert.rejects(encodeChart(setChartKind(made, 'axes'), 'quiz'));
+});
+
 test('each cell has an accent of its own, the same on every render', () => {
   const colours = Array.from({ length: 25 }, (_, i) => cellColor(i, 5, 5));
   assert.equal(new Set(colours).size, 25);
-  assert.ok(colours.every((colour) => /^hsl\(\d+ \d+% \d+%\)$/.test(colour)));
+  assert.ok(colours.every((colour) => /^#[0-9a-f]{6}$/.test(colour)), 'the form a colour field takes');
   assert.equal(cellColor(0, 1, 1), cellColor(0, 1, 1));
+});
+
+test('a cell\'s label takes a colour of the reader\'s own, and keeps it through a resize, a save and a link', async () => {
+  let chart = setCellColor(defaultChart(), 4, '#AA00FF');
+  assert.deepEqual([chart.cells[4].color, cellLabelColor(chart, 4), cellLabelColor(chart, 0)], ['#aa00ff', '#aa00ff', cellColor(0, 3, 3)]);
+  assert.equal(setCellColor(chart, 4, 'red'), chart);
+  chart = resizeGrid(chart, 4, 3);
+  assert.equal(chart.cells[5].color, '#aa00ff', 'the cell kept its column and row, and its colour');
+  assert.equal(removeGridLine(chart, 'col', 0).cells[3].color, '#aa00ff', 'one column to the left now');
+  assert.deepEqual(parseChart(JSON.stringify(chart)), chart);
+  assert.equal(parseChart(JSON.stringify({ ...chart, cells: chart.cells.map((cell) => ({ ...cell, color: 'javascript:1' })) }))!.cells[5].color, undefined);
+  for (const mode of ['full', 'template'] as const) assert.equal((await decodeChart(await encodeChart(chart, mode)))!.state.cells[5].color, '#aa00ff', mode);
+  const back = setCellColor(chart, 5, null);
+  assert.deepEqual(['color' in back.cells[5], cellLabelColor(back, 5)], [false, cellColor(5, 4, 3)]);
 });
 
 test('the two makers sit in Extras between Music and Games, and the chart maker is named in one place', () => {

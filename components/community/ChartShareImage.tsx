@@ -2,7 +2,8 @@ import { useEffect, useId, useRef, useState } from 'react';
 import ImportDialog from '@/components/account/ImportDialog';
 import { useContentUrl } from '@/lib/content/context';
 import type { TierItem } from '@/lib/tier-list/catalogue';
-import { AXIS_ENDS, cellColor, type ChartState } from '@/lib/tier-list/chart';
+import { AXIS_ENDS, cellLabelColor, type ChartState } from '@/lib/tier-list/chart';
+import { labelInk } from '@/lib/tier-list/state';
 import { CHART_STRINGS as C } from '@/lib/tier-list/chartStrings';
 import { TIER_LIST_STRINGS as T } from '@/lib/tier-list/strings';
 import { drawTile, fitText, loadCanvasFonts, loadTileArt, wrapText } from './shareCanvas';
@@ -74,14 +75,16 @@ export default function ChartShareImage({ state: initial, byId, onClose }: { sta
           for (let col = 0; col < state.cols; col += 1) {
             const index = row * state.cols + col, cell = cells[index], x = PAD + col * (cellWidth + GAP);
             c.fillStyle = ink('--panel'); c.fillRect(x, y, cellWidth, h);
-            c.fillStyle = cellColor(index, state.cols, state.rows); c.fillRect(x, y, cellWidth, 4);
             // Tiles centred in the cell, line by line.
             cell.items.forEach((item, i) => {
               const line = Math.floor(i / perLine), inLine = Math.min(perLine, cell.items.length - line * perLine);
               const left = x + (cellWidth - (inLine * (size + GAP) - GAP)) / 2;
-              drawTile(c, item, images.get(tileImage(item)), left + (i % perLine) * (size + GAP), y + GAP + 4 + line * (size + GAP), size, state.names, inks);
+              drawTile(c, item, images.get(tileImage(item)), left + (i % perLine) * (size + GAP), y + GAP + line * (size + GAP), size, state.names, inks);
             });
-            c.font = '700 20px Rajdhani'; c.textAlign = 'center'; c.fillStyle = cellColor(index, state.cols, state.rows);
+            // The label bar, in the reader's colour or the cell's accent, with ink picked for it.
+            const bar = cellLabelColor(state, index);
+            c.fillStyle = bar; c.fillRect(x, y + h - labelHeight, cellWidth, labelHeight);
+            c.font = '700 20px Rajdhani'; c.textAlign = 'center'; c.fillStyle = labelInk(bar) === 'dark' ? '#14181c' : '#ffffff';
             c.fillText(fitText(c, cell.label, cellWidth - 12), x + cellWidth / 2, y + h - labelHeight / 2);
           }
           y += h + GAP;

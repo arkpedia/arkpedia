@@ -84,28 +84,57 @@
 
 /* The chart maker's boards (components/community/ChartMaker.tsx). */
 .chartBar { display:flex; flex-wrap:wrap; align-items:center; gap:8px 24px; margin-bottom:12px; }
-.stepper { display:flex; align-items:center; gap:6px; }
-.stepper > :global(.label-tag) { margin-right:4px; }
-/* The grid: equal columns the reader counts, each cell its tiles over its label, with the
-   cell's accent (cellColor) along its top edge and in its label. */
-.chartGrid { display:grid; grid-template-columns:repeat(var(--chart-cols),minmax(0,1fr)); gap:4px; }
-.chartCell { display:grid; grid-template-rows:minmax(calc(var(--tile) + 12px),1fr) auto; min-width:0; background:var(--row-grad); border:1px solid var(--line); border-top:3px solid var(--cell-color); border-radius:var(--radius); overflow:hidden; }
-.cellItems { display:flex; flex-wrap:wrap; align-content:center; justify-content:center; gap:4px; min-width:0; padding:5px; }
+/* The grid is edited from its own edges: one frame holds a × over every column and beside
+   every row, the cells, and a + down the right side and along the bottom. The cells share
+   the frame's tracks (subgrid), so each × sits on the line it removes. The chart is kept
+   narrower than the page and centred, with the pool under it. */
+.chartFrame { width:min(100%,820px); margin:0 auto; display:grid; grid-template-columns:calc(var(--control-h) - 12px) repeat(var(--chart-cols),minmax(0,1fr)) var(--control-h); grid-template-rows:calc(var(--control-h) - 12px) repeat(var(--chart-rows),auto) var(--control-h); gap:4px; }
+.chartGrid { grid-column:2 / span var(--chart-cols); grid-row:2 / span var(--chart-rows); display:grid; grid-template-columns:subgrid; grid-template-rows:subgrid; }
+.lineRemove { place-self:center; }
+/* Two classes: the button primitive's own padding is wider than the column this one fills. */
+.chartFrame .lineAdd { box-sizing:border-box; min-width:0; padding:0; border-style:dashed; }
+.chartFrame .lineAdd svg { flex:none; }
+.lineAdd[data-line="col"] { grid-column:calc(var(--chart-cols) + 2); grid-row:2 / span var(--chart-rows); align-self:stretch; }
+.lineAdd[data-line="row"] { grid-row:calc(var(--chart-rows) + 2); grid-column:2 / span var(--chart-cols); }
+/* A cell: room for its tiles over a label bar in the cell's accent (cellColor), with ink
+   picked for that fixed colour as a tier's label has. It lights while a tile is over it. */
+.chartCell { display:grid; grid-template-rows:minmax(calc(var(--tile) * 1.4 + 20px),1fr) auto; min-width:0; background:var(--row-grad); border:1px solid var(--line); border-radius:var(--radius); overflow:hidden; }
+.chartCell:has([data-drop]) { border-color:var(--teal); }
+.cellItems { display:flex; flex-wrap:wrap; align-content:center; justify-content:center; gap:4px; min-width:0; padding:6px; }
 .cellItems[data-drop] { background:var(--teal-dim); }
-.cellLabel { box-sizing:border-box; width:100%; min-width:0; padding:4px 6px 6px; border:0; border-radius:0; background:transparent; color:var(--text); font-family:var(--font-display); font-size:15px; font-weight:700; text-align:center; text-overflow:ellipsis; }
+/* The bar wears the cell's colour: its accent, or the one the reader picks with the swatch
+   at its end; the ink is chosen for that colour (labelInk), the same in both themes. */
+.cellBar { display:flex; align-items:stretch; min-width:0; background:var(--cell-color); color:#14181c; }
+.chartCell[data-ink="light"] .cellBar { color:#fff; }
+.cellColor { position:relative; flex:none; display:grid; place-items:center; width:28px; cursor:pointer; opacity:.7; }
+.cellColor:hover, .cellColor:focus-within { opacity:1; }
+.cellColor:focus-within { outline:2px solid currentColor; outline-offset:-3px; }
+.cellColor input { position:absolute; inset:0; box-sizing:border-box; width:100%; height:100%; min-height:0; padding:0; border:0; opacity:0; cursor:pointer; }
+.cellLabel { flex:1 1 auto; box-sizing:border-box; width:100%; min-width:0; padding:6px 0 6px 28px; border:0; border-radius:0; background:transparent; color:inherit; font-family:var(--font-display); font-size:15px; font-weight:700; text-align:center; text-overflow:ellipsis; }
+.cellLabel::placeholder { color:inherit; opacity:.55; }
 /* The plane: a square with its two axes drawn through the middle, an item anywhere on it by
-   its centre, and a label at each end of each axis laid over the edge it names. */
-.plane { position:relative; box-sizing:border-box; width:min(100%,760px); aspect-ratio:1; margin:0 auto; background:var(--row-grad); border:1px solid var(--line); border-radius:var(--radius); overflow:hidden; }
+   its centre, and a label at each end of each axis laid over the edge it names. While a tile
+   is dragged over it, two dashed lines run from the landing point to both axes. */
+.plane { position:relative; box-sizing:border-box; width:min(100%,640px); aspect-ratio:1; margin:0 auto; background:var(--row-grad); border:1px solid var(--line); border-radius:var(--radius); overflow:hidden; }
+.plane[data-drop] { border-color:var(--teal); }
 .plane::before, .plane::after { content:""; position:absolute; background:var(--text-dim); pointer-events:none; }
 .plane::before { left:calc(50% - 1px); top:0; bottom:0; width:2px; }
 .plane::after { top:calc(50% - 1px); left:0; right:0; height:2px; }
 .plane .tile { position:absolute; transform:translate(-50%,-50%); z-index:1; }
-.axisLabel { position:absolute; z-index:2; box-sizing:border-box; width:min(38%,220px); padding:2px 6px; border:1px solid transparent; border-radius:var(--radius); background:var(--row-grad); color:var(--text-bright); font-family:var(--font-display); font-size:15px; font-weight:700; text-align:center; text-overflow:ellipsis; }
-.axisLabel:hover, .axisLabel:focus { border-color:var(--control-border); }
+.plane .tile:hover { z-index:3; }
+.planeGuide { display:none; position:absolute; inset:0; z-index:2; pointer-events:none; }
+.plane[data-drop] .planeGuide { display:block; }
+.planeGuide::before, .planeGuide::after { content:""; position:absolute; }
+.planeGuide::before { left:var(--drop-x); top:0; bottom:0; border-left:1px dashed var(--teal); }
+.planeGuide::after { top:var(--drop-y); left:0; right:0; border-top:1px dashed var(--teal); }
+/* An axis label is a field the reader types in: it shows its box until it holds text. */
+.axisLabel { position:absolute; z-index:2; box-sizing:border-box; width:min(38%,220px); padding:3px 8px; border:1px dashed var(--control-border); border-radius:var(--radius); background:var(--row-grad); color:var(--text-bright); font-family:var(--font-display); font-size:18px; font-weight:700; text-align:center; text-overflow:ellipsis; }
+.axisLabel:not(:placeholder-shown) { border-color:transparent; }
+.axisLabel:hover, .axisLabel:focus { border-style:solid; border-color:var(--control-border); }
 .axisLabel[data-end="top"] { left:50%; top:6px; transform:translateX(-50%); }
 .axisLabel[data-end="bottom"] { left:50%; bottom:6px; transform:translateX(-50%); }
-.axisLabel[data-end="left"] { left:6px; top:50%; transform:translateY(-50%); width:min(26%,160px); text-align:left; }
-.axisLabel[data-end="right"] { right:6px; top:50%; transform:translateY(-50%); width:min(26%,160px); text-align:right; }
+.axisLabel[data-end="left"] { left:6px; top:50%; transform:translateY(-50%); width:min(28%,180px); text-align:left; }
+.axisLabel[data-end="right"] { right:6px; top:50%; transform:translateY(-50%); width:min(28%,180px); text-align:right; }
 
 .shared { display:flex; flex-wrap:wrap; align-items:center; gap:8px 12px; margin-bottom:var(--section-gap); padding:10px 12px; }
 .shared > span { flex:1 1 280px; font-size:13px; }
@@ -157,6 +186,9 @@
   /* The site's music tab floats in this corner (styles/music/music.css): the tiles can scroll clear of it. */
   .pool[data-detached] .poolHead { margin:0 calc(var(--page-gutter) * -1) 8px; padding:4px var(--page-gutter); cursor:default; touch-action:auto; }
   .pool[data-detached] .poolItems { padding-bottom:64px; }
+  .cellLabel { padding:5px 0 5px 22px; font-size:13px; }
+  .cellColor { width:22px; }
+  .axisLabel { font-size:15px; }
   .search { flex:1 1 90px; max-width:none; }
   .poolHead { flex-wrap:nowrap; gap:8px; }
   .poolHead > :global(.hint) { flex:none; }

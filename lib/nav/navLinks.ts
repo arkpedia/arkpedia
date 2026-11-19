@@ -65,8 +65,8 @@ export const LINKS: NavLink[] = [
   { href: '/music', label: 'Music', icon: 'music' },
   /* The two makers, between Music and Games in Extras (the owner, 2026-11-19). The chart
      maker's name is not final: its label is CHART_STRINGS.navLabel, changed there. */
-  { href: '/polls/tier-list', label: 'Tier List Maker', icon: 'rate' },
-  { href: '/polls/chart-maker', label: CHART_STRINGS.navLabel, icon: 'grid' },
+  { href: '/polls/tier-list', label: 'Tier List Maker', icon: 'tiers' },
+  { href: '/polls/chart-maker', label: CHART_STRINGS.navLabel, icon: 'axes' },
   { href: "/whats-new", label: "What's new", icon: 'changelog' },
   { href: '/credits', label: 'Credits', icon: 'credits' },
   { href: '/support', label: 'Support', icon: 'support' },

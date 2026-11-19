@@ -79,6 +79,10 @@ export function useTierDrag({ root, ghost, mark, carried, onDrop }: Options): { 
       if (plane && host.contains(plane)) {
         const box = plane.getBoundingClientRect();
         active.drop = { plane: true, x: Math.max(0, Math.min(1, (active.x - box.left) / box.width)), y: Math.max(0, Math.min(1, (active.y - box.top) / box.height)) };
+        // Where it will land, for the plane's guide lines (two custom properties and a mark).
+        plane.style.setProperty('--drop-x', `${active.drop.x * 100}%`);
+        plane.style.setProperty('--drop-y', `${active.drop.y * 100}%`);
+        plane.setAttribute('data-drop', '');
         return;
       }
       // Anywhere that is not a row or a plane: the item goes back to the pool.

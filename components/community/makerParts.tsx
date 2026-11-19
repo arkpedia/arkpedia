@@ -13,11 +13,13 @@ import styles from './TierList.module.css';
  * checkboxes that choose the pool, the tile controls, and the pool itself.
  */
 
+const TIER_VERDICTS = { right: T.quizRight, wrong: T.quizWrong };
+
 /** A tile is dragged, never pressed: it is a picture with a name, not a button. The plate
  *  names whose it is and, for a skill, an outfit or a promotion, which of theirs. `style`
  *  places a tile that is not in a row's flow (a point on a chart's plane). */
-export const Tile = memo(function Tile({ item, mark, style }: { item: TierItem; mark?: 'right' | 'wrong'; style?: CSSProperties }) {
-  const name = mark ? `${item.name} (${mark === 'right' ? T.quizRight : T.quizWrong})` : item.name;
+export const Tile = memo(function Tile({ item, mark, style, verdicts = TIER_VERDICTS }: { item: TierItem; mark?: 'right' | 'wrong'; style?: CSSProperties; /** What a quiz's marks are called: "right tier", "wrong cell". */ verdicts?: { right: string; wrong: string } }) {
+  const name = mark ? `${item.name} (${verdicts[mark]})` : item.name;
   return (
     <div className={styles.tile} data-item={item.id} data-kind={item.kind} data-mark={mark} role="img" aria-label={name} title={item.name} style={style}>
       <ContentImg src={tileImage(item)} alt="" width={64} height={64} draggable={false} />
