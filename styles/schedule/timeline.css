@@ -339,9 +339,16 @@
   right: 8px;
   z-index: 2;
 }
-.schedule-panel-artwork:has(img) .schedule-panel-close-btn {
-  background: var(--panel);
-  border-radius: var(--radius);
+@media (min-width: 521px) {
+  .schedule-panel-artwork:has(img)::after {
+    content: '';
+    position: absolute;
+    inset: 0 0 auto auto;
+    width: 100px;
+    height: 70px;
+    background: radial-gradient(at top right, var(--panel) 28%, transparent 82%);
+    pointer-events: none;
+  }
 }
 .schedule-panel-artwork-link { display: block; width: 100%; }
 .schedule-panel-poster { display: block; width: 100%; height: auto; }
