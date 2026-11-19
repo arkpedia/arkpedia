@@ -1,6 +1,6 @@
 import { foldForSearch, lookalikeForSearch, normalizeForSearch, withinEdits } from './searchNormalize';
 import { canonicalPublicHref } from '@/lib/nav/publicRoutes';
-import { loadOperatorSearch, OPERATOR_NAME_ALIASES_VERSION, OPERATOR_SEARCH_PATH } from '@/lib/operators/operatorSearch';
+import { hasOperatorFormNumber, loadOperatorSearch, OPERATOR_NAME_ALIASES_VERSION, OPERATOR_SEARCH_PATH } from '@/lib/operators/operatorSearch';
 
 /*
  * The site-wide search: the nav's search box and /search?s=<query>.
@@ -266,10 +266,11 @@ function scoreEntry(entry: SiteSearchEntry, query: string, words: string[], keep
     if (s !== null && (onTerm === null || s < onTerm)) onTerm = s;
   }
   if (onTitle === null && onTerm === null && loose && LOOSE_KINDS(entry.kind)) {
+    const looseName = entry.kind === 'operator' && hasOperatorFormNumber(loose.folded) ? { ...loose, typos: 0 } : loose;
     const [foldedTitle, ...foldedTerms] = folded(entry);
-    onTitle = foldedTitle ? looseScore(foldedTitle, loose) : null;
+    onTitle = foldedTitle ? looseScore(foldedTitle, looseName) : null;
     for (const term of foldedTerms) {
-      const s = term ? looseScore(term, loose) : null;
+      const s = term ? looseScore(term, looseName) : null;
       if (s !== null && (onTerm === null || s < onTerm)) onTerm = s;
     }
   }

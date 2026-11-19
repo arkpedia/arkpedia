@@ -247,6 +247,17 @@ test('site search can use the bundled operator aliases with an older content ind
   assert.equal(searchSite(entries, '冻河')[0]?.entry.title, 'Тоска');
 });
 
+test('site search keeps a numbered operator query on its intended form', () => {
+  const records: SiteSearchEntry[] = [
+    { kind: 'operator', title: "Ch'en", href: '/operators/Ch%27en' },
+    { kind: 'operator', title: "Ch'en the Holungday", href: '/operators/Ch%27en%20the%20Holungday', terms: ['Chen2', 'Chen 2', 'Chen alter'] },
+    { kind: 'operator', title: "Ch'en the Dawnstreak", href: '/operators/Ch%27en%20the%20Dawnstreak', terms: ['Chen3', 'Chen 3', 'Chen alter alter'] },
+  ];
+  for (const [query, index] of [['chen2', 1], ['chen 2', 1], ['chen3', 2], ['chen 3', 2]] as const) {
+    assert.deepEqual(searchSite(records, query).map(result => result.entry), [records[index]]);
+  }
+});
+
 /* /search shipped without a data function, so it carried no release and read the deployment's
    copy of the index -- 70 rows behind dev's release within the hour. It is where ?s= and a
    browser's search engine land, so it has to be a release page. */

@@ -34,6 +34,10 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    at: '2026-11-19T06:45:00Z',
+    added: [{ title: 'Character names and alter shortcuts', detail: 'Find operators by documented names like Eblana and Loughshinny, or use shortcuts like Chen2 and Chen3 to pick a specific alter.', href: '/operator-planner' }],
+  },
+  {
     at: '2026-11-19T01:46:00Z',
     added: [{ title: 'Search operators in more languages', detail: 'Find operators by their localized names, Latin spellings and common typos in the planner, roster and site search.', href: '/operator-planner' }],
   },
