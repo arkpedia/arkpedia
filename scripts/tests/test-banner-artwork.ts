@@ -1,6 +1,5 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { officialBannerArtwork } from '../../lib/gacha/bannerArtwork';
 import { buildBannerArtwork } from '../../lib/gacha/bannerArtworkServer';
 import type { HeadhuntingBanner } from '../../lib/gacha/headhuntingBanners';
 
@@ -14,10 +13,9 @@ const shopRow = {
   operators: 'Melanite, Qiubai, Sand Reckoner, Stainless, Wind Chimes', store: '0,1,1,0,0',
 };
 
-test('published art wins over the official Pool 180 image while its mirror is missing', () => {
-  assert.equal(officialBannerArtwork(pool), '/gacha-art/standard-pool-180-global.webp');
-  assert.equal(officialBannerArtwork({ ...pool, banner_image: '/banner.webp' }), '/banner.webp');
-  assert.equal(officialBannerArtwork({ ...pool, global_date: shopRow.start }), null);
+test('the lineup fallback is built only when the banner has no published art', () => {
+  assert.ok(buildBannerArtwork([pool], [], [])[pool.name]);
+  assert.deepEqual(buildBannerArtwork([{ ...pool, banner_image: '/banner.webp' }], [], []), {});
 });
 
 test('the shop 6-star uses Base and the other uses Elite 2 regardless of lineup order', () => {
