@@ -34,6 +34,10 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    at: '2026-11-19T00:40:00Z',
+    fixed: [{ title: 'Corrected Skill Effects lists', detail: 'Removed incorrect sources and filled gaps in True Damage, Damage Over Time, Camouflage, Frighten and Reflection Damage.', href: '/techniques' }],
+  },
+  {
     at: '2026-11-18T19:41:00Z',
     fixed: [{ title: 'Arts damage and repositioning effects', detail: 'Arts Damage Taken lists enemy damage amplification, and Repositioning includes Kal’tsit Esperanta’s third skill.', href: '/techniques' }],
   },

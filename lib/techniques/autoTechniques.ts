@@ -282,6 +282,8 @@ for (const [umbrella, members] of Object.entries(UMBRELLA_MEMBERS)) {
   }
 }
 
+const EXISTING_SLOW_OR_BIND = /\baffected by (?:both )?(?:slow(?:(?: or | and )bind)?|bind)\b/g;
+
 const AUTO_TECHNIQUE_RULES: AutoTechniqueRule[] = [
   {
     keywords: ['Fragile'],
@@ -313,6 +315,7 @@ const AUTO_TECHNIQUE_RULES: AutoTechniqueRule[] = [
   },
   {
     keywords: ['Bind', 'Binds'],
+    excludePatterns: [EXISTING_SLOW_OR_BIND],
     name: 'Bind',
     description: 'Unable to move, can still be shifted, and can still attack and use special abilities.',
     minRarity: 1,
@@ -321,6 +324,7 @@ const AUTO_TECHNIQUE_RULES: AutoTechniqueRule[] = [
   {
     keywords: ['Stun'],
     excludeWords: ['stunned'],
+    excludePatterns: [/\bstun(?:s|ning)?\s+(?:self|(?:all )?allied units)\b/g],
     exemptOperators: ['Spuria', 'Manticore'],
     name: 'Stun',
     description: 'Unable to move, attack, or use special abilities, can remove Low-Hovering statuses.',
@@ -357,7 +361,11 @@ const AUTO_TECHNIQUE_RULES: AutoTechniqueRule[] = [
     maxRarity: 6,
   },
   {
-    keywords: ['Sleep'],
+    matchPatterns: [
+      /\b(?:inflicts?|appl(?:y|ies)) sleep\b/i,
+      /\b(?:puts?|putting) (?:the targets?|them|[^.;]{0,90}\benem(?:y|ies)\b[^.;]{0,60}) to sleep\b/i,
+      /\b(?:are|is|be) put to sleep\b/i,
+    ],
     name: 'Sleep',
     description: 'Unable to move, attack, use special abilities, be attacked unless a unit bypasses this status.',
     minRarity: 1,
@@ -385,16 +393,15 @@ const AUTO_TECHNIQUE_RULES: AutoTechniqueRule[] = [
     maxRarity: 6,
   },
   {
-    keywords: ['frighten'],
+    matchPatterns: [/\bfrighten(?:s|ing)?\b/i, /\b(?:are|become|be) frightened\b/i],
     name: 'Frighten',
     description: 'Disarms the enemy being blocked, making them unable to attack.',
     minRarity: 1,
     maxRarity: 6,
   },
   {
-    keywords: ['slow'],
-    // "Ammo will be slowly reloaded" (every Hunter's trait) is not the Slow status.
-    excludeWords: ['slowly'],
+    matchPatterns: [/\bslow(?:s|ed|ing)?\b/i],
+    excludePatterns: [EXISTING_SLOW_OR_BIND],
     name: 'Slow',
     description: 'Reduce the movement speed of the enemies by 80% (does not reduce further with other slow applications, but can add to the slow time. Can stack with movement speed down applications).',
     minRarity: 1,
@@ -406,6 +413,7 @@ const AUTO_TECHNIQUE_RULES: AutoTechniqueRule[] = [
       ['hp'],
     ],
     requireOrdered: true,
+    excludePatterns: [/\brestores? (?:device hp|double sp and hp to the special high ground)\b/g],
     excludeClasses: ['Medic'],
     includeBranches: ['Reaper', 'Juggernaut', 'Soloblade', 'Guardian'],
     showBranchIcon: true,
@@ -453,7 +461,7 @@ const AUTO_TECHNIQUE_RULES: AutoTechniqueRule[] = [
     maxRarity: 6,
   },
   {
-    keywords: ['pull', 'drag'],
+    matchPatterns: [/\b(?:pull(?:s|ed|ing)?|drag(?:s|ged|ging)?)\b/i],
     excludeBranches: ['Hookmaster'],
     name: 'Pseudo-Puller',
     description: "Can behave like a 'puller'.",
@@ -485,7 +493,7 @@ const AUTO_TECHNIQUE_RULES: AutoTechniqueRule[] = [
     maxRarity: 6,
   },
   {
-    keywords: ['ammo'],
+    matchPatterns: [/\b(?:activat(?:ion|ing) (?:grants?|gains?) \d+|(?:skill|attack) has \d+|(?:spends?|consumes?) \d+) ammo\b/i],
     skillsOnly: true,
     name: 'Ammo-based Skills',
     description: 'Skill has a specified number of ammunition to be used before ending.',
@@ -493,10 +501,38 @@ const AUTO_TECHNIQUE_RULES: AutoTechniqueRule[] = [
     maxRarity: 6,
   },
   {
-    keywords: ['charges', 'charge'],
+    matchPatterns: [/\b(?:can (?:store|hold)(?: up to)? \d+ charges?|max \d+ charges?|can charge for \d+ times|skill charges)\b/i],
     includeBranches: ['Mystic Caster'],
     name: 'Hold Charges',
     description: 'Holds the charge(s) until the enemies are within range to be used.',
+    minRarity: 1,
+    maxRarity: 6,
+  },
+  {
+    matchPatterns: [/\btrue damage\b/i, /\bdamage becomes true\b/i],
+    name: 'True Damage',
+    description: 'Able to deal true damage',
+    minRarity: 1,
+    maxRarity: 6,
+  },
+  {
+    matchPatterns: [/\b(?:arts|physical|true|elemental) damage per second\b/i],
+    name: 'Damage Over Time',
+    description: 'Deals repeated damage over a period of time.',
+    minRarity: 1,
+    maxRarity: 6,
+  },
+  {
+    matchPatterns: [/\bgains? camouflage\b/i],
+    name: 'Camouflage',
+    description: 'Prevents enemies from targeting the unit while it is not blocking.',
+    minRarity: 1,
+    maxRarity: 6,
+  },
+  {
+    matchPatterns: [/\b(?:arts|physical|true|elemental) damage to (?:the|its) attacker\b/i],
+    name: 'Reflection Damage',
+    description: 'Deals damage back to attackers.',
     minRarity: 1,
     maxRarity: 6,
   },
@@ -519,6 +555,7 @@ const AUTO_TECHNIQUE_RULES: AutoTechniqueRule[] = [
   },
   {
     statPattern: 'ATK',
+    excludePatterns: [/\bATK -\d+%, but allied operators\b/gi],
     highlightSeparately: true,
     name: 'ATK Down',
     description: "Lower enemies' ATK.",
@@ -798,7 +835,9 @@ export function detectAutoTechniqueMatches(
         }
       }
     } else if (rule.statPattern) {
-      const found = findStatMinusNumber(combinedOriginal, rule.statPattern);
+      // Preserve the capitalization used to distinguish stats from ordinary words.
+      const statText = rule.excludePatterns?.reduce((value, pattern) => value.replace(pattern, ' '), combinedOriginal) ?? combinedOriginal;
+      const found = findStatMinusNumber(statText, rule.statPattern);
       if (found) {
         matches.push({
           name: rule.name,

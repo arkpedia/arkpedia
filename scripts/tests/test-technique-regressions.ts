@@ -38,6 +38,44 @@ test('decimal healing amounts remain valid within an ordered technique phrase', 
   assert.ok(techniques(['Restores 4% (+0.5%) max HP per second.'], 'Thorns').includes('Self-Sustain'));
 });
 
+test('the technique index credits sources that actually apply the audited effects', () => {
+  const groups = new Map(buildTechniqueGroups().map(group => [group.name, group]));
+  const cases: [string, string, string[]][] = [
+    ['Pseudo-Puller', 'Toddifons', []],
+    ['Slow', 'Fiammetta', []],
+    ['Slow', 'Togawa Sakiko', []],
+    ['Stun', 'Bryophyta', []],
+    ['Stun', 'Conviction', []],
+    ['ATK Down', 'Rose Salt', []],
+    ['Hold Charges', 'Fuze', []],
+    ['Hold Charges', 'Lumen', []],
+    ['Hold Charges', 'Viviana', []],
+    ['Overload / Charged', 'Lumen', ['S2']],
+    ['Overload / Charged', 'Viviana', ['S1']],
+    ['Ammo-based Skills', 'Sankta Miksaparato', ['S2', 'S3']],
+    ['Self-Sustain', 'Nasti', []],
+    ['Sleep', 'Blacknight', ['S2']],
+    ['Sleep', 'Erato', ['S1']],
+    ['Bind', 'Qiubai', ['T2', 'S1']],
+    ['Slow', 'Qiubai', ['S2']],
+    ['True Damage', 'Amiya (Guard)', ['S2']],
+    ['True Damage', 'Amiya (Medic)', ['S2']],
+    ['True Damage', "Kal'tsit Esperanta", ['S2']],
+    ['True Damage', 'Młynar', ['T2', 'S3']],
+    ['Damage Over Time', 'Ripresa', ['S2']],
+    ['Damage Over Time', 'Viy', ['T2']],
+    ['Camouflage', 'Saileach', ['Module BEA-Y (Stage 1)']],
+    ['Camouflage', 'Robin', ['Module TRP-Y (Stage 3)']],
+    ['Frighten', 'Degenbrecher', ['T1', 'Module SWO-Y (Stage 3)']],
+    ['Reflection Damage', 'Penance', ['T2', 'S3']],
+  ];
+  for (const [effect, name, expected] of cases) {
+    const operator = groups.get(effect)?.entries.find(entry => entry.operatorName === name);
+    const slots = operator?.badges.map(badge => badge.skillNumber ? `S${badge.skillNumber}` : badge.label) ?? [];
+    assert.deepEqual(slots, expected, `${effect}: ${name}`);
+  }
+});
+
 test('repeated bracketed faction spelling variants resolve to the full intended group', () => {
   assert.deepEqual(groups('All [Ursus Student Self-government Group] operators gain ATK. [Ursus Student Self-government Group] operators also gain DEF.'), ['Ursus Student Self-Governing Group']);
 });

@@ -276,7 +276,9 @@ export function buildTechniqueGroups(): TechniqueGroup[] {
         const matches = detectAutoTechniqueMatches(op.rarity, [s.effectText], op.name, op.branch, op.class, true);
         for (const m of matches) {
           if (!m.name) continue;
-          if (talentDetectedNames.has(m.name)) continue; // talent takes precedence -- already covered, don't double count
+          // Degenbrecher's module adds a separate trigger when enemies enter range.
+          const frightensOnEntry = m.name === 'Frighten' && /\benemies enter\b[^.;]*\bare frightened\b/i.test(s.effectText);
+          if (talentDetectedNames.has(m.name) && !frightensOnEntry) continue;
           // The Stage 1 trait and later talent upgrade are independent. A
           // Stage 3 synergy must not hide the trait that applies the status.
           const effectKey = `${m.name}:${s.effectLabel || s.stage}`;
