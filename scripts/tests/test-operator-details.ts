@@ -510,14 +510,42 @@ test('operator aliases come from localized records and support new Cyrillic name
   assert.deepEqual(getOperatorSearchResults(rows, 'Zima the Raging Tide').map(row => row.name), ['Zima the Raging Tide']);
 });
 
+test('character names follow their operator forms and numbered searches select one alter', () => {
+  const catalogue = getAllOperators();
+  const aliases = buildOperatorNameAliases(catalogue);
+  const rows = catalogue.map(operator => ({ name: operator.name, aliases: aliases[operator.name] }));
+  const matches = (query: string) => getOperatorSearchResults(rows, query).map(op => op.name);
+  for (const query of ['Eblana', 'Eblana Dublinn']) assert.deepEqual(matches(query), ['Necrass']);
+  for (const query of ['Loughshinny', 'Loughshinny Dublinn']) {
+    assert.deepEqual(matches(query), ['Reed', 'Reed the Flame Shadow']);
+  }
+  for (const [queries, name] of [
+    [['chen2', 'chen 2', 'chen alter'], "Ch'en the Holungday"],
+    [['chen3', 'chen 3', 'chen alter alter', 'chen alter 2'], "Ch'en the Dawnstreak"],
+    [['reed2', 'reed alter', 'loughshinny alter'], 'Reed the Flame Shadow'],
+    [['texas2', 'texas 2', 'texas alter'], 'Texas the Omertosa'],
+    [['phantom2', 'phantom alter'], 'Tragodia'],
+    [['w2', 'w 2'], "Wiš'adel"],
+    [['zima2', 'zima 2'], 'Zima the Raging Tide'],
+    [['specter2', 'specter 2'], 'Specter the Unchained'],
+  ] as const) {
+    for (const query of queries) assert.equal(matches(query)[0], name, query);
+  }
+  assert.deepEqual(matches('chen2'), ["Ch'en the Holungday"]);
+  assert.deepEqual(matches('chen3'), ["Ch'en the Dawnstreak"]);
+  assert.deepEqual(matches('Laurentina'), ['Specter', 'Specter the Unchained']);
+  assert.deepEqual(matches('Susie Glitter'), ['Goldenglow']);
+  assert.deepEqual(matches('Zima the Raging Tide'), ['Zima the Raging Tide']);
+});
+
 test('older operator search indexes gain bundled aliases without changing their roster', async () => {
   const released = 'https://example.test/release/public/operator-search.json';
   const fetcher = async (url: string) => ({ ok: true, status: 200, json: async () => url === released
-    ? { operators: [{ name: 'Тоска', rarity: 6 }, { name: 'Published only', rarity: 4 }] }
+    ? { operatorNameAliasesVersion: 1, operators: [{ name: 'Тоска', rarity: 6, aliases: ['冻河'] }, { name: 'Published only', rarity: 4 }] }
     : { operators: [{ name: 'Тоска', rarity: 6, aliases: ['toska'] }, { name: 'Bundled only', rarity: 5 }] },
   });
   assert.deepEqual(await loadOperatorSearch(released, undefined, fetcher), [
-    { name: 'Тоска', rarity: 6, aliases: ['toska'] }, { name: 'Published only', rarity: 4 },
+    { name: 'Тоска', rarity: 6, aliases: ['冻河', 'toska'] }, { name: 'Published only', rarity: 4 },
   ]);
 });
 

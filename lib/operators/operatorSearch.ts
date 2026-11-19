@@ -1,7 +1,7 @@
 import { foldForSearch, lookalikeForSearch, normalizeForSearch, withinEdits } from '../search/searchNormalize';
 
 export const OPERATOR_SEARCH_PATH = '/operator-search.json';
-export const OPERATOR_NAME_ALIASES_VERSION = 1;
+export const OPERATOR_NAME_ALIASES_VERSION = 2;
 
 interface OperatorNames {
   name: string;
@@ -60,12 +60,15 @@ export async function loadOperatorSearch(
 export type OperatorAliasLookup = ReadonlyMap<string, readonly string[]>;
 const compactName = (normalized: string) => normalized.replace(/[^\p{L}\p{N}]+/gu, '');
 
+/** A trailing number selects a form, so treat it as intentional. */
+export const hasOperatorFormNumber = (folded: string): boolean => /[a-z]\d+$/.test(folded);
+
 /** Work out each operator's rank once per query for both filtering and sorting. */
 export function operatorSearchMatcher(query: string, catalogueAliases?: OperatorAliasLookup) {
   const normal = normalizeForSearch(query.trim().normalize('NFKC')).replace(/\s+/g, ' ');
   const folded = compactName(normal);
   const look = lookalikeForSearch(folded);
-  const typos = /^[a-z0-9]{5,}$/.test(folded) ? (folded.length >= 9 ? 2 : 1) : 0;
+  const typos = /^[a-z0-9]{5,}$/.test(folded) && !hasOperatorFormNumber(folded) ? (folded.length >= 9 ? 2 : 1) : 0;
   const scores = new WeakMap<OperatorNames, number>();
 
   function score(operator: OperatorNames): number {

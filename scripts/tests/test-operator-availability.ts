@@ -3,7 +3,7 @@ import test from 'node:test';
 import { isOperatorReleased, operatorRelease, operatorReleaseLabel } from '../../lib/operators/operatorAvailability';
 import { getAllOperators } from '../../lib/operators/operators';
 import { portraitStatus } from '../../lib/operators/operatorPortrait';
-import { OPERATOR_NAME_ALIASES_VERSION } from '../../lib/operators/operatorSearch';
+import { OPERATOR_NAME_ALIASES_VERSION, type SearchableOperatorRecord } from '../../lib/operators/operatorSearch';
 import { buildOperatorNameAliases } from '../lib/operator-name-aliases';
 import operatorSearch from '../../public/operator-search.json';
 
@@ -52,7 +52,8 @@ test('the shared operator search catalogue uses the current release source', () 
   const records = getAllOperators();
   const names = buildOperatorNameAliases(records);
   // Check also runs against the preceding live snapshot during a deployment.
-  const hasAliases = (operatorSearch as { operatorNameAliasesVersion?: number }).operatorNameAliasesVersion === OPERATOR_NAME_ALIASES_VERSION;
+  const index = operatorSearch as { operators: SearchableOperatorRecord[]; operatorNameAliasesVersion?: number };
+  const hasAliases = index.operatorNameAliasesVersion === OPERATOR_NAME_ALIASES_VERSION;
   const expected = records.map((operator) => ({
     name: operator.name,
     rarity: operator.rarity,
@@ -60,5 +61,6 @@ test('the shared operator search catalogue uses the current release source', () 
     ...portraitStatus(operator),
     ...(operator.sourceRegion ? { sourceRegion: operator.sourceRegion } : {}),
   }));
-  assert.deepEqual(operatorSearch.operators, expected);
+  const actual = index.operators.map(({ aliases, ...op }) => ({ ...op, ...(hasAliases && aliases ? { aliases } : {}) }));
+  assert.deepEqual(actual, expected);
 });
