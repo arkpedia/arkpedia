@@ -8,13 +8,21 @@ function farmLocationLabel(material: FarmingMaterial): string {
 }
 
 /** `now` is the homepage's request clock on first paint and reader clock after mount. */
-export default function FarmableMaterialsPanel({ materials: allMaterials, now }: { materials: FarmingMaterial[]; now: number }) {
+export default function FarmableMaterialsPanel({
+  materials: allMaterials, now, canFarmEventCurrency,
+}: {
+  materials: FarmingMaterial[];
+  now: number;
+  canFarmEventCurrency: boolean;
+}) {
   const materials = activeEventFarming(allMaterials, now);
   if (materials.length === 0) {
     return (
       <section className="front-panel front-home-panel front-farmable-panel">
         <h2 className="section-title">Currently Farmable</h2>
-        <p className="hint">No event-boosted materials right now, play any stage you would like.</p>
+        <p className="hint">{canFarmEventCurrency
+          ? 'No event-boosted materials right now. Farm stages that drop event currency to clear out the event shop.'
+          : 'No event-boosted materials right now, play any stage you would like.'}</p>
       </section>
     );
   }

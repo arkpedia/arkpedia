@@ -1,6 +1,6 @@
 import { getAllEvents } from './schedule';
 import { getEventMaterials } from './eventMaterials';
-import { parseGameWindow } from './gameWindow';
+import { eventHasStore, parseGameWindow } from './gameWindow';
 import type { ScheduleEvent } from './scheduleTypes';
 import type { CountdownWindow, FarmingWindows } from './countdownWindows';
 
@@ -30,7 +30,7 @@ export function getFarmingWindows(eventMaterials: Record<string, Record<string, 
 /** Explicit shops also cover chapter-release celebrations such as Critical Phase Transition. */
 export function getEventStoreWindows(events: ScheduleEvent[] = getAllEvents()): CountdownWindow[] {
   return events.flatMap(event => {
-    if (!event.global.shopEndAt && !/\[(Side Story|Story Collection|Intermezzo|Rerun)/i.test(event.name)) return [];
+    if (!eventHasStore(event.name, Boolean(event.global.shopEndAt))) return [];
     const window = parseGameWindow(event.global.dateRange, event.global);
     if (!window) return [];
     return [{ event: event.name, start: window.start.getTime(), end: event.global.shopEndAt ? Date.parse(event.global.shopEndAt) : window.end.getTime() }];

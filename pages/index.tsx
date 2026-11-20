@@ -7,7 +7,7 @@ import { parseBannerWindow } from '@/lib/gacha/realGachaBanners';
 import { getEventFarmingMaterials } from '@/lib/farming/eventFarming';
 import { withContentPage } from '@/lib/content/server';
 import SponsoredSlot from '@/components/ui/SponsoredSlot';
-import { parseGameWindow } from '@/lib/schedule/gameWindow';
+import { eventHasStore, eventShopEnd, parseGameWindow } from '@/lib/schedule/gameWindow';
 import { loadGameEvents } from '@/lib/home/frontPageContent';
 import { getAllSkins } from '@/lib/skins/skins';
 import { availableSkins, getSkinWindows, type SkinWindow } from '@/lib/skins/skinAvailability';
@@ -123,6 +123,9 @@ export default function HomePage({
   const deserializedUpcoming: GameEvent | null = upcomingEvent
     ? { ...upcomingEvent, start: new Date(upcomingEvent.start), end: new Date(upcomingEvent.end) }
     : null;
+  const canFarmEventCurrency = [...deserializedEvents, deserializedUpcoming].some(event => event
+    && event.start.getTime() <= now && now < event.end.getTime()
+    && eventHasStore(event.name, eventShopEnd(event) !== null));
   const deserializedBanners: GachaBannerWithWindow[] = ongoingBanners.map((b) => ({ ...b, start: new Date(b.start), end: new Date(b.end) }));
 
   // Lifted here (rather than kept local to GachaBannersPanel) so
@@ -153,7 +156,7 @@ export default function HomePage({
         <div className="front-page-left">
           {/* Directly under Events. Nothing when no campaign runs. */}
           <SponsoredSlot placement="home" className="front-panel front-home-panel front-sponsored-panel" />
-          <FarmableMaterialsPanel materials={farmableMaterials} now={now} />
+          <FarmableMaterialsPanel materials={farmableMaterials} now={now} canFarmEventCurrency={canFarmEventCurrency} />
           <SkinsCarousel skins={ongoingSkins} />
           {/* A "Packs -- Coming soon" panel stood here. Placeholders stay hidden until
               they have content (decision of 2026-09-25). */}
