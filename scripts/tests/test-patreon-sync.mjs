@@ -139,9 +139,10 @@ test('encrypted credentials are authenticated and scoped to the campaign and cli
 
 test('daily statistics and Patreon refresh independently, with visible failures', async () => {
   const calls = [];
-  await assert.rejects(refreshDailyServices({}, { statistics: async () => { calls.push('statistics'); throw Error('cohort failed'); }, patreon: async () => { calls.push('patreon'); } }), /Statistics: cohort failed/);
-  assert.deepEqual(calls, ['statistics', 'patreon']);
-  await assert.rejects(refreshDailyServices({}, { statistics: async () => {}, patreon: async () => { throw Error('HTTP 503'); } }), /Patreon: HTTP 503/);
+  const wait = async () => {};
+  await assert.rejects(refreshDailyServices({}, { wait, statistics: async (_, target) => { calls.push(target); if (target === 'all') throw Error('cohort failed'); }, patreon: async () => { calls.push('patreon'); } }), /Statistics \(all\): cohort failed/);
+  assert.deepEqual(calls, ['music', 'all', 'en', 'jp', 'kr', 'patreon']);
+  await assert.rejects(refreshDailyServices({}, { wait, statistics: async () => {}, patreon: async () => { throw Error('HTTP 503'); } }), /Patreon: HTTP 503/);
 });
 
 

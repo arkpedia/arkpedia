@@ -20,6 +20,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     res.setHeader('Allow', 'GET, HEAD');
     return res.status(405).end();
   }
+  let refreshing = false;
   try {
     let env: Env | undefined;
     try { env = getCloudflareContext().env as unknown as Env; }
@@ -29,6 +30,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (token !== undefined) {
       if (req.method !== 'GET' || !env?.BETTER_AUTH_SECRET || env.ARKPEDIA_DEPLOYMENT_ROLE !== 'production' ||
         !await verifyStatisticsRefreshToken(env.BETTER_AUTH_SECRET, 'music', token)) return res.status(403).end();
+      refreshing = true;
       if (!bucket) throw Error('Music chart storage is unavailable.');
       const previous = await bucket.head(MUSIC_CHART_KEY);
       const day = new Date().toISOString().slice(0, 10);
@@ -53,7 +55,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (result.updatedAt && Date.now() - Date.parse(result.updatedAt) > 2 * 86400_000) throw Error('Music chart refresh overdue.');
     res.setHeader('Cache-Control', 'public, max-age=60, s-maxage=300');
     return req.method === 'HEAD' ? res.status(200).end() : res.json(result);
-  } catch {
+  } catch (error) {
+    if (refreshing) console.error('music_chart_refresh_failed', error instanceof Error ? error.message : 'Unknown error');
     return res.status(503).json({ error: 'Arkpedia likes are temporarily unavailable.' });
   }
 }

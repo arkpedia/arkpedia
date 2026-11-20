@@ -9,7 +9,7 @@ interface ReplayRanking { charId:string; skill:number|null; squads:number; deplo
 export interface CommunityRankings { contributors:number; roster:RosterRanking[]|null; replayContributors:number; replays:number; battles:ReplayRanking[]|null; clearContributors?:number; clearRecords?:number; clearedStages?:number; stageClears?:StageClear[]|null; stageCoverage?:{operator:string;stages:number}[]|null; source?:'production-snapshot'|'daily-snapshot';capturedAt?:string }
 
 /** Fixed aggregate projections only. Private replay payloads and identities never leave D1. */
-export async function communityRankings(db:D1Database,server:string,stage:string):Promise<CommunityRankings>{
+export async function communityRankings(db:D1Database,server:string,stage:string,{paceBulkReads=false}={}):Promise<CommunityRankings>{
   const [stages,operators]=await Promise.all([communityStages(),communityOperators()]);
   const region=server==='all'?'':' AND a.server=?',args=server==='all'?[]:[server];
   const contributors=(await db.prepare(`SELECT count(*) n FROM community_account a WHERE stats=1${region}`).bind(...args).first<{n:number}>())?.n??0;
@@ -30,12 +30,18 @@ export async function communityRankings(db:D1Database,server:string,stage:string
     sum(CASE WHEN o.elite=0 AND o.level=1 THEN 1 ELSE 0 END) unraised,
     sum(CASE WHEN o.elite=2 AND o.level=90 THEN 1 ELSE 0 END) maxed
     FROM community_operator o JOIN community_account a ON a.userId=o.userId WHERE a.stats=1${region} GROUP BY o.operator`).bind(...args).all<RosterAggregate>()).results.map(({m3_0,m3_1,m3_2,...row})=>({...row,m3:[m3_0,m3_1,m3_2]}));
-  const battles=(coverage?.contributors??0)<COMMUNITY_MIN_SAMPLE?null:(await db.prepare(`${eligible} SELECT json_extract(j.value,'$.charId') charId,json_extract(j.value,'$.skill') skill,
+  const hasReplaySample=(coverage?.contributors??0)>=COMMUNITY_MIN_SAMPLE;
+  // Large scheduled rebuilds scan replay rows in several separate phases.
+  // Give D1's ten-second resource window time to clear between those phases.
+  const paceReplayPhase=paceBulkReads&&hasReplaySample;
+  if(paceReplayPhase)await new Promise(resolve=>setTimeout(resolve,11_000));
+  const battles=!hasReplaySample?null:(await db.prepare(`${eligible} SELECT json_extract(j.value,'$.charId') charId,json_extract(j.value,'$.skill') skill,
     sum(json_extract(j.value,'$.squad')) squads,sum(json_extract(j.value,'$.deployed')) deployed,
     sum(json_extract(j.value,'$.deployments')) deployments,sum(json_extract(j.value,'$.activations')) activations,
     sum(CASE WHEN json_extract(j.value,'$.squad')=1 AND json_extract(j.value,'$.deployed')=0 THEN 1 ELSE 0 END) benched
     FROM runs r JOIN auto_deploy_summary s ON s.userId=r.userId AND s.namespace=r.namespace AND s.stageId=r.stageId,
     json_each(s.units) j GROUP BY charId,skill`).bind(...replayArgs).all<ReplayRanking>()).results;
+  if(paceReplayPhase)await new Promise(resolve=>setTimeout(resolve,11_000));
   const knownStages=JSON.stringify([...new Set(stages.map(s=>s.id))]);
   const charNames=new Map(operators.flatMap(op=>op.charIds.map(id=>[id,op.name] as const)));
   // Lifetime counters are monotonic, unlike the current archived squad. Take the
@@ -55,7 +61,8 @@ export async function communityRankings(db:D1Database,server:string,stage:string
   // Union deployments per public stage before resolving names. Looking up the
   // entire name catalogue for every replay unit exceeds production D1 CPU limits.
   // These rows contain no account identities or individual squads.
-  const stageUnits=(coverage?.contributors??0)<COMMUNITY_MIN_SAMPLE?null:(await db.prepare(`${successful}
+  if(paceReplayPhase)await new Promise(resolve=>setTimeout(resolve,11_000));
+  const stageUnits=!hasReplaySample?null:(await db.prepare(`${successful}
     SELECT r.stageId,json_group_array(DISTINCT json_extract(j.value,'$.charId')) charIds
     FROM successful r JOIN auto_deploy_summary s ON s.userId=r.userId AND s.namespace=r.namespace AND s.stageId=r.stageId,
     json_each(s.units) j WHERE json_extract(j.value,'$.deployed')=1 GROUP BY r.stageId`)
