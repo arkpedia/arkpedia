@@ -34,6 +34,10 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    at: '2026-11-20T17:10:00Z',
+    fixed: [{ title: 'Steadier roster sorting controls', detail: 'The sort dropdown and direction button stay together on their own row below the operator filters.', href: '/operators' }],
+  },
+  {
     at: '2026-11-20T15:03:00Z',
     title: 'Roster sorting and bigger Bingo boards',
     added: [
