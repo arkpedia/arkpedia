@@ -599,9 +599,10 @@ function withLegacyLaunchTiming(props: Props): Props {
   const { global, cn } = record;
   const matches = !!global && (props.dateRange === global.dateRange || props.dateRange === global.releaseDate);
   const hasCnDate = !!(cn?.dateRange || cn?.releaseDate);
-  const timing = props.releaseTiming ?? (matches ? eventReleaseTiming(global, hasCnDate, props.isPredicted)
+  const exact = matches && global.timingSource ? global.startAt : undefined;
+  const timing = (exact ? eventReleaseTiming(global, hasCnDate, props.isPredicted) : props.releaseTiming) ?? (matches ? eventReleaseTiming(global, hasCnDate, props.isPredicted)
     : props.isPredicted && hasCnDate ? 'cn-estimate' : undefined);
-  const sourcedStartAt = props.sourcedStartAt ?? (matches && global.timingSource ? global.startAt : undefined);
+  const sourcedStartAt = props.sourcedStartAt ?? exact;
   return { ...props, ...(timing ? { releaseTiming: timing } : {}), ...(sourcedStartAt ? { sourcedStartAt } : {}) };
 }
 

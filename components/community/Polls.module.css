@@ -33,16 +33,23 @@
 .archiveArt figure { display:grid; grid-template-rows:minmax(0,1fr) auto; height:88%; margin:0; min-width:0; }
 .archiveArt figure:nth-child(2) { height:100%; }
 .archiveArt img { width:100%; height:100%; object-fit:contain; }
-/* The Tier List maker's card: a small tier list drawn in the default rows' colours. */
-.makerCard { min-height:140px; }
-.makerArt { position:absolute; inset:0 20px 0 auto; display:grid; align-content:center; gap:4px; width:34%; pointer-events:none; }
-.makerArt span { display:grid; grid-template-columns:30px minmax(0,1fr); gap:4px; height:22px; }
-.makerArt b { display:grid; place-items:center; background:var(--tier-color); color:#14181c; font-family:var(--font-display); font-size:13px; font-weight:700; border-radius:var(--radius); }
-.makerArt i { background:var(--panel-2); border-radius:var(--radius); }
-/* The chart maker's card: its three by three, each cell edged in its accent. */
+.makerCard { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,420px); gap:16px; align-items:center; padding:16px; text-decoration:none; }
+.makerCard .archiveCopy { max-width:none; }
 .makerCard + .makerCard { margin-top:14px; }
-.chartArt { position:absolute; inset:0 20px 0 auto; display:grid; grid-template-columns:repeat(3,34px); grid-auto-rows:26px; align-content:center; justify-content:end; gap:4px; width:34%; pointer-events:none; }
-.chartArt i { background:var(--panel-2); border-top:3px solid var(--cell-color); border-radius:var(--radius); }
+.samplePortrait { display:block; width:100%; max-width:40px; height:auto; aspect-ratio:1; object-fit:cover; border-radius:var(--radius); }
+.sampleTier { display:grid; gap:4px; }
+.sampleTierRow { display:grid; grid-template-columns:minmax(38px,72px) repeat(5,minmax(0,1fr)); justify-items:center; gap:4px; padding:3px; background:var(--well); border-radius:var(--radius); }
+.sampleTierRow b { display:grid; place-items:center; justify-self:stretch; background:var(--sample-row-color); color:#14181c; border-radius:var(--radius); }
+.sampleTierRow b, .sampleGrid b, .sampleAxes b { font-family:var(--font-display); font-size:13px; font-weight:700; line-height:1.1; text-align:center; }
+.sampleGrid { display:grid; grid-template-columns:minmax(45px,72px) repeat(3,minmax(0,1fr)); align-items:stretch; gap:4px; }
+.sampleGrid b { display:grid; place-items:center; padding:3px; }
+.sampleCell { display:grid; place-items:center; padding:2px; background:var(--well); border-radius:var(--radius); }
+.sampleAxes { display:grid; grid-template-columns:minmax(42px,18%) minmax(0,1fr) minmax(42px,18%); grid-template-areas:". top ." "left plane right" ". bottom ."; gap:5px; align-items:center; }
+.samplePlane { position:relative; grid-area:plane; height:clamp(108px,14vw,154px); background:var(--well); border-radius:var(--radius); }
+.samplePlane::before, .samplePlane::after { content:""; position:absolute; background:var(--text-faint); }
+.samplePlane::before { inset:0 auto 0 50%; width:1px; }
+.samplePlane::after { inset:50% 0 auto 0; height:1px; }
+.samplePlane .samplePortrait { position:absolute; width:clamp(24px,4vw,38px); transform:translate(-50%,-50%); z-index:1; }
 @media (max-width:720px) {
   .page { gap:24px; }
   .featureBody { grid-template-columns:minmax(0,1fr); }
@@ -55,6 +62,5 @@
   .archive { display:grid; grid-template-columns:minmax(0,1fr); gap:12px; }
   .archiveCopy { max-width:none; padding:2px 0; }
   .archiveArt { position:static; width:100%; height:180px; }
-  .makerArt { position:static; width:100%; }
-  .chartArt { position:static; width:100%; justify-content:start; }
+  .makerCard { grid-template-columns:minmax(0,1fr); gap:12px; }
 }

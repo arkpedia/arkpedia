@@ -65,8 +65,7 @@
 
 /* The pool is pinned under the tier list, at a fixed height: ticking a box, searching or
    zooming changes what scrolls inside it and never how long the page is (the Anti-Page
-   Jump rule). Its arrow detaches it into a window that floats over the page, which the
-   reader drags by its head and resizes; the arrow there pins it back. */
+   Jump rule). The pool can also float over the page in a movable, resizable window. */
 .poolHead { display:flex; flex-wrap:wrap; align-items:center; gap:8px 12px; margin-bottom:var(--heading-gap); }
 .poolHead h2 { margin:0; }
 .search { flex:1 1 180px; min-width:0; max-width:320px; margin-left:auto; }
@@ -90,7 +89,12 @@
    narrower than the page and centred, with the pool under it. */
 .chartFrame { width:min(100%,820px); margin:0 auto; display:grid; grid-template-columns:calc(var(--control-h) - 12px) repeat(var(--chart-cols),minmax(0,1fr)) var(--control-h); grid-template-rows:calc(var(--control-h) - 12px) repeat(var(--chart-rows),auto) var(--control-h); gap:4px; }
 .chartGrid { grid-column:2 / span var(--chart-cols); grid-row:2 / span var(--chart-rows); display:grid; grid-template-columns:subgrid; grid-template-rows:subgrid; }
-.lineRemove { place-self:center; }
+.chartScroll { overflow-x:auto; padding:3px; }
+.chartFrame[data-headers] { --row-header-width:clamp(84px,18vw,136px); min-width:calc(var(--row-header-width) + var(--control-h) + var(--chart-cols) * 66px + (var(--chart-cols) + 1) * 4px); grid-template-columns:var(--row-header-width) repeat(var(--chart-cols),minmax(0,1fr)) var(--control-h); grid-template-rows:auto repeat(var(--chart-rows),auto) var(--control-h); }
+.gridHeader { display:flex; flex-direction:column; align-items:center; justify-content:center; min-width:0; }
+.gridHeader .axisLabel, .gridHeaderText { font-size:15px; }
+.gridHeader .axisLabel { field-sizing:content; resize:none; line-height:1.2; overflow-wrap:anywhere; }
+.gridHeaderText { font-family:var(--font-display); font-weight:700; text-align:center; white-space:pre-line; overflow-wrap:anywhere; }
 /* Two classes: the button primitive's own padding is wider than the column this one fills. */
 .chartFrame .lineAdd { box-sizing:border-box; min-width:0; padding:0; border-style:dashed; }
 .chartFrame .lineAdd svg { flex:none; }
@@ -99,6 +103,7 @@
 /* A cell: room for its tiles over a label bar in the cell's accent (cellColor), with ink
    picked for that fixed colour as a tier's label has. It lights while a tile is over it. */
 .chartCell { display:grid; grid-template-rows:minmax(calc(var(--tile) * 1.4 + 20px),1fr) auto; min-width:0; background:var(--row-grad); border:1px solid var(--line); border-radius:var(--radius); overflow:hidden; }
+.chartFrame:not([data-cell-labels]) .chartCell { grid-template-rows:minmax(calc(var(--tile) * 1.4 + 20px),1fr); }
 .chartCell:has([data-drop]) { border-color:var(--teal); }
 .cellItems { display:flex; flex-wrap:wrap; align-content:center; justify-content:center; gap:4px; min-width:0; padding:6px; }
 .cellItems[data-drop] { background:var(--teal-dim); }
@@ -128,7 +133,7 @@
 .bingoPromptField { flex:1 1 auto; display:grid; align-items:center; min-width:0; min-height:0; }
 .chartFrame[data-bingo] .cellLabel { padding:3px 2px; min-height:0; max-height:4em; resize:none; field-sizing:content; }
 .chartFrame[data-bingo] .bingoPrompt .cellLabel { padding:4px; max-height:100%; font-size:18px; }
-.bingoPrompt .cellColor { position:absolute; inset:auto 0 0 auto; height:22px; width:22px; }
+.bingoPrompt .cellColor { position:absolute; inset:auto 0 0 auto; height:24px; width:24px; }
 .bingoFree { display:grid; place-items:center; box-sizing:border-box; aspect-ratio:1; padding:4px; text-align:center; background:var(--well); border:1px solid var(--line); border-radius:var(--radius); color:var(--text-bright); font:700 18px/1.1 var(--font-display); }
 /* The plane: a square with its two axes drawn through the middle and an item anywhere on it
    by its centre. Its labels stand outside it, at the end of the axis each names: above and
@@ -216,10 +221,13 @@
   .pool[data-detached] .poolHead { margin:0 calc(var(--page-gutter) * -1) 8px; padding:4px var(--page-gutter); cursor:default; touch-action:auto; }
   .pool[data-detached] .poolItems { padding-bottom:64px; }
   .cellLabel { padding:5px 0 5px 22px; font-size:13px; }
+  .chartFrame[data-headers] .cellLabel { padding-inline-start:4px; }
   .cellColor { width:22px; }
   .bingoFree { font-size:15px; }
   .chartFrame[data-bingo] .bingoPrompt .cellLabel { font-size:13px; }
-  .bingoPrompt .cellColor { height:16px; width:16px; }
+  .chartFrame[data-bingo] .cellBar .cellLabel { font-size:11px; line-height:1.15; max-height:2.5em; }
+  .chartFrame[data-bingo] .tile { width:min(34px,100%); }
+  .bingoPrompt .cellColor svg { width:11px; height:11px; }
   .axisLabel { font-size:15px; }
   .search { flex:1 1 90px; max-width:none; }
   .poolHead { flex-wrap:nowrap; gap:8px; }
@@ -230,4 +238,10 @@
   .rowActions { padding:0 2px; }
   /* A phone's row has room for one control: the dialog it opens deletes the row too. */
   .rowActions .rowDelete { display:none; }
+}
+
+@media (max-width:360px) {
+  .poolHead { flex-wrap:wrap; }
+  .poolHead .search { order:1; flex-basis:100%; }
+  .poolHead .pin { margin-left:auto; }
 }

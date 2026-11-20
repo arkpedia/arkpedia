@@ -6,7 +6,7 @@ import { AXIS_ENDS, AXIS_OF, BINGO_COLUMNS, cellLabelColor, chartGrid, chartTitl
 import { labelInk } from '@/lib/tier-list/state';
 import { CHART_STRINGS as C } from '@/lib/tier-list/chartStrings';
 import { TIER_LIST_STRINGS as T } from '@/lib/tier-list/strings';
-import { drawTile, fitText, loadCanvasFonts, loadTileArt } from './shareCanvas';
+import { drawTile, fitText, loadCanvasFonts, loadTileArt, wrapText } from './shareCanvas';
 import { tileImage } from './tierTile';
 import styles from './TierList.module.css';
 
@@ -16,18 +16,13 @@ const GAP = 6;
 const TILE = 88;
 /** The margin round the axes plane that holds its labels. */
 const BAND = 44;
+const HEADER_FONT = '700 24px Rajdhani';
+const HEADER_LINE = 26;
 const BINGO_HEADER = 48;
 
 function bingoLabel(context: CanvasRenderingContext2D, label: string, x: number, y: number, width: number) {
-  const lines: string[] = [];
-  for (const word of label.trim().split(/\s+/)) {
-    const last = lines.at(-1);
-    const next = last ? `${last} ${word}` : word;
-    if (last && context.measureText(next).width <= width) lines[lines.length - 1] = next;
-    else lines.push(word);
-  }
-  const shown = lines.length <= 3 ? lines : [...lines.slice(0, 2), lines.slice(2).join(' ')];
-  shown.forEach((line, i) => context.fillText(fitText(context, line, width), x, y + (i - (shown.length - 1) / 2) * 16));
+  const lines = wrapText(context, label, width, 3);
+  lines.forEach((line, i) => context.fillText(line, x, y + (i - (lines.length - 1) / 2) * 16));
 }
 
 /**
@@ -50,8 +45,18 @@ export default function ChartShareImage({ state: initial, byId, onClose }: { sta
     ? { label: C.bingoFree, items: [] }
     : { ...cell, items: cell.items.flatMap((id) => byId.get(id) ?? []) });
   const points = state.points.flatMap((point) => { const item = byId.get(point.id); return item ? [{ ...point, item }] : []; });
+  const showHeaders = state.kind === 'grid' && state.showGridHeaders;
+  const hasColumnLabels = showHeaders && state.columnLabels.some((label) => label.trim());
+  const hasRowLabels = showHeaders && state.rowLabels.some((label) => label.trim());
   const description = state.kind !== 'axes'
-    ? cells.map((cell, i) => isBingoFreeCell(state, i) ? C.bingoFree : `${cell.label || C.cellItems('', Math.floor(i / cols) + 1, (i % cols) + 1)}: ${cell.items.map((item) => item.name).join(', ') || T.imageEmptyRow}`).join('. ')
+    ? cells.map((cell, i) => {
+      if (isBingoFreeCell(state, i)) return C.bingoFree;
+      const row = Math.floor(i / cols), col = i % cols;
+      const headers = showHeaders ? [state.rowLabels[row], state.columnLabels[col]].map((label) => label.trim()).filter(Boolean) : [];
+      if ((bingo || state.showCellLabels) && cell.label.trim()) headers.push(cell.label.trim());
+      const label = headers.join(', ') || C.cellItems('', row + 1, col + 1);
+      return `${label}: ${cell.items.map((item) => item.name).join(', ') || T.imageEmptyRow}`;
+    }).join('. ')
     : `${AXIS_ENDS.filter((end) => state.lines[AXIS_OF[end]]).map((end) => state.axes[end]).filter(Boolean).join(', ')}. ${points.map((point) => point.item.name).join(', ')}`;
 
   useEffect(() => {
@@ -72,12 +77,21 @@ export default function ChartShareImage({ state: initial, byId, onClose }: { sta
       const inner = WIDTH - PAD * 2;
       const tile = Math.round(Math.max(56, Math.min(240, TILE * state.zoom / 100)));
       // Grid: each row is as tall as its fullest cell needs.
-      const cellWidth = (inner - (cols - 1) * GAP) / cols;
+      const rowHeaderWidth = hasRowLabels ? 160 : 0;
+      const cellWidth = (inner - rowHeaderWidth - (cols - 1) * GAP) / cols;
+      measure.font = HEADER_FONT;
+      const clueLines = (label: string, width: number) => label.trim().split('\n').flatMap((line) => wrapText(measure, line, width - 12, 3));
+      const columnHeaders = hasColumnLabels ? state.columnLabels.map((label) => clueLines(label, cellWidth)) : [];
+      const rowHeaders = hasRowLabels ? state.rowLabels.map((label) => clueLines(label, rowHeaderWidth)) : [];
+      const columnHeaderHeight = columnHeaders.length ? Math.max(BAND, ...columnHeaders.map((lines) => lines.length * HEADER_LINE + 12)) : 0;
       const size = Math.min(tile, cellWidth - GAP * 2);
       const perLine = Math.max(1, Math.floor((cellWidth - GAP) / (size + GAP)));
-      const labelHeight = bingo ? 58 : 34;
-      const rowHeights = Array.from({ length: rows }, (_, row) => Math.max(bingo ? cellWidth : 0, ...cells.slice(row * cols, (row + 1) * cols).map((cell) => (bingo ? Math.ceil(cell.items.length / perLine) : Math.max(1, Math.ceil(cell.items.length / perLine))) * (size + GAP) + GAP + labelHeight)));
-      const body = state.kind !== 'axes' ? rowHeights.reduce((sum, h) => sum + h + GAP, bingo ? BINGO_HEADER : 0) : inner;
+      const labelHeight = bingo ? 58 : state.showCellLabels ? 34 : 0;
+      const rowHeights = Array.from({ length: rows }, (_, row) => Math.max(
+        bingo ? cellWidth : (rowHeaders[row]?.length ?? 0) * HEADER_LINE + 12,
+        ...cells.slice(row * cols, (row + 1) * cols).map((cell) => Math.max(bingo ? 0 : 1, Math.ceil(cell.items.length / perLine)) * (size + GAP) + GAP + labelHeight),
+      ));
+      const body = state.kind !== 'axes' ? columnHeaderHeight + (bingo ? BINGO_HEADER : 0) + rowHeights.reduce((sum, h) => sum + h + GAP, 0) : inner;
       const height = head + body + foot;
       element.height = height;
       const c = element.getContext('2d');
@@ -92,7 +106,13 @@ export default function ChartShareImage({ state: initial, byId, onClose }: { sta
         c.fillText(fitText(c, title, inner), bingo ? WIDTH / 2 : PAD, 46);
       }
       if (state.kind !== 'axes') {
-        let y = head;
+        const gridLeft = PAD + rowHeaderWidth;
+        const headerText = (lines: string[], x: number, y: number) => {
+          c.font = HEADER_FONT; c.fillStyle = ink('--text-bright'); c.textAlign = 'center';
+          lines.forEach((line, index) => c.fillText(line, x, y + (index - (lines.length - 1) / 2) * HEADER_LINE));
+        };
+        columnHeaders.forEach((lines, col) => headerText(lines, gridLeft + col * (cellWidth + GAP) + cellWidth / 2, head + columnHeaderHeight / 2));
+        let y = head + columnHeaderHeight;
         if (bingo) {
           c.font = '700 36px Rajdhani'; c.fillStyle = ink('--text-bright'); c.textAlign = 'center';
           BINGO_COLUMNS.forEach((letter, col) => c.fillText(letter, PAD + col * (cellWidth + GAP) + cellWidth / 2, y + BINGO_HEADER / 2));
@@ -100,8 +120,9 @@ export default function ChartShareImage({ state: initial, byId, onClose }: { sta
         }
         for (let row = 0; row < rows; row += 1) {
           const h = rowHeights[row];
+          if (rowHeaders[row]) headerText(rowHeaders[row], PAD + rowHeaderWidth / 2, y + h / 2);
           for (let col = 0; col < cols; col += 1) {
-            const index = row * cols + col, cell = cells[index], x = PAD + col * (cellWidth + GAP);
+            const index = row * cols + col, cell = cells[index], x = gridLeft + col * (cellWidth + GAP);
             const free = isBingoFreeCell(state, index);
             c.fillStyle = ink(free ? '--well' : '--panel'); c.fillRect(x, y, cellWidth, h);
             const color = cellLabelColor(state, index);
@@ -123,11 +144,13 @@ export default function ChartShareImage({ state: initial, byId, onClose }: { sta
               drawTile(c, item, images.get(tileImage(item)), left + (i % perLine) * (size + GAP), tileTop + line * (size + GAP), size, state.names, inks);
             });
             // The label bar, in the reader's colour or the cell's accent, with ink picked for it.
-            c.fillStyle = bingo ? ink('--panel-2') : color;
-            c.fillRect(x, y + h - labelHeight, cellWidth, labelHeight - (bingo && savedCells[index].color ? 3 : 0));
-            c.font = '700 20px Rajdhani'; c.textAlign = 'center'; c.fillStyle = bingo ? ink('--text-bright') : labelInk(color) === 'dark' ? '#14181c' : '#ffffff';
-            if (bingo) bingoLabel(c, cell.label, x + cellWidth / 2, y + h - labelHeight / 2, cellWidth - 12);
-            else c.fillText(fitText(c, cell.label, cellWidth - 12), x + cellWidth / 2, y + h - labelHeight / 2);
+            if (labelHeight > 0) {
+              c.fillStyle = bingo ? ink('--panel-2') : color;
+              c.fillRect(x, y + h - labelHeight, cellWidth, labelHeight - (bingo && savedCells[index].color ? 3 : 0));
+              c.font = '700 20px Rajdhani'; c.textAlign = 'center'; c.fillStyle = bingo ? ink('--text-bright') : labelInk(color) === 'dark' ? '#14181c' : '#ffffff';
+              if (bingo) bingoLabel(c, cell.label, x + cellWidth / 2, y + h - labelHeight / 2, cellWidth - 12);
+              else c.fillText(fitText(c, cell.label, cellWidth - 12), x + cellWidth / 2, y + h - labelHeight / 2);
+            }
           }
           y += h + GAP;
         }

@@ -4,7 +4,7 @@ import XButton from '@/components/ui/XButton';
 import { useHeightFloor } from '@/components/ui/useHeightFloor';
 import { matchesSearch } from '@/lib/search/searchNormalize';
 import { catalogueItems, TIER_KINDS, TIER_RARITIES, type TierCatalogue } from '@/lib/tier-list/catalogue';
-import { AXIS_ENDS, AXIS_LINES, AXIS_OF, BINGO_COLUMNS, cellLabelColor, CHART_KINDS, CHART_SIDE, chartGrid, chartPlaced, chartPool, chartTitle, clearChart, defaultChart, isBingoFreeCell, MAX_CHART_LABEL, MAX_CHART_TITLE, placeInCell, placePoint, removeGridLine, resizeGrid, setAxis, setAxisLine, setBingoFree, setCellColor, setCellLabel, setChartKind, setChartTitle, unplace, type ChartKind, type ChartState } from '@/lib/tier-list/chart';
+import { AXIS_ENDS, AXIS_LINES, AXIS_OF, BINGO_COLUMNS, cellLabelColor, CHART_KINDS, CHART_SIDE, chartGrid, chartPlaced, chartPool, chartTitle, clearChart, defaultChart, isBingoFreeCell, MAX_CHART_LABEL, MAX_CHART_TITLE, placeInCell, placePoint, removeGridLine, resizeGrid, setAxis, setAxisLine, setBingoFree, setCellColor, setCellLabel, setChartKind, setChartTitle, setGridLabel, unplace, type ChartKind, type ChartState } from '@/lib/tier-list/chart';
 import { CHART_PARAM, decodeChart, encodeChart, type ChartShareMode, type SharedChart } from '@/lib/tier-list/chartShare';
 import { chartQuizPool, scoreChartQuiz, type QuizScore } from '@/lib/tier-list/quiz';
 import { useChart, writeChart } from '@/lib/tier-list/chartStore';
@@ -60,7 +60,7 @@ export default function ChartMaker({ catalogue }: { catalogue: TierCatalogue }) 
   const byId = useMemo(() => new Map(items.map((item) => [item.id, item])), [items]);
   const { state, update, shared, broken, dismissBroken, leave } = useShownChart();
   const [query, setQuery] = useState('');
-  // The pool sits under the chart; its arrow pops it out to float (a sheet on a phone).
+  // The pool sits under the chart until opened as a floating tool.
   const [detached, setDetached] = useState(false);
   const [imaging, setImaging] = useState(false);
   const [sharing, setSharing] = useState(false);
@@ -94,8 +94,28 @@ export default function ChartMaker({ catalogue }: { catalogue: TierCatalogue }) 
   const bingo = state.kind === 'bingo';
   const resize = !quiz && state.kind === 'grid';
   const { cols, rows, cells } = chartGrid(state);
+  const showHeaders = !bingo && state.showGridHeaders;
+  const showLabels = bingo || state.showCellLabels;
+  const canMakeImage = placedCount > 0 || bingo || (state.kind === 'grid' && !state.showCellLabels);
   const empty = query.trim() && pool.length ? T.poolEmptySearch : quiz ? T.poolEmptyQuiz : !state.kinds.length ? T.poolEmptyFilters : T.poolEmptyDone;
   const makerStyle = { '--zoom': state.zoom / 100 } as CSSProperties;
+  const gridHeaders = (line: 'col' | 'row') => {
+    const column = line === 'col';
+    const labels = column ? state.columnLabels : state.rowLabels;
+    const labelOf = column ? C.columnLabel : C.rowLabel;
+    const placeholderOf = column ? C.columnPlaceholder : C.rowPlaceholder;
+    const remove = column ? C.removeColumn : C.removeRow;
+    const canRemove = !quiz && labels.length > CHART_SIDE.min;
+    if (!state.showGridHeaders && !canRemove) return null;
+    return labels.map((label, index) => (
+      <div key={index} className={styles.gridHeader} style={{ gridColumn: column ? index + 2 : 1, gridRow: column ? 1 : index + 2 }}>
+        {state.showGridHeaders && (quiz
+          ? <span className={styles.gridHeaderText}>{label}</span>
+          : <textarea rows={2} className={styles.axisLabel} value={label} maxLength={MAX_CHART_LABEL} aria-label={labelOf(index + 1)} placeholder={placeholderOf(index + 1)} onChange={(event) => update((current) => setGridLabel(current, line, index, event.target.value))} />)}
+        {canRemove && <XButton dense label={remove(index + 1)} title={remove(index + 1)} onClick={() => update((current) => removeGridLine(current, line, index))} />}
+      </div>
+    ));
+  };
 
   return (
     <div ref={root} className={styles.maker} style={makerStyle} data-detached={detached ? '' : undefined} data-names={state.names ? '' : undefined}>
@@ -128,7 +148,18 @@ export default function ChartMaker({ catalogue }: { catalogue: TierCatalogue }) 
               {C.bingoFree}
             </label>}
             {/* Either axis can go, or both: for a chart that ranks along one line, or none. */}
-            {state.kind === 'axes' && (
+            {state.kind === 'grid' ? (
+              <div className={styles.checks} role="group" aria-label={C.gridLabels}>
+                <label className="check">
+                  <input type="checkbox" checked={state.showGridHeaders} onChange={(event) => update((current) => ({ ...current, showGridHeaders: event.target.checked }))} />
+                  {C.showGridHeaders}
+                </label>
+                <label className="check">
+                  <input type="checkbox" checked={state.showCellLabels} onChange={(event) => update((current) => ({ ...current, showCellLabels: event.target.checked }))} />
+                  {C.showCellLabels}
+                </label>
+              </div>
+            ) : state.kind === 'axes' && (
               <div className={styles.checks} role="group" aria-label={C.axisLines}>
                 {AXIS_LINES.map((line) => (
                   <label key={line} className="check">
@@ -141,55 +172,56 @@ export default function ChartMaker({ catalogue }: { catalogue: TierCatalogue }) 
           </div>}
 
           {state.kind !== 'axes' ? (
-            // The grid is edited from its own edges: a × over each column and beside each row
-            // takes that one out, the + at the right and at the bottom adds one at the end.
-            <div className={styles.chartFrame} data-bingo={bingo ? '' : undefined} style={{ '--chart-cols': cols, '--chart-rows': rows } as CSSProperties}>
-              {bingo && <>
-                <input type="text" className={`${styles.name} ${styles.bingoTitle}`} value={chartTitle(state)} maxLength={MAX_CHART_TITLE}
-                  aria-label={C.bingoTitle} placeholder={C.bingoTitle} onChange={(event) => update((current) => setChartTitle(current, event.target.value))} />
-                <div className={styles.bingoLetters} aria-hidden="true">{BINGO_COLUMNS.map(letter => <span key={letter}>{letter}</span>)}</div>
-              </>}
-              {resize && cols > CHART_SIDE.min && Array.from({ length: cols }, (_, col) => (
-                <XButton key={`col-${col}`} dense className={styles.lineRemove} style={{ gridColumn: col + 2, gridRow: 1 }} label={C.removeColumn(col + 1)} title={C.removeColumn(col + 1)} onClick={() => update((current) => removeGridLine(current, 'col', col))} />
-              ))}
-              {resize && rows > CHART_SIDE.min && Array.from({ length: rows }, (_, row) => (
-                <XButton key={`row-${row}`} dense className={styles.lineRemove} style={{ gridColumn: 1, gridRow: row + 2 }} label={C.removeRow(row + 1)} title={C.removeRow(row + 1)} onClick={() => update((current) => removeGridLine(current, 'row', row))} />
-              ))}
-              <div className={styles.chartGrid}>
-                {cells.map((cell, index) => {
-                  if (isBingoFreeCell(state, index)) return <div key={index} className={styles.bingoFree} data-no-drop="">{C.bingoFree}</div>;
-                  const row = Math.floor(index / cols) + 1, col = (index % cols) + 1;
-                  const color = cellLabelColor(state, index);
-                  const textOnly = bingo && !cell.items.length;
-                  const rowTarget = `${CELL}${index}`;
-                  return (
-                    <div key={index} className={styles.chartCell} style={{ '--cell-color': color } as CSSProperties}
-                      data-ink={labelInk(color)} data-text-only={textOnly ? '' : undefined} data-custom-color={cell.color ? '' : undefined}
-                      data-row={textOnly ? rowTarget : undefined}>
-                      {!textOnly && <div className={styles.cellItems} data-row={rowTarget} role="group" aria-label={C.cellItems(cell.label, row, col)}>
-                        {cell.items.map((id) => { const item = byId.get(id); return item ? <Tile key={id} item={item} mark={markOf(id)} verdicts={CELL_VERDICTS} /> : null; })}
-                      </div>}
-                      <div className={textOnly ? styles.bingoPrompt : styles.cellBar}>
-                        {bingo
-                          ? <label className={styles.bingoPromptField}>
-                            <textarea className={styles.cellLabel} value={cell.label} rows={1} maxLength={MAX_CHART_LABEL} aria-label={C.cellLabel(row, col)} placeholder={C.cellPlaceholder} onChange={(event) => update((current) => setCellLabel(current, index, event.target.value))} />
-                          </label>
-                          : <input type="text" className={styles.cellLabel} value={cell.label} maxLength={MAX_CHART_LABEL} readOnly={!!quiz} aria-label={C.cellLabel(row, col)} placeholder={C.cellPlaceholder} onChange={(event) => update((current) => setCellLabel(current, index, event.target.value))} />}
-                        {!quiz && <label className={styles.cellColor} title={C.cellColor(row, col)}>
-                          <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M2.5 13.5l.7-3 7.6-7.6a1.4 1.4 0 0 1 2 0l.3.3a1.4 1.4 0 0 1 0 2l-7.6 7.6-3 .7zM9.8 3.9l2.3 2.3" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round" strokeLinecap="round" /></svg>
-                          <input type="color" value={color} aria-label={C.cellColor(row, col)} onChange={(event) => update((current) => setCellColor(current, index, event.target.value))} />
-                        </label>}
+            <div className={showHeaders ? styles.chartScroll : undefined}>
+              <div className={styles.chartFrame} data-bingo={bingo ? '' : undefined}
+                data-headers={showHeaders ? '' : undefined} data-cell-labels={showLabels ? '' : undefined} style={{ '--chart-cols': cols, '--chart-rows': rows } as CSSProperties}>
+                {bingo && <>
+                  <input type="text" className={`${styles.name} ${styles.bingoTitle}`} value={chartTitle(state)} maxLength={MAX_CHART_TITLE}
+                    aria-label={C.bingoTitle} placeholder={C.bingoTitle} onChange={(event) => update((current) => setChartTitle(current, event.target.value))} />
+                  <div className={styles.bingoLetters} aria-hidden="true">{BINGO_COLUMNS.map(letter => <span key={letter}>{letter}</span>)}</div>
+                </>}
+                {!bingo && gridHeaders('col')}
+                {!bingo && gridHeaders('row')}
+                <div className={styles.chartGrid}>
+                  {cells.map((cell, index) => {
+                    if (isBingoFreeCell(state, index)) return <div key={index} className={styles.bingoFree} data-no-drop="">{C.bingoFree}</div>;
+                    const row = Math.floor(index / cols) + 1, col = (index % cols) + 1;
+                    const color = cellLabelColor(state, index);
+                    const placedItems = cell.items.flatMap(id => byId.get(id) ?? []);
+                    const textOnly = bingo && !placedItems.length;
+                    const labels = showHeaders ? [state.rowLabels[row - 1], state.columnLabels[col - 1]] : [];
+                    if (showLabels) labels.push(cell.label);
+                    const label = labels.map(value => value.trim()).filter(Boolean).join(', ');
+                    const rowTarget = `${CELL}${index}`;
+                    return (
+                      <div key={index} className={styles.chartCell} style={{ '--cell-color': color } as CSSProperties}
+                        data-ink={labelInk(color)} data-text-only={textOnly ? '' : undefined} data-custom-color={cell.color ? '' : undefined}
+                        data-row={textOnly ? rowTarget : undefined}>
+                        {!textOnly && <div className={styles.cellItems} data-row={rowTarget} role="group" aria-label={C.cellItems(label, row, col)}>
+                          {placedItems.map(item => <Tile key={item.id} item={item} mark={markOf(item.id)} verdicts={CELL_VERDICTS} />)}
+                        </div>}
+                        {showLabels && <div className={textOnly ? styles.bingoPrompt : styles.cellBar}>
+                          {bingo
+                            ? <label className={styles.bingoPromptField}>
+                              <textarea className={styles.cellLabel} value={cell.label} rows={1} maxLength={MAX_CHART_LABEL} aria-label={C.cellLabel(row, col)} placeholder={C.cellPlaceholder} onChange={(event) => update((current) => setCellLabel(current, index, event.target.value))} />
+                            </label>
+                            : <input type="text" className={styles.cellLabel} value={cell.label} maxLength={MAX_CHART_LABEL} readOnly={!!quiz} aria-label={C.cellLabel(row, col)} placeholder={C.cellPlaceholder} onChange={(event) => update((current) => setCellLabel(current, index, event.target.value))} />}
+                          {!quiz && <label className={styles.cellColor} title={C.cellColor(row, col)}>
+                            <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M2.5 13.5l.7-3 7.6-7.6a1.4 1.4 0 0 1 2 0l.3.3a1.4 1.4 0 0 1 0 2l-7.6 7.6-3 .7zM9.8 3.9l2.3 2.3" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round" strokeLinecap="round" /></svg>
+                            <input type="color" value={color} aria-label={C.cellColor(row, col)} onChange={(event) => update((current) => setCellColor(current, index, event.target.value))} />
+                          </label>}
+                        </div>}
                       </div>
-                    </div>
-                  );
-                })}
+                    );
+                  })}
+                </div>
+                {resize && <button type="button" className={`ghost ${styles.lineAdd}`} data-line="col" aria-label={C.addColumn} title={cols >= CHART_SIDE.max ? C.gridFull(CHART_SIDE.max) : C.addColumn} disabled={cols >= CHART_SIDE.max} onClick={() => update((current) => resizeGrid(current, current.cols + 1, current.rows))}>
+                  <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M3.5 8h9M8 3.5v9" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /></svg>
+                </button>}
+                {resize && <button type="button" className={`ghost ${styles.lineAdd}`} data-line="row" aria-label={C.addRow} title={rows >= CHART_SIDE.max ? C.gridFull(CHART_SIDE.max) : C.addRow} disabled={rows >= CHART_SIDE.max} onClick={() => update((current) => resizeGrid(current, current.cols, current.rows + 1))}>
+                  <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M3.5 8h9M8 3.5v9" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /></svg>
+                </button>}
               </div>
-              {resize && <button type="button" className={`ghost ${styles.lineAdd}`} data-line="col" aria-label={C.addColumn} title={cols >= CHART_SIDE.max ? C.gridFull(CHART_SIDE.max) : C.addColumn} disabled={cols >= CHART_SIDE.max} onClick={() => update((current) => resizeGrid(current, current.cols + 1, current.rows))}>
-                <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M3.5 8h9M8 3.5v9" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /></svg>
-              </button>}
-              {resize && <button type="button" className={`ghost ${styles.lineAdd}`} data-line="row" aria-label={C.addRow} title={rows >= CHART_SIDE.max ? C.gridFull(CHART_SIDE.max) : C.addRow} disabled={rows >= CHART_SIDE.max} onClick={() => update((current) => resizeGrid(current, current.cols, current.rows + 1))}>
-                <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M3.5 8h9M8 3.5v9" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /></svg>
-              </button>}
             </div>
           ) : (
             // The labels stand outside the plane, one at each end of each axis, so nothing lies
@@ -220,7 +252,7 @@ export default function ChartMaker({ catalogue }: { catalogue: TierCatalogue }) 
           </> : <>
             <div className={styles.boardActions}>
               <button type="button" className="ghost" onClick={() => setSharing(true)}>{C.share}</button>
-              <button type="button" className="ghost" disabled={!placedCount && !bingo} title={placedCount || bingo ? undefined : C.emptyNothing} onClick={() => setImaging(true)}>{T.makeImage}</button>
+              <button type="button" className="ghost" disabled={!canMakeImage} title={canMakeImage ? undefined : C.emptyNothing} onClick={() => setImaging(true)}>{T.makeImage}</button>
               <button type="button" className="ghost" disabled={!placedCount} title={placedCount ? undefined : C.emptyNothing} onClick={() => update(clearChart)}>{C.empty}</button>
               <button type="button" className="danger" onClick={() => { if (window.confirm(C.startOverConfirm)) { update(() => defaultChart()); setQuery(''); } }}>{C.startOver}</button>
             </div>

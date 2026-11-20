@@ -34,6 +34,18 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    at: '2026-11-20T11:03:00Z',
+    title: 'Bingo boards and event launch times',
+    added: [
+      { title: 'Bingo boards', detail: 'Create a five-by-five board with your own title, prompts, operator art and optional free space.', href: '/polls/chart-maker' },
+      { title: 'Launch Time on event pages', detail: 'Open the timezone card from an event page, including events in the archive.', href: '/schedule?past=1' },
+    ],
+    changed: [
+      { title: 'Show Timezones on the homepage', detail: 'Find the action in the same lower-right spot on every upcoming event or broadcast.', href: '/' },
+      { title: 'More ways to build a chart', detail: 'Add row and column labels, browse the floating artwork pool and see maker examples.', href: '/polls' },
+    ],
+  },
+  {
     at: '2026-11-20T08:05:00Z',
     title: 'Event start times and clearer release dates',
     added: [{ title: 'Shareable event start times', detail: 'Open the clock on an upcoming homepage banner to see local start times and save a 12-hour or 24-hour image.', href: '/' }],

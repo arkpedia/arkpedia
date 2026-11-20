@@ -1,8 +1,8 @@
 import Link from 'next/link';
 import PullPollIndexCard from '@/components/community/PullPollIndexCard';
 import type {PollBanner,PollPortrait} from '@/lib/polls/pull-poll';
-import {useMemo,type CSSProperties} from 'react';
-import {defaultTierList} from '@/lib/tier-list/state';
+import {useMemo} from 'react';
+import MakerSampleCards from '@/components/community/MakerSampleCards';
 import {useSkinRatings} from '@/lib/polls/useSkinRatings';
 import {skinRatingRows} from '@/lib/polls/skin-rating-statistics';
 import type {PollSkin} from '@/lib/polls/skin-poll';
@@ -11,14 +11,12 @@ import PageMeta from '@/components/layout/PageMeta';
 import PageHeader from '@/components/ui/PageHeader';
 import ResponsiveSkinArtwork from '@/components/skins/ResponsiveSkinArtwork';
 import { withContentPage } from '@/lib/content/server';
-import { TIER_LIST_STRINGS as TIER } from '@/lib/tier-list/strings';
-import { CHART_STRINGS as CHART } from '@/lib/tier-list/chartStrings';
-import { cellColor } from '@/lib/tier-list/chart';
+import type { MakerSample } from '@/lib/tier-list/makerSamples';
 import styles from '@/components/community/Polls.module.css';
 
 interface Outfit {image:string;name:string;operator:string}
 interface Leader {id:string;name:string;operator?:string;image:string|null;rank:number;href?:string}
-interface Props {now:number;pullBanners?:PollBanner[];pullPortraits?:Record<string,PollPortrait>;showcase:Outfit[];previousArt:string[];skins?:PollSkin[];previousLeaders?:Leader[]}
+interface Props {now:number;pullBanners?:PollBanner[];pullPortraits?:Record<string,PollPortrait>;showcase:Outfit[];previousArt:string[];skins?:PollSkin[];previousLeaders?:Leader[];makerSamples?:MakerSample[]}
 
 function LeaderFigures({leaders}:{leaders:Leader[]}){
   return <>{[1,0,2].map((position,slot)=>{const leader=leaders[position];if(!leader)return <figure key={`empty-${slot}`} aria-hidden="true"/>;
@@ -29,7 +27,7 @@ function LeaderFigures({leaders}:{leaders:Leader[]}){
     </figure>;
   })}</>;
 }
-export default function Polls({skins=[],previousLeaders=[],pullBanners=[],pullPortraits={},now}:Props){
+export default function Polls({skins=[],previousLeaders=[],pullBanners=[],pullPortraits={},makerSamples=[],now}:Props){
   const {result,error}=useSkinRatings(null);
   const leaders=useMemo(()=>skinRatingRows(result?.ranking??[],skins,'skins').slice(0,3).map(row=>({...row,href:`/polls/favourite-skins?view=results&detail=${encodeURIComponent(row.id)}`})),[result,skins]);
   return <>
@@ -57,27 +55,6 @@ export default function Polls({skins=[],previousLeaders=[],pullBanners=[],pullPo
           <div><dt>Rating scale</dt><dd>1–10</dd></div><div><dt>No limit</dt><dd>Any skin</dd></div><div><dt>Progress saved</dt><dd>Any time</dd></div>
         </dl>
       </section>
-      <section className={styles.previous} aria-labelledby="make-your-own-title">
-        <h2 id="make-your-own-title" className="section-title">{TIER.indexHeading}</h2>
-        <Link className={`directory-card lift ${styles.archive} ${styles.makerCard}`} href="/polls/tier-list" aria-label={TIER.indexTitle}>
-          <div className={styles.archiveCopy}>
-            <span className="label-tag">{TIER.indexTag}</span>
-            <h3 className={`entity-title entity-title-name ${styles.archiveTitle}`}>{TIER.indexTitle}</h3>
-            <p>{TIER.indexBody}</p>
-            <span className={styles.archiveAction}>{TIER.indexAction} <span aria-hidden="true">↗</span></span>
-          </div>
-          <div className={styles.makerArt} aria-hidden="true">{defaultTierList().rows.slice(0,4).map(row=><span key={row.id} style={{'--tier-color':row.color} as CSSProperties}><b>{row.label}</b><i/></span>)}</div>
-        </Link>
-        <Link className={`directory-card lift ${styles.archive} ${styles.makerCard}`} href="/polls/chart-maker" aria-label={CHART.indexTitle}>
-          <div className={styles.archiveCopy}>
-            <span className="label-tag">{TIER.indexTag}</span>
-            <h3 className={`entity-title entity-title-name ${styles.archiveTitle}`}>{CHART.indexTitle}</h3>
-            <p>{CHART.indexBody}</p>
-            <span className={styles.archiveAction}>{CHART.indexAction} <span aria-hidden="true">↗</span></span>
-          </div>
-          <div className={styles.chartArt} aria-hidden="true">{Array.from({length:9},(_,i)=><i key={i} style={{'--cell-color':cellColor(i,3,3)} as CSSProperties}/>)}</div>
-        </Link>
-      </section>
       <section className={styles.previous} aria-labelledby="previous-polls-title">
         <h2 id="previous-polls-title" className="section-title">Previous results</h2>
         <Link className={`directory-card lift ${styles.archive}`} href="/polls/power-scale" aria-label="Power Scale results">
@@ -90,18 +67,26 @@ export default function Polls({skins=[],previousLeaders=[],pullBanners=[],pullPo
           <div className={styles.archiveArt} role="group" aria-label="Power Scale top three"><LeaderFigures leaders={previousLeaders}/></div>
         </Link>
       </section>
+      <MakerSampleCards samples={makerSamples}/>
     </main>
   </>;
+}
+
+async function loadMakerSamples() {
+  const {tierListCatalogue}=await import('@/lib/community/catalogues');
+  const {makeMakerSamples}=await import('@/lib/tier-list/makerSamples');
+  return makeMakerSamples((await tierListCatalogue()).operators);
 }
 
 export const getStaticProps:GetStaticProps<Props>=withContentPage<Props>('/polls',async()=>{
   const {communityPoll}=await import('@/lib/community/catalogues');
   const catalogue=await communityPoll();
   const {pullPollPageCatalogue}=await import('@/lib/polls/pull-poll-catalogue');const pull=await pullPollPageCatalogue();
-  return {props:{...catalogue,pullBanners:pull.banners,pullPortraits:pull.portraits}};
+  return {props:{...catalogue,pullBanners:pull.banners,pullPortraits:pull.portraits,makerSamples:await loadMakerSamples()}};
 },{bundledWhenUnpublished:true,finalize:async props=>{
   const pull=props.pullBanners&&props.pullPortraits?null:await (await import('@/lib/polls/pull-poll-catalogue')).pullPollPageCatalogue();
-  if(props.skins&&props.previousLeaders)return {...props,...(pull?{pullBanners:pull.banners,pullPortraits:pull.portraits}:{})};
+  const makerSamples=props.makerSamples??await loadMakerSamples();
+  if(props.skins&&props.previousLeaders)return {...props,makerSamples,...(pull?{pullBanners:pull.banners,pullPortraits:pull.portraits}:{})};
   const {communityPoll}=await import('@/lib/community/catalogues');const catalogue=await communityPoll();
-  return {...props,skins:props.skins??catalogue.skins,previousLeaders:props.previousLeaders??catalogue.previousLeaders,...(pull?{pullBanners:pull.banners,pullPortraits:pull.portraits}:{})};
+  return {...props,makerSamples,skins:props.skins??catalogue.skins,previousLeaders:props.previousLeaders??catalogue.previousLeaders,...(pull?{pullBanners:pull.banners,pullPortraits:pull.portraits}:{})};
 }});

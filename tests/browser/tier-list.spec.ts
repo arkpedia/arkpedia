@@ -14,8 +14,8 @@ const height = (page: Page) => page.evaluate(() => document.documentElement.scro
 const names = (page: Page, count: number) => pool(page).evaluateAll((tiles, n) => tiles.slice(0, n).map((tile) => tile.getAttribute('aria-label')), count);
 const centre = async (target: Locator) => { const box = (await target.boundingBox())!; return { x: box.x + box.width / 2, y: box.y + box.height / 2 }; };
 const mobile = (info: TestInfo) => info.project.name === 'mobile';
-const detach = (page: Page) => page.getByRole('button', { name: 'Detach the pool so it floats over the page', exact: true }).click();
-const pin = (page: Page) => page.getByRole('button', { name: 'Pin the pool under the tier list', exact: true }).click();
+const detach = (page: Page) => page.getByRole('button', { name: 'Hover Tool', exact: true }).click();
+const pin = (page: Page) => page.getByRole('button', { name: 'Collapse', exact: true }).click();
 
 async function open(page: Page) {
   await readOnly(page);
@@ -63,10 +63,42 @@ async function copyLink(page: Page, kind: 'Full tier list' | 'Template' | 'Quiz'
   return page.evaluate(() => navigator.clipboard.readText());
 }
 
-test('the polls list links to the tier list maker', async ({ page }) => {
+test('the polls list links to three populated maker samples after previous results', async ({ page }) => {
+  test.setTimeout(90000);
   await readOnly(page);
   await page.goto('/polls');
-  await expect(page.getByRole('link', { name: 'Tier list maker', exact: true })).toHaveAttribute('href', '/polls/tier-list');
+  await expect(page.locator('section[aria-labelledby="previous-polls-title"] + section')).toHaveAccessibleName('Make your own');
+  const makers = page.getByRole('region', { name: 'Make your own', exact: true });
+  const tier = makers.getByRole('link', { name: 'Tier list maker', exact: true });
+  const grid = makers.getByRole('link', { name: 'Chart Maker · Grid', exact: true });
+  const axes = makers.getByRole('link', { name: 'Chart Maker · Axes', exact: true });
+  await expect(tier).toHaveAttribute('href', /^\/polls\/tier-list#list=/);
+  await expect(grid).toHaveAttribute('href', /^\/polls\/chart-maker#chart=/);
+  await expect(axes).toHaveAttribute('href', /^\/polls\/chart-maker#chart=/);
+  await expect(tier.locator('img')).toHaveCount(15);
+  await expect(tier.locator('b')).toHaveText(['Red', 'Blue', 'White']);
+  await expect(grid.locator('img')).toHaveCount(9);
+  await expect(axes.locator('img')).toHaveCount(6);
+
+  await tier.press('Enter');
+  await page.waitForURL(/\/polls\/tier-list#list=/, { waitUntil: 'domcontentloaded', timeout: 30000 });
+  await expect(page.getByText(/You are looking at a shared tier list/)).toBeVisible();
+  await expect(page.locator('[data-row] [data-item]')).toHaveCount(15);
+  await page.getByRole('button', { name: 'Back to mine', exact: true }).click();
+  await expect(page.getByRole('textbox', { name: 'Tier list name' })).toHaveValue('');
+
+  await page.goto('/polls');
+  await grid.press('Enter');
+  await page.waitForURL(/\/polls\/chart-maker#chart=/, { waitUntil: 'domcontentloaded', timeout: 30000 });
+  await expect(page.getByRole('heading', { name: 'Chart Maker', exact: true })).toBeVisible();
+  await expect(page.locator('[data-row] [data-item]')).toHaveCount(9);
+  await expect(page.getByRole('textbox', { name: 'Column 1 label' })).toHaveValue('Sniper');
+
+  await page.goto('/polls');
+  await axes.press('Enter');
+  await page.waitForURL(/\/polls\/chart-maker#chart=/, { waitUntil: 'domcontentloaded', timeout: 30000 });
+  await expect(page.locator('[data-plane] [data-item]')).toHaveCount(6);
+  await expect(page.getByRole('textbox', { name: 'Left of the horizontal axis' })).toHaveValue('0 DP');
 });
 
 test('checkboxes choose the pool without changing the page height', async ({ page }) => {
@@ -220,7 +252,7 @@ test('tiles carry a name plate: whose it is, and for a skill which one', async (
   await expect(pool(page).first().locator('span').first()).toBeHidden();
 });
 
-test('the pool opens popped out, and its arrow pins it under the tier list', async ({ page }, info) => {
+test('the pool opens popped out, and Collapse pins it under the tier list', async ({ page }, info) => {
   await open(page);
   const box = poolWindow(page);
   // Popped out when the page opens: over the page, not in it.
