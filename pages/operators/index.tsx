@@ -503,8 +503,6 @@ export default function OperatorsIndex({ operators, limitedBannerInfo = NO_LIMIT
             </div>
           </div>
 
-          {/* Filters on the left, the order on the right: the same row on the skins gallery
-              and the Skin Planner, with the owned filter in the same place. */}
           <div className="roster-filter-row">
           <StyledSelect multiple className="roster-branch" label="Filter by subclass" value={branchValues}
             onChange={values => setBranchFilter(values.join(',') || 'all')} placeholder="All subclasses"
@@ -539,35 +537,36 @@ export default function OperatorsIndex({ operators, limitedBannerInfo = NO_LIMIT
           </button>
 
           <OwnedFilter label="Operators you own" value={owned} onChange={setOwned} account={account} counts={ownedCounts} />
+          </div>
 
-          <span className="toolbar-spacer" aria-hidden="true" />
-          <StyledSelect label="Sort by" value={sortField} options={SORTS} menuMaxHeight={720} onChange={value => {
-            setSortField(value);
-            if (value === 'birthday' || defaultSortDirection(value) !== defaultSortDir) setSortDir('');
-          }} />
-          {statSort && <InfoPopover label="How roster stats are compared">
-            <p>Base stats at each operator’s highest promotion and level, before bonuses from trust, potential, talents, or modules.</p>
-          </InfoPopover>}
-          {useCommunitySort && <InfoPopover label="How roster community percentages are calculated">
-            <p>Owned is the share of opted-in accounts across all regions. Build rates use owners with known progress.</p>
-            <p>Built means E2 for 4–6★, E1 for 3★, and max level for 1–2★. Max level requires the final promotion and level cap for that rarity.</p>
-            <p>Module unlocked, Any M3, and Full mastery use eligible E2 owners. Full mastery means M6 for 4–5★ and M9 for 6★. A dash means the rate is unavailable.</p>
-          </InfoPopover>}
-          {/* Ascending order is the pressed state. */}
-          <button
-            type="button"
-            className="ghost"
-            aria-pressed={sortDir === 'asc'}
-            onClick={() => setSortDir(sortDir === 'desc' ? 'asc' : 'desc')}
-            aria-label={sortDir === 'desc' ? 'Sort descending' : 'Sort ascending'}
-            title={sortDir === 'desc' ? 'Sort descending' : 'Sort ascending'}
-          >
-            {sortDir === 'desc' ? '↓' : '↑'}
-          </button>
-
-          <button type="button" className={`ghost ${INLINE_RESET}`} onClick={resetFilters}>
-            Reset
-          </button>
+          <div className="roster-sort-row" role="group" aria-label="Sort operators">
+            <StyledSelect className="roster-sort-picker" label="Sort by" value={sortField} options={SORTS} menuMaxHeight={720} onChange={value => {
+              setSortField(value);
+              if (value === 'birthday' || defaultSortDirection(value) !== defaultSortDir) setSortDir('');
+            }} />
+            <button
+              type="button"
+              className="ghost roster-sort-direction"
+              aria-pressed={sortDir === 'asc'}
+              onClick={() => setSortDir(sortDir === 'desc' ? 'asc' : 'desc')}
+              aria-label={sortDir === 'desc' ? 'Sort descending' : 'Sort ascending'}
+              title={sortDir === 'desc' ? 'Sort descending' : 'Sort ascending'}
+            >
+              {sortDir === 'desc' ? '↓' : '↑'}
+            </button>
+            <button type="button" className={`ghost ${INLINE_RESET}`} onClick={resetFilters}>
+              Reset
+            </button>
+            <span className="roster-sort-help">
+              {statSort && <InfoPopover label="How roster stats are compared">
+                <p>Base stats at each operator’s highest promotion and level, before bonuses from trust, potential, talents, or modules.</p>
+              </InfoPopover>}
+              {useCommunitySort && <InfoPopover label="How roster community percentages are calculated">
+                <p>Owned is the share of opted-in accounts across all regions. Build rates use owners with known progress.</p>
+                <p>Built means E2 for 4–6★, E1 for 3★, and max level for 1–2★. Max level requires the final promotion and level cap for that rarity.</p>
+                <p>Module unlocked, Any M3, and Full mastery use eligible E2 owners. Full mastery means M6 for 4–5★ and M9 for 6★. A dash means the rate is unavailable.</p>
+              </InfoPopover>}
+            </span>
           </div>
           </>} />
         </div>} />

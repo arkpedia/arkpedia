@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { closeFilters, openFilters, seedAccountRecord } from './census-routes';
 import { censusWidth } from './layout-checks';
 import { setTheme } from './overlay-checks';
 
@@ -137,6 +138,51 @@ for (const theme of ['dark', 'light'] as const) {
       expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth), 'no sideways scroll').toBeLessThanOrEqual(0);
     });
   }
+
+  test(`operator roster sorting stays on its own row as the label changes (${theme})`, async ({ page }) => {
+    await censusWidth(page);
+    await page.route('**/api/community/rankings?*', route => route.fulfill({ json: { contributors: 0, roster: null } }));
+    await page.goto('/operators?gender=Female');
+    await seedAccountRecord(page, {
+      version: 1, server: 'en', importedAt: '2026-10-01T12:00:00.000Z', doctor: null,
+      operators: ['Amiya'], skins: [], cleared: [],
+    });
+    await setTheme(page, theme);
+    await openFilters(page);
+
+    const group = page.getByRole('group', { name: 'Sort operators' });
+    const sort = group.getByRole('combobox', { name: 'Sort by' });
+    const direction = group.getByRole('button', { name: /^Sort (ascending|descending)$/ });
+    const reset = group.locator('.filter-reset-inline');
+    await expect(sort).toHaveText('Rarity');
+    await expect(page.getByRole('group', { name: 'Operators you own' })).toBeVisible();
+    await page.evaluate(() => document.fonts.ready);
+    await group.scrollIntoViewIfNeeded();
+    const filters = (await page.locator('.roster-filter-row').boundingBox())!;
+    const row = (await group.boundingBox())!;
+    expect(row.y).toBeGreaterThan(filters.y + filters.height);
+    const controls = () => Promise.all([sort.boundingBox(), direction.boundingBox(), reset.boundingBox()]);
+    const before = await controls();
+    for (const [name, value] of [['Next birthday', 'birthday'], ['Module unlocked %', 'community-module']]) {
+      await sort.click();
+      await page.getByRole('option', { name, exact: true }).click();
+      await query(page, 'sort', value);
+      await expect(sort).toHaveText(name);
+      await expect(sort).toBeFocused();
+      expect(await controls()).toEqual(before);
+    }
+
+    const help = group.getByRole('button', { name: 'How roster community percentages are calculated' });
+    await help.click();
+    await expect(page.getByRole('region', { name: 'How roster community percentages are calculated' })).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(help).toBeFocused();
+    await direction.click();
+    await query(page, 'dir', 'asc');
+    expect(await controls()).toEqual(before);
+    await closeFilters(page);
+    await expect(page.locator('.roster-card').first()).toBeVisible();
+  });
 }
 
 test('a shared address opens on its chips, and the sheet keeps the page under it when scrolled', async ({ page }) => {
