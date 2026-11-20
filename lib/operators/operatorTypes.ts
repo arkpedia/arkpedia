@@ -1,7 +1,6 @@
 import type { OperatorStats, OperatorFile } from './operatorStats';
 import type { ObtainMethod, WelfareSource } from './obtainMethods';
 import type { ReleaseTiming, TimingEvidence } from '@/lib/time/releaseTiming';
-import type { Birthday } from '@/lib/schedule/scheduleDates';
 
 /** Cropped range grid with one-based row and column coordinates. */
 export interface CroppedRange {
@@ -295,10 +294,6 @@ export interface Operator {
 // talents, modules, base stats, promotion tables, bios, voice credits,
 // ...) to the client when a page never reads any of that.
 export interface RosterOperator {
-  bio?: { gender: 'Female' | 'Male' | 'Other' | 'Unknown'; birthday?: Birthday; height?: { value: number; label: string }; experience?: { value: number; label: string } };
-  /** Final-promotion base values in STAT_KEYS order, with null for missing values. */
-  stats?: (number | null)[] | null;
-  hasUpgradeModule?: boolean;
   sourceRegion?: 'CN' | 'Global';
   portraitPending?: boolean;
   name: string;

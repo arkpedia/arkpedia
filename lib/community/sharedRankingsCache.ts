@@ -38,9 +38,9 @@ export async function sharedRankingResult(bucket:RankingBucket,key:string,stamp:
   while(now()<deadline){
     const object=await bucket.get(objectKey),envelope:Envelope=object?JSON.parse(await object.text()):{},kept=envelope.kept;
     const valid=kept?.stamp===stamp&&now()-kept.builtAt<MAX_AGE?kept:null;
-    const upgrade=valid&&valid.expires>now()&&!forceRefresh&&upgradeRoster&&!valid.result.rosterProgressReady
+    const upgrade=valid&&!forceRefresh&&upgradeRoster&&!valid.result.rosterProgressReady
       ? ()=>upgradeRoster(valid.result) : undefined;
-    if(valid&&valid.expires>now()&&!forceRefresh&&(!upgrade||(valid.rosterRetryAt??0)>now()))return valid.result;
+    if(valid&&!forceRefresh&&(upgrade?(valid.rosterRetryAt??0)>now():valid.expires>now()))return valid.result;
     if(envelope.lease?.stamp===stamp&&envelope.lease.expires>now()){
       if(valid&&!forceRefresh&&!upgrade)return valid.result;
       await wait(150);continue;

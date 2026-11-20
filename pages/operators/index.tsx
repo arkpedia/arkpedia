@@ -10,13 +10,13 @@ import { useRouter } from 'next/router';
 import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import { useReaderClock } from '@/lib/time/readerClock';
 import { DAY_MS, serverCalendarTime } from '@/lib/time/servers.mjs';
+import { useSiteServer } from '@/lib/time/siteServer';
 import { getAllOperators } from '@/lib/operators/operators';
 import { portraitStatus } from '@/lib/operators/operatorPortrait';
 import { useQueryState } from '@/lib/hooks/useQueryState';
 import { getOperatorIconPath } from '@/lib/operators/operatorIcon';
 import { getClassIconPath, getBranchIconPath } from '@/lib/operators/classBranchIcons';
 import { isDebutAvailable, operatorRelease, operatorReleaseLabel } from '@/lib/operators/operatorAvailability';
-import { RosterOperator } from '@/lib/operators/operatorTypes';
 import {
   LIMITED_SUBTYPES, OBTAIN_METHODS, WELFARE_SUBTYPES, obtainFilter, obtainMethodsOf, welfareMatches, welfareSourceOf,
 } from '@/lib/operators/obtainMethods';
@@ -41,7 +41,7 @@ import { useSwitchHold } from '@/components/ui/useSwitchHold';
 import { operatorHref } from '@/lib/operators/operatorHref';
 import {
   compareRosterValue, nextRosterBirthday, rosterBirthdayLabel, rosterCommunityValue, rosterMetadata,
-  rosterStatValue, ROSTER_COMMUNITY_SORTS, ROSTER_GENDERS, ROSTER_PROFILE_SORTS, ROSTER_STAT_SORTS, type RosterSort,
+  rosterStatValue, ROSTER_COMMUNITY_SORTS, ROSTER_GENDERS, ROSTER_PROFILE_SORTS, ROSTER_STAT_SORTS, type RosterOperator, type RosterSort,
 } from '@/lib/operators/rosterSort';
 import type { CommunityRosterRankings } from '@/lib/community/rankings';
 
@@ -159,8 +159,9 @@ export default function OperatorsIndex({ operators, limitedBannerInfo = NO_LIMIT
   // lib/time/readerClock.ts). Same pattern as the Terminal page's clock.
   // Rounded to the minute, so a re-read within it is a no-op for React.
   const clock = useReaderClock(now, { tickMs: 1000 });
+  const siteServer = useSiteServer();
   const birthdayToday = sortField === 'birthday'
-    ? Math.floor(+serverCalendarTime(new Date(clock), account?.server ?? 'en') / DAY_MS) * DAY_MS
+    ? Math.floor(+serverCalendarTime(new Date(clock), siteServer) / DAY_MS) * DAY_MS
     : undefined;
   const sortValue = useMemo(() => {
     if (birthdayToday !== undefined) {

@@ -1,4 +1,4 @@
-import type { Operator, RosterOperator } from './operatorTypes';
+import type { Operator, RosterOperator as OperatorSummary } from './operatorTypes';
 import type { RosterRanking } from '@/lib/community/rankings';
 import { parseBirthdayText, type Birthday } from '@/lib/schedule/scheduleDates';
 import { DAY_MS } from '@/lib/time/servers.mjs';
@@ -35,7 +35,19 @@ export type RosterSort = 'rarity' | 'releaseDate' | 'birthday' | StatKey | Profi
 
 export const ROSTER_GENDERS = ['Female', 'Male', 'Other', 'Unknown'] as const;
 
-export type RosterMetadata = Required<Pick<RosterOperator, 'bio' | 'stats' | 'hasUpgradeModule'>>;
+export interface RosterMetadata {
+  bio: {
+    gender: typeof ROSTER_GENDERS[number];
+    birthday?: Birthday;
+    height?: { value: number; label: string };
+    experience?: { value: number; label: string };
+  };
+  /** Final-promotion base values in STAT_KEYS order, with null for missing values. */
+  stats: (number | null)[] | null;
+  hasUpgradeModule: boolean;
+}
+
+export type RosterOperator = OperatorSummary & Partial<RosterMetadata>;
 
 export function rosterMetadata(operator: Pick<Operator, 'basicInfo' | 'stats' | 'modules'>): RosterMetadata {
   return {
@@ -86,7 +98,7 @@ export function rosterCommunityValue(field: CommunitySort, operator: RosterOpera
   }
 }
 
-export function rosterBio(info: Record<string, string> | null | undefined): NonNullable<RosterOperator['bio']> {
+export function rosterBio(info: Record<string, string> | null | undefined): RosterMetadata['bio'] {
   const genderText = info?.Gender?.trim().toLowerCase();
   const gender = !genderText || ['unknown', 'undisclosed', '未知', '––'].includes(genderText) ? 'Unknown'
     : ['female', 'self-proclaimed female'].includes(genderText) ? 'Female'

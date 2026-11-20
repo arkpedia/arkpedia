@@ -48,6 +48,19 @@ test('roster views upgrade a fresh legacy snapshot once and preserve its replay 
   assert.equal(full,2);
 });
 
+test('roster views can upgrade a stale legacy snapshot when the daily refresh was missed',async()=>{
+  const {store}=bucket();let time=1000;
+  await sharedRankingResult(store,'all','same',async()=>({...result(),replays:27}),{now:()=>time});
+  time+=RANKING_SNAPSHOT_DAY*1.5;
+  const upgraded=await sharedRankingResult(store,'all','same',async()=>{
+    assert.fail('a roster upgrade should leave the stale replay aggregates for the daily refresh');
+  },{now:()=>time,upgradeRoster:async previous=>({...previous,rosterProgressReady:true})});
+  assert.equal(upgraded.rosterProgressReady,true);
+  assert.equal(upgraded.replays,27);
+  const refreshed=await sharedRankingResult(store,'all','same',async()=>result(15),{now:()=>time});
+  assert.equal(refreshed.contributors,15);
+});
+
 test('a failed roster-only upgrade backs off and a known consent change returns no old snapshot',async()=>{
   const {store}=bucket();let time=1000,attempts=0;
   const load=async()=>result();
