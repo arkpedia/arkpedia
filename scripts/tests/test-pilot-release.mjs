@@ -12,6 +12,7 @@ function fixture() {
   let current = 'previous';
   const provider = {
     observe: () => { calls.push('observe'); return { id: current }; },
+    activeVersionId: () => { calls.push('activeVersionId'); return current; },
     health: async () => { calls.push('health'); },
     deploy: owner => { calls.push('deploy'); assert.equal(owner.previousVersion, 'previous'); current = 'new'; return { id: current }; },
     recover: async () => { calls.push('recover'); current = 'previous'; return { action: 'rolled-back' }; },
@@ -23,7 +24,7 @@ test('release revalidates after preflight and checks the serving owner after dep
   const f = fixture(); const result = await publish(f);
   assert.equal(result.action, 'published');
   assert.equal(result.source, source);
-  assert.deepEqual(f.calls, ['approve', 'observe', 'health', 'approve', 'deploy', 'health', 'observe']);
+  assert.deepEqual(f.calls, ['approve', 'observe', 'health', 'approve', 'deploy', 'health', 'activeVersionId']);
 });
 test('failed initial or final approval and failed preflight never deploy or roll back', async () => {
   const initial = fixture(); initial.approve = async () => { throw new Error('not checked'); };
@@ -39,7 +40,7 @@ test('failed initial or final approval and failed preflight never deploy or roll
 test('a same-source rebuild still publishes because asset pins can change independently of code identity', async () => {
   const f = fixture(); f.provider.health = async () => ({ build });
   assert.equal((await publish(f)).action, 'published');
-  assert.deepEqual(f.calls, ['approve', 'observe', 'approve', 'deploy', 'observe']);
+  assert.deepEqual(f.calls, ['approve', 'observe', 'approve', 'deploy', 'activeVersionId']);
 });
 test('post-activation failure attempts ownership-aware recovery but still fails the release', async () => {
   const f = fixture(); let health = 0;
@@ -69,11 +70,11 @@ test('an identity that never propagates still rolls back after a bounded wait', 
 });
 
 test('a changed owner during identity propagation is never accepted', async () => {
-  const f = fixture(); let reads = 0; let observes = 0;
+  const f = fixture(); let reads = 0;
   f.provider.health = async () => {
     if (++reads > 1) throw Object.assign(new Error('identity pending'), { code: 'PILOT_IDENTITY_MISMATCH' });
   };
-  f.provider.observe = () => ({ id: ++observes === 1 ? 'previous' : 'foreign' });
+  f.provider.activeVersionId = () => 'foreign';
   await assert.rejects(() => publish(f, { sleep: async () => assert.fail('must not wait on a foreign version') }), /pilot changed/);
 });
 test('upload uncertainty is reconciled through the provider instead of blindly redeploying', async () => {
@@ -91,8 +92,8 @@ test('an acknowledged activation that cannot be verified requires reconciliation
   assert.ok(!f.calls.includes('recover'));
 });
 test('a foreign post-activation owner requires reconciliation and remains a failed release', async () => {
-  const f = fixture(); let observes = 0;
-  f.provider.observe = () => ({ id: ++observes === 1 ? 'previous' : 'foreign' });
+  const f = fixture();
+  f.provider.activeVersionId = () => 'foreign';
   f.provider.recover = async () => { throw new Error('foreign owner'); };
   await assert.rejects(() => publish(f), error => error.recovery.action === 'manual-reconciliation-required');
 });

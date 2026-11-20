@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { PILOT, MEDIA_SECRET_UPDATE, PATREON_SECRET_UPDATE, PRE_CUTOVER_VERSION, assertPilotBindings, assertPilotIdentity, pilotReleaseMessage, readPilotIdentity,
   createPilotProvider } from '../deploy/pilot-release-provider.mjs';
+import { publishPilotRelease } from '../deploy/pilot-release.mjs';
 
 const nextVersion = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 const foreignVersion = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
@@ -126,7 +127,7 @@ test('identity reader refuses dirty, invalid-role, redirect and oversized respon
   await assert.rejects(() => readPilotIdentity(async () => new Response(' '.repeat(70_000))), /oversized pilot identity/);
 });
 
-function harness({ token = true, staleAfterDeploy = 0, foreignAfterDeploy = false, badRoute = null, lostDeployResponse = false, sessionCache = 'private, no-store', savedDataCache = 'private, no-store', allowLocalRecovery = false, initialVersion = PILOT.legacyVersion, accounts = false, providers = ['google', 'discord'] } = {}) {
+function harness({ token = true, staleAfterDeploy = 0, missingMetadataReads = 0, metadataErrorCode = 100146, foreignAfterDeploy = false, badRoute = null, lostDeployResponse = false, sessionCache = 'private, no-store', savedDataCache = 'private, no-store', allowLocalRecovery = false, initialVersion = PILOT.legacyVersion, accounts = false, providers = ['google', 'discord'] } = {}) {
   let current = initialVersion;
   let staleReads = 0;
   const waits = [];
@@ -146,7 +147,15 @@ function harness({ token = true, staleAfterDeploy = 0, foreignAfterDeploy = fals
       return JSON.stringify([{ id: 'cccccccc-cccc-4ccc-8ccc-cccccccccccc',
         created_on: '2026-10-25T00:00:00Z', versions: [{ version_id: observed, percentage: 100 }] }]);
     }
-    if (command === 'versions') return JSON.stringify(versions.get(args[3]));
+    if (command === 'versions') {
+      if (args[3] === nextVersion && missingMetadataReads > 0) {
+        missingMetadataReads--;
+        throw Object.assign(new Error('Wrangler version lookup failed'), {
+          stderr: Buffer.from(`Cloudflare API request failed [code: ${metadataErrorCode}]`),
+        });
+      }
+      return JSON.stringify(versions.get(args[3]));
+    }
     if (command === 'deploy') {
       current = nextVersion;
       versions.get(current).annotations['workers/message'] = args[args.indexOf('--message') + 1];
@@ -282,6 +291,33 @@ test('a control plane that never shows activation fails after a bounded wait wit
   });
   assert.deepEqual(h.waits, Array(24).fill(5000));
   assert.equal(h.commands.filter(c => c === 'deploy').length, 1);
+});
+
+test('publication waits for late metadata on the exact version already listed as active', async () => {
+  const h = harness({ staleAfterDeploy: 2, missingMetadataReads: 3, accounts: true });
+  const result = await publishPilotRelease({ source: owner.source, checkRun: owner.checkRun,
+    build: identity(nextVersion), approve: async () => {}, provider: h.provider });
+  assert.equal(result.version, nextVersion);
+  assert.equal(result.healthy, true);
+  assert.deepEqual(h.waits, Array(5).fill(5000));
+  assert.equal(h.commands.filter(c => c === 'deploy').length, 1);
+  assert.ok(!h.commands.includes('rollback'));
+});
+
+test('an active version whose metadata never appears requires reconciliation without rollback', async () => {
+  const h = harness({ missingMetadataReads: 100 });
+  await assert.rejects(() => publishPilotRelease({ source: owner.source, checkRun: owner.checkRun,
+    build: identity(nextVersion), approve: async () => {}, provider: h.provider }), error =>
+    error.code === 'PILOT_ACTIVATION_UNCONFIRMED' && error.message.includes('version metadata still unavailable')
+    && error.recovery.action === 'manual-reconciliation-required');
+  assert.deepEqual(h.waits, Array(24).fill(5000));
+  assert.ok(!h.commands.includes('rollback'));
+});
+
+test('a different Cloudflare API error on the new version fails immediately', async () => {
+  const h = harness({ missingMetadataReads: 1, metadataErrorCode: 10000 });
+  await assert.rejects(() => h.provider.deploy(owner), /Wrangler version lookup failed/);
+  assert.deepEqual(h.waits, []);
 });
 
 test('a foreign activation is refused immediately instead of being retried as propagation', async () => {

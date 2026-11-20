@@ -35,11 +35,11 @@ export async function publishPilotRelease({ source, checkRun, build, approve, pr
       try { await provider.health(current); break; }
       catch (error) {
         if (error.code !== 'PILOT_IDENTITY_MISMATCH' || attempt >= 12) throw error;
-        requireValue(provider.observe().id === current.id, 'pilot changed while waiting for public identity');
+        requireValue(provider.activeVersionId() === current.id, 'pilot changed while waiting for public identity');
         await sleep(5_000);
       }
     }
-    requireValue(provider.observe().id === current.id, 'pilot changed during deployed health checks');
+    requireValue(provider.activeVersionId() === current.id, 'pilot changed during deployed health checks');
     return { action: 'published', ...owner, version: current.id, healthy: true };
   } catch (error) {
     if (error.code === 'PILOT_ACTIVATION_UNCONFIRMED') {
