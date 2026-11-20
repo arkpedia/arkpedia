@@ -25,6 +25,10 @@ export interface FarmingWindows {
   eventStore: CountdownWindow[];
 }
 
+export function eventHasStore(name: string, hasShopWindow: boolean): boolean {
+  return hasShopWindow || /\[(Side Story|Story Collection|Intermezzo|Rerun)/i.test(name);
+}
+
 function formatCountdown(target: number, now: number): string {
   const diffHours = (target - now) / (1000 * 60 * 60);
   if (diffHours < 24) {

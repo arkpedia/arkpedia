@@ -25,7 +25,7 @@ const at = (iso: string) => Date.parse(iso);
 const render = (zone: string, hostClock: string, now: number) =>
   renderOnHost(zone, at(hostClock), createElement(Fragment, null,
     createElement(EventsPanel, { ongoing, upcoming, now }),
-    createElement(FarmableMaterialsPanel, { materials: farmableMaterials, now })));
+    createElement(FarmableMaterialsPanel, { materials: farmableMaterials, now, canFarmEventCurrency: false })));
 
 test('the event and farming cards render the same HTML on the server and in a browser on either side of an event closing', () => {
   const now = at('2026-09-30T10:59:00Z');
@@ -44,4 +44,11 @@ test('the event and farming cards render the same HTML on the server and in a br
 test('the prop, not the host, decides what is farmable', () => {
   const after = render('UTC', '2026-09-30T10:59:30Z', at('2026-09-30T11:00:00Z'));
   assert.ok(after.includes('No event-boosted materials right now, play any stage you would like.'), 'at the close the materials leave the panel');
+});
+
+test('the empty farming panel recommends earning currency when an event shop can still be farmed', () => {
+  const now = at('2026-09-30T10:59:00Z');
+  const html = renderOnHost('UTC', now,
+    createElement(FarmableMaterialsPanel, { materials: [], now, canFarmEventCurrency: true }));
+  assert.match(html, /Farm stages that drop event currency to clear out the event shop/);
 });

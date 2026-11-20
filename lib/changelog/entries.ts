@@ -34,6 +34,10 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    at: '2026-11-20T21:35:00Z',
+    added: [{ title: 'Event currency farming tip', detail: 'When there are no boosted materials, the homepage suggests farming currency if an open event shop still has active stages.', href: '/' }],
+  },
+  {
     at: '2026-11-20T20:00:00Z',
     changed: [
       { title: 'More locations on event timezone cards', detail: 'Homepage and event cards cover all three Indonesian time zones plus Belarus, Kazakhstan, Morocco and Paraguay.', href: '/' },
