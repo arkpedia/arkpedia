@@ -42,8 +42,11 @@ cohort and counter reads. Queries deduplicate compact keys before reading units 
 union deployments per public stage before resolving operator names, avoiding an
 expensive per-unit catalogue join at production volume. Production serves four shared daily ranking snapshots (All regions, Global, JP, KR)
 from the existing private R2 page-cache bucket under `community-rankings/v2/`.
-The production Worker's cron runs at **04:17 UTC daily**, sequentially refreshing
-these cohorts through its own service binding. A day/cohort-scoped HMAC authenticates
+The production Worker's **04:17 UTC** daily trigger refreshes music first through
+its own service binding, then refreshes the four cohorts one at a time and runs
+Patreon sync last. It waits 20 seconds after each snapshot attempt to spread out D1 work.
+Larger scheduled ranking rebuilds also pause between expensive replay query
+phases. A day/cohort-scoped HMAC authenticates
 that internal refresh; public clients cannot force expensive aggregation. Preview
 has no cron or production database access and keeps its approved fixed QA snapshot.
 

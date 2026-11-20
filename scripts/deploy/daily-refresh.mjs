@@ -1,9 +1,23 @@
-import { refreshDailyStatistics } from './statistics-schedule.mjs';
+import { DAILY_STATISTICS_TARGETS, refreshDailyStatistics } from './statistics-schedule.mjs';
 import { syncPatreon } from '../../lib/patreon/sync.mjs';
 
-/** A provider outage must not skip the other daily refresh. */
-export async function refreshDailyServices(env, { statistics = refreshDailyStatistics, patreon = syncPatreon } = {}) {
-  const results = await Promise.allSettled([statistics(env), patreon(env)]);
-  const failures = results.flatMap((result, i) => result.status === 'rejected' ? [`${i === 0 ? 'Statistics' : 'Patreon'}: ${result.reason instanceof Error ? result.reason.message : 'refresh failed'}`] : []);
+const COOLDOWN_MS = 20_000;
+
+/** Isolate each job's failure and leave D1 time to recover before the next job. */
+export async function refreshDailyServices(env, {
+  statistics = refreshDailyStatistics,
+  patreon = syncPatreon,
+  wait = ms => new Promise(resolve => setTimeout(resolve, ms)),
+} = {}) {
+  const failures = [];
+  for (const target of DAILY_STATISTICS_TARGETS) {
+    try { await statistics(env, target, wait); }
+    catch (error) { failures.push(`Statistics (${target}): ${error instanceof Error ? error.message : 'refresh failed'}`); }
+    await wait(COOLDOWN_MS);
+  }
+
+  try { await patreon(env); }
+  catch (error) { failures.push(`Patreon: ${error instanceof Error ? error.message : 'refresh failed'}`); }
+
   if (failures.length) throw Error(failures.join('; '));
 }
