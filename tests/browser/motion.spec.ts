@@ -748,24 +748,22 @@ test.describe('the tab underline slides', () => {
 });
 
 /* --- LIVE ----------------------------------------------------------------------------- */
-/** /schedule with an event on: its page data fetched on a client navigation, with `now`
- *  an hour into the first event's window, so the list has a LIVE row whatever the build's
- *  clock says (x-buttons.spec.ts moves /community's clock the same way). */
-/** /schedule with the reader's clock inside an event, so a row is LIVE whatever the day.
- *  The page's `now` prop only draws the first render: useReaderClock swaps in the reader's
- *  clock on mount (lib/time/readerClock.ts), so patching the prop lasted one frame and the
- *  test passed only while an event really was live (2026-10-28, the day none was). The
- *  reader's clock is Playwright's fixed one, set inside the first dated event the page lists. */
+/** Freeze the reader clock inside a dated event. A separately sourced Global window may
+ *  replace the serialized row's dates, so use a row that has no such override. */
 async function scheduleWithLiveEvent(page: Page) {
   const html = await (await page.request.get('/schedule')).text();
-  const rows = (JSON.parse(html.match(/<script id="__NEXT_DATA__" type="application\/json">([\s\S]*?)<\/script>/)![1]).props.pageProps.eventRows as { start?: number; end?: number; isPredicted?: boolean }[])
-    .filter((r) => typeof r.start === 'number' && typeof r.end === 'number' && !r.isPredicted);
-  expect(rows.length, 'the schedule lists a dated event').toBeGreaterThan(0);
-  await page.clock.setFixedTime(new Date(Math.min(rows[0].start! + 3_600_000, rows[0].end! - 1)));
-  await page.goto('/');
-  await page.evaluate(() => (window as unknown as { next: { router: { push: (url: string) => Promise<boolean> } } }).next.router.push('/schedule'));
-  await page.waitForURL('**/schedule');
-  await expect(page.locator('.badge-live').first(), 'the list has a LIVE row once the reader clock is inside an event').toBeVisible();
+  const { eventRows, events, __contentTables } = JSON.parse(html.match(/<script id="__NEXT_DATA__" type="application\/json">([\s\S]*?)<\/script>/)![1]).props.pageProps;
+  const regionalNames = Object.keys(__contentTables['regional-schedules'].servers.en.events);
+  const exactNames = (events as { name: string; global: { startAt?: string | null } }[])
+    .filter(event => event.global.startAt).map(event => event.name);
+  const overrides = new Set([...regionalNames, ...exactNames]);
+  const row = (eventRows as { name: string; start: number; end: number; isPredicted?: boolean; bannerName?: string }[])
+    .find(r => !r.isPredicted && !r.bannerName && !overrides.has(r.name) && Number.isFinite(r.start) && r.end - r.start > 3_600_000);
+  if (!row) throw new Error('The schedule needs an event with an unchanged date window');
+  await page.clock.setFixedTime(new Date(row.start + 3_600_000));
+  await page.goto('/schedule');
+  const event = page.locator('.events-row').filter({ has: page.getByText(row.name, { exact: true }) });
+  await expect(event.locator('.badge-live'), 'the list has a LIVE row once the reader clock is inside the event').toBeVisible();
 }
 const dots = (page: Page) => page.evaluate(() => Array.from(document.querySelectorAll('.badge-live')).filter((b) => b.checkVisibility()).map((badge) => {
   const dot = getComputedStyle(badge, '::before');
