@@ -27,6 +27,7 @@ function fixture() {
   let current = 'previous';
   const provider = {
     observe: () => ({ id: current }),
+    activeVersionId: () => current,
     health: async () => { calls.push('health'); },
     deploy: () => { calls.push('deploy'); current = 'new'; return { id: current }; },
     recover: async () => { calls.push('recover'); current = 'previous'; return { action: 'rolled-back' }; },

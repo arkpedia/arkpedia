@@ -171,12 +171,13 @@ export function createPilotProvider({ run = execFileSync, request = fetch, envir
       ...(json ? ['--json'] : [])], { encoding: 'utf8', env: providerEnvironment(environment), timeout, maxBuffer: 16_000_000 });
     return json ? JSON.parse(output) : output;
   };
-  const rawObserve = () => {
-    const id = latestWorkerVersion(invoke(['deployments', 'list'], { json: true }));
+  const activeVersionId = () => latestWorkerVersion(invoke(['deployments', 'list'], { json: true }));
+  const readVersion = id => {
     const version = invoke(['versions', 'view', id], { json: true });
     requireValue(version.id === id, 'provider returned another pilot version');
     return version;
   };
+  const rawObserve = () => readVersion(activeVersionId());
   const observe = () => assertPilotBindings(rawObserve());
   const identity = version => readPilotIdentity(request).then(build => assertPilotIdentity(build, version));
   const health = async version => {
@@ -215,17 +216,29 @@ export function createPilotProvider({ run = execFileSync, request = fetch, envir
     const ids = [...output.matchAll(/^Current Version ID: ([a-f0-9-]+)\s*$/gm)].map(match => match[1]);
     requireValue(ids.length === 1 && UUID.test(ids[0]), 'deploy returned no unique provider version');
     const [expectedVersion] = ids;
-    // Only the exact baseline can be a stale deployment-list response. A foreign
-    // version or mismatched owner still fails immediately, without another upload.
+    // The deployment list and the version-details endpoint can catch up at
+    // different times. Only the baseline and the acknowledged version may appear.
     for (let attempt = 0; ; attempt++) {
-      const actual = observe();
-      if (actual.id === expectedVersion) {
-        requireValue(actual.annotations?.['workers/message'] === message, 'deployed pilot version/owner differs');
-        return actual;
+      const activeId = activeVersionId();
+      requireValue(activeId === owner.previousVersion || activeId === expectedVersion,
+        `unexpected deployed pilot version ${activeId}; expected ${expectedVersion}`);
+      if (activeId === expectedVersion) {
+        let actual;
+        try { actual = readVersion(expectedVersion); }
+        catch (error) {
+          // Wrangler reports Cloudflare's numeric API code on stderr. Only a
+          // missing record for this exact just-deployed version can be delayed.
+          if (!/\[code: 100146\]/.test(String(error.stderr ?? ''))) throw error;
+        }
+        if (actual) {
+          assertPilotBindings(actual);
+          requireValue(actual.annotations?.['workers/message'] === message, 'deployed pilot version/owner differs');
+          return actual;
+        }
       }
-      requireValue(actual.id === owner.previousVersion, `unexpected deployed pilot version ${actual.id}; expected ${expectedVersion}`);
       if (attempt === ACTIVATION_RETRIES) {
-        throw Object.assign(new Error(`Cloudflare activation verification timed out for ${expectedVersion}; still observing ${actual.id}`), {
+        const detail = activeId === expectedVersion ? 'version metadata still unavailable' : `still observing ${activeId}`;
+        throw Object.assign(new Error(`Cloudflare activation verification timed out for ${expectedVersion}; ${detail}`), {
           code: 'PILOT_ACTIVATION_UNCONFIRMED',
         });
       }
@@ -252,5 +265,5 @@ export function createPilotProvider({ run = execFileSync, request = fetch, envir
     assertPilotBindings(version);
     return version.id === PILOT.legacyVersion ? null : releaseOwner(version);
   };
-  return { observe, identity, health, deploy, recover, owner };
+  return { observe, activeVersionId, identity, health, deploy, recover, owner };
 }
