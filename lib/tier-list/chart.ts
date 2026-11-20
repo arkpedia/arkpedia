@@ -3,7 +3,7 @@
  * them loses nothing.
  *
  *   grid   a table of cells the reader sizes and labels, each holding items in order;
- *   bingo  a five-by-five board with column letters and an optional free space;
+ *   bingo  a five-by-five board with a title and an optional free space;
  *   axes   a plane with a label at each end of its two axes, where an item sits anywhere.
  *
  * The pool is the Tier List maker's (the same catalogue and filters); an item that is in
@@ -14,8 +14,7 @@ import { clampZoom, passesFilters, ZOOM } from './state';
 
 export const CHART_VERSION = 1;
 export const CHART_SIDE = { min: 1, max: 7 } as const;
-export const BINGO_COLUMNS = ['B', 'I', 'N', 'G', 'O'] as const;
-export const BINGO_SIDE = BINGO_COLUMNS.length;
+export const BINGO_SIDE = 5;
 export const BINGO_CENTER = Math.floor(BINGO_SIDE ** 2 / 2);
 export const MAX_CHART_LABEL = 40;
 export const MAX_CHART_TITLE = 80;

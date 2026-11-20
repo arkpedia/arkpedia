@@ -2,7 +2,7 @@ import { useEffect, useId, useRef, useState } from 'react';
 import ImportDialog from '@/components/account/ImportDialog';
 import { useContentUrl } from '@/lib/content/context';
 import type { TierItem } from '@/lib/tier-list/catalogue';
-import { AXIS_ENDS, AXIS_OF, BINGO_COLUMNS, cellLabelColor, chartGrid, chartTitle, isBingoFreeCell, type ChartState } from '@/lib/tier-list/chart';
+import { AXIS_ENDS, AXIS_OF, cellLabelColor, chartGrid, chartTitle, isBingoFreeCell, type ChartState } from '@/lib/tier-list/chart';
 import { labelInk } from '@/lib/tier-list/state';
 import { CHART_STRINGS as C } from '@/lib/tier-list/chartStrings';
 import { TIER_LIST_STRINGS as T } from '@/lib/tier-list/strings';
@@ -18,7 +18,6 @@ const TILE = 88;
 const BAND = 44;
 const HEADER_FONT = '700 24px Rajdhani';
 const HEADER_LINE = 26;
-const BINGO_HEADER = 48;
 
 function bingoLabel(context: CanvasRenderingContext2D, label: string, x: number, y: number, width: number) {
   const lines = wrapText(context, label, width, 3);
@@ -91,7 +90,7 @@ export default function ChartShareImage({ state: initial, byId, onClose }: { sta
         bingo ? cellWidth : (rowHeaders[row]?.length ?? 0) * HEADER_LINE + 12,
         ...cells.slice(row * cols, (row + 1) * cols).map((cell) => Math.max(bingo ? 0 : 1, Math.ceil(cell.items.length / perLine)) * (size + GAP) + GAP + labelHeight),
       ));
-      const body = state.kind !== 'axes' ? columnHeaderHeight + (bingo ? BINGO_HEADER : 0) + rowHeights.reduce((sum, h) => sum + h + GAP, 0) : inner;
+      const body = state.kind !== 'axes' ? columnHeaderHeight + rowHeights.reduce((sum, h) => sum + h + GAP, 0) : inner;
       const height = head + body + foot;
       element.height = height;
       const c = element.getContext('2d');
@@ -113,11 +112,6 @@ export default function ChartShareImage({ state: initial, byId, onClose }: { sta
         };
         columnHeaders.forEach((lines, col) => headerText(lines, gridLeft + col * (cellWidth + GAP) + cellWidth / 2, head + columnHeaderHeight / 2));
         let y = head + columnHeaderHeight;
-        if (bingo) {
-          c.font = '700 36px Rajdhani'; c.fillStyle = ink('--text-bright'); c.textAlign = 'center';
-          BINGO_COLUMNS.forEach((letter, col) => c.fillText(letter, PAD + col * (cellWidth + GAP) + cellWidth / 2, y + BINGO_HEADER / 2));
-          y += BINGO_HEADER;
-        }
         for (let row = 0; row < rows; row += 1) {
           const h = rowHeights[row];
           if (rowHeaders[row]) headerText(rowHeaders[row], PAD + rowHeaderWidth / 2, y + h / 2);

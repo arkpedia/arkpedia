@@ -283,7 +283,7 @@ test('Bingo converts the current grid, keeps its own edits, and exports a text-o
   await choice.focus();
   await page.keyboard.press('Enter');
   await expect(choice).toHaveAttribute('aria-pressed', 'true');
-  await expect(page.locator('[data-bingo] [aria-hidden="true"]').first()).toHaveText('BINGO');
+  await expect(page.locator('[data-bingo]').getByText(/^[BINGO]$/)).toHaveCount(0);
   await expect(first).toHaveValue('First prediction');
   await expect(page.locator('[data-bingo] textarea')).toHaveCount(24);
   await page.getByRole('textbox', { name: 'Bingo title', exact: true }).fill('Event bingo');

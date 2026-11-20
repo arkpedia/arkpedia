@@ -4,7 +4,7 @@ import XButton from '@/components/ui/XButton';
 import { useHeightFloor } from '@/components/ui/useHeightFloor';
 import { matchesSearch } from '@/lib/search/searchNormalize';
 import { catalogueItems, TIER_KINDS, TIER_RARITIES, type TierCatalogue } from '@/lib/tier-list/catalogue';
-import { AXIS_ENDS, AXIS_LINES, AXIS_OF, BINGO_COLUMNS, cellLabelColor, CHART_KINDS, CHART_SIDE, chartGrid, chartPlaced, chartPool, chartTitle, clearChart, defaultChart, isBingoFreeCell, MAX_CHART_LABEL, MAX_CHART_TITLE, placeInCell, placePoint, removeGridLine, resizeGrid, setAxis, setAxisLine, setBingoFree, setCellColor, setCellLabel, setChartKind, setChartTitle, setGridLabel, unplace, type ChartKind, type ChartState } from '@/lib/tier-list/chart';
+import { AXIS_ENDS, AXIS_LINES, AXIS_OF, cellLabelColor, CHART_KINDS, CHART_SIDE, chartGrid, chartPlaced, chartPool, chartTitle, clearChart, defaultChart, isBingoFreeCell, MAX_CHART_LABEL, MAX_CHART_TITLE, placeInCell, placePoint, removeGridLine, resizeGrid, setAxis, setAxisLine, setBingoFree, setCellColor, setCellLabel, setChartKind, setChartTitle, setGridLabel, unplace, type ChartKind, type ChartState } from '@/lib/tier-list/chart';
 import { CHART_PARAM, decodeChart, encodeChart, type ChartShareMode, type SharedChart } from '@/lib/tier-list/chartShare';
 import { chartQuizPool, scoreChartQuiz, type QuizScore } from '@/lib/tier-list/quiz';
 import { useChart, writeChart } from '@/lib/tier-list/chartStore';
@@ -175,11 +175,8 @@ export default function ChartMaker({ catalogue }: { catalogue: TierCatalogue }) 
             <div className={showHeaders ? styles.chartScroll : undefined}>
               <div className={styles.chartFrame} data-bingo={bingo ? '' : undefined}
                 data-headers={showHeaders ? '' : undefined} data-cell-labels={showLabels ? '' : undefined} style={{ '--chart-cols': cols, '--chart-rows': rows } as CSSProperties}>
-                {bingo && <>
-                  <input type="text" className={`${styles.name} ${styles.bingoTitle}`} value={chartTitle(state)} maxLength={MAX_CHART_TITLE}
-                    aria-label={C.bingoTitle} placeholder={C.bingoTitle} onChange={(event) => update((current) => setChartTitle(current, event.target.value))} />
-                  <div className={styles.bingoLetters} aria-hidden="true">{BINGO_COLUMNS.map(letter => <span key={letter}>{letter}</span>)}</div>
-                </>}
+                {bingo && <input type="text" className={`${styles.name} ${styles.bingoTitle}`} value={chartTitle(state)} maxLength={MAX_CHART_TITLE}
+                  aria-label={C.bingoTitle} placeholder={C.bingoTitle} onChange={(event) => update((current) => setChartTitle(current, event.target.value))} />}
                 {!bingo && gridHeaders('col')}
                 {!bingo && gridHeaders('row')}
                 <div className={styles.chartGrid}>
