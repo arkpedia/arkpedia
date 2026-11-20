@@ -9,16 +9,32 @@ for(const theme of ['dark','light']) test(`official broadcasts roll over regiona
   await page.goto('/');
   const panel=page.locator('.front-events-panel');
   const dots=panel.locator('.front-events-dots');
+  const slide=panel.locator('.front-events-slide[data-current]');
   const hero=panel.locator('.front-events-slide[data-current] .front-events-main');
   await expect(hero).toHaveAttribute('href',/jp000000001/);
   await expect(panel.getByLabel('Other regional broadcasts').getByRole('link',{name:'Global',exact:true})).toBeVisible();
   await expect(panel.locator('time').first()).toHaveAttribute('datetime',start);
   // Switching between a regional broadcast and ordinary event must not move the controls.
   const position=await dots.evaluate(el=>el.getBoundingClientRect().top+scrollY);
+  const timezones=slide.getByRole('button',{name:/^Show Timezones for /});
+  await expect(timezones).toHaveText('Show Timezones');
+  const anchor=()=>timezones.evaluate(button=>{
+    const rect=button.getBoundingClientRect();
+    const art=button.closest('.front-events-slide')!.querySelector('.front-events-poster-wrap')!.getBoundingClientRect();
+    return {x:rect.right+scrollX,y:rect.bottom+scrollY,belowPoster:rect.top>art.bottom};
+  });
+  const broadcastAnchor=await anchor();
+  expect(broadcastAnchor.belowPoster).toBe(true);
   const eventDot=panel.locator('.front-events-dot').last();
   await eventDot.click();
   await expect(hero).toHaveAttribute('href',/^\/events\//);
   expect(await dots.evaluate(el=>el.getBoundingClientRect().top+scrollY)).toBeCloseTo(position, 0);
+  if ((await eventDot.getAttribute('aria-label'))?.endsWith(', upcoming')) {
+    const eventAnchor=await anchor();
+    expect(eventAnchor.belowPoster).toBe(true);
+    expect(eventAnchor.x).toBeCloseTo(broadcastAnchor.x,0);
+    expect(eventAnchor.y).toBeCloseTo(broadcastAnchor.y,0);
+  }
   await panel.locator('.front-events-dot').first().click();
   await expect(hero).toHaveAttribute('href',/jp000000001/);
   expect(await dots.evaluate(el=>el.getBoundingClientRect().top+scrollY)).toBeCloseTo(position, 0);
@@ -26,6 +42,7 @@ for(const theme of ['dark','light']) test(`official broadcasts roll over regiona
   await page.evaluate(()=>window.dispatchEvent(new Event('focus')));
   await expect(panel.getByText('Live now',{exact:true})).toBeVisible();
   await expect(hero).toHaveAttribute('href',/jp000000001/);
+  await expect(timezones).toHaveCount(0);
   records=[{...records[0],status:'ended'},records[1],records[2]];
   await page.evaluate(()=>window.dispatchEvent(new Event('focus')));
   await expect(hero).toHaveAttribute('href',/en000000001/);

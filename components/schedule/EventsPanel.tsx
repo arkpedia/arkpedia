@@ -100,14 +100,12 @@ export default function EventsPanel({ ongoing, upcoming, now, server = 'en', reg
                   : <CountdownTimer start={slide.event.start} target={slide.event.end} />}
               </div>
             </Link>}
-            {showStartTimes && <div className="front-event-poster-actions">
-              <button type="button" className="btn btn-icon scrim-control front-event-start-trigger" title="Start times" aria-haspopup="dialog" aria-label={`Start times for ${card.title}`} onClick={() => {
+            {showStartTimes && <div className="front-event-actions">
+              <button type="button" className="btn-sm front-event-start-trigger" aria-haspopup="dialog" aria-label={`Show Timezones for ${card.title}`} onClick={() => {
                 setActiveKey(slide.key);
                 setStartCard(card);
               }}>
-                <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.65" strokeLinecap="round" aria-hidden="true" focusable="false">
-                  <circle cx="12" cy="12" r="8.5" /><path d="M12 7.5v4.8l3 1.9" />
-                </svg>
+                Show Timezones
               </button>
             </div>}
           </div>;

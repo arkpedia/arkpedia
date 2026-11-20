@@ -95,7 +95,7 @@ export default function TierListMaker({ catalogue }: { catalogue: TierCatalogue 
   const { state, update, shared, broken, dismissBroken, leave } = useShownTierList();
   const [query, setQuery] = useState('');
   const [editing, setEditing] = useState<string | null>(null);
-  // Popped out when the page opens, so the reader sees that the pool can float; its arrow pins it.
+  // Popped out when the page opens, so the reader sees that the pool can float; Collapse pins it.
   const [detached, setDetached] = useState(true);
   const [imaging, setImaging] = useState(false);
   const [sharing, setSharing] = useState(false);

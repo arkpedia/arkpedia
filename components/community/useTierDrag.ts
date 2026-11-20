@@ -50,6 +50,7 @@ export function useTierDrag({ root, ghost, mark, carried, onDrop }: Options): { 
       clearDrop();
       active.drop = null;
       const under = document.elementFromPoint(active.x, active.y);
+      if (under?.closest('[data-no-drop]')) return;
       // The floating pool lies over the rows: a drop on it is a drop on the pool.
       const row = under?.closest('[data-pool-window]') ? null : under?.closest<HTMLElement>('[data-row]');
       if (row && host.contains(row)) {

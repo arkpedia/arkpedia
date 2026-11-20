@@ -65,8 +65,7 @@
 
 /* The pool is pinned under the tier list, at a fixed height: ticking a box, searching or
    zooming changes what scrolls inside it and never how long the page is (the Anti-Page
-   Jump rule). Its arrow detaches it into a window that floats over the page, which the
-   reader drags by its head and resizes; the arrow there pins it back. */
+   Jump rule). The pool can also float over the page in a movable, resizable window. */
 .poolHead { display:flex; flex-wrap:wrap; align-items:center; gap:8px 12px; margin-bottom:var(--heading-gap); }
 .poolHead h2 { margin:0; }
 .search { flex:1 1 180px; min-width:0; max-width:320px; margin-left:auto; }
@@ -90,7 +89,12 @@
    narrower than the page and centred, with the pool under it. */
 .chartFrame { width:min(100%,820px); margin:0 auto; display:grid; grid-template-columns:calc(var(--control-h) - 12px) repeat(var(--chart-cols),minmax(0,1fr)) var(--control-h); grid-template-rows:calc(var(--control-h) - 12px) repeat(var(--chart-rows),auto) var(--control-h); gap:4px; }
 .chartGrid { grid-column:2 / span var(--chart-cols); grid-row:2 / span var(--chart-rows); display:grid; grid-template-columns:subgrid; grid-template-rows:subgrid; }
-.lineRemove { place-self:center; }
+.chartScroll { overflow-x:auto; padding:3px; }
+.chartFrame[data-headers] { --row-header-width:clamp(84px,18vw,136px); min-width:calc(var(--row-header-width) + var(--control-h) + var(--chart-cols) * 66px + (var(--chart-cols) + 1) * 4px); grid-template-columns:var(--row-header-width) repeat(var(--chart-cols),minmax(0,1fr)) var(--control-h); grid-template-rows:auto repeat(var(--chart-rows),auto) var(--control-h); }
+.gridHeader { display:flex; flex-direction:column; align-items:center; justify-content:center; min-width:0; }
+.gridHeader .axisLabel, .gridHeaderText { font-size:15px; }
+.gridHeader .axisLabel { field-sizing:content; resize:none; line-height:1.2; overflow-wrap:anywhere; }
+.gridHeaderText { font-family:var(--font-display); font-weight:700; text-align:center; white-space:pre-line; overflow-wrap:anywhere; }
 /* Two classes: the button primitive's own padding is wider than the column this one fills. */
 .chartFrame .lineAdd { box-sizing:border-box; min-width:0; padding:0; border-style:dashed; }
 .chartFrame .lineAdd svg { flex:none; }
@@ -99,6 +103,7 @@
 /* A cell: room for its tiles over a label bar in the cell's accent (cellColor), with ink
    picked for that fixed colour as a tier's label has. It lights while a tile is over it. */
 .chartCell { display:grid; grid-template-rows:minmax(calc(var(--tile) * 1.4 + 20px),1fr) auto; min-width:0; background:var(--row-grad); border:1px solid var(--line); border-radius:var(--radius); overflow:hidden; }
+.chartFrame:not([data-cell-labels]) .chartCell { grid-template-rows:minmax(calc(var(--tile) * 1.4 + 20px),1fr); }
 .chartCell:has([data-drop]) { border-color:var(--teal); }
 .cellItems { display:flex; flex-wrap:wrap; align-content:center; justify-content:center; gap:4px; min-width:0; padding:6px; }
 .cellItems[data-drop] { background:var(--teal-dim); }
@@ -112,6 +117,37 @@
 .cellColor input { position:absolute; inset:0; box-sizing:border-box; width:100%; height:100%; min-height:0; padding:0; border:0; opacity:0; cursor:pointer; }
 .cellLabel { flex:1 1 auto; box-sizing:border-box; width:100%; min-width:0; padding:6px 0 6px 28px; border:0; border-radius:0; background:transparent; color:inherit; font-family:var(--font-display); font-size:15px; font-weight:700; text-align:center; text-overflow:ellipsis; }
 .cellLabel::placeholder { color:inherit; opacity:.55; }
+.boardHead[data-bingo-toolbar] { justify-content:flex-end; }
+.chartFrame[data-bingo] { width:min(100%,700px); grid-template-columns:repeat(var(--chart-cols),minmax(0,1fr)); grid-template-rows:auto repeat(var(--chart-rows),auto); }
+.chartFrame[data-bingo] .chartGrid { grid-column:1/-1; }
+.chartFrame .bingoTitle { grid-column:1/-1; grid-row:1; width:100%; max-width:none; text-align:center; font-family:var(--font-display); font-weight:700; font-size:26px; }
+.chartFrame[data-bingo] .chartCell { aspect-ratio:1; grid-template-rows:minmax(0,1fr) auto; align-self:stretch; }
+.chartFrame[data-bingo] .chartCell[data-text-only] { grid-template-rows:minmax(0,1fr); }
+.chartFrame[data-bingo] .chartCell[data-drop] { border-color:var(--teal); background:var(--teal-dim); }
+.chartFrame[data-bingo] .cellItems { overflow:auto; align-content:safe center; padding:4px; }
+.chartFrame[data-bingo] .tile { width:min(var(--tile),100%); height:auto; aspect-ratio:1; }
+.chartFrame[data-bingo] .cellBar { color:var(--text-bright); background:var(--panel-2); }
+.chartFrame[data-bingo] .chartCell[data-custom-color] { border-bottom:3px solid var(--cell-color); }
+.bingoPrompt { position:relative; display:grid; min-width:0; min-height:0; color:var(--text-bright); }
+.bingoPromptField { flex:1 1 auto; display:grid; align-items:center; min-width:0; min-height:0; }
+.chartFrame[data-bingo] .cellLabel { padding:3px 2px; min-height:0; max-height:4em; resize:none; field-sizing:content; }
+.chartFrame[data-bingo] .bingoPrompt .cellLabel { padding:4px; max-height:100%; font-size:18px; }
+.bingoPrompt .cellColor { position:absolute; inset:auto 0 0 auto; height:24px; width:24px; }
+.bingoFree { display:grid; place-items:center; box-sizing:border-box; aspect-ratio:1; padding:4px; text-align:center; background:var(--well); border:1px solid var(--line); border-radius:var(--radius); color:var(--text-bright); font:700 18px/1.1 var(--font-display); }
+.chartFrame .bingoTitle[readonly] { border-color:transparent; background:transparent; }
+.bingoPlayCell { position:relative; box-sizing:border-box; min-width:0; padding:4px; place-items:center; text-align:center; color:var(--text-bright); font:700 15px/1.15 var(--font-display); }
+.bingoPlayCell[data-free] { background:var(--well); }
+.bingoPlayCell[data-text-only] { font-size:18px; }
+.bingoPlayCell:hover, .bingoPlayCell[aria-pressed="true"] { border-color:var(--teal); }
+.bingoPlayCell[aria-pressed="true"] { background:var(--bingo-mark); border-color:var(--bingo-mark); color:var(--bingo-mark-ink); }
+.bingoPlayCell[aria-pressed="true"]::after { content:""; position:absolute; inset:3px; border:1px solid currentColor; opacity:.5; pointer-events:none; }
+.bingoPlayLabel { min-width:0; overflow-wrap:anywhere; white-space:pre-wrap; }
+.bingoPlayArt { display:flex; justify-content:center; align-content:center; flex-wrap:wrap; gap:4px; min-height:0; max-height:100%; min-width:0; overflow:hidden; }
+.bingoPlayArt img { display:block; width:min(var(--tile),100%); height:auto; aspect-ratio:1; object-fit:cover; }
+.bingoMarkPicker { position:relative; display:inline-flex; align-items:center; gap:8px; cursor:pointer; }
+.bingoMarkSwatch { width:16px; height:16px; box-sizing:border-box; border:1px solid var(--control-border); border-radius:var(--radius); background:var(--bingo-mark); }
+.bingoMarkPicker:focus-within { outline:2px solid var(--teal); outline-offset:2px; }
+.bingoMarkPicker input { position:absolute; inset:0; width:100%; height:100%; padding:0; border:0; opacity:0; cursor:pointer; }
 /* The plane: a square with its two axes drawn through the middle and an item anywhere on it
    by its centre. Its labels stand outside it, at the end of the axis each names: above and
    below, and to either side (on a narrow screen, in a row over the plane's two top corners),
@@ -198,7 +234,16 @@
   .pool[data-detached] .poolHead { margin:0 calc(var(--page-gutter) * -1) 8px; padding:4px var(--page-gutter); cursor:default; touch-action:auto; }
   .pool[data-detached] .poolItems { padding-bottom:64px; }
   .cellLabel { padding:5px 0 5px 22px; font-size:13px; }
+  .chartFrame[data-headers] .cellLabel { padding-inline-start:4px; }
   .cellColor { width:22px; }
+  .bingoFree { font-size:15px; }
+  .bingoPlayCell { font-size:11px; }
+  .bingoPlayCell[data-text-only] { font-size:13px; }
+  .bingoPlayArt img { width:min(32px,100%); }
+  .chartFrame[data-bingo] .bingoPrompt .cellLabel { font-size:13px; }
+  .chartFrame[data-bingo] .cellBar .cellLabel { font-size:11px; line-height:1.15; max-height:2.5em; }
+  .chartFrame[data-bingo] .tile { width:min(34px,100%); }
+  .bingoPrompt .cellColor svg { width:11px; height:11px; }
   .axisLabel { font-size:15px; }
   .search { flex:1 1 90px; max-width:none; }
   .poolHead { flex-wrap:nowrap; gap:8px; }
@@ -209,4 +254,10 @@
   .rowActions { padding:0 2px; }
   /* A phone's row has room for one control: the dialog it opens deletes the row too. */
   .rowActions .rowDelete { display:none; }
+}
+
+@media (max-width:360px) {
+  .poolHead { flex-wrap:wrap; }
+  .poolHead .search { order:1; flex-basis:100%; }
+  .poolHead .pin { margin-left:auto; }
 }

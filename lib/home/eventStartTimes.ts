@@ -1,5 +1,6 @@
 import type { GameEvent } from '@/lib/home/frontPageContent';
-import { parseInstant, type GameServer } from '@/lib/time/servers.mjs';
+import { parseGameRangeDays } from '@/lib/schedule/gameWindow';
+import { parseInstant, SERVER_TIME, serverInstant, type GameServer } from '@/lib/time/servers.mjs';
 import { eventReleaseTiming, preferRegionalWindow, sourcedTiming, type ReleaseTiming, type TimingEvidence } from '@/lib/time/releaseTiming';
 import { BROADCAST_REGIONS, type OfficialBroadcast } from './officialBroadcasts';
 
@@ -14,8 +15,9 @@ export interface EventStartCard {
 export type ClockFormat = '12h' | '24h';
 
 const SERVER_LABELS = { en: 'Global', jp: 'JP', kr: 'KR', cn: 'CN' };
+type LaunchEvent = Pick<GameEvent, 'name' | 'poster' | 'note' | 'releaseTiming'> & TimingEvidence;
 
-export function gameEventStartCard(event: GameEvent, server: GameServer, regionalWindow?: TimingEvidence): EventStartCard {
+export function gameEventStartCard(event: LaunchEvent & { start: Date }, server: GameServer, regionalWindow?: TimingEvidence): EventStartCard {
   const regional = regionalWindow && preferRegionalWindow(event, regionalWindow, server) ? parseInstant(regionalWindow.startAt) : null;
   const exact = regional ?? parseInstant(event.startAt);
   const timing = regional && regionalWindow ? sourcedTiming(regionalWindow) : event.releaseTiming ?? eventReleaseTiming(event, false);
@@ -26,6 +28,18 @@ export function gameEventStartCard(event: GameEvent, server: GameServer, regiona
     schedule: `${SERVER_LABELS[regional ? server : 'en']} event`,
     timing: !exact && timing === 'confirmed' ? 'estimated' : timing,
   };
+}
+
+/** Older detail pages can carry just a release day or range. Use the normal
+ *  Global opening hour in that case and keep it marked as an estimate. */
+export function archiveEventStartCard(event: LaunchEvent & { dateRange: string }, server: GameServer, window?: TimingEvidence): EventStartCard | null {
+  const instant = parseInstant(window?.startAt) ?? parseInstant(event.startAt);
+  if (instant) return gameEventStartCard({ ...event, start: instant }, server, window);
+  const days = parseGameRangeDays(event.dateRange) ?? parseGameRangeDays(`${event.dateRange}–${event.dateRange}`);
+  if (!days) return null;
+  const { year, month, day } = days.start;
+  const start = new Date(serverInstant(year, month, day, SERVER_TIME.en.eventOpenHour, 'en'));
+  return gameEventStartCard({ ...event, start }, 'en');
 }
 
 export function broadcastStartCard(broadcast: OfficialBroadcast): EventStartCard {

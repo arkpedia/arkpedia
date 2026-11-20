@@ -5,6 +5,8 @@ import { addRow, clearRows, defaultTierList, deleteRow, labelInk, moveRow, parse
 import { quizPool, scoreQuiz, solutionOf } from '../../lib/tier-list/quiz';
 import { decodeTierList, encodeTierList, MAX_SHARE_CHARS, sharePayload } from '../../lib/tier-list/share';
 import { TIER_LIST_STRINGS } from '../../lib/tier-list/strings';
+import { makeMakerSamples } from '../../lib/tier-list/makerSamples';
+import { decodeChart } from '../../lib/tier-list/chartShare';
 
 const catalogue: TierCatalogue = { operators: [
   { id: 'char_b', name: 'Bravo', rarity: 5, icon: '/five-star-icons/Bravo.webp', art: [], skins: [], skills: [[1, 'Strike', '/skill-icons/b1.webp']], baseSkills: [] },
@@ -18,6 +20,33 @@ const ids = (list: { id: string }[]) => list.map((item) => item.id);
 const E0 = artItemId('char_a', 'Base'), E2 = artItemId('char_a', 'Elite 2'), TIDY = baseSkillItemId('char_a', 'buff[000]');
 const SLUG = enemyItemId('slug'), SLUG2 = enemyItemId('slug_2'), RHODES = factionItemId('Rhodes'), CH0 = storyItemId('main_0'), SIDE = storyItemId('act1side');
 const ALL = { ...defaultTierList(), kinds: [...TIER_KINDS] };
+
+test('maker samples show hair colours, class by rarity and base stats', async () => {
+  const fs = await import('node:fs');
+  if (!fs.existsSync('data/tier-list-catalogue.json')) return;
+  const { getAllOperators } = await import('../../lib/operators/operators');
+  const roster = new Map(getAllOperators().filter((op) => op.internalName).map((op) => [operatorItemId(op.internalName!), op]));
+  const built = JSON.parse(fs.readFileSync('data/tier-list-catalogue.json', 'utf8')) as TierCatalogue;
+  const [tierLink, gridLink, axesLink] = (await makeMakerSamples(built.operators)).map((sample) => sample.href.split('=')[1]);
+  const tier = (await decodeTierList(tierLink))!.state;
+  const grid = (await decodeChart(gridLink))!.state;
+  const axes = (await decodeChart(axesLink))!.state;
+
+  assert.deepEqual(tier.rows.map(({ label, items }) => [label, items.length]), [['Red', 5], ['Blue', 5], ['White', 5]]);
+  assert.equal(grid.cells.flatMap((cell) => cell.items).length, 9);
+  for (const [i, cell] of grid.cells.entries()) {
+    const op = roster.get(cell.items[0]);
+    assert.equal(op?.class, grid.columnLabels[i % grid.cols], op?.name);
+    assert.equal(`${op?.rarity}★`, grid.rowLabels[Math.floor(i / grid.cols)], op?.name);
+  }
+  assert.equal(axes.points.length, 6);
+  for (const { id, x, y } of axes.points) {
+    const stats = roster.get(id)?.stats?.phases.find((phase) => phase.elite === 0)?.base;
+    assert.equal(x * parseInt(axes.axes.right, 10), stats?.dp, id);
+    assert.equal((1 - y) * parseInt(axes.axes.top, 10), stats?.block, id);
+  }
+  assert.deepEqual([tier.title, grid.title, axes.title], ['', '', '']);
+});
 
 test('the catalogue expands to unique items, highest rarity first, and skips art that is missing', () => {
   assert.deepEqual(ids(items), [A, E0, E2, COAT, skillItemId('char_a', 1), A2, TIDY, B, skillItemId('char_b', 1), SLUG, SLUG2, RHODES, CH0, SIDE]);

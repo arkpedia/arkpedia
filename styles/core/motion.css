@@ -39,14 +39,14 @@
   /* Glass surfaces stay outside opacity animations so their backdrop is filtered
      from the first frame. Only the controls and card contents fade. */
   .artwork-page > .page-header,
-  .artwork-page .event-detail-tabs,
+  .artwork-page :is(.event-detail-tabs, .event-launch-time),
   .artwork-page .artwork-glass > *,
   .artwork-page .event-detail-right > [role="tabpanel"]:not(:has(.artwork-glass)) { animation: event-ui-reveal 420ms var(--ease) backwards; }
-  .artwork-page .event-detail-tabs { animation-delay: 60ms; }
+  .artwork-page :is(.event-detail-tabs, .event-launch-time) { animation-delay: 60ms; }
   .artwork-page .artwork-glass > *,
   .artwork-page .event-detail-right > [role="tabpanel"]:not(:has(.artwork-glass)) { animation-delay: 120ms; }
   html:has(.event-entrance[open]) .artwork-page > .page-header,
-  html:has(.event-entrance[open]) .artwork-page .event-detail-tabs,
+  html:has(.event-entrance[open]) .artwork-page :is(.event-detail-tabs, .event-launch-time),
   html:has(.event-entrance[open]) .artwork-page .artwork-glass > *,
   html:has(.event-entrance[open]) .artwork-page .event-detail-right > [role="tabpanel"]:not(:has(.artwork-glass)) { animation: none; opacity: 0; }
   @keyframes event-ui-reveal { from { opacity: 0; } to { opacity: 1; } }

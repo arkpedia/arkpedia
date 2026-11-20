@@ -100,7 +100,9 @@ button.events-row-main.btn-bare { border: 0; background: transparent; padding: 0
 .event-detail-right {
   min-width: 0;
 }
-.event-detail-tabs { margin-bottom: 16px; }
+.event-detail-nav { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; margin-bottom: 16px; }
+.event-detail-tabs { min-width: 0; }
+.event-launch-time { margin-inline-start: auto; white-space: nowrap; }
 /* The banner's own art, in its tab: kept to a card's size now the sections span the page. */
 .event-detail-banner-art-wrap {
   position: relative;

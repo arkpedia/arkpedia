@@ -131,7 +131,7 @@ html[data-site-server="kr"] .maintenance-notice:not([data-server="kr"]) {
    and up to 21px under the heading). */
 /* Reserve the tallest slide, as the Community carousel does, without loading hidden art. */
 .front-events-slides { display: grid; min-width: 0; }
-.front-events-slide { display: grid; grid-area: 1 / 1; min-width: 0; align-content: start; }
+.front-events-slide { display: grid; grid-area: 1 / 1; grid-template-rows: min-content min-content 1fr; min-width: 0; }
 .front-events-slide:not([data-current]) { visibility: hidden; pointer-events: none; }
 .front-events-main {
   grid-area: 1 / 1;
@@ -161,18 +161,12 @@ html[data-site-server="kr"] .maintenance-notice:not([data-server="kr"]) {
   overflow: hidden;
   background: var(--panel-2);
 }
-.front-event-poster-actions {
-  grid-area: 1 / 1;
-  align-self: start;
-  aspect-ratio: 16 / 5;
-  display: flex;
-  align-items: flex-end;
-  justify-content: flex-end;
-  padding: 8px;
-  box-sizing: border-box;
-  pointer-events: none;
+.front-event-actions {
+  grid-area: 3 / 1;
+  place-self: end;
+  margin-block-start: 8px;
 }
-.front-event-start-trigger { position: relative; pointer-events: auto; }
+.front-event-start-trigger { white-space: nowrap; }
 
 .event-start-dialog { --dialog-w: 1040px; --dialog-top: 16px; margin: auto; }
 .event-start-content { display: flex; flex-direction: column; min-height: 0; gap: 12px; }
@@ -577,6 +571,7 @@ html[data-site-server="kr"] .maintenance-notice:not([data-server="kr"]) {
 .front-featured-op:focus-visible, .front-community-item:focus-visible { border-color: var(--teal); }
 
 .front-broadcast-regions {
+  grid-area: 2 / 1;
   display: flex;
   flex-wrap: wrap;
   gap: 8px 18px;
