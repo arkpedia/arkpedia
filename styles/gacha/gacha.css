@@ -25,6 +25,8 @@
   aspect-ratio: 1024 / 559;
 }
 .gacha-banner-art-link { display: block; cursor: zoom-in; }
+.gacha-banner-art-link .gacha-banner-main-image { border-color: transparent; }
+.gacha-banner-art-link:is(:hover, :focus-visible) .gacha-banner-main-image { border-color: var(--teal); }
 .gacha-composite { margin: 0; }
 .gacha-composite figcaption { margin-top: 5px; text-align: right; }
 .gacha-composite .gacha-composite-panel {
