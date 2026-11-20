@@ -1489,7 +1489,7 @@ export default function GachaSimulator({ pools, banners: globalBanners, fallback
   const selectedArt = selectedBanner?.banner_image;
   const selectedFallback = selectedBanner && !selectedBanner.globalLineupPending && fallbackArtwork[selectedBanner.name];
   const bannerArtworkView = !selectedBanner ? null : selectedArt ? (
-    <a className="gacha-banner-art-link" href={contentUrl(selectedArt)} target="_blank" rel="noreferrer"
+    <a className="gacha-banner-art-link lift" href={contentUrl(selectedArt)} target="_blank" rel="noreferrer"
       aria-label={`Open full-size banner artwork for ${bannerDisplayName(selectedBanner.name)} (opens in a new tab)`}>
       <Image src={selectedArt} alt={bannerDisplayName(selectedBanner.name)} width={1600} height={900}
         className="gacha-banner-main-image" priority />
