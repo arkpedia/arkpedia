@@ -386,6 +386,32 @@ test('Bingo resizes from 3×3 to 10×10 and keeps the saved board and its Play m
   await expect(canvas).toHaveAccessibleDescription(/Far corner: [^.]+, marked/);
 });
 
+test('Bingo shuffles entered squares in Edit and carries their marks into Play', async ({ page }) => {
+  await open(page, true);
+  const button = (name: string) => page.getByRole('button', { name, exact: true });
+  const shuffle = button('Shuffle squares');
+  await expect(shuffle).toHaveCount(0);
+  await button('Bingo').click();
+  const first = page.getByRole('textbox', { name: 'Label of row 1, column 1', exact: true });
+  const second = page.getByRole('textbox', { name: 'Label of row 1, column 3', exact: true });
+  await first.fill('Event rerun');
+  await expect(shuffle).toBeDisabled();
+  await second.fill('Free ten-pull');
+  await button('Play').click();
+  await expect(shuffle).toHaveCount(0);
+  await button('Row 1, column 1: Event rerun').click();
+  await button('Edit').click();
+  await shuffle.press('Enter');
+  await expect(first).toHaveValue('Free ten-pull');
+  await expect(second).toHaveValue('Event rerun');
+  await expect(page.getByRole('checkbox', { name: 'Free space', exact: true })).toBeChecked();
+  await page.reload();
+  await expect(second).toHaveValue('Event rerun');
+  await button('Play').click();
+  await expect(button('Row 1, column 3: Event rerun')).toHaveAttribute('aria-pressed', 'true');
+  await expect(button('Row 1, column 2')).toHaveAttribute('aria-pressed', 'false');
+});
+
 test('a chart is shared as a link that never overwrites the reader\'s own, and saved as a PNG', async ({ page, context }, info) => {
   test.skip(mobile(info), 'the clipboard and the download are read back on desktop Chromium');
   await context.grantPermissions(['clipboard-read', 'clipboard-write']);

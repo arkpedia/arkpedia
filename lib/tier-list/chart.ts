@@ -194,6 +194,38 @@ export function resizeBingo(state: ChartState, size: number): ChartState {
   return { ...state, bingo: { ...board, size, cells, marks } };
 }
 
+export function filledBingoIndexes(state: ChartState): number[] {
+  if (state.kind !== 'bingo' || !state.bingo) return [];
+  return state.bingo.cells.flatMap((cell, index) =>
+    !isBingoFreeCell(state, index) && (cell.label.trim() || cell.items.length || cell.color) ? [index] : []);
+}
+
+/** Moves each filled square and its mark as one, with gaps and the free space fixed. */
+export function shuffleBingo(state: ChartState, rolls: readonly number[]): ChartState {
+  const board = state.bingo;
+  if (!board) return state;
+  const positions = filledBingoIndexes(state);
+  if (positions.length < 2) return state;
+
+  const sources = [...positions];
+  for (let i = sources.length - 1; i > 0; i--) {
+    const j = Math.floor(rolls[i] * (i + 1));
+    [sources[i], sources[j]] = [sources[j], sources[i]];
+  }
+  if (sources.every((source, i) => source === positions[i])) {
+    [sources[0], sources[1]] = [sources[1], sources[0]];
+  }
+
+  const cells = [...board.cells];
+  const destinations = new Map<number, number>();
+  positions.forEach((destination, i) => {
+    cells[destination] = board.cells[sources[i]];
+    destinations.set(sources[i], destination);
+  });
+  const marks = board.marks.map(index => destinations.get(index) ?? index);
+  return { ...state, bingo: { ...board, cells, marks } };
+}
+
 function replaceChartCells(state: ChartState, cells: ChartCell[]): ChartState {
   return state.kind === 'bingo' && state.bingo
     ? { ...state, bingo: { ...state.bingo, cells } }

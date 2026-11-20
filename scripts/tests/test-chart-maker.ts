@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { catalogueItems, enemyItemId, operatorItemId, type TierCatalogue } from '../../lib/tier-list/catalogue';
-import { bingoResizeRemovesContent, cellColor, cellLabelColor, chartGrid, setCellColor, chartPlaced, chartPool, clearChart, defaultChart, isBingoFreeCell, parseChart, placeInCell, placePoint, removeGridLine, resizeBingo, resizeGrid, setAxis, setAxisLine, setBingoFree, setBingoMarkColor, setCellLabel, setChartKind, setGridLabel, toggleBingoMark, unplace, CHART_SIDE } from '../../lib/tier-list/chart';
+import { bingoResizeRemovesContent, cellColor, cellLabelColor, chartGrid, setCellColor, chartPlaced, chartPool, clearChart, defaultChart, isBingoFreeCell, parseChart, placeInCell, placePoint, removeGridLine, resizeBingo, resizeGrid, setAxis, setAxisLine, setBingoFree, setBingoMarkColor, setCellLabel, setChartKind, setGridLabel, shuffleBingo, toggleBingoMark, unplace, CHART_SIDE } from '../../lib/tier-list/chart';
 import { decodeChart, encodeChart } from '../../lib/tier-list/chartShare';
 import { packPayload } from '../../lib/tier-list/share';
 import { chartQuizPool, scoreChartQuiz } from '../../lib/tier-list/quiz';
@@ -108,6 +108,25 @@ test('Bingo resizes through 10×10 with coordinate-based content and marks', asy
   assert.ok(ids(chartPool(items, small)).includes(A));
   assert.equal(bingoResizeRemovesContent(resizeBingo(original, 10), 3), false);
   assert.equal(await decodeChart(await packPayload({ v: 1, m: 'f', k: 'b', g: [3, 4, []] })), null);
+});
+
+test('Bingo shuffle keeps full squares together and leaves the free space and gaps in place', () => {
+  const rolls = Array(25).fill(0.99); // Even an identity draw must shuffle two filled squares.
+  const original = setChartKind(defaultChart(), 'bingo');
+  let board = placeInCell(setCellColor(setCellLabel(original, 0, 'First'), 0, '#963019'), [A], 0);
+  assert.equal(shuffleBingo(board, rolls), board);
+  board = placeInCell(board, [B], 24);
+  board = setBingoFree(setCellLabel(setBingoFree(board, false), BINGO_CENTER, 'Hidden prompt'), true);
+  board = toggleBingoMark(toggleBingoMark(toggleBingoMark(board, 0), 2), BINGO_CENTER);
+  const shuffled = shuffleBingo(board, rolls);
+  const { cells } = chartGrid(shuffled);
+  assert.deepEqual(cells[0], { label: '', items: [B] });
+  assert.deepEqual(cells[24], { label: 'First', items: [A], color: '#963019' });
+  assert.equal(cells[2], chartGrid(board).cells[2]);
+  assert.equal(cells[BINGO_CENTER].label, 'Hidden prompt');
+  assert.deepEqual(shuffled.bingo?.marks, [24, 2, BINGO_CENTER]);
+  assert.equal(shuffled.cells, original.cells);
+  assert.deepEqual(parseChart(JSON.stringify(shuffled)), shuffled);
 });
 
 test('resizing the grid keeps each cell in its column and row, and gives back what a removed cell held', () => {

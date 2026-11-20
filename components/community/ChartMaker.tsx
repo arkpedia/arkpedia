@@ -8,9 +8,9 @@ import { matchesSearch } from '@/lib/search/searchNormalize';
 import { catalogueItems, TIER_KINDS, TIER_RARITIES, type TierCatalogue } from '@/lib/tier-list/catalogue';
 import {
   AXIS_ENDS, AXIS_LINES, AXIS_OF, BINGO_MARK_COLOR, BINGO_SIZE, CHART_KINDS, CHART_SIDE, MAX_CHART_LABEL, MAX_CHART_TITLE,
-  bingoResizeRemovesContent, cellLabelColor, chartGrid, chartPlaced, chartPool, chartTitle, clearChart, defaultChart,
+  bingoResizeRemovesContent, cellLabelColor, chartGrid, chartPlaced, chartPool, chartTitle, clearChart, defaultChart, filledBingoIndexes,
   isBingoFreeCell, placeInCell, placePoint, removeGridLine, resizeBingo, resizeGrid, setAxis, setAxisLine, setBingoFree,
-  setBingoMarkColor, setCellColor, setCellLabel, setChartKind, setChartTitle, setGridLabel, toggleBingoMark, unplace,
+  setBingoMarkColor, setCellColor, setCellLabel, setChartKind, setChartTitle, setGridLabel, shuffleBingo, toggleBingoMark, unplace,
   type ChartKind, type ChartState,
 } from '@/lib/tier-list/chart';
 import { CHART_PARAM, decodeChart, encodeChart, type ChartShareMode, type SharedChart } from '@/lib/tier-list/chartShare';
@@ -186,6 +186,10 @@ export default function ChartMaker({ catalogue }: { catalogue: TierCatalogue }) 
                 <input type="checkbox" disabled={!hasCenter} checked={hasCenter && (state.bingo?.free ?? false)} onChange={(event) => update((current) => setBingoFree(current, event.target.checked))} />
                 {hasCenter ? C.bingoFree : C.bingoFreeOdd}
               </label>
+              <button type="button" className="ghost" disabled={filledBingoIndexes(state).length < 2} onClick={() => {
+                const rolls = Array.from({ length: BINGO_SIZE.max ** 2 }, () => Math.random());
+                update(current => shuffleBingo(current, rolls));
+              }}>{C.bingoShuffle}</button>
             </>}
             {/* Either axis can go, or both: for a chart that ranks along one line, or none. */}
             {state.kind === 'grid' ? (

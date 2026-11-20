@@ -25,6 +25,7 @@ export const CHART_STRINGS = {
   bingoResizeConfirm: 'Shrinking the board will remove prompts, artwork, colours, or marks outside the new grid. Resize anyway?',
   bingoFree: 'Free space',
   bingoFreeOdd: 'Free space (odd sizes)',
+  bingoShuffle: 'Shuffle squares',
   bingoMode: 'Bingo mode',
   bingoMarkColor: 'Mark colour',
   bingoModes: { edit: 'Edit', play: 'Play' },
