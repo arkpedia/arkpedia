@@ -117,10 +117,10 @@
 .cellColor input { position:absolute; inset:0; box-sizing:border-box; width:100%; height:100%; min-height:0; padding:0; border:0; opacity:0; cursor:pointer; }
 .cellLabel { flex:1 1 auto; box-sizing:border-box; width:100%; min-width:0; padding:6px 0 6px 28px; border:0; border-radius:0; background:transparent; color:inherit; font-family:var(--font-display); font-size:15px; font-weight:700; text-align:center; text-overflow:ellipsis; }
 .cellLabel::placeholder { color:inherit; opacity:.55; }
-.boardHead[data-bingo-toolbar] { justify-content:flex-end; }
-.chartFrame[data-bingo] { width:min(100%,700px); grid-template-columns:repeat(var(--chart-cols),minmax(0,1fr)); grid-template-rows:auto repeat(var(--chart-rows),auto); }
-.chartFrame[data-bingo] .chartGrid { grid-column:1/-1; }
-.chartFrame .bingoTitle { grid-column:1/-1; grid-row:1; width:100%; max-width:none; text-align:center; font-family:var(--font-display); font-weight:700; font-size:26px; }
+.chartFrame[data-bingo] { width:min(100%,700px); grid-template-columns:repeat(var(--chart-cols),minmax(0,1fr)); grid-template-rows:repeat(var(--chart-rows),auto); }
+.chartFrame[data-bingo-wide] { min-width:calc(var(--chart-cols) * 60px + (var(--chart-cols) - 1) * 4px); }
+.chartFrame[data-bingo] .chartGrid { grid-area:1/1/-1/-1; }
+.bingoTitle { margin:0 0 8px; text-align:center; overflow-wrap:anywhere; }
 .chartFrame[data-bingo] .chartCell { aspect-ratio:1; grid-template-rows:minmax(0,1fr) auto; align-self:stretch; }
 .chartFrame[data-bingo] .chartCell[data-text-only] { grid-template-rows:minmax(0,1fr); }
 .chartFrame[data-bingo] .chartCell[data-drop] { border-color:var(--teal); background:var(--teal-dim); }
@@ -134,10 +134,12 @@
 .chartFrame[data-bingo] .bingoPrompt .cellLabel { padding:4px; max-height:100%; font-size:18px; }
 .bingoPrompt .cellColor { position:absolute; inset:auto 0 0 auto; height:24px; width:24px; }
 .bingoFree { display:grid; place-items:center; box-sizing:border-box; aspect-ratio:1; padding:4px; text-align:center; background:var(--well); border:1px solid var(--line); border-radius:var(--radius); color:var(--text-bright); font:700 18px/1.1 var(--font-display); }
-.chartFrame .bingoTitle[readonly] { border-color:transparent; background:transparent; }
 .bingoPlayCell { position:relative; box-sizing:border-box; min-width:0; padding:4px; place-items:center; text-align:center; color:var(--text-bright); font:700 15px/1.15 var(--font-display); }
 .bingoPlayCell[data-free] { background:var(--well); }
 .bingoPlayCell[data-text-only] { font-size:18px; }
+@media (min-width:721px) {
+  .chartFrame[data-bingo-wide] .bingoPlayCell[data-text-only] { font-size:15px; }
+}
 .bingoPlayCell:hover, .bingoPlayCell[aria-pressed="true"] { border-color:var(--teal); }
 .bingoPlayCell[aria-pressed="true"] { background:var(--bingo-mark); border-color:var(--bingo-mark); color:var(--bingo-mark-ink); }
 .bingoPlayCell[aria-pressed="true"]::after { content:""; position:absolute; inset:3px; border:1px solid currentColor; opacity:.5; pointer-events:none; }

@@ -1,11 +1,18 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { ContentImg } from '@/components/content/ContentImage';
 import SegmentedControl from '@/components/ui/SegmentedControl';
+import StyledSelect from '@/components/ui/StyledSelect';
 import XButton from '@/components/ui/XButton';
 import { useHeightFloor } from '@/components/ui/useHeightFloor';
 import { matchesSearch } from '@/lib/search/searchNormalize';
 import { catalogueItems, TIER_KINDS, TIER_RARITIES, type TierCatalogue } from '@/lib/tier-list/catalogue';
-import { AXIS_ENDS, AXIS_LINES, AXIS_OF, BINGO_MARK_COLOR, cellLabelColor, CHART_KINDS, CHART_SIDE, chartGrid, chartPlaced, chartPool, chartTitle, clearChart, defaultChart, isBingoFreeCell, MAX_CHART_LABEL, MAX_CHART_TITLE, placeInCell, placePoint, removeGridLine, resizeGrid, setAxis, setAxisLine, setBingoFree, setBingoMarkColor, setCellColor, setCellLabel, setChartKind, setChartTitle, setGridLabel, toggleBingoMark, unplace, type ChartKind, type ChartState } from '@/lib/tier-list/chart';
+import {
+  AXIS_ENDS, AXIS_LINES, AXIS_OF, BINGO_MARK_COLOR, BINGO_SIZE, CHART_KINDS, CHART_SIDE, MAX_CHART_LABEL, MAX_CHART_TITLE,
+  bingoResizeRemovesContent, cellLabelColor, chartGrid, chartPlaced, chartPool, chartTitle, clearChart, defaultChart,
+  isBingoFreeCell, placeInCell, placePoint, removeGridLine, resizeBingo, resizeGrid, setAxis, setAxisLine, setBingoFree,
+  setBingoMarkColor, setCellColor, setCellLabel, setChartKind, setChartTitle, setGridLabel, toggleBingoMark, unplace,
+  type ChartKind, type ChartState,
+} from '@/lib/tier-list/chart';
 import { CHART_PARAM, decodeChart, encodeChart, type ChartShareMode, type SharedChart } from '@/lib/tier-list/chartShare';
 import { chartQuizPool, scoreChartQuiz, type QuizScore } from '@/lib/tier-list/quiz';
 import { useChart, writeChart } from '@/lib/tier-list/chartStore';
@@ -23,6 +30,10 @@ import styles from './TierList.module.css';
 type Change = (state: ChartState) => ChartState;
 const CELL = 'cell:';
 const CELL_VERDICTS = { right: C.quizRight, wrong: C.quizWrong };
+const BINGO_SIZES = Array.from({ length: BINGO_SIZE.max - BINGO_SIZE.min + 1 }, (_, index) => {
+  const size = BINGO_SIZE.min + index;
+  return { value: String(size), label: C.bingoDimensions(size) };
+});
 
 /** The chart on screen and the one way to change it: the reader's saved chart, or one opened
  *  from a link (`#chart=`), which is held in memory so it can never overwrite theirs unless
@@ -99,6 +110,8 @@ export default function ChartMaker({ catalogue }: { catalogue: TierCatalogue }) 
   const placedCount = chartPlaced(state).length;
   const resize = !quiz && state.kind === 'grid';
   const { cols, rows, cells } = chartGrid(state);
+  const wideBingo = bingo && cols > BINGO_SIZE.default;
+  const hasCenter = cols % 2 === 1;
   const showHeaders = !bingo && state.showGridHeaders;
   const showLabels = bingo || state.showCellLabels;
   const canMakeImage = placedCount > 0 || bingo || (state.kind === 'grid' && !state.showCellLabels);
@@ -147,8 +160,10 @@ export default function ChartMaker({ catalogue }: { catalogue: TierCatalogue }) 
       <section className="op-section" aria-labelledby="chart-board">
         <h2 id="chart-board">{C.boardHeading}</h2>
         <div ref={floor.ref}>
-          {!playing && <div className={styles.boardHead} data-bingo-toolbar={bingo ? '' : undefined}>
-            {!bingo && <input type="text" className={styles.name} value={state.title} maxLength={MAX_CHART_TITLE} readOnly={!!quiz} aria-label={C.titleLabel} placeholder={C.titlePlaceholder} onChange={(event) => update((current) => setChartTitle(current, event.target.value))} />}
+          {!playing && <div className={styles.boardHead}>
+            <input type="text" className={styles.name} value={chartTitle(state)} maxLength={MAX_CHART_TITLE} readOnly={!!quiz}
+              aria-label={bingo ? C.bingoTitle : C.titleLabel} placeholder={bingo ? C.bingoTitle : C.titlePlaceholder}
+              onChange={(event) => update((current) => setChartTitle(current, event.target.value))} />
             <TileControls names={state.names} zoom={state.zoom} onNames={(names) => update((current) => ({ ...current, names }))} onZoom={(zoom) => update((current) => ({ ...current, zoom: clampZoom(zoom) }))} />
           </div>}
           {!quiz && <div className={styles.chartBar}>
@@ -160,10 +175,18 @@ export default function ChartMaker({ catalogue }: { catalogue: TierCatalogue }) 
               {C.bingoMarkColor}
               <input type="color" value={markColor} onChange={(event) => update(current => setBingoMarkColor(current, event.target.value))} />
             </label>}
-            {bingo && !playing && <label className="check">
-              <input type="checkbox" checked={state.bingo?.free ?? false} onChange={(event) => update((current) => setBingoFree(current, event.target.checked))} />
-              {C.bingoFree}
-            </label>}
+            {bingo && !playing && <>
+              <StyledSelect label={C.bingoSize} value={String(cols)} options={BINGO_SIZES} onChange={(value) => {
+                const size = Number(value);
+                if (!bingoResizeRemovesContent(state, size) || window.confirm(C.bingoResizeConfirm)) {
+                  update((current) => resizeBingo(current, size));
+                }
+              }} />
+              <label className="check">
+                <input type="checkbox" disabled={!hasCenter} checked={hasCenter && (state.bingo?.free ?? false)} onChange={(event) => update((current) => setBingoFree(current, event.target.checked))} />
+                {hasCenter ? C.bingoFree : C.bingoFreeOdd}
+              </label>
+            </>}
             {/* Either axis can go, or both: for a chart that ranks along one line, or none. */}
             {state.kind === 'grid' ? (
               <div className={styles.checks} role="group" aria-label={C.gridLabels}>
@@ -188,12 +211,12 @@ export default function ChartMaker({ catalogue }: { catalogue: TierCatalogue }) 
             )}
           </div>}
 
+          {bingo && chartTitle(state) && <h3 className={`entity-title ${styles.bingoTitle}`}>{chartTitle(state)}</h3>}
           {state.kind !== 'axes' ? (
-            <div className={showHeaders ? styles.chartScroll : undefined}>
-              <div className={styles.chartFrame} data-bingo={bingo ? '' : undefined}
+            <div className={showHeaders || wideBingo ? styles.chartScroll : undefined}
+              role={wideBingo ? 'region' : undefined} aria-label={wideBingo ? C.bingoBoard : undefined} tabIndex={wideBingo ? 0 : undefined}>
+              <div className={styles.chartFrame} data-bingo={bingo ? '' : undefined} data-bingo-wide={wideBingo ? '' : undefined}
                 data-headers={showHeaders ? '' : undefined} data-cell-labels={showLabels ? '' : undefined} style={{ '--chart-cols': cols, '--chart-rows': rows } as CSSProperties}>
-                {bingo && <input type="text" className={`${styles.name} ${styles.bingoTitle}`} value={chartTitle(state)} maxLength={MAX_CHART_TITLE}
-                  aria-label={C.bingoTitle} placeholder={playing ? undefined : C.bingoTitle} readOnly={playing} tabIndex={playing ? -1 : undefined} onChange={(event) => update((current) => setChartTitle(current, event.target.value))} />}
                 {!bingo && gridHeaders('col')}
                 {!bingo && gridHeaders('row')}
                 <div className={styles.chartGrid}>

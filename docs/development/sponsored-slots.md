@@ -6,7 +6,7 @@ third-party script runs, and nothing is sticky, fixed or laid over content.
 | Placement | Where | Notes |
 | --- | --- | --- |
 | `home` | Home page, a panel directly under Events (the same on a phone) | full column width |
-| `header` | Beside a page title on desktop, or below the server clock inside the shared mobile navigation menu | Up to 60 px tall, starting 16 px below the header's top edge on every header so it keeps one height from page to page. The mobile banner scales to fit the drawer. |
+| `header` | Beside a page title on desktop, or below the server clock inside the shared mobile navigation menu | 72 px tall on desktop, starting 16 px below the header's top edge on every page. The mobile banner scales to fit the drawer. |
 | `support` | The "Our sponsor" section of `/support` | at the artwork's own width |
 
 Page content shows at most one slot besides `/support`'s section. The mobile navigation

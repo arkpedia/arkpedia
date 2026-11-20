@@ -12,21 +12,24 @@ const MONTHS = [
   'July', 'August', 'September', 'October', 'November', 'December',
 ];
 
-export interface OperatorBirthday {
-  name: string;
+export interface Birthday {
   month: number; // 1-12
   day: number;
 }
 
+export interface OperatorBirthday extends Birthday { name: string }
+
 /** Parses "Date of Birth" values like "March 25th" -- returns null for
  * anything unparseable (e.g. "Unknown"), rather than throwing. */
-function parseBirthdayText(text: string | undefined): { month: number; day: number } | null {
+export function parseBirthdayText(text: string | undefined): Birthday | null {
   if (!text) return null;
-  const match = text.match(/([A-Za-z]+)\s+(\d{1,2})(st|nd|rd|th)?/);
+  const match = text.match(/([A-Za-z]+)\s+(\d{1,2})(?:st|nd|rd|th)?\b/);
   if (!match) return null;
   const monthIdx = MONTHS.findIndex((m) => m.toLowerCase() === match[1].toLowerCase());
   if (monthIdx === -1) return null;
-  return { month: monthIdx + 1, day: parseInt(match[2], 10) };
+  const day = Number(match[2]);
+  const date = new Date(Date.UTC(2000, monthIdx, day));
+  return date.getUTCMonth() === monthIdx && date.getUTCDate() === day ? { month: monthIdx + 1, day } : null;
 }
 
 // Matches both the full Operator's basicInfo (a generic string record)

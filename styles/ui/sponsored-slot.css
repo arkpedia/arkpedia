@@ -39,8 +39,8 @@ a.sponsored-slot-art:focus-visible { border-color: var(--teal); }
 .sponsored-slot-fallback { padding: 0 12px; font-size: 13px; color: var(--text-dim); text-align: center; }
 
 /* Beside a page's title (components/ui/PageHeader): the artwork laid over the empty space
-   to the right of the title, 60px tall on every header: the height of the eyebrow and
-   title. It starts 16px below the header's top edge on every header, with or without a
+   to the right of the title, 72px tall on every header. It starts 16px below the
+   header's top edge on every header, with or without a
    lede and slim or not, so it stays at one height from page to page (the shortest header,
    91px, still holds it).
    It is out of the flow and the header reserves nothing for it, so every header and
@@ -49,7 +49,7 @@ a.sponsored-slot-art:focus-visible { border-color: var(--teal); }
    control in the title row), and below 1000px there is no free space beside a title, so
    there is no slot (a lazy image that is not displayed is not fetched).
    --header-sponsor-ratio is the artwork's width over its height, set by PageHeader. */
-.page-header.page-header-sponsored { position: relative; --header-sponsor-h: 60px; }
+.page-header.page-header-sponsored { position: relative; --header-sponsor-h: 72px; }
 .sponsored-slot--header {
   position: absolute;
   top: 16px;

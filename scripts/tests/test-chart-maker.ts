@@ -1,8 +1,9 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { catalogueItems, enemyItemId, operatorItemId, type TierCatalogue } from '../../lib/tier-list/catalogue';
-import { BINGO_CENTER, cellColor, cellLabelColor, chartGrid, setCellColor, chartPlaced, chartPool, clearChart, defaultChart, isBingoFreeCell, parseChart, placeInCell, placePoint, removeGridLine, resizeGrid, setAxis, setAxisLine, setBingoFree, setBingoMarkColor, setCellLabel, setChartKind, setGridLabel, toggleBingoMark, unplace, CHART_SIDE } from '../../lib/tier-list/chart';
+import { bingoResizeRemovesContent, cellColor, cellLabelColor, chartGrid, setCellColor, chartPlaced, chartPool, clearChart, defaultChart, isBingoFreeCell, parseChart, placeInCell, placePoint, removeGridLine, resizeBingo, resizeGrid, setAxis, setAxisLine, setBingoFree, setBingoMarkColor, setCellLabel, setChartKind, setGridLabel, toggleBingoMark, unplace, CHART_SIDE } from '../../lib/tier-list/chart';
 import { decodeChart, encodeChart } from '../../lib/tier-list/chartShare';
+import { packPayload } from '../../lib/tier-list/share';
 import { chartQuizPool, scoreChartQuiz } from '../../lib/tier-list/quiz';
 import { CHART_STRINGS } from '../../lib/tier-list/chartStrings';
 import { GROUPS, LINKS, isActiveLink } from '../../lib/nav/navLinks';
@@ -15,6 +16,7 @@ const catalogue: TierCatalogue = { operators: [
 const items = catalogueItems(catalogue);
 const A = operatorItemId('char_a'), B = operatorItemId('char_b'), SLUG = enemyItemId('slug');
 const ids = (list: { id: string }[]) => list.map((item) => item.id);
+const BINGO_CENTER = 12;
 
 test('a new chart is the classic three by three, on the tier list\'s default pool', () => {
   const chart = defaultChart();
@@ -73,6 +75,39 @@ test('Bingo copies the matching grid cells once and saves its own board and free
   assert.deepEqual(chartPlaced(template), []);
   assert.equal(chartGrid(template).cells[BINGO_CENTER].label, 'Center prompt');
   assert.equal(isBingoFreeCell(template, BINGO_CENTER), false);
+});
+
+test('Bingo resizes through 10×10 with coordinate-based content and marks', async () => {
+  const original = setChartKind(defaultChart(), 'bingo');
+  const legacy = { ...original, bingo: { ...original.bingo, size: undefined } };
+  assert.deepEqual(parseChart(JSON.stringify(legacy)), original);
+  const oldLink = await packPayload({ v: 1, m: 'f', k: 'b', g: [5, 5, [['Old prompt', []]]], bs: 1 });
+  const fromLink = (await decodeChart(oldLink))!.state;
+  assert.equal(chartGrid(fromLink).cols, 5);
+  assert.equal(chartGrid(fromLink).cells[0].label, 'Old prompt');
+  assert.equal(isBingoFreeCell(fromLink, 12), true);
+
+  const marked = toggleBingoMark(setCellLabel(original, 6, 'Row two, column two'), 6);
+  assert.equal(bingoResizeRemovesContent(marked, 10), false);
+  assert.equal(resizeBingo(marked, 11), marked);
+  let large = resizeBingo(marked, 10);
+  assert.equal(chartGrid(large).cells.length, 100);
+  assert.equal(chartGrid(large).cells[11].label, 'Row two, column two');
+  assert.equal(chartGrid(large).cells.some((_, index) => isBingoFreeCell(large, index)), false);
+  assert.deepEqual(large.bingo?.marks, [11]);
+  large = toggleBingoMark(placeInCell(setCellLabel(large, 99, 'Far corner'), [A], 99), 99);
+  assert.deepEqual(parseChart(JSON.stringify(large)), large);
+  const shared = (await decodeChart(await encodeChart(large)))!.state;
+  assert.deepEqual(chartGrid(shared), chartGrid(large));
+  assert.deepEqual(shared.bingo?.marks, []);
+  assert.equal(bingoResizeRemovesContent(large, 3), true);
+  const small = resizeBingo(large, 3);
+  assert.equal(chartGrid(small).cells[4].label, 'Row two, column two');
+  assert.equal(isBingoFreeCell(small, 4), true);
+  assert.deepEqual(small.bingo?.marks, [4]);
+  assert.ok(ids(chartPool(items, small)).includes(A));
+  assert.equal(bingoResizeRemovesContent(resizeBingo(original, 10), 3), false);
+  assert.equal(await decodeChart(await packPayload({ v: 1, m: 'f', k: 'b', g: [3, 4, []] })), null);
 });
 
 test('resizing the grid keeps each cell in its column and row, and gives back what a removed cell held', () => {

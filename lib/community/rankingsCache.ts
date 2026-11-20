@@ -1,5 +1,5 @@
 import type { D1Database } from '@cloudflare/workers-types';
-import { communityRankings, type CommunityRankings } from './rankings';
+import { communityRankings, readCommunityRoster, type CommunityRankings } from './rankings';
 import {sharedRankingResult,type RankingBucket} from './sharedRankingsCache';
 
 interface Entry { stamp:string; expires:number; result:Promise<CommunityRankings> }
@@ -13,16 +13,23 @@ export async function rankingConsentStamp(db:D1Database):Promise<string>{
 
 /** One cheap consent-epoch read per visit, never an account/replay scan on a warm
  * daily snapshot. Routine imports do not invalidate it; withdrawals/deletions do. */
-export async function cachedCommunityRankings(db:D1Database,server:string,stage:string,bucket?:RankingBucket,options:{forceRefresh?:boolean;background?:(work:Promise<unknown>)=>void}={}):Promise<CommunityRankings>{
+export async function cachedCommunityRankings(db:D1Database,server:string,stage:string,bucket?:RankingBucket,options:{forceRefresh?:boolean;background?:(work:Promise<unknown>)=>void;includeRosterProgress?:boolean}={}):Promise<CommunityRankings>{
   const stamp=await rankingConsentStamp(db);
+  const verifyConsent=async()=>{
+    if(await rankingConsentStamp(db)!==stamp)throw Object.assign(new Error('Community statistics consent changed during refresh.'),{code:'COMMUNITY_CONSENT_CHANGED'});
+  };
   const key=JSON.stringify([server,stage]);
   // Four bounded region cohorts use the shared cache. Individual-stage reads
   // are small and do not create an unbounded set of persistent objects.
   if(bucket&&!stage)return sharedRankingResult(bucket,encodeURIComponent(key),stamp,async()=>{
     const result=await communityRankings(db,server,stage,{paceBulkReads:options.forceRefresh});
-    if(await rankingConsentStamp(db)!==stamp)throw Error('Community statistics consent changed during refresh.');
+    await verifyConsent();
     return {...result,source:'daily-snapshot',capturedAt:new Date().toISOString()};
-  },options);
+  },{...options,upgradeRoster:options.includeRosterProgress?async previous=>{
+    const roster=await readCommunityRoster(db,server);
+    await verifyConsent();
+    return {...previous,...roster};
+  }:undefined});
   let cache=caches.get(db);if(!cache){cache=new Map();caches.set(db,cache);}
   const now=Date.now(),entry=cache.get(key);
   if(entry?.stamp===stamp&&entry.expires>now)return entry.result;

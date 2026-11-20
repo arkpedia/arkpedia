@@ -34,6 +34,16 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    at: '2026-11-20T15:03:00Z',
+    title: 'Roster sorting and bigger Bingo boards',
+    added: [
+      { title: 'More ways to sort operators', detail: 'Filter by gender and sort by upcoming birthdays, combat stats, profile details or community progress.', href: '/operators' },
+      { title: 'Choose your Bingo board size', detail: 'Play, share and export square boards from 3×3 through 10×10.', href: '/polls/chart-maker' },
+    ],
+    changed: [{ title: 'Larger desktop header banners', detail: 'Page headers use the same larger banner size wherever there is room beside the title.', href: '/operators' }],
+    fixed: [{ title: 'Steadier Chart Maker controls', detail: 'The toolbar and title field stay in place when you switch between Grid and Bingo.', href: '/polls/chart-maker' }],
+  },
+  {
     at: '2026-11-20T11:03:00Z',
     title: 'Bingo boards and event launch times',
     added: [
