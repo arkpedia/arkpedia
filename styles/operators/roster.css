@@ -86,8 +86,16 @@
 .roster-icon-chip { width: 36px; padding: 0; }
 
 
-/* Faction, Show CN and the owned filter, then the order and Reset at the far end. */
 .roster-filter-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; width: 100%; padding-top: 4px; }
+/* Keep the controls anchored across sort labels and the sorts that have help. */
+.roster-sort-row { display: flex; align-items: center; gap: 8px; width: 100%; }
+.roster-sort-picker { flex: 0 1 184px; }
+.roster-sort-direction { flex: 0 0 var(--control-h); padding-inline: 0; }
+.roster-sort-help { flex: 0 0 var(--control-h); }
+@media (max-width: 355px) {
+  .roster-sort-row { display: grid; grid-template-columns: minmax(0, 184px) var(--control-h); }
+  .roster-sort-help { grid-column: 2; min-height: var(--control-h); }
+}
 /* The reference pages beside the roster, in the header's lede. */
 .roster-reference a { color: var(--teal); }
 
