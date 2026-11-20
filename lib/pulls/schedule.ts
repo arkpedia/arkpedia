@@ -12,6 +12,7 @@ import { ALL_BANNERS } from './sources';
 import { pullArtworkUrl } from './artwork';
 import { validPlanDate } from './plan';
 import { resolveGachaSimulatorBanners } from '@/lib/gacha/gachaBannerWindows';
+import { bannerReleaseTiming } from '@/lib/gacha/bannerTimingLabel';
 
 export const pullBannerKey = (name: string) => name.normalize('NFKC').toLowerCase().replace(/\s+/g, ' ').trim();
 
@@ -19,6 +20,7 @@ export const pullBannerKey = (name: string) => name.normalize('NFKC').toLowerCas
  * dates after the site's schedule is corrected. Resolve dates at page build/ISR.
  * Unknown windows are omitted instead of reviving a stale estimated date. */
 type CurrentPullBanner = { pull_type?: string; globalPoolId?: string; globalLineupPending?: boolean; name: string; aliases?: string[]; global_date: string | null; global_date_estimated?: boolean;
+  cn_date?: string | null; globalScheduleStatus?: 'announced' | 'datamined';
   global_window?: { startAt?: string; endAt?: string; timingSource?: string | null }; category?: string; six_stars?: string[]; rate_up_six_stars?: string[];
   banner_image?: string | null; linked_event?: string | null; cnPoolId?: string;
 };
@@ -35,6 +37,7 @@ export function resolvePullSchedule(rewards: readonly UpcomingBanner[], current:
     const window = parseGameWindow(latest.global_date, { startAt: latest.global_window?.startAt, endAt: latest.global_window?.endAt }, 'global', latest.pull_type === 'standard' || latest.pull_type === 'kernel');
     if (!window) return [];
     const featured = latest.six_stars ?? banner?.sixStars ?? [];
+    const timing = bannerReleaseTiming(latest);
     return [{
       rerun: false,
       op: 0, opSource: 'none' as const, cnAct: null, inBacklog: false, ruleType: null,
@@ -49,17 +52,20 @@ export function resolvePullSchedule(rewards: readonly UpcomingBanner[], current:
       event: latest.linked_event === undefined ? banner?.event ?? null : latest.linked_event,
       poolId: waitsForGlobal(latest) ? null : latest.cnPoolId ?? banner?.poolId ?? null,
       datesEstimated: !latest.global_window?.timingSource || latest.global_date_estimated === true,
+      releaseTiming: timing === 'confirmed' && !latest.globalScheduleStatus && !latest.global_window?.timingSource ? 'estimated' as const : timing,
       days: (Date.parse(end) - Date.parse(start)) / 86400000,
     }];
   });
 }
 export function getPullSchedule(banners = getAllHeadhuntingBanners()): UpcomingBanner[] {
-  const estimated = new Set(getEventCalendar().filter(event => event.isPredicted).map(event => pullBannerKey(event.name)));
+  const estimated = new Map(getEventCalendar().filter(event => event.isPredicted).map(event => [pullBannerKey(event.name), event.releaseTiming ?? 'estimated'] as const));
   // Use the simulator's event forecasts and CN fallback for every new banner.
   const current = resolveGachaSimulatorBanners(banners);
-  return resolvePullSchedule(ALL_BANNERS, current).map(banner => ({
-    ...banner, image: pullArtworkUrl(banner.image), datesEstimated: banner.datesEstimated || (!!banner.event && estimated.has(pullBannerKey(banner.event))),
-  }));
+  return resolvePullSchedule(ALL_BANNERS, current).map(banner => {
+    const eventEstimate = banner.event ? estimated.get(pullBannerKey(banner.event)) : undefined;
+    return { ...banner, image: pullArtworkUrl(banner.image), datesEstimated: banner.datesEstimated || !!eventEstimate,
+      releaseTiming: banner.releaseTiming === 'estimated' ? eventEstimate ?? banner.releaseTiming : banner.releaseTiming };
+  });
 }
 
 /** Resolve rewards against event windows, never banner windows. Missing or

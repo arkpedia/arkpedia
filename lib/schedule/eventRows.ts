@@ -2,14 +2,16 @@ import { isReleasedAt, type ReleaseMarker } from '@/lib/operators/operatorAvaila
 import type { TimelineOperator } from '@/lib/operators/operatorTypes';
 import type { ScheduleEvent } from './scheduleTypes';
 import { parseGameWindow } from './gameWindow';
+import { eventReleaseTiming, isReleaseEstimate, type ReleaseTiming } from '@/lib/time/releaseTiming';
 
 /** Confirmed, finished events from the complete calendar data, newest first.
  * Current rows are deliberately pruned from page props; the archive must not use them. */
 export function pastScheduleEvents(events: readonly ScheduleEvent[], now: number) {
   return events.flatMap(event => {
-    if (event.bannerName || event.modeId || /estimated|predicted|unannounced/i.test(event.global.note ?? '')) return [];
+    const releaseTiming = eventReleaseTiming(event.global, !!event.cn.dateRange);
+    if (event.bannerName || event.modeId || isReleaseEstimate(releaseTiming)) return [];
     const range = parseGameWindow(event.global.dateRange, event.global);
-    return range && +range.end <= now ? [{ name: event.name, poster: event.poster, dateRange: event.global.dateRange ?? `${range.start.toISOString()} – ${range.end.toISOString()}`, start: +range.start, end: +range.end }] : [];
+    return range && +range.end <= now ? [{ name: event.name, poster: event.poster, dateRange: event.global.dateRange ?? `${range.start.toISOString()} – ${range.end.toISOString()}`, start: +range.start, end: +range.end, releaseTiming }] : [];
   }).sort((a, b) => b.start - a.start || a.name.localeCompare(b.name));
 }
 
@@ -29,6 +31,7 @@ export interface EventRow {
   poster: string | null;
   dateRange: string;
   isPredicted: boolean;
+  releaseTiming?: ReleaseTiming;
   start: number;
   end: number;
   /** The pull-planner banner linked to the event, with the instant it leaves the planner. */
@@ -46,6 +49,7 @@ export interface EventRowView {
   poster: string | null;
   dateRange: string;
   isPredicted: boolean;
+  releaseTiming?: ReleaseTiming;
   isOngoing: boolean;
   pullBannerName: string | null;
   featuredOperators: { name: string; rarity: 6 | 5 }[];

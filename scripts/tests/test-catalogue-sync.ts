@@ -58,6 +58,26 @@ test('Global release uses the immutable ID to replace a provisional name and ski
   assert.equal(outfit.code,'Official collab line/Official outfit title');assert.equal(outfit.description,'Official description.');
   assert.equal(outfit.sourceRegion,'Global');assert(outfit.searchAliases.length>0);
 });
+
+test('operator imports keep the source of the actual Global debut and prefer a matching announcement', () => {
+  const en = structuredClone(cn);
+  const id = 'char_4217_makoto';
+  en.characters[id].name = 'Makoto Yuki';
+  const operators = reconcileOperators({ operators: [], cn, en }).operators;
+  const startAt = '2027-02-19T15:00:00Z';
+  const timingSource = 'https://raw.githubusercontent.com/ArknightsAssets/ArknightsGamedata/test/en/gamedata/excel/gacha_table.json';
+  const datamined = { six_stars: ['Makoto Yuki'], globalScheduleStatus: 'datamined', global_window: { startAt, timingSource } };
+  const announced = { ...datamined, globalScheduleStatus: 'announced', global_window: { startAt, timingSource: 'https://www.arknights.global/news/123' } };
+  const forecast = { ...datamined, globalScheduleStatus: undefined, global_date_estimated: true,
+    global_window: { startAt: '2027-02-01T15:00:00Z', timingSource } };
+  const imported = (banners: object[]) => {
+    const releases = operatorReleaseDates(operators, banners, cn, { ...en, activity: { ...en.activity, missionData: {} } });
+    return reconcileOperators({ operators, cn, en, releases }).operators.find((operator: { internalName: string }) => operator.internalName === id);
+  };
+  assert.equal(imported([forecast, datamined]).releaseAt, '2027-02-19T15:00:00.000Z');
+  assert.deepEqual(imported([forecast, datamined]).releaseEvidence, { timingSource, status: 'datamined' });
+  assert.deepEqual(imported([datamined, announced]).releaseEvidence, { timingSource: announced.global_window.timingSource, status: 'announced' });
+});
 test('secondary limited rate-ups never become featured during automatic imports',()=>{
   const ops=[{name:'New limited',internalName:'new',rarity:6},{name:'Returning limited',internalName:'old',rarity:6},{name:'Five star',internalName:'five',rarity:5}];
   const row={name:'Limited test',type:'celebration',cnstart:'2026/09/04',operators:'New limited, Returning limited, Five star',limited:'1,2,0'};

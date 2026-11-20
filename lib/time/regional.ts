@@ -8,6 +8,7 @@ import type { StageModeCard } from '@/lib/stages/stageTypes';
 import type { SkinWindow } from '@/lib/skins/skinAvailability';
 import type { SkinCollection } from '@/lib/pulls/skinCollections';
 import { SERVER_TIME, serverWeekday } from './servers.mjs';
+import { eventReleaseTiming, isReleaseEstimate, preferRegionalWindow, sourcedTiming, type TimingEvidence } from './releaseTiming';
 
 export interface RegionalWindow extends GameWindowTimes {
   startAt: string; endAt: string; timingSource: string;
@@ -57,8 +58,9 @@ export function regionalScheduleSlice(table: RegionalSchedules, keep: { events: 
  *  table (2026-10-27). Clock-free, so it can run per request on a release's table. Every
  *  server's rows stay: JP and KR read their own windows from the same shape. */
 export function stripRegionalTimingSources(table: RegionalSchedules): RegionalSchedules {
-  const windows = <T extends { timingSource?: string }>(rows: Record<string, T> | undefined) =>
-    rows && Object.fromEntries(Object.entries(rows).map(([key, { timingSource: _source, ...rest }]) => [key, rest]));
+  const windows = <T extends { timingSource?: string; status?: string }>(rows: Record<string, T> | undefined) =>
+    rows && Object.fromEntries(Object.entries(rows).map(([key, { timingSource, ...rest }]) => [key,
+      !rest.status && sourcedTiming({ timingSource }) === 'datamined' ? { ...rest, status: 'datamined' } : rest]));
   return { ...table, servers: Object.fromEntries(Object.entries(table.servers ?? {}).map(([server, schedule]) => [server, schedule && {
     ...schedule,
     ...(schedule.events ? { events: windows(schedule.events) } : {}),
@@ -102,13 +104,17 @@ const notAnnounced = (server: GameServer) => `Estimated from Global's dates; ${s
 const isEstimateNote = (note: string | null | undefined) => /estimated|predicted|unannounced|withdrawn/i.test(note ?? '');
 
 export function regionalEvents<T extends ScheduleEvent>(events: readonly T[], schedule: RegionalSchedule | undefined, server: GameServer): T[] {
-  if (server === 'en') return [...events];
   return events.map(event => {
-    const time = schedule?.events?.[event.name];
-    const { art: _art, ...timing } = time ?? {};
+    const regional = event.bannerName ? schedule?.banners?.[event.bannerName] : schedule?.events?.[event.name];
+    const timing = eventReleaseTiming(event.global, !!(event.cn.dateRange || event.cn.releaseDate));
+    const time = regional && preferRegionalWindow(event.global, regional, server) ? regional : undefined;
+    if (!time && server === 'en') return event;
+    const { art: _art, ...localWindow } = time ?? {};
     const dated = !!(event.global.dateRange || event.global.releaseDate);
-    const global = time ? { ...timing, dateRange: time.modeId && time.releaseDate ? `${time.releaseDate}–${time.releaseDate}` : regionalRange(time, server), note: null }
-      : { ...event.global, note: dated && !isEstimateNote(event.global.note) ? notAnnounced(server) : event.global.note };
+    const global = time ? { ...localWindow, dateRange: time.modeId && time.releaseDate ? `${time.releaseDate}–${time.releaseDate}` : regionalRange(time, server),
+      note: server === 'en' && !isEstimateNote(event.global.note) ? event.global.note : null, releaseTiming: sourcedTiming(time) }
+      : dated && !isReleaseEstimate(timing) && !isEstimateNote(event.global.note)
+        ? { ...event.global, note: notAnnounced(server), releaseTiming: 'global-fallback' as const } : event.global;
     const art = event.bannerName ? schedule?.banners?.[event.bannerName] : time;
     return { ...event, global, poster: regionalArt(art, event.poster, server) };
   });
@@ -124,11 +130,12 @@ export function regionalBanners<T extends HeadhuntingBanner>(banners: readonly T
   });
 }
 export function regionalPullBanners(banners: readonly UpcomingBanner[], schedule: RegionalSchedule | undefined, server: GameServer): UpcomingBanner[] {
-  if (server === 'en') return [...banners];
   return banners.map(banner => {
     const time = schedule?.banners?.[banner.name];
-    return time ? { ...banner, image: regionalArt(time, banner.image, server), startAt: time.startAt, endAt: time.endAt, server, start: regionalDate(time.startAt, server), end: regionalDate(time.endAt, server), datesEstimated: time.status !== 'announced' }
-      : { ...banner, datesEstimated: true };
+    if (server === 'en') return time && !banner.releaseTiming && Date.parse(time.startAt) === Date.parse(banner.startAt ?? '')
+      ? { ...banner, releaseTiming: sourcedTiming(time) } : banner;
+    return time ? { ...banner, image: regionalArt(time, banner.image, server), startAt: time.startAt, endAt: time.endAt, server, start: regionalDate(time.startAt, server), end: regionalDate(time.endAt, server), datesEstimated: time.status !== 'announced', releaseTiming: sourcedTiming(time) }
+      : { ...banner, datesEstimated: true, releaseTiming: banner.releaseTiming && isReleaseEstimate(banner.releaseTiming) ? banner.releaseTiming : 'global-fallback' };
   });
 }
 export function regionalPullEvents(events: readonly PullEventReward[], schedule: RegionalSchedule | undefined, server: GameServer): PullEventReward[] {
@@ -179,7 +186,8 @@ export function regionalSkinWindows(windows: readonly SkinWindow[], schedule: Re
   }
   return windows.map(window => {
     const sale = regionalSale(window, schedule);
-    return sale ? { ...window, startAt: sale.startAt, endAt: sale.endAt, estimated: !!sale.estimated, source: sale.source ?? window.source } : { ...window };
+    return sale ? { ...window, startAt: sale.startAt, endAt: sale.endAt, estimated: !!sale.estimated, source: sale.source,
+      releaseTiming: sale.releaseTiming ?? (sale.estimated ? 'estimated' : sourcedTiming({ timingSource: sale.source })) } : { ...window };
   });
 }
 /** Global's shop collections, each on the server's own sale of its outfits where it has one, else
@@ -216,13 +224,13 @@ function regionalSale(window: Pick<SkinWindow, 'kind' | 'startAt' | 'endAt' | 's
   return best;
 }
 
-export function regionalGameEvents<T extends { name: string; poster: string | null; dateRange: string; start: string; end: string; shopEndAt?: string }>(events: readonly T[], schedule: RegionalSchedule | undefined, server: GameServer): T[] {
-  if (server === 'en') return [...events];
+export function regionalGameEvents<T extends TimingEvidence & { name: string; poster: string | null; dateRange: string; start: string; end: string; shopEndAt?: string }>(events: readonly T[], schedule: RegionalSchedule | undefined, server: GameServer): T[] {
   return events.map(event => {
     const time = schedule?.events?.[event.name];
-    // The window's own fields are timings; its art is the poster's, not a field of the event.
-    const { art: _art, ...timing } = time ?? {};
-    return time ? { ...event, ...timing, poster: regionalArt(time, event.poster, server), shopEndAt: time.shopEndAt ?? time.endAt, dateRange: regionalRange(time, server), start: time.startAt, end: time.endAt } : { ...event };
+    if (!time || !preferRegionalWindow(event, time, server)) return { ...event };
+    return { ...event, startAt: time.startAt, endAt: time.endAt, ...(time.timingSource ? { timingSource: time.timingSource } : {}),
+      releaseTiming: sourcedTiming(time), poster: regionalArt(time, event.poster, server),
+      shopEndAt: time.shopEndAt ?? time.endAt, dateRange: regionalRange(time, server), start: time.startAt, end: time.endAt };
   });
 }
 

@@ -25,7 +25,8 @@ test('Limited includes every crossover and limited record once without changing 
 test('timing labels distinguish client datamines, estimates, official windows and CN', () => {
   const b = { global_date: '2026/10/30–2026/11/13', cn_date: '2026/05/15–2026/05/29' } as HeadhuntingBanner;
   assert.equal(bannerTimingLabel({ ...b, globalScheduleStatus: 'datamined' }), `Datamined Global · ${b.global_date}`);
-  assert.equal(bannerTimingLabel({ ...b, global_date_estimated: true }), `Estimated Global · ${b.global_date}`);
+  assert.equal(bannerTimingLabel({ ...b, global_date_estimated: true }), `Estimated Global (CN-based) · ${b.global_date}`);
+  assert.equal(bannerTimingLabel({ ...b, cn_date: null, global_date_estimated: true }), `Estimated Global · ${b.global_date}`);
   assert.equal(bannerTimingLabel({ ...b, globalScheduleStatus: 'announced' }), b.global_date);
   assert.equal(bannerTimingLabel({ ...b, global_date: null }), `CN · ${b.cn_date}`);
 });

@@ -617,6 +617,7 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/op
     ...(op.sourceRegion ? { sourceRegion: op.sourceRegion } : {}),
     ...(op.releaseAt ? { releaseAt: op.releaseAt } : {}),
     ...(op.releaseEstimate ? { releaseEstimate: op.releaseEstimate } : {}),
+    ...(op.releaseTiming ? { releaseTiming: op.releaseTiming } : {}),
     ...(op.availableUntil ? { availableUntil: op.availableUntil } : {}),
     characterInfo: op.characterInfo ? { 'Release Date': op.characterInfo['Release Date'] || '' } : null,
   }));

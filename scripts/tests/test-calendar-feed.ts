@@ -45,6 +45,19 @@ test('confirmation and corrected dates update the same UID with a newer revision
   assert.equal(calendarFeed(source, options, updated, now), calendarFeed(source, options, updated, now + 1000));
 });
 
+test('a Global client window replaces a CN forecast and exports distinct tentative timestamps', () => {
+  const source = data();
+  source.__contentTables = { 'regional-schedules': { version: 1, servers: { en: { sources: {}, events: {
+    'Future event': { startAt: '2026-12-02T07:00:00Z', endAt: '2026-12-16T19:00:00Z', timingSource: 'client', status: 'datamined' },
+  } } } } };
+  const entries = blocks(calendarFeed(source, options, updated, now));
+  assert.match(entries[1], /SUMMARY:\[Datamined\] Future event/);
+  assert.match(entries[1], /DTSTART:20261202T070000Z/);
+  assert.match(entries[1], /STATUS:TENTATIVE/);
+  const confirmed = blocks(calendarFeed(source, { ...options, predicted: false }, updated, now));
+  assert.equal(confirmed.length, 1);
+});
+
 test('confirmed-only filters predictions, including regional Global fallbacks', () => {
   assert.equal(blocks(calendarFeed(data(), { ...options, predicted: false }, updated, now)).length, 1);
   assert.equal(blocks(calendarFeed(data(), { ...options, server: 'jp', predicted: false }, updated, now)).length, 0);

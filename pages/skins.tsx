@@ -10,7 +10,8 @@ import { useReaderClock } from '@/lib/time/readerClock';
 import { getAllSkins } from '@/lib/skins/skins';
 import { useSkinGalleryState } from '@/lib/skins/useSkinGalleryState';
 import { Skin } from '@/lib/skins/skinTypes';
-import { acquisitionLabel, compareUpcomingSkins, isUpcomingSkin, compareCurrentSkins, computeSkinCountdowns, getSkinWindows, isAvailableNow, skinKey, type SkinWindow } from '@/lib/skins/skinAvailability';
+import { acquisitionLabel, compareUpcomingSkins, isUpcomingSkin, compareCurrentSkins, computeSkinCountdowns, dataminedSkinDebut, getSkinWindows, isAvailableNow, skinKey, skinWindowTiming, type SkinWindow } from '@/lib/skins/skinAvailability';
+import { timingQualifier } from '@/lib/time/releaseTiming';
 import { assertSkinMatching } from '@/lib/schedule/scheduleSkinMatch';
 import { seriesKey, skinSeriesOptions } from '@/lib/skins/skinSeriesConfig';
 import { parsePrices, formatPrices } from '@/lib/skins/skinPrice';
@@ -94,9 +95,12 @@ export default function SkinsGallery({ skins, now, availabilityWindows, dynamicA
   const account = useAccount();
   const ownedSkins = useMemo(() => new Set(account?.skins ?? []), [account]);
   const shortDate = (value: string) => new Date(value).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', timeZone: SERVER_TIME.en.timeZone });
-  function availabilityText(window: ReturnType<typeof availability.get>): string | null {
+  function availabilityText(skin: Skin, window: ReturnType<typeof availability.get>): string | null {
+    const debut = dataminedSkinDebut(skin, window, clock);
+    if (debut) return `Datamined debut · ${shortDate(debut)}`;
     if (!window) return null;
-    return window.live ? `${acquisitionLabel(window)} · until ${shortDate(window.endAt)}` : `${window.estimated ? 'Estimated ' : ''}${shortDate(window.startAt)}`;
+    return window.live ? `${acquisitionLabel(window)} · until ${shortDate(window.endAt)}`
+      : [timingQualifier(skinWindowTiming(window)), shortDate(window.startAt)].filter(Boolean).join(' · ');
   }
 
   function openSkin(skin: Skin) { setActiveSkinName(skin.name); }
@@ -216,7 +220,7 @@ export default function SkinsGallery({ skins, now, availabilityWindows, dynamicA
           <div className="skin-card-info">
             <span className="skin-card-operator">{skin.model}</span>
             <span className="skin-card-name">{skin.name}</span>
-            <span className="skin-card-status">{availabilityText(window) ?? 'No scheduled availability'}</span>
+            <span className="skin-card-status">{availabilityText(skin, window) ?? 'No scheduled availability'}</span>
           </div>
         </button>
       );
@@ -291,7 +295,6 @@ export default function SkinsGallery({ skins, now, availabilityWindows, dynamicA
           <button type="button" className="ghost btn-sm" disabled={!search && !selectedSeries && !availabilityFilter && !wishlistOnly && !(account && owned !== 'all')} onClick={() => { hold.capture(); setSearch(''); resetFilters(); }}>Reset filters</button>
         </div>
         {availabilityFilter === 'fashion' && <p className="skins-acquisition-note">Outfits included in Fashion Review. Availability depends on the announced shop or draw pool.</p>}
-        {availabilityFilter === 'upcoming' && <p className="skins-acquisition-note">Estimated dates follow the current event schedule and may change.</p>}
         {filteredSkins.length === 0 ? (
           // A silent empty grid reads as a broken page, not as "nothing
           // matched" -- same empty-state treatment the roster uses.
@@ -313,6 +316,7 @@ export default function SkinsGallery({ skins, now, availabilityWindows, dynamicA
 
       {active && <SkinDetailDialog key={active.name} skin={active} onClose={closeSkin}
         availability={availability.get(skinKey(active))}
+        dataminedDebut={dataminedSkinDebut(active, availability.get(skinKey(active)), clock)}
         wishlist={{wished:isWished(active),owned:ownedSkins.has(active.skinId ?? ''),toggle:()=>toggleWishlist(active)}}
         dynamic={active.skinId ? dynamicArt[active.skinId] ?? null : null}
         alternate={active.skinId ? dynamicArt[`${active.skinId}^sp_dyn`] ?? null : null} />}

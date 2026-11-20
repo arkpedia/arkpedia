@@ -5,7 +5,7 @@ import { formatChance, type BannerOdds, type OddsRequest, type OddsResult } from
 import { OperatorGoals } from './OperatorGoals';
 import styles from '@/styles/pulls/pulls-workspace.module.css';
 import { ContentImg } from '@/components/content/ContentImage';
-import { formatDayMonth } from '@/lib/pulls/format';
+import { formatDayMonth, pullTimingLabel } from '@/lib/pulls/format';
 import XButton from '@/components/ui/XButton';
 
 export default function PullBannerRow({row,rules,expanded,onExpand,onAvailable,onChange,onRemove}: {row:BudgetRow;rules?:BannerOdds;expanded:boolean;onExpand:()=>void;onAvailable:()=>void;onChange:(goal:BannerGoal)=>void;onRemove:()=>void}) {
@@ -34,7 +34,7 @@ export default function PullBannerRow({row,rules,expanded,onExpand,onAvailable,o
         {row.banner?.image ? <ContentImg src={row.banner.image} alt="" width="96" height="60" /> : <span className={styles.bannerArtPending} aria-hidden="true" />}
         <span><strong>{names}</strong><small>{row.goal.banner.replace(/^\[[^\]]*\]\s*/,'')}</small><em>{expanded?'Hide goals':'Edit goals'} <span aria-hidden="true">{expanded?'−':'+'}</span></em></span>
       </button>
-      <div className={styles.date}><span className={styles.mobileLabel}>Until</span><b>{date}</b><small>{row.expired?'Closed':row.issue?'Check schedule':row.banner?.datesEstimated?'Estimated':''}</small></div>
+      <div className={styles.date}><span className={styles.mobileLabel}>Until</span><b>{date}</b><small>{row.expired ? 'Closed' : row.issue ? 'Check schedule' : pullTimingLabel(row.banner)}</small></div>
       <label className={styles.budget}><span className={styles.mobileLabel}>Pulls</span><NumberInput aria-label={`Pull budget for ${row.goal.banner}`} min="0" max="100000" inputMode="numeric" value={row.goal.pulls} onFocus={e=>e.currentTarget.select()} onChange={e=>onChange({...row.goal,pulls:Math.max(0,Math.min(100000,Math.floor(Number(e.target.value)||0)))})} /></label>
       <div className={styles.figure}><span className={styles.mobileLabel}>Available</span><button type="button" className={`ghost ${styles.available}`} disabled={!!row.issue} aria-haspopup="dialog" aria-label={`${row.issue ? 'Unavailable' : row.available} available pulls for ${row.goal.banner}: show breakdown`} onClick={onAvailable}><b>{row.issue?'—':row.available}</b></button><small>{row.free>0?`${row.free} Banner free`:''}</small></div>
       <div className={`${styles.figure} ${styles.chance}`} title={error}><span className={styles.mobileLabel}>All goals</span><b>{result?formatChance(result.all):error?'—':request?'…':'—'}</b><small>{error?'Unavailable':request?'Calculated':''}</small></div>

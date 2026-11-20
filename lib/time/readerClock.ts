@@ -26,6 +26,8 @@ const toMinute = (ms: number) => Math.floor(ms / MINUTE) * MINUTE;
 export interface ReaderClockOptions {
   /** Re-read the clock this often after mount, in ms. Omitted, it is read once, on mount. */
   tickMs?: number;
+  /** Round to the second when a control must change at a sub-minute boundary. Defaults to the minute. */
+  precision?: 'minute' | 'second';
   /** Also re-read it when the window regains focus: a tab left open overnight. */
   onFocus?: boolean;
 }
@@ -41,9 +43,12 @@ export function useReaderValue<T>(initial: T, derive: (readerMs: number) => T, o
   const [value, setValue] = useState(initial);
   const deriveRef = useRef(derive);
   deriveRef.current = derive;
-  const { tickMs, onFocus } = options;
+  const { tickMs, onFocus, precision = 'minute' } = options;
   useEffect(() => {
-    const read = () => setValue(deriveRef.current(toMinute(Date.now())));
+    const read = () => {
+      const now = Date.now();
+      setValue(deriveRef.current(precision === 'second' ? Math.floor(now / 1000) * 1000 : toMinute(now)));
+    };
     read();
     const timer = tickMs ? window.setInterval(read, tickMs) : undefined;
     if (onFocus) window.addEventListener('focus', read);
@@ -51,7 +56,7 @@ export function useReaderValue<T>(initial: T, derive: (readerMs: number) => T, o
       if (timer !== undefined) window.clearInterval(timer);
       if (onFocus) window.removeEventListener('focus', read);
     };
-  }, [tickMs, onFocus]);
+  }, [tickMs, onFocus, precision]);
   return value;
 }
 

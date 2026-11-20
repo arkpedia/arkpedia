@@ -27,3 +27,11 @@ test('an exact release and a newly compiled calendar record win over compatibili
   const compiled = { ...op('Forecast Sniper'), releaseEstimate: '2026-11-20' };
   assert.equal(resolveOperatorDebut(compiled, schedule).releaseEstimate, '2026-11-20');
 });
+
+test('operator countdowns distinguish imported client evidence from a CN forecast and an announcement', () => {
+  const now = Date.parse('2026-11-18T14:00:00Z');
+  const exact = { ...op('Forecast Sniper'), releaseAt: '2026-11-18T15:00:00Z' };
+  assert.equal(operatorReleaseLabel(resolveOperatorDebut({ ...exact, releaseEvidence: { status: 'datamined' } }), now), 'Datamined · in 1h');
+  assert.equal(operatorReleaseLabel(resolveOperatorDebut({ ...exact, releaseEvidence: { status: 'announced' } }), now), 'In 1h');
+  assert.equal(operatorReleaseLabel({ releaseEstimate: '2026-11-19', releaseTiming: 'cn-estimate' }, now), 'CN estimate · in 17h');
+});

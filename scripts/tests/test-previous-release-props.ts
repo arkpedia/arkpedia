@@ -267,7 +267,9 @@ const DATA_ONLY: Record<string, Record<string, string>> = {
     // range when they are absent, and EventsPanel reads only start/end.
     '.ongoingEvents[].startAt': "an event's exact opening (GameWindowTimes, optional), present only on events the client or an announcement timed; finalizeHome falls back to the date range without it",
     '.ongoingEvents[].endAt': "an event's exact close, optional the same way, with the same fallback",
-    '.ongoingEvents[].timingSource': "where the exact window came from, optional with it; nothing on / reads it",
+    '.ongoingEvents[].timingSource': "optional source for the exact event window; older records can derive provenance from the regional calendar",
+    '.ongoingEvents[].releaseTiming': 'optional event-time provenance; old records use their source or forecast note until refreshed',
+    '.upcomingEvent.releaseTiming': 'the same optional provenance for the next event',
     // Which outfits are on sale depends on the day's windows, and two optional outfit fields come
     // with only some outfits: on 2026-10-20 Global's own Outfit Store windows (#585) listed the
     // anniversary's 28, some with these, where the release's 3 had neither. SkinsCarousel reads
@@ -299,6 +301,9 @@ const DATA_ONLY: Record<string, Record<string, string>> = {
     '.ongoingSkins[].globalReleaseAt': "the same outfit's Global release time, absent from older records the same way",
   },
   '/schedule': {
+    '.eventRows[].releaseTiming': 'optional date provenance; older rows fall back to the regional window, the event source or the legacy prediction flag',
+    '.events[].global.releaseTiming': 'optional provenance for calendar records, derivable from their source when absent',
+    '.events[].global.status': 'optional announcement or client status on banner records; older records fall back to their source and dates',
     '.events[].linkedSkinNames': 'optional run-specific inventory; older releases safely use strict edition-aware matching until their content refresh',
     '.operators[].portraitPending': 'optional publication status while a new portrait is pending; older releases retain their existing portrait rendering',
     '.events[].aliases': 'optional historic names on renamed source records; Schedule does not read this field',
@@ -311,6 +316,7 @@ const DATA_ONLY: Record<string, Record<string, string>> = {
     '.events[].global.shopEndAt': "the event store's close (sync-event-windows.mjs, from activity_table rewardEndTime), which the data first carried on 2026-09-30; GameWindowTimes has it optional, and eventShopEnd reads its absence as a store that closes with the stages, as the page did before; nothing on /schedule reads it yet",
   },
   '/skins': {
+    '.availabilityWindows[].releaseTiming': 'optional acquisition-window provenance; older windows fall back to the estimate flag and source',
     '.events[].linkedSkinNames': 'optional run-specific inventory; older releases safely use strict edition-aware matching until their content refresh',
     '.events[].aliases': 'optional historic names on renamed source records; the skin page does not read this field',
     '.events[].modeId': 'permanent RA launch metadata is optional; releases without it contain only timed events and retain their existing behavior',
@@ -327,6 +333,7 @@ const DATA_ONLY: Record<string, Record<string, string>> = {
     '.banners[].announcedLineup': "the rate-ups an official CN announcement names (applyAnnouncements, new on 2026-10-04), on a banner only while an operator it names has no record yet; HeadhuntingBanner has it optional, and lineupPendingNote reads its absence as 'Lineup to be confirmed.', as the page said before",
   },
   '/operators': {
+    '.operators[].releaseTiming': 'optional debut provenance; older roster records keep their existing release countdowns',
     '.operators[].portraitPending': 'optional publication status while a new portrait is pending; older releases retain their existing portrait rendering',
     '.operators[].availableUntil': 'the debut\'s end (getScheduledOperatorDebut), new on 2026-09-30; RosterOperator has it optional, and isDebutAvailable counts two weeks from the release without it, as the roster did before',
     '.operators[].obtain': "how an operator is obtained (obtainMethodsOf), for the Obtain filter, new on 2026-10-29; RosterOperator has it optional, and the filter is drawn only once some operator carries it, so a release from before it shows the roster as it did",

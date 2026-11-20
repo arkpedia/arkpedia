@@ -1,6 +1,6 @@
 import ImportDialog from '@/components/account/ImportDialog';
 import type { BudgetRow } from '@/lib/pulls/plan';
-import { formatDayMonthYear, formatNumber } from '@/lib/pulls/format';
+import { formatDayMonthYear, formatNumber, pullTimingLabel } from '@/lib/pulls/format';
 import type { Holdings } from '@/lib/pulls/pulls';
 import { RewardAmount } from './RewardAmount';
 import PullResourceAmounts from './PullResourceAmounts';
@@ -21,7 +21,7 @@ export default function AvailablePullsDialog({ row, holdings, income, rewards, r
   ];
   return <ImportDialog title="Available pulls" className="pulls-available-dialog" onClose={onClose}>
     <div className="pulls-income-body">
-      <p className="pulls-breakdown-context"><strong>{row.goal.banner}</strong><span>Through {formatDayMonthYear(row.goal.spendOn)}{row.banner?.datesEstimated ? ' · [Predicted]' : ' · Confirmed'} · at banner close</span></p>
+      <p className="pulls-breakdown-context"><strong>{row.goal.banner}</strong><span>{[`Through ${formatDayMonthYear(row.goal.spendOn)}`, pullTimingLabel(row.banner, true), 'at banner close'].filter(Boolean).join(' · ')}</span></p>
       {!useOP && <p className="hint">OP is shown but not converted into pulls. “Use OP for pulls” is off.</p>}
       <table className="pulls-report pulls-available-report">
         <thead><tr><th scope="col">Source</th><th scope="col">Details</th><th scope="col">Pulls</th></tr></thead>

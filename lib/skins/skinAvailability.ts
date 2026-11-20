@@ -3,6 +3,7 @@ import type { Skin } from './skinTypes';
 import type { ScheduleEvent } from '../schedule/scheduleTypes';
 import { getSkinsForEvent } from '../schedule/scheduleSkinMatch';
 import { parseGameWindow } from '../schedule/gameWindow';
+import { sourcedTiming, type ReleaseTiming } from '@/lib/time/releaseTiming';
 
 export type AcquisitionKind = 'shop' | 'reward' | 'draw';
 export interface SkinWindow {
@@ -17,6 +18,7 @@ export interface SkinWindow {
   inventorySource?: string;
   details?: string;
   estimated?: boolean;
+  releaseTiming?: ReleaseTiming;
   /** Whether the window sells outfits that are new, not reissues: what "current" sorts by.
    *  Always stated. It used to be optional, and a window without it made the page look the
    *  answer up in the verified windows compiled into its bundle -- the deploy's copy. */
@@ -72,7 +74,7 @@ export function getSkinWindows(skins: Skin[], events: ScheduleEvent[], sources: 
           event: event.name, kind: 'shop', label: rotation.label, skinIds,
           startAt,
           endAt: new Date(serverDayBoundary(Date.parse(rotation.end) + offset, 'en', 'reset')).toISOString(),
-          source: source.source, estimated: true, newRelease: false,
+          source: source.source, estimated: true, releaseTiming: 'cn-estimate', newRelease: false,
         });
       }
     }
@@ -89,7 +91,8 @@ export function getSkinWindows(skins: Skin[], events: ScheduleEvent[], sources: 
       // A Global debut elsewhere supersedes a CN release association. Reruns need an inventory.
       if (skin.globalReleaseAt && skin.globalReleaseAt * 1000 < +range.start) continue;
       windows.push({ event: event.name, kind: /Outfit Store/i.test(skin.howToObtain || '') ? 'shop' : 'reward',
-        label: 'Expected release', skinIds: [id], startAt: range.start.toISOString(), endAt: range.end.toISOString(), estimated: true, newRelease: false });
+        label: 'Expected release', skinIds: [id], startAt: range.start.toISOString(), endAt: range.end.toISOString(), estimated: true,
+        releaseTiming: skin.sourceRegion === 'CN' || /^\[CN\]/i.test(skin.release ?? '') ? 'cn-estimate' : 'estimated', newRelease: false });
     }
   }
   return windows;
@@ -115,6 +118,19 @@ export function computeSkinCountdowns(asOf: Date, windows: SkinWindow[]): Map<st
 }
 
 export const acquisitionLabel = (window: SkinWindow) => window.kind === 'shop' ? 'Outfit shop' : window.kind === 'reward' ? 'Event reward' : 'Random draw';
+
+export function skinWindowTiming(window: SkinWindow): ReleaseTiming {
+  return window.releaseTiming ?? (window.estimated
+    ? window.label === 'Expected release' || !window.source ? 'estimated' : 'cn-estimate'
+    : sourcedTiming({ timingSource: window.source }));
+}
+
+/** The Global client's outfit debut does not say how long the outfit is on sale. */
+export function dataminedSkinDebut(skin: Pick<Skin, 'globalReleaseAt'>, window: SkinCountdown | undefined, now: number): string | null {
+  const debut = (skin.globalReleaseAt ?? 0) * 1000;
+  if (!Number.isFinite(debut) || debut <= now || (window && !window.estimated && window.kind !== 'draw')) return null;
+  return new Date(debut).toISOString();
+}
 
 /** On sale now, as /skins' Available now tab counts it: a live shop or event-reward window, never
  *  a random draw. */

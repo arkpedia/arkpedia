@@ -372,6 +372,9 @@ The control for a boolean or an option. A real checkbox inside its label, so the
 
 Anchors: `<Link className="btn">`, `<Link className="btn primary">`, `className="ghost"` and `className="danger"` all take the button look.
 
+For an independent button over artwork, use `.btn.btn-icon.scrim-control` on a sibling
+of the artwork link. The scrim keeps the label and focus treatment legible in both themes.
+
 ### StyledSelect
 
 This is the only dropdown. It replaces the native `<select>`, `gm-pickbtn`, `stage-picker-btn`, `PlannerSelect`, `cal-pick-btn` and `ContentPicker` (the enemy pages' picker, which is inside `components/ui` but is a duplicate to fold into this one).
