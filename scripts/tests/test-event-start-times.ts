@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { eventStartRows, gameEventStartCard, startCardCaption, type ClockFormat } from '../../lib/home/eventStartTimes';
+import { archiveEventStartCard, eventStartRows, gameEventStartCard, startCardCaption, type ClockFormat } from '../../lib/home/eventStartTimes';
 import type { GameEvent } from '../../lib/home/frontPageContent';
 
 const localTime = (iso: string, place: string, format: ClockFormat = '12h') => {
@@ -60,4 +60,16 @@ test('time cards identify exact regional starts and label estimates and Global f
   const published = { ...globalStart, note: 'Estimated Global start', timingSource: 'https://www.arknights.global/news/4635' };
   const confirmed = gameEventStartCard(published, 'en', { startAt: '2026-11-16T16:00:00Z', status: 'datamined' });
   assert.match(startCardCaption(confirmed, '24h'), /Global event · Start · 16 Nov 2026, 15:00 UTC/);
+});
+
+test('archive cards preserve sourced times and mark date-only estimates', () => {
+  const event = { name: 'Archived event', poster: null, dateRange: '2022/06/17–2022/07/01; archived' };
+  const card = archiveEventStartCard(event, 'jp');
+  assert.ok(card);
+  assert.match(startCardCaption(card, '24h'), /Global event · Estimated start · 17 Jun 2022, 15:00 UTC/);
+  const sourced = archiveEventStartCard(event, 'jp', { startAt: '2022-06-18T16:00:00+09:00', status: 'announced' });
+  assert.ok(sourced);
+  assert.match(startCardCaption(sourced, '24h'), /JP event · Start · 18 Jun 2022, 07:00 UTC/);
+  assert.equal(archiveEventStartCard({ ...event, dateRange: 'Global launch unannounced' }, 'en'), null);
+  assert.equal(archiveEventStartCard({ ...event, dateRange: '2022/06/17' }, 'en')?.instant, card.instant);
 });

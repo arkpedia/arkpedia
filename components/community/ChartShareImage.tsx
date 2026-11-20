@@ -2,7 +2,7 @@ import { useEffect, useId, useRef, useState } from 'react';
 import ImportDialog from '@/components/account/ImportDialog';
 import { useContentUrl } from '@/lib/content/context';
 import type { TierItem } from '@/lib/tier-list/catalogue';
-import { AXIS_ENDS, AXIS_OF, cellLabelColor, type ChartState } from '@/lib/tier-list/chart';
+import { AXIS_ENDS, AXIS_OF, BINGO_COLUMNS, cellLabelColor, chartGrid, chartTitle, isBingoFreeCell, type ChartState } from '@/lib/tier-list/chart';
 import { labelInk } from '@/lib/tier-list/state';
 import { CHART_STRINGS as C } from '@/lib/tier-list/chartStrings';
 import { TIER_LIST_STRINGS as T } from '@/lib/tier-list/strings';
@@ -16,6 +16,19 @@ const GAP = 6;
 const TILE = 88;
 /** The margin round the axes plane that holds its labels. */
 const BAND = 44;
+const BINGO_HEADER = 48;
+
+function bingoLabel(context: CanvasRenderingContext2D, label: string, x: number, y: number, width: number) {
+  const lines: string[] = [];
+  for (const word of label.trim().split(/\s+/)) {
+    const last = lines.at(-1);
+    const next = last ? `${last} ${word}` : word;
+    if (last && context.measureText(next).width <= width) lines[lines.length - 1] = next;
+    else lines.push(word);
+  }
+  const shown = lines.length <= 3 ? lines : [...lines.slice(0, 2), lines.slice(2).join(' ')];
+  shown.forEach((line, i) => context.fillText(fitText(context, line, width), x, y + (i - (shown.length - 1) / 2) * 16));
+}
 
 /**
  * The chart as one picture, drawn from the version on screen when the dialog opens: the
@@ -30,10 +43,15 @@ export default function ChartShareImage({ state: initial, byId, onClose }: { sta
   const [ready, setReady] = useState(false);
   const [message, setMessage] = useState<string>(T.imagePreparing);
   const [retry, setRetry] = useState(0);
-  const cells = state.cells.map((cell) => ({ ...cell, items: cell.items.flatMap((id) => byId.get(id) ?? []) }));
+  const { cols, rows, cells: savedCells } = chartGrid(state);
+  const bingo = state.kind === 'bingo';
+  const title = chartTitle(state).trim();
+  const cells = savedCells.map((cell, index) => isBingoFreeCell(state, index)
+    ? { label: C.bingoFree, items: [] }
+    : { ...cell, items: cell.items.flatMap((id) => byId.get(id) ?? []) });
   const points = state.points.flatMap((point) => { const item = byId.get(point.id); return item ? [{ ...point, item }] : []; });
-  const description = state.kind === 'grid'
-    ? cells.map((cell, i) => `${cell.label || C.cellItems('', Math.floor(i / state.cols) + 1, (i % state.cols) + 1)}: ${cell.items.map((item) => item.name).join(', ') || T.imageEmptyRow}`).join('. ')
+  const description = state.kind !== 'axes'
+    ? cells.map((cell, i) => isBingoFreeCell(state, i) ? C.bingoFree : `${cell.label || C.cellItems('', Math.floor(i / cols) + 1, (i % cols) + 1)}: ${cell.items.map((item) => item.name).join(', ') || T.imageEmptyRow}`).join('. ')
     : `${AXIS_ENDS.filter((end) => state.lines[AXIS_OF[end]]).map((end) => state.axes[end]).filter(Boolean).join(', ')}. ${points.map((point) => point.item.name).join(', ')}`;
 
   useEffect(() => {
@@ -43,23 +61,23 @@ export default function ChartShareImage({ state: initial, byId, onClose }: { sta
     setMessage(T.imagePreparing);
     void (async () => {
       await loadCanvasFonts();
-      const placed = state.kind === 'grid' ? cells.flatMap((cell) => cell.items) : points.map((point) => point.item);
+      const placed = state.kind !== 'axes' ? cells.flatMap((cell) => cell.items) : points.map((point) => point.item);
       const images = await loadTileArt(placed, url, abort.signal);
       const element = canvas.current;
       if (disposed || !element) return;
       const measure = element.getContext('2d');
       if (!measure) return;
-      const head = state.title.trim() ? 84 : PAD;
+      const head = title ? 84 : PAD;
       const foot = 52;
       const inner = WIDTH - PAD * 2;
       const tile = Math.round(Math.max(56, Math.min(240, TILE * state.zoom / 100)));
       // Grid: each row is as tall as its fullest cell needs.
-      const cellWidth = (inner - (state.cols - 1) * GAP) / state.cols;
+      const cellWidth = (inner - (cols - 1) * GAP) / cols;
       const size = Math.min(tile, cellWidth - GAP * 2);
       const perLine = Math.max(1, Math.floor((cellWidth - GAP) / (size + GAP)));
-      const labelHeight = 34;
-      const rowHeights = Array.from({ length: state.rows }, (_, row) => Math.max(...cells.slice(row * state.cols, (row + 1) * state.cols).map((cell) => Math.max(1, Math.ceil(cell.items.length / perLine)) * (size + GAP) + GAP + labelHeight)));
-      const body = state.kind === 'grid' ? rowHeights.reduce((sum, h) => sum + h + GAP, 0) : inner;
+      const labelHeight = bingo ? 58 : 34;
+      const rowHeights = Array.from({ length: rows }, (_, row) => Math.max(bingo ? cellWidth : 0, ...cells.slice(row * cols, (row + 1) * cols).map((cell) => (bingo ? Math.ceil(cell.items.length / perLine) : Math.max(1, Math.ceil(cell.items.length / perLine))) * (size + GAP) + GAP + labelHeight)));
+      const body = state.kind !== 'axes' ? rowHeights.reduce((sum, h) => sum + h + GAP, bingo ? BINGO_HEADER : 0) : inner;
       const height = head + body + foot;
       element.height = height;
       const c = element.getContext('2d');
@@ -69,25 +87,47 @@ export default function ChartShareImage({ state: initial, byId, onClose }: { sta
       const inks = { ground: ink('--panel-2'), dim: ink('--text-dim'), scrimInk: ink('--scrim-ink'), scrimAmber: ink('--scrim-amber') };
       c.fillStyle = ink('--bg'); c.fillRect(0, 0, WIDTH, height);
       c.textBaseline = 'middle';
-      if (state.title.trim()) { c.font = '700 40px Rajdhani'; c.fillStyle = ink('--text-bright'); c.textAlign = 'left'; c.fillText(fitText(c, state.title.trim(), inner), PAD, 46); }
-      if (state.kind === 'grid') {
+      if (title) {
+        c.font = '700 40px Rajdhani'; c.fillStyle = ink('--text-bright'); c.textAlign = bingo ? 'center' : 'left';
+        c.fillText(fitText(c, title, inner), bingo ? WIDTH / 2 : PAD, 46);
+      }
+      if (state.kind !== 'axes') {
         let y = head;
-        for (let row = 0; row < state.rows; row += 1) {
+        if (bingo) {
+          c.font = '700 36px Rajdhani'; c.fillStyle = ink('--text-bright'); c.textAlign = 'center';
+          BINGO_COLUMNS.forEach((letter, col) => c.fillText(letter, PAD + col * (cellWidth + GAP) + cellWidth / 2, y + BINGO_HEADER / 2));
+          y += BINGO_HEADER;
+        }
+        for (let row = 0; row < rows; row += 1) {
           const h = rowHeights[row];
-          for (let col = 0; col < state.cols; col += 1) {
-            const index = row * state.cols + col, cell = cells[index], x = PAD + col * (cellWidth + GAP);
-            c.fillStyle = ink('--panel'); c.fillRect(x, y, cellWidth, h);
+          for (let col = 0; col < cols; col += 1) {
+            const index = row * cols + col, cell = cells[index], x = PAD + col * (cellWidth + GAP);
+            const free = isBingoFreeCell(state, index);
+            c.fillStyle = ink(free ? '--well' : '--panel'); c.fillRect(x, y, cellWidth, h);
+            const color = cellLabelColor(state, index);
+            if (bingo && !free && savedCells[index].color) {
+              c.fillStyle = color; c.fillRect(x, y + h - 3, cellWidth, 3);
+            }
+            if (bingo && !cell.items.length) {
+              c.font = free ? '700 28px Rajdhani' : '700 29px Rajdhani';
+              c.textAlign = 'center'; c.fillStyle = ink('--text-bright');
+              bingoLabel(c, cell.label, x + cellWidth / 2, y + h / 2, cellWidth - 20);
+              continue;
+            }
             // Tiles centred in the cell, line by line.
+            const tileHeight = Math.ceil(cell.items.length / perLine) * (size + GAP) - GAP;
+            const tileTop = bingo ? y + (h - labelHeight - tileHeight) / 2 : y + GAP;
             cell.items.forEach((item, i) => {
               const line = Math.floor(i / perLine), inLine = Math.min(perLine, cell.items.length - line * perLine);
               const left = x + (cellWidth - (inLine * (size + GAP) - GAP)) / 2;
-              drawTile(c, item, images.get(tileImage(item)), left + (i % perLine) * (size + GAP), y + GAP + line * (size + GAP), size, state.names, inks);
+              drawTile(c, item, images.get(tileImage(item)), left + (i % perLine) * (size + GAP), tileTop + line * (size + GAP), size, state.names, inks);
             });
             // The label bar, in the reader's colour or the cell's accent, with ink picked for it.
-            const bar = cellLabelColor(state, index);
-            c.fillStyle = bar; c.fillRect(x, y + h - labelHeight, cellWidth, labelHeight);
-            c.font = '700 20px Rajdhani'; c.textAlign = 'center'; c.fillStyle = labelInk(bar) === 'dark' ? '#14181c' : '#ffffff';
-            c.fillText(fitText(c, cell.label, cellWidth - 12), x + cellWidth / 2, y + h - labelHeight / 2);
+            c.fillStyle = bingo ? ink('--panel-2') : color;
+            c.fillRect(x, y + h - labelHeight, cellWidth, labelHeight - (bingo && savedCells[index].color ? 3 : 0));
+            c.font = '700 20px Rajdhani'; c.textAlign = 'center'; c.fillStyle = bingo ? ink('--text-bright') : labelInk(color) === 'dark' ? '#14181c' : '#ffffff';
+            if (bingo) bingoLabel(c, cell.label, x + cellWidth / 2, y + h - labelHeight / 2, cellWidth - 12);
+            else c.fillText(fitText(c, cell.label, cellWidth - 12), x + cellWidth / 2, y + h - labelHeight / 2);
           }
           y += h + GAP;
         }
@@ -145,7 +185,7 @@ export default function ChartShareImage({ state: initial, byId, onClose }: { sta
 
   return (
     <ImportDialog title={C.imageDialog} className={styles.imageDialog} onClose={onClose}>
-      <canvas ref={canvas} width={WIDTH} height={400} className={styles.imageCanvas} role="img" aria-label={C.imageAlt(state.title)} aria-describedby={descriptionId} data-ready={ready ? '' : undefined} />
+      <canvas ref={canvas} width={WIDTH} height={400} className={styles.imageCanvas} role="img" aria-label={C.imageAlt(title)} aria-describedby={descriptionId} data-ready={ready ? '' : undefined} />
       <p id={descriptionId} className="visually-hidden">{description}</p>
       <div className={styles.imageActions}>
         <span className="hint" role="status">{message}</span>

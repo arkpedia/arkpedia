@@ -112,6 +112,24 @@
 .cellColor input { position:absolute; inset:0; box-sizing:border-box; width:100%; height:100%; min-height:0; padding:0; border:0; opacity:0; cursor:pointer; }
 .cellLabel { flex:1 1 auto; box-sizing:border-box; width:100%; min-width:0; padding:6px 0 6px 28px; border:0; border-radius:0; background:transparent; color:inherit; font-family:var(--font-display); font-size:15px; font-weight:700; text-align:center; text-overflow:ellipsis; }
 .cellLabel::placeholder { color:inherit; opacity:.55; }
+.boardHead[data-bingo-toolbar] { justify-content:flex-end; }
+.chartFrame[data-bingo] { width:min(100%,700px); grid-template-columns:repeat(var(--chart-cols),minmax(0,1fr)); grid-template-rows:auto auto repeat(var(--chart-rows),auto); }
+.chartFrame[data-bingo] .chartGrid { grid-area:3 / 1 / span var(--chart-rows) / -1; }
+.chartFrame .bingoTitle { grid-column:1/-1; grid-row:1; width:100%; max-width:none; text-align:center; font-family:var(--font-display); font-weight:700; font-size:26px; }
+.bingoLetters { display:grid; grid-template-columns:subgrid; grid-column:1/-1; grid-row:2; text-align:center; font:700 26px/1.2 var(--font-display); color:var(--text-bright); }
+.chartFrame[data-bingo] .chartCell { aspect-ratio:1; grid-template-rows:minmax(0,1fr) auto; align-self:stretch; }
+.chartFrame[data-bingo] .chartCell[data-text-only] { grid-template-rows:minmax(0,1fr); }
+.chartFrame[data-bingo] .chartCell[data-drop] { border-color:var(--teal); background:var(--teal-dim); }
+.chartFrame[data-bingo] .cellItems { overflow:auto; align-content:safe center; padding:4px; }
+.chartFrame[data-bingo] .tile { width:min(var(--tile),100%); height:auto; aspect-ratio:1; }
+.chartFrame[data-bingo] .cellBar { color:var(--text-bright); background:var(--panel-2); }
+.chartFrame[data-bingo] .chartCell[data-custom-color] { border-bottom:3px solid var(--cell-color); }
+.bingoPrompt { position:relative; display:grid; min-width:0; min-height:0; color:var(--text-bright); }
+.bingoPromptField { flex:1 1 auto; display:grid; align-items:center; min-width:0; min-height:0; }
+.chartFrame[data-bingo] .cellLabel { padding:3px 2px; min-height:0; max-height:4em; resize:none; field-sizing:content; }
+.chartFrame[data-bingo] .bingoPrompt .cellLabel { padding:4px; max-height:100%; font-size:18px; }
+.bingoPrompt .cellColor { position:absolute; inset:auto 0 0 auto; height:22px; width:22px; }
+.bingoFree { display:grid; place-items:center; box-sizing:border-box; aspect-ratio:1; padding:4px; text-align:center; background:var(--well); border:1px solid var(--line); border-radius:var(--radius); color:var(--text-bright); font:700 18px/1.1 var(--font-display); }
 /* The plane: a square with its two axes drawn through the middle and an item anywhere on it
    by its centre. Its labels stand outside it, at the end of the axis each names: above and
    below, and to either side (on a narrow screen, in a row over the plane's two top corners),
@@ -199,6 +217,9 @@
   .pool[data-detached] .poolItems { padding-bottom:64px; }
   .cellLabel { padding:5px 0 5px 22px; font-size:13px; }
   .cellColor { width:22px; }
+  .bingoFree { font-size:15px; }
+  .chartFrame[data-bingo] .bingoPrompt .cellLabel { font-size:13px; }
+  .bingoPrompt .cellColor { height:16px; width:16px; }
   .axisLabel { font-size:15px; }
   .search { flex:1 1 90px; max-width:none; }
   .poolHead { flex-wrap:nowrap; gap:8px; }

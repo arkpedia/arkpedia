@@ -8,7 +8,8 @@ import { scheduleModeRelease } from '@/lib/schedule/modeReleases';
 import type { ScheduleEvent } from '@/lib/schedule/scheduleTypes';
 import { permanentEventListing, modeDetails, type ModeDetails } from '@/lib/events/modeDetails';
 import { useRegionalTime } from '@/lib/time/useRegionalTime';
-import { sourcedTiming, timingQualifier, type ReleaseTiming } from '@/lib/time/releaseTiming';
+import { eventReleaseTiming, sourcedTiming, timingQualifier, type ReleaseTiming } from '@/lib/time/releaseTiming';
+import { archiveEventStartCard, type EventStartCard } from '@/lib/home/eventStartTimes';
 import { regionalArt, regionalRange, regionalScheduleSlice, type RegionalSchedules } from '@/lib/time/regional';
 import { readShippedTable } from '@/lib/content/shippedTable';
 import { withContentPage } from '@/lib/content/server';
@@ -69,6 +70,7 @@ import { getAllOperators } from '@/lib/operators/operators';
 import { getOperatorIconPath } from '@/lib/operators/operatorIcon';
 import { operatorHref } from '@/lib/operators/operatorHref';
 import { eventEntrance, entranceAsset } from '@/lib/events/eventEntrance';
+import EventStartTimesDialog from '@/components/schedule/EventStartTimesDialog';
 
 
 interface Props {
@@ -234,16 +236,22 @@ export default function EventDetailPage({
   videos = [],
 }: Props) {
   const pageMusic = useReleaseTable<PageMusicTable>('page-music');
-  const { server, schedule } = useRegionalTime();
+  const { server, schedule, globalSchedule } = useRegionalTime();
   const regionalWindow = schedule?.events?.[name];
   /* The server's own window where it has one, else Global's date or prediction marked
      predicted, as every list has it (lib/time/regional.ts). */
   const preferPublishedGlobal = server === 'en' && globalTiming === 'confirmed' && sourcedStartAt
     && regionalWindow && sourcedTiming(regionalWindow) === 'datamined';
-  const ownWindow = preferPublishedGlobal ? null : regionalWindow;
+  const ownWindow = preferPublishedGlobal ? undefined : regionalWindow;
   const dateRange = ownWindow ? ownWindow.releaseDate ?? regionalRange(ownWindow, server) : globalDateRange;
   const releaseTiming = ownWindow ? sourcedTiming(ownWindow) : globalPredicted ? globalTiming ?? 'estimated'
     : server !== 'en' && globalDateRange ? 'global-fallback' : globalTiming ?? 'confirmed';
+  const launchWindow = ownWindow ?? (server !== 'en' && !sourcedStartAt ? globalSchedule?.events?.[name] : undefined);
+  const launchCard = archiveEventStartCard({
+    name, poster: regionalArt(ownWindow, poster, server), dateRange: globalDateRange,
+    startAt: sourcedStartAt, releaseTiming: globalTiming ?? (globalPredicted ? 'estimated' : 'confirmed'),
+  }, ownWindow ? server : 'en', launchWindow);
+  const [openLaunchCard, setOpenLaunchCard] = useState<EventStartCard | null>(null);
   /* JP's and KR's own key art, from their in-game boards (regionalArt), else Global's. Read after
      hydration like the dates: both sit in boxes of a fixed shape, so the swap moves nothing. A CG
      set stays: the board's art stands in for the poster only. */
@@ -360,16 +368,18 @@ export default function EventDetailPage({
       <main className="event-detail-layout">
         {/* Every tab shares the full reading frame and the same navigation edge. */}
         <div className="event-detail-right" ref={hold.ref} style={hold.style}>
-          {sections.length > 1 && activeSection && (
-            <Tabs<SectionKey>
-              label="Event sections"
-              id="event-section"
-              className="event-detail-tabs"
-              value={activeSection}
-              onChange={changeSection}
-              options={sections.map((section) => ({ value: section.key, label: section.label }))}
-            />
-          )}
+          {((sections.length > 1 && activeSection) || launchCard) && <div className="event-detail-nav">
+            {sections.length > 1 && activeSection && <Tabs<SectionKey>
+                label="Event sections"
+                id="event-section"
+                className="event-detail-tabs"
+                value={activeSection}
+                onChange={changeSection}
+                options={sections.map((section) => ({ value: section.key, label: section.label }))}
+              />}
+            {launchCard && <button type="button" className="btn-sm event-launch-time" aria-haspopup="dialog"
+              onClick={() => setOpenLaunchCard(launchCard)}>Launch Time</button>}
+          </div>}
           {activeSection === 'overview' && mode && (
             <section className="op-section" {...tabPanelProps('event-section', 'overview')}>
               <EventModeOverview mode={mode} />
@@ -528,6 +538,7 @@ export default function EventDetailPage({
 
       {activeSkin && <SkinDetailDialog key={activeSkin.name} skin={activeSkin} onClose={() => setActiveSkin(null)}
         footer={<Link prefetch={false} href={`/skins?skin=${encodeURIComponent(activeSkin.name)}`}>View in outfit gallery</Link>} />}
+      {openLaunchCard && <EventStartTimesDialog card={openLaunchCard} onClose={() => setOpenLaunchCard(null)} />}
 
     </RewardDetailsProvider>
   );
@@ -577,6 +588,21 @@ function withRegionalSlice<T extends Props>(props: T): T {
   const table = tables?.['regional-schedules'] as RegionalSchedules | undefined;
   if (!tables || !table?.servers) return props;
   return { ...props, __contentTables: { ...tables, 'regional-schedules': regionalScheduleSlice(table, { events: [props.name], banners: props.bannerName ? [props.bannerName] : [] }) } };
+}
+
+/** A published page can predate the provenance fields. Borrow exact Global
+ *  timing only when the shipped record describes the same displayed dates. */
+function withLegacyLaunchTiming(props: Props): Props {
+  if (props.releaseTiming && props.sourcedStartAt) return props;
+  const record = (loadAllEventYears() as ScheduleEvent[]).find(event => event.name === props.name);
+  if (!record) return props;
+  const { global, cn } = record;
+  const matches = !!global && (props.dateRange === global.dateRange || props.dateRange === global.releaseDate);
+  const hasCnDate = !!(cn?.dateRange || cn?.releaseDate);
+  const timing = props.releaseTiming ?? (matches ? eventReleaseTiming(global, hasCnDate, props.isPredicted)
+    : props.isPredicted && hasCnDate ? 'cn-estimate' : undefined);
+  const sourcedStartAt = props.sourcedStartAt ?? (matches && global.timingSource ? global.startAt : undefined);
+  return { ...props, ...(timing ? { releaseTiming: timing } : {}), ...(sourcedStartAt ? { sourcedStartAt } : {}) };
 }
 
 export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/events/[slug]", async ({ params }) => {
@@ -759,6 +785,6 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/ev
       return skin?.image ? { ...item, artwork: skin.image } : item;
     }) }) } : null };
     const ordered = await withMaterialOrder(props, (page) => page.rewardStores.flatMap((store) => store.items.map((item) => item.name)));
-    return withRegionalSlice(withNewsArt(await withEventOperators({ ...ordered, skins: await withSkinArtwork(ordered.skins), mode: modeDetails(props.name) ?? props.mode ?? null })));
+    return withRegionalSlice(withLegacyLaunchTiming(withNewsArt(await withEventOperators({ ...ordered, skins: await withSkinArtwork(ordered.skins), mode: modeDetails(props.name) ?? props.mode ?? null }))));
   },
 });

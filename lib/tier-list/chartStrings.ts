@@ -9,14 +9,16 @@ export const CHART_STRINGS = {
   title: 'Alignment chart maker',
   navLabel: 'Alignment Chart Maker',
   eyebrow: 'Rhodes Island // Community',
-  sub: 'Place operators on a grid of your own labels, or anywhere between two axes.',
-  description: 'Make an Arknights alignment chart: a labelled grid, or two axes with your own text.',
+  sub: 'Place operators on a labelled grid, a bingo board, or anywhere between two axes.',
+  description: 'Make an Arknights alignment chart, a bingo board, or a chart with two axes of your own.',
 
   boardHeading: 'Your chart',
   titleLabel: 'Chart name',
   titlePlaceholder: 'Name your chart',
   version: 'Chart version',
-  kinds: { grid: 'Grid', axes: 'Axes' } satisfies Record<ChartKind, string>,
+  kinds: { grid: 'Grid', bingo: 'Bingo', axes: 'Axes' } satisfies Record<ChartKind, string>,
+  bingoTitle: 'Bingo title',
+  bingoFree: 'Free space',
   addColumn: 'Add a column',
   addRow: 'Add a row',
   removeColumn: (n: number) => `Remove column ${n}`,
@@ -36,7 +38,7 @@ export const CHART_STRINGS = {
   empty: 'Empty the chart',
   emptyNothing: 'Nothing is on the chart yet.',
   startOver: 'Start over',
-  startOverConfirm: 'Start over? This clears both versions of the chart and their labels.',
+  startOverConfirm: 'Start over? This clears all chart layouts and their labels.',
   saved: 'Saved in this browser.',
   notSaved: 'Not saved: a shared chart.',
 
@@ -61,6 +63,6 @@ export const CHART_STRINGS = {
   imageSource: 'arkpedia.net/polls/chart-maker',
 
   indexTitle: 'Alignment chart maker',
-  indexBody: 'Sort operators into a labelled grid, or place them anywhere between two axes.',
+  indexBody: 'Sort operators into a labelled grid or bingo board, or place them anywhere between two axes.',
   indexAction: 'Start a chart',
 } as const;

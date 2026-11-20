@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { catalogueItems, enemyItemId, operatorItemId, type TierCatalogue } from '../../lib/tier-list/catalogue';
-import { cellColor, cellLabelColor, setCellColor, chartPlaced, chartPool, clearChart, defaultChart, parseChart, placeInCell, placePoint, removeGridLine, resizeGrid, setAxis, setAxisLine, setCellLabel, setChartKind, unplace, CHART_SIDE } from '../../lib/tier-list/chart';
+import { BINGO_CENTER, cellColor, cellLabelColor, chartGrid, setCellColor, chartPlaced, chartPool, clearChart, defaultChart, isBingoFreeCell, parseChart, placeInCell, placePoint, removeGridLine, resizeGrid, setAxis, setAxisLine, setBingoFree, setCellLabel, setChartKind, unplace, CHART_SIDE } from '../../lib/tier-list/chart';
 import { decodeChart, encodeChart } from '../../lib/tier-list/chartShare';
 import { chartQuizPool, scoreChartQuiz } from '../../lib/tier-list/quiz';
 import { CHART_STRINGS } from '../../lib/tier-list/chartStrings';
@@ -36,6 +36,35 @@ test('the grid holds items in cells, in order, each item once', () => {
   assert.deepEqual([chart.cells[0].items, ids(chartPool(items, chart))], [[], [A]]);
   assert.deepEqual(chartPlaced(clearChart(chart)), []);
   assert.equal(clearChart(chart).cells[4].label, 'True Neutral');
+});
+
+test('Bingo copies the matching grid cells once and saves its own board and free space', async () => {
+  const original = placeInCell(setCellLabel(defaultChart(), 4, 'Event prediction'), [A], 4);
+  const bingo = setChartKind(original, 'bingo');
+  const { cells, rows, cols } = chartGrid(bingo);
+  assert.deepEqual([rows, cols, cells.length, cells[0].label], [5, 5, 25, '']);
+  assert.deepEqual(cells[6], { label: 'Event prediction', items: [A] });
+  assert.equal(isBingoFreeCell(bingo, BINGO_CENTER), true);
+  assert.equal(placeInCell(bingo, [B], BINGO_CENTER), bingo);
+
+  const edited = placeInCell(setCellLabel(setBingoFree(bingo, false), BINGO_CENTER, 'Center prompt'), [B], BINGO_CENTER);
+  const originalAgain = setChartKind(edited, 'grid');
+  assert.deepEqual(originalAgain.cells, original.cells);
+  assert.deepEqual(chartGrid(setChartKind(originalAgain, 'bingo')).cells, chartGrid(edited).cells);
+  assert.deepEqual(parseChart(JSON.stringify(edited)), edited);
+
+  const free = setBingoFree(edited, true);
+  assert.deepEqual(chartPlaced(free), [A]);
+  assert.deepEqual(chartPlaced(setBingoFree(free, false)), [A, B]);
+  const full = (await decodeChart(await encodeChart(free)))!.state;
+  assert.equal(full.kind, 'bingo');
+  assert.equal(isBingoFreeCell(full, BINGO_CENTER), true);
+  assert.deepEqual(chartPlaced(full), [A]);
+  assert.deepEqual(chartGrid(full).cells[BINGO_CENTER], { label: '', items: [] });
+  const template = (await decodeChart(await encodeChart(edited, 'template')))!.state;
+  assert.deepEqual(chartPlaced(template), []);
+  assert.equal(chartGrid(template).cells[BINGO_CENTER].label, 'Center prompt');
+  assert.equal(isBingoFreeCell(template, BINGO_CENTER), false);
 });
 
 test('resizing the grid keeps each cell in its column and row, and gives back what a removed cell held', () => {

@@ -222,6 +222,51 @@ test('the axes: four labels of the reader\'s own and an item anywhere between th
   await expect.poll(async () => (await points(page)).length).toBe(1);
 });
 
+test('Bingo converts the current grid, keeps its own edits, and exports a text-only board', async ({ page }) => {
+  await open(page, true);
+  const first = page.getByRole('textbox', { name: 'Label of row 1, column 1', exact: true });
+  await first.fill('First prediction');
+  const choice = page.getByRole('button', { name: 'Bingo', exact: true });
+  await choice.focus();
+  await page.keyboard.press('Enter');
+  await expect(choice).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.locator('[data-bingo] [aria-hidden="true"]').first()).toHaveText('BINGO');
+  await expect(first).toHaveValue('First prediction');
+  await expect(page.locator('[data-bingo] textarea')).toHaveCount(24);
+  await page.getByRole('textbox', { name: 'Bingo title', exact: true }).fill('Event bingo');
+  expect(await first.evaluate(field => {
+    const square = field.closest('[data-text-only]')!.getBoundingClientRect();
+    const text = field.getBoundingClientRect();
+    return Math.abs((square.top + square.height / 2) - (text.top + text.height / 2)) < 2;
+  })).toBe(true);
+  await expect(page.getByRole('button', { name: 'Add a column', exact: true })).toHaveCount(0);
+
+  const free = page.getByRole('checkbox', { name: 'Free space', exact: true });
+  await expect(free).toBeChecked();
+  await free.uncheck();
+  const center = page.getByRole('textbox', { name: 'Label of row 3, column 3', exact: true });
+  await center.fill('Center prediction');
+  await page.getByRole('button', { name: 'Grid', exact: true }).click();
+  await expect(first).toHaveValue('First prediction');
+  await expect(center).toHaveValue('Chaotic Evil');
+  await expect(page.getByRole('textbox', { name: 'Chart name', exact: true })).toHaveValue('');
+  await choice.click();
+  await page.reload();
+  await expect(choice).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByRole('textbox', { name: 'Bingo title', exact: true })).toHaveValue('Event bingo');
+  await expect(center).toHaveValue('Center prediction');
+  await expect(free).not.toBeChecked();
+  expect(await page.locator('[data-bingo]').evaluate(board => board.scrollWidth <= board.clientWidth + 1)).toBe(true);
+
+  await page.getByRole('button', { name: 'Make image', exact: true }).click();
+  const canvas = page.locator('canvas[data-ready]');
+  await expect(canvas).toBeVisible();
+  await expect(canvas).toHaveAccessibleName('Chart image: Event bingo');
+  await expect(canvas).toHaveAccessibleDescription(/Center prediction/);
+  const [download] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Download PNG', exact: true }).click()]);
+  expect(download.suggestedFilename()).toBe('arkpedia-chart.png');
+});
+
 test('a chart is shared as a link that never overwrites the reader\'s own, and saved as a PNG', async ({ page, context }, info) => {
   test.skip(mobile(info), 'the clipboard and the download are read back on desktop Chromium');
   await context.grantPermissions(['clipboard-read', 'clipboard-write']);
