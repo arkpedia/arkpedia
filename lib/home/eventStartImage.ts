@@ -9,12 +9,12 @@ const COLUMN_WIDTH = (WIDTH - INSET * 2 - COLUMN_GAP) / 2;
 const PLACES_INSET = 182;
 const LINE_HEIGHT = 30;
 
-function wrap(ctx: CanvasRenderingContext2D, text: string, width: number): string[] {
+function wrap(ctx: CanvasRenderingContext2D, parts: string[], width: number, separator = ' '): string[] {
   const lines: string[] = [];
   let line = '';
-  for (const word of text.split(/\s+/)) {
-    const next = line ? `${line} ${word}` : word;
-    if (line && ctx.measureText(next).width > width) { lines.push(line); line = word; }
+  for (const part of parts) {
+    const next = line ? `${line}${separator}${part}` : part;
+    if (line && ctx.measureText(next).width > width) { lines.push(line); line = part; }
     else line = next;
   }
   if (line) lines.push(line);
@@ -69,12 +69,12 @@ export async function drawEventStartImage(card: EventStartCard, rows: EventStart
   const accent = posterAccent(ctx, artwork, token('--scrim-teal'));
 
   ctx.font = titleFont;
-  const title = wrap(ctx, card.title, WIDTH - INSET * 2);
+  const title = wrap(ctx, card.title.split(/\s+/), WIDTH - INSET * 2);
   const artworkHeight = artwork ? Math.min(520, Math.max(430, WIDTH * artwork.naturalHeight / artwork.naturalWidth)) : 205;
   const masthead = artworkHeight + (title.length - 1) * 76;
   ctx.font = bodyFont;
   const table = rows.map(row => {
-    const places = wrap(ctx, row.places.join(' · '), COLUMN_WIDTH - PLACES_INSET);
+    const places = wrap(ctx, row.places, COLUMN_WIDTH - PLACES_INSET, ' · ');
     return { ...row, places, height: Math.max(71, places.length * LINE_HEIGHT + 20) };
   });
   const totalHeight = table.reduce((height, row) => height + row.height, 0);

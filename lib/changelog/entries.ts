@@ -34,6 +34,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    at: '2026-11-20T20:00:00Z',
+    changed: [
+      { title: 'More locations on event timezone cards', detail: 'Homepage and event cards cover all three Indonesian time zones plus Belarus, Kazakhstan, Morocco and Paraguay.', href: '/' },
+      { title: 'Country names beside cities', detail: 'City and country names stay together in the shared image.', href: '/schedule' },
+    ],
+  },
+  {
     at: '2026-11-20T17:10:00Z',
     fixed: [{ title: 'Steadier roster sorting controls', detail: 'The sort dropdown and direction button stay together on their own row below the operator filters.', href: '/operators' }],
   },

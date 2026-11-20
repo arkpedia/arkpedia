@@ -11,31 +11,52 @@ const localTime = (iso: string, place: string, format: ClockFormat = '12h') => {
 
 test('start times group real local clocks, including half-hour offsets and the following day', () => {
   const start = '2026-11-16T15:00:00Z';
-  assert.equal(localTime(start, 'Hawaii').time, '5:00 AM');
-  assert.deepEqual(localTime(start, 'Arizona (Phoenix)').places, ['Arizona (Phoenix)']);
+  assert.equal(localTime(start, 'Hawaii, USA').time, '5:00 AM');
+  assert.deepEqual(localTime(start, 'Phoenix, USA').places, ['Phoenix, USA']);
   assert.ok(localTime(start, 'Germany').places.includes('Switzerland'));
   assert.equal(localTime(start, 'UK').time, '3:00 PM');
   assert.equal(localTime(start, 'India').time, '8:30 PM');
   assert.equal(localTime(start, 'Japan').key, '2026-11-17T00:00');
-  assert.equal(localTime(start, 'Wellington').date, '17 Nov');
-  assert.equal(localTime('2026-01-01T00:15:00Z', 'Hawaii').key, '2025-12-31T14:15');
+  assert.equal(localTime(start, 'Wellington, New Zealand').date, '17 Nov');
+  assert.equal(localTime('2026-01-01T00:15:00Z', 'Hawaii, USA').key, '2025-12-31T14:15');
 });
 
 test('24-hour time uses leading zeros and keeps the same date and grouping at midnight', () => {
   const start = '2026-11-16T15:00:00Z';
-  assert.equal(localTime(start, 'Hawaii', '24h').time, '05:00');
+  assert.equal(localTime(start, 'Hawaii, USA', '24h').time, '05:00');
   assert.equal(localTime(start, 'India', '24h').time, '20:30');
-  assert.equal(localTime(start, 'Santiago', '24h').time, '12:00');
+  assert.equal(localTime(start, 'Santiago, Chile', '24h').time, '12:00');
   assert.deepEqual(localTime(start, 'Japan', '24h'), { ...localTime(start, 'Japan'), time: '00:00' });
+});
+
+test('Indonesia has three separate local times, with the eastern date rolling over at midnight', () => {
+  const start = '2026-11-23T15:00:00Z';
+  assert.equal(localTime(start, 'Jakarta, Indonesia (WIB)', '24h').key, '2026-11-23T22:00');
+  assert.equal(localTime(start, 'Makassar, Indonesia (WITA)', '24h').key, '2026-11-23T23:00');
+  assert.equal(localTime(start, 'Jayapura, Indonesia (WIT)', '24h').key, '2026-11-24T00:00');
 });
 
 test('locations group only on dates when their clocks agree', () => {
   const summer = '2026-07-16T15:00:00Z';
   const winter = '2026-11-16T15:00:00Z';
-  assert.ok(localTime(summer, 'Arizona (Phoenix)').places.includes('California & Washington'));
-  assert.ok(!localTime(winter, 'Arizona (Phoenix)').places.includes('California & Washington'));
+  assert.ok(localTime(summer, 'Phoenix, USA').places.includes('California & Washington, USA'));
+  assert.ok(!localTime(winter, 'Phoenix, USA').places.includes('California & Washington, USA'));
   assert.ok(!localTime(winter, 'Germany').places.includes('South Africa'));
   assert.ok(localTime(summer, 'Germany').places.includes('South Africa'));
+});
+
+test('the added countries use local rules for upcoming and archived launches', () => {
+  const summer = '2026-07-16T15:00:00Z';
+  assert.equal(localTime(summer, 'Morocco', '24h').time, '16:00');
+  assert.equal(localTime('2026-03-01T15:00:00Z', 'Morocco', '24h').time, '15:00');
+  assert.equal(localTime('2026-09-20T00:59:00Z', 'Morocco', '24h').time, '01:59');
+  assert.equal(localTime('2026-09-20T01:00:00Z', 'Morocco', '24h').time, '01:00');
+  assert.equal(localTime(summer, 'Paraguay', '24h').time, '12:00');
+  assert.equal(localTime(summer, 'Belarus', '24h').time, '18:00');
+  assert.equal(localTime(summer, 'Kazakhstan', '24h').time, '20:00');
+  const archived = '2023-07-16T15:00:00Z';
+  assert.equal(localTime(archived, 'Paraguay', '24h').time, '11:00');
+  assert.equal(localTime(archived, 'Kazakhstan', '24h').time, '21:00');
 });
 
 test('time cards identify exact regional starts and label estimates and Global fallbacks', () => {
