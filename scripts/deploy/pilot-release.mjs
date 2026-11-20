@@ -42,6 +42,12 @@ export async function publishPilotRelease({ source, checkRun, build, approve, pr
     requireValue(provider.observe().id === current.id, 'pilot changed during deployed health checks');
     return { action: 'published', ...owner, version: current.id, healthy: true };
   } catch (error) {
+    if (error.code === 'PILOT_ACTIVATION_UNCONFIRMED') {
+      // The deployment was acknowledged. The stale listing cannot establish
+      // which version recovery would act on or whether it is healthy.
+      error.recovery = { action: 'manual-reconciliation-required', reason: 'Cloudflare activation was acknowledged but not verified' };
+      throw error;
+    }
     try { error.recovery = await provider.recover(owner); }
     catch (recovery) { error.recovery = { action: 'manual-reconciliation-required', reason: recovery.message }; }
     throw error;
