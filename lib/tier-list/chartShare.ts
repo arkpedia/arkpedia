@@ -14,10 +14,11 @@ export interface SharedChart { mode: ChartShareMode; state: ChartState; solution
 const MODES: Record<string, ChartShareMode> = { f: 'full', t: 'template', q: 'quiz' };
 
 /** k: the version on screen; g: [cols, rows, [label, items, colour?][]]; a: the four axis labels
- *  (top, bottom, left, right); l: [horizontal, vertical] as 0 or 1, present only when an
+ *  (top, bottom, left, right); h: [show grid headers, column labels, row labels]; b: 0 when
+ *  cell labels are hidden; l: [horizontal, vertical] as 0 or 1, present only when an
  *  axis is hidden; p: [id, x, y][] in thousandths; f: [rarities, kinds]. Only
  *  the version on screen travels: the other is the maker's own business. */
-interface Payload { v: number; m: 'f' | 't' | 'q'; k: 'g' | 'a'; t: string; z: number; n?: number; f: [number[], string[]]; g?: [number, number, [string, string[], string?][]]; a?: string[]; l?: [number, number]; p?: [string, number, number][] }
+interface Payload { v: number; m: 'f' | 't' | 'q'; k: 'g' | 'a'; t: string; z: number; n?: number; f: [number[], string[]]; g?: [number, number, [string, string[], string?][]]; h?: [number, string[], string[]]; b?: 0; a?: string[]; l?: [number, number]; p?: [string, number, number][] }
 
 export async function encodeChart(state: ChartState, mode: ChartShareMode = 'full'): Promise<string> {
   // A quiz is a grid's: the plane has no cells to be right or wrong in.
@@ -30,6 +31,10 @@ export async function encodeChart(state: ChartState, mode: ChartShareMode = 'ful
       ? { g: [state.cols, state.rows, state.cells.map((cell): [string, string[], string?] => (cell.color ? [cell.label, bare ? [] : cell.items, cell.color] : [cell.label, bare ? [] : cell.items]))] }
       : { a: [state.axes.top, state.axes.bottom, state.axes.left, state.axes.right], ...(state.lines.horizontal && state.lines.vertical ? {} : { l: [state.lines.horizontal ? 1 : 0, state.lines.vertical ? 1 : 0] as [number, number] }), p: bare ? [] : state.points.map((point): [string, number, number] => [point.id, Math.round(point.x * 1000), Math.round(point.y * 1000)]) }),
   };
+  if (state.kind === 'grid' && (state.showGridHeaders || state.columnLabels.some(Boolean) || state.rowLabels.some(Boolean))) {
+    payload.h = [state.showGridHeaders ? 1 : 0, state.columnLabels, state.rowLabels];
+  }
+  if (state.kind === 'grid' && !state.showCellLabels) payload.b = 0;
   return packPayload(payload);
 }
 
@@ -45,12 +50,15 @@ export async function decodeChart(text: string): Promise<SharedChart | null> {
   const mode = MODES[payload.m];
   if (mode === 'quiz' && !grid) return null;
   const bare = mode === 'template';
+  const headers = grid && Array.isArray(payload.h) ? payload.h : [];
   const state = parseChart(JSON.stringify({
     ...base,
     kind: grid ? 'grid' : 'axes',
     title: payload.t, zoom: payload.z, names: payload.n !== 0,
     rarities: Array.isArray(payload.f?.[0]) ? payload.f[0] : base.rarities,
     kinds: Array.isArray(payload.f?.[1]) ? payload.f[1] : base.kinds,
+    showCellLabels: !grid || payload.b !== 0,
+    showGridHeaders: headers[0] === 1, columnLabels: headers[1], rowLabels: headers[2],
     ...(grid ? { cols: grid[0], rows: grid[1], cells: (Array.isArray(grid[2]) ? grid[2] : []).map((cell) => (Array.isArray(cell) ? { label: cell[0], items: bare ? [] : cell[1], color: cell[2] } : {})) } : {}),
     ...(axes ? { axes: { top: axes[0], bottom: axes[1], left: axes[2], right: axes[3] }, lines: Array.isArray(payload.l) ? { horizontal: payload.l[0] !== 0, vertical: payload.l[1] !== 0 } : undefined, points: bare || !Array.isArray(payload.p) ? [] : payload.p.map((point) => (Array.isArray(point) ? { id: point[0], x: Number(point[1]) / 1000, y: Number(point[2]) / 1000 } : {})) } : {}),
   }));

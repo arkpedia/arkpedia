@@ -6,7 +6,7 @@ import { AXIS_ENDS, AXIS_OF, cellLabelColor, type ChartState } from '@/lib/tier-
 import { labelInk } from '@/lib/tier-list/state';
 import { CHART_STRINGS as C } from '@/lib/tier-list/chartStrings';
 import { TIER_LIST_STRINGS as T } from '@/lib/tier-list/strings';
-import { drawTile, fitText, loadCanvasFonts, loadTileArt } from './shareCanvas';
+import { drawTile, fitText, loadCanvasFonts, loadTileArt, wrapText } from './shareCanvas';
 import { tileImage } from './tierTile';
 import styles from './TierList.module.css';
 
@@ -16,6 +16,8 @@ const GAP = 6;
 const TILE = 88;
 /** The margin round the axes plane that holds its labels. */
 const BAND = 44;
+const HEADER_FONT = '700 24px Rajdhani';
+const HEADER_LINE = 26;
 
 /**
  * The chart as one picture, drawn from the version on screen when the dialog opens: the
@@ -32,8 +34,16 @@ export default function ChartShareImage({ state: initial, byId, onClose }: { sta
   const [retry, setRetry] = useState(0);
   const cells = state.cells.map((cell) => ({ ...cell, items: cell.items.flatMap((id) => byId.get(id) ?? []) }));
   const points = state.points.flatMap((point) => { const item = byId.get(point.id); return item ? [{ ...point, item }] : []; });
+  const hasColumnLabels = state.showGridHeaders && state.columnLabels.some((label) => label.trim());
+  const hasRowLabels = state.showGridHeaders && state.rowLabels.some((label) => label.trim());
   const description = state.kind === 'grid'
-    ? cells.map((cell, i) => `${cell.label || C.cellItems('', Math.floor(i / state.cols) + 1, (i % state.cols) + 1)}: ${cell.items.map((item) => item.name).join(', ') || T.imageEmptyRow}`).join('. ')
+    ? cells.map((cell, i) => {
+      const row = Math.floor(i / state.cols), col = i % state.cols;
+      const headers = state.showGridHeaders ? [state.rowLabels[row], state.columnLabels[col]].map((label) => label.trim()).filter(Boolean) : [];
+      if (state.showCellLabels && cell.label.trim()) headers.push(cell.label.trim());
+      const label = headers.join(', ') || C.cellItems('', row + 1, col + 1);
+      return `${label}: ${cell.items.map((item) => item.name).join(', ') || T.imageEmptyRow}`;
+    }).join('. ')
     : `${AXIS_ENDS.filter((end) => state.lines[AXIS_OF[end]]).map((end) => state.axes[end]).filter(Boolean).join(', ')}. ${points.map((point) => point.item.name).join(', ')}`;
 
   useEffect(() => {
@@ -54,12 +64,21 @@ export default function ChartShareImage({ state: initial, byId, onClose }: { sta
       const inner = WIDTH - PAD * 2;
       const tile = Math.round(Math.max(56, Math.min(240, TILE * state.zoom / 100)));
       // Grid: each row is as tall as its fullest cell needs.
-      const cellWidth = (inner - (state.cols - 1) * GAP) / state.cols;
+      const rowHeaderWidth = hasRowLabels ? 160 : 0;
+      const cellWidth = (inner - rowHeaderWidth - (state.cols - 1) * GAP) / state.cols;
+      measure.font = HEADER_FONT;
+      const clueLines = (label: string, width: number) => label.trim().split('\n').flatMap((line) => wrapText(measure, line, width - 12, 3));
+      const columnHeaders = hasColumnLabels ? state.columnLabels.map((label) => clueLines(label, cellWidth)) : [];
+      const rowHeaders = hasRowLabels ? state.rowLabels.map((label) => clueLines(label, rowHeaderWidth)) : [];
+      const columnHeaderHeight = columnHeaders.length ? Math.max(BAND, ...columnHeaders.map((lines) => lines.length * HEADER_LINE + 12)) : 0;
       const size = Math.min(tile, cellWidth - GAP * 2);
       const perLine = Math.max(1, Math.floor((cellWidth - GAP) / (size + GAP)));
-      const labelHeight = 34;
-      const rowHeights = Array.from({ length: state.rows }, (_, row) => Math.max(...cells.slice(row * state.cols, (row + 1) * state.cols).map((cell) => Math.max(1, Math.ceil(cell.items.length / perLine)) * (size + GAP) + GAP + labelHeight)));
-      const body = state.kind === 'grid' ? rowHeights.reduce((sum, h) => sum + h + GAP, 0) : inner;
+      const labelHeight = state.showCellLabels ? 34 : 0;
+      const rowHeights = Array.from({ length: state.rows }, (_, row) => Math.max(
+        (rowHeaders[row]?.length ?? 0) * HEADER_LINE + 12,
+        ...cells.slice(row * state.cols, (row + 1) * state.cols).map((cell) => Math.max(1, Math.ceil(cell.items.length / perLine)) * (size + GAP) + GAP + labelHeight),
+      ));
+      const body = state.kind === 'grid' ? columnHeaderHeight + rowHeights.reduce((sum, h) => sum + h + GAP, 0) : inner;
       const height = head + body + foot;
       element.height = height;
       const c = element.getContext('2d');
@@ -71,11 +90,18 @@ export default function ChartShareImage({ state: initial, byId, onClose }: { sta
       c.textBaseline = 'middle';
       if (state.title.trim()) { c.font = '700 40px Rajdhani'; c.fillStyle = ink('--text-bright'); c.textAlign = 'left'; c.fillText(fitText(c, state.title.trim(), inner), PAD, 46); }
       if (state.kind === 'grid') {
-        let y = head;
+        const gridLeft = PAD + rowHeaderWidth;
+        const headerText = (lines: string[], x: number, y: number) => {
+          c.font = HEADER_FONT; c.fillStyle = ink('--text-bright'); c.textAlign = 'center';
+          lines.forEach((line, index) => c.fillText(line, x, y + (index - (lines.length - 1) / 2) * HEADER_LINE));
+        };
+        columnHeaders.forEach((lines, col) => headerText(lines, gridLeft + col * (cellWidth + GAP) + cellWidth / 2, head + columnHeaderHeight / 2));
+        let y = head + columnHeaderHeight;
         for (let row = 0; row < state.rows; row += 1) {
           const h = rowHeights[row];
+          if (rowHeaders[row]) headerText(rowHeaders[row], PAD + rowHeaderWidth / 2, y + h / 2);
           for (let col = 0; col < state.cols; col += 1) {
-            const index = row * state.cols + col, cell = cells[index], x = PAD + col * (cellWidth + GAP);
+            const index = row * state.cols + col, cell = cells[index], x = gridLeft + col * (cellWidth + GAP);
             c.fillStyle = ink('--panel'); c.fillRect(x, y, cellWidth, h);
             // Tiles centred in the cell, line by line.
             cell.items.forEach((item, i) => {
@@ -84,10 +110,12 @@ export default function ChartShareImage({ state: initial, byId, onClose }: { sta
               drawTile(c, item, images.get(tileImage(item)), left + (i % perLine) * (size + GAP), y + GAP + line * (size + GAP), size, state.names, inks);
             });
             // The label bar, in the reader's colour or the cell's accent, with ink picked for it.
-            const bar = cellLabelColor(state, index);
-            c.fillStyle = bar; c.fillRect(x, y + h - labelHeight, cellWidth, labelHeight);
-            c.font = '700 20px Rajdhani'; c.textAlign = 'center'; c.fillStyle = labelInk(bar) === 'dark' ? '#14181c' : '#ffffff';
-            c.fillText(fitText(c, cell.label, cellWidth - 12), x + cellWidth / 2, y + h - labelHeight / 2);
+            if (state.showCellLabels) {
+              const bar = cellLabelColor(state, index);
+              c.fillStyle = bar; c.fillRect(x, y + h - labelHeight, cellWidth, labelHeight);
+              c.font = '700 20px Rajdhani'; c.textAlign = 'center'; c.fillStyle = labelInk(bar) === 'dark' ? '#14181c' : '#ffffff';
+              c.fillText(fitText(c, cell.label, cellWidth - 12), x + cellWidth / 2, y + h - labelHeight / 2);
+            }
           }
           y += h + GAP;
         }

@@ -21,7 +21,7 @@ async function open(page: Page, pinned = false) {
   await page.goto('/polls/chart-maker');
   await expect(pool(page).first()).toBeAttached();
   await expect(page.locator('[role="group"][aria-label="Zoom"] output')).toHaveText('100%');
-  if (!pinned) await page.getByRole('button', { name: 'Detach the pool so it floats over the page', exact: true }).click();
+  if (!pinned) await page.getByRole('button', { name: 'Hover Tool', exact: true }).click();
 }
 
 async function dragTo(page: Page, info: TestInfo, tile: Locator, to: { x: number; y: number }) {
@@ -70,8 +70,8 @@ test('the pool is under the chart, and the chart is narrower than the page and c
   await centred(page.locator('[class*="TierList_chartFrame"]'), !mobile(info));
   await page.getByRole('button', { name: 'Axes', exact: true }).click();
   await centred(plane(page), !mobile(info));
-  // The arrow still pops the pool out.
-  await page.getByRole('button', { name: 'Detach the pool so it floats over the page', exact: true }).click();
+  // Hover Tool pops the pool out.
+  await page.getByRole('button', { name: 'Hover Tool', exact: true }).click();
   expect(await box.evaluate((element) => getComputedStyle(element).position)).toBe('fixed');
 });
 
@@ -93,6 +93,59 @@ test('a grid label takes a colour of the reader\'s own, with ink that reads on i
   expect(await page.getByLabel('Colour of row 2, column 1', { exact: true }).inputValue()).not.toBe('#ffee00');
   await page.reload();
   await expect(page.getByLabel('Colour of row 2, column 2', { exact: true })).toHaveValue('#ffee00');
+});
+
+test('optional row and column headers can be edited, hidden, and restored', async ({ page }) => {
+  await open(page, true);
+  const toggle = page.getByRole('checkbox', { name: 'Show row and column labels' });
+  const column = page.getByRole('textbox', { name: 'Column 1 label' });
+  const row = page.getByRole('textbox', { name: 'Row 2 label' });
+  await expect(column).toHaveCount(0);
+  await toggle.focus();
+  await toggle.press('Space');
+  await column.fill('Lawful');
+  await row.fill('Neutral');
+  await expect(page.getByRole('textbox', { name: 'Label of row 2, column 1' })).toHaveValue('Lawful Neutral');
+  await page.getByRole('button', { name: 'Axes', exact: true }).click();
+  await expect(toggle).toHaveCount(0);
+  await page.getByRole('button', { name: 'Grid', exact: true }).click();
+  await toggle.uncheck();
+  await expect(row).toHaveCount(0);
+  await page.evaluate(() => localStorage.setItem('theme', 'light'));
+  await page.reload();
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
+  await expect(toggle).not.toBeChecked();
+  await toggle.check();
+  await expect(column).toHaveValue('Lawful');
+  await expect(row).toHaveValue('Neutral');
+  await page.getByRole('button', { name: 'Remove row 1', exact: true }).click();
+  await expect(page.getByRole('textbox', { name: 'Row 1 label' })).toHaveValue('Neutral');
+  await page.getByRole('button', { name: 'Add a row', exact: true }).click();
+  await expect(page.getByRole('textbox', { name: 'Row 3 label' })).toHaveValue('');
+});
+
+test('a clue grid can hide its cell labels and export an empty board', async ({ page }) => {
+  await open(page, true);
+  const labels = page.getByRole('checkbox', { name: 'Show cell labels', exact: true });
+  const cellLabel = page.getByRole('textbox', { name: 'Label of row 1, column 1', exact: true });
+  await cellLabel.fill('Custom cell label');
+  await page.getByRole('checkbox', { name: 'Show row and column labels' }).check();
+  await page.getByRole('textbox', { name: 'Column 1 label' }).fill('Knights from\nKazimierz');
+  await page.getByRole('textbox', { name: 'Row 1 label' }).fill('Defenders');
+  await labels.uncheck();
+  await expect(cellLabel).toHaveCount(0);
+  await expect(page.getByLabel('Colour of row 1, column 1', { exact: true })).toHaveCount(0);
+  await expect(cell(page, 0)).toHaveAccessibleName(/Defenders, Knights from\s+Kazimierz/);
+  await page.reload();
+  await expect(labels).not.toBeChecked();
+  await page.getByRole('button', { name: 'Make image', exact: true }).click();
+  const canvas = page.locator('canvas[data-ready]');
+  await expect(canvas).toBeVisible();
+  await expect(canvas).toHaveAccessibleDescription(/Defenders, Knights from\s+Kazimierz/);
+  await expect(canvas).not.toHaveAccessibleDescription(/Custom cell label/);
+  await page.getByRole('button', { name: 'Close', exact: true }).click();
+  await labels.check();
+  await expect(cellLabel).toHaveValue('Custom cell label');
 });
 
 test('the grid: sized and labelled by the reader, filled by dragging, kept over a reload', async ({ page }, info) => {
@@ -287,7 +340,7 @@ test('a grid is shared as a quiz: its maker\'s items only, a locked grid, and a 
 
   await page.goto(link); await page.reload();
   await expect(page.getByText(/^Quiz: drag every item into the cell/)).toBeVisible();
-  await page.getByRole('button', { name: 'Detach the pool so it floats over the page', exact: true }).click();
+  await page.getByRole('button', { name: 'Hover Tool', exact: true }).click();
   expect((await cellItems(page)).flat()).toEqual([]);
   await expect(pool(page)).toHaveCount(3);
   expect(await names(page, 3)).toEqual([first, second, third]);

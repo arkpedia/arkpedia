@@ -119,7 +119,7 @@ function usePoolPlace() {
 }
 
 /**
- * The pool: pinned under the board, or detached (the arrow) into a window that floats over
+ * The pool: pinned under the board, or detached into a window that floats over
  * the page, a sheet at the bottom of a phone. It must be rendered inside the maker's root,
  * where the drag hook listens. Detaching takes it out of the page under a reader who is at
  * the page's end, so its dock keeps their place.
@@ -135,8 +135,8 @@ export function PoolWindow({ items, query, onQuery, detached, onDetached, empty,
           <h2 id="tier-pool" className={detached ? 'section-title' : undefined}>{T.poolHeading}</h2>
           <span className="hint" role="status">{T.poolCount(items.length)}</span>
           <SearchInput className={styles.search} label={T.searchLabel} placeholder={T.searchPlaceholder} value={query} onChange={onQuery} />
-          <button type="button" className={`ghost btn-icon ${styles.pin}`} aria-pressed={detached} aria-label={detached ? T.pinPool : T.detachPool} title={detached ? T.pinPool : T.detachPool} onClick={() => onDetached(!detached)}>
-            <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d={detached ? 'M4 6l4 4 4-4' : 'M4 10l4-4 4 4'} fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
+          <button type="button" className={`ghost ${styles.pin}`} title={detached ? T.pinPoolHint : T.detachPoolHint} onClick={() => onDetached(!detached)}>
+            {detached ? T.pinPool : T.detachPool}
           </button>
         </div>
         <p className={`hint ${styles.status}`}>{hint}</p>

@@ -68,8 +68,10 @@ export const TIER_LIST_STRINGS = {
   zoomSmallest: 'Tiles are at their smallest.',
   zoomLargest: 'Tiles are at their largest.',
 
-  detachPool: 'Detach the pool so it floats over the page',
-  pinPool: 'Pin the pool under the tier list',
+  detachPool: 'Hover Tool',
+  detachPoolHint: 'Float the pool over the page',
+  pinPool: 'Collapse',
+  pinPoolHint: 'Dock the pool below the board',
   movePool: 'Drag to move the pool',
 
   share: 'Share',
@@ -125,9 +127,5 @@ export const TIER_LIST_STRINGS = {
   imageBrand: 'ARKPEDIA',
   imageSource: 'arkpedia.net/polls/tier-list',
 
-  indexTag: 'Make your own',
-  indexTitle: 'Tier list maker',
-  indexBody: 'Rank operators, outfits and skills in rows you name and colour.',
-  indexAction: 'Start ranking',
   indexHeading: 'Make your own',
 } as const;

@@ -44,6 +44,10 @@ export interface ChartState {
   rows: number;
   /** rows × cols cells, row by row. */
   cells: ChartCell[];
+  showCellLabels: boolean;
+  showGridHeaders: boolean;
+  columnLabels: string[];
+  rowLabels: string[];
   axes: Record<AxisEnd, string>;
   /** Which of the two axes are drawn: a reader who ranks along one line hides the other,
    *  and its labels with it. Items still sit anywhere on the plane. */
@@ -58,6 +62,7 @@ export function defaultChart(): ChartState {
   return {
     version: CHART_VERSION, kind: 'grid', title: '', rarities: [6, 5], kinds: ['icons'], zoom: ZOOM.base, names: true,
     cols: 3, rows: 3, cells: CLASSIC.map((label) => ({ label, items: [] })),
+    showCellLabels: true, showGridHeaders: false, columnLabels: ['', '', ''], rowLabels: ['', '', ''],
     axes: { top: '', bottom: '', left: '', right: '' }, lines: { horizontal: true, vertical: true }, points: [],
   };
 }
@@ -65,6 +70,7 @@ export function defaultChart(): ChartState {
 const HEX = /^#[0-9a-f]{6}$/i;
 const side = (value: unknown, fallback: number) => (typeof value === 'number' && Number.isInteger(value) ? Math.max(CHART_SIDE.min, Math.min(CHART_SIDE.max, value)) : fallback);
 const text = (value: unknown, max: number) => (typeof value === 'string' ? value.slice(0, max) : '');
+const gridLabels = (value: unknown, length: number) => Array.from({ length }, (_, i) => text(Array.isArray(value) ? value[i] : undefined, MAX_CHART_LABEL));
 const isId = (value: unknown): value is string => typeof value === 'string' && value.length > 0 && value.length <= 200;
 const unit = (value: unknown) => (typeof value === 'number' && Number.isFinite(value) ? Math.max(0, Math.min(1, value)) : 0.5);
 
@@ -100,6 +106,10 @@ export function parseChart(raw: string | null): ChartState | null {
     zoom: clampZoom(data.zoom),
     names: data.names !== false,
     cols, rows, cells,
+    showCellLabels: data.showCellLabels !== false,
+    showGridHeaders: data.showGridHeaders === true,
+    columnLabels: gridLabels(data.columnLabels, cols),
+    rowLabels: gridLabels(data.rowLabels, rows),
     axes: { top: text(axes.top, MAX_CHART_LABEL), bottom: text(axes.bottom, MAX_CHART_LABEL), left: text(axes.left, MAX_CHART_LABEL), right: text(axes.right, MAX_CHART_LABEL) },
     // Drawn unless the chart says otherwise: one saved before the toggles has both.
     lines: { horizontal: lines.horizontal !== false, vertical: lines.vertical !== false },
@@ -158,7 +168,7 @@ export function resizeGrid(state: ChartState, cols: number, rows: number): Chart
     const row = Math.floor(i / nextCols), col = i % nextCols;
     return row < state.rows && col < state.cols ? state.cells[row * state.cols + col] : { label: '', items: [] };
   });
-  return { ...state, cols: nextCols, rows: nextRows, cells };
+  return { ...state, cols: nextCols, rows: nextRows, cells, columnLabels: gridLabels(state.columnLabels, nextCols), rowLabels: gridLabels(state.rowLabels, nextRows) };
 }
 
 /** Take one column or one row out of the grid, wherever it is. The others keep their labels
@@ -167,7 +177,14 @@ export function removeGridLine(state: ChartState, line: 'col' | 'row', index: nu
   const count = line === 'col' ? state.cols : state.rows;
   if (count <= CHART_SIDE.min || index < 0 || index >= count) return state;
   const cells = state.cells.filter((_, i) => (line === 'col' ? i % state.cols : Math.floor(i / state.cols)) !== index);
-  return line === 'col' ? { ...state, cols: state.cols - 1, cells } : { ...state, rows: state.rows - 1, cells };
+  return line === 'col'
+    ? { ...state, cols: state.cols - 1, cells, columnLabels: state.columnLabels.filter((_, i) => i !== index) }
+    : { ...state, rows: state.rows - 1, cells, rowLabels: state.rowLabels.filter((_, i) => i !== index) };
+}
+
+export function setGridLabel(state: ChartState, line: 'col' | 'row', index: number, label: string): ChartState {
+  const key = line === 'col' ? 'columnLabels' : 'rowLabels';
+  return { ...state, [key]: state[key].map((entry, i) => (i === index ? text(label, MAX_CHART_LABEL) : entry)) };
 }
 
 export const setCellLabel = (state: ChartState, cell: number, label: string): ChartState => ({ ...state, cells: state.cells.map((entry, i) => (i === cell ? { ...entry, label: label.slice(0, MAX_CHART_LABEL) } : entry)) });

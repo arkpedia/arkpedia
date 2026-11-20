@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { catalogueItems, enemyItemId, operatorItemId, type TierCatalogue } from '../../lib/tier-list/catalogue';
-import { cellColor, cellLabelColor, setCellColor, chartPlaced, chartPool, clearChart, defaultChart, parseChart, placeInCell, placePoint, removeGridLine, resizeGrid, setAxis, setAxisLine, setCellLabel, setChartKind, unplace, CHART_SIDE } from '../../lib/tier-list/chart';
+import { cellColor, cellLabelColor, setCellColor, chartPlaced, chartPool, clearChart, defaultChart, parseChart, placeInCell, placePoint, removeGridLine, resizeGrid, setAxis, setAxisLine, setCellLabel, setChartKind, setGridLabel, unplace, CHART_SIDE } from '../../lib/tier-list/chart';
 import { decodeChart, encodeChart } from '../../lib/tier-list/chartShare';
 import { chartQuizPool, scoreChartQuiz } from '../../lib/tier-list/quiz';
 import { CHART_STRINGS } from '../../lib/tier-list/chartStrings';
@@ -75,6 +75,29 @@ test('the axes version places an item anywhere, moves it, and keeps its own plac
   chart = unplace(chart, [B]);
   assert.deepEqual([ids(chartPool(items, chart)), setChartKind(chart, 'grid').cells[0].items], [[B], [A]], 'switching back, the grid is as it was');
   assert.deepEqual(clearChart(chart).points, []);
+});
+
+test('grid headers follow their lines and survive saves and every grid link', async () => {
+  let chart = { ...placeInCell(defaultChart(), [A], 0), showGridHeaders: true, showCellLabels: false };
+  chart = setGridLabel(setGridLabel(chart, 'row', 2, 'Evil'), 'col', 2, 'Chaotic');
+  chart = resizeGrid(chart, 4, 4);
+  chart = removeGridLine(removeGridLine(chart, 'col', 1), 'row', 1);
+  assert.deepEqual(chart.columnLabels, ['', 'Chaotic', '']);
+  assert.deepEqual(chart.rowLabels, ['', 'Evil', '']);
+  assert.deepEqual(parseChart(JSON.stringify(chart)), chart);
+  for (const mode of ['full', 'template', 'quiz'] as const) {
+    const { state } = (await decodeChart(await encodeChart(chart, mode)))!;
+    assert.deepEqual([state.showGridHeaders, state.columnLabels, state.rowLabels], [true, chart.columnLabels, chart.rowLabels]);
+    assert.equal(state.showCellLabels, false);
+    assert.equal(state.cells[0].label, 'Lawful Good');
+  }
+  const hidden = (await decodeChart(await encodeChart({ ...chart, showGridHeaders: false }, 'template')))!.state;
+  assert.deepEqual([hidden.showGridHeaders, hidden.rowLabels], [false, chart.rowLabels]);
+
+  const old = parseChart('{"version":1,"cols":2,"rows":1,"cells":[]}')!;
+  assert.deepEqual([old.showGridHeaders, old.columnLabels, old.rowLabels], [false, ['', ''], ['']]);
+  assert.equal(old.showCellLabels, true);
+  assert.equal((await decodeChart(await encodeChart(defaultChart())))!.state.showCellLabels, true);
 });
 
 test('either axis can be hidden, or both, and the choice is kept in a save and a link', async () => {
