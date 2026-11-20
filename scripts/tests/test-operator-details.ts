@@ -19,6 +19,33 @@ import { getFactionIconPath } from '../../lib/operators/classBranchIcons';
 import { getAllOperators } from '../../lib/operators/operators';
 import { traitPhases } from '../../lib/operators/operatorTrait';
 import { buildGachaOperatorPreview, operatorPreviewSource } from '../../lib/gacha/operatorPreviewData';
+import { compareRosterValue, nextRosterBirthday, rosterBio, rosterBirthdayLabel, rosterStats, rosterStatValue } from '../../lib/operators/rosterSort';
+import { DAY_MS, serverCalendarTime } from '../../lib/time/servers.mjs';
+
+test('roster birthdays follow the server day and wrap to the next occurrence', () => {
+  const birthday = rosterBio({ 'Date of Birth': 'November 20th' }).birthday;
+  const instant = new Date('2026-11-20T06:59:00Z');
+  const en = Math.floor(+serverCalendarTime(instant, 'en') / DAY_MS) * DAY_MS;
+  const jp = Math.floor(+serverCalendarTime(instant, 'jp') / DAY_MS) * DAY_MS;
+  assert.equal(rosterBirthdayLabel(nextRosterBirthday(birthday, en), en), '20 Nov · In 1 day');
+  assert.equal(rosterBirthdayLabel(nextRosterBirthday(birthday, jp), jp), '20 Nov · Today');
+  assert.equal(nextRosterBirthday(birthday, jp + DAY_MS), Date.UTC(2027, 10, 20));
+  assert.equal(nextRosterBirthday(rosterBio({ 'Date of Birth': 'February 29th' }).birthday, Date.UTC(2096, 2, 1)), Date.UTC(2104, 1, 29));
+  assert.equal(rosterBio({ 'Date of Birth': 'February 30th' }).birthday, undefined);
+  assert.equal(rosterBio({ 'Date of Birth': 'Undisclosed' }).birthday, undefined);
+});
+
+test('roster stats use the final phase base values and keep missing stats last', () => {
+  const operator = JSON.parse(fs.readFileSync('data/operators-6star/Nian.json', 'utf8')) as Operator;
+  const stats = rosterStats(operator.stats);
+  const phase = operator.stats!.phases.at(-1)!;
+  const values = getBaseStats(phase, phase.maxLevel);
+  assert.deepEqual(stats, STAT_KEYS.map(key => values[key]));
+  assert.equal(rosterStatValue({ ...operator, stats }, 'hp'), values.hp);
+  assert.equal(rosterStatValue({ ...operator, stats: null }, 'hp'), undefined);
+  assert.equal(compareRosterValue(undefined, 0, true), 1);
+  assert.equal(compareRosterValue(undefined, 0, false), 1);
+});
 
 test('account preview uses Nian E2 level 70, all M3 skills and both stage-three modules', () => {
   const nian = JSON.parse(fs.readFileSync('data/operators-6star/Nian.json', 'utf8')) as Operator;

@@ -418,6 +418,35 @@ test('ranked skin poll requires an Arkpedia session and replaces, withdraws and 
   }finally{h.sqlite.close();}
 });
 
+test('roster rankings use rarity caps and count each owner once per metric',async()=>{
+  const h=harness();
+  const build=(operator:string,elite:number,level:number,m0=0,m1=0,m2=0,modules:Record<string,number>={})=>({operator,elite,level,m0,m1,m2,modules});
+  try{
+    for(let i=0;i<10;i++){
+      const owner=`roster${i}`;h.user(owner);
+      const operators=[
+        build('Lancet-2',0,i===0?30:1),
+        build('12F',0,i===0?30:1),
+        build('Melantha',i<2?1:0,i===0?55:i===1?54:1),
+        build('Cuora',2,i===0?70:1,i<3?3:0,i<2?3:0,0,i===0?{0:1,1:3}:{}),
+        build('Amiya',2,i===0?80:1,3,3),
+        build('Thorns',2,i===0?90:1,i<3?3:0,i<2?3:0,i===0?3:0),
+      ];
+      assert.equal((await h.publish(owner,String(9000+i),statsOnly,{operators})).status,200);
+    }
+    const result=(await h.call('rankings',null,'GET',undefined,{server:'all',view:'roster'})).result;
+    assert.deepEqual(Object.keys(result),['contributors','roster']);
+    assert.equal(result.contributors,10);
+    const rate=(name:string)=>result.roster.find((row:{operator:string})=>row.operator===name).progress;
+    assert.deepEqual(rate('Lancet-2'),{built:10,module:null,m3:null,full:null,max:10});
+    assert.deepEqual(rate('12F'),rate('Lancet-2'));
+    assert.deepEqual(rate('Melantha'),{built:20,module:null,m3:null,full:null,max:10});
+    assert.deepEqual(rate('Cuora'),{built:100,module:10,m3:30,full:20,max:10});
+    assert.deepEqual(rate('Amiya'),{built:100,module:0,m3:100,full:100,max:10});
+    assert.deepEqual(rate('Thorns'),{built:100,module:0,m3:30,full:10,max:10});
+  }finally{h.sqlite.close();}
+});
+
 test('community rankings include existing replay consent, current runs, stage cohorts and withdrawal',async()=>{
   const h=harness();
   const payload=(skill=2)=>JSON.stringify({journal:{metadata:{stageId:'main_00-01'},squad:[{skinId:'char_293_thorns@summer#1',skillIndex:skill},{skinId:'char_002_amiya#1',skillIndex:0}],logs:[

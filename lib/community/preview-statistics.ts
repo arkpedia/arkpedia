@@ -9,7 +9,10 @@ export function previewStatistics(role:string|undefined,server:string,stage:stri
   if(stage)throw Error('Preview statistics snapshot covers all stages.');
   const cohort=value.cohorts[server];
   return {contributors:cohort.contributors,replayContributors:cohort.replayContributors,replays:cohort.replays,
-    roster:cohort.contributors<COMMUNITY_MIN_SAMPLE?null:cohort.roster?.map(({operator,owned,builds,e2,m9,m3,unraised,maxed})=>({operator,owned,builds,e2,m9,...(m3?{m3:m3.slice(0,3)}:{}),unraised,maxed}))??null,
+    roster:cohort.contributors<COMMUNITY_MIN_SAMPLE?null:cohort.roster?.map(({operator,owned,builds,e2,m9,m3,unraised,maxed,progress})=>({
+      operator,owned,builds,e2,m9,...(m3?{m3:m3.slice(0,3)}:{}),unraised,maxed,
+      ...(progress?{progress:{built:progress.built,module:progress.module,m3:progress.m3,full:progress.full,max:progress.max}}:{}),
+    }))??null,
     battles:cohort.replayContributors<COMMUNITY_MIN_SAMPLE?null:cohort.battles?.map(({charId,skill,squads,deployed,deployments,activations,benched})=>({charId,skill,squads,deployed,deployments,activations,benched}))??null,
     clearContributors:cohort.clearContributors??0,clearRecords:cohort.clearRecords??0,clearedStages:cohort.clearedStages??0,
     stageClears:(cohort.clearContributors??0)<COMMUNITY_MIN_SAMPLE?null:cohort.stageClears?.map(({stageId,clears,slug,code,name,image})=>({stageId,clears,slug,code,name,image}))??null,

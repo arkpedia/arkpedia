@@ -1,6 +1,7 @@
 import { readShippedTable } from '@/lib/content/shippedTable';
+import type { RosterMetadata } from '@/lib/operators/rosterSort';
 
-type Operators = typeof import('@/data/community-operator-catalogue.json');
+type Operators = (Omit<typeof import('@/data/community-operator-catalogue.json')[number], 'roster'> & { roster?: RosterMetadata })[];
 type Stages = typeof import('@/data/community-stage-catalogue.json');
 type Poll = typeof import('@/data/community-poll-catalogue.json');
 type TierList = import('@/lib/tier-list/catalogue').TierCatalogue;
@@ -10,7 +11,7 @@ type Account = typeof import('@/data/account-catalogue.json');
 // The explicit build constant drops the ordinary JSON imports in Worker builds.
 export const communityOperators = async ():Promise<Operators> => process.env.ARKPEDIA_WORKER === '1'
   ? readShippedTable<Operators>('community-operator-catalogue.json')
-  : (await import('@/data/community-operator-catalogue.json')).default;
+  : (await import('@/data/community-operator-catalogue.json')).default as Operators;
 export const communityStages = async ():Promise<Stages> => process.env.ARKPEDIA_WORKER === '1'
   ? readShippedTable<Stages>('community-stage-catalogue.json')
   : (await import('@/data/community-stage-catalogue.json')).default;

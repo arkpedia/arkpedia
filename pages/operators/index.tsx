@@ -9,13 +9,14 @@ import Image from '@/components/content/ContentImage';
 import { useRouter } from 'next/router';
 import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import { useReaderClock } from '@/lib/time/readerClock';
+import { DAY_MS, serverCalendarTime } from '@/lib/time/servers.mjs';
+import { useSiteServer } from '@/lib/time/siteServer';
 import { getAllOperators } from '@/lib/operators/operators';
 import { portraitStatus } from '@/lib/operators/operatorPortrait';
 import { useQueryState } from '@/lib/hooks/useQueryState';
 import { getOperatorIconPath } from '@/lib/operators/operatorIcon';
 import { getClassIconPath, getBranchIconPath } from '@/lib/operators/classBranchIcons';
 import { isDebutAvailable, operatorRelease, operatorReleaseLabel } from '@/lib/operators/operatorAvailability';
-import { RosterOperator } from '@/lib/operators/operatorTypes';
 import {
   LIMITED_SUBTYPES, OBTAIN_METHODS, WELFARE_SUBTYPES, obtainFilter, obtainMethodsOf, welfareMatches, welfareSourceOf,
 } from '@/lib/operators/obtainMethods';
@@ -30,14 +31,19 @@ import PageHeader from '@/components/ui/PageHeader';
 import OperatorGameIcon from '@/components/operators/OperatorGameIcon';
 import Rarity, { rarityLevel } from '@/components/ui/Rarity';
 import SearchInput from '@/components/ui/SearchInput';
-import SegmentedControl from '@/components/ui/SegmentedControl';
 import StyledSelect from '@/components/ui/StyledSelect';
+import InfoPopover from '@/components/ui/InfoPopover';
 import OwnedFilter, { countOwned } from '@/components/account/OwnedFilter';
 import { ownedFilter, useAccount } from '@/lib/account/accountStore';
 import LoadOnScroll from '@/components/ui/LoadOnScroll';
 import FilterSheet, { INLINE_RESET, type ActiveFilter } from '@/components/ui/FilterSheet';
 import { useSwitchHold } from '@/components/ui/useSwitchHold';
 import { operatorHref } from '@/lib/operators/operatorHref';
+import {
+  compareRosterValue, nextRosterBirthday, rosterBirthdayLabel, rosterCommunityValue, rosterMetadata,
+  rosterStatValue, ROSTER_COMMUNITY_SORTS, ROSTER_GENDERS, ROSTER_PROFILE_SORTS, ROSTER_STAT_SORTS, type RosterOperator, type RosterSort,
+} from '@/lib/operators/rosterSort';
+import type { CommunityRosterRankings } from '@/lib/community/rankings';
 
 interface Props {
   operators: RosterOperator[];
@@ -51,10 +57,26 @@ interface Props {
 }
 
 type SortDir = 'asc' | 'desc';
-type SortField = 'rarity' | 'releaseDate';
+const SORTS = [
+  { value: 'rarity', label: 'Rarity' },
+  { value: 'releaseDate', label: 'Release date' },
+  { value: 'birthday', label: 'Next birthday' },
+  ...ROSTER_STAT_SORTS.map(option => ({ ...option, group: 'Stats' })),
+  ...ROSTER_PROFILE_SORTS.map(option => ({ ...option, group: 'Profile' })),
+  ...ROSTER_COMMUNITY_SORTS.map(option => ({ ...option, group: 'Community' })),
+] as const;
+
+function sortOption(value: string) {
+  return SORTS.find(option => option.value === value) ?? SORTS[0];
+}
+
+function defaultSortDirection(field: string): SortDir {
+  return ['birthday', 'dp', 'redeploy', 'interval'].includes(field) ? 'asc' : 'desc';
+}
 
 const NO_LIMITED: Record<string, LimitedOperatorInfo> = {};
 const NO_DATES: string[] = [];
+const STAT_FORMAT = new Intl.NumberFormat('en', { maximumFractionDigits: 2 });
 
 export default function OperatorsIndex({ operators, limitedBannerInfo = NO_LIMITED, celebrationBannerDates = NO_DATES, now }: Props) {
   /* A release exported before the Obtain filter carries no `obtain` on any operator: the filter
@@ -72,6 +94,8 @@ export default function OperatorsIndex({ operators, limitedBannerInfo = NO_LIMIT
   const [classFilter, setClassFilter] = useQueryState('class', 'all');
   const [branchFilter, setBranchFilter] = useQueryState('branch', 'all');
   const [factionFilter, setFactionFilter] = useQueryState('faction', 'all');
+  const [genderRaw, setGender] = useQueryState('gender', 'all');
+  const genderFilter = ROSTER_GENDERS.find(gender => gender === genderRaw) ?? 'all';
   // How the operator is obtained (lib/operators/obtainMethods), with the sub-type of the two
   // methods that have one: Limited's banner type, and Welfare's source. Not in the saved
   // preferences below: it is a question asked of the list, not a view the reader keeps.
@@ -91,13 +115,32 @@ export default function OperatorsIndex({ operators, limitedBannerInfo = NO_LIMIT
   const owned = ownedFilter(ownedRaw);
   const account = useAccount();
   const ownedNames = useMemo(() => new Set(account?.operators ?? []), [account]);
-  // A shared URL can carry anything ("?dir=banana") -- narrow the raw
-  // strings back to the two values each of these actually has, so the
-  // sort logic below never sees garbage.
-  const [sortDirRaw, setSortDir] = useQueryState('dir', 'desc');
+  // Normalize saved and shared sort values against the available options.
+  const [sortDirRaw, setSortDir] = useQueryState('dir');
   const [sortFieldRaw, setSortField] = useQueryState('sort', 'rarity');
-  const sortDir: SortDir = sortDirRaw === 'asc' ? 'asc' : 'desc';
-  const sortField: SortField = sortFieldRaw === 'releaseDate' ? 'releaseDate' : 'rarity';
+  const selectedSort = sortOption(sortFieldRaw);
+  const sortField: RosterSort = selectedSort.value;
+  const defaultSortDir = defaultSortDirection(sortField);
+  const sortDir: SortDir = sortDirRaw === 'asc' || sortDirRaw === 'desc' ? sortDirRaw : defaultSortDir;
+  const statSort = ROSTER_STAT_SORTS.find(option => option.value === sortField);
+  const profileSort = ROSTER_PROFILE_SORTS.find(option => option.value === sortField)?.value;
+  const communitySort = ROSTER_COMMUNITY_SORTS.find(option => option.value === sortField)?.value;
+  const useCommunitySort = communitySort !== undefined;
+  const [rankings, setRankings] = useState<CommunityRosterRankings | null>(null);
+  const [rankingsError, setRankingsError] = useState(false);
+  const [rankingsRetry, setRankingsRetry] = useState(0);
+  useEffect(() => {
+    if (!useCommunitySort || rankings) return;
+    const controller = new AbortController();
+    void fetch('/api/community/rankings?server=all&view=roster', { cache: 'no-store', signal: controller.signal })
+      .then(async response => {
+        if (!response.ok) throw new Error('Community rankings unavailable');
+        return await response.json() as CommunityRosterRankings;
+      }).then(result => { if (!controller.signal.aborted) { setRankings(result); setRankingsError(false); } })
+      .catch(() => { if (!controller.signal.aborted) setRankingsError(true); });
+    return () => controller.abort();
+  }, [rankings, rankingsRetry, useCommunitySort]);
+  const rankingsByName = useMemo(() => new Map(rankings?.roster?.map(row => [row.operator, row])), [rankings]);
   // Hides not-yet-released (CN-only / upcoming) operators by default,
   // from both the main list AND search -- toggled via the "Show CN"
   // button, mirrored into the URL as ?cn=1.
@@ -116,6 +159,21 @@ export default function OperatorsIndex({ operators, limitedBannerInfo = NO_LIMIT
   // lib/time/readerClock.ts). Same pattern as the Terminal page's clock.
   // Rounded to the minute, so a re-read within it is a no-op for React.
   const clock = useReaderClock(now, { tickMs: 1000 });
+  const siteServer = useSiteServer();
+  const birthdayToday = sortField === 'birthday'
+    ? Math.floor(+serverCalendarTime(new Date(clock), siteServer) / DAY_MS) * DAY_MS
+    : undefined;
+  const sortValue = useMemo(() => {
+    if (birthdayToday !== undefined) {
+      const birthdays = new Map(operators.map(op => [op.name, nextRosterBirthday(op.bio?.birthday, birthdayToday)]));
+      return (op: RosterOperator) => birthdays.get(op.name);
+    }
+    if (statSort) return (op: RosterOperator) => rosterStatValue(op, statSort.value);
+    if (profileSort) return (op: RosterOperator) => op.bio?.[profileSort]?.value;
+    if (communitySort && rankings?.roster) return (op: RosterOperator) =>
+      rosterCommunityValue(communitySort, op, rankingsByName.get(op.name), rankings.contributors);
+    return null;
+  }, [birthdayToday, operators, statSort, profileSort, communitySort, rankings, rankingsByName]);
 
   const rarities = useMemo(
     () => Array.from(new Set(operators.map((op) => op.rarity).filter((r): r is number => r != null))).sort(
@@ -198,6 +256,7 @@ export default function OperatorsIndex({ operators, limitedBannerInfo = NO_LIMIT
     if (classValues.length) list = list.filter((op) => classValues.includes(op.class ?? ''));
     if (branchValues.length) list = list.filter((op) => branchValues.includes(op.branch ?? ''));
     if (factionValues.length) list = list.filter(op => factionValues.some(faction => operatorBelongsToFaction(op, faction)));
+    if (genderFilter !== 'all') list = list.filter(op => (op.bio?.gender ?? 'Unknown') === genderFilter);
     if (obtainValues.length) list = list.filter(op => obtainValues.some(method => {
       if (!op.obtain?.methods.includes(method as typeof OBTAIN_METHODS[number]['key'])) return false;
       const types = subtypeValues.filter(value => value.startsWith(`${method}:`)).map(value => value.slice(method.length + 1));
@@ -212,7 +271,7 @@ export default function OperatorsIndex({ operators, limitedBannerInfo = NO_LIMIT
       list = list.filter((op) => Number.isFinite(searchRank(op)));
     }
     return list;
-  }, [operators, showUnreleased, rarityValues, classValues, branchValues, factionValues, obtainValues, subtypeValues, limitedBannerInfo, search, searchRank, clock]);
+  }, [operators, showUnreleased, rarityValues, classValues, branchValues, factionValues, genderFilter, obtainValues, subtypeValues, limitedBannerInfo, search, searchRank, clock]);
   const ownedCounts = useMemo(() => countOwned(matching, (op) => ownedNames.has(op.name)), [matching, ownedNames]);
 
   const filtered = useMemo(() => {
@@ -222,6 +281,7 @@ export default function OperatorsIndex({ operators, limitedBannerInfo = NO_LIMIT
         const relDiff = searchRank(a) - searchRank(b);
         if (relDiff !== 0) return relDiff;
       }
+      if (sortValue) return compareRosterValue(sortValue(a), sortValue(b), sortDir === 'asc') || a.name.localeCompare(b.name);
       // Show CN view: earliest release date first, then rarity as a
       // tiebreak (higher first) for operators sharing the same date --
       // regardless of the normal sort field/direction, since this is a
@@ -285,7 +345,7 @@ export default function OperatorsIndex({ operators, limitedBannerInfo = NO_LIMIT
       if (ra !== rb) return sortDir === 'desc' ? rb - ra : ra - rb;
       return a.name.localeCompare(b.name);
     });
-  }, [matching, showUnreleased, factionFilter, searchRank, search, sortDir, sortField, clock, account, owned, ownedNames]);
+  }, [matching, showUnreleased, factionFilter, searchRank, search, sortDir, sortField, sortValue, clock, account, owned, ownedNames]);
   /* A filter chip's press paints before the roster is refiltered: the chips read the filters,
      the grid this deferred copy (360 ms per press in the field, 2026-10-27). */
   const shown = useDeferredValue(filtered);
@@ -298,6 +358,7 @@ export default function OperatorsIndex({ operators, limitedBannerInfo = NO_LIMIT
     ...classValues.map(value => ({ key: `class:${value}`, label: value, remove: () => setClassFilter(toggleFilter(classFilter, value)) })),
     ...branchValues.map(value => ({ key: `branch:${value}`, label: value, remove: () => setBranchFilter(toggleFilter(branchFilter, value)) })),
     ...factionValues.map(value => ({ key: `faction:${value}`, label: value, remove: () => setFactionFilter(toggleFilter(factionFilter, value)) })),
+    ...(genderFilter !== 'all' ? [{ key: 'gender', label: genderFilter, remove: () => setGender('all') }] : []),
     ...obtainValues.map(value => ({ key: `obtain:${value}`, label: OBTAIN_METHODS.find(method => method.key === value)?.label ?? value, remove: () => setObtainRaw(filterValues(toggleFilter(obtainRaw, value)).join(',')) })),
     ...subtypeValues.map(value => ({ key: `subtype:${value}`, label: value.slice(value.indexOf(':') + 1), remove: () => setObtainType(subtypeValues.filter(type => type !== value).join(',') || 'all') })),
     ...(showUnreleased ? [{ key: 'cn', label: 'Show CN', remove: () => setShowUnreleased(false) }] : []),
@@ -305,7 +366,7 @@ export default function OperatorsIndex({ operators, limitedBannerInfo = NO_LIMIT
   ];
   /** The sheet's Reset: every filter a chip shows (the search keeps its own ×). */
   function resetSheet() {
-    setRarityFilter('all'); setClassFilter('all'); setBranchFilter('all'); setFactionFilter('all');
+    setRarityFilter('all'); setClassFilter('all'); setBranchFilter('all'); setFactionFilter('all'); setGender('all');
     setObtainRaw(''); setObtainType('all'); setShowUnreleased(false); setOwned('all');
   }
 
@@ -315,6 +376,7 @@ export default function OperatorsIndex({ operators, limitedBannerInfo = NO_LIMIT
     setClassFilter('all');
     setBranchFilter('all');
     setFactionFilter('all');
+    setGender('all');
     setObtainRaw('');
     setObtainType('all');
   }
@@ -353,7 +415,8 @@ export default function OperatorsIndex({ operators, limitedBannerInfo = NO_LIMIT
         if (!inUrl('class') && parsed.classFilter) setClassFilter(parsed.classFilter);
         if (!inUrl('branch') && parsed.branchFilter) setBranchFilter(parsed.branchFilter);
         if (!inUrl('faction') && parsed.factionFilter) setFactionFilter(parsed.factionFilter);
-        if (!inUrl('dir') && parsed.sortDir) setSortDir(parsed.sortDir);
+        if (!inUrl('gender') && parsed.genderFilter) setGender(parsed.genderFilter);
+        if (!inUrl('dir') && !inUrl('sort') && parsed.sortDir) setSortDir(parsed.sortDir);
         if (!inUrl('sort') && parsed.sortField) setSortField(parsed.sortField);
         if (!inUrl('cn') && typeof parsed.showUnreleased === 'boolean') setShowUnreleased(parsed.showUnreleased);
       } catch {
@@ -386,12 +449,12 @@ export default function OperatorsIndex({ operators, limitedBannerInfo = NO_LIMIT
     try {
       localStorage.setItem(
         'operatorsFilters',
-        JSON.stringify({ rarityFilter, classFilter, branchFilter, factionFilter, sortDir, sortField, showUnreleased })
+        JSON.stringify({ rarityFilter, classFilter, branchFilter, factionFilter, genderFilter, sortDir: sortDirRaw, sortField, showUnreleased })
       );
     } catch {
       // Not persisted this session -- not worth failing over.
     }
-  }, [search, rarityFilter, classFilter, branchFilter, factionFilter, sortDir, sortField, showUnreleased]);
+  }, [search, rarityFilter, classFilter, branchFilter, factionFilter, genderFilter, sortDirRaw, sortField, showUnreleased]);
 
   return (
     <>
@@ -452,6 +515,8 @@ export default function OperatorsIndex({ operators, limitedBannerInfo = NO_LIMIT
           <StyledSelect multiple className="roster-faction" label="Filter by faction" value={factionValues}
             onChange={values => setFactionFilter(values.join(',') || 'all')} placeholder="All factions"
             options={factions.map(f => ({ value: f, label: f }))} />
+          <StyledSelect label="Filter by gender" value={genderFilter} onChange={setGender}
+            options={[{ value: 'all', label: 'All genders' }, ...ROSTER_GENDERS.map(value => ({ value, label: value }))]} />
           {hasObtain && <StyledSelect multiple className="roster-obtain" label="Filter by how obtained" value={obtainValues}
             onChange={values => setObtainRaw(values.join(','))} placeholder="Any way obtained"
             options={OBTAIN_METHODS.map(method => ({ value: method.key, label: method.label }))} />}
@@ -476,11 +541,19 @@ export default function OperatorsIndex({ operators, limitedBannerInfo = NO_LIMIT
           <OwnedFilter label="Operators you own" value={owned} onChange={setOwned} account={account} counts={ownedCounts} />
 
           <span className="toolbar-spacer" aria-hidden="true" />
-          <SegmentedControl label="Sort by" value={sortField === 'releaseDate' ? 'releaseDate' : 'rarity'}
-            options={[{ value: 'rarity', label: 'Rarity' }, { value: 'releaseDate', label: 'Release date' }]}
-            onChange={setSortField} />
-          {/* Flips between two states, so aria-pressed reads "pressed" for the
-              non-default one: ascending order. */}
+          <StyledSelect label="Sort by" value={sortField} options={SORTS} menuMaxHeight={720} onChange={value => {
+            setSortField(value);
+            if (value === 'birthday' || defaultSortDirection(value) !== defaultSortDir) setSortDir('');
+          }} />
+          {statSort && <InfoPopover label="How roster stats are compared">
+            <p>Base stats at each operator’s highest promotion and level, before bonuses from trust, potential, talents, or modules.</p>
+          </InfoPopover>}
+          {useCommunitySort && <InfoPopover label="How roster community percentages are calculated">
+            <p>Owned is the share of opted-in accounts across all regions. Build rates use owners with known progress.</p>
+            <p>Built means E2 for 4–6★, E1 for 3★, and max level for 1–2★. Max level requires the final promotion and level cap for that rarity.</p>
+            <p>Module unlocked, Any M3, and Full mastery use eligible E2 owners. Full mastery means M6 for 4–5★ and M9 for 6★. A dash means the rate is unavailable.</p>
+          </InfoPopover>}
+          {/* Ascending order is the pressed state. */}
           <button
             type="button"
             className="ghost"
@@ -501,6 +574,13 @@ export default function OperatorsIndex({ operators, limitedBannerInfo = NO_LIMIT
 
       <main>
         <div ref={hold.ref} style={hold.style}>
+        {useCommunitySort && <p className="hint" role="status">
+          {rankingsError ? <>Community stats unavailable. <button type="button" className="ghost btn-sm" onClick={() => { setRankingsError(false); setRankingsRetry(attempt => attempt + 1); }}>Retry</button></>
+            : !rankings ? 'Loading community stats…'
+              : !rankings.roster ? 'Waiting for enough community contributors.'
+                : communitySort !== 'community-owned' && !rankings.roster.some(row => row.progress) ? 'Waiting for the next community stats snapshot.'
+                  : `All regions · ${rankings.contributors.toLocaleString()} opt-in contributors`}
+        </p>}
         {shown.length === 0 ? (
           <div className="waiting-box">
             <h2>{searchLoading ? 'Loading operators…' : 'No operators match'}</h2>
@@ -519,6 +599,17 @@ export default function OperatorsIndex({ operators, limitedBannerInfo = NO_LIMIT
                     <Image src={getOperatorIconPath(op)} alt={op.name} fill sizes="(max-width: 600px) 33vw, 160px" />
                   </div>
                   <p className="op-name">{op.name}</p>
+                  {birthdayToday !== undefined && <p className="hint roster-class-branch">{rosterBirthdayLabel(sortValue?.(op), birthdayToday)}</p>}
+                  {statSort && <p className="hint roster-class-branch">
+                    {statSort.label} {(() => {
+                      const value = rosterStatValue(op, statSort.value);
+                      return value === undefined ? '—' : `${STAT_FORMAT.format(value)}${'unit' in statSort ? statSort.unit : ''}`;
+                    })()}
+                  </p>}
+                  {profileSort && <p className="hint roster-class-branch">{op.bio?.[profileSort]?.label ?? 'Unknown'}</p>}
+                  {communitySort && rankings?.roster && <p className="hint roster-class-branch">
+                    {(() => { const value = sortValue?.(op); return value === undefined ? '—' : `${value.toFixed(1)}%`; })()} {selectedSort.label.replace(/ %$/, '')}
+                  </p>}
                   {(() => {
                     const days = daysUntilRelease(op);
                     const comingSoon = isComingSoon(op);
@@ -588,7 +679,7 @@ export default function OperatorsIndex({ operators, limitedBannerInfo = NO_LIMIT
 
 export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/operators", async () => {
   // This page only ever reads name/rarity/class/branch/faction/
-  // isFuture/characterInfo['Release Date'] -- getAllOperators()
+  // release timing and the small biography projection -- getAllOperators()
   // returns every operator's ENTIRE record (all skills' per-level/
   // per-mastery text, talents, modules, base stats, promotion tables,
   // full bios, voice credits, ...), almost none of which this page
@@ -602,6 +693,7 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/op
     rarity: op.rarity,
     class: op.class,
     branch: op.branch,
+    ...rosterMetadata(op),
     faction: op.faction,
     umbrellaFactions: op.umbrellaFactions || [],
     connectedFactions: op.connectedFactions || [],
@@ -661,6 +753,16 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/op
   const celebrationBannerDates = getCelebrationBannerDates(banners);
   return { props: { operators, limitedBannerInfo, celebrationBannerDates, releaseScheduleResolved: true } };
 }, { finalize: async props => {
+  // Workers ship the same public roster fields as a static asset so an older live
+  // content release can use the new sorts before its next scheduled export.
+  if (props.operators.some(op => !op.bio || op.stats === undefined || op.hasUpgradeModule === undefined)) {
+    const { communityOperators } = await import('@/lib/community/catalogues');
+    const catalogue = new Map((await communityOperators()).map(op => [op.name, op.roster]));
+    props = { ...props, operators: props.operators.map(op => {
+      const metadata = catalogue.get(op.name);
+      return metadata ? { ...metadata, ...op } : op;
+    }) };
+  }
   // Older content releases lack the calendar provenance marker. Resolve those
   // records once on the server; newly compiled releases already carry it.
   if (props.releaseScheduleResolved) return props;

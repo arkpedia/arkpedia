@@ -12,6 +12,7 @@ import { friendOperators } from '../../lib/account/friendCatalogue';
 import type { GameAccountMap } from '../../lib/planner/gameAccount';
 import { buildOperatorNameAliases } from '../lib/operator-name-aliases';
 import { OPERATOR_NAME_ALIASES_VERSION } from '../../lib/operators/operatorSearch';
+import { rosterMetadata } from '../../lib/operators/rosterSort';
 import { publicFileExists, publicFiles } from '../../lib/assets/publicAssets';
 import { bundledStoryLibrary } from '../../lib/story/storyMapData';
 import { artPath, baseSkillPath, enemyIconPath, enemyItemId, factionItemId, skillPath, storyArtPath, storyItemId, TIER_ART_STAGES, type TierCatalogue, type TierCatalogueOperator } from '../../lib/tier-list/catalogue';
@@ -48,6 +49,7 @@ const artFor = (op: { name: string; rarity: number | null }) => {
 fs.writeFileSync(path.join(process.cwd(), 'data/community-operator-catalogue.json'), JSON.stringify(operators.map(op=>({
   name:op.name,charIds:Object.entries(map.chars).filter(([,v])=>v.name===op.name).map(([id])=>id),
   rarity:op.rarity??0,className:op.class??'',icon:getOperatorIconPath(op),skills:getSkillList(op).length,skillIcons:getSkillList(op).map(skill=>skill.icon || getSkillIconPath(op.name,skill.name)),art:artFor(op),
+  roster:rosterMetadata(op),
 })))+'\n');
 
 // Polls can be Preview-only and absent from the published content release. Bundle

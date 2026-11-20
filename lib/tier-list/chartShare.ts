@@ -4,7 +4,7 @@
  * size, labels and filters with nothing placed, and `quiz` (the grid only) the grid empty
  * with the maker's placements as the answer (lib/tier-list/quiz.ts).
  */
-import { BINGO_MARK_COLOR, chartGrid, chartTitle, CHART_VERSION, defaultChart, isBingoFreeCell, parseChart, type ChartState } from './chart';
+import { BINGO_MARK_COLOR, chartGrid, chartTitle, CHART_VERSION, defaultChart, isBingoFreeCell, isBingoSize, parseChart, type ChartState } from './chart';
 import { chartSolutionOf, type ChartSolution } from './quiz';
 import { packPayload, unpackPayload } from './share';
 
@@ -55,6 +55,7 @@ export async function decodeChart(text: string): Promise<SharedChart | null> {
   const grid = payload.k !== 'a' && Array.isArray(payload.g) ? payload.g : null;
   const axes = payload.k === 'a' && Array.isArray(payload.a) ? payload.a : null;
   if (!grid && !axes) return null;
+  if (payload.k === 'b' && (!grid || !isBingoSize(grid[0]) || grid[0] !== grid[1])) return null;
   const mode = MODES[payload.m];
   if (mode === 'quiz' && payload.k !== 'g') return null;
   const bare = mode === 'template';
@@ -68,7 +69,7 @@ export async function decodeChart(text: string): Promise<SharedChart | null> {
     kinds: Array.isArray(payload.f?.[1]) ? payload.f[1] : base.kinds,
     showCellLabels: payload.k !== 'g' || payload.b !== 0,
     showGridHeaders: headers[0] === 1, columnLabels: headers[1], rowLabels: headers[2],
-    ...(payload.k === 'b' ? { bingo: { title: payload.t, cells, free: payload.bs === 1, markColor: payload.bc } } : grid ? { cols: grid[0], rows: grid[1], cells } : {}),
+    ...(payload.k === 'b' ? { bingo: { size: grid?.[0], title: payload.t, cells, free: payload.bs === 1, markColor: payload.bc } } : grid ? { cols: grid[0], rows: grid[1], cells } : {}),
     ...(axes ? { axes: { top: axes[0], bottom: axes[1], left: axes[2], right: axes[3] }, lines: Array.isArray(payload.l) ? { horizontal: payload.l[0] !== 0, vertical: payload.l[1] !== 0 } : undefined, points: bare || !Array.isArray(payload.p) ? [] : payload.p.map((point) => (Array.isArray(point) ? { id: point[0], x: Number(point[1]) / 1000, y: Number(point[2]) / 1000 } : {})) } : {}),
   }));
   if (!state) return null;

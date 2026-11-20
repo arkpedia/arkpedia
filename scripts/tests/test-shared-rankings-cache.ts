@@ -29,6 +29,54 @@ test('withdrawn consent never uses a warm or stale aggregate, and failed refresh
   assert.deepEqual(await sharedRankingResult(store,'all','withdrawn',async()=>result(9),options),result(9));
   time+=RANKING_SNAPSHOT_DAY+1;assert.deepEqual(await sharedRankingResult(store,'all','withdrawn',async()=>result(8),options),result(8));
 });
+
+test('roster views upgrade a fresh legacy snapshot once and preserve its replay expiration',async()=>{
+  const {store}=bucket();let time=1000,upgrades=0,full=0;
+  const dated={...result(),replays:27};
+  const load=async()=>{full++;return dated;};
+  const options={now:()=>time,upgradeRoster:async(previous:CommunityRankings)=>{
+    upgrades++;return {...previous,rosterProgressReady:true as const};
+  }};
+  await sharedRankingResult(store,'all','same',load,{now:()=>time});
+  time+=RANKING_SNAPSHOT_DAY-60_000;
+  const concurrent=await Promise.all(Array.from({length:3},()=>sharedRankingResult(store,'all','same',load,options)));
+  assert.ok(concurrent.every(row=>row.rosterProgressReady&&row.replays===27));
+  assert.equal(upgrades,1);
+  assert.equal(full,1);
+  time+=60_001;
+  await sharedRankingResult(store,'all','same',load,{now:()=>time});
+  assert.equal(full,2);
+});
+
+test('roster views can upgrade a stale legacy snapshot when the daily refresh was missed',async()=>{
+  const {store}=bucket();let time=1000;
+  await sharedRankingResult(store,'all','same',async()=>({...result(),replays:27}),{now:()=>time});
+  time+=RANKING_SNAPSHOT_DAY*1.5;
+  const upgraded=await sharedRankingResult(store,'all','same',async()=>{
+    assert.fail('a roster upgrade should leave the stale replay aggregates for the daily refresh');
+  },{now:()=>time,upgradeRoster:async previous=>({...previous,rosterProgressReady:true})});
+  assert.equal(upgraded.rosterProgressReady,true);
+  assert.equal(upgraded.replays,27);
+  const refreshed=await sharedRankingResult(store,'all','same',async()=>result(15),{now:()=>time});
+  assert.equal(refreshed.contributors,15);
+});
+
+test('a failed roster-only upgrade backs off and a known consent change returns no old snapshot',async()=>{
+  const {store}=bucket();let time=1000,attempts=0;
+  const load=async()=>result();
+  await sharedRankingResult(store,'all','same',load,{now:()=>time});
+  const options={now:()=>time,upgradeRoster:async()=>{attempts++;throw Error('database unavailable');}};
+  const logError=console.error;console.error=()=>{};
+  try{
+    assert.deepEqual(await sharedRankingResult(store,'all','same',load,options),result());
+    assert.deepEqual(await sharedRankingResult(store,'all','same',load,options),result());
+    assert.equal(attempts,1);
+    time+=300_001;
+    await assert.rejects(sharedRankingResult(store,'all','same',load,{...options,upgradeRoster:async()=>{
+      throw Object.assign(new Error('consent changed'),{code:'COMMUNITY_CONSENT_CHANGED'});
+    }}),/consent changed/);
+  }finally{console.error=logError;}
+});
 test('overload fallback is recent, consent-matched and bounded rather than extended indefinitely',async()=>{
   const {store}=bucket();let time=1_000;const options={now:()=>time,wait:async(ms:number)=>{time+=ms;}};
   await sharedRankingResult(store,'all','same',async()=>result(),options);time+=RANKING_SNAPSHOT_DAY+1;

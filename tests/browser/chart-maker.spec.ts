@@ -280,13 +280,18 @@ test('Bingo converts the current grid, keeps its own edits, and exports a text-o
   const first = page.getByRole('textbox', { name: 'Label of row 1, column 1', exact: true });
   await first.fill('First prediction');
   const choice = page.getByRole('button', { name: 'Bingo', exact: true });
+  await page.evaluate(() => document.fonts.ready);
+  const toolbarTop = () => choice.evaluate(button => button.getBoundingClientRect().top + window.scrollY);
+  const gridToolbarTop = await toolbarTop();
   await choice.focus();
   await page.keyboard.press('Enter');
   await expect(choice).toHaveAttribute('aria-pressed', 'true');
+  expect(Math.abs(await toolbarTop() - gridToolbarTop)).toBeLessThan(1);
   await expect(page.locator('[data-bingo]').getByText(/^[BINGO]$/)).toHaveCount(0);
   await expect(first).toHaveValue('First prediction');
   await expect(page.locator('[data-bingo] textarea')).toHaveCount(24);
   await page.getByRole('textbox', { name: 'Bingo title', exact: true }).fill('Event bingo');
+  await expect(page.getByRole('heading', { name: 'Event bingo', exact: true })).toBeVisible();
   expect(await first.evaluate(field => {
     const square = field.closest('[data-text-only]')!.getBoundingClientRect();
     const text = field.getBoundingClientRect();
@@ -338,6 +343,73 @@ test('Bingo converts the current grid, keeps its own edits, and exports a text-o
   await expect(canvas).toHaveAccessibleDescription(/Center prediction/);
   const [download] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Download PNG', exact: true }).click()]);
   expect(download.suggestedFilename()).toBe('arkpedia-chart.png');
+});
+
+test('Bingo resizes from 3×3 to 10×10 and keeps the saved board and its Play marks', async ({ page }) => {
+  await open(page, true);
+  await page.getByRole('button', { name: 'Bingo', exact: true }).click();
+  const size = page.getByRole('combobox', { name: 'Bingo board size' });
+  const select = async (label: string) => {
+    await size.click();
+    await page.getByRole('option', { name: label, exact: true }).click();
+  };
+  const board = page.locator('[data-bingo]');
+  await expect(size).toHaveText('5×5');
+  await select('3×3');
+  await expect(board.locator('textarea')).toHaveCount(8);
+  await select('4×4');
+  await expect(board.locator('textarea')).toHaveCount(16);
+  await expect(page.getByRole('checkbox', { name: 'Free space (odd sizes)' })).toBeDisabled();
+
+  await size.press('Enter');
+  await size.press('End');
+  await size.press('Enter');
+  await expect(size).toHaveText('10×10');
+  await expect(board.locator('textarea')).toHaveCount(100);
+  const corner = page.getByRole('textbox', { name: 'Label of row 10, column 10' });
+  await corner.fill('Far corner');
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.reload();
+  await expect(size).toHaveText('10×10');
+  await expect(corner).toHaveValue('Far corner');
+
+  page.once('dialog', async dialog => { expect(dialog.message()).toContain('Shrinking the board'); await dialog.dismiss(); });
+  await select('4×4');
+  await expect(size).toHaveText('10×10');
+  await page.getByRole('button', { name: 'Play', exact: true }).click();
+  const playCorner = page.getByRole('button', { name: 'Row 10, column 10: Far corner' });
+  await playCorner.click();
+  await expect(playCorner).toHaveAttribute('aria-pressed', 'true');
+  await page.getByRole('button', { name: 'Make image', exact: true }).click();
+  const canvas = page.locator('canvas[data-ready]');
+  await expect(canvas).toBeVisible();
+  await expect(canvas).toHaveAccessibleDescription(/Far corner: [^.]+, marked/);
+});
+
+test('Bingo shuffles entered squares in Edit and carries their marks into Play', async ({ page }) => {
+  await open(page, true);
+  const button = (name: string) => page.getByRole('button', { name, exact: true });
+  const shuffle = button('Shuffle squares');
+  await expect(shuffle).toHaveCount(0);
+  await button('Bingo').click();
+  const first = page.getByRole('textbox', { name: 'Label of row 1, column 1', exact: true });
+  const second = page.getByRole('textbox', { name: 'Label of row 1, column 3', exact: true });
+  await first.fill('Event rerun');
+  await expect(shuffle).toBeDisabled();
+  await second.fill('Free ten-pull');
+  await button('Play').click();
+  await expect(shuffle).toHaveCount(0);
+  await button('Row 1, column 1: Event rerun').click();
+  await button('Edit').click();
+  await shuffle.press('Enter');
+  await expect(first).toHaveValue('Free ten-pull');
+  await expect(second).toHaveValue('Event rerun');
+  await expect(page.getByRole('checkbox', { name: 'Free space', exact: true })).toBeChecked();
+  await page.reload();
+  await expect(second).toHaveValue('Event rerun');
+  await button('Play').click();
+  await expect(button('Row 1, column 3: Event rerun')).toHaveAttribute('aria-pressed', 'true');
+  await expect(button('Row 1, column 2')).toHaveAttribute('aria-pressed', 'false');
 });
 
 test('a chart is shared as a link that never overwrites the reader\'s own, and saved as a PNG', async ({ page, context }, info) => {

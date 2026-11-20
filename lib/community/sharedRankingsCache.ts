@@ -5,7 +5,7 @@ export interface RankingBucket {
   get(key:string):Promise<ObjectBody|null>;
   put(key:string,value:string,options?:{onlyIf:{etagMatches?:string;etagDoesNotMatch?:string}}):Promise<{etag:string}|null>;
 }
-interface Kept {stamp:string;builtAt:number;expires:number;result:CommunityRankings}
+interface Kept {stamp:string;builtAt:number;expires:number;result:CommunityRankings;rosterRetryAt?:number}
 interface Envelope {kept?:Kept;lease?:{expires:number;nonce:string;stamp:string}}
 export const RANKING_SNAPSHOT_DAY=86400_000;
 const FRESH=RANKING_SNAPSHOT_DAY,MAX_AGE=2*RANKING_SNAPSHOT_DAY,LEASE=120_000;
@@ -20,8 +20,8 @@ export function reportRankingFailure(error:unknown){
  * The caller checks current consent before every read; a different stamp can
  * never use an old result, including during overload or a refresh. */
 export async function sharedRankingResult(bucket:RankingBucket,key:string,stamp:string,load:()=>Promise<CommunityRankings>,{
-  now=Date.now,wait=(ms:number)=>new Promise<void>(resolve=>setTimeout(resolve,ms)),forceRefresh=false,background,
-}:{now?:()=>number;wait?:(ms:number)=>Promise<void>;forceRefresh?:boolean;background?:(work:Promise<unknown>)=>void}={}):Promise<CommunityRankings>{
+  now=Date.now,wait=(ms:number)=>new Promise<void>(resolve=>setTimeout(resolve,ms)),forceRefresh=false,background,upgradeRoster,
+}:{now?:()=>number;wait?:(ms:number)=>Promise<void>;forceRefresh?:boolean;background?:(work:Promise<unknown>)=>void;upgradeRoster?:(previous:CommunityRankings)=>Promise<CommunityRankings>}={}):Promise<CommunityRankings>{
   const objectKey=`community-rankings/v2/${key}`,deadline=now()+35_000;
   const write=async(value:Envelope,onlyIf:{etagMatches?:string;etagDoesNotMatch?:string})=>{
     for(let attempt=0;;attempt++){
@@ -38,9 +38,11 @@ export async function sharedRankingResult(bucket:RankingBucket,key:string,stamp:
   while(now()<deadline){
     const object=await bucket.get(objectKey),envelope:Envelope=object?JSON.parse(await object.text()):{},kept=envelope.kept;
     const valid=kept?.stamp===stamp&&now()-kept.builtAt<MAX_AGE?kept:null;
-    if(valid&&valid.expires>now()&&!forceRefresh)return valid.result;
+    const upgrade=valid&&!forceRefresh&&upgradeRoster&&!valid.result.rosterProgressReady
+      ? ()=>upgradeRoster(valid.result) : undefined;
+    if(valid&&!forceRefresh&&(upgrade?(valid.rosterRetryAt??0)>now():valid.expires>now()))return valid.result;
     if(envelope.lease?.stamp===stamp&&envelope.lease.expires>now()){
-      if(valid&&!forceRefresh)return valid.result;
+      if(valid&&!forceRefresh&&!upgrade)return valid.result;
       await wait(150);continue;
     }
     // Lease and result share one object, making ownership checks and result
@@ -51,7 +53,7 @@ export async function sharedRankingResult(bucket:RankingBucket,key:string,stamp:
       let settled=false;
       try{
         let result:CommunityRankings;
-        try{result=await load();}
+        try{result=await (upgrade??load)();}
         catch(error){
           // A new region has no safe prior result. Keep its single lease while
           // D1's overloaded window clears, then retry once instead of a 503.
@@ -60,13 +62,17 @@ export async function sharedRankingResult(bucket:RankingBucket,key:string,stamp:
         }
         const builtAt=now();
         // An expired owner cannot overwrite the result of a newer refresh.
-        await write({kept:{stamp,builtAt,expires:builtAt+FRESH,result}},{etagMatches:lease.etag});settled=true;
+        // A roster-only upgrade does not make the replay aggregates newer.
+        const next=upgrade&&valid?{stamp,builtAt:valid.builtAt,expires:valid.expires,result}:{stamp,builtAt,expires:builtAt+FRESH,result};
+        await write({kept:next},{etagMatches:lease.etag});settled=true;
         return result;
       }catch(error){
+        if(error instanceof Error&&'code' in error&&error.code==='COMMUNITY_CONSENT_CHANGED')throw error;
         if(!valid||now()-valid.builtAt>=MAX_AGE)throw error;
         reportRankingFailure(error);
         // A brief overload may keep a recent aggregate, never withdrawn consent.
-        await write({kept:{...valid,expires:Math.min(now()+300_000,valid.builtAt+MAX_AGE)}},{etagMatches:lease.etag});settled=true;
+        const fallback=upgrade?{...valid,rosterRetryAt:now()+300_000}:{...valid,expires:Math.min(now()+300_000,valid.builtAt+MAX_AGE)};
+        await write({kept:fallback},{etagMatches:lease.etag});settled=true;
         if(forceRefresh)throw error;
         return valid.result;
       }finally{
@@ -74,7 +80,7 @@ export async function sharedRankingResult(bucket:RankingBucket,key:string,stamp:
         if(!settled)await write({kept},{etagMatches:lease.etag});
       }
     };
-    if(valid&&background&&!forceRefresh){background(refresh().catch(reportRankingFailure));return valid.result;}
+    if(valid&&background&&!forceRefresh&&!upgrade){background(refresh().catch(reportRankingFailure));return valid.result;}
     return refresh();
   }
   throw new Error('Community ranking refresh is busy. Please retry shortly.');

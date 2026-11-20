@@ -2,7 +2,7 @@ import { useEffect, useId, useRef, useState } from 'react';
 import ImportDialog from '@/components/account/ImportDialog';
 import { useContentUrl } from '@/lib/content/context';
 import type { TierItem } from '@/lib/tier-list/catalogue';
-import { AXIS_ENDS, AXIS_OF, BINGO_MARK_COLOR, cellLabelColor, chartGrid, chartTitle, isBingoFreeCell, type ChartState } from '@/lib/tier-list/chart';
+import { AXIS_ENDS, AXIS_OF, BINGO_MARK_COLOR, BINGO_SIZE, cellLabelColor, chartGrid, chartTitle, isBingoFreeCell, type ChartState } from '@/lib/tier-list/chart';
 import { labelInk } from '@/lib/tier-list/state';
 import { CHART_STRINGS as C } from '@/lib/tier-list/chartStrings';
 import { TIER_LIST_STRINGS as T } from '@/lib/tier-list/strings';
@@ -19,8 +19,8 @@ const BAND = 44;
 const HEADER_FONT = '700 24px Rajdhani';
 const HEADER_LINE = 26;
 
-function bingoLabel(context: CanvasRenderingContext2D, label: string, x: number, y: number, width: number) {
-  const lines = wrapText(context, label, width, 3);
+function bingoLabel(context: CanvasRenderingContext2D, label: string, x: number, y: number, width: number, maxLines = 3) {
+  const lines = wrapText(context, label, width, maxLines);
   lines.forEach((line, i) => context.fillText(line, x, y + (i - (lines.length - 1) / 2) * 16));
 }
 
@@ -87,9 +87,10 @@ export default function ChartShareImage({ state: initial, byId, showBingoMarks, 
       const columnHeaders = hasColumnLabels ? state.columnLabels.map((label) => clueLines(label, cellWidth)) : [];
       const rowHeaders = hasRowLabels ? state.rowLabels.map((label) => clueLines(label, rowHeaderWidth)) : [];
       const columnHeaderHeight = columnHeaders.length ? Math.max(BAND, ...columnHeaders.map((lines) => lines.length * HEADER_LINE + 12)) : 0;
-      const size = Math.min(tile, cellWidth - GAP * 2);
+      const compactBingo = bingo && cols > BINGO_SIZE.default;
+      const labelHeight = bingo ? compactBingo ? 40 : 58 : state.showCellLabels ? 34 : 0;
+      const size = Math.min(tile, cellWidth - GAP * 2 - (compactBingo ? labelHeight : 0));
       const perLine = Math.max(1, Math.floor((cellWidth - GAP) / (size + GAP)));
-      const labelHeight = bingo ? 58 : state.showCellLabels ? 34 : 0;
       const rowHeights = Array.from({ length: rows }, (_, row) => Math.max(
         bingo ? cellWidth : (rowHeaders[row]?.length ?? 0) * HEADER_LINE + 12,
         ...cells.slice(row * cols, (row + 1) * cols).map((cell) => Math.max(bingo ? 0 : 1, Math.ceil(cell.items.length / perLine)) * (size + GAP) + GAP + labelHeight),
@@ -160,7 +161,7 @@ export default function ChartShareImage({ state: initial, byId, showBingoMarks, 
               }
               c.font = '700 20px Rajdhani'; c.textAlign = 'center';
               c.fillStyle = marked ? markInk : bingo ? ink('--text-bright') : labelInk(color) === 'dark' ? '#14181c' : '#ffffff';
-              if (bingo) bingoLabel(c, cell.label, x + cellWidth / 2, y + h - labelHeight / 2, cellWidth - 12);
+              if (bingo) bingoLabel(c, cell.label, x + cellWidth / 2, y + h - labelHeight / 2, cellWidth - 12, compactBingo ? 2 : 3);
               else c.fillText(fitText(c, cell.label, cellWidth - 12), x + cellWidth / 2, y + h - labelHeight / 2);
             }
             if (marked) drawMark(x, y, cellWidth, h);

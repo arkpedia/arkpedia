@@ -3,7 +3,7 @@
  * them loses nothing.
  *
  *   grid   a table of cells the reader sizes and labels, each holding items in order;
- *   bingo  a five-by-five board with a title and an optional free space;
+ *   bingo  a square board with a title and an optional center free space;
  *   axes   a plane with a label at each end of its two axes, where an item sits anywhere.
  *
  * The pool is the Tier List maker's (the same catalogue and filters); an item that is in
@@ -14,8 +14,7 @@ import { clampZoom, passesFilters, ZOOM } from './state';
 
 export const CHART_VERSION = 1;
 export const CHART_SIDE = { min: 1, max: 7 } as const;
-export const BINGO_SIDE = 5;
-export const BINGO_CENTER = Math.floor(BINGO_SIDE ** 2 / 2);
+export const BINGO_SIZE = { min: 3, max: 10, default: 5 } as const;
 export const BINGO_MARK_COLOR = '#26776e';
 export const MAX_CHART_LABEL = 40;
 export const MAX_CHART_TITLE = 80;
@@ -48,7 +47,7 @@ export interface ChartState {
   rows: number;
   /** rows × cols cells, row by row. */
   cells: ChartCell[];
-  bingo?: { title: string; cells: ChartCell[]; free: boolean; marks: number[]; markColor: string };
+  bingo?: { size: number; title: string; cells: ChartCell[]; free: boolean; marks: number[]; markColor: string };
   showCellLabels: boolean;
   showGridHeaders: boolean;
   columnLabels: string[];
@@ -74,6 +73,8 @@ export function defaultChart(): ChartState {
 
 const HEX = /^#[0-9a-f]{6}$/i;
 const side = (value: unknown, fallback: number) => (typeof value === 'number' && Number.isInteger(value) ? Math.max(CHART_SIDE.min, Math.min(CHART_SIDE.max, value)) : fallback);
+export const isBingoSize = (value: unknown): value is number => typeof value === 'number' && Number.isInteger(value) && value >= BINGO_SIZE.min && value <= BINGO_SIZE.max;
+const bingoCenter = (size: number) => Math.floor(size ** 2 / 2);
 const text = (value: unknown, max: number) => (typeof value === 'string' ? value.slice(0, max) : '');
 const gridLabels = (value: unknown, length: number) => Array.from({ length }, (_, i) => text(Array.isArray(value) ? value[i] : undefined, MAX_CHART_LABEL));
 const isId = (value: unknown): value is string => typeof value === 'string' && value.length > 0 && value.length <= 200;
@@ -104,10 +105,11 @@ export function parseChart(raw: string | null): ChartState | null {
   const cols = side(data.cols, 3), rows = side(data.rows, 3);
   const cells = parseCells(data.cells, rows * cols);
   const savedBingo = data.bingo && typeof data.bingo === 'object' ? data.bingo as Record<string, unknown> : {};
-  const marks = Array.isArray(savedBingo.marks) ? [...new Set(savedBingo.marks.filter(isBingoIndex))] : [];
+  const size = isBingoSize(savedBingo.size) ? savedBingo.size : BINGO_SIZE.default;
+  const marks = Array.isArray(savedBingo.marks) ? [...new Set(savedBingo.marks.filter(index => isBingoIndex(index, size)))] : [];
   const markColor = typeof savedBingo.markColor === 'string' && HEX.test(savedBingo.markColor) ? savedBingo.markColor.toLowerCase() : BINGO_MARK_COLOR;
   const bingo = Array.isArray(savedBingo.cells)
-    ? { title: text(savedBingo.title ?? data.title, MAX_CHART_TITLE), cells: parseCells(savedBingo.cells, BINGO_SIDE ** 2), free: savedBingo.free === true, marks, markColor }
+    ? { size, title: text(savedBingo.title ?? data.title, MAX_CHART_TITLE), cells: parseCells(savedBingo.cells, size ** 2), free: savedBingo.free === true, marks, markColor }
     : undefined;
   const onPlane = new Set<string>();
   const points = (Array.isArray(data.points) ? data.points : []).slice(0, MAX_POINTS).flatMap((point): ChartPoint[] => {
@@ -140,11 +142,11 @@ export function parseChart(raw: string | null): ChartState | null {
 /** The dimensions and cells used by the editor and the exported image. */
 export function chartGrid(state: ChartState): Pick<ChartState, 'cols' | 'rows' | 'cells'> {
   return state.kind === 'bingo' && state.bingo
-    ? { cols: BINGO_SIDE, rows: BINGO_SIDE, cells: state.bingo.cells }
+    ? { cols: state.bingo.size, rows: state.bingo.size, cells: state.bingo.cells }
     : state;
 }
 
-export const isBingoFreeCell = (state: ChartState, index: number) => state.kind === 'bingo' && state.bingo?.free === true && index === BINGO_CENTER;
+export const isBingoFreeCell = (state: ChartState, index: number) => state.kind === 'bingo' && state.bingo?.free === true && state.bingo.size % 2 === 1 && index === bingoCenter(state.bingo.size);
 
 export const chartTitle = (state: ChartState) => state.kind === 'bingo' ? state.bingo?.title ?? '' : state.title;
 
@@ -157,12 +159,12 @@ export function setBingoFree(state: ChartState, free: boolean): ChartState {
   return state.bingo ? { ...state, bingo: { ...state.bingo, free } } : state;
 }
 
-function isBingoIndex(index: unknown): index is number {
-  return typeof index === 'number' && Number.isInteger(index) && index >= 0 && index < BINGO_SIDE ** 2;
+function isBingoIndex(index: unknown, size: number): index is number {
+  return typeof index === 'number' && Number.isInteger(index) && index >= 0 && index < size ** 2;
 }
 
 export function toggleBingoMark(state: ChartState, index: number): ChartState {
-  if (state.kind !== 'bingo' || !state.bingo || !isBingoIndex(index)) return state;
+  if (state.kind !== 'bingo' || !state.bingo || !isBingoIndex(index, state.bingo.size)) return state;
   const { marks } = state.bingo;
   return { ...state, bingo: { ...state.bingo, marks: marks.includes(index) ? marks.filter(mark => mark !== index) : [...marks, index] } };
 }
@@ -170,6 +172,58 @@ export function toggleBingoMark(state: ChartState, index: number): ChartState {
 export function setBingoMarkColor(state: ChartState, color: string): ChartState {
   if (!state.bingo || !HEX.test(color)) return state;
   return { ...state, bingo: { ...state.bingo, markColor: color.toLowerCase() } };
+}
+
+function fitsBingoSize(index: number, currentSize: number, size: number): boolean {
+  return Math.floor(index / currentSize) < size && index % currentSize < size;
+}
+
+export function bingoResizeRemovesContent(state: ChartState, size: number): boolean {
+  const board = state.bingo;
+  if (!board || !isBingoSize(size) || size >= board.size) return false;
+  const removed = (index: number) => !fitsBingoSize(index, board.size, size);
+  return board.marks.some(removed) || board.cells.some((cell, index) => removed(index) && !!(cell.label || cell.items.length || cell.color));
+}
+
+export function resizeBingo(state: ChartState, size: number): ChartState {
+  const board = state.bingo;
+  if (!board || !isBingoSize(size) || size === board.size) return state;
+  const cells = resizeCells({ cells: board.cells, cols: board.size, rows: board.size }, size, size);
+  const marks = board.marks.filter(index => fitsBingoSize(index, board.size, size))
+    .map(index => Math.floor(index / board.size) * size + index % board.size);
+  return { ...state, bingo: { ...board, size, cells, marks } };
+}
+
+export function filledBingoIndexes(state: ChartState): number[] {
+  if (state.kind !== 'bingo' || !state.bingo) return [];
+  return state.bingo.cells.flatMap((cell, index) =>
+    !isBingoFreeCell(state, index) && (cell.label.trim() || cell.items.length || cell.color) ? [index] : []);
+}
+
+/** Moves each filled square and its mark as one, with gaps and the free space fixed. */
+export function shuffleBingo(state: ChartState, rolls: readonly number[]): ChartState {
+  const board = state.bingo;
+  if (!board) return state;
+  const positions = filledBingoIndexes(state);
+  if (positions.length < 2) return state;
+
+  const sources = [...positions];
+  for (let i = sources.length - 1; i > 0; i--) {
+    const j = Math.floor(rolls[i] * (i + 1));
+    [sources[i], sources[j]] = [sources[j], sources[i]];
+  }
+  if (sources.every((source, i) => source === positions[i])) {
+    [sources[0], sources[1]] = [sources[1], sources[0]];
+  }
+
+  const cells = [...board.cells];
+  const destinations = new Map<number, number>();
+  positions.forEach((destination, i) => {
+    cells[destination] = board.cells[sources[i]];
+    destinations.set(sources[i], destination);
+  });
+  const marks = board.marks.map(index => destinations.get(index) ?? index);
+  return { ...state, bingo: { ...board, cells, marks } };
 }
 
 function replaceChartCells(state: ChartState, cells: ChartCell[]): ChartState {
@@ -221,14 +275,18 @@ export function unplace(state: ChartState, ids: readonly string[]): ChartState {
     : replaceChartCells(state, chartGrid(state).cells.map((cell) => cell.items.some((id) => moving.has(id)) ? { ...cell, items: cell.items.filter((id) => !moving.has(id)) } : cell));
 }
 
+function resizeCells(grid: Pick<ChartState, 'cols' | 'rows' | 'cells'>, cols: number, rows: number): ChartCell[] {
+  return Array.from({ length: rows * cols }, (_, i) => {
+    const row = Math.floor(i / cols), col = i % cols;
+    return row < grid.rows && col < grid.cols ? grid.cells[row * grid.cols + col] : { label: '', items: [] };
+  });
+}
+
 /** Resize the grid. A cell keeps its column and row; what a removed cell held goes back to the pool. */
 export function resizeGrid(state: ChartState, cols: number, rows: number): ChartState {
   const nextCols = side(cols, state.cols), nextRows = side(rows, state.rows);
   if (nextCols === state.cols && nextRows === state.rows) return state;
-  const cells = Array.from({ length: nextRows * nextCols }, (_, i): ChartCell => {
-    const row = Math.floor(i / nextCols), col = i % nextCols;
-    return row < state.rows && col < state.cols ? state.cells[row * state.cols + col] : { label: '', items: [] };
-  });
+  const cells = resizeCells(state, nextCols, nextRows);
   return { ...state, cols: nextCols, rows: nextRows, cells, columnLabels: gridLabels(state.columnLabels, nextCols), rowLabels: gridLabels(state.rowLabels, nextRows) };
 }
 
@@ -259,13 +317,14 @@ export const setAxis = (state: ChartState, end: AxisEnd, label: string): ChartSt
 export const setAxisLine = (state: ChartState, line: AxisLine, shown: boolean): ChartState => (state.lines[line] === shown ? state : { ...state, lines: { ...state.lines, [line]: shown } });
 export function setChartKind(state: ChartState, kind: ChartKind): ChartState {
   if (kind === 'bingo' && !state.bingo) {
-    const cells = resizeGrid(state, BINGO_SIDE, BINGO_SIDE).cells.map((cell, index) => {
-      const row = Math.floor(index / BINGO_SIDE), col = index % BINGO_SIDE;
+    const size = BINGO_SIZE.default;
+    const cells = resizeCells(state, size, size).map((cell, index) => {
+      const row = Math.floor(index / size), col = index % size;
       const label = state.cols === 3 && state.rows === 3 && row < 3 && col < 3 && cell.label === CLASSIC[row * 3 + col] ? '' : cell.label;
       return { ...cell, label };
     });
-    const center = cells[BINGO_CENTER];
-    return { ...state, kind, bingo: { title: state.title, cells, free: !center.label && !center.items.length, marks: [], markColor: BINGO_MARK_COLOR } };
+    const center = cells[bingoCenter(size)];
+    return { ...state, kind, bingo: { size, title: state.title, cells, free: !center.label && !center.items.length, marks: [], markColor: BINGO_MARK_COLOR } };
   }
   return state.kind === kind ? state : { ...state, kind };
 }

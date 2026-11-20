@@ -3,16 +3,64 @@ import { communityOperators, communityStages } from './catalogues';
 import { COMMUNITY_MIN_SAMPLE } from './model';
 
 export interface StageClear {stageId:string;clears:number;slug:string;code:string;name:string;image:string|null}
-interface RosterRanking { operator:string; owned:number; builds:number; e2:number; m9:number; m3?:number[]; unraised:number; maxed:number }
-interface RosterAggregate extends Omit<RosterRanking,'m3'> {m3_0:number;m3_1:number;m3_2:number}
+interface RosterProgress { built:number|null; module:number|null; m3:number|null; full:number|null; max:number|null }
+export interface RosterRanking { operator:string; owned:number; builds:number; e2:number; m9:number; m3?:number[]; unraised:number; maxed:number; progress?:RosterProgress }
+interface RosterAggregate extends Omit<RosterRanking,'m3'|'progress'> {
+  m3_0:number;m3_1:number;m3_2:number;promotionKnown:number;e1:number;anyM3:number;m6:number;
+  moduleKnown:number;anyModule:number;max30:number;max55:number;max70:number;max80:number;
+}
 interface ReplayRanking { charId:string; skill:number|null; squads:number; deployed:number; deployments:number; activations:number; benched:number }
-export interface CommunityRankings { contributors:number; roster:RosterRanking[]|null; replayContributors:number; replays:number; battles:ReplayRanking[]|null; clearContributors?:number; clearRecords?:number; clearedStages?:number; stageClears?:StageClear[]|null; stageCoverage?:{operator:string;stages:number}[]|null; source?:'production-snapshot'|'daily-snapshot';capturedAt?:string }
+export interface CommunityRankings { contributors:number; roster:RosterRanking[]|null; rosterProgressReady?:true; replayContributors:number; replays:number; battles:ReplayRanking[]|null; clearContributors?:number; clearRecords?:number; clearedStages?:number; stageClears?:StageClear[]|null; stageCoverage?:{operator:string;stages:number}[]|null; source?:'production-snapshot'|'daily-snapshot';capturedAt?:string }
+export type CommunityRosterRankings = Pick<CommunityRankings,'contributors'|'roster'>;
+
+const rate = (count:number, sample:number) => sample ? 100 * count / sample : null;
+
+function rosterRanking(row:RosterAggregate, rarity:number|null|undefined):RosterRanking {
+  const {m3_0,m3_1,m3_2,promotionKnown,e1,anyM3,m6,moduleKnown,anyModule,max30,max55,max70,max80,...base}=row;
+  const ranking={...base,m3:[m3_0,m3_1,m3_2]};
+  if(!rarity||rarity<1||rarity>6)return ranking;
+  const maxed=[max30,max30,max55,max70,max80,row.maxed][rarity-1];
+  return {...ranking,progress:{
+    built:rarity<3?rate(maxed,row.builds):rate(rarity===3?e1:row.e2,promotionKnown),
+    module:rarity>=4?rate(anyModule,moduleKnown):null,
+    m3:rarity>=4?rate(anyM3,row.e2):null,
+    full:rarity>=4?rate(rarity===6?row.m9:m6,row.e2):null,
+    max:rate(maxed,row.builds),
+  }};
+}
+
+/** The same grouped opt-in aggregates used by the full daily snapshot. */
+export async function readCommunityRoster(db:D1Database,server:string,operators?:Awaited<ReturnType<typeof communityOperators>>):Promise<CommunityRosterRankings & {rosterProgressReady:true}>{
+  const region=server==='all'?'':' AND a.server=?',args=server==='all'?[]:[server];
+  const contributors=(await db.prepare(`SELECT count(*) n FROM community_account a WHERE stats=1${region}`).bind(...args).first<{n:number}>())?.n??0;
+  if(contributors<COMMUNITY_MIN_SAMPLE)return {contributors,roster:null,rosterProgressReady:true};
+  const rarityByName=new Map((operators??await communityOperators()).map(op=>[op.name,op.rarity]));
+  const roster=(await db.prepare(`SELECT o.operator,count(*) owned,count(CASE WHEN o.elite IS NOT NULL AND o.level IS NOT NULL THEN 1 END) builds,
+    count(o.elite) promotionKnown,
+    sum(CASE WHEN o.elite=1 THEN 1 ELSE 0 END) e1,
+    sum(CASE WHEN o.elite=2 THEN 1 ELSE 0 END) e2,
+    sum(CASE WHEN o.elite=2 AND (o.m0=3 OR o.m1=3 OR o.m2=3) THEN 1 ELSE 0 END) anyM3,
+    sum(CASE WHEN o.elite=2 AND o.m0=3 AND o.m1=3 THEN 1 ELSE 0 END) m6,
+    sum(CASE WHEN o.elite=2 AND o.m0=3 AND o.m1=3 AND o.m2=3 THEN 1 ELSE 0 END) m9,
+    sum(CASE WHEN o.elite=2 AND o.m0=3 THEN 1 ELSE 0 END) m3_0,
+    sum(CASE WHEN o.elite=2 AND o.m1=3 THEN 1 ELSE 0 END) m3_1,
+    sum(CASE WHEN o.elite=2 AND o.m2=3 THEN 1 ELSE 0 END) m3_2,
+    sum(CASE WHEN o.elite=0 AND o.level=1 THEN 1 ELSE 0 END) unraised,
+    sum(CASE WHEN o.elite=2 AND o.modules IS NOT NULL THEN 1 ELSE 0 END) moduleKnown,
+    sum(CASE WHEN o.elite=2 AND o.modules IS NOT NULL AND o.modules<>'{}' THEN 1 ELSE 0 END) anyModule,
+    sum(CASE WHEN o.elite=0 AND o.level=30 THEN 1 ELSE 0 END) max30,
+    sum(CASE WHEN o.elite=1 AND o.level=55 THEN 1 ELSE 0 END) max55,
+    sum(CASE WHEN o.elite=2 AND o.level=70 THEN 1 ELSE 0 END) max70,
+    sum(CASE WHEN o.elite=2 AND o.level=80 THEN 1 ELSE 0 END) max80,
+    sum(CASE WHEN o.elite=2 AND o.level=90 THEN 1 ELSE 0 END) maxed
+    FROM community_operator o JOIN community_account a ON a.userId=o.userId WHERE a.stats=1${region} GROUP BY o.operator`).bind(...args).all<RosterAggregate>()).results.map(row=>rosterRanking(row,rarityByName.get(row.operator)));
+  return {contributors,roster,rosterProgressReady:true};
+}
 
 /** Fixed aggregate projections only. Private replay payloads and identities never leave D1. */
 export async function communityRankings(db:D1Database,server:string,stage:string,{paceBulkReads=false}={}):Promise<CommunityRankings>{
   const [stages,operators]=await Promise.all([communityStages(),communityOperators()]);
-  const region=server==='all'?'':' AND a.server=?',args=server==='all'?[]:[server];
-  const contributors=(await db.prepare(`SELECT count(*) n FROM community_account a WHERE stats=1${region}`).bind(...args).first<{n:number}>())?.n??0;
+  const args=server==='all'?[]:[server];
   // Existing community consent includes archived game accounts. Deduplicate each
   // game-account/stage pair even if it was uploaded by multiple Arkpedia users.
   const eligible=`WITH eligible AS (SELECT r.userId,r.namespace,r.stageId,row_number() OVER(PARTITION BY r.namespace,r.stageId ORDER BY r.updatedAt DESC,r.userId) pick
@@ -21,15 +69,7 @@ export async function communityRankings(db:D1Database,server:string,stage:string
     runs AS (SELECT * FROM eligible WHERE pick=1)`;
   const replayArgs=[...args,...(stage?[stage]:[])];
   const coverage=await db.prepare(`${eligible} SELECT count(DISTINCT namespace) contributors,count(*) replays FROM runs`).bind(...replayArgs).first<{contributors:number;replays:number}>();
-  const roster=contributors<COMMUNITY_MIN_SAMPLE?null:(await db.prepare(`SELECT o.operator,count(*) owned,count(CASE WHEN o.elite IS NOT NULL AND o.level IS NOT NULL THEN 1 END) builds,
-    sum(CASE WHEN o.elite=2 THEN 1 ELSE 0 END) e2,
-    sum(CASE WHEN o.elite=2 AND o.m0=3 AND o.m1=3 AND o.m2=3 THEN 1 ELSE 0 END) m9,
-    sum(CASE WHEN o.elite=2 AND o.m0=3 THEN 1 ELSE 0 END) m3_0,
-    sum(CASE WHEN o.elite=2 AND o.m1=3 THEN 1 ELSE 0 END) m3_1,
-    sum(CASE WHEN o.elite=2 AND o.m2=3 THEN 1 ELSE 0 END) m3_2,
-    sum(CASE WHEN o.elite=0 AND o.level=1 THEN 1 ELSE 0 END) unraised,
-    sum(CASE WHEN o.elite=2 AND o.level=90 THEN 1 ELSE 0 END) maxed
-    FROM community_operator o JOIN community_account a ON a.userId=o.userId WHERE a.stats=1${region} GROUP BY o.operator`).bind(...args).all<RosterAggregate>()).results.map(({m3_0,m3_1,m3_2,...row})=>({...row,m3:[m3_0,m3_1,m3_2]}));
+  const roster=await readCommunityRoster(db,server,operators);
   const hasReplaySample=(coverage?.contributors??0)>=COMMUNITY_MIN_SAMPLE;
   // Large scheduled rebuilds scan replay rows in several separate phases.
   // Give D1's ten-second resource window time to clear between those phases.
@@ -73,5 +113,5 @@ export async function communityRankings(db:D1Database,server:string,stage:string
     for(const name of names)coverageCounts.set(name,(coverageCounts.get(name)??0)+1);
   }
   const stageCoverage=stageUnits===null?null:[...coverageCounts].map(([operator,stages])=>({operator,stages}));
-  return {clearContributors:clearSample?.contributors??0,clearRecords:clearSample?.records??0,clearedStages,stageClears:stageClears?.flatMap(row=>{const stage=stages.find(s=>s.id===row.stageId);return stage?[{...row,slug:stage.slug,code:stage.code??stage.slug,name:stage.name??stage.code??stage.slug,image:stage.image}]:[];})??null,stageCoverage,contributors,roster,replayContributors:coverage?.contributors??0,replays:coverage?.replays??0,battles};
+  return {clearContributors:clearSample?.contributors??0,clearRecords:clearSample?.records??0,clearedStages,stageClears:stageClears?.flatMap(row=>{const stage=stages.find(s=>s.id===row.stageId);return stage?[{...row,slug:stage.slug,code:stage.code??stage.slug,name:stage.name??stage.code??stage.slug,image:stage.image}]:[];})??null,stageCoverage,...roster,replayContributors:coverage?.contributors??0,replays:coverage?.replays??0,battles};
 }
