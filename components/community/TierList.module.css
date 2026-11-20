@@ -134,6 +134,20 @@
 .chartFrame[data-bingo] .bingoPrompt .cellLabel { padding:4px; max-height:100%; font-size:18px; }
 .bingoPrompt .cellColor { position:absolute; inset:auto 0 0 auto; height:24px; width:24px; }
 .bingoFree { display:grid; place-items:center; box-sizing:border-box; aspect-ratio:1; padding:4px; text-align:center; background:var(--well); border:1px solid var(--line); border-radius:var(--radius); color:var(--text-bright); font:700 18px/1.1 var(--font-display); }
+.chartFrame .bingoTitle[readonly] { border-color:transparent; background:transparent; }
+.bingoPlayCell { position:relative; box-sizing:border-box; min-width:0; padding:4px; place-items:center; text-align:center; color:var(--text-bright); font:700 15px/1.15 var(--font-display); }
+.bingoPlayCell[data-free] { background:var(--well); }
+.bingoPlayCell[data-text-only] { font-size:18px; }
+.bingoPlayCell:hover, .bingoPlayCell[aria-pressed="true"] { border-color:var(--teal); }
+.bingoPlayCell[aria-pressed="true"] { background:var(--bingo-mark); border-color:var(--bingo-mark); color:var(--bingo-mark-ink); }
+.bingoPlayCell[aria-pressed="true"]::after { content:""; position:absolute; inset:3px; border:1px solid currentColor; opacity:.5; pointer-events:none; }
+.bingoPlayLabel { min-width:0; overflow-wrap:anywhere; white-space:pre-wrap; }
+.bingoPlayArt { display:flex; justify-content:center; align-content:center; flex-wrap:wrap; gap:4px; min-height:0; max-height:100%; min-width:0; overflow:hidden; }
+.bingoPlayArt img { display:block; width:min(var(--tile),100%); height:auto; aspect-ratio:1; object-fit:cover; }
+.bingoMarkPicker { position:relative; display:inline-flex; align-items:center; gap:8px; cursor:pointer; }
+.bingoMarkSwatch { width:16px; height:16px; box-sizing:border-box; border:1px solid var(--control-border); border-radius:var(--radius); background:var(--bingo-mark); }
+.bingoMarkPicker:focus-within { outline:2px solid var(--teal); outline-offset:2px; }
+.bingoMarkPicker input { position:absolute; inset:0; width:100%; height:100%; padding:0; border:0; opacity:0; cursor:pointer; }
 /* The plane: a square with its two axes drawn through the middle and an item anywhere on it
    by its centre. Its labels stand outside it, at the end of the axis each names: above and
    below, and to either side (on a narrow screen, in a row over the plane's two top corners),
@@ -223,6 +237,9 @@
   .chartFrame[data-headers] .cellLabel { padding-inline-start:4px; }
   .cellColor { width:22px; }
   .bingoFree { font-size:15px; }
+  .bingoPlayCell { font-size:11px; }
+  .bingoPlayCell[data-text-only] { font-size:13px; }
+  .bingoPlayArt img { width:min(32px,100%); }
   .chartFrame[data-bingo] .bingoPrompt .cellLabel { font-size:13px; }
   .chartFrame[data-bingo] .cellBar .cellLabel { font-size:11px; line-height:1.15; max-height:2.5em; }
   .chartFrame[data-bingo] .tile { width:min(34px,100%); }

@@ -2,7 +2,7 @@ import { useEffect, useId, useRef, useState } from 'react';
 import ImportDialog from '@/components/account/ImportDialog';
 import { useContentUrl } from '@/lib/content/context';
 import type { TierItem } from '@/lib/tier-list/catalogue';
-import { AXIS_ENDS, AXIS_OF, cellLabelColor, chartGrid, chartTitle, isBingoFreeCell, type ChartState } from '@/lib/tier-list/chart';
+import { AXIS_ENDS, AXIS_OF, BINGO_MARK_COLOR, cellLabelColor, chartGrid, chartTitle, isBingoFreeCell, type ChartState } from '@/lib/tier-list/chart';
 import { labelInk } from '@/lib/tier-list/state';
 import { CHART_STRINGS as C } from '@/lib/tier-list/chartStrings';
 import { TIER_LIST_STRINGS as T } from '@/lib/tier-list/strings';
@@ -29,7 +29,7 @@ function bingoLabel(context: CanvasRenderingContext2D, label: string, x: number,
  * grid with its cells and labels, or the plane with its axes, their labels and every item
  * where the reader put it.
  */
-export default function ChartShareImage({ state: initial, byId, onClose }: { state: ChartState; byId: ReadonlyMap<string, TierItem>; onClose: () => void }) {
+export default function ChartShareImage({ state: initial, byId, showBingoMarks, onClose }: { state: ChartState; byId: ReadonlyMap<string, TierItem>; showBingoMarks: boolean; onClose: () => void }) {
   const [state] = useState(initial);
   const canvas = useRef<HTMLCanvasElement>(null);
   const url = useContentUrl();
@@ -39,6 +39,9 @@ export default function ChartShareImage({ state: initial, byId, onClose }: { sta
   const [retry, setRetry] = useState(0);
   const { cols, rows, cells: savedCells } = chartGrid(state);
   const bingo = state.kind === 'bingo';
+  const marks = new Set(bingo && showBingoMarks ? state.bingo?.marks : []);
+  const markColor = state.bingo?.markColor ?? BINGO_MARK_COLOR;
+  const markInk = labelInk(markColor) === 'dark' ? '#14181c' : '#ffffff';
   const title = chartTitle(state).trim();
   const cells = savedCells.map((cell, index) => isBingoFreeCell(state, index)
     ? { label: C.bingoFree, items: [] }
@@ -49,12 +52,13 @@ export default function ChartShareImage({ state: initial, byId, onClose }: { sta
   const hasRowLabels = showHeaders && state.rowLabels.some((label) => label.trim());
   const description = state.kind !== 'axes'
     ? cells.map((cell, i) => {
-      if (isBingoFreeCell(state, i)) return C.bingoFree;
+      const mark = marks.has(i) ? ', marked' : '';
+      if (isBingoFreeCell(state, i)) return C.bingoFree + mark;
       const row = Math.floor(i / cols), col = i % cols;
       const headers = showHeaders ? [state.rowLabels[row], state.columnLabels[col]].map((label) => label.trim()).filter(Boolean) : [];
       if ((bingo || state.showCellLabels) && cell.label.trim()) headers.push(cell.label.trim());
       const label = headers.join(', ') || C.cellItems('', row + 1, col + 1);
-      return `${label}: ${cell.items.map((item) => item.name).join(', ') || T.imageEmptyRow}`;
+      return `${label}: ${cell.items.map((item) => item.name).join(', ') || T.imageEmptyRow}${mark}`;
     }).join('. ')
     : `${AXIS_ENDS.filter((end) => state.lines[AXIS_OF[end]]).map((end) => state.axes[end]).filter(Boolean).join(', ')}. ${points.map((point) => point.item.name).join(', ')}`;
 
@@ -106,6 +110,14 @@ export default function ChartShareImage({ state: initial, byId, onClose }: { sta
       }
       if (state.kind !== 'axes') {
         const gridLeft = PAD + rowHeaderWidth;
+        const drawMark = (left: number, top: number, width: number, height: number) => {
+          c.save();
+          c.globalAlpha = .5;
+          c.strokeStyle = markInk;
+          c.lineWidth = 3;
+          c.strokeRect(left + 3, top + 3, width - 6, height - 6);
+          c.restore();
+        };
         const headerText = (lines: string[], x: number, y: number) => {
           c.font = HEADER_FONT; c.fillStyle = ink('--text-bright'); c.textAlign = 'center';
           lines.forEach((line, index) => c.fillText(line, x, y + (index - (lines.length - 1) / 2) * HEADER_LINE));
@@ -118,15 +130,18 @@ export default function ChartShareImage({ state: initial, byId, onClose }: { sta
           for (let col = 0; col < cols; col += 1) {
             const index = row * cols + col, cell = cells[index], x = gridLeft + col * (cellWidth + GAP);
             const free = isBingoFreeCell(state, index);
-            c.fillStyle = ink(free ? '--well' : '--panel'); c.fillRect(x, y, cellWidth, h);
+            const marked = marks.has(index);
+            c.fillStyle = marked ? markColor : ink(free ? '--well' : '--panel');
+            c.fillRect(x, y, cellWidth, h);
             const color = cellLabelColor(state, index);
             if (bingo && !free && savedCells[index].color) {
               c.fillStyle = color; c.fillRect(x, y + h - 3, cellWidth, 3);
             }
             if (bingo && !cell.items.length) {
               c.font = free ? '700 28px Rajdhani' : '700 29px Rajdhani';
-              c.textAlign = 'center'; c.fillStyle = ink('--text-bright');
+              c.textAlign = 'center'; c.fillStyle = marked ? markInk : ink('--text-bright');
               bingoLabel(c, cell.label, x + cellWidth / 2, y + h / 2, cellWidth - 20);
+              if (marked) drawMark(x, y, cellWidth, h);
               continue;
             }
             // Tiles centred in the cell, line by line.
@@ -139,12 +154,16 @@ export default function ChartShareImage({ state: initial, byId, onClose }: { sta
             });
             // The label bar, in the reader's colour or the cell's accent, with ink picked for it.
             if (labelHeight > 0) {
-              c.fillStyle = bingo ? ink('--panel-2') : color;
-              c.fillRect(x, y + h - labelHeight, cellWidth, labelHeight - (bingo && savedCells[index].color ? 3 : 0));
-              c.font = '700 20px Rajdhani'; c.textAlign = 'center'; c.fillStyle = bingo ? ink('--text-bright') : labelInk(color) === 'dark' ? '#14181c' : '#ffffff';
+              if (!marked) {
+                c.fillStyle = bingo ? ink('--panel-2') : color;
+                c.fillRect(x, y + h - labelHeight, cellWidth, labelHeight - (bingo && savedCells[index].color ? 3 : 0));
+              }
+              c.font = '700 20px Rajdhani'; c.textAlign = 'center';
+              c.fillStyle = marked ? markInk : bingo ? ink('--text-bright') : labelInk(color) === 'dark' ? '#14181c' : '#ffffff';
               if (bingo) bingoLabel(c, cell.label, x + cellWidth / 2, y + h - labelHeight / 2, cellWidth - 12);
               else c.fillText(fitText(c, cell.label, cellWidth - 12), x + cellWidth / 2, y + h - labelHeight / 2);
             }
+            if (marked) drawMark(x, y, cellWidth, h);
           }
           y += h + GAP;
         }

@@ -37,7 +37,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     at: '2026-11-20T11:03:00Z',
     title: 'Bingo boards and event launch times',
     added: [
-      { title: 'Bingo boards', detail: 'Create a five-by-five board with your own title, prompts, operator art and optional free space.', href: '/polls/chart-maker' },
+      { title: 'Bingo boards', detail: 'Create a five-by-five board with your own title, prompts and art, then switch to Play to mark squares.', href: '/polls/chart-maker' },
       { title: 'Launch Time on event pages', detail: 'Open the timezone card from an event page, including events in the archive.', href: '/schedule?past=1' },
     ],
     changed: [

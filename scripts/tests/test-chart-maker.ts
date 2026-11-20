@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { catalogueItems, enemyItemId, operatorItemId, type TierCatalogue } from '../../lib/tier-list/catalogue';
-import { BINGO_CENTER, cellColor, cellLabelColor, chartGrid, setCellColor, chartPlaced, chartPool, clearChart, defaultChart, isBingoFreeCell, parseChart, placeInCell, placePoint, removeGridLine, resizeGrid, setAxis, setAxisLine, setBingoFree, setCellLabel, setChartKind, setGridLabel, unplace, CHART_SIDE } from '../../lib/tier-list/chart';
+import { BINGO_CENTER, cellColor, cellLabelColor, chartGrid, setCellColor, chartPlaced, chartPool, clearChart, defaultChart, isBingoFreeCell, parseChart, placeInCell, placePoint, removeGridLine, resizeGrid, setAxis, setAxisLine, setBingoFree, setBingoMarkColor, setCellLabel, setChartKind, setGridLabel, toggleBingoMark, unplace, CHART_SIDE } from '../../lib/tier-list/chart';
 import { decodeChart, encodeChart } from '../../lib/tier-list/chartShare';
 import { chartQuizPool, scoreChartQuiz } from '../../lib/tier-list/quiz';
 import { CHART_STRINGS } from '../../lib/tier-list/chartStrings';
@@ -53,13 +53,21 @@ test('Bingo copies the matching grid cells once and saves its own board and free
   assert.deepEqual(chartGrid(setChartKind(originalAgain, 'bingo')).cells, chartGrid(edited).cells);
   assert.deepEqual(parseChart(JSON.stringify(edited)), edited);
 
-  const free = setBingoFree(edited, true);
+  const free = toggleBingoMark(setBingoMarkColor(setBingoFree(edited, true), '#963019'), 6);
   assert.deepEqual(chartPlaced(free), [A]);
   assert.deepEqual(chartPlaced(setBingoFree(free, false)), [A, B]);
+  assert.deepEqual(parseChart(JSON.stringify(free))!.bingo?.marks, [6]);
+  assert.equal(parseChart(JSON.stringify(free))!.bingo?.markColor, '#963019');
+  assert.equal(setBingoMarkColor(free, 'invalid'), free);
+  assert.deepEqual(toggleBingoMark(free, 6).bingo?.marks, []);
+  assert.equal(toggleBingoMark(free, 25), free);
+  assert.equal(toggleBingoMark(original, 6), original);
   const full = (await decodeChart(await encodeChart(free)))!.state;
   assert.equal(full.kind, 'bingo');
   assert.equal(isBingoFreeCell(full, BINGO_CENTER), true);
   assert.deepEqual(chartPlaced(full), [A]);
+  assert.deepEqual(full.bingo?.marks, []);
+  assert.equal(full.bingo?.markColor, '#963019');
   assert.deepEqual(chartGrid(full).cells[BINGO_CENTER], { label: '', items: [] });
   const template = (await decodeChart(await encodeChart(edited, 'template')))!.state;
   assert.deepEqual(chartPlaced(template), []);

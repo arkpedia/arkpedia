@@ -16,6 +16,7 @@ export const CHART_VERSION = 1;
 export const CHART_SIDE = { min: 1, max: 7 } as const;
 export const BINGO_SIDE = 5;
 export const BINGO_CENTER = Math.floor(BINGO_SIDE ** 2 / 2);
+export const BINGO_MARK_COLOR = '#26776e';
 export const MAX_CHART_LABEL = 40;
 export const MAX_CHART_TITLE = 80;
 export const MAX_POINTS = 2000;
@@ -47,7 +48,7 @@ export interface ChartState {
   rows: number;
   /** rows × cols cells, row by row. */
   cells: ChartCell[];
-  bingo?: { title: string; cells: ChartCell[]; free: boolean };
+  bingo?: { title: string; cells: ChartCell[]; free: boolean; marks: number[]; markColor: string };
   showCellLabels: boolean;
   showGridHeaders: boolean;
   columnLabels: string[];
@@ -103,8 +104,10 @@ export function parseChart(raw: string | null): ChartState | null {
   const cols = side(data.cols, 3), rows = side(data.rows, 3);
   const cells = parseCells(data.cells, rows * cols);
   const savedBingo = data.bingo && typeof data.bingo === 'object' ? data.bingo as Record<string, unknown> : {};
+  const marks = Array.isArray(savedBingo.marks) ? [...new Set(savedBingo.marks.filter(isBingoIndex))] : [];
+  const markColor = typeof savedBingo.markColor === 'string' && HEX.test(savedBingo.markColor) ? savedBingo.markColor.toLowerCase() : BINGO_MARK_COLOR;
   const bingo = Array.isArray(savedBingo.cells)
-    ? { title: text(savedBingo.title ?? data.title, MAX_CHART_TITLE), cells: parseCells(savedBingo.cells, BINGO_SIDE ** 2), free: savedBingo.free === true }
+    ? { title: text(savedBingo.title ?? data.title, MAX_CHART_TITLE), cells: parseCells(savedBingo.cells, BINGO_SIDE ** 2), free: savedBingo.free === true, marks, markColor }
     : undefined;
   const onPlane = new Set<string>();
   const points = (Array.isArray(data.points) ? data.points : []).slice(0, MAX_POINTS).flatMap((point): ChartPoint[] => {
@@ -152,6 +155,21 @@ export function setChartTitle(state: ChartState, text: string): ChartState {
 
 export function setBingoFree(state: ChartState, free: boolean): ChartState {
   return state.bingo ? { ...state, bingo: { ...state.bingo, free } } : state;
+}
+
+function isBingoIndex(index: unknown): index is number {
+  return typeof index === 'number' && Number.isInteger(index) && index >= 0 && index < BINGO_SIDE ** 2;
+}
+
+export function toggleBingoMark(state: ChartState, index: number): ChartState {
+  if (state.kind !== 'bingo' || !state.bingo || !isBingoIndex(index)) return state;
+  const { marks } = state.bingo;
+  return { ...state, bingo: { ...state.bingo, marks: marks.includes(index) ? marks.filter(mark => mark !== index) : [...marks, index] } };
+}
+
+export function setBingoMarkColor(state: ChartState, color: string): ChartState {
+  if (!state.bingo || !HEX.test(color)) return state;
+  return { ...state, bingo: { ...state.bingo, markColor: color.toLowerCase() } };
 }
 
 function replaceChartCells(state: ChartState, cells: ChartCell[]): ChartState {
@@ -247,7 +265,7 @@ export function setChartKind(state: ChartState, kind: ChartKind): ChartState {
       return { ...cell, label };
     });
     const center = cells[BINGO_CENTER];
-    return { ...state, kind, bingo: { title: state.title, cells, free: !center.label && !center.items.length } };
+    return { ...state, kind, bingo: { title: state.title, cells, free: !center.label && !center.items.length, marks: [], markColor: BINGO_MARK_COLOR } };
   }
   return state.kind === kind ? state : { ...state, kind };
 }

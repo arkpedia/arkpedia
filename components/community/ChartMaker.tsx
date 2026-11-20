@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
+import { ContentImg } from '@/components/content/ContentImage';
 import SegmentedControl from '@/components/ui/SegmentedControl';
 import XButton from '@/components/ui/XButton';
 import { useHeightFloor } from '@/components/ui/useHeightFloor';
 import { matchesSearch } from '@/lib/search/searchNormalize';
 import { catalogueItems, TIER_KINDS, TIER_RARITIES, type TierCatalogue } from '@/lib/tier-list/catalogue';
-import { AXIS_ENDS, AXIS_LINES, AXIS_OF, cellLabelColor, CHART_KINDS, CHART_SIDE, chartGrid, chartPlaced, chartPool, chartTitle, clearChart, defaultChart, isBingoFreeCell, MAX_CHART_LABEL, MAX_CHART_TITLE, placeInCell, placePoint, removeGridLine, resizeGrid, setAxis, setAxisLine, setBingoFree, setCellColor, setCellLabel, setChartKind, setChartTitle, setGridLabel, unplace, type ChartKind, type ChartState } from '@/lib/tier-list/chart';
+import { AXIS_ENDS, AXIS_LINES, AXIS_OF, BINGO_MARK_COLOR, cellLabelColor, CHART_KINDS, CHART_SIDE, chartGrid, chartPlaced, chartPool, chartTitle, clearChart, defaultChart, isBingoFreeCell, MAX_CHART_LABEL, MAX_CHART_TITLE, placeInCell, placePoint, removeGridLine, resizeGrid, setAxis, setAxisLine, setBingoFree, setBingoMarkColor, setCellColor, setCellLabel, setChartKind, setChartTitle, setGridLabel, toggleBingoMark, unplace, type ChartKind, type ChartState } from '@/lib/tier-list/chart';
 import { CHART_PARAM, decodeChart, encodeChart, type ChartShareMode, type SharedChart } from '@/lib/tier-list/chartShare';
 import { chartQuizPool, scoreChartQuiz, type QuizScore } from '@/lib/tier-list/quiz';
 import { useChart, writeChart } from '@/lib/tier-list/chartStore';
@@ -15,6 +16,7 @@ import { TIER_LIST_STRINGS as T } from '@/lib/tier-list/strings';
 import ChartShareImage from './ChartShareImage';
 import { KindFilters, PoolWindow, Tile, TileControls } from './makerParts';
 import ShareLinkDialog from './ShareLinkDialog';
+import { tileImage } from './tierTile';
 import { useTierDrag, type TierDrop } from './useTierDrag';
 import styles from './TierList.module.css';
 
@@ -65,6 +67,9 @@ export default function ChartMaker({ catalogue }: { catalogue: TierCatalogue }) 
   const [imaging, setImaging] = useState(false);
   const [sharing, setSharing] = useState(false);
   const [score, setScore] = useState<QuizScore | null>(null);
+  const [bingoMode, setBingoMode] = useState<'edit' | 'play'>('edit');
+  const bingo = state.kind === 'bingo';
+  const playing = bingo && bingoMode === 'play';
 
   const root = useRef<HTMLDivElement>(null);
   const ghost = useRef<HTMLDivElement>(null);
@@ -75,13 +80,14 @@ export default function ChartMaker({ catalogue }: { catalogue: TierCatalogue }) 
     root, ghost, mark,
     carried: useCallback((id: string) => [id], []),
     onDrop: useCallback((ids: string[], drop: TierDrop) => {
+      if (playing) return;
       update((current) => {
         if ('row' in drop && drop.row.startsWith(CELL) && current.kind !== 'axes') return placeInCell(current, ids, Number(drop.row.slice(CELL.length)), drop.index);
         if ('plane' in drop && current.kind === 'axes') return ids.reduce((next, id) => placePoint(next, id, drop.x, drop.y), current);
         return unplace(current, ids);
       });
       setScore(null); // a quiz's marks are for the placements they were worked out from
-    }, [update]),
+    }, [playing, update]),
   });
 
   const quiz = shared?.mode === 'quiz' ? shared.solution ?? null : null;
@@ -91,14 +97,18 @@ export default function ChartMaker({ catalogue }: { catalogue: TierCatalogue }) 
   useEffect(() => { setScore(null); }, [quiz]);
   const shown = useMemo(() => (query.trim() ? pool.filter((item) => matchesSearch(item.name, query)) : pool), [pool, query]);
   const placedCount = chartPlaced(state).length;
-  const bingo = state.kind === 'bingo';
   const resize = !quiz && state.kind === 'grid';
   const { cols, rows, cells } = chartGrid(state);
   const showHeaders = !bingo && state.showGridHeaders;
   const showLabels = bingo || state.showCellLabels;
   const canMakeImage = placedCount > 0 || bingo || (state.kind === 'grid' && !state.showCellLabels);
   const empty = query.trim() && pool.length ? T.poolEmptySearch : quiz ? T.poolEmptyQuiz : !state.kinds.length ? T.poolEmptyFilters : T.poolEmptyDone;
-  const makerStyle = { '--zoom': state.zoom / 100 } as CSSProperties;
+  const markColor = state.bingo?.markColor ?? BINGO_MARK_COLOR;
+  const makerStyle = {
+    '--zoom': state.zoom / 100,
+    '--bingo-mark': markColor,
+    '--bingo-mark-ink': labelInk(markColor) === 'dark' ? '#14181c' : '#ffffff',
+  } as CSSProperties;
   const gridHeaders = (line: 'col' | 'row') => {
     const column = line === 'col';
     const labels = column ? state.columnLabels : state.rowLabels;
@@ -118,7 +128,7 @@ export default function ChartMaker({ catalogue }: { catalogue: TierCatalogue }) 
   };
 
   return (
-    <div ref={root} className={styles.maker} style={makerStyle} data-detached={detached ? '' : undefined} data-names={state.names ? '' : undefined}>
+    <div ref={root} className={styles.maker} style={makerStyle} data-detached={detached && !playing ? '' : undefined} data-names={state.names ? '' : undefined}>
       {(shared || broken) && (
         <div className={`panel ${styles.shared}`} role="status">
           <span>{shared ? C.sharedNotice[shared.mode] : C.sharedBroken}</span>
@@ -130,20 +140,27 @@ export default function ChartMaker({ catalogue }: { catalogue: TierCatalogue }) 
       )}
 
       {/* A quiz sets its own pool, and its grid is locked: the cells are the question. */}
-      {!quiz && <KindFilters rarities={state.rarities} kinds={state.kinds}
+      {!quiz && !playing && <KindFilters rarities={state.rarities} kinds={state.kinds}
         onRarity={(rarity, on) => update((current) => ({ ...current, rarities: TIER_RARITIES.filter((r) => (r === rarity ? on : current.rarities.includes(r))) }))}
         onKind={(kind, on) => update((current) => ({ ...current, kinds: TIER_KINDS.filter((k) => (k === kind ? on : current.kinds.includes(k))) }))} />}
 
       <section className="op-section" aria-labelledby="chart-board">
         <h2 id="chart-board">{C.boardHeading}</h2>
         <div ref={floor.ref}>
-          <div className={styles.boardHead} data-bingo-toolbar={bingo ? '' : undefined}>
+          {!playing && <div className={styles.boardHead} data-bingo-toolbar={bingo ? '' : undefined}>
             {!bingo && <input type="text" className={styles.name} value={state.title} maxLength={MAX_CHART_TITLE} readOnly={!!quiz} aria-label={C.titleLabel} placeholder={C.titlePlaceholder} onChange={(event) => update((current) => setChartTitle(current, event.target.value))} />}
             <TileControls names={state.names} zoom={state.zoom} onNames={(names) => update((current) => ({ ...current, names }))} onZoom={(zoom) => update((current) => ({ ...current, zoom: clampZoom(zoom) }))} />
-          </div>
+          </div>}
           {!quiz && <div className={styles.chartBar}>
             <SegmentedControl label={C.version} value={state.kind} onChange={(kind: ChartKind) => update((current) => setChartKind(current, kind))} options={CHART_KINDS.map((kind) => ({ value: kind, label: C.kinds[kind] }))} />
-            {bingo && <label className="check">
+            {bingo && <SegmentedControl label={C.bingoMode} value={bingoMode} onChange={setBingoMode}
+              options={[{ value: 'edit', label: C.bingoModes.edit }, { value: 'play', label: C.bingoModes.play }]} />}
+            {playing && <label className={`btn ghost btn-sm ${styles.bingoMarkPicker}`}>
+              <span className={styles.bingoMarkSwatch} aria-hidden="true" />
+              {C.bingoMarkColor}
+              <input type="color" value={markColor} onChange={(event) => update(current => setBingoMarkColor(current, event.target.value))} />
+            </label>}
+            {bingo && !playing && <label className="check">
               <input type="checkbox" checked={state.bingo?.free ?? false} onChange={(event) => update((current) => setBingoFree(current, event.target.checked))} />
               {C.bingoFree}
             </label>}
@@ -176,15 +193,30 @@ export default function ChartMaker({ catalogue }: { catalogue: TierCatalogue }) 
               <div className={styles.chartFrame} data-bingo={bingo ? '' : undefined}
                 data-headers={showHeaders ? '' : undefined} data-cell-labels={showLabels ? '' : undefined} style={{ '--chart-cols': cols, '--chart-rows': rows } as CSSProperties}>
                 {bingo && <input type="text" className={`${styles.name} ${styles.bingoTitle}`} value={chartTitle(state)} maxLength={MAX_CHART_TITLE}
-                  aria-label={C.bingoTitle} placeholder={C.bingoTitle} onChange={(event) => update((current) => setChartTitle(current, event.target.value))} />}
+                  aria-label={C.bingoTitle} placeholder={playing ? undefined : C.bingoTitle} readOnly={playing} tabIndex={playing ? -1 : undefined} onChange={(event) => update((current) => setChartTitle(current, event.target.value))} />}
                 {!bingo && gridHeaders('col')}
                 {!bingo && gridHeaders('row')}
                 <div className={styles.chartGrid}>
                   {cells.map((cell, index) => {
-                    if (isBingoFreeCell(state, index)) return <div key={index} className={styles.bingoFree} data-no-drop="">{C.bingoFree}</div>;
+                    const free = isBingoFreeCell(state, index);
                     const row = Math.floor(index / cols) + 1, col = (index % cols) + 1;
+                    const placedItems = free ? [] : cell.items.flatMap(id => byId.get(id) ?? []);
+                    if (playing) {
+                      const prompt = free ? C.bingoFree : cell.label;
+                      const content = [prompt, ...placedItems.map(item => item.name)].filter(Boolean).join(', ');
+                      const marked = state.bingo?.marks.includes(index) ?? false;
+                      return <button key={index} type="button" className={`btn-bare ${styles.chartCell} ${styles.bingoPlayCell}`}
+                        aria-label={C.bingoSquare(row, col, content)} aria-pressed={marked}
+                        data-text-only={placedItems.length ? undefined : ''} data-free={free ? '' : undefined}
+                        onClick={() => update(current => toggleBingoMark(current, index))}>
+                        {placedItems.length > 0 && <span className={styles.bingoPlayArt}>
+                          {placedItems.map(item => <ContentImg key={item.id} src={tileImage(item)} alt="" width={64} height={64} />)}
+                        </span>}
+                        {prompt && <span className={styles.bingoPlayLabel}>{prompt}</span>}
+                      </button>;
+                    }
+                    if (free) return <div key={index} className={styles.bingoFree} data-no-drop="">{C.bingoFree}</div>;
                     const color = cellLabelColor(state, index);
-                    const placedItems = cell.items.flatMap(id => byId.get(id) ?? []);
                     const textOnly = bingo && !placedItems.length;
                     const labels = showHeaders ? [state.rowLabels[row - 1], state.columnLabels[col - 1]] : [];
                     if (showLabels) labels.push(cell.label);
@@ -250,8 +282,10 @@ export default function ChartMaker({ catalogue }: { catalogue: TierCatalogue }) 
             <div className={styles.boardActions}>
               <button type="button" className="ghost" onClick={() => setSharing(true)}>{C.share}</button>
               <button type="button" className="ghost" disabled={!canMakeImage} title={canMakeImage ? undefined : C.emptyNothing} onClick={() => setImaging(true)}>{T.makeImage}</button>
-              <button type="button" className="ghost" disabled={!placedCount} title={placedCount ? undefined : C.emptyNothing} onClick={() => update(clearChart)}>{C.empty}</button>
-              <button type="button" className="danger" onClick={() => { if (window.confirm(C.startOverConfirm)) { update(() => defaultChart()); setQuery(''); } }}>{C.startOver}</button>
+              {!playing && <>
+                <button type="button" className="ghost" disabled={!placedCount} title={placedCount ? undefined : C.emptyNothing} onClick={() => update(clearChart)}>{C.empty}</button>
+                <button type="button" className="danger" onClick={() => { if (window.confirm(C.startOverConfirm)) { update(() => defaultChart()); setQuery(''); setBingoMode('edit'); } }}>{C.startOver}</button>
+              </>}
             </div>
             <p className={`hint ${styles.notice}`} role="status">{shared ? C.notSaved : C.saved}</p>
           </>}
@@ -259,12 +293,12 @@ export default function ChartMaker({ catalogue }: { catalogue: TierCatalogue }) 
         </div>
       </section>
 
-      <PoolWindow items={shown} query={query} onQuery={setQuery} detached={detached} onDetached={setDetached} empty={empty} floorKey="chart-maker-pool" hint={C.hint} />
+      {!playing && <PoolWindow items={shown} query={query} onQuery={setQuery} detached={detached} onDetached={setDetached} empty={empty} floorKey="chart-maker-pool" hint={C.hint} />}
 
       <div ref={ghost} className={styles.ghost} hidden aria-hidden="true"><span data-art /><span data-count hidden /></div>
       <div ref={mark} className={styles.mark} hidden aria-hidden="true" />
 
-      {imaging && <ChartShareImage state={state} byId={byId} onClose={() => setImaging(false)} />}
+      {imaging && <ChartShareImage state={state} byId={byId} showBingoMarks={playing} onClose={() => setImaging(false)} />}
       {sharing && (
         <ShareLinkDialog title={C.shareDialog} param={CHART_PARAM} note={T.shareNote} onClose={() => setSharing(false)}
           modes={(state.kind === 'grid' ? ['full', 'template', 'quiz'] as const : ['full', 'template'] as const).map((mode) => ({ id: mode, ...C.shareModes[mode], needsItems: mode !== 'template' && !bingo }))}
