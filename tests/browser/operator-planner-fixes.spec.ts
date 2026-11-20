@@ -91,17 +91,21 @@ for (const theme of ['dark', 'light']) {
     const payload = JSON.parse(html.match(/<script[^>]+id="__NEXT_DATA__"[^>]*>([\s\S]*?)<\/script>/)![1]);
     const fixture = { ...payload.props.pageProps, now: Date.parse('2026-10-30T20:00:00Z'),
       operators: (payload.props.pageProps.operators as RosterOperator[]).map(op => op.name === 'Violet Mizutsune Orchid'
-        ? { ...op, releaseAt: undefined, availableUntil: undefined, releaseEstimate: '2026-11-16', isFuture: true,
+        ? { ...op, releaseAt: undefined, availableUntil: undefined, releaseEstimate: '2026-11-16', releaseTiming: 'cn-estimate', isFuture: true,
           characterInfo: { 'Release Date': '' } } : op) };
     await page.route('**/_next/data/**/operators.json*', route => route.fulfill({ json: { pageProps: fixture, __N_SSG: true } }));
     await page.clock.setFixedTime(new Date('2026-10-30T20:00:00Z'));
     await page.goto('/cookies');
+    await expect.poll(() => page.evaluate(() => (
+      window as unknown as { next?: { router?: { isReady: boolean } } }
+    ).next?.router?.isReady)).toBe(true);
     await page.evaluate(() => (window as unknown as { next: { router: { push: (url: string) => Promise<boolean> } } }).next.router.push('/operators?q=Violet%20Mizutsune%20Orchid'));
+    await expect(page.getByRole('heading', { name: 'Operator roster', exact: true })).toBeVisible();
     await page.evaluate(theme => document.documentElement.setAttribute('data-theme', theme), theme);
     const card = page.locator('.roster-card').filter({ hasText: 'Violet Mizutsune Orchid' });
     await expect(card).toHaveCount(0);
     await page.clock.setFixedTime(new Date('2026-11-10T07:00:00Z'));
-    await expect(card).toContainText('Est. in 6 days');
+    await expect(card).toContainText('CN estimate · in 6 days');
     await expect(card).not.toContainText('Now Available');
     const decline = page.getByRole('button', { name: 'No thanks', exact: true });
     if (await decline.isVisible()) await decline.click();

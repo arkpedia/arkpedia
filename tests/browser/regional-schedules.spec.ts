@@ -56,14 +56,15 @@ test('JP and KR list the same events and banners as Global, in the same order', 
   const global = await names('.events-row-name');
   expect(global.length).toBeGreaterThan(5);
   // A CN-based prediction is among them, and stays one on JP and KR.
-  const predicted = page.locator('.events-row').filter({ hasText: 'Predicted' }).first();
+  const qualifier = 'CN-based estimate';
+  const predicted = page.locator('.events-row').filter({ hasText: qualifier }).first();
   await expect(predicted).toBeVisible();
   const predictedName = (await predicted.locator('.events-row-name').textContent())!;
   for (const server of ['jp', 'kr']) {
     await account(page, server);
     await expect(page.locator('html')).toHaveAttribute('data-site-server', server);
     await expect.poll(() => names('.events-row-name')).toEqual(global);
-    await expect(page.locator('.events-row').filter({ has: page.locator('.events-row-name', { hasText: predictedName }) }).first()).toContainText('Predicted');
+    await expect(page.locator('.events-row').filter({ has: page.locator('.events-row-name', { hasText: predictedName }) }).first()).toContainText(qualifier);
   }
   await page.goto("/gacha-simulator");await account(page, 'en');
   const sidebar = '.gacha-banner-sidebar-item';
