@@ -94,6 +94,18 @@ test('scoped lane executes core/family/census identities and records the full an
   assert.equal(completed.coverage.outcome, 'executed-contracts-satisfied');
 });
 
+test('an oversized targeted plan uses the full parallel suite without dropping cases', () => {
+  const args = input();
+  const story = args.inventory.suites.find(suite => suite.title === 'story-library.spec.ts');
+  const specimen = story.specs[0];
+  story.specs = Array.from({ length: 601 }, (_, index) => ({ ...specimen, title: `story case ${index}` }));
+  const plan = lanePlan(args);
+  assert.equal(plan.coverage.lane, 'full');
+  assert.match(plan.analysisReason, /single-runner budget/);
+  assert.equal(plan.coverage.omitted.length, 0);
+  assert.equal(plan.coverage.completionAudit, 'included');
+});
+
 test('manual/unknown/shared policy and absent baselines retain complete execution', () => {
   for (const args of [{ ...input(), forceFull: true }, { ...input(), baseline: null }, input(['styles/core/shared.css']), input(['scripts/ci/browser-lane.mjs'])]) {
     const plan = lanePlan(args);

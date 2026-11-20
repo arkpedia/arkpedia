@@ -15,6 +15,9 @@ const git = (...args) => execFileSync('git', args, { encoding: 'utf8', maxBuffer
 const api = path => JSON.parse(execFileSync('gh', ['api', path], { encoding: 'utf8', maxBuffer: 16_000_000 }));
 const read = path => { try { return fs.readFileSync(path, 'utf8'); } catch { return null; } };
 const PLAN = '.cache/browser-plan.json', REPORT = '.cache/browser-results.json', EVIDENCE = '.cache/browser-evidence.json';
+// The targeted job uses one runner with a 35-minute limit. A 1,520-case plan
+// timed out before finishing, while the full lane distributes cases across four runners.
+const MAX_SINGLE_RUNNER_CASES = 1200;
 
 /** Content lives outside Git now, but its validated hydrated JSON still supplies
  * real import edges. Missing files and generated executable code remain unknown. */
@@ -91,7 +94,12 @@ export function lanePlan({ metadata, baseline, changes, specs, relevant, depende
   let plan = browserPlan({ changes, specs, relevant, dependencies, baselineVerified: !!baseline, forceFull });
   if (releaseProfile && !forceFull) plan = releaseBrowserPlan(plan, { changes, specs, baselineVerified: !!baseline, dependencies, routes, relevant, readers });
   if (expeditedProfile && baseline && !forceFull && !dependencies?.unreadable?.length) plan = expeditedBrowserPlan(plan, { changes, specs });
-  const coverage = coveragePlan(plan, inventory);
+  let coverage = coveragePlan(plan, inventory);
+  if (coverage.lane === 'targeted' && coverage.selected.length > MAX_SINGLE_RUNNER_CASES) {
+    coverage = coveragePlan({ ...plan, lane: 'full',
+      reason: `The ${coverage.selected.length}-case targeted plan exceeds the single-runner budget; use the full parallel suite`,
+    }, inventory);
+  }
   return { schema: 1, policy: BROWSER_POLICY, ...metadata, baseline, comparisonBase: baseline?.commit ?? null,
     analysisReason: coverage.reason, coverage };
 }
