@@ -1,6 +1,7 @@
 import { serverDayBoundary } from '@/lib/time/servers.mjs';
 import type { ScheduleEvent } from './scheduleTypes';
 import type { EventRow, EventRowView } from './eventRows';
+import { eventReleaseTiming, isReleaseEstimate } from '@/lib/time/releaseTiming';
 
 const DAY = 86_400_000;
 /** A launch occupies one calendar day; the permanent mode has no invented close. */
@@ -24,7 +25,8 @@ export function modeReleaseRow(event: ScheduleEvent): EventRow | null {
   // A forecast is a calendar day, with the same default launch hour as events.
   const start = event.global.startAt ? Date.parse(event.global.startAt) : serverDayBoundary(Date.parse(`${date.replaceAll('/', '-')}T00:00:00Z`), 'en', 'event');
   if (!Number.isFinite(start)) return null;
-  return { name: event.name, poster: event.poster, dateRange: date, isPredicted: /estimated|predicted/i.test(event.global.note ?? ''), start, end: start + DAY, modeId: event.modeId, pullBanner: null, featuredOperators: [] };
+  const releaseTiming = eventReleaseTiming(event.global, !!event.cn.releaseDate);
+  return { name: event.name, poster: event.poster, dateRange: date, releaseTiming, isPredicted: isReleaseEstimate(releaseTiming), start, end: start + DAY, modeId: event.modeId, pullBanner: null, featuredOperators: [] };
 }
 
 /** Add only new permanent-mode identities. Never override a published window. */

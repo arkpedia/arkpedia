@@ -35,6 +35,14 @@ test('a page with the table gets it stripped; a page without passes through', ()
   assert.equal(withLightRegionalTable(plain), plain);
 });
 
+test('a client timestamp keeps its datamined status when the source URL is stripped', () => {
+  const schedules = table();
+  schedules.servers.en!.events!.A.timingSource = 'https://raw.githubusercontent.com/ArknightsAssets/ArknightsGamedata/test/en/gamedata/excel/activity_table.json';
+  const window = stripRegionalTimingSources(schedules).servers.en!.events!.A;
+  assert.equal(window.status, 'datamined');
+  assert.ok(!('timingSource' in window));
+});
+
 test('slicing then stripping keeps only the named rows, on every server', () => {
   const light = stripRegionalTimingSources(regionalScheduleSlice(table(), { events: ['A'], banners: [] }));
   assert.deepEqual(Object.keys(light.servers.jp!.events!), ['A']);

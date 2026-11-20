@@ -8,6 +8,7 @@ import { getAllSkins } from '../skins/skins';
 import { Skin } from '../skins/skinTypes';
 import { getSkinsForEvent } from '../schedule/scheduleSkinMatch';
 import { publishedArt } from '@/lib/art/publishedArt';
+import { eventReleaseTiming, type ReleaseTiming } from '@/lib/time/releaseTiming';
 
 export interface GameEvent extends GameWindowTimes {
   name: string;
@@ -15,6 +16,8 @@ export interface GameEvent extends GameWindowTimes {
   poster: string | null;
   year: number;
   dateRange: string;
+  note?: string | null;
+  releaseTiming?: ReleaseTiming;
   start: Date;
   end: Date;
 }
@@ -24,7 +27,7 @@ interface RawEvent {
   name: string;
   poster: string | null;
   year: number;
-  global?: GameWindowTimes & { dateRange: string | null; note: string | null } | null;
+  global?: GameWindowTimes & { dateRange: string | null; note: string | null; status?: string } | null;
   cn?: { dateRange: string | null; note: string | null } | null;
 }
 
@@ -41,7 +44,8 @@ export function loadGameEvents(): GameEvent[] {
     if (!dateRange) continue;
     const window = parseGameWindow(dateRange, e.global ?? {});
     if (!window) continue;
-    events.push({ name: e.name, poster: publishedArt(e.poster), year: e.year, ...e.global, dateRange, start: window.start, end: window.end });
+    events.push({ name: e.name, poster: publishedArt(e.poster), year: e.year, ...e.global, dateRange, start: window.start, end: window.end,
+      releaseTiming: eventReleaseTiming(e.global ?? {}, !!e.cn?.dateRange) });
   }
   return events;
 }
@@ -158,7 +162,7 @@ export function getOngoingSkins(now: Date, allSkins = getAllSkins(), events = lo
  * it is ongoing, upcoming or over is a question for the moment of reading, never
  * something the content export decides once. */
 export interface GameEventListing extends GameEvent {
-  isPredicted: boolean; // true when there's no confirmed Global date yet -- start/end are estimated from the CN date plus a fixed average localization gap
+  isPredicted: boolean; // True for projected dates. A dated client record has separate provenance.
 }
 
 // Average CN-to-Global localization gap, in days -- used ONLY to
@@ -193,14 +197,17 @@ export function getEventCalendar(): GameEventListing[] {
     if (globalRange) {
       const window = parseGameWindow(globalRange, e.global ?? {});
       if (!window) continue;
+      const releaseTiming = eventReleaseTiming(e.global ?? {}, !!e.cn?.dateRange);
       result.push({
+        ...e.global,
         name: e.name,
         poster: publishedArt(e.poster),
         year: e.year,
         dateRange: globalRange,
         start: window.start,
         end: window.end,
-        isPredicted: /estimated|predicted/i.test(e.global?.note || ''),
+        releaseTiming,
+        isPredicted: releaseTiming === 'cn-estimate' || releaseTiming === 'estimated',
       });
       continue;
     }
@@ -221,6 +228,7 @@ export function getEventCalendar(): GameEventListing[] {
       start: predictedStart,
       end: predictedEnd,
       isPredicted: true,
+      releaseTiming: 'cn-estimate',
     });
   }
 

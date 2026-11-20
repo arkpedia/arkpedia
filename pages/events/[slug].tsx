@@ -8,6 +8,7 @@ import { scheduleModeRelease } from '@/lib/schedule/modeReleases';
 import type { ScheduleEvent } from '@/lib/schedule/scheduleTypes';
 import { permanentEventListing, modeDetails, type ModeDetails } from '@/lib/events/modeDetails';
 import { useRegionalTime } from '@/lib/time/useRegionalTime';
+import { sourcedTiming, timingQualifier, type ReleaseTiming } from '@/lib/time/releaseTiming';
 import { regionalArt, regionalRange, regionalScheduleSlice, type RegionalSchedules } from '@/lib/time/regional';
 import { readShippedTable } from '@/lib/content/shippedTable';
 import { withContentPage } from '@/lib/content/server';
@@ -82,6 +83,8 @@ interface Props {
   artAspect: string;
   dateRange: string;
   isPredicted: boolean;
+  releaseTiming?: ReleaseTiming;
+  sourcedStartAt?: string;
   bannerName: string | null;
   bannerImage: string | null;
   /** The linked banner is out before its lineup is known (lineupSource 'pending'): what it says in
@@ -213,6 +216,8 @@ export default function EventDetailPage({
   artAspect,
   dateRange: globalDateRange,
   isPredicted: globalPredicted,
+  releaseTiming: globalTiming,
+  sourcedStartAt,
   bannerName,
   bannerImage,
   lineupPending,
@@ -233,9 +238,12 @@ export default function EventDetailPage({
   const regionalWindow = schedule?.events?.[name];
   /* The server's own window where it has one, else Global's date or prediction marked
      predicted, as every list has it (lib/time/regional.ts). */
-  const ownWindow = server !== 'en' && regionalWindow ? regionalWindow : null;
-  const dateRange = ownWindow ? regionalRange(ownWindow, server) : globalDateRange;
-  const isPredicted = ownWindow ? false : globalPredicted || (server !== 'en' && !!globalDateRange);
+  const preferPublishedGlobal = server === 'en' && globalTiming === 'confirmed' && sourcedStartAt
+    && regionalWindow && sourcedTiming(regionalWindow) === 'datamined';
+  const ownWindow = preferPublishedGlobal ? null : regionalWindow;
+  const dateRange = ownWindow ? ownWindow.releaseDate ?? regionalRange(ownWindow, server) : globalDateRange;
+  const releaseTiming = ownWindow ? sourcedTiming(ownWindow) : globalPredicted ? globalTiming ?? 'estimated'
+    : server !== 'en' && globalDateRange ? 'global-fallback' : globalTiming ?? 'confirmed';
   /* JP's and KR's own key art, from their in-game boards (regionalArt), else Global's. Read after
      hydration like the dates: both sit in boxes of a fixed shape, so the swap moves nothing. A CG
      set stays: the board's art stands in for the poster only. */
@@ -346,7 +354,7 @@ export default function EventDetailPage({
         back={{ href: '/schedule', label: 'Events' }}
         eyebrow={<><Link prefetch={false} href="/schedule">Events</Link>{activeImage && eventKind ? ` // ${eventKind}` : ''}</>}
         title={activeImage ? displayTitle : name}
-        sub={`${isPredicted ? (mode ? 'Predicted launch: ' : 'Predicted release: ') : (mode ? 'Launch: ' : 'Release: ')}${dateRange}${mode ? ' · Permanent mode' : ''}`}
+        sub={[`${mode ? 'Launch: ' : 'Release: '}${dateRange}`, timingQualifier(releaseTiming), mode ? 'Permanent mode' : null].filter(Boolean).join(' · ')}
       />
 
       <main className="event-detail-layout">
@@ -695,6 +703,8 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/ev
       artAspect,
       dateRange: event.dateRange,
       isPredicted: event.isPredicted,
+      ...(event.releaseTiming ? { releaseTiming: event.releaseTiming } : {}),
+      ...(event.startAt && event.timingSource ? { sourcedStartAt: event.startAt } : {}),
       bannerName: banner?.name || null,
       bannerImage: banner?.banner_image || null,
       lineupPending: banner && isLineupPending(banner) ? lineupPendingNote(banner) : null,

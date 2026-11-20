@@ -1,5 +1,6 @@
 import type { GameEventListing } from '../home/frontPageContent';
 import type { ScheduleEvent } from '../schedule/scheduleTypes';
+import { eventReleaseTiming, isReleaseEstimate } from '@/lib/time/releaseTiming';
 import DETAILS_RECORD from '@/data/mode-details.json';
 export interface ModeDetails {
   title: string; description: string[]; unlock: string; rewards: string; cnLaunch: string; source: string;
@@ -19,5 +20,6 @@ export function permanentEventListing(event: ScheduleEvent): GameEventListing | 
   if (!launch) return null;
   const start = new Date(`${launch.replaceAll('/', '-')}T00:00:00Z`);
   if (!Number.isFinite(+start)) return null;
-  return { name: event.name, poster: event.poster, year: event.year, dateRange: event.global.releaseDate ?? 'Global launch unannounced', start, end: start, isPredicted: !!event.global.note || !event.global.releaseDate };
+  const releaseTiming = event.global.releaseDate ? eventReleaseTiming(event.global, !!event.cn.releaseDate) : 'confirmed';
+  return { ...event.global, name: event.name, poster: event.poster, year: event.year, dateRange: event.global.releaseDate ?? 'Global launch unannounced', start, end: start, releaseTiming, isPredicted: isReleaseEstimate(releaseTiming) };
 }

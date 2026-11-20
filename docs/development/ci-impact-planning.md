@@ -33,7 +33,9 @@ live-content builds, with dependency/config/pin keys; final build artifacts are
 never reused across sources or workflow runs.
 
 Full coverage uses four isolated hosted runners with two browser workers each.
-Targeted coverage uses one runner. A project/file stays together to preserve serial
+Targeted coverage uses one runner. A targeted selection over 1,200 cases uses the
+full, sharded suite so a broad change can complete inside the runner limit.
+A project/file stays together to preserve serial
 suites; the layout census explicitly supports parallel cases and is distributed
 case by case. Selection rules, existing assertions, retries and intentional skips
 are retained. The Schedule archive regression additionally checks that Back restores

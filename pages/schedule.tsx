@@ -2,7 +2,8 @@ import dynamic from 'next/dynamic';
 import { externalGameScheduleEvents } from '@/lib/schedule/externalGameCollabs';
 import { useRegionalTime } from '@/lib/time/useRegionalTime';
 import PageMeta from '@/components/layout/PageMeta';
-import { regionalArt, regionalEvents, regionalBanners, regionalRange, withLightRegionalTable } from '@/lib/time/regional';
+import { regionalEvents, regionalBanners, withLightRegionalTable } from '@/lib/time/regional';
+import { eventReleaseTiming, isReleaseEstimate, timingQualifier } from '@/lib/time/releaseTiming';
 import { useReaderClock } from '@/lib/time/readerClock';
 import { useReleaseTable } from '@/lib/content/context';
 import type { HeadhuntingBanner } from '@/lib/gacha/headhuntingBanners';
@@ -57,6 +58,11 @@ import LoadOnScroll from '@/components/ui/LoadOnScroll';
 import { operatorHref } from '@/lib/operators/operatorHref';
 
 const CollabArtViewer = dynamic(() => import('@/components/skins/SkinZoomOverlay'), { ssr: false });
+
+function scheduleTimingLabel(event: ScheduleEvent | undefined): string | null {
+  if (!event || event.externalGame) return null;
+  return timingQualifier(eventReleaseTiming(event.global, !!(event.cn.dateRange || event.cn.releaseDate)));
+}
 
 interface Props {
   events: ScheduleEvent[];
@@ -120,19 +126,28 @@ export default function SchedulePage({ events: globalEvents, operators: exported
      (lib/time/regional.ts): JP and KR list Global's items in Global's order. Withdrawing after
      would read the estimate mark a JP/KR fallback carries as a passed Global estimate. */
   const events = useMemo(() => regionalEvents(globalEvents.map(event => {
-    const range = event.bannerName && event.global.note ? parseGameWindow(event.global.dateRange, event.global) : null;
+    const range = event.bannerName && isReleaseEstimate(eventReleaseTiming(event.global, !!event.cn.dateRange)) ? parseGameWindow(event.global.dateRange, event.global) : null;
     return range && +range.start <= now ? { ...event, global: { ...event.global, dateRange: null, note: 'Global date unannounced; the previous estimate has passed.' } } : event;
   }), schedule, server), [globalEvents, schedule, server, now]);
   /* Every Global row, in Global's order: the server's window where it has one, else Global's
      date marked predicted. A banner row keeps Global's own mark, since currentEventRows reads a
      predicted banner row whose start has passed as "unannounced", and a JP/KR fallback for a
      banner live on Global is not that. */
-  const regionalRows = useMemo(() => server === 'en' ? calendarRows : calendarRows.map(row => {
-    const time = row.bannerName ? schedule?.banners?.[row.bannerName] : schedule?.events?.[row.name];
-    if (!time) return row.bannerName ? row : { ...row, isPredicted: true };
-    return { ...row, poster: regionalArt(time, row.poster, server), dateRange: row.modeId && time.releaseDate ? time.releaseDate : regionalRange(time, server), isPredicted: false, start: Date.parse(time.startAt), end: Date.parse(time.endAt),
-      pullBanner: 'pullBanner' in row && row.pullBanner ? { ...row.pullBanner, end: Date.parse(schedule?.banners?.[row.pullBanner.name]?.endAt ?? time.endAt) } : null };
-  }), [calendarRows, server, schedule]);
+  const regionalRows = useMemo(() => {
+    const byName = new Map(events.map(event => [event.name, event]));
+    return calendarRows.map(row => {
+      const event = byName.get(row.name);
+      if (!event) return row;
+      const hasCnDate = !!(event.cn.dateRange || event.cn.releaseDate);
+      const releaseTiming = eventReleaseTiming({ ...event.global, releaseTiming: event.global.releaseTiming ?? row.releaseTiming }, hasCnDate, row.isPredicted);
+      const { startAt, endAt, timingSource, status } = event.global;
+      const timingKnown = !isReleaseEstimate(releaseTiming) && !!(event.global.releaseTiming || timingSource || status);
+      if (!timingKnown || !startAt || !endAt) return { ...row, releaseTiming, isPredicted: row.bannerName ? row.isPredicted : isReleaseEstimate(releaseTiming) };
+      return { ...row, poster: event.poster, dateRange: row.modeId ? event.global.releaseDate ?? row.dateRange : event.global.dateRange ?? row.dateRange,
+        releaseTiming, isPredicted: false, start: Date.parse(startAt), end: Date.parse(endAt),
+        pullBanner: 'pullBanner' in row && row.pullBanner ? { ...row.pullBanner, end: Date.parse(schedule?.banners?.[row.pullBanner.name]?.endAt ?? endAt) } : null };
+    });
+  }, [calendarRows, events, schedule]);
   const externalEvents = useMemo(() => externalGameScheduleEvents(), []);
   const colors = useReleaseTable<typeof import('@/data/event_colors.json')>('event_colors');
   const materials = useReleaseTable<typeof import('@/data/event_materials.json')>('event_materials');
@@ -220,7 +235,8 @@ export default function SchedulePage({ events: globalEvents, operators: exported
 
   const eventByName = useMemo(() => new Map([...events, ...externalEvents].map(e => {
     const row = timelineRows.find(row => row.name === e.name);
-    return [e.name, row ? { ...e, global: { ...e.global, dateRange: row.dateRange, ...('start' in row && row.start < 8.64e15 ? { startAt: new Date(row.start).toISOString(), endAt: new Date(row.end).toISOString() } : {}), note: row.isPredicted ? 'Estimated; not officially confirmed' : e.global.note } } : e];
+    return [e.name, row ? { ...e, global: { ...e.global, dateRange: row.dateRange, releaseTiming: row.releaseTiming,
+      ...('start' in row && row.start < 8.64e15 ? { startAt: new Date(row.start).toISOString(), endAt: new Date(row.end).toISOString() } : {}) } } : e];
   })), [events, externalEvents, timelineRows]);
   const skinByName = useMemo(() => new Map(skins.map((s) => [s.name, s])), [skins]);
   const [showNewestOnly, setShowNewestOnly] = useState(false);
@@ -406,8 +422,7 @@ export default function SchedulePage({ events: globalEvents, operators: exported
                     <div className="events-row-info">
                       <span className="events-row-name">{e.name}</span>
                       <span className="events-row-date">
-                        {e.isPredicted ? (e.modeId ? 'Predicted launch: ' : 'Predicted: ') : (e.modeId ? 'Launch: ' : '')}
-                        {e.dateRange}{e.modeId ? ' · Permanent' : ''}
+                        {[`${e.modeId ? 'Launch: ' : ''}${e.dateRange}`, timingQualifier(e.releaseTiming ?? (e.isPredicted ? 'estimated' : 'confirmed')), e.modeId ? 'Permanent' : null].filter(Boolean).join(' · ')}
                       </span>
                       {e.featuredOperators.length > 0 && (
                         <div className="events-row-ops">
@@ -641,7 +656,7 @@ export default function SchedulePage({ events: globalEvents, operators: exported
                             }}
                             onClick={event => openEvent(eventByName.get(bar.key)!, event.currentTarget)}
                           >
-                            {eventByName.get(bar.key)?.externalGame ? '[Collab] ' : ''}{bar.name}{/estimated|predicted/i.test(eventByName.get(bar.key)?.global.note ?? '') ? ' · Estimated' : ''}
+                            {[`${eventByName.get(bar.key)?.externalGame ? '[Collab] ' : ''}${bar.name}`, scheduleTimingLabel(eventByName.get(bar.key))].filter(Boolean).join(' · ')}
                           </button>
                         );
                       })}
@@ -686,7 +701,7 @@ export default function SchedulePage({ events: globalEvents, operators: exported
                       <p>{displayEvent.externalGame.launchOnly ? displayEvent.global.dateRange?.split('–')[0] : displayEvent.global.dateRange}{displayEvent.externalGame.launchOnly ? ' · Release day' : ' · Availability period'}</p>
                       <a href={displayEvent.externalGame.source} target="_blank" rel="noopener noreferrer" className="ghost btn-sm schedule-panel-event-link">Official announcement ↗</a>
                     </> : displayEvent.modeId ? <>
-                      <p className="hint">{displayEvent.global.note ? 'Predicted launch' : `${server.toUpperCase()} launch`}: {displayEvent.global.releaseDate} · Permanent mode</p>
+                      <p className="hint">{[`Launch: ${displayEvent.global.releaseDate}`, scheduleTimingLabel(displayEvent), 'Permanent mode'].filter(Boolean).join(' · ')}</p>
                       {displayEvent.global.note && <p className="hint">{displayEvent.global.note}</p>}
                       <p className="hint">CN launch: {displayEvent.cn.releaseDate}. Available permanently after launch.</p>
                       <Link prefetch={false} href={`/events/${encodeURIComponent(displayEvent.name)}`} className="ghost btn-sm schedule-panel-event-link">Event page</Link>
@@ -695,7 +710,7 @@ export default function SchedulePage({ events: globalEvents, operators: exported
                       <div className="schedule-panel-meta">
                         <div>
                           <p className="hint">{displayEvent.global.dateRange ?? displayEvent.global.note}</p>
-                          {displayEvent.global.dateRange && /estimated|predicted/i.test(displayEvent.global.note ?? '') && <p className="hint">Estimated dates</p>}
+                          {displayEvent.global.dateRange && scheduleTimingLabel(displayEvent) && <p className="hint">{scheduleTimingLabel(displayEvent)}</p>}
                         </div>
                         <Link prefetch={false} href={displayEvent.bannerName ? { pathname: "/gacha-simulator", query: { banner: displayEvent.bannerName } } : `/events/${encodeURIComponent(displayEvent.name)}`} className="ghost btn-sm schedule-panel-event-link">{displayEvent.bannerName ? 'Banner page' : 'Event page'}</Link>
                       </div>
@@ -842,6 +857,7 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/sc
       poster: e.poster,
       dateRange: e.dateRange,
       isPredicted: e.isPredicted,
+      ...(e.releaseTiming ? { releaseTiming: e.releaseTiming } : {}),
       start: e.start.getTime(),
       end: e.end.getTime(),
       pullBanner: banner ? pullBanners[banner.name.toLowerCase()] ?? null : null,
@@ -859,6 +875,7 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/sc
     eventRows.push({
       name: event.name, bannerName: event.bannerName, poster: event.poster, dateRange: event.global.dateRange ?? 'Global date unannounced',
       isPredicted: !!range && !!banner.global_date_estimated, start: range?.start.getTime() ?? Number.MAX_SAFE_INTEGER, end: range?.end.getTime() ?? Number.MAX_SAFE_INTEGER,
+      ...(event.global.releaseTiming ? { releaseTiming: event.global.releaseTiming } : {}),
       pullBanner: pullBanners[banner.name.toLowerCase()] ?? null,
       featuredOperators: listFeaturedOperators(banner),
     });

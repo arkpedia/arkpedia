@@ -6,6 +6,7 @@ import type { ScheduleEvent } from './scheduleTypes';
 import { getOperatorBirthdays } from './scheduleDates';
 import type { RegionalSchedules } from '@/lib/time/regional';
 import { serverCalendarTime } from '@/lib/time/servers.mjs';
+import { eventReleaseTiming, isReleaseEstimate, preferRegionalWindow, sourcedTiming } from '@/lib/time/releaseTiming';
 
 export const CALENDAR_SERVERS = { en: 'Global', jp: 'Japan', kr: 'Korea' } as const;
 export type CalendarServer = keyof typeof CALENDAR_SERVERS;
@@ -53,11 +54,15 @@ export function calendarFeed(data: CalendarData, options: CalendarOptions, updat
     if (seen.has(row.name)) continue;
     seen.add(row.name);
     const event = events.get(row.name);
-    const local = row.bannerName ? regional?.banners?.[row.bannerName] : regional?.events?.[row.name];
-    const predicted = !local && (row.isPredicted || options.server !== 'en');
-    if (predicted && !options.predicted) continue;
-    const fromCN = row.isPredicted && !!(event?.cn.dateRange || event?.cn.releaseDate);
-    const source = fromCN ? 'CN estimate' : options.server !== 'en' ? 'Global fallback' : 'schedule estimate';
+    const regionalWindow = row.bannerName ? regional?.banners?.[row.bannerName] : regional?.events?.[row.name];
+    const local = regionalWindow && preferRegionalWindow(event?.global ?? {}, regionalWindow, options.server) ? regionalWindow : undefined;
+    const cnDate = !!(event?.cn.dateRange || event?.cn.releaseDate);
+    const globalTiming = eventReleaseTiming({ ...event?.global, releaseTiming: event?.global.releaseTiming ?? row.releaseTiming }, cnDate, row.isPredicted);
+    const timing = local ? sourcedTiming(local) : options.server === 'en' || isReleaseEstimate(globalTiming) ? globalTiming : 'global-fallback';
+    const predicted = isReleaseEstimate(timing);
+    if (timing !== 'confirmed' && !options.predicted) continue;
+    const fromCN = timing === 'cn-estimate';
+    const source = fromCN ? 'CN estimate' : timing === 'global-fallback' ? 'Global fallback' : 'schedule estimate';
     // Do not turn a withdrawn date or a missing date into a calendar appointment.
     if (!local && /unannounced|withdrawn/i.test(row.dateRange)) continue;
     const exact = local ?? (options.server === 'en' ? event?.global : undefined);
@@ -70,19 +75,19 @@ export function calendarFeed(data: CalendarData, options: CalendarOptions, updat
     const end = timed?.end ?? (days ? new Date(+dateOf(row.modeId ? days.start : days.end) + DAY) : start && row.modeId ? new Date(+start + DAY) : null);
     if (!start || !end || !Number.isFinite(+start) || !Number.isFinite(+end) || +start >= +end) continue;
     if (predicted && (+end <= now || row.bannerName && +start <= now)) continue;
-    const label = predicted ? `[Predicted] ${row.name} (${source})` : `[Confirmed] ${row.name}`;
+    const label = predicted ? `[Predicted] ${row.name} (${source})` : `[${timing === 'datamined' ? 'Datamined' : 'Confirmed'}] ${row.name}`;
     const url = row.bannerName
       ? `https://www.arkpedia.net/pull-planner?banner=${encodeURIComponent(row.bannerName)}`
       : `https://www.arkpedia.net/events/${encodeURIComponent(row.name)}`;
     const description = [`${serverName} server.`, predicted
       ? `Predicted dates, not confirmed for ${serverName}. ${fromCN ? 'Estimated from the CN schedule.' : source === 'Global fallback' ? 'Uses Global dates until local dates are confirmed.' : 'Uses the current schedule estimate.'} Dates may change.`
-      : `Confirmed ${serverName} dates.`, !timed ? 'All-day dates; exact opening/closing times are not provided in this entry.' : '', url].filter(Boolean).join('\n');
+      : timing === 'datamined' ? `Dates extracted from ${serverName} client data. Dates may change.` : `Confirmed ${serverName} dates.`, !timed ? 'All-day dates; exact opening/closing times are not provided in this entry.' : '', url].filter(Boolean).join('\n');
     lines.push('BEGIN:VEVENT', `UID:${uid(`${options.server}:event:${row.modeId ?? row.bannerName ?? row.name}`)}`,
       `DTSTAMP:${stamp(updated)}`, `LAST-MODIFIED:${stamp(updated)}`, `SEQUENCE:${revision}`,
       timed ? `DTSTART:${stamp(start)}` : `DTSTART;VALUE=DATE:${dayStamp(start)}`,
       timed ? `DTEND:${stamp(end)}` : `DTEND;VALUE=DATE:${dayStamp(end)}`,
       `SUMMARY:${text(label)}`, `DESCRIPTION:${text(description)}`, `URL:${url}`,
-      `STATUS:${predicted ? 'TENTATIVE' : 'CONFIRMED'}`, 'TRANSP:TRANSPARENT', 'END:VEVENT');
+      `STATUS:${timing === 'confirmed' ? 'CONFIRMED' : 'TENTATIVE'}`, 'TRANSP:TRANSPARENT', 'END:VEVENT');
   }
   if (options.collabs !== false) for (const collab of EXTERNAL_GAME_COLLABS) {
     const start = new Date(collab.start + 'T00:00:00Z');

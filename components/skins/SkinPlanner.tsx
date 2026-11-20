@@ -8,7 +8,14 @@ import { useAccount, type OwnedFilter as Owned } from '@/lib/account/accountStor
 import { ContentImg } from '@/components/content/ContentImage';
 import { skinPurchasePlan, type PlannedSkin } from '@/lib/pulls/skins';
 import type { SkinCollection } from '@/lib/pulls/skinCollections';
+import { sourcedTiming, timingQualifier } from '@/lib/time/releaseTiming';
 import { openSkinCollections } from '@/lib/pulls/currentPlan';
+
+function collectionTimingLabel(collection: SkinCollection): string {
+  const label = timingQualifier(collection.estimated ? collection.sourceRegion === 'cn' ? 'cn-estimate' : 'estimated'
+    : sourcedTiming({ timingSource: collection.source }));
+  return label ? ` · ${label}` : '';
+}
 
 /*
  * The skin plan, by the event shops that sell each outfit (lib/pulls/skinCollections): every
@@ -172,7 +179,7 @@ export default function SkinPlanner({ catalogue, collections, today, now, ids, o
                 return <section key={shop.id} className="skin-plan-shop" aria-label={shopName(shop.name)}>
                   <div className="skin-plan-shop-head">
                     <h4>{shopName(shop.name).split(' · ').slice(1).join(' · ') || 'Outfits'}</h4>
-                    <span className="hint">{shop.start} – {shop.end}{today ? ` · ${shopCountdown(shop, today)}` : ''}{shop.estimated ? (shop.sourceRegion === 'cn' ? ' · CN-based estimate' : ' · Estimated') : ''}
+                    <span className="hint">{shop.start} – {shop.end}{today ? ` · ${shopCountdown(shop, today)}` : ''}{collectionTimingLabel(shop)}
                       {inPlan.length ? ` · ${inPlan.length} planned, ${inPlan.reduce((sum, id) => sum + byId.get(id)!.op, 0)} OP` : ''}</span>
                   </div>
                   <div className="skin-plan-grid">{sorted.slice(0, limit).map(card)}</div>
@@ -218,7 +225,7 @@ export default function SkinPlanner({ catalogue, collections, today, now, ids, o
               return (
                 <div key={window.collection.id}>
                   <b>{shopName(window.collection.name)}</b>
-                  <span>{window.end}{window.collection.estimated ? ' · Estimated' : ''} · {window.cost} OP</span>
+                  <span>{window.end}{collectionTimingLabel(window.collection)} · {window.cost} OP</span>
                   {balance != null && <strong className={balance < 0 ? 'pulls-plan-warning' : 'pulls-plan-funded'}>{balance < 0 ? `${-balance} OP short` : 'Covered by projected OP'}</strong>}
                 </div>
               );

@@ -24,8 +24,12 @@ test("JP and KR use their own windows and one exclusive close, else Global's dat
     const [fallback] = regionalBanners([banner], undefined, server);
     assert.deepEqual(fallback, { ...banner, global_date_estimated: true }, "Global's banner on Global's dates, marked estimated");
     assert.equal(parseBannerWindow(fallback)?.end.toISOString(), banner.global_window!.endAt);
-    assert.deepEqual(regionalEvents([event], undefined, server)[0].global, { dateRange: event.global.dateRange, note: `Estimated from Global's dates; ${server.toUpperCase()} schedule not announced` });
-    assert.equal(regionalEvents([event], schedule, server)[0].global.shopEndAt, '2026-11-03T19:00:00.000Z');
+    assert.deepEqual(regionalEvents([event], undefined, server)[0].global, {
+      dateRange: event.global.dateRange, note: `Estimated from Global's dates; ${server.toUpperCase()} schedule not announced`, releaseTiming: 'global-fallback',
+    });
+    const local = regionalEvents([event], schedule, server)[0].global;
+    assert.equal(local.releaseTiming, 'confirmed');
+    assert.equal(local.shopEndAt, '2026-11-03T19:00:00.000Z');
   }
   assert.deepEqual(regionalBanners([banner], undefined, 'en'), [banner]);
 });

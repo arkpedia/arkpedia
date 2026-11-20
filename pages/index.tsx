@@ -147,7 +147,7 @@ export default function HomePage({
         {/* The hero panels share one row so their bottoms meet. Below them the
             columns stack independently; current farming stays outside the carousel. */}
         <div className="front-hero-row">
-          <EventsPanel ongoing={deserializedEvents} upcoming={deserializedUpcoming} now={now} />
+          <EventsPanel ongoing={deserializedEvents} upcoming={deserializedUpcoming} now={now} server={server} regionalEvents={schedule?.events} />
           <GachaBannersPanel banners={deserializedBanners} activeIndex={activeBannerIndex} onSelect={setActiveBannerIndex} now={now} />
         </div>
         <div className="front-page-left">
@@ -173,9 +173,10 @@ async function finalizeHome(props: Props, context: GetStaticPropsContext): Promi
   const { __calendar, ...rest } = props;
   if (!Number.isFinite(props.now)) throw new Error('/ needs the request clock: it is in CLOCK_UNITS (lib/content/pageClock.ts), and finalize never runs for an export');
   const now = new Date(props.now);
+  const regional = (props as Props & { __contentTables?: { 'regional-schedules'?: import('@/lib/time/regional').RegionalSchedules } }).__contentTables?.['regional-schedules'];
   // Older releases serialized an assumed reset hour. Reparse date-only records
   // with the shared rules; new releases also carry the exact startAt/endAt.
-  const events = __calendar?.events.flatMap(event => {
+  const events = __calendar && regionalGameEvents(__calendar.events, regional?.servers.en, 'en').flatMap(event => {
     const window = parseGameWindow(event.dateRange, event);
     return window ? [{ ...event, ...window }] : [];
   });
@@ -189,7 +190,6 @@ async function finalizeHome(props: Props, context: GetStaticPropsContext): Promi
     const end = event.endTime ? new Date(event.endTime) : new Date(new Date(event.startTime).getTime() + 86400000);
     return end.getTime() >= now.getTime();
   }).sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime())[0] || null;
-  const regional = (props as Props & { __contentTables?: { 'regional-schedules'?: import('@/lib/time/regional').RegionalSchedules } }).__contentTables?.['regional-schedules'];
   // JP and KR read these same panels with their own dates (HomePage), so no other calendar ships.
   const ongoingEvents = getOngoingEvents(now, events).map(serialize);
   const upcomingEvent = upcoming ? serialize(upcoming) : null;

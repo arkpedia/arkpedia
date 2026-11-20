@@ -34,6 +34,12 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    at: '2026-11-20T08:05:00Z',
+    title: 'Event start times and clearer release dates',
+    added: [{ title: 'Shareable event start times', detail: 'Open the clock on an upcoming homepage banner to see local start times and save a 12-hour or 24-hour image.', href: '/' }],
+    fixed: [{ title: 'Clearer timing labels', detail: 'The schedule, releases and planners distinguish confirmed dates, client datamines and CN-based estimates.', href: '/schedule?view=calendar' }],
+  },
+  {
     at: '2026-11-19T16:30:00Z',
     title: 'Tier lists, charts and banner artwork',
     added: [

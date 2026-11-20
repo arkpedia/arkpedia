@@ -10,6 +10,14 @@
  * scripts/tests/test-pulls-format.ts fails when pages/pull-planner.tsx or a file under
  * components/pulls or lib/pulls formats a number or date anywhere but here. */
 
+import { timingQualifier } from '@/lib/time/releaseTiming';
+import type { UpcomingBanner } from './pulls';
+
+export function pullTimingLabel(banner: UpcomingBanner | null | undefined, includeConfirmed = false): string | null {
+  if (!banner) return null;
+  return timingQualifier(banner.releaseTiming ?? (banner.datesEstimated ? 'estimated' : 'confirmed')) ?? (includeConfirmed ? 'Confirmed' : null);
+}
+
 const NUMBER_LOCALE = 'en-US';
 // Matches the date style of the rest of the site (/skins, the event lists).
 const DATE_LOCALE = 'en-GB';

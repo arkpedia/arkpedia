@@ -16,11 +16,12 @@ export default function CalendarSubscription({ server, birthdays, collabs = true
       <p>Keep the <strong>{serverName}</strong> event schedule in your calendar, with automatic date updates.</p>
       <div className="calendar-subscription-options">
         <label className="check"><input type="checkbox" checked={includeCollabs} onChange={event => { setIncludeCollabs(event.currentTarget.checked); setCopied(''); }} />Include collaborations in other games</label>
-        <label className="check"><input type="checkbox" checked={includePredicted} onChange={event => { setIncludePredicted(event.target.checked); setCopied(''); }} />Include predicted dates</label>
+        <label className="check"><input type="checkbox" checked={includePredicted} onChange={event => { setIncludePredicted(event.target.checked); setCopied(''); }} />Include predicted dates and datamines</label>
         <label className="check"><input type="checkbox" checked={includeBirthdays} onChange={event => { setIncludeBirthdays(event.target.checked); setCopied(''); }} />Include operator birthdays</label>
       </div>
       <div className="calendar-subscription-legend support-copy">
         <p><strong>[Confirmed]</strong><span>Official dates for {serverName}.</span></p>
+        <p><strong>[Datamined]</strong><span>Dates from {serverName} client data.</span></p>
         <p><strong>[Predicted]</strong><span>CN estimates; dates may change.</span></p>
         {server !== 'en' && <p><strong>[Predicted]</strong><span>Global fallback; awaiting local confirmation.</span></p>}
       </div>

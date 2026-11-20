@@ -4,6 +4,7 @@ import { freeRewardTotals, type FreeReward } from './freeRewards';
 import { getAnnihilationNextEnd, getNextDailyReset } from '@/lib/schedule/opsSchedules';
 import { wishingWallOrundum, type WishingWallMode } from './wishingWall';
 import type { StageKind } from './stageKinds';
+import type { ReleaseTiming } from '@/lib/time/releaseTiming';
 
 /**
  * How many pulls a player can have by a given date.
@@ -340,6 +341,7 @@ export interface UpcomingBanner {
   aliases?: string[];
   /** The linked event still uses a predicted Global window in the schedule. */
   datesEstimated?: boolean;
+  releaseTiming?: ReleaseTiming;
   globalLineupPending?: boolean;
   category: string;
   /** Calendar labels; exact source instants take precedence for availability. */

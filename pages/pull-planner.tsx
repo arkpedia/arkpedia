@@ -23,7 +23,7 @@ import { PULL_PLAN_EVENT } from '@/lib/polls/pull-poll-sync';
 import { currentPullPlan } from '@/lib/pulls/currentPlan';
 import { withContentPage } from '@/lib/content/server';
 import { ContentImg } from '@/components/content/ContentImage';
-import { formatDayMonth, formatDayMonthYear, formatNumber, formatOneDecimal } from '@/lib/pulls/format';
+import { formatDayMonth, formatDayMonthYear, formatNumber, formatOneDecimal, pullTimingLabel } from '@/lib/pulls/format';
 import { pullSkinCollections, skinReleaseDates, type SkinCollection } from '@/lib/pulls/skinCollections';
 import { getBannerOdds } from '@/lib/pulls/bannerOdds';
 import type { BannerOdds } from '@/lib/pulls/probability';
@@ -553,7 +553,7 @@ export default function PullsPage({ scheduledEvents: globalEvents, scheduledBann
             <div className="pulls-day-options" role="group" aria-label="Forecast day">{(['start', 'end'] as const).map(day => <button type="button" key={day} className="filter-chip" disabled={!picked} aria-pressed={!!picked && until === picked[day]} onClick={() => picked && setUntil(picked[day])}>{day === 'start' ? 'First day' : 'Last day'}</button>)}</div>
           </div>
           {picked && <div className="pulls-target-preview">{/* eslint-disable-next-line @next/next/no-img-element */}
-            {picked.image ? <ContentImg src={picked.image} alt="" /> : <span className="pulls-target-preview-art" aria-hidden="true" />}<span><b>{picked.sixStars.join(' · ') || picked.name}</b><small>{picked.start} – {picked.end}{picked.datesEstimated ? ' · [Predicted]' : ' · Confirmed'}{until === picked.end ? ' · through banner close' : ''}</small></span></div>}
+            {picked.image ? <ContentImg src={picked.image} alt="" /> : <span className="pulls-target-preview-art" aria-hidden="true" />}<span><b>{picked.sixStars.join(' · ') || picked.name}</b><small>{[`${picked.start} – ${picked.end}`, pullTimingLabel(picked, true), until === picked.end && 'through banner close'].filter(Boolean).join(' · ')}</small></span></div>}
           {/* The condensed report (the maintainer, 2026-10-02): every source on one line, with
               its working and what it is worth in pulls, then the two figures the forecast
               adds. Off sources stay listed, muted, so the list reads the same every time. */}

@@ -5,7 +5,7 @@ import { unconfirmedOutfitSales } from '../content/outfit-windows.mjs';
 // @ts-expect-error Node publication scripts are plain JavaScript.
 import { reviewCompleteness } from '../content/check-completeness.mjs';
 import { emptyCatalogue } from './fixtures/catalogue';
-import { availableSkins, type SkinWindow } from '../../lib/skins/skinAvailability';
+import { availableSkins, dataminedSkinDebut, skinWindowTiming, type SkinCountdown, type SkinWindow } from '../../lib/skins/skinAvailability';
 import fs from 'node:fs';
 
 /* Duel Channel: Ivy Vine as it stood on 25 September 2026: the event's announced window,
@@ -27,6 +27,16 @@ const ivyVine = ['Saria / Unstained Unshaken', 'Lemuen / Requiem Vesperis', 'Nec
 const confirmed = { event: 'Duel Channel: Ivy Vine', kind: 'shop', label: 'New outfits', startAt: '2026-09-23T16:00:00Z',
   endAt: '2026-10-21T11:00:00Z', source: 'https://www.arknights.global/news/4683', skinIds: ivyVine, newRelease: true };
 const now = new Date('2026-09-25T12:00:00Z');
+
+test('a future client debut remains distinct from the published shop window', () => {
+  const now = Date.parse('2026-09-22T14:00:00Z');
+  const shop: SkinCountdown = { ...confirmed, kind: 'shop', live: false };
+  assert.equal(dataminedSkinDebut(skins[0], { ...shop, estimated: true, releaseTiming: 'cn-estimate' }, now),
+    new Date(skins[0].globalReleaseAt * 1000).toISOString());
+  assert.equal(dataminedSkinDebut(skins[0], shop, now), null);
+  assert.equal(skinWindowTiming(shop), 'confirmed');
+  assert.equal(skinWindowTiming({ ...shop, estimated: true, releaseTiming: 'cn-estimate' }), 'cn-estimate');
+});
 const unconfirmed = (over: object = {}) => unconfirmedOutfitSales({ skins, events: [event], windows: [], now, ...over })
   .map(({ key }: { key: string }) => key);
 

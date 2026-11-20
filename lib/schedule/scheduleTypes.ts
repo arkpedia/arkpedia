@@ -1,9 +1,13 @@
+import type { ReleaseTiming } from '@/lib/time/releaseTiming';
+
 export interface ServerDateInfo {
   /** Launch date for a permanent mode, without an end date. */
   releaseDate?: string;
   startAt?: string;
   endAt?: string;
   timingSource?: string;
+  status?: string;
+  releaseTiming?: ReleaseTiming;
   /** The event store's close where it outlasts the stages (GameWindowTimes.shopEndAt). */
   shopEndAt?: string;
   dateRange: string | null; // e.g. "2026/01/16–2026/02/06"
