@@ -40,7 +40,8 @@
 .sampleTier { display:grid; gap:4px; }
 .sampleTierRow { display:grid; grid-template-columns:minmax(38px,72px) repeat(5,minmax(0,1fr)); justify-items:center; gap:4px; padding:3px; background:var(--well); border-radius:var(--radius); }
 .sampleTierRow b { display:grid; place-items:center; justify-self:stretch; background:var(--sample-row-color); color:#14181c; border-radius:var(--radius); }
-.sampleTierRow b, .sampleGrid b, .sampleAxes b { font-family:var(--font-display); font-size:13px; font-weight:700; line-height:1.1; text-align:center; }
+.sampleTier, .sampleGrid, .sampleAxes { text-align:center; }
+.sampleTierRow b, .sampleGrid b, .sampleAxes b { font-family:var(--font-display); font-size:13px; font-weight:700; line-height:1.1; }
 .sampleGrid { display:grid; grid-template-columns:minmax(45px,72px) repeat(3,minmax(0,1fr)); align-items:stretch; gap:4px; }
 .sampleGrid b { display:grid; place-items:center; padding:3px; }
 .sampleCell { display:grid; place-items:center; padding:2px; background:var(--well); border-radius:var(--radius); }
