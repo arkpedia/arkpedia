@@ -19,7 +19,7 @@ export async function cachedCommunityRankings(db:D1Database,server:string,stage:
   // Four bounded region cohorts use the shared cache. Individual-stage reads
   // are small and do not create an unbounded set of persistent objects.
   if(bucket&&!stage)return sharedRankingResult(bucket,encodeURIComponent(key),stamp,async()=>{
-    const result=await communityRankings(db,server,stage);
+    const result=await communityRankings(db,server,stage,{paceBulkReads:options.forceRefresh});
     if(await rankingConsentStamp(db)!==stamp)throw Error('Community statistics consent changed during refresh.');
     return {...result,source:'daily-snapshot',capturedAt:new Date().toISOString()};
   },options);
