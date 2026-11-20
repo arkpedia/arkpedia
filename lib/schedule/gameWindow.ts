@@ -64,10 +64,6 @@ export function eventShopEnd(event: { end: Date; shopEndAt?: string }): Date | n
   return Number.isFinite(at) && at > event.end.getTime() ? new Date(at) : null;
 }
 
-export function eventHasStore(name: string, hasShopWindow: boolean): boolean {
-  return hasShopWindow || /\[(Side Story|Story Collection|Intermezzo|Rerun)/i.test(name);
-}
-
 export function windowCountdown(start: Date, end: Date, now: Date): { label: 'Starts in' | 'Ends in' | 'Ended'; remaining: number } {
   if (now < start) return { label: 'Starts in', remaining: start.getTime() - now.getTime() };
   if (now < end) return { label: 'Ends in', remaining: end.getTime() - now.getTime() };
