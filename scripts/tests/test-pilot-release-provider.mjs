@@ -265,25 +265,28 @@ test('account release verifies anonymous auth, private saves, public community a
 });
 
 
-test('activation accepts delayed control-plane propagation only from the exact previous version', async () => {
-  const h = harness({ staleAfterDeploy: 2 });
+test('activation can take over 30 seconds while the deployment list still shows the exact previous version', async () => {
+  const h = harness({ staleAfterDeploy: 12 });
   const published = await h.provider.deploy(owner);
   assert.equal(published.id, nextVersion);
-  assert.deepEqual(h.waits, [5000, 5000]);
+  assert.deepEqual(h.waits, Array(12).fill(5000));
   assert.equal(h.commands.filter(c => c === 'deploy').length, 1);
   assert.equal(h.commands.filter(c => c === 'rollback').length, 0);
 });
 
 test('a control plane that never shows activation fails after a bounded wait without another upload', async () => {
   const h = harness({ staleAfterDeploy: 100 });
-  await assert.rejects(() => h.provider.deploy(owner), /deployed pilot version\/owner differs/);
-  assert.equal(h.waits.length, 6);
+  await assert.rejects(() => h.provider.deploy(owner), {
+    code: 'PILOT_ACTIVATION_UNCONFIRMED',
+    message: `Cloudflare activation verification timed out for ${nextVersion}; still observing ${PILOT.legacyVersion}`,
+  });
+  assert.deepEqual(h.waits, Array(24).fill(5000));
   assert.equal(h.commands.filter(c => c === 'deploy').length, 1);
 });
 
 test('a foreign activation is refused immediately instead of being retried as propagation', async () => {
   const h = harness({ foreignAfterDeploy: true });
-  await assert.rejects(() => h.provider.deploy(owner), /deployed pilot version\/owner differs/);
+  await assert.rejects(() => h.provider.deploy(owner), /unexpected deployed pilot version/);
   assert.equal(h.waits.length, 0);
   assert.equal(h.commands.filter(c => c === 'deploy').length, 1);
   await assert.rejects(() => h.provider.recover(owner), /another owner/);

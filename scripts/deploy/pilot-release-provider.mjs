@@ -44,6 +44,8 @@ const UUID = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/;
 const SHA = /^[a-f0-9]{40}$/;
 const HASH = /^[a-f0-9]{64}$/;
 const PREFIX = 'arkpedia-main-release-v1:';
+const ACTIVATION_POLL_MS = 5_000;
+const ACTIVATION_RETRIES = 24;
 const requireValue = (value, message) => { if (!value) throw new Error(`Pilot provider refused: ${message}`); };
 const config = fileURLToPath(new URL('../../wrangler.jsonc', import.meta.url));
 const wrangler = fileURLToPath(new URL('../../node_modules/wrangler/bin/wrangler.js', import.meta.url));
@@ -212,17 +214,22 @@ export function createPilotProvider({ run = execFileSync, request = fetch, envir
     const output = invoke(['deploy', '--tag', `main-${owner.source.slice(0, 12)}`, '--message', message], { timeout: 300_000 });
     const ids = [...output.matchAll(/^Current Version ID: ([a-f0-9-]+)\s*$/gm)].map(match => match[1]);
     requireValue(ids.length === 1 && UUID.test(ids[0]), 'deploy returned no unique provider version');
-    // Cloudflare can acknowledge activation while deployments.list still returns
-    // the previous version. Wait only on that exact baseline; a foreign version
-    // or mismatched owner still fails immediately, without another upload.
+    const [expectedVersion] = ids;
+    // Only the exact baseline can be a stale deployment-list response. A foreign
+    // version or mismatched owner still fails immediately, without another upload.
     for (let attempt = 0; ; attempt++) {
       const actual = observe();
-      if (actual.id === ids[0]) {
+      if (actual.id === expectedVersion) {
         requireValue(actual.annotations?.['workers/message'] === message, 'deployed pilot version/owner differs');
         return actual;
       }
-      requireValue(actual.id === owner.previousVersion && attempt < 6, 'deployed pilot version/owner differs');
-      await sleep(5_000);
+      requireValue(actual.id === owner.previousVersion, `unexpected deployed pilot version ${actual.id}; expected ${expectedVersion}`);
+      if (attempt === ACTIVATION_RETRIES) {
+        throw Object.assign(new Error(`Cloudflare activation verification timed out for ${expectedVersion}; still observing ${actual.id}`), {
+          code: 'PILOT_ACTIVATION_UNCONFIRMED',
+        });
+      }
+      await sleep(ACTIVATION_POLL_MS);
     }
   };
   // Recover even when upload succeeded but the deploy response was lost. Read raw

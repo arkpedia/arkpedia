@@ -81,6 +81,15 @@ test('upload uncertainty is reconciled through the provider instead of blindly r
   await assert.rejects(() => publish(f), error => error.message === 'response lost' && error.recovery.action === 'rolled-back');
   assert.equal(f.calls.filter(c => c === 'recover').length, 1);
 });
+test('an acknowledged activation that cannot be verified requires reconciliation without automatic rollback', async () => {
+  const f = fixture();
+  f.provider.deploy = () => {
+    throw Object.assign(new Error('activation verification timed out'), { code: 'PILOT_ACTIVATION_UNCONFIRMED' });
+  };
+  await assert.rejects(() => publish(f), error => error.code === 'PILOT_ACTIVATION_UNCONFIRMED'
+    && error.recovery.action === 'manual-reconciliation-required');
+  assert.ok(!f.calls.includes('recover'));
+});
 test('a foreign post-activation owner requires reconciliation and remains a failed release', async () => {
   const f = fixture(); let observes = 0;
   f.provider.observe = () => ({ id: ++observes === 1 ? 'previous' : 'foreign' });
