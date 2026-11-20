@@ -55,16 +55,17 @@ export function broadcastStartCard(broadcast: OfficialBroadcast): EventStartCard
 // Each location keeps its own IANA zone. Places share a row only when their
 // clocks agree on the event's date, including during DST transitions.
 const PLACES = [
-  ['Hawaii', 'Pacific/Honolulu'],
-  ['California & Washington', 'America/Los_Angeles'],
-  ['Arizona (Phoenix)', 'America/Phoenix'],
-  ['Mexico City', 'America/Mexico_City'],
+  ['Hawaii, USA', 'Pacific/Honolulu'],
+  ['California & Washington, USA', 'America/Los_Angeles'],
+  ['Phoenix, USA', 'America/Phoenix'],
+  ['Mexico City, Mexico', 'America/Mexico_City'],
   ['Central US', 'America/Chicago'],
-  ['Colombia', 'America/Bogota'], ['Peru', 'America/Lima'], ['Quito', 'America/Guayaquil'],
-  ['Toronto', 'America/Toronto'], ['New York', 'America/New_York'], ['Venezuela', 'America/Caracas'],
-  ['Santiago', 'America/Santiago'], ['São Paulo', 'America/Sao_Paulo'],
-  ['Argentina', 'America/Argentina/Buenos_Aires'], ['Uruguay', 'America/Montevideo'],
+  ['Colombia', 'America/Bogota'], ['Peru', 'America/Lima'], ['Quito, Ecuador', 'America/Guayaquil'],
+  ['Toronto, Canada', 'America/Toronto'], ['New York, USA', 'America/New_York'], ['Venezuela', 'America/Caracas'],
+  ['Santiago, Chile', 'America/Santiago'], ['São Paulo, Brazil', 'America/Sao_Paulo'],
+  ['Argentina', 'America/Argentina/Buenos_Aires'], ['Paraguay', 'America/Asuncion'], ['Uruguay', 'America/Montevideo'],
   ['UK', 'Europe/London'], ['Ireland', 'Europe/Dublin'], ['Portugal & Madeira', 'Europe/Lisbon'],
+  ['Morocco', 'Africa/Casablanca'],
   ['Germany', 'Europe/Berlin'], ['Austria', 'Europe/Vienna'], ['France', 'Europe/Paris'],
   ['Netherlands', 'Europe/Amsterdam'], ['Sweden', 'Europe/Stockholm'], ['Hungary', 'Europe/Budapest'],
   ['Italy', 'Europe/Rome'], ['Mainland Spain', 'Europe/Madrid'], ['Norway', 'Europe/Oslo'],
@@ -73,14 +74,20 @@ const PLACES = [
   ['Ukraine', 'Europe/Kyiv'], ['Romania', 'Europe/Bucharest'], ['Finland', 'Europe/Helsinki'],
   ['Greece', 'Europe/Athens'], ['Bulgaria', 'Europe/Sofia'], ['Egypt', 'Africa/Cairo'],
   ['Jordan', 'Asia/Amman'], ['Saudi Arabia', 'Asia/Riyadh'], ['Türkiye', 'Europe/Istanbul'],
-  ['Moscow', 'Europe/Moscow'], ['Uzbekistan', 'Asia/Tashkent'], ['Maldives', 'Indian/Maldives'],
+  ['Belarus', 'Europe/Minsk'], ['Moscow, Russia', 'Europe/Moscow'],
+  ['Kazakhstan', 'Asia/Almaty'], ['Uzbekistan', 'Asia/Tashkent'], ['Maldives', 'Indian/Maldives'],
   ['India', 'Asia/Kolkata'], ['Vietnam', 'Asia/Ho_Chi_Minh'], ['Thailand', 'Asia/Bangkok'],
-  ['Laos', 'Asia/Vientiane'], ['Jakarta', 'Asia/Jakarta'], ['Singapore', 'Asia/Singapore'],
-  ['Malaysia', 'Asia/Kuala_Lumpur'], ['Philippines', 'Asia/Manila'], ['Beijing', 'Asia/Shanghai'],
-  ['Perth', 'Australia/Perth'], ['South Korea', 'Asia/Seoul'], ['Japan', 'Asia/Tokyo'],
-  ['Adelaide', 'Australia/Adelaide'], ['Brisbane', 'Australia/Brisbane'], ['Sydney', 'Australia/Sydney'],
-  ['Wellington', 'Pacific/Auckland'],
+  ['Laos', 'Asia/Vientiane'], ['Jakarta, Indonesia (WIB)', 'Asia/Jakarta'], ['Singapore', 'Asia/Singapore'],
+  ['Malaysia', 'Asia/Kuala_Lumpur'], ['Philippines', 'Asia/Manila'], ['Beijing, China', 'Asia/Shanghai'],
+  ['Perth, Australia', 'Australia/Perth'], ['Makassar, Indonesia (WITA)', 'Asia/Makassar'],
+  ['South Korea', 'Asia/Seoul'], ['Japan', 'Asia/Tokyo'], ['Jayapura, Indonesia (WIT)', 'Asia/Jayapura'],
+  ['Adelaide, Australia', 'Australia/Adelaide'], ['Brisbane, Australia', 'Australia/Brisbane'],
+  ['Sydney, Australia', 'Australia/Sydney'], ['Wellington, New Zealand', 'Pacific/Auckland'],
 ] as const;
+
+// Morocco restored GMT at 02:00 local time. Browsers with older timezone data
+// may still apply the repealed GMT+1 schedule. https://www.cg.gov.ma/en/node/13036
+const MOROCCO_GMT_RESTORATION = Date.UTC(2026, 8, 20, 1);
 
 export interface EventStartRow { key: string; time: string; date: string; places: string[] }
 
@@ -103,7 +110,8 @@ export function startCardCaption({ schedule, timing, instant }: EventStartCard, 
 
 export function eventStartRows(instant: number, format: ClockFormat): EventStartRow[] {
   const rows = new Map<string, EventStartRow>();
-  for (const [place, timeZone] of PLACES) {
+  for (const [place, zone] of PLACES) {
+    const timeZone = zone === 'Africa/Casablanca' && instant >= MOROCCO_GMT_RESTORATION ? 'UTC' : zone;
     const parts = new Intl.DateTimeFormat('en-GB', {
       timeZone, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
     }).formatToParts(instant);
