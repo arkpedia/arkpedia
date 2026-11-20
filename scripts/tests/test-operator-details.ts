@@ -19,7 +19,7 @@ import { getFactionIconPath } from '../../lib/operators/classBranchIcons';
 import { getAllOperators } from '../../lib/operators/operators';
 import { traitPhases } from '../../lib/operators/operatorTrait';
 import { buildGachaOperatorPreview, operatorPreviewSource } from '../../lib/gacha/operatorPreviewData';
-import { compareRosterValue, nextRosterBirthday, rosterBio, rosterBirthdayLabel, rosterStats, rosterStatValue } from '../../lib/operators/rosterSort';
+import { compareRosterValue, effectiveRosterStat, nextRosterBirthday, rosterBio, rosterBirthdayLabel, rosterMetadata, rosterStats, rosterStatValue } from '../../lib/operators/rosterSort';
 import { DAY_MS, serverCalendarTime } from '../../lib/time/servers.mjs';
 
 test('roster birthdays follow the server day and wrap to the next occurrence', () => {
@@ -45,6 +45,35 @@ test('roster stats use the final phase base values and keep missing stats last',
   assert.equal(rosterStatValue({ ...operator, stats: null }, 'hp'), undefined);
   assert.equal(compareRosterValue(undefined, 0, true), 1);
   assert.equal(compareRosterValue(undefined, 0, false), 1);
+});
+
+test('roster block combines one self skill with one standard module and skips summon effects', () => {
+  const roster = (name: string) => {
+    const operator = getAllOperators().find(op => op.name === name)!;
+    return { ...operator, ...rosterMetadata(operator) };
+  };
+  const nian = roster('Nian');
+  assert.equal(rosterStatValue(nian, 'block'), 3);
+  assert.equal(effectiveRosterStat(nian, 'block'), 5);
+  assert.deepEqual(nian.combatBonuses?.block, { skill: 1, module: 1 });
+  assert.deepEqual(roster('Gavial the Invincible').combatBonuses?.block, { skill: 2 });
+  assert.equal(roster('Tecno').combatBonuses?.block, undefined);
+  assert.equal(effectiveRosterStat(nian, 'def'), rosterStatValue(nian, 'def'));
+});
+
+test('roster redeploy uses repeatable self reductions and applies talent upgrades only once', () => {
+  const roster = (name: string) => {
+    const operator = getAllOperators().find(op => op.name === name)!;
+    return { ...operator, ...rosterMetadata(operator) };
+  };
+  assert.equal(effectiveRosterStat(roster('Yato'), 'redeploy'), 40);
+  const april = roster('April');
+  assert.equal(rosterStatValue(april, 'redeploy'), 70);
+  assert.deepEqual(april.combatBonuses?.redeploy, { talent: -20, module: -8 });
+  assert.equal(effectiveRosterStat(april, 'redeploy'), 42);
+  assert.equal(effectiveRosterStat(roster('Pozëmka'), 'redeploy'), 45);
+  assert.equal(roster('Phantom').combatBonuses?.redeploy, undefined);
+  assert.equal(roster('Kirin R Yato').combatBonuses?.redeploy, undefined);
 });
 
 test('account preview uses Nian E2 level 70, all M3 skills and both stage-three modules', () => {

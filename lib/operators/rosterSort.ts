@@ -3,6 +3,7 @@ import type { RosterRanking } from '@/lib/community/rankings';
 import { parseBirthdayText, type Birthday } from '@/lib/schedule/scheduleDates';
 import { DAY_MS } from '@/lib/time/servers.mjs';
 import { STAT_KEYS, getBaseStats, type OperatorStats, type StatKey } from './operatorStats';
+import { rosterCombatBonuses, type RosterCombatBonuses } from './rosterCombatStats';
 
 export const ROSTER_PROFILE_SORTS = [
   { value: 'height', label: 'Height' },
@@ -44,15 +45,18 @@ export interface RosterMetadata {
   };
   /** Final-promotion base values in STAT_KEYS order, with null for missing values. */
   stats: (number | null)[] | null;
+  combatBonuses: RosterCombatBonuses | null;
   hasUpgradeModule: boolean;
 }
 
 export type RosterOperator = OperatorSummary & Partial<RosterMetadata>;
 
-export function rosterMetadata(operator: Pick<Operator, 'basicInfo' | 'stats' | 'modules'>): RosterMetadata {
+export function rosterMetadata(operator: Pick<Operator, 'basicInfo' | 'stats' | 'modules' | 'internalName' | 'skills' | 'talents'>): RosterMetadata {
+  const stats = rosterStats(operator.stats);
   return {
     bio: rosterBio(operator.basicInfo),
-    stats: rosterStats(operator.stats),
+    stats,
+    combatBonuses: rosterCombatBonuses(operator, stats?.[STAT_KEYS.indexOf('redeploy')] ?? undefined),
     hasUpgradeModule: operator.modules?.some(module => module.type === 'Upgrade') ?? false,
   };
 }
@@ -66,6 +70,16 @@ export function rosterStats(stats: OperatorStats | null | undefined): (number | 
 
 export function rosterStatValue(operator: RosterOperator, field: StatKey): number | undefined {
   return operator.stats?.[STAT_KEYS.indexOf(field)] ?? undefined;
+}
+
+export function rosterStatBonuses(operator: RosterOperator, field: StatKey) {
+  return field === 'block' || field === 'redeploy' ? operator.combatBonuses?.[field] : undefined;
+}
+
+export function effectiveRosterStat(operator: RosterOperator, field: StatKey): number | undefined {
+  const base = rosterStatValue(operator, field);
+  if (base === undefined) return undefined;
+  return Object.values(rosterStatBonuses(operator, field) ?? {}).reduce((total, bonus) => total + bonus, base);
 }
 
 /** Today is the server's wall-calendar day, expressed as a UTC midnight for date arithmetic. */

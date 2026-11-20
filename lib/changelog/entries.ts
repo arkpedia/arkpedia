@@ -34,6 +34,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    at: '2026-11-20T22:10:00Z',
+    changed: [
+      { title: 'Block count includes skill and module bonuses', detail: 'Sort by the highest attainable block count and see the base stat and bonuses on each operator.', href: '/operators?sort=block' },
+      { title: 'Redeploy time includes self reductions', detail: 'Sort by repeatable redeploy time with the operator’s own talent and module reductions shown on the card.', href: '/operators?sort=redeploy' },
+    ],
+  },
+  {
     at: '2026-11-20T21:35:00Z',
     added: [{ title: 'Event currency farming tip', detail: 'When there are no boosted materials, the homepage suggests farming currency if an open event shop still has active stages.', href: '/' }],
   },

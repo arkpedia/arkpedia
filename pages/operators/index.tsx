@@ -40,8 +40,8 @@ import FilterSheet, { INLINE_RESET, type ActiveFilter } from '@/components/ui/Fi
 import { useSwitchHold } from '@/components/ui/useSwitchHold';
 import { operatorHref } from '@/lib/operators/operatorHref';
 import {
-  compareRosterValue, nextRosterBirthday, rosterBirthdayLabel, rosterCommunityValue, rosterMetadata,
-  rosterStatValue, ROSTER_COMMUNITY_SORTS, ROSTER_GENDERS, ROSTER_PROFILE_SORTS, ROSTER_STAT_SORTS, type RosterOperator, type RosterSort,
+  compareRosterValue, effectiveRosterStat, nextRosterBirthday, rosterBirthdayLabel, rosterCommunityValue, rosterMetadata,
+  rosterStatBonuses, rosterStatValue, ROSTER_COMMUNITY_SORTS, ROSTER_GENDERS, ROSTER_PROFILE_SORTS, ROSTER_STAT_SORTS, type RosterOperator, type RosterSort,
 } from '@/lib/operators/rosterSort';
 import type { CommunityRosterRankings } from '@/lib/community/rankings';
 
@@ -77,6 +77,15 @@ function defaultSortDirection(field: string): SortDir {
 const NO_LIMITED: Record<string, LimitedOperatorInfo> = {};
 const NO_DATES: string[] = [];
 const STAT_FORMAT = new Intl.NumberFormat('en', { maximumFractionDigits: 2 });
+
+function rosterStatText(operator: RosterOperator, stat: typeof ROSTER_STAT_SORTS[number]): string {
+  const base = rosterStatValue(operator, stat.value);
+  if (base === undefined) return `${stat.label} —`;
+  const unit = 'unit' in stat ? stat.unit.replace(' ', '\u00a0') : '';
+  const bonuses = Object.entries(rosterStatBonuses(operator, stat.value) ?? {}).map(([source, amount]) =>
+    `${amount > 0 ? '+' : '−'}${STAT_FORMAT.format(Math.abs(amount))}${unit}\u00a0${source === 'module' ? 'mod' : source}`);
+  return `${stat.label} ${STAT_FORMAT.format(base)}${unit}${bonuses.length ? ` (${bonuses.join(', ')})` : ''}`;
+}
 
 export default function OperatorsIndex({ operators, limitedBannerInfo = NO_LIMITED, celebrationBannerDates = NO_DATES, now }: Props) {
   /* A release exported before the Obtain filter carries no `obtain` on any operator: the filter
@@ -168,7 +177,7 @@ export default function OperatorsIndex({ operators, limitedBannerInfo = NO_LIMIT
       const birthdays = new Map(operators.map(op => [op.name, nextRosterBirthday(op.bio?.birthday, birthdayToday)]));
       return (op: RosterOperator) => birthdays.get(op.name);
     }
-    if (statSort) return (op: RosterOperator) => rosterStatValue(op, statSort.value);
+    if (statSort) return (op: RosterOperator) => effectiveRosterStat(op, statSort.value);
     if (profileSort) return (op: RosterOperator) => op.bio?.[profileSort]?.value;
     if (communitySort && rankings?.roster) return (op: RosterOperator) =>
       rosterCommunityValue(communitySort, op, rankingsByName.get(op.name), rankings.contributors);
@@ -559,7 +568,11 @@ export default function OperatorsIndex({ operators, limitedBannerInfo = NO_LIMIT
             </button>
             <span className="roster-sort-help">
               {statSort && <InfoPopover label="How roster stats are compared">
-                <p>Base stats at each operator’s highest promotion and level, before bonuses from trust, potential, talents, or modules.</p>
+                {statSort.value === 'block'
+                  ? <p>Ranks each operator’s highest block count with one skill and one module, assuming their conditions are met. Uses the highest promotion and excludes mode-specific bonuses.</p>
+                  : statSort.value === 'redeploy'
+                    ? <p>Ranks each operator’s shortest repeatable redeploy time with their own talent and one module. The breakdown shows reductions in seconds at the highest promotion and base potential.</p>
+                    : <p>Base stats at each operator’s highest promotion and level, before bonuses from trust, potential, talents, or modules.</p>}
               </InfoPopover>}
               {useCommunitySort && <InfoPopover label="How roster community percentages are calculated">
                 <p>Owned is the share of opted-in accounts across all regions. Build rates use owners with known progress.</p>
@@ -599,12 +612,7 @@ export default function OperatorsIndex({ operators, limitedBannerInfo = NO_LIMIT
                   </div>
                   <p className="op-name">{op.name}</p>
                   {birthdayToday !== undefined && <p className="hint roster-class-branch">{rosterBirthdayLabel(sortValue?.(op), birthdayToday)}</p>}
-                  {statSort && <p className="hint roster-class-branch">
-                    {statSort.label} {(() => {
-                      const value = rosterStatValue(op, statSort.value);
-                      return value === undefined ? '—' : `${STAT_FORMAT.format(value)}${'unit' in statSort ? statSort.unit : ''}`;
-                    })()}
-                  </p>}
+                  {statSort && <p className="hint roster-class-branch">{rosterStatText(op, statSort)}</p>}
                   {profileSort && <p className="hint roster-class-branch">{op.bio?.[profileSort]?.label ?? 'Unknown'}</p>}
                   {communitySort && rankings?.roster && <p className="hint roster-class-branch">
                     {(() => { const value = sortValue?.(op); return value === undefined ? '—' : `${value.toFixed(1)}%`; })()} {selectedSort.label.replace(/ %$/, '')}
@@ -754,7 +762,7 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/op
 }, { finalize: async props => {
   // Workers ship the same public roster fields as a static asset so an older live
   // content release can use the new sorts before its next scheduled export.
-  if (props.operators.some(op => !op.bio || op.stats === undefined || op.hasUpgradeModule === undefined)) {
+  if (props.operators.some(op => !op.bio || op.stats === undefined || op.combatBonuses === undefined || op.hasUpgradeModule === undefined)) {
     const { communityOperators } = await import('@/lib/community/catalogues');
     const catalogue = new Map((await communityOperators()).map(op => [op.name, op.roster]));
     props = { ...props, operators: props.operators.map(op => {
