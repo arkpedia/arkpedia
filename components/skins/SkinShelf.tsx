@@ -28,13 +28,6 @@ function SkinCardContent({ skin }: { skin: Skin }) {
   </>;
 }
 
-function ShelfIcon({ action }: { action: 'play' | 'pause' | 'back' | 'next' }) {
-  const paths = { play: 'm6 3 7 5-7 5z', pause: 'M6 3v10m4-10v10', back: 'm10 3-5 5 5 5', next: 'm6 3 5 5-5 5' };
-  return <svg aria-hidden="true" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-    <path d={paths[action]} />
-  </svg>;
-}
-
 /** A real, manually scrollable shelf. A short visual copy of the leading cards makes the
  * end of the track continuous. Only the original cards enter the tab order and a copy
  * opens its original skin when clicked. */
@@ -44,13 +37,11 @@ export default function SkinShelf({ skins, label, empty, actions, active = true,
   const viewport = useRef<HTMLDivElement>(null);
   const track = useRef<HTMLDivElement>(null);
   const rail = useRef<HTMLInputElement>(null);
-  const move = useRef<(direction: number) => void>(() => {});
   const seek = useRef<(percentage: number) => void>(() => {});
   const [overflow, setOverflow] = useState(false);
   const [copies, setCopies] = useState(0);
   const [reduced, setReduced] = useState(false);
-  const [paused, setPaused] = useState(false);
-  const playing = active && !paused && !reduced;
+  const playing = active && !reduced;
 
   useEffect(() => {
     const media = window.matchMedia('(prefers-reduced-motion: reduce)');
@@ -72,7 +63,6 @@ export default function SkinShelf({ skins, label, empty, actions, active = true,
     const hover = window.matchMedia('(hover: hover)');
     let frame = 0;
     let visible = false;
-    let step = 0;
     let period = 0;
     let position = row.scrollLeft;
     let lastPaint = position;
@@ -90,7 +80,7 @@ export default function SkinShelf({ skins, label, empty, actions, active = true,
     const measure = () => {
       const card = cards.firstElementChild?.getBoundingClientRect();
       const gutter = parseFloat(getComputedStyle(cards).columnGap);
-      step = card ? card.width + gutter : 0;
+      const step = card ? card.width + gutter : 0;
       const width = step * skins.length;
       const overflows = step > 0 && width - gutter > row.clientWidth + 1;
       period = overflows && !match.matches ? width : 0;
@@ -140,17 +130,6 @@ export default function SkinShelf({ skins, label, empty, actions, active = true,
       if (visible && playing && copies) frame = requestAnimationFrame(tick);
     });
     intersection.observe(row);
-    move.current = (direction) => {
-      manualUntil = performance.now() + 600;
-      cards.style.translate = '';
-      let start = Math.max(0, row.scrollLeft);
-      if (period && copies) {
-        if (direction < 0 && start < 1) start = period;
-        else if (start >= period) start %= period;
-        if (start !== row.scrollLeft) row.scrollLeft = start;
-      }
-      row.scrollBy({ left: step * direction, behavior: match.matches ? 'instant' : 'smooth' });
-    };
     seek.current = (percentage) => {
       cards.style.translate = '';
       row.scrollLeft = (period || scrollRange()) * percentage;
@@ -171,16 +150,7 @@ export default function SkinShelf({ skins, label, empty, actions, active = true,
     <div className="skin-shelf" ref={shelf}>
       <div className="skin-shelf-head">
         <h2 className="section-title">Skins</h2>
-        <div className="skin-shelf-controls">
-          {actions}
-          {overflow && <>
-            {!reduced && <button className="ghost btn-icon" type="button" aria-label={paused ? 'Play skins' : 'Pause skins'} aria-controls={id} onClick={() => setPaused(value => !value)}>
-              <ShelfIcon action={paused ? 'play' : 'pause'} />
-            </button>}
-            <button className="ghost btn-icon" type="button" aria-label="Previous skin" aria-controls={id} onClick={() => move.current(-1)}><ShelfIcon action="back" /></button>
-            <button className="ghost btn-icon" type="button" aria-label="Next skin" aria-controls={id} onClick={() => move.current(1)}><ShelfIcon action="next" /></button>
-          </>}
-        </div>
+        {actions && <div className="skin-shelf-controls">{actions}</div>}
       </div>
       {skins.length ? <>
         <div ref={viewport} id={id} className="scroll-row sidescroll scroll-row-with-rail skin-shelf-viewport" role="region" aria-label={label} tabIndex={overflow ? 0 : undefined}>

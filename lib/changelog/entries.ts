@@ -34,6 +34,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    at: '2026-11-21T07:46:00Z',
+    changed: [
+      { title: 'Simpler skin carousels', detail: 'Homepage and calendar skins scroll automatically, and calendar events open with Newest only selected.', href: '/schedule?view=calendar' },
+      { title: 'Higher base block wins ties', detail: 'When two operators can reach the same block count, the one with higher base block appears first.', href: '/operators?sort=block' },
+    ],
+  },
+  {
     at: '2026-11-20T22:10:00Z',
     changed: [
       { title: 'Block count includes skill and module bonuses', detail: 'Sort by the highest attainable block count and see the base stat and bonuses on each operator.', href: '/operators?sort=block' },

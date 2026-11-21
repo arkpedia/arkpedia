@@ -290,7 +290,15 @@ export default function OperatorsIndex({ operators, limitedBannerInfo = NO_LIMIT
         const relDiff = searchRank(a) - searchRank(b);
         if (relDiff !== 0) return relDiff;
       }
-      if (sortValue) return compareRosterValue(sortValue(a), sortValue(b), sortDir === 'asc') || a.name.localeCompare(b.name);
+      if (sortValue) {
+        const difference = compareRosterValue(sortValue(a), sortValue(b), sortDir === 'asc');
+        if (difference) return difference;
+        if (sortField === 'block') {
+          const baseDifference = compareRosterValue(rosterStatValue(a, 'block'), rosterStatValue(b, 'block'), false);
+          if (baseDifference) return baseDifference;
+        }
+        return a.name.localeCompare(b.name);
+      }
       // Show CN view: earliest release date first, then rarity as a
       // tiebreak (higher first) for operators sharing the same date --
       // regardless of the normal sort field/direction, since this is a
@@ -569,7 +577,7 @@ export default function OperatorsIndex({ operators, limitedBannerInfo = NO_LIMIT
             <span className="roster-sort-help">
               {statSort && <InfoPopover label="How roster stats are compared">
                 {statSort.value === 'block'
-                  ? <p>Ranks each operator’s highest block count with one skill and one module, assuming their conditions are met. Uses the highest promotion and excludes mode-specific bonuses.</p>
+                  ? <p>Ranks each operator’s highest block count with one skill and one module, assuming their conditions are met. Higher base block wins ties. Uses the highest promotion and excludes mode-specific bonuses.</p>
                   : statSort.value === 'redeploy'
                     ? <p>Ranks each operator’s shortest repeatable redeploy time with their own talent and one module. The breakdown shows reductions in seconds at the highest promotion and base potential.</p>
                     : <p>Base stats at each operator’s highest promotion and level, before bonuses from trust, potential, talents, or modules.</p>}
