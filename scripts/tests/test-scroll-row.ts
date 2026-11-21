@@ -19,7 +19,10 @@ test('with controls, the row gets a named previous/next pair, both disabled and 
   const html = render(true);
   const buttons = html.match(/<button[^>]*>/g) ?? [];
   assert.equal(buttons.length, 2, html);
-  const id = html.match(/<div id="([^"]+)" class="scroll-row sidescroll"/)?.[1];
+  const row = html.match(/^<div\b[^>]*>/)?.[0] ?? '';
+  assert.match(row, / class="scroll-row sidescroll"/);
+  assert.match(row, / data-scroll-row="Outfits available now"/);
+  const id = row.match(/ id="([^"]+)"/)?.[1];
   assert.ok(id, 'the row has an id for the buttons to control');
   assert.match(buttons[0], /aria-label="Scroll back through Outfits available now"/);
   assert.match(buttons[1], /aria-label="Scroll on through Outfits available now"/);
@@ -35,7 +38,10 @@ test('with controls, the row gets a named previous/next pair, both disabled and 
 test('without controls, the row is as it was: no buttons, no id', () => {
   const html = render();
   assert.doesNotMatch(html, /<button/);
-  assert.match(html, /^<div class="scroll-row sidescroll">/);
+  const row = html.match(/^<div\b[^>]*>/)?.[0] ?? '';
+  assert.match(row, / class="scroll-row sidescroll"/);
+  assert.match(row, / data-scroll-row="Outfits available now"/);
+  assert.doesNotMatch(row, / id=/);
 });
 
 test('an opt-in persistent scrollbar controls the row and starts disabled until measured', () => {

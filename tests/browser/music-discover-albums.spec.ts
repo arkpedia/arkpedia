@@ -241,3 +241,30 @@ for (const theme of ['dark', 'light']) {
     await expect(watch).toHaveCount(0);
   });
 }
+
+for (const expanded of [true, false]) test(`return to the same album in the ${expanded ? 'expanded grid' : 'horizontal row'}`, async ({ page }) => {
+  await page.goto(expanded ? '/music/discover?browse=albums' : '/music/discover');
+  const collection = page.locator('#discover-albums');
+  if (expanded) await page.getByRole('button', { name: 'Oldest', exact: true }).click();
+  const tiles = collection.locator('.music-discover-album-tile');
+  const tile = expanded ? tiles.nth(80) : tiles.last();
+  const position = () => tile.evaluate(el => {
+    const { left, top } = el.getBoundingClientRect();
+    return { left: Math.round(left), top: Math.round(top) };
+  });
+  await tile.evaluate(el => el.scrollIntoView({ behavior: 'instant', block: 'center', inline: 'end' }));
+  const title = await tile.locator('.music-discover-album-tile-name').innerText();
+  for (const viaBrowser of [false, true]) {
+    const before = await position();
+    await tile.click();
+    await expect(page.locator('.music-album-overview h2')).toHaveText(title);
+    if (viaBrowser) await page.goBack();
+    else await page.getByRole('button', { name: /Back to browse/ }).click();
+    await expect(tile.locator('.music-discover-album-tile-name')).toHaveText(title);
+    await expect(tile).toBeInViewport();
+    await expect.poll(async () => {
+      const after = await position();
+      return Math.max(Math.abs(after.left - before.left), Math.abs(after.top - before.top));
+    }).toBeLessThanOrEqual(4); // Desktop hover can lift a cover by 3 px.
+  }
+});

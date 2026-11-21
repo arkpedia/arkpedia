@@ -34,6 +34,12 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    at: '2026-11-21T10:51:00Z',
+    fixed: [
+      { title: 'Keep your place when browsing music', detail: 'Going back from an album restores your place in the expanded grid or horizontal row.', href: '/music/discover?browse=albums' },
+    ],
+  },
+  {
     at: '2026-11-21T10:29:00Z',
     changed: [{ title: 'Consistent event banners', detail: 'Desktop ads stay in the same header position, and LootBar artwork switches as Global events open.', href: '/about' }],
   },
