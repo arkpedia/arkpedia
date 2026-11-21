@@ -34,6 +34,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    at: '2026-11-21T08:55:00Z',
+    fixed: [
+      { title: 'Album browsing follows your last click', detail: 'Open another album after Back to browse or select two albums quickly during playback.', href: '/music/discover?browse=albums' },
+      { title: 'Watch on YouTube from Now playing', detail: 'Tracks with a known video link directly to it, including the vocal recording of Sal Terrae.', href: '/music?view=player' },
+      { title: 'Miss You plays in Stream-safe mode', detail: 'The filter allows both versions of Miss You and excludes all three Misty Memory recordings.', href: '/music?view=library' },
+    ],
+  },
+  {
     at: '2026-11-21T07:46:00Z',
     changed: [
       { title: 'Simpler skin carousels', detail: 'Homepage and calendar skins scroll automatically, and calendar events open with Newest only selected.', href: '/schedule?view=calendar' },
