@@ -45,7 +45,10 @@ async function render(getStaticProps: GetStaticProps<Props>, name: string): Prom
 // Ling has summons, Mudrock outfits with their own chibis, Closure neither.
 const OPERATORS = ['Ling', 'Mudrock', 'Closure'];
 
-test("the Worker's build gives /operators/[name]'s builder the same tables from data/", async () => {
+test("the Worker's build gives /operators/[name]'s builder the same tables from data/", async t => {
+  // Compare both builders at the same request instant, including the sponsor snapshot.
+  const requestTime = Date.now();
+  t.mock.method(Date, 'now', () => requestTime);
   const getStaticProps = await operatorProps();
   const seen = { chibis: 0, summons: 0, skillTimings: 0 };
   for (const name of OPERATORS) {
