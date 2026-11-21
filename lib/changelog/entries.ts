@@ -34,6 +34,10 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    at: '2026-11-21T16:07:00Z',
+    fixed: [{ title: 'Album covers stay in place on return', detail: 'Back keeps the album you opened in the same spot while the Most liked charts load.', href: '/music/discover?browse=albums' }],
+  },
+  {
     at: '2026-11-21T10:51:00Z',
     fixed: [
       { title: 'Keep your place when browsing music', detail: 'Going back from an album restores your place in the expanded grid or horizontal row.', href: '/music/discover?browse=albums' },
