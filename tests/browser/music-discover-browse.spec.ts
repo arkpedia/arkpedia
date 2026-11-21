@@ -120,3 +120,21 @@ test('switching the music tabs does not move the page sideways', async ({ baseUR
     await browser.close();
   }
 });
+
+for (const section of ['characters', 'artists']) test(`Back restores the expanded ${section} section`, async ({ page }) => {
+  await page.goto('/music/discover?browse=' + section);
+  const grid = page.locator('#discover-' + section + '.expanded');
+  const tile = grid.locator('button, a').last();
+  await tile.evaluate(el => el.scrollIntoView({ block: 'center', behavior: 'instant' }));
+  for (const viaBrowser of [true, false]) {
+    const [before] = await Promise.all([
+      page.evaluate(() => new Promise<number>(resolve => window.addEventListener('click', () => resolve(scrollY), { once: true, capture: true }))),
+      tile.click(),
+    ]);
+    await expect(page.getByRole('button', { name: /Back to browse/ })).toBeVisible();
+    if (viaBrowser) await page.goBack();
+    else await page.getByRole('button', { name: /Back to browse/ }).click();
+    await expect(tile).toBeInViewport();
+    await expect.poll(async () => Math.abs(await page.evaluate(() => scrollY) - before)).toBeLessThanOrEqual(4);
+  }
+});

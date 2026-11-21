@@ -158,7 +158,7 @@ export default function DiscoverPage({ songs: releaseSongs, characters, origins,
   // The hook applies the URL's value only after hydration, so first
   // paint is always the plain browse view (hydration-safe).
   const [query, setQuery] = useQueryState('q');
-  const [browseCollection, setBrowseCollection] = useQueryState('browse');
+  const browseCollection = typeof router.query.browse === 'string' ? router.query.browse : '';
   const [songOrder, setSongOrder] = useQueryState('sort');
   const { data: chart, loading: likesLoading } = useLikesChart('Arkpedia');
   const { data: youtubeChart, loading: youtubeLoading } = useLikesChart('YouTube');
@@ -193,9 +193,7 @@ export default function DiscoverPage({ songs: releaseSongs, characters, origins,
     else delete next.q;
     if (songOrder) next.sort = songOrder;
     else delete next.sort;
-    if (browseCollection) next.browse = browseCollection;
-    else delete next.browse;
-    void router.replace({ pathname: router.pathname, query: next }, undefined, { scroll: false });
+    void router[isBrowsing ? 'push' : 'replace']({ pathname: router.pathname, query: next }, undefined, { scroll: false });
   }
 
   const hasActiveQuery = query.trim().length > 0;
@@ -302,12 +300,11 @@ export default function DiscoverPage({ songs: releaseSongs, characters, origins,
     setInitialReturn(false);
     // A single navigation clears the search and facet together. The query hooks
     // cancel pending writes on navigation and read the destination on arrival.
-    const cleaned = { ...router.query };
-    delete cleaned.q;
-    delete cleaned.facet;
-    delete cleaned.artist;
-    delete cleaned.from;
-    void router.replace({ pathname: router.pathname, query: cleaned }, undefined, { scroll: false });
+    const url = new URL(router.asPath, window.location.origin);
+    for (const key of ['q', 'facet', 'artist', 'from']) url.searchParams.delete(key);
+    const browseUrl = url.pathname + url.search;
+    restoreScrollOnReturn(browseUrl);
+    void router.replace(browseUrl, undefined, { scroll: false });
   }
 
   function playSong(videoId: string, shelf?: typeof charts[number]) {
@@ -376,9 +373,6 @@ export default function DiscoverPage({ songs: releaseSongs, characters, origins,
   const pendingAlbum = useRef<typeof router.query | null>(null);
   const openAlbum = async (albumId: string) => {
     const next: typeof router.query = { ...router.query, facet: `album:${albumId}` };
-    // Keep an immediately expanded grid even before its debounced URL write lands.
-    if (browseCollection) next.browse = browseCollection;
-    else delete next.browse;
     delete next.q;
     delete next.sort;
     delete next.artist;
@@ -412,9 +406,17 @@ export default function DiscoverPage({ songs: releaseSongs, characters, origins,
      the floor holds their place and gives the space back as they scroll up. One browse
      view is one logical page; a search or a facet is another. */
   const browseFloor = useHeightFloor(isBrowsing ? 'browse' : `${query}|${facetParam}`);
+  function toggleCollection(collection: string) {
+    // Commit the list's address before its tiles can open a detail. Back then
+    // has the expanded section and its scroll position in the same history entry.
+    const next = { ...router.query };
+    if (browseCollection === collection) delete next.browse;
+    else next.browse = collection;
+    void router.replace({ pathname: router.pathname, query: next }, undefined, { shallow: true, scroll: false });
+  }
   const showAllButton = (collection: string, controls: string) => (
     <button type="button" className="ghost btn-sm" aria-expanded={browseCollection === collection} aria-controls={controls}
-      onClick={() => setBrowseCollection(browseCollection === collection ? '' : collection)}>
+      onClick={() => toggleCollection(collection)}>
       {browseCollection === collection ? 'Show less' : 'Show all'}
     </button>
   );
@@ -698,7 +700,7 @@ export default function DiscoverPage({ songs: releaseSongs, characters, origins,
               {artistsExpanded && <HiddenEndfieldHint count={hiddenArtistMatches} kind="artist" />}
               <Collection id="discover-artists" label="Artists" expanded={artistsExpanded} grid>
                 {visibleArtists.map((a) => (
-                  <Link key={a.name} prefetch={false} className="btn-bare music-discover-artist-card" href={{ pathname: router.pathname, query: { facet: 'artist:' + a.name } }}>
+                  <Link key={a.name} prefetch={false} className="btn-bare music-discover-artist-card" href={{ pathname: router.pathname, query: { ...(browseCollection ? { browse: browseCollection } : {}), facet: 'artist:' + a.name } }}>
                     <span className="music-discover-artist-name">{a.name}</span>
                     <span className="music-discover-artist-count">{songCount(a.count)}</span>
                   </Link>

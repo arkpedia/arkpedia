@@ -77,6 +77,7 @@ export default function ScrollRow({ label, children, className, style, controls 
   const row = (
     <div
       ref={ref}
+      data-scroll-row={label}
       id={controls || persistentScrollbar ? id : undefined}
       className={`scroll-row sidescroll${persistentScrollbar ? ' scroll-row-with-rail' : ''}${className ? ` ${className}` : ''}`}
       style={style}

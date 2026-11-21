@@ -154,7 +154,9 @@ test('phone music dropdown is anchored, dismisses outside and with Escape, and k
 test('scrolling Now Playing never exposes Library underneath; the explicit back control preserves playback', async ({ page }, info) => {
   test.skip(info.project.name !== 'mobile');
   await stubYouTube(page);
-  await page.goto('/music?view=library');
+  const library = '/music?view=library&q=Radiant';
+  await page.goto(library);
+  await expect(page.getByRole('searchbox', { name: 'Search all songs' })).toHaveValue('Radiant');
   await page.locator('.music-library-row .music-song-row-main').first().click();
   await expect.poll(async () => (await youtube(page))?.state).toBe(1);
   const playing = (await youtube(page))!;
@@ -176,7 +178,7 @@ test('scrolling Now Playing never exposes Library underneath; the explicit back 
   await touch('touchend', 340);
   await expect(page).toHaveURL(/view=player/);
   await page.getByRole('link', { name: 'Back to Library', exact: true }).click();
-  await expect(page).toHaveURL(/view=library/);
+  await expect(page).toHaveURL(url => url.pathname + url.search === library);
   await expect(page.locator('.music-library-row').first()).toBeVisible();
   await expect.poll(async () => (await bar.boundingBox())!.height).toBe(transportHeight);
   await bar.getByRole('link', { name: /Open Now playing$/ }).click();
@@ -184,5 +186,5 @@ test('scrolling Now Playing never exposes Library underneath; the explicit back 
   expect((await youtube(page))!).toMatchObject({ state: 1, videoId: playing.videoId });
   expect((await youtube(page))!.calls.filter(([name]) => name === 'loadVideoById')).toHaveLength(playing.calls.filter(([name]) => name === 'loadVideoById').length);
   await page.getByRole('link', { name: 'Back to Library', exact: true }).click();
-  await expect(page).toHaveURL(/view=library/);
+  await expect(page).toHaveURL(url => url.pathname + url.search === library);
 });
