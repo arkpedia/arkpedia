@@ -1,6 +1,6 @@
 import { readPublishedContentPageProps } from '@/lib/content/release';
 import { previousPage } from '@/lib/nav/pageTrail';
-import { restoreScrollOnReturn } from '@/lib/nav/scrollRestoration';
+import { rememberScrollAnchor, restoreScrollOnReturn } from '@/lib/nav/scrollRestoration';
 import { withContentPage } from '@/lib/content/server';
 import PageMeta from '@/components/layout/PageMeta';
 import { GetStaticProps } from 'next';
@@ -112,11 +112,14 @@ type AlbumOrder = 'newest' | 'oldest' | 'name';
 
 /** An album tile: its cover and its English name (its own where it has none), the song count
  *  once the albums are a grid. Opens the album's songs in place, as Recently added does. */
-function AlbumTile({ album, withCount, onOpen }: { album: Pick<DiscoverBrowseAlbum, 'albumName' | 'albumAltName' | 'coverPath'> & { songCount?: number }; withCount: boolean; onOpen: () => void }) {
+function AlbumTile({ album, id, withCount, onOpen }: { id: string; album: Pick<DiscoverBrowseAlbum, 'albumName' | 'albumAltName' | 'coverPath'> & { songCount?: number }; withCount: boolean; onOpen: () => void }) {
   const original = album.albumName && album.albumName !== album.albumAltName ? album.albumName : null;
   const count = typeof album.songCount === 'number' ? songCount(album.songCount) : null;
   return (
-    <button type="button" className="btn-bare music-discover-album-tile" onClick={onOpen}
+    <button type="button" id={id} className="btn-bare music-discover-album-tile" onClick={event => {
+      rememberScrollAnchor(event.currentTarget);
+      onOpen();
+    }}
       title={[album.albumAltName, original, withCount ? null : count].filter(Boolean).join(' · ')}>
       <AlbumCover coverPath={album.coverPath} size={120} className="music-discover-album-tile-cover" />
       <span className="music-discover-album-tile-name">{album.albumAltName}</span>
@@ -572,7 +575,7 @@ export default function DiscoverPage({ songs: releaseSongs, characters, origins,
                 <h2>Recently added</h2>
               </div>
               <ScrollRow label="Recently added albums" className="music-discover-row">
-                {recentAlbums.map((a) => <AlbumTile key={a.albumId} album={a} withCount={false} onOpen={() => openAlbum(a.albumId)} />)}
+                {recentAlbums.map((a) => <AlbumTile key={a.albumId} id={`recent-album-${a.albumId}`} album={a} withCount={false} onOpen={() => openAlbum(a.albumId)} />)}
               </ScrollRow>
             </section>
 
@@ -636,7 +639,7 @@ export default function DiscoverPage({ songs: releaseSongs, characters, origins,
                 )}
                 {albumsExpanded && <HiddenEndfieldHint count={hiddenAlbumMatches} kind="album" />}
                 <Collection id="discover-albums" label="Albums" expanded={albumsExpanded} grid albums>
-                  {visibleAlbums.map((a) => <AlbumTile key={a.albumId} album={a} withCount={albumsExpanded} onOpen={() => openAlbum(a.albumId)} />)}
+                  {visibleAlbums.map((a) => <AlbumTile key={a.albumId} id={`browse-album-${a.albumId}`} album={a} withCount={albumsExpanded} onOpen={() => openAlbum(a.albumId)} />)}
                 </Collection>
                 {albumsExpanded && visibleAlbums.length === 0 && hiddenAlbumMatches === 0 && <p className="hint">No album matches “{albumFilter.trim()}”.</p>}
               </section>

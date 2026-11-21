@@ -243,7 +243,20 @@ for (const theme of ['dark', 'light']) {
 }
 
 for (const expanded of [true, false]) test(`return to the same album in the ${expanded ? 'expanded grid' : 'horizontal row'}`, async ({ page }) => {
+  // One shelf shrinks while the album is open, the other fills after Back.
+  const emptyChart = Promise.withResolvers<void>();
+  const populatedChart = Promise.withResolvers<void>();
+  await page.route('**/api/music/likes', async route => {
+    await emptyChart.promise;
+    await route.fulfill({ json: { updatedAt: null, likes: {} } });
+  });
+  await page.route('**/api/music/youtube-likes', async route => {
+    await populatedChart.promise;
+    await route.fulfill({ json: { updatedAt: new Date().toISOString(), likes: { '2Qul6EjQmYc': 100 } } });
+  });
   await page.goto(expanded ? '/music/discover?browse=albums' : '/music/discover');
+  const pending = page.locator('.music-discover-likes-content[aria-busy="true"]');
+  await expect(pending).toHaveCount(2);
   const collection = page.locator('#discover-albums');
   if (expanded) await page.getByRole('button', { name: 'Oldest', exact: true }).click();
   const tiles = collection.locator('.music-discover-album-tile');
@@ -258,13 +271,25 @@ for (const expanded of [true, false]) test(`return to the same album in the ${ex
     const before = await position();
     await tile.click();
     await expect(page.locator('.music-album-overview h2')).toHaveText(title);
+    if (!viaBrowser) {
+      const response = page.waitForResponse('**/api/music/likes');
+      emptyChart.resolve();
+      await response;
+    }
     if (viaBrowser) await page.goBack();
     else await page.getByRole('button', { name: /Back to browse/ }).click();
     await expect(tile.locator('.music-discover-album-tile-name')).toHaveText(title);
     await expect(tile).toBeInViewport();
-    await expect.poll(async () => {
+    const expectSameSpot = () => expect.poll(async () => {
       const after = await position();
       return Math.max(Math.abs(after.left - before.left), Math.abs(after.top - before.top));
     }).toBeLessThanOrEqual(4); // Desktop hover can lift a cover by 3 px.
+    await expectSameSpot();
+    if (!viaBrowser) {
+      await expect(pending).toHaveCount(1);
+      populatedChart.resolve();
+      await expect(pending).toHaveCount(0);
+      await expectSameSpot();
+    }
   }
 });
