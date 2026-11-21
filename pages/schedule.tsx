@@ -239,7 +239,7 @@ export default function SchedulePage({ events: globalEvents, operators: exported
       ...('start' in row && row.start < 8.64e15 ? { startAt: new Date(row.start).toISOString(), endAt: new Date(row.end).toISOString() } : {}) } } : e];
   })), [events, externalEvents, timelineRows]);
   const skinByName = useMemo(() => new Map(skins.map((s) => [s.name, s])), [skins]);
-  const [showNewestOnly, setShowNewestOnly] = useState(false);
+  const [showNewestOnly, setShowNewestOnly] = useState(true);
 
   const baseEventSkins = displayEvent
     ? displayEvent.linkedSkinNames !== undefined
@@ -291,7 +291,7 @@ export default function SchedulePage({ events: globalEvents, operators: exported
     else if (document.activeElement instanceof HTMLElement && !panelRef.current?.contains(document.activeElement)) {
       openerRef.current = document.activeElement;
     }
-    if (displayEvent?.name !== e.name) setShowNewestOnly(false);
+    setShowNewestOnly(true);
     setDisplayEvent(e);
     setSelectedEvent(e);
   }

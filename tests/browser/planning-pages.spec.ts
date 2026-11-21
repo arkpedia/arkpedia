@@ -566,6 +566,13 @@ test.describe('/schedule calendar', () => {
     await expect(drawer.locator('.schedule-panel-pullable-op')).toHaveText(['Angelina the Mellow Wish', 'Thumpy', 'Jacinta']);
 
     const row = drawer.getByRole('region', { name: /Skins for/ });
+    const newest = drawer.getByRole('button', { name: 'Newest only' });
+    await expect(newest).toHaveAttribute('aria-pressed', 'true');
+    const newCount = await row.getByRole('button').count();
+    expect(newCount).toBeGreaterThan(0);
+    await newest.click();
+    await expect.poll(() => row.getByRole('button').count()).toBeGreaterThan(newCount);
+    await drawer.getByRole('button', { name: /close/i }).focus();
     await expect(row.locator('.skin-shelf-copy').first()).toBeAttached();
     await row.scrollIntoViewIfNeeded();
     await page.mouse.move(3, 3);
@@ -593,11 +600,13 @@ test.describe('/schedule calendar', () => {
     });
     expect(seam.crossed).toBe(true);
     expect(seam.largestStep).toBeLessThan(4);
-    await drawer.getByRole('button', { name: 'Pause skins' }).click();
-    await expect(drawer.getByRole('button', { name: 'Play skins' })).toBeVisible();
+    await expect(drawer.getByRole('button', { name: /^(Pause skins|Play skins|Previous skin|Next skin)$/ })).toHaveCount(0);
     await page.keyboard.press('Escape');
     await expect(drawer).toBeHidden();
     await expect(event).toBeFocused();
+    await event.click();
+    await expect(newest).toHaveAttribute('aria-pressed', 'true');
+    await expect(row.getByRole('button')).toHaveCount(newCount);
   });
 
   test('stays in the frame and does not move when an event opens (4.3 A)', async ({ page }) => {
