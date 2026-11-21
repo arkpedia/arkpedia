@@ -228,7 +228,7 @@ function flattenSongs(albums: readonly RawAlbum[], include: (song: RawSong) => b
         albumName: album.albumAltName || album.albumName,
         albumOriginalName: album.albumName,
         coverPath,
-        copyright: hasMusicClaimRisk({ copyright: song.copyright === 'yes', credits: song.credits }),
+        copyright: hasMusicClaimRisk({ songId: song.songId, videoId: song.videoId, copyright: song.copyright === 'yes', credits: song.credits }),
         length: song.length || '',
         lyricFilename,
         ...(source && isInstrumentalVersion(versionedSong(song)) ? { lyricTrackId: source.videoId || msrTrackId(source.songId) } : {}),

@@ -14,7 +14,8 @@ import MusicWaveVisualizer from '@/components/music/MusicWaveVisualizer';
 import { artistKey, creditedArtists } from '@/lib/music/artistCredits';
 import { useCrossFadeTitle } from '@/lib/music/useCrossFadeTitle';
 import { instrumentalLyricLines } from '@/lib/music/versionTiming';
-import { lyricsPath } from '@/lib/music/trackId';
+import ExternalLinkIcon from '@/components/ui/ExternalLinkIcon';
+import { lyricsPath, youtubeWatchUrl } from '@/lib/music/trackId';
 import MusicPlaylists from '@/components/music/MusicPlaylists';
 import MusicGameSetting from '@/components/music/MusicGameSetting';
 import MusicLibrary from '@/components/music/MusicLibrary';
@@ -131,6 +132,7 @@ export default function MusicPage({ songLookup }: Props) {
   // The album's cover: from this page's release props, else from the player's catalogue (a song
   // a release compiled before Monster Siren songs were listed here has its cover only there),
   // else the player's fallback: Monster Siren's own cover or the YouTube thumbnail (lib/music/songArt.ts).
+  const watchUrl = youtubeWatchUrl(videoId);
   const nowPlayingCover = currentDetail?.coverPath ?? currentTrack?.cover ?? fallbackCover ?? null;
 
   // From this page's release props, like the credits: a lyric file is published for exactly
@@ -264,6 +266,7 @@ export default function MusicPage({ songLookup }: Props) {
                   <span className="music-now-playing-cover-fallback">♪</span>
                 )}
               </div>
+              {watchUrl && <a className="music-watch-link" href={watchUrl} target="_blank" rel="noreferrer">Watch on YouTube <ExternalLinkIcon /></a>}
 
             </div>
 

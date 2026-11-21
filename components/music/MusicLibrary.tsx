@@ -1,4 +1,4 @@
-import { MUSIC_PLAYLISTS_EVENT, readPlaylists } from '@/lib/music/musicPlaylists';
+import { FAVORITES_PLAYLIST_ID, MUSIC_PLAYLISTS_EVENT, readPlaylists } from '@/lib/music/musicPlaylists';
 import { useQueryState } from '@/lib/hooks/useQueryState';
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/router';
@@ -96,7 +96,7 @@ export default function MusicLibrary({ shown }: { shown: boolean }) {
     if (scope === 'favorites') params.set('scope', scope);
     if (search.trim()) params.set('q', search.trim());
     void playPlaylist(matches.map(song => song.id), { name: search.trim() ? name + ' · ' + search.trim() : name,
-      href: '/music?' + params, playlistId: playlist?.id }, id);
+      href: '/music?' + params, playlistId: playlist?.id ?? (scope === 'favorites' ? FAVORITES_PLAYLIST_ID : undefined) }, id);
   }
   // Endfield songs the search found while Endfield music is off: said, with a way to include them.
   const hiddenEndfield = search.trim() && !playlistId ? found.length - matches.length : 0;
