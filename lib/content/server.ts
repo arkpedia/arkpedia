@@ -3,7 +3,7 @@ import { defaultContentRevalidate } from './revalidation';
 import { REGIONAL_ROUTES, missingPageTables, pageTables } from './tables.mjs';
 import { operatorPageRoute } from '../operators/operatorPagePaths';
 import { loadRelease, readPageProps } from './release';
-import { checkSponsorCampaigns, type SponsorCampaignTable } from '../sponsors/campaigns';
+import { applyLootBarHandoff, checkSponsorCampaigns, type SponsorCampaignTable } from '../sponsors/campaigns';
 export { contentChannel } from './release';
 import type { GetStaticProps, GetStaticPropsContext, GetStaticPropsResult, Redirect } from 'next';
 import { contentRoute, type ContentRelease } from './types';
@@ -37,8 +37,16 @@ async function attachTables<P extends object>(template: string, props: P, loader
 
 async function readSponsors(value?: unknown): Promise<SponsorCampaignTable> {
   const table = checkSponsorCampaigns(value ?? (await import('../../data/sponsor-campaigns.json')).default);
-  if (!table.campaigns.some(campaign => campaign.eventActivityId)) return table;
-  return (await import('../sponsors/eventCampaigns')).resolveSponsorEvents(table);
+  if (!table.campaigns.some(campaign => campaign.eventActivityId)) return applyLootBarHandoff(table);
+  return applyLootBarHandoff((await import('../sponsors/eventCampaigns')).resolveSponsorEvents(table));
+}
+
+async function readerOverrides(table: SponsorCampaignTable): Promise<SponsorCampaignTable> {
+  const { dashboardEnv, dashboardDatabase } = await import('../dashboard/access');
+  const db = dashboardDatabase(dashboardEnv());
+  if (!db) return table;
+  const { mergeCampaigns, cachedCampaignEdits } = await import('../dashboard/campaignStore');
+  return { ...table, campaigns: mergeCampaigns(table.campaigns, await cachedCampaignEdits(db)) };
 }
 
 /** A release compiles confirmed event windows once and carries them without a clock.
@@ -52,7 +60,7 @@ async function attachSponsors<P extends object>(props: P): Promise<P> {
   // say) would otherwise fail every page's revalidation, so it shows no sponsor instead.
   if ('exporting' in now) return { ...props, __contentTables: { ...tables, 'sponsor-campaigns': await read() } };
   let table: SponsorCampaignTable = { version: 1, campaigns: [] };
-  try { table = { ...await read(), now: now.now }; } catch (error) {
+  try { table = { ...await readerOverrides(await read()), now: now.now }; } catch (error) {
     if (!warnedSponsors) { warnedSponsors = true; console.warn('[content] Sponsor campaigns unreadable; showing none:', error instanceof Error ? error.message : error); }
   }
   return { ...props, __contentTables: { ...tables, 'sponsor-campaigns': table } };
@@ -64,14 +72,15 @@ async function attachSponsors<P extends object>(props: P): Promise<P> {
  * published with /support, else this deployment's copy, as of now. The header's Sponsored
  * slot (components/ui/PageHeader) reads it. Never fails the page: unreadable means no sponsor.
  */
-export async function withSiteTables<P extends object>(props: P): Promise<P> {
+export async function withSiteTables<P extends object>(props: P, includeOverrides = true): Promise<P> {
   let table: SponsorCampaignTable = { version: 1, campaigns: [] };
   let release: ContentRelease | undefined;
   try {
     const loaded = await loadRelease().catch(() => undefined);
     const published = loaded ? await readPageProps(loaded, '/support').catch(() => null) : null;
     const publishedTable = (published?.__contentTables as Record<string, unknown> | undefined)?.['sponsor-campaigns'];
-    table = { ...await readSponsors(publishedTable), now: Date.now() };
+    const source = await readSponsors(publishedTable);
+    table = { ...(includeOverrides ? await readerOverrides(source) : source), now: Date.now() };
     // Resolve sponsor images against the same revision that published their paths.
     if (publishedTable) release = loaded?.context;
   } catch (error) {

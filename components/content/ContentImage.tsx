@@ -55,6 +55,8 @@ export function ApplicationArt({ asset, style, ...props }: HTMLAttributes<HTMLSp
 const HIGH_PRIORITY = (Number(reactVersion.split('.')[0]) >= 19 ? { fetchPriority: 'high' } : { fetchpriority: 'high' }) as ImgHTMLAttributes<HTMLImageElement>;
 
 export type ContentImgProps = Omit<ImgHTMLAttributes<HTMLImageElement>, 'loading' | 'decoding' | 'fetchPriority'> & {
+  /** The live campaign endpoint already resolved this image against its own release. */
+  alreadyPinned?: boolean;
   /** The page's hero: the largest picture above the fold at load. Fetched at once and
    *  first. Every other image is lazy, and a `priority` needs its entry in
    *  scripts/tests/test-image-loading.ts. */
@@ -65,10 +67,10 @@ export type ContentImgProps = Omit<ImgHTMLAttributes<HTMLImageElement>, 'loading
  *  thread unless `priority`; the attributes are set after the caller's, so nothing a
  *  caller spreads in can turn that off, and before `src`, so an image put in after
  *  hydration is lazy from the moment it has an address. */
-export const ContentImg = forwardRef<HTMLImageElement, ContentImgProps>(function ContentImg({ src, alt, priority = false, ...props }, ref) {
+export const ContentImg = forwardRef<HTMLImageElement, ContentImgProps>(function ContentImg({ src, alt, priority = false, alreadyPinned = false, ...props }, ref) {
   const url = useContentUrl();
   const loading = priority ? { loading: 'eager' as const, ...HIGH_PRIORITY } : { loading: 'lazy' as const, decoding: 'async' as const };
-  const resolved = typeof src === 'string' ? url(src) : src;
+  const resolved = typeof src === 'string' && !alreadyPinned ? url(src) : src;
   // eslint-disable-next-line @next/next/no-img-element
   return <img referrerPolicy={elsewhere(resolved) ? 'no-referrer' : undefined} {...props} {...loading} alt={alt ?? ''} src={resolved} ref={ref} />;
 });

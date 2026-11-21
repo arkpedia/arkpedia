@@ -14,7 +14,7 @@ export type SponsorPlacement = typeof SPONSOR_PLACEMENTS[number];
 
 export type SponsorSlot = SponsorPlacement | 'mobile-menu';
 
-interface SponsorArtwork {
+export interface SponsorArtwork {
   /** Root-relative path in arkpedia-image-assets and its original pixel size. */
   image: string;
   width: number;
@@ -64,7 +64,7 @@ const positiveInt = (value: unknown): value is number => typeof value === 'numbe
 
 function checkArtwork(value: unknown, fail: (problem: string) => void) {
   const art = value && typeof value === 'object' ? value as Record<string, unknown> : {};
-  if (typeof art.image !== 'string' || !/^\/advertisements\/[a-z0-9][a-z0-9-]*\/[a-z0-9][a-z0-9-]*\.(?:webp|png|jpg|avif)$/.test(art.image)) fail('image must be /advertisements/<sponsor>/<file>.webp (lower-case, hyphenated)');
+  if (typeof art.image !== 'string' || (!/^\/api\/sponsor-art\/[a-f0-9-]{36}$/.test(art.image) && !/^\/advertisements\/[a-z0-9][a-z0-9-]*\/[a-z0-9][a-z0-9-]*\.(?:webp|png|jpg|avif)$/.test(art.image))) fail('image must be /advertisements/<sponsor>/<file>.webp (lower-case, hyphenated)');
   if (!positiveInt(art.width) || !positiveInt(art.height)) fail('width and height must be the image\'s pixel size');
   if (typeof art.alt !== 'string' || !art.alt.trim()) fail('alt is missing');
 }
@@ -128,10 +128,23 @@ export function sponsorCampaignsFor(table: SponsorCampaignTable, slot: SponsorSl
     if (campaign.status === 'draft') return drafts;
     if (campaign.status !== 'active' || !campaign.url || campaign.eventActivityId) return false;
     return nowMs === null || inWindow(campaign, nowMs);
-  }).map(campaign => mobile && campaign.mobileArtwork ? { ...campaign, ...campaign.mobileArtwork } : campaign);
+  }).map(campaign => {
+    if (!mobile || !campaign.mobileArtwork) return campaign;
+    const { image, width, height, alt } = campaign.mobileArtwork;
+    return { ...campaign, image, width, height, alt };
+  });
 }
 
 /** The first campaign a placement shows at `nowMs`, or null. */
 export function sponsorCampaignFor(table: SponsorCampaignTable, placement: SponsorSlot, nowMs: number | null, drafts = false): SponsorCampaign | null {
   return sponsorCampaignsFor(table, placement, nowMs, drafts)[0] ?? null;
+}
+
+/** Older published tables already contain Violet's event closing. Bridge both of
+ * its placements to the confirmed Kirin opening even when reading those tables. */
+export function applyLootBarHandoff(table: SponsorCampaignTable): SponsorCampaignTable {
+  const kirin = table.campaigns.find(c => c.id === 'lootbar-kirin-yato' && c.status !== 'draft' && !c.eventActivityId);
+  return { ...table, campaigns: table.campaigns.map(c =>
+    c.id === 'lootbar-violet-orchid' || c.id === 'lootbar-violet-orchid-main'
+      ? { ...c, endAt: kirin?.startAt ?? null } : c) };
 }

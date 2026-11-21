@@ -14,6 +14,7 @@ import { pageSource, releaseKey } from '../content/page-source.mjs';
  * default.
  */
 const OUTSIDE_THE_RELEASE: Record<string, string> = {
+  'pages/dashboard/campaigns.tsx': 'Private editor loads its authorized environment and current D1 revisions per request.',
   'pages/community/projects.tsx': 'Code-owned project directory; companion metadata has immutable asset pins and ships with the UI.',
   'pages/world/twitch.tsx': 'Twitch listings fetched at ISR, no game data',
   'pages/world/videos.tsx': 'YouTube listings fetched at ISR, no game data',

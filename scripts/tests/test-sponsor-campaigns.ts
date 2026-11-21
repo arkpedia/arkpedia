@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { checkSponsorCampaigns, sitePath, sponsorCampaignFor, sponsorCampaignsFor, type SponsorCampaign } from '../../lib/sponsors/campaigns';
+import { applyLootBarHandoff, checkSponsorCampaigns, sitePath, sponsorCampaignFor, sponsorCampaignsFor, type SponsorCampaign } from '../../lib/sponsors/campaigns';
 import { resolveSponsorEvents } from '../../lib/sponsors/eventCampaigns';
 import record from '../../data/sponsor-campaigns.json';
 
@@ -85,4 +85,23 @@ test('a link is an https address or a path on this site, never another scheme or
   }
   assert.equal(sitePath('/music/discover'), true);
   assert.equal(sitePath('https://example.com/a'), false);
+});
+
+test('Violet bridges a delayed Kirin opening on both page and mobile and ends there permanently', () => {
+  const violet = campaign({ id: 'lootbar-violet-orchid', placements: ['header'] });
+  const home = { ...violet, id: 'lootbar-violet-orchid-main', placements: ['home'] as SponsorCampaign['placements'] };
+  const pending = applyLootBarHandoff(table(home, violet));
+  const opening = '2026-12-10T15:00:00Z';
+  const kirin = campaign({ id: 'lootbar-kirin-yato', placements: ['header'], startAt: opening,
+    endAt: '2026-12-20T11:00:00Z', mobileArtwork: { ...violet, image: '/advertisements/acme/mobile.webp' } });
+  const confirmed = applyLootBarHandoff(table(home, violet, kirin));
+  for (const slot of ['header', 'mobile-menu'] as const) {
+    assert.equal(sponsorCampaignFor(pending, slot, at(opening))?.id, violet.id);
+    assert.equal(sponsorCampaignFor(confirmed, slot, at(opening) - 1)?.id, violet.id);
+    assert.equal(sponsorCampaignFor(confirmed, slot, at(opening))?.id, kirin.id);
+    assert.equal(sponsorCampaignFor(confirmed, slot, at(kirin.endAt!)), null);
+  }
+  assert.equal(sponsorCampaignFor(confirmed, 'mobile-menu', at(opening))?.image, kirin.mobileArtwork?.image);
+  assert.equal(sponsorCampaignFor(confirmed, 'home', at(opening) - 1)?.id, home.id);
+  assert.equal(sponsorCampaignFor(confirmed, 'home', at(opening)), null);
 });

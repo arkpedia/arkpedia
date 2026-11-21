@@ -1,3 +1,4 @@
+import { useLiveCampaigns } from '@/lib/sponsors/useLiveCampaigns';
 import { ContentContext, ContentTablesContext } from '@/lib/content/context';
 import { SITE_DESCRIPTION, SITE_NAME } from '@/lib/seo/site';
 import { contentUrl } from '@/lib/content/urls';
@@ -108,6 +109,7 @@ import ReplayDownloadBar from '@/components/account-import/ReplayDownloadBar';
 
 export default function App({ Component, pageProps }: AppProps) {
   useEffect(() => watchPrivacyWithdrawal(), []);
+  const liveSponsors = useLiveCampaigns(!!pageProps.__contentTables?.['sponsor-campaigns']);
   const [cloudRestoreVersion, setCloudRestoreVersion] = useState(0);
   const onCloudRestore = useCallback(() => setCloudRestoreVersion(version => version + 1), []);
   const [resetting, setResetting] = useState(false);
@@ -138,7 +140,7 @@ export default function App({ Component, pageProps }: AppProps) {
   if (resetting) return <p role="status">Clearing saved data…</p>;
   return (
     <ContentContext.Provider value={pageProps.__contentRelease ?? null}>
-    <ContentTablesContext.Provider value={pageProps.__contentTables ?? {}}>
+    <ContentTablesContext.Provider value={liveSponsors ? { ...pageProps.__contentTables, 'sponsor-campaigns': liveSponsors } : pageProps.__contentTables ?? {}}>
     <CloudSyncProvider onRestore={onCloudRestore}>
     <ReplayDownloadProvider>
     <MusicPlayerProvider>

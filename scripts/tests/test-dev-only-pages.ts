@@ -95,6 +95,7 @@ const CALLED_BY_WORKFLOWS: Record<string, string> = {
  *  module that builds the address: it must name the route's fixed part (up to its first [param]),
  *  so a renamed or dropped caller fails here. */
 const NAMED_AS_ADDRESSES: Record<string, string> = {
+  'pages/api/sponsor-art/[id].ts': 'lib/dashboard/campaignStore.ts',
   // Calendar clients subscribe to the address; the browser also downloads its snapshot.
   'pages/api/calendar.ics.ts': 'components/schedule/CalendarSubscription.tsx',
   // Better Auth's SDK builds sign-in, callback, session and linking addresses.
