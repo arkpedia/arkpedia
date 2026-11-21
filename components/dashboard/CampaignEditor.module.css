@@ -1,0 +1,10 @@
+.workspace { padding: var(--page-gutter); }
+.form, .fields, .picker { display: grid; gap: 12px; min-width: 0; }
+.form { grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; border: 0; padding: 0; }
+.picker { max-width: 36rem; margin-bottom: var(--section-gap); }
+.fields label { display: grid; gap: 4px; }
+.fields input, .fields select, .picker select { max-width: 100%; min-width: 0; }
+.fields .check, .actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.preview { width: 100%; height: auto; max-height: 160px; object-fit: contain; }
+.actions { grid-column: 1 / -1; }
+@media (max-width: 720px) { .form { grid-template-columns: minmax(0, 1fr); } }

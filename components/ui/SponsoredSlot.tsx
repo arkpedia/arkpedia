@@ -69,7 +69,7 @@ function useTurn(ref: React.RefObject<HTMLElement | null>, campaigns: SponsorCam
     if (count < 2 || !slot || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
     const next = campaigns[(turn + 1) % count];
     // Ahead of its turn; a failure here is not an error, the slot's own image shows its fallback.
-    void loadAssetImage(contentUrl(next.image)).catch(() => {});
+    void loadAssetImage(next.image.startsWith('https://') ? next.image : contentUrl(next.image)).catch(() => {});
     const timer = window.setInterval(() => {
       if (document.hidden || slot.matches(':hover, :focus-within') || getComputedStyle(slot).display === 'none') return;
       setTurn(value => (value + 1) % count);
@@ -100,9 +100,13 @@ export default function SponsoredSlot({ placement, className = '' }: { placement
     maxWidth: first.width,
     ...(inMobileMenu && { '--sponsored-menu-ratio': ratio }),
   } as CSSProperties;
-  const art = failed === campaign.id
+  const art = failed === campaign.image
     ? <span className="sponsored-slot-fallback">{S.fallback(campaign.sponsor)}</span>
-    : <ContentImg src={campaign.image} alt={campaign.alt} width={campaign.width} height={campaign.height} referrerPolicy="no-referrer" onError={() => setFailed(campaign.id)} />;
+    : campaign.image.startsWith('https://')
+      // The live snapshot already pinned this artwork to its own release.
+      // eslint-disable-next-line @next/next/no-img-element
+      ? <img src={campaign.image} alt={campaign.alt} width={campaign.width} height={campaign.height} loading="lazy" decoding="async" referrerPolicy="no-referrer" onError={() => setFailed(campaign.image)} />
+      : <ContentImg src={campaign.image} alt={campaign.alt} width={campaign.width} height={campaign.height} referrerPolicy="no-referrer" onError={() => setFailed(campaign.image)} />;
   // Arkpedia's own banner is not an advertisement: no "Ad" tag, and it opens in this tab.
   const tag = own ? null : <span className="sponsored-slot-tag">{S.tag}</span>;
   return (

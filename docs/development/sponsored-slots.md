@@ -74,3 +74,24 @@ outside `/advertisements/`.
 1. Add the files to arkpedia-image-assets as its `ADDING-ASSETS.md` describes, and merge.
 2. Add the campaign to `sponsor-campaigns.json` as `draft`; review it locally.
 3. Fill in `url` and either the fixed dates or the `eventActivityId`, set `status` to `active`, and release the data.
+
+## Campaign dashboard
+
+Open `/dashboard/campaigns` on the configured dashboard origin. Publishers can
+upload page and mobile PNG, JPEG or WebP artwork (600 KiB each), add sponsored
+HTTPS links and Arkpedia links, schedule or pause a campaign, restore the data
+release version, and refresh the cached homepage, About, Support or Schedule.
+The reader checks for campaign changes while the page is visible. A campaign
+set to follow the published schedule inherits new event timings automatically.
+Violet Orchid's page, menu and homepage artwork stays eligible through the
+confirmed opening of Kirin R Yato. Only the page and menu have Kirin artwork.
+
+Use the environment's accounts D1 database with migration
+`0025_campaign_editor.sql`. Configure a Cloudflare Access self-hosted
+application covering both `/dashboard/*` and `/api/dashboard/*` on the same
+hostname with the same audience. Allow a reusable publisher group. The account
+administrator manages membership in Cloudflare Zero Trust; editors need only
+the Access application. Configure the worker's `ARKPEDIA_DASHBOARD_ORIGIN`,
+`ARKPEDIA_DASHBOARD_ACCESS_ISSUER` (team HTTPS origin) and
+`ARKPEDIA_DASHBOARD_ACCESS_AUD`. Use separate audiences and databases for
+Preview and production. Missing Access configuration denies editor requests.
