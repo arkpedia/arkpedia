@@ -52,7 +52,6 @@ export default function SuppliesPage({ cards: globalCards, buildDay, now = 0 }: 
   return (
     <>
       <PageMeta title="Supplies" description="The Arknights supply stages: which are open today and what each drops." path="/stages/supplies" />
-      <TerminalNav current="supplies" />
       <PageHeader
         slim
         eyebrow={<><ModeMark name="supplies.svg" className="head-mark" />Rhodes Island // Daily rotation</>}
@@ -64,6 +63,7 @@ export default function SuppliesPage({ cards: globalCards, buildDay, now = 0 }: 
           moved on.
         </>}
       />
+      <TerminalNav current="supplies" />
 
       <main className="terminal-scene">
         {/* The schedule strip. The game shows a rolling week; every weekday is more

@@ -1,7 +1,7 @@
-import type { CSSProperties, ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import BackLink from './BackLink';
 import StickyControls from './StickyControls';
-import SponsoredSlot, { useSponsorCampaign } from './SponsoredSlot';
+import SponsoredSlot from './SponsoredSlot';
 
 interface PageHeaderProps {
   /** Page-specific layout or a shared surface primitive; heading structure stays shared. */
@@ -48,15 +48,9 @@ interface PageHeaderProps {
  * (tests/browser/page-bounds.spec.ts measures that edge on every route).
  */
 export default function PageHeader({ eyebrow, title, sub, actions, stickyActions = false, slim = false, compact = false, titleId, back, inlineTrail = false, className = '' }: PageHeaderProps) {
-  // The free space to the right of the title holds the Sponsored slot while a campaign
-  // runs: laid over it, never in the flow, so no header changes size for it
-  // (styles/ui/sponsored-slot.css). The slot shows only where it measures that space free.
-  const campaign = useSponsorCampaign('header');
-  const sponsored = campaign !== null;
   return (
     <>
-    <header className={`page-header${sponsored ? ' page-header-sponsored' : ''}${slim ? ' page-header-slim' : ''}${compact ? ' page-header-compact' : ''}${actions && stickyActions ? ' page-header-with-sticky-actions' : ''}${className ? ` ${className}` : ''}`}
-      style={campaign ? { '--header-sponsor-ratio': campaign.width / campaign.height } as CSSProperties : undefined}>
+    <header className={`page-header${slim ? ' page-header-slim' : ''}${compact ? ' page-header-compact' : ''}${actions && stickyActions ? ' page-header-with-sticky-actions' : ''}${className ? ` ${className}` : ''}`}>
       {inlineTrail ? <div className="page-header-trail">
         {back ? <BackLink href={back.href} label={back.label} /> : null}
         <div className="eyebrow">{eyebrow}</div>
@@ -67,7 +61,7 @@ export default function PageHeader({ eyebrow, title, sub, actions, stickyActions
       <h1 id={titleId}>{title}</h1>
       {sub ? <p className="sub">{sub}</p> : null}
       {actions && !stickyActions ? <div className="page-header-actions">{actions}</div> : null}
-      {sponsored ? <SponsoredSlot placement="header" /> : null}
+      <SponsoredSlot placement="header" />
     </header>
     {actions && stickyActions ? <StickyControls className="page-header-sticky-actions"><div className="page-header-actions">{actions}</div></StickyControls> : null}
     </>

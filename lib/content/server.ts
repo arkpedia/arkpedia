@@ -2,11 +2,11 @@ import { contentPageClock, type PageClockField, type PageClockMoment } from './p
 import { defaultContentRevalidate } from './revalidation';
 import { REGIONAL_ROUTES, missingPageTables, pageTables } from './tables.mjs';
 import { operatorPageRoute } from '../operators/operatorPagePaths';
-import { loadRelease, readPageProps, readPublishedContentPageProps } from './release';
-import { checkSponsorCampaigns, currentSponsorCampaigns, type SponsorCampaignTable } from '../sponsors/campaigns';
+import { loadRelease, readPageProps } from './release';
+import { checkSponsorCampaigns, type SponsorCampaignTable } from '../sponsors/campaigns';
 export { contentChannel } from './release';
 import type { GetStaticProps, GetStaticPropsContext, GetStaticPropsResult, Redirect } from 'next';
-import { contentRoute } from './types';
+import { contentRoute, type ContentRelease } from './types';
 
 /** One loader per table a route declares in lib/content/tables.mjs, each importing its
  *  data file. Written inside the getStaticProps call, so Next drops them from the
@@ -35,22 +35,24 @@ async function attachTables<P extends object>(template: string, props: P, loader
   return { ...props, __contentTables: tables };
 }
 
-/**
- * The site table every content route carries (SITE_TABLES in lib/content/tables.mjs): the
- * sponsor campaigns, the release's copy when it has one, else this deployment's. A request
- * gets them as of its moment, so the server never renders a campaign outside its dates; an
- * export stays clock-free and carries every campaign.
- */
+async function readSponsors(value?: unknown): Promise<SponsorCampaignTable> {
+  const table = checkSponsorCampaigns(value ?? (await import('../../data/sponsor-campaigns.json')).default);
+  if (!table.campaigns.some(campaign => campaign.eventActivityId)) return table;
+  return (await import('../sponsors/eventCampaigns')).resolveSponsorEvents(table);
+}
+
+/** A release compiles confirmed event windows once and carries them without a clock.
+ * A request adds its render time for hydration, keeping future windows for an open tab. */
 async function attachSponsors<P extends object>(props: P): Promise<P> {
   const tables = (props as { __contentTables?: Record<string, unknown> }).__contentTables ?? {};
   const now = moment();
-  const read = async () => checkSponsorCampaigns(tables['sponsor-campaigns'] ?? (await import('../../data/sponsor-campaigns.json')).default);
+  const read = () => readSponsors(tables['sponsor-campaigns']);
   // The export throws on a record it cannot show honestly, which stops that release. A
   // request must not: a record this deployment's code rejects (a placement added later,
   // say) would otherwise fail every page's revalidation, so it shows no sponsor instead.
   if ('exporting' in now) return { ...props, __contentTables: { ...tables, 'sponsor-campaigns': await read() } };
   let table: SponsorCampaignTable = { version: 1, campaigns: [] };
-  try { table = currentSponsorCampaigns(await read(), now.now); } catch (error) {
+  try { table = { ...await read(), now: now.now }; } catch (error) {
     if (!warnedSponsors) { warnedSponsors = true; console.warn('[content] Sponsor campaigns unreadable; showing none:', error instanceof Error ? error.message : error); }
   }
   return { ...props, __contentTables: { ...tables, 'sponsor-campaigns': table } };
@@ -64,13 +66,22 @@ async function attachSponsors<P extends object>(props: P): Promise<P> {
  */
 export async function withSiteTables<P extends object>(props: P): Promise<P> {
   let table: SponsorCampaignTable = { version: 1, campaigns: [] };
+  let release: ContentRelease | undefined;
   try {
-    const published = await readPublishedContentPageProps<{ __contentTables?: Record<string, unknown> }>('/support').catch(() => null);
-    table = currentSponsorCampaigns(checkSponsorCampaigns(published?.__contentTables?.['sponsor-campaigns'] ?? (await import('../../data/sponsor-campaigns.json')).default), Date.now());
+    const loaded = await loadRelease().catch(() => undefined);
+    const published = loaded ? await readPageProps(loaded, '/support').catch(() => null) : null;
+    const publishedTable = (published?.__contentTables as Record<string, unknown> | undefined)?.['sponsor-campaigns'];
+    table = { ...await readSponsors(publishedTable), now: Date.now() };
+    // Resolve sponsor images against the same revision that published their paths.
+    if (publishedTable) release = loaded?.context;
   } catch (error) {
     if (!warnedSponsors) { warnedSponsors = true; console.warn('[content] Sponsor campaigns unreadable; showing none:', error instanceof Error ? error.message : error); }
   }
-  return { ...props, __contentTables: { ...(props as { __contentTables?: Record<string, unknown> }).__contentTables, 'sponsor-campaigns': table } };
+  return {
+    ...props,
+    ...(release ? { __contentRelease: release } : {}),
+    __contentTables: { ...(props as { __contentTables?: Record<string, unknown> }).__contentTables, 'sponsor-campaigns': table },
+  };
 }
 
 /** getStaticProps for a page with no data of its own that still shows the site's tables.

@@ -269,12 +269,12 @@ export default function StageContentPage({ id, label, name, kind, release, group
       <PageMeta title={label && label !== name ? `${label} ${name}` : name} description={`${name} in Arknights: its stages, the enemies on each, their drops and maps.`} path={`/stages/content/${encodeURIComponent(id)}`} image={poster} />
       {/* The section bar says where the page sits: its own scene is marked current, so the
           bar reads the same here as it does on the scene, and its link is the way back. */}
-      <TerminalNav current={scene.key} />
       <PageHeader
         slim
         eyebrow={<>Rhodes Island // {MODE_LABELS[kind] || kind}{release && ` // ${release.slice(0, 4)}`}</>}
         title={<StageTitle code={label} name={name} fallback={name} lead="name" />}
       />
+      <TerminalNav current={scene.key} />
 
       <main>
         {/* Before the list, because on this one mode the map IS the way in and the

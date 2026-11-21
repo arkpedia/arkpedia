@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { checkSponsorCampaigns, currentSponsorCampaigns, sitePath, sponsorCampaignFor, sponsorCampaignsFor, type SponsorCampaign } from '../../lib/sponsors/campaigns';
+import { checkSponsorCampaigns, sitePath, sponsorCampaignFor, sponsorCampaignsFor, type SponsorCampaign } from '../../lib/sponsors/campaigns';
+import { resolveSponsorEvents } from '../../lib/sponsors/eventCampaigns';
 import record from '../../data/sponsor-campaigns.json';
 
 const campaign = (over: Partial<SponsorCampaign> = {}): SponsorCampaign => ({
@@ -29,11 +30,22 @@ test('a draft is never shown to readers, and is shown in a preview whatever its 
   assert.equal(sponsorCampaignFor(t, 'home', at('2026-11-17T00:00:00Z'), true)?.id, 'acme-sale');
 });
 
-test('a request is handed no active campaign outside its dates, and every draft', () => {
-  const t = table(campaign({ id: 'over', endAt: '2026-11-10T00:00:00Z' }), campaign({ id: 'running' }), campaign({ id: 'draft', status: 'draft', url: null }));
-  assert.deepEqual(currentSponsorCampaigns(t, at('2026-11-17T00:00:00Z')).campaigns.map(c => c.id), ['running', 'draft']);
-  // What the server then renders without a clock of its own.
-  assert.equal(sponsorCampaignFor(currentSponsorCampaigns(t, at('2026-12-02T00:00:00Z')), 'home', null), null);
+test('event campaigns follow exact Global openings and exclusive closings', () => {
+  const eventCampaign = (id: string) => campaign({ id, eventActivityId: id, startAt: null, endAt: null, placements: ['header'] });
+  const mobileArtwork = { image: '/advertisements/acme/mobile.webp', width: 900, height: 200, alt: 'Mobile sale' };
+  const raw = table(eventCampaign('first'), { ...eventCampaign('next'), mobileArtwork }, eventCampaign('pending'));
+  const boundary = '2026-12-01T15:00:00Z';
+  const resolved = resolveSponsorEvents(raw, [
+    { activityId: 'first', global: { startAt: '2026-11-21T15:00:00Z', endAt: boundary } },
+    { activityId: 'next', global: { startAt: boundary, endAt: '2026-12-14T11:00:00Z' } },
+    { activityId: 'pending', global: { startAt: boundary, endAt: '2026-12-14T11:00:00Z', note: 'Estimated' } },
+  ]);
+  assert.deepEqual(resolved.campaigns.map(c => c.id), ['first', 'next']);
+  assert.equal(sponsorCampaignFor(raw, 'header', at(boundary)), null);
+  assert.equal(sponsorCampaignFor(resolved, 'header', at(boundary) - 1)?.id, 'first');
+  assert.equal(sponsorCampaignFor(resolved, 'header', at(boundary))?.image, '/advertisements/acme/sale.webp');
+  assert.equal(sponsorCampaignFor(resolved, 'mobile-menu', at(boundary))?.image, mobileArtwork.image);
+  assert.equal(sponsorCampaignFor(resolved, 'mobile-menu', at('2026-12-14T11:00:00Z')), null);
 });
 
 test('the first usable campaign listed for a placement wins', () => {
@@ -51,6 +63,8 @@ test('a malformed campaign stops the release, naming each problem', () => {
   bad({ placements: ['sidebar'] }, /placements/);
   bad({ image: '/event-poster/x.webp' }, /image must be/);
   bad({ width: 0 }, /pixel size/);
+  bad({ eventActivityId: 'act50side' }, /takes its dates from the event/);
+  bad({ mobileArtwork: { image: '/bad.webp' }, placements: ['header'] }, /mobileArtwork: image must be/);
   bad({ alt: ' ' }, /alt is missing/);
   assert.throws(() => checkSponsorCampaigns({ version: 1, campaigns: [campaign(), campaign()] }), /used twice/);
   assert.throws(() => checkSponsorCampaigns({ campaigns: [] }), /version: 1/);

@@ -12,7 +12,17 @@
 export const SPONSOR_PLACEMENTS = ['home', 'header', 'support'] as const;
 export type SponsorPlacement = typeof SPONSOR_PLACEMENTS[number];
 
-export interface SponsorCampaign {
+export type SponsorSlot = SponsorPlacement | 'mobile-menu';
+
+interface SponsorArtwork {
+  /** Root-relative path in arkpedia-image-assets and its original pixel size. */
+  image: string;
+  width: number;
+  height: number;
+  alt: string;
+}
+
+export interface SponsorCampaign extends SponsorArtwork {
   id: string;
   sponsor: string;
   /** Only "active" is shown to readers; "draft" is for local development and preview builds. */
@@ -25,14 +35,18 @@ export interface SponsorCampaign {
   startAt: string | null;
   endAt: string | null;
   placements: SponsorPlacement[];
-  /** Root-relative path in arkpedia-image-assets, with the file's pixel size. */
-  image: string;
-  width: number;
-  height: number;
-  alt: string;
+  /** The confirmed Global event window supplies both dates during content preparation. */
+  eventActivityId?: string;
+  /** A header campaign can use separate artwork in the mobile drawer. */
+  mobileArtwork?: SponsorArtwork;
 }
 
-export interface SponsorCampaignTable { version: 1; campaigns: SponsorCampaign[] }
+export interface SponsorCampaignTable {
+  version: 1;
+  campaigns: SponsorCampaign[];
+  /** The server's time for the first render. Release exports carry no clock. */
+  now?: number;
+}
 
 /** A path on this site, for Arkpedia's own banners: "/music/discover". Never "//host". */
 export const sitePath = (value: unknown): value is string => typeof value === 'string' && /^\/(?!\/)[A-Za-z0-9\-._~/?=&%#]*$/.test(value);
@@ -43,10 +57,17 @@ function httpsUrl(value: unknown): value is string {
 }
 
 /** An ISO instant that names its timezone: a bare date would mean a different moment per reader. */
-const instant = (value: unknown): value is string => typeof value === 'string'
+export const isSponsorInstant = (value: unknown): value is string => typeof value === 'string'
   && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?(?:Z|[+-]\d{2}:\d{2})$/.test(value) && Number.isFinite(Date.parse(value));
 
 const positiveInt = (value: unknown): value is number => typeof value === 'number' && Number.isSafeInteger(value) && value > 0;
+
+function checkArtwork(value: unknown, fail: (problem: string) => void) {
+  const art = value && typeof value === 'object' ? value as Record<string, unknown> : {};
+  if (typeof art.image !== 'string' || !/^\/advertisements\/[a-z0-9][a-z0-9-]*\/[a-z0-9][a-z0-9-]*\.(?:webp|png|jpg|avif)$/.test(art.image)) fail('image must be /advertisements/<sponsor>/<file>.webp (lower-case, hyphenated)');
+  if (!positiveInt(art.width) || !positiveInt(art.height)) fail('width and height must be the image\'s pixel size');
+  if (typeof art.alt !== 'string' || !art.alt.trim()) fail('alt is missing');
+}
 
 /**
  * The record, or a thrown error naming every malformed campaign. Called by each page's
@@ -69,13 +90,19 @@ export function checkSponsorCampaigns(value: unknown): SponsorCampaignTable {
     if (c.status !== 'draft' && c.status !== 'active' && c.status !== 'ended') fail('status must be draft, active or ended');
     if (c.url !== null && !httpsUrl(c.url) && !sitePath(c.url)) fail('url must be an https link, a path on this site (/music/discover) or null');
     if (c.status === 'active' && c.url === null) fail('an active campaign needs its url');
-    if (c.startAt !== null && !instant(c.startAt)) fail('startAt must be an ISO instant with a timezone, or null');
-    if (c.endAt !== null && !instant(c.endAt)) fail('endAt must be an ISO instant with a timezone, or null');
-    if (instant(c.startAt) && instant(c.endAt) && Date.parse(c.startAt) >= Date.parse(c.endAt)) fail('endAt must be after startAt');
+    if (c.startAt !== null && !isSponsorInstant(c.startAt)) fail('startAt must be an ISO instant with a timezone, or null');
+    if (c.endAt !== null && !isSponsorInstant(c.endAt)) fail('endAt must be an ISO instant with a timezone, or null');
+    if (isSponsorInstant(c.startAt) && isSponsorInstant(c.endAt) && Date.parse(c.startAt) >= Date.parse(c.endAt)) fail('endAt must be after startAt');
     if (!Array.isArray(c.placements) || !c.placements.length || !c.placements.every(p => (SPONSOR_PLACEMENTS as readonly unknown[]).includes(p))) fail(`placements must list one or more of ${SPONSOR_PLACEMENTS.join(', ')}`);
-    if (typeof c.image !== 'string' || !/^\/advertisements\/[a-z0-9][a-z0-9-]*\/[a-z0-9][a-z0-9-]*\.(?:webp|png|jpg|avif)$/.test(c.image)) fail('image must be /advertisements/<sponsor>/<file>.webp (lower-case, hyphenated)');
-    if (!positiveInt(c.width) || !positiveInt(c.height)) fail('width and height must be the image\'s pixel size');
-    if (typeof c.alt !== 'string' || !c.alt.trim()) fail('alt is missing');
+    checkArtwork(c, fail);
+    if (c.mobileArtwork !== undefined) {
+      if (!Array.isArray(c.placements) || !c.placements.includes('header')) fail('mobileArtwork requires the header placement');
+      checkArtwork(c.mobileArtwork, problem => fail(`mobileArtwork: ${problem}`));
+    }
+    if (c.eventActivityId !== undefined) {
+      if (typeof c.eventActivityId !== 'string' || !/^[a-z0-9_]+$/.test(c.eventActivityId)) fail('eventActivityId must identify a game activity');
+      if (c.startAt !== null || c.endAt !== null) fail('an event campaign takes its dates from the event');
+    }
     return c as unknown as SponsorCampaign;
   });
   if (errors.length) throw new Error(`sponsor-campaigns.json cannot be shown as written:\n  ${errors.join('\n  ')}`);
@@ -85,12 +112,6 @@ export function checkSponsorCampaigns(value: unknown): SponsorCampaignTable {
 const inWindow = (campaign: SponsorCampaign, nowMs: number) =>
   (campaign.startAt === null || nowMs >= Date.parse(campaign.startAt)) && (campaign.endAt === null || nowMs < Date.parse(campaign.endAt));
 
-/** The table without the active campaigns that are outside their dates at `nowMs`: what
- *  withContentPage hands a request, so the server's HTML never holds an expired slot. */
-export function currentSponsorCampaigns(table: SponsorCampaignTable, nowMs: number): SponsorCampaignTable {
-  return { version: 1, campaigns: table.campaigns.filter(campaign => campaign.status !== 'active' || inWindow(campaign, nowMs)) };
-}
-
 /**
  * The campaigns a placement shows at `nowMs`, in the record's order.
  *
@@ -99,17 +120,18 @@ export function currentSponsorCampaigns(table: SponsorCampaignTable, nowMs: numb
  * development and preview builds only) also admits draft campaigns, linked or not and
  * whatever their dates, so the artwork can be reviewed in place.
  */
-export function sponsorCampaignsFor(table: SponsorCampaignTable, placement: SponsorPlacement, nowMs: number | null, drafts = false): SponsorCampaign[] {
+export function sponsorCampaignsFor(table: SponsorCampaignTable, slot: SponsorSlot, nowMs: number | null, drafts = false): SponsorCampaign[] {
+  const mobile = slot === 'mobile-menu';
+  const placement = mobile ? 'header' : slot;
   return table.campaigns.filter(campaign => {
     if (!campaign.placements.includes(placement)) return false;
     if (campaign.status === 'draft') return drafts;
-    if (campaign.status !== 'active' || !campaign.url) return false;
-    if (nowMs === null) return true;
-    return inWindow(campaign, nowMs);
-  });
+    if (campaign.status !== 'active' || !campaign.url || campaign.eventActivityId) return false;
+    return nowMs === null || inWindow(campaign, nowMs);
+  }).map(campaign => mobile && campaign.mobileArtwork ? { ...campaign, ...campaign.mobileArtwork } : campaign);
 }
 
 /** The first campaign a placement shows at `nowMs`, or null. */
-export function sponsorCampaignFor(table: SponsorCampaignTable, placement: SponsorPlacement, nowMs: number | null, drafts = false): SponsorCampaign | null {
+export function sponsorCampaignFor(table: SponsorCampaignTable, placement: SponsorSlot, nowMs: number | null, drafts = false): SponsorCampaign | null {
   return sponsorCampaignsFor(table, placement, nowMs, drafts)[0] ?? null;
 }
