@@ -74,7 +74,6 @@ export default function RegularTasksPage({ rotations: globalRotations, zones, se
   return (
     <>
       <PageMeta title="Regular Tasks" description="The Arknights regular tasks: Annihilation, supply stages and the weekly and daily resets." path="/stages/regular" />
-      <TerminalNav current="regular" />
       <PageHeader
         slim
         eyebrow={<><ModeMark name="regular-tasks.svg" className="head-mark" />Rhodes Island // Always open</>}
@@ -84,6 +83,7 @@ export default function RegularTasksPage({ rotations: globalRotations, zones, se
           map, Stationary Security Service runs seasons.
         </>}
       />
+      <TerminalNav current="regular" />
 
       <main className="terminal-scene">
         <section className="panel terminal-panel op-section">

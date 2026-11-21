@@ -19,7 +19,6 @@ export default function AllOperationsPage({ cards, counts, now }: Props) {
     <>
       <PageMeta title="All Operations" description="Every Arknights stage in one list, searchable by code and name." path="/stages/all" />
 
-      <TerminalNav current="all" />
       <PageHeader
         slim
         eyebrow="Rhodes Island // Every chapter and event"
@@ -30,6 +29,7 @@ export default function AllOperationsPage({ cards, counts, now }: Props) {
           the lot.
         </>}
       />
+      <TerminalNav current="all" />
 
       <main className="terminal-scene">
         <StageModeBrowser cards={cards} counts={counts} now={now} />

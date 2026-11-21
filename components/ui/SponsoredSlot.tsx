@@ -1,4 +1,4 @@
-import { useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
+import { useContext, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import Link from 'next/link';
 import { ContentImg } from '@/components/content/ContentImage';
 import { loadAssetImage } from '@/lib/assets/assetRetry';
@@ -46,7 +46,7 @@ function useSponsorCampaigns(placement: SponsorSlot): SponsorCampaign[] {
   const now = readerClock && readerClock.table === table ? readerClock.now : table?.now ?? null;
   return useMemo(() => table ? sponsorCampaignsFor(table, placement, now, DRAFTS) : [], [table, placement, now]);
 }
-/** The first campaign sizes the slot. */
+/** The first available campaign, if any. */
 export function useSponsorCampaign(placement: SponsorSlot): SponsorCampaign | null {
   return useSponsorCampaigns(placement)[0] ?? null;
 }
@@ -79,89 +79,8 @@ function useTurn(ref: React.RefObject<HTMLElement | null>, campaigns: SponsorCam
   return campaigns[turn % Math.max(count, 1)] ?? null;
 }
 
-/** How near the header's own text or controls may come to the slot, in px, before it stays hidden. */
-const CLEARANCE = 16;
-
-/**
- * Whether nothing else in the slot's parent reaches under it: every piece of text and every
- * childless element (an icon, an input) of its siblings, with CLEARANCE around the slot.
- * Text is measured, not its block, so a full-width paragraph with a short line is clear.
- */
-function clearOfSiblings(slot: HTMLElement): boolean {
-  const box = slot.getBoundingClientRect();
-  if (!box.width || !slot.parentElement) return false;
-  const hits = (r: DOMRect) => r.width > 0 && r.height > 0 && r.right > box.left - CLEARANCE && r.left < box.right + CLEARANCE && r.bottom > box.top - 2 && r.top < box.bottom + 2;
-  const range = document.createRange();
-  for (const sibling of Array.from(slot.parentElement.children)) {
-    if (sibling === slot) continue;
-    const walker = document.createTreeWalker(sibling, NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT);
-    for (let node: Node | null = sibling; node; node = walker.nextNode()) {
-      if (node.nodeType === Node.TEXT_NODE) {
-        if (!node.nodeValue?.trim()) continue;
-        range.selectNodeContents(node);
-        if (Array.from(range.getClientRects()).some(hits)) return false;
-      } else if (!(node as Element).firstChild && hits((node as Element).getBoundingClientRect())) return false;
-    }
-  }
-  return true;
-}
-
-/**
- * For the header placement, which is laid over the free space beside the title: true once
- * that space is measured free. Measured before the first paint, again when the header or
- * its contents change size and when the web fonts arrive (they change the title's width).
- * The slot is hidden, never removed, while this is false, so the answer moves nothing.
- */
-function useClearSpace(ref: React.RefObject<HTMLElement | null>, enabled: boolean): boolean {
-  const [clear, setClear] = useState(false);
-  useLayoutEffect(() => {
-    const slot = ref.current;
-    const header = slot?.parentElement;
-    if (!enabled || !slot || !header) return;
-    let live = true;
-    const measure = () => {
-      if (!live) return;
-      slot.style.removeProperty('height');
-      const lede = header.querySelector(':scope > .sub');
-      const base = slot.getBoundingClientRect();
-      if (lede && base.height) {
-        // Align with the text itself, including the last line of a wrapping lede.
-        const range = document.createRange();
-        range.selectNodeContents(lede);
-        const height = range.getBoundingClientRect().bottom - base.top;
-        if (height > base.height) {
-          slot.style.height = `${height}px`;
-          if (clearOfSiblings(slot)) {
-            setClear(true);
-            return;
-          }
-          slot.style.removeProperty('height');
-        }
-      }
-      setClear(clearOfSiblings(slot));
-    };
-    measure();
-    const observer = new ResizeObserver(measure);
-    observer.observe(header);
-    for (const child of Array.from(header.children)) if (child !== slot) observer.observe(child);
-    // A title that changes within its line (a client-side move to another record) resizes
-    // no box, so the header's text and children are watched too.
-    const changes = new MutationObserver(measure);
-    changes.observe(header, { childList: true, subtree: true, characterData: true });
-    void document.fonts?.ready.then(measure);
-    return () => { live = false; observer.disconnect(); changes.disconnect(); };
-  }, [ref, enabled]);
-  return clear;
-}
-
-/**
- * One sponsored image and link, in the page's flow (beside a title: over its free space). Renders nothing without a usable
- * campaign for the placement (lib/sponsors/campaigns.ts).
- *
- * The box is sized from the campaign's own width and height before the image loads, and
- * keeps that size if the image never does (a content blocker): it then holds a line of
- * text instead, so nothing around it moves.
- */
+/** One image and link. The page header reserves a fixed desktop slot. Other placements
+ * reserve space using the first campaign's artwork dimensions. */
 export default function SponsoredSlot({ placement, className = '' }: { placement: SponsorSlot; className?: string }) {
   const inMobileMenu = placement === 'mobile-menu';
   // Beside a title (and in the phone menu) the campaigns take turns; elsewhere the first shows.
@@ -169,18 +88,16 @@ export default function SponsoredSlot({ placement, className = '' }: { placement
   const turning = placement === 'header' || inMobileMenu;
   const [failed, setFailed] = useState<string | null>(null);
   const ref = useRef<HTMLElement>(null);
-  const overlaid = placement === 'header';
   const first = all[0] ?? null;
-  const clear = useClearSpace(ref, overlaid && first !== null);
   const shown = useTurn(ref, turning ? all : all.slice(0, 1));
   const campaign = shown ?? first;
   if (!campaign || !first) return null;
   // The box keeps the first campaign's shape through every turn, so a turn moves nothing.
   const ratio = first.width / first.height;
   const own = sitePath(campaign.url);
-  const box = {
+  const box = placement === 'header' ? undefined : {
     aspectRatio: ratio,
-    maxWidth: overlaid ? undefined : first.width,
+    maxWidth: first.width,
     ...(inMobileMenu && { '--sponsored-menu-ratio': ratio }),
   } as CSSProperties;
   const art = failed === campaign.id
@@ -189,7 +106,7 @@ export default function SponsoredSlot({ placement, className = '' }: { placement
   // Arkpedia's own banner is not an advertisement: no "Ad" tag, and it opens in this tab.
   const tag = own ? null : <span className="sponsored-slot-tag">{S.tag}</span>;
   return (
-    <aside ref={ref} className={`sponsored-slot sponsored-slot--${placement} ${className}`.trim()} data-clear={overlaid && clear ? '' : undefined} aria-label={own ? S.ownRegion : S.region(campaign.sponsor)} data-sponsor-campaign={campaign.id}>
+    <aside ref={ref} className={`sponsored-slot sponsored-slot--${placement} ${className}`.trim()} aria-label={own ? S.ownRegion : S.region(campaign.sponsor)} data-sponsor-campaign={campaign.id}>
       {own ? (
         <Link key={campaign.id} className="sponsored-slot-art" style={box} href={campaign.url!} prefetch={false} aria-label={S.ownLinkLabel(campaign.alt)}>
           {art}

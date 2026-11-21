@@ -6,18 +6,14 @@ third-party script runs, and nothing is sticky, fixed or laid over content.
 | Placement | Where | Notes |
 | --- | --- | --- |
 | `home` | Home page, a panel directly under Events (the same on a phone) | full column width |
-| `header` | Beside a page title on desktop, or below the server clock inside the shared mobile navigation menu | Starts 16 px below the desktop header’s top edge. It grows from 72 px to align with the lede when there is room. The mobile banner scales to fit the drawer. |
+| `header` | Beside a page title on desktop, or below the server clock inside the shared mobile navigation menu | 436.5 × 97 px on viewports wider than 1000 px. The slot sits 16 px from the top and on the right gutter of the page header. The mobile banner scales to fit the drawer. |
 | `support` | The "Our sponsor" section of `/support` | at the artwork's own width |
 
 Page content shows at most one slot besides `/support`'s section. The mobile navigation
 menu uses the same `header` campaign and can show its dedicated `mobileArtwork` below the clock.
-On desktop the header slot uses the empty space beside the title. The header reserves no extra
-room for the slot, so the page layout stays the same with or without a campaign. The slot stays
-hidden until it has measured that nothing in the header reaches under it (a long title, a control
-in the title row). The operator page's search starts on the information panel's left edge and,
-from 1200 px up, ends short of the slot while a campaign runs. The music
-pages keep their Endfield music setting in the sidebar, not the title row, to leave that space
-free.
+On desktop the shared header reserves room for the banner beside its title and controls.
+Headers with longer titles or descriptions can wrap within the remaining width.
+The home page, which has its own layout, uses its separate campaign panel.
 
 ## Taking turns, and Arkpedia's own banners
 
@@ -25,7 +21,8 @@ Where the `header` placement has more than one usable campaign, they take turns 
 every 8 seconds (`useTurn` in `components/ui/SponsoredSlot.tsx`), in the record's order. The
 server's HTML always shows the first. The turn waits while the pointer or keyboard focus is on
 the slot and while the tab is hidden, and never happens for a reader who asked for reduced
-motion. The box keeps the first campaign's shape, so use artwork of the same proportions.
+motion. The desktop slot uses a fixed 4.5:1 frame. In the drawer the box keeps the first
+campaign's shape, so use artwork of the same proportions there.
 
 A campaign whose `url` is a path on this site (`/music/discover`) is one of Arkpedia's own
 banners: it opens in the same tab, is not marked `rel="sponsored"` and carries no "Ad" tag.

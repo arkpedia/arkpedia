@@ -38,28 +38,29 @@ a.sponsored-slot-art:focus-visible { border-color: var(--teal); }
 .sponsored-slot--header .sponsored-slot-tag { left: 4px; bottom: 4px; font-size: 9px; }
 .sponsored-slot-fallback { padding: 0 12px; font-size: 13px; color: var(--text-dim); text-align: center; }
 
-/* Beside a page's title (components/ui/PageHeader): the artwork laid over the empty space
-   to the right of the title. It starts 16px below the top edge and is at least 72px tall.
-   When space permits, SponsoredSlot grows the artwork to the bottom edge of the lede text.
-   It is out of the flow and the header reserves nothing for it, so every header and
-   everything under it measures the same with or without a campaign. It stays hidden until
-   SponsoredSlot has measured that nothing of the header reaches under it (a long title, a
-   control in the title row), and below 1000px there is no free space beside a title, so
-   there is no slot (a lazy image that is not displayed is not fetched).
-   --header-sponsor-ratio is the artwork's width over its height, set by PageHeader. */
-.page-header.page-header-sponsored { position: relative; --header-sponsor-h: 72px; }
-.sponsored-slot--header {
-  position: absolute;
-  top: 16px;
-  right: var(--page-gutter);
-  height: var(--header-sponsor-h);
-  visibility: hidden;
-}
-.sponsored-slot--header[data-clear] { visibility: visible; }
-.sponsored-slot--header .sponsored-slot-art { width: auto; height: 100%; }
-.sponsored-slot--header .sponsored-slot-fallback { padding: 0 6px; font-size: 11px; line-height: 1.2; }
-@media (max-width: 1000px) {
-  .sponsored-slot--header { display: none; }
+/* Keep the 4.5:1 desktop artwork at the same size and in the same corner of
+   every page header. Reserve its column so long titles and controls can wrap. */
+.sponsored-slot--header { display: none; }
+@media (width > 1000px) {
+  .page-header:has(> .sponsored-slot--header) {
+    --header-sponsor-top: 16px;
+    --header-sponsor-height: 97px;
+    --header-sponsor-width: calc(4.5 * var(--header-sponsor-height));
+    position: relative;
+    min-height: calc(var(--header-sponsor-top) + var(--header-sponsor-height) + 12px);
+    padding-inline-end: calc(var(--page-gutter) + var(--header-sponsor-width) + 16px);
+  }
+  .sponsored-slot--header {
+    display: flex;
+    position: absolute;
+    top: var(--header-sponsor-top);
+    right: var(--page-gutter);
+    width: var(--header-sponsor-width);
+    height: var(--header-sponsor-height);
+  }
+  .sponsored-slot--header .sponsored-slot-art { height: 100%; }
+  .sponsored-slot--header img { object-fit: contain; }
+  .sponsored-slot--header .sponsored-slot-fallback { padding: 0 6px; font-size: 11px; line-height: 1.2; }
 }
 /* On phones the compact artwork fits under the clock in the shared menu. */
 .sponsored-slot--mobile-menu { align-items: flex-start; margin-top: 12px; }
