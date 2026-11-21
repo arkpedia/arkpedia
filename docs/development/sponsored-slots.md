@@ -6,18 +6,14 @@ third-party script runs, and nothing is sticky, fixed or laid over content.
 | Placement | Where | Notes |
 | --- | --- | --- |
 | `home` | Home page, a panel directly under Events (the same on a phone) | full column width |
-| `header` | Beside a page title on desktop, or below the server clock inside the shared mobile navigation menu | 72 px tall on desktop, starting 16 px below the header's top edge on every page. The mobile banner scales to fit the drawer. |
+| `header` | Beside a page title on desktop, or below the server clock inside the shared mobile navigation menu | 436.5 × 97 px on viewports wider than 1000 px. The slot sits 16 px from the top and on the right gutter of the page header. The mobile banner scales to fit the drawer. |
 | `support` | The "Our sponsor" section of `/support` | at the artwork's own width |
 
 Page content shows at most one slot besides `/support`'s section. The mobile navigation
-menu uses the same `header` campaign and keeps the page's title and controls in place.
-On desktop the header slot uses the empty space beside the title. The header reserves no extra
-room for the slot, so the page layout stays the same with or without a campaign. The slot stays
-hidden until it has measured that nothing in the header reaches under it (a long title, a control
-in the title row). The operator page's search starts on the information panel's left edge and,
-from 1200 px up, ends short of the slot while a campaign runs. The music
-pages keep their Endfield music setting in the sidebar, not the title row, to leave that space
-free.
+menu uses the same `header` campaign and can show its dedicated `mobileArtwork` below the clock.
+On desktop the shared header reserves room for the banner beside its title and controls.
+Headers with longer titles or descriptions can wrap within the remaining width.
+The home page, which has its own layout, uses its separate campaign panel.
 
 ## Taking turns, and Arkpedia's own banners
 
@@ -25,7 +21,8 @@ Where the `header` placement has more than one usable campaign, they take turns 
 every 8 seconds (`useTurn` in `components/ui/SponsoredSlot.tsx`), in the record's order. The
 server's HTML always shows the first. The turn waits while the pointer or keyboard focus is on
 the slot and while the tab is hidden, and never happens for a reader who asked for reduced
-motion. The box keeps the first campaign's shape, so use artwork of the same proportions.
+motion. The desktop slot uses a fixed 4.5:1 frame. In the drawer the box keeps the first
+campaign's shape, so use artwork of the same proportions there.
 
 A campaign whose `url` is a path on this site (`/music/discover`) is one of Arkpedia's own
 banners: it opens in the same tab, is not marked `rel="sponsored"` and carries no "Ad" tag.
@@ -50,14 +47,16 @@ The box takes the artwork's aspect ratio before the image loads. If the image ne
 content blocker, a failed request) the box keeps its size and holds a line of text, so nothing
 below it moves.
 
-`withContentPage` attaches the campaigns to every content route (`SITE_TABLES`) and drops the
-ones outside their dates at each request, so the server's HTML never holds an expired slot. The
-browser does not re-check with the reader's clock, so a slot never appears or disappears under a
-reader mid-visit; a campaign's start and end reach a page with its next revalidation. A record
-this deployment cannot read stops the export that carries it, and at request time shows no
-sponsor instead of failing the page. A page that is not a content route (`/about`,
+An `eventActivityId` takes its window from the corresponding Global event in the content release.
+The release compiler includes it once the event has confirmed opening and closing times.
+Leave `startAt` and `endAt` null in source for these campaigns.
+
+`withContentPage` attaches the campaigns to every content route (`SITE_TABLES`). The initial
+render uses the server time. An open tab switches at the published boundary and catches up when
+it regains focus. A malformed record stops the export that carries it. At request time an
+unreadable record leaves the slot empty. A page that is not a content route (`/about`,
 `/changelog`, `/privacy`, the community video pages) takes the campaigns the live release
-published with `/support` (`withSiteTables`, `siteTablesStaticProps` in `lib/content/server.ts`).
+published with `/support` and uses that release’s image revisions (`withSiteTables`, `siteTablesStaticProps` in `lib/content/server.ts`).
 The error pages and the development-only pages carry none and show no slot.
 
 ## Reviewing a draft
@@ -74,4 +73,4 @@ outside `/advertisements/`.
 
 1. Add the files to arkpedia-image-assets as its `ADDING-ASSETS.md` describes, and merge.
 2. Add the campaign to `sponsor-campaigns.json` as `draft`; review it locally.
-3. Fill in `url`, `startAt` and `endAt`, set `status` to `active`, and release the data.
+3. Fill in `url` and either the fixed dates or the `eventActivityId`, set `status` to `active`, and release the data.

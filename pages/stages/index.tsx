@@ -74,8 +74,8 @@ export default function TerminalPage({ candidates: globalCandidates, latestIs, l
     <>
       <PageMeta title="Terminal" description="The Arknights Terminal: the main story, events, permanent modes and what is open right now." path="/stages" />
 
-      <TerminalNav current="terminal" />
       <PageHeader slim eyebrow="Rhodes Island // Operations board" title="Terminal" />
+      <TerminalNav current="terminal" />
 
       <main className="terminal-scene">
         <div className="terminal-home">

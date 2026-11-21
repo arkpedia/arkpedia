@@ -41,7 +41,6 @@ export default function ScorePage({ lines }: Props) {
   return (
     <>
       <PageMeta title="Score" description="The Arknights score modes and their current seasons." path="/stages/score" />
-      <TerminalNav current="score" />
       <PageHeader
         slim
         eyebrow={<><ModeMark name="score.svg" className="head-mark" />Rhodes Island // Story lines</>}
@@ -51,6 +50,7 @@ export default function ScorePage({ lines }: Props) {
           first, then the side-story lines by the code the game files them under.
         </>}
       />
+      <TerminalNav current="score" />
 
       <main className="terminal-scene">
         <section className="score-block op-section">

@@ -36,13 +36,13 @@ export default function SeasonalPage({ ccb, challenges }: Props) {
   return (
     <>
       <PageMeta title="Seasonal Challenge" description="The Arknights seasonal challenge modes and their current rotations." path="/stages/seasonal" />
-      <TerminalNav current="seasonal" />
       <PageHeader
         slim
         eyebrow={<><ModeMark name="contingency-contract.svg" className="head-mark" />Rhodes Island // Challenge modes</>}
         title="Seasonal Challenge"
         sub={<>The challenge modes: {listed(modes)}, with every season each of them has run.</>}
       />
+      <TerminalNav current="seasonal" />
 
       <main className="terminal-scene">
         <Mode title="Contingency Contract" cards={ccb} noun="operation" mark="contingency-contract.svg" />

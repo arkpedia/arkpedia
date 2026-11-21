@@ -27,7 +27,6 @@ export default function ExplorationPage({ is, ra }: Props) {
   return (
     <>
       <PageMeta title="Long-Term Exploration" description="The Arknights long-term exploration modes and their current seasons." path="/stages/exploration" />
-      <TerminalNav current="exploration" />
       <PageHeader
         slim
         eyebrow={<><ModeMark name="integrated-strategies.svg" className="head-mark" />Rhodes Island // Permanent modes</>}
@@ -37,6 +36,7 @@ export default function ExplorationPage({ is, ra }: Props) {
           season of Reclamation Algorithm.
         </>}
       />
+      <TerminalNav current="exploration" />
 
       <main className="terminal-scene">
         <Mode label="Integrated Strategies" cards={is} />

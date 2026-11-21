@@ -3,7 +3,7 @@ import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import { createServer } from 'node:http';
 import { test } from 'node:test';
-import { withContentPage } from '../../lib/content/server';
+import { siteTablesStaticProps, withContentPage } from '../../lib/content/server';
 import { pageFilePath } from '../../lib/content/pagePaths.mjs';
 import { missingPageTables, PAGE_TABLES, pageTables, SITE_TABLES } from '../../lib/content/tables.mjs';
 import { CONTENT_SCHEMA, type ContentManifest, type ContentPointer } from '../../lib/content/types';
@@ -23,7 +23,7 @@ function loaders(calls: string[]) {
   return Object.fromEntries(NAMES.map(name => [name, async () => { calls.push(name); return bundledCopy(name); }]));
 }
 
-async function withRelease(run: (publish: (props: Record<string, unknown>) => void) => Promise<void>) {
+async function withRelease(run: (publish: (props: Record<string, unknown>) => void) => Promise<void>, route = ROUTE) {
   const documents = new Map<string, string>();
   let pointer: ContentPointer | undefined;
   const server = createServer((request, response) => {
@@ -41,11 +41,11 @@ async function withRelease(run: (publish: (props: Record<string, unknown>) => vo
   const publish = (props: Record<string, unknown>) => {
     const mark = 'abcdef'[label++];
     const revision = mark.repeat(40), release = mark.repeat(64);
-    const body = JSON.stringify({ props }), file = pageFilePath(ROUTE);
+    const body = JSON.stringify({ props }), file = pageFilePath(route);
     documents.set(`/${revision}/release/${file}`, body);
     const manifest: ContentManifest = { schema: CONTENT_SCHEMA, release, generatedAt: '2026-09-25T00:00:00Z', generator: revision,
       assets: { 'arkpedia-image-assets': revision, 'arkpedia-skin-assets': revision },
-      pages: { [ROUTE]: { path: file, bytes: Buffer.byteLength(body), sha256: sha(body) } }, files: {} };
+      pages: { [route]: { path: file, bytes: Buffer.byteLength(body), sha256: sha(body) } }, files: {} };
     const manifestBody = JSON.stringify(manifest);
     documents.set(`/${revision}/release/manifest.json`, manifestBody);
     pointer = { schema: CONTENT_SCHEMA, release, revision, manifestSha256: sha(manifestBody) };
@@ -99,6 +99,21 @@ test('the release\'s copy of a table wins; an older release without it gets this
     } finally { console.warn = warn; }
     assert.ok(warnings.some(line => line.includes('predates') && line.includes(ROUTE)), warnings.join('\n'));
   });
+});
+
+test('site-only pages use the image pins that published the sponsor table', async () => {
+  await withRelease(async publish => {
+    publish({ __contentTables: { 'sponsor-campaigns': { version: 1, campaigns: [] } } });
+    const published = await siteTablesStaticProps({});
+    assert.ok('props' in published);
+    const publishedProps = await published.props;
+    assert.deepEqual(publishedProps.__contentTables['sponsor-campaigns'].campaigns, []);
+    assert.equal(publishedProps.__contentRelease?.assets['arkpedia-image-assets'], 'a'.repeat(40));
+    publish({});
+    const bundled = await siteTablesStaticProps({});
+    assert.ok('props' in bundled);
+    assert.equal((await bundled.props).__contentRelease, undefined);
+  }, '/support');
 });
 
 test('the export and a page with no release both attach the tables from data/', async () => {

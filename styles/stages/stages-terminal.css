@@ -22,11 +22,9 @@
 }
 
 /* --- The section bar -----------------------------------------------------
-   The game puts this along the BOTTOM of a landscape screen. Here it sits at the
-   top, above the scene's own title: a website reads downwards and the switcher is
-   the first thing you want, where in the game it is under your thumb. It carries a
-   ground of its own for the same reason -- floated over the scene on a gradient the
-   marks were barely there. */
+   The section bar follows the shared page header and sticks under the site nav
+   while scrolling. Its bottom rule separates the header area from the scene. */
+.page-header:has(+ .terminal-bar) { border-bottom: 0; }
 .terminal-bar {
   /* Sticky under the site nav, which is `position: fixed` and shrinks when it
      collapses on scroll. TerminalNav measures that height and sets `top` inline --

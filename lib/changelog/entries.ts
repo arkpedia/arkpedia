@@ -40,6 +40,10 @@ export const CHANGELOG: ChangelogEntry[] = [
     ],
   },
   {
+    at: '2026-11-21T10:29:00Z',
+    changed: [{ title: 'Consistent event banners', detail: 'Desktop ads stay in the same header position, and LootBar artwork switches as Global events open.', href: '/about' }],
+  },
+  {
     at: '2026-11-21T08:55:00Z',
     changed: [
       { title: 'Play from Favourites', detail: 'With an empty queue, Play starts your favourites and stays in that collection.', href: '/music?view=library&scope=favorites' },
