@@ -102,11 +102,7 @@ export default function SponsoredSlot({ placement, className = '' }: { placement
   } as CSSProperties;
   const art = failed === campaign.image
     ? <span className="sponsored-slot-fallback">{S.fallback(campaign.sponsor)}</span>
-    : campaign.image.startsWith('https://')
-      // The live snapshot already pinned this artwork to its own release.
-      // eslint-disable-next-line @next/next/no-img-element
-      ? <img src={campaign.image} alt={campaign.alt} width={campaign.width} height={campaign.height} loading="lazy" decoding="async" referrerPolicy="no-referrer" onError={() => setFailed(campaign.image)} />
-      : <ContentImg src={campaign.image} alt={campaign.alt} width={campaign.width} height={campaign.height} referrerPolicy="no-referrer" onError={() => setFailed(campaign.image)} />;
+    : <ContentImg alreadyPinned={campaign.image.startsWith('https://')} src={campaign.image} alt={campaign.alt} width={campaign.width} height={campaign.height} referrerPolicy="no-referrer" onError={() => setFailed(campaign.image)} />;
   // Arkpedia's own banner is not an advertisement: no "Ad" tag, and it opens in this tab.
   const tag = own ? null : <span className="sponsored-slot-tag">{S.tag}</span>;
   return (

@@ -2,6 +2,9 @@ import { useState, type FormEvent } from 'react';
 import type { CampaignEdit } from '@/lib/dashboard/campaignStore';
 import { SPONSOR_PLACEMENTS, type SponsorArtwork, type SponsorCampaign } from '@/lib/sponsors/campaigns';
 import { REFRESH_PAGES } from '@/lib/dashboard/refreshPages';
+import StyledSelect from '@/components/ui/StyledSelect';
+import { ContentImg } from '@/components/content/ContentImage';
+import { loadAssetImage } from '@/lib/assets/assetRetry';
 import styles from './CampaignEditor.module.css';
 
 export interface Catalog { base: SponsorCampaign[]; edits: CampaignEdit[] }
@@ -17,9 +20,7 @@ async function readArtwork(file: File): Promise<Upload> {
     reader.onerror = () => reject(new Error('Could not read artwork.'));
     reader.readAsDataURL(file);
   });
-  const img = new Image();
-  img.src = data;
-  await img.decode();
+  const img = await loadAssetImage(data);
   return { art: { image: data, width: img.naturalWidth, height: img.naturalHeight, alt: '' }, encoded: data.slice(data.indexOf(',') + 1) };
 }
 
@@ -28,7 +29,7 @@ function ArtworkField({ title, art, change, upload, clear }: {
   upload: (file: File) => Promise<void>; clear?: () => void;
 }) {
   return <fieldset className={styles.fields}><legend>{title}</legend>
-    {art.image && <img className={styles.preview} src={art.image} width={art.width} height={art.height} alt={art.alt} />}
+    {art.image && <ContentImg className={styles.preview} src={art.image} width={art.width} height={art.height} alt={art.alt} />}
     <label>Image (600 KiB max)<input type="file" accept="image/png,image/jpeg,image/webp"
       onChange={e => { const file = e.target.files?.[0]; if (file) void upload(file); }} /></label>
     {art.image && <label>Image description<input required value={art.alt} onChange={e => change(e.target.value)} /></label>}
@@ -55,15 +56,14 @@ export default function CampaignEditor({ initial }: { initial: Catalog }) {
     finally { setChecking(false); }
   }
   return <main className={styles.workspace}>
-    <label className={styles.picker}>Campaign<select value={selected} onChange={e => { select(e.target.value); setMessage(''); }}>
-      <option value="">Add campaign…</option>{ids.map(id => <option key={id}>{id}</option>)}
-    </select></label>
+    <label className={styles.picker}>Campaign<StyledSelect label="Campaign" value={selected}
+      onChange={id => { select(id); setMessage(''); }} options={[{ value: '', label: 'Add campaign…' },
+        ...ids.map(id => ({ value: id, label: id }))]} /></label>
     <CampaignForm key={selected + '-' + (edit?.revision ?? 0)} source={source} edit={edit} selected={selected}
       onSave={(next, id) => { setCatalog(next); select(id); setMessage('Saved. Open pages refresh campaigns within about two minutes.'); }} />
     <p role="status">{message}</p>
     <section><h2 className="section-title">Page maintenance</h2>
-      <div className={styles.actions}><label>Page <select value={route} onChange={e => setRoute(e.target.value)}>
-        {REFRESH_PAGES.map(path => <option key={path}>{path}</option>)}</select></label>
+      <div className={styles.actions}><label>Page <StyledSelect label="Page to refresh" value={route} onChange={setRoute} options={REFRESH_PAGES.map(path => ({ value: path, label: path }))} /></label>
         <button className="btn btn-sm" disabled={checking} onClick={() => void refresh()}>Refresh cached page</button>
       </div></section>
   </main>;
@@ -115,12 +115,12 @@ function CampaignForm({ source, edit, selected, onSave }: {
       <label>Campaign ID<input required pattern="[a-z0-9][a-z0-9-]*" maxLength={100} readOnly={!!selected} value={c.id} onChange={e => patch({ id: e.target.value })} /></label>
       <label>Sponsor or site name<input required value={c.sponsor} onChange={e => patch({ sponsor: e.target.value })} /></label>
       <label>Destination (HTTPS or Arkpedia path)<input required value={c.url ?? ''} placeholder="/music/discover" onChange={e => patch({ url: e.target.value })} /></label>
-      <label>Status<select value={c.status} onChange={e => patch({ status: e.target.value as SponsorCampaign['status'] })}>
-        <option value="active">Active</option><option value="ended">Paused</option><option value="draft">Draft</option></select></label>
-      <fieldset><legend>Placements</legend>{SPONSOR_PLACEMENTS.map(p => <label key={p} className={styles.check}><input type="checkbox"
+      <label>Status<StyledSelect label="Status" value={c.status} onChange={status => patch({ status: status as SponsorCampaign['status'] })}
+        options={[{ value: 'active', label: 'Active' }, { value: 'ended', label: 'Paused' }, { value: 'draft', label: 'Draft' }]} /></label>
+      <fieldset><legend>Placements</legend>{SPONSOR_PLACEMENTS.map(p => <label key={p} className="check"><input type="checkbox"
         checked={c.placements.includes(p)} onChange={e => patch({ placements: e.target.checked ? [...c.placements, p] : c.placements.filter(x => x !== p) })} />
         {{ header: 'Page and mobile menu', home: 'Homepage', support: 'Support' }[p]}</label>)}</fieldset>
-      {source && <label className={styles.check}><input type="checkbox" checked={follow} onChange={e => setFollow(e.target.checked)} />Follow published schedule</label>}
+      {source && <label className="check"><input type="checkbox" checked={follow} onChange={e => setFollow(e.target.checked)} />Follow published schedule</label>}
       {!follow && (['startAt','endAt'] as const).map(key => <label key={key}>{key === 'startAt' ? 'Starts' : 'Ends'} (optional, with timezone)
         <input placeholder="2026-12-01T15:00:00Z" value={c[key] ?? ''} onChange={e => patch({ [key]: e.target.value || null })} /></label>)}
     </div>

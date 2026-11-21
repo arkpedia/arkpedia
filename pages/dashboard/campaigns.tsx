@@ -1,4 +1,4 @@
-import Head from 'next/head';
+import PageMeta from '@/components/layout/PageMeta';
 import type { GetServerSideProps } from 'next';
 import CampaignEditor, { type Catalog } from '@/components/dashboard/CampaignEditor';
 import PageHeader from '@/components/ui/PageHeader';
@@ -16,7 +16,7 @@ export const getServerSideProps: GetServerSideProps<{ catalog: Catalog | null }>
 };
 
 export default function CampaignDashboard({ catalog }: { catalog: Catalog | null }) {
-  return <><Head><title>Campaigns | Arkpedia Dashboard</title></Head>
+  return <><PageMeta title="Campaign dashboard" description="Manage Arkpedia banners and refresh published pages." path="/dashboard/campaigns" />
     <PageHeader eyebrow="Arkpedia // Dashboard" title="Advertisement campaigns" slim compact />
     {catalog ? <CampaignEditor initial={catalog} /> : <p role="alert">Campaign storage is unavailable.</p>}</>;
 }
