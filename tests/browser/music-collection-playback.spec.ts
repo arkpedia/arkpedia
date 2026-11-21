@@ -1,6 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 import { stubYouTube, youtube } from './youtube-stub';
-import { waitForMusicOverlays } from './music-navigation-helpers';
+import { chooseMusicView, waitForMusicOverlays } from './music-navigation-helpers';
 
 const album = '/music/discover?facet=album%3A5193';
 const halo = '21P6C7lAb-Y', pilgrimage = 'cmA18BG0gks', detour = 'uBRNsCPG-yU';
@@ -72,6 +72,32 @@ for (const theme of ['light', 'dark']) test('collection playback, queue and cred
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });
 
+test('Play from Favourites stays within the saved songs with autoplay on', async ({ page }) => {
+  await stubYouTube(page);
+  await page.addInitScript(ids => {
+    localStorage.setItem('musicFavorites', JSON.stringify(ids));
+    localStorage.setItem('arkpediaMusicAutoplay', 'true');
+  }, [halo, pilgrimage]);
+  await page.goto('/music?view=library&scope=favorites');
+  await expect(page.locator('.music-library-row')).toHaveCount(2);
+  await bar(page).getByRole('button', { name: 'Play', exact: true }).click();
+  await heard(page, halo);
+  await bar(page).getByRole('button', { name: 'Next track' }).click();
+  await heard(page, pilgrimage);
+  await page.evaluate(() => (window as unknown as { __yt: { finish(): void } }).__yt.finish());
+  await expect(bar(page).getByRole('button', { name: 'Play', exact: true })).toBeVisible();
+  expect((await youtube(page))?.videoId).toBe(pilgrimage);
+});
+
+test('Play in empty Favourites waits for a song', async ({ page }) => {
+  await stubYouTube(page);
+  await page.goto('/music?view=library&scope=favorites');
+  await expect(page.getByText(/No favourites yet/)).toBeVisible();
+  await bar(page).getByRole('button', { name: 'Play', exact: true }).click();
+  await expect(page.getByText('Add a song to Favourites to start playback.').first()).toBeVisible();
+  expect((await youtube(page))?.videoId || '').toBe('');
+});
+
 test('a saved playlist row starts at that position in its saved order', async ({ page }) => {
   await stubYouTube(page);
   await page.addInitScript(({ halo, pilgrimage, detour }) => {
@@ -80,6 +106,10 @@ test('a saved playlist row starts at that position in its saved order', async ({
   }, { halo, pilgrimage, detour });
   await page.goto('/music?view=library&playlist=night');
   await page.locator('.music-library-row[data-song-id="' + pilgrimage + '"] .music-song-row-main').click();
+  await heard(page, pilgrimage);
+  await bar(page).getByRole('button', { name: 'Pause', exact: true }).click();
+  await chooseMusicView(page, /^Favourites/);
+  await bar(page).getByRole('button', { name: 'Play', exact: true }).click();
   await heard(page, pilgrimage);
   await bar(page).getByRole('link', { name: 'Queue', exact: true }).click();
   const drawer = page.getByRole('dialog', { name: 'Playback queue' });
@@ -111,7 +141,7 @@ test('Now playing shows lyrics and the phone transport jumps to them', async ({ 
   await expect.poll(async () => (await youtube(page))?.calls.some(([op]) => op === 'seekTo')).toBe(true);
   await bar(page).getByRole('link', { name: /Open Now playing/ }).click();
   await expect(lyrics).toBeVisible();
-  await expect(page.locator('.music-now-playing').getByRole('link', { name: /lyrics|open queue|youtube/i })).toHaveCount(0);
+  await expect(page.locator('.music-now-playing').getByRole('link', { name: /lyrics|open queue/i })).toHaveCount(0);
   await expect(page.locator('.music-wave-visualizer')).toBeVisible();
   // Returning from expanded phone lyrics commits the new transport clearance
   // separately. Measure both boxes in the same frame after that layout settles.

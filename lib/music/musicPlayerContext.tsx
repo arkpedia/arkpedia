@@ -9,6 +9,7 @@ import { GAME_PATHS } from '@/lib/minigames/catalogue';
 import { MUSIC_CATALOGUE_PATH, loadMusicCatalogue, type MusicCatalogueSong } from './musicCatalogue';
 import { createCatalogueStore, type CatalogueStore } from './catalogueStore';
 import { MUSIC_FAVORITES_EVENT, MUSIC_FAVORITES_KEY, readMusicFavorites } from './musicFavorites';
+import { FAVORITES_PLAYLIST_ID, FAVORITES_PLAYLIST_NAME } from './musicPlaylists';
 import { CLOUD_RESTORED_EVENT } from '@/lib/cloud-account/events';
 import { migrateChosenQueue, restoreQueue, sessionStore, takeMusicResume, writeMusicResume, type MusicResumeState, type MusicSource, type ListeningHistory } from './musicResume';
 import { songTitle } from './musicPolish';
@@ -125,10 +126,11 @@ function toQueueTrack(song: MusicCatalogueSong): QueueTrack {
 
 /** What autoplay plays once the queue is done, in its order from the song playing: every song the
  *  reader's settings let in, less the queue's own songs, the ones kept out, and the song playing. */
-function computeAutoplayTracks({ catalog, filter, queue, autoplayOrder, autoplayVideoId, videoId, keptOut }: {
+function computeAutoplayTracks({ catalog, filter, queue, autoplayOrder, autoplayVideoId, videoId, keptOut, playlistId }: {
   catalog: MusicCatalogueSong[] | null; filter: SongFilter; queue: QueueTrack[]; autoplayOrder: string[];
-  autoplayVideoId: string; videoId: string; keptOut: ReadonlySet<string>;
+  autoplayVideoId: string; videoId: string; keptOut: ReadonlySet<string>; playlistId: string | null;
 }): QueueTrack[] {
+  if (playlistId === FAVORITES_PLAYLIST_ID) return [];
   const byId = new Map((catalog ?? []).filter(song => songAllowed(filter, song)).map(song => [song.id, toQueueTrack(song)]));
   const chosen = new Set(queue.map(track => track.id));
   const ids = [...new Set([...autoplayOrder, ...byId.keys()])];
@@ -752,16 +754,16 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
   /** Autoplay's list as it stands this moment, for the code that plays from it. */
   function nextAutoplayTracks(): QueueTrack[] {
     return computeAutoplayTracks({ catalog: catalogRef.current, filter: songFilter(), queue: queueRef.current, autoplayOrder: autoplayOrderRef.current,
-      autoplayVideoId: autoplayVideoIdRef.current, videoId: videoIdRef.current, keptOut: noAutoplaySongs() });
+      autoplayVideoId: autoplayVideoIdRef.current, videoId: videoIdRef.current, keptOut: noAutoplaySongs(), playlistId: playingPlaylistIdRef.current });
   }
   // The same list for the queue views, from the state these values render from, kept between
   // renders: the same array until one of its inputs changes, so a Queue's search index over it
   // is built once (components/music/MusicQueue.tsx).
   const autoplayTracks = useMemo(() => computeAutoplayTracks({ catalog: catalogRef.current, filter: { excludeCopyrighted, includeEndfield }, queue, autoplayOrder,
-    autoplayVideoId, videoId, keptOut: noAutoplay }),
+    autoplayVideoId, videoId, keptOut: noAutoplay, playlistId: playingPlaylistId }),
   // The catalogue is written with libraryTracks (buildQueueFromCatalog).
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  [libraryTracks, excludeCopyrighted, includeEndfield, queue, autoplayOrder, autoplayVideoId, videoId, noAutoplay]);
+  [libraryTracks, excludeCopyrighted, includeEndfield, queue, autoplayOrder, autoplayVideoId, videoId, noAutoplay, playingPlaylistId]);
 
   function toggleSongNoAutoplay(id: string) {
     const out = toggleNoAutoplay(id);
@@ -2101,7 +2103,19 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
     toggleShuffle, cycleRepeat, toggleFavorite, toggleNoAutoplay: toggleSongNoAutoplay,
     reorderQueue, reorderShuffleOrder, moveQueueItemToTop, removeFromQueue, queueSong, clearQueue,
     undoClearQueue, setExcludeCopyrighted,
-    togglePlay: () => { claimManualAudio(); togglePlay(); },
+    togglePlay: () => {
+      claimManualAudio();
+      const onFavourites = router.pathname === '/music' && router.query.view === 'library'
+        && (router.query.playlist === FAVORITES_PLAYLIST_ID || (!router.query.playlist && router.query.scope === 'favorites'));
+      if (onFavourites && !isPlayingRef.current && !bufferingRef.current && !queueSourceRef.current
+        && !queueRef.current.length && !resumeRef.current?.queue.length) {
+        const ids = [...favoritesRef.current];
+        if (!ids.length) announce('Add a song to Favourites to start playback.');
+        else void playPlaylist(ids, { name: FAVORITES_PLAYLIST_NAME, href: '/music?view=library&scope=favorites', playlistId: FAVORITES_PLAYLIST_ID });
+        return;
+      }
+      togglePlay();
+    },
     pausePlayback: () => { claimManualAudio(); pausePlayback(); },
     nextTrack: manualNextTrack,
     prevTrack: () => { claimManualAudio(); prevTrack(); },

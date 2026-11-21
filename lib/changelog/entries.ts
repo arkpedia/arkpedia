@@ -35,6 +35,9 @@ export interface ChangelogEntry {
 export const CHANGELOG: ChangelogEntry[] = [
   {
     at: '2026-11-21T08:55:00Z',
+    changed: [
+      { title: 'Play from Favourites', detail: 'With an empty queue, Play starts your favourites and stays in that collection.', href: '/music?view=library&scope=favorites' },
+    ],
     fixed: [
       { title: 'Album browsing follows your last click', detail: 'Open another album after Back to browse or select two albums quickly during playback.', href: '/music/discover?browse=albums' },
       { title: 'Watch on YouTube from Now playing', detail: 'Tracks with a known video link directly to it, including the vocal recording of Sal Terrae.', href: '/music?view=player' },
