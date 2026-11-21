@@ -73,9 +73,7 @@ the maintainer; they do not assert a verified claim on every recording.
 credits Steve Aoki, Yellow Claw, and RUNN and identifies Ultra Records, LLC.
 The label is supporting release metadata, not an artist match or a blanket label rule.
 
-The existing compact catalogue also omits performer credits for Miss You (ZOEE)
-and Fleeting Wish (Kaori Sawada). Their recording IDs retain those exclusions when
-reading older releases, just as the Misty Memory IDs do.
+The maintainer cleared Miss You and its instrumental on 2026-11-21. Their recording IDs override the earlier ZOEE flag in published catalogues. Fleeting Wish and the Misty Memory versions retain their recording-level exclusions.
 
 Duplicate album rows sharing a playback ID keep an exclusion from any listing.
 This covers the current Chernobog YouTube ID shared by BaoUner and Yuki Hayashi

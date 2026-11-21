@@ -14,7 +14,8 @@ import MusicWaveVisualizer from '@/components/music/MusicWaveVisualizer';
 import { artistKey, creditedArtists } from '@/lib/music/artistCredits';
 import { useCrossFadeTitle } from '@/lib/music/useCrossFadeTitle';
 import { instrumentalLyricLines } from '@/lib/music/versionTiming';
-import { lyricsPath } from '@/lib/music/trackId';
+import ExternalLinkIcon from '@/components/ui/ExternalLinkIcon';
+import { lyricsPath, youtubeWatchUrl } from '@/lib/music/trackId';
 import MusicPlaylists from '@/components/music/MusicPlaylists';
 import MusicGameSetting from '@/components/music/MusicGameSetting';
 import MusicLibrary from '@/components/music/MusicLibrary';
@@ -131,6 +132,7 @@ export default function MusicPage({ songLookup }: Props) {
   // The album's cover: from this page's release props, else from the player's catalogue (a song
   // a release compiled before Monster Siren songs were listed here has its cover only there),
   // else the player's fallback: Monster Siren's own cover or the YouTube thumbnail (lib/music/songArt.ts).
+  const watchUrl = youtubeWatchUrl(videoId);
   const nowPlayingCover = currentDetail?.coverPath ?? currentTrack?.cover ?? fallbackCover ?? null;
 
   // From this page's release props, like the credits: a lyric file is published for exactly
@@ -296,6 +298,7 @@ export default function MusicPage({ songLookup }: Props) {
                   </span>
                 )}
               </div>
+              {watchUrl && <div><a className="ghost btn-sm" href={watchUrl} target="_blank" rel="noreferrer">Watch on YouTube <ExternalLinkIcon /></a></div>}
               {alternateVersion && <button type="button" className="ghost btn-sm music-version-switch" disabled={!ready} onClick={switchVersion}>
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true"><path d="M4 7h15m-4-4 4 4-4 4M20 17H5m4-4-4 4 4 4" /></svg>
                 {alternateVersion.label}

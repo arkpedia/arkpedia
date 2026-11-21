@@ -90,9 +90,9 @@ test('requested crossover artists are excluded in mixed credits and published ca
 
 
 test('older compact catalogues exclude recordings with omitted performer credits', async () => {
-  const cids=['514540','779499','514546','048703'];
+  const cids=['514546','048703'];
   const source=[...getAllSongsFull(),...getMonsterSirenOnlySongs()].filter(song=>cids.includes(song.songId));
-  assert.equal(source.length,4);assert.ok(source.every(song=>song.copyright));
+  assert.equal(source.length,2);assert.ok(source.every(song=>song.copyright));
   const rows=await loadMusicCatalogue('/old.json',undefined,async()=>({ok:true,status:200,json:async()=>({songs:source.map(song=>({cid:song.songId,videoId:song.videoId||undefined,title:song.title}))})}));
   assert.ok(rows.filter(song=>cids.includes(song.cid??'')).every(song=>!songAllowed(safe,song)));
 });
@@ -105,5 +105,22 @@ test('duplicate recordings retain an exclusion from either album credit', async 
     const rows=await loadMusicCatalogue('/old.json',undefined,async()=>({ok:true,status:200,json:async()=>({songs})}));
     const matches=rows.filter(song=>song.id==='samevideo01');
     assert.equal(matches.length,1);assert.equal(matches[0].title,songs[0].title);assert.equal(matches[0].copyright,true);
+  }
+});
+
+test('Miss You and its instrumental are available even in older flagged catalogues', async () => {
+  const cids = ['514540', '779499'];
+  const tracks = getAllSongsFull().filter(song => cids.includes(song.songId));
+  assert.equal(tracks.length, 2);
+  assert.ok(tracks.every(song => !song.copyright && songAllowed(safe, song)));
+  for (const omitCid of [true, false]) {
+    const old = projectMusicCatalogue(tracks).songs.map(row => ({ ...row, cid: omitCid ? undefined : row.cid, copyright: true }));
+    const loaded = await loadMusicCatalogue('/old.json', undefined, async () => ({
+      ok: true, status: 200, json: async () => ({ songs: old }),
+    }));
+    for (const track of tracks) {
+      const row = loaded.find(song => song.videoId === track.videoId);
+      assert.ok(row && !row.copyright && songAllowed(safe, row));
+    }
   }
 });

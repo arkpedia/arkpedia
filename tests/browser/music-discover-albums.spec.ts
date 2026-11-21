@@ -1,5 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 import { stubYouTube, youtube } from './youtube-stub';
+import { stubMonsterSiren } from './monster-siren-stub';
 
 /*
  * Browse by album on /music/discover (2026-10-14). The site's co-owner asked for one, as Monster
@@ -113,9 +114,23 @@ test('an album opens its songs, which play, queue and favourite in one press', a
   await heart.click();
   await expect(heart).toHaveAttribute('aria-pressed', 'true');
 
-  // Back to browse returns to the grid of albums.
+  // Return during playback and immediately open another album from that grid.
   await page.getByRole('button', { name: /Back to browse/ }).click();
-  await expect(page.locator('#discover-albums.music-discover-grid')).toBeVisible();
+  const grid = page.locator('#discover-albums.music-discover-grid');
+  await expect(grid).toBeVisible();
+  await grid.getByRole('button', { name: album.albumAltName, exact: false }).first().click();
+  await expect(page.locator('.music-album-overview h2')).toHaveText(album.albumAltName);
+  await page.getByRole('button', { name: /Back to browse/ }).click();
+  await page.getByRole('searchbox', { name: 'Filter albums' }).fill('');
+  const nextTile = grid.getByRole('button').filter({ hasNotText: album.albumAltName }).first();
+  const nextTitle = await nextTile.locator('.music-discover-album-tile-name').innerText();
+  await nextTile.click();
+  await expect(page.locator('.music-album-overview h2')).toHaveText(nextTitle);
+  await page.goBack();
+  await expect(grid).toBeVisible();
+  await page.goForward();
+  await expect(page.locator('.music-album-overview h2')).toHaveText(nextTitle);
+  await expect.poll(async () => (await youtube(page))?.videoId).toBe(first);
 });
 
 test('filtering the album grid from low on the page keeps the reader\'s place', async ({ page }) => {
@@ -165,6 +180,25 @@ test('the album grid fits a 390px phone, three covers across, and a desktop', as
   }
 });
 
+test('the last of two rapid album selections opens the matching detail', async ({ page }) => {
+  await page.goto('/music/discover?browse=albums');
+  const tiles = page.locator('#discover-albums .music-discover-album-tile');
+  await expect(tiles.nth(1)).toBeVisible();
+  await expect(page.locator('#discover-albums.music-discover-grid')).toBeVisible();
+  const expected = await tiles.evaluateAll(buttons => {
+    const title = buttons[1].querySelector('.music-discover-album-tile-name')!.textContent!;
+    (buttons[0] as HTMLButtonElement).click();
+    (buttons[1] as HTMLButtonElement).click();
+    return title;
+  });
+  await expect(page.locator('.music-album-overview h2')).toHaveText(expected);
+  const { albums } = await pageProps(page);
+  const target = albums.find(album => album.albumAltName === expected)!;
+  await expect.poll(() => new URL(page.url()).searchParams.get('facet')).toBe(`album:${target.albumId}`);
+  await page.reload();
+  await expect(page.locator('.music-album-overview h2')).toHaveText(expected);
+});
+
 for (const theme of ['dark', 'light']) {
   test(`opening an album survives a pending Show all URL write (${theme})`, async ({ page }) => {
     await page.addInitScript(theme => localStorage.setItem('theme', theme), theme);
@@ -186,5 +220,24 @@ for (const theme of ['dark', 'light']) {
     await expect.poll(() => page.locator('.music-discover-song-row').count()).toBeGreaterThan(0);
     await page.reload();
     await expect(page.locator('.music-album-overview').getByRole('heading', { name: title!, exact: true })).toBeVisible();
+  });
+}
+
+for (const theme of ['dark', 'light']) {
+  test(`Sal Terrae has a watch link on Now playing for the vocal recording (${theme})`, async ({ page }) => {
+    await page.addInitScript(theme => localStorage.setItem('theme', theme), theme);
+    await stubYouTube(page);
+    await stubMonsterSiren(page);
+    await page.goto('/music/discover?facet=album%3A0227');
+    await page.locator('[data-song-id="msr:697672"] .music-song-row-main').click();
+    await page.getByRole('link', { name: /Open Now playing$/ }).click();
+    const info = page.locator('.music-now-playing-song-info');
+    const watch = info.getByRole('link', { name: 'Watch on YouTube' });
+    await expect(watch).toBeVisible();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+    await expect(watch).toHaveAttribute('href', 'https://www.youtube.com/watch?v=E6n1Ga3445o');
+    await info.getByRole('button', { name: /Play instrumental version/i }).click();
+    await expect(info.getByRole('button', { name: /Play vocal version/i })).toBeVisible();
+    await expect(watch).toHaveCount(0);
   });
 }

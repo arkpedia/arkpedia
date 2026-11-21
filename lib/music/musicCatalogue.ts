@@ -118,7 +118,7 @@ async function fetchMusicCatalogue(url: string, signal: AbortSignal | undefined,
   const excludedIds = new Set(validSongs.filter(hasMusicClaimRisk).map(song => rowId(song)!));
   // A cid that is not a Monster Siren id is dropped, not the row: the song still plays from YouTube.
   return validSongs.map((song) => {
-    const { cid, ...row } = song;
+    const { cid, copyright: _publishedFlag, ...row } = song;
     // Existing content releases may predate an artist exclusion. Apply it at read
     // time too, before queue entries copy the compact copyright flag.
     return { ...row, ...(excludedIds.has(rowId(song)!) ? { copyright: true as const } : {}), ...(validCid(cid) ? { cid } : {}), id: rowId(song)! };

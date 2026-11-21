@@ -19,6 +19,8 @@ test('a track id says which engine plays it, and only a YouTube song has a YouTu
   for (const bad of ['', 'msr:', 'msr:12a', 'msr:../x']) assert.equal(trackSource(bad), null, bad);
   assert.equal(youtubeWatchUrl('ZCiLqOcjA0Y'), 'https://www.youtube.com/watch?v=ZCiLqOcjA0Y');
   assert.equal(youtubeWatchUrl('msr:697616'), null);
+  assert.equal(youtubeWatchUrl('msr:697672'), 'https://www.youtube.com/watch?v=E6n1Ga3445o');
+  assert.equal(youtubeWatchUrl('msr:514590'), null);
   assert.equal(youtubeWatchUrl(''), null);
   // Lyric files are plain filenames: no colon reaches the release or a checkout.
   assert.equal(lyricsPath('ZCiLqOcjA0Y'), '/lyrics/ZCiLqOcjA0Y.json');

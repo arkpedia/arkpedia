@@ -1,6 +1,6 @@
 /** A conservative exclusion list for Stream-safe mode, not a statement about ownership
  * or a guarantee that other recordings cannot receive claims. Keep this separate from
- * the catalogue's per-recording flags, which must continue to take precedence.
+ * the catalogue's source flags. Explicit recording corrections apply to older releases too.
  */
 const FLAGGED_ARTISTS = [
   // Added 2026-11-03 at the maintainer's request after a YouTube Studio report for
@@ -22,7 +22,6 @@ const FLAGGED_ARTISTS = [
 // family excluded there too, without flagging every song by its other composers.
 const FLAGGED_CIDS = new Set([
   '048708', '306816', '880333', // Misty Memory (ZOEE)
-  '514540', '779499', // Miss You / instrumental (ZOEE)
   '514546', '048703', // Fleeting Wish recordings (Kaori Sawada)
 ]);
 const FLAGGED_VIDEOS = new Set(['585ac0amIH4', 'd5q1_S6lI-0', 'plsjnAiPzl8']);
@@ -44,6 +43,10 @@ export interface ClaimRiskSong {
 }
 
 export function hasMusicClaimRisk(song: ClaimRiskSong): boolean {
+  // The maintainer cleared both Miss You recordings. Older catalogues baked the
+  // ZOEE artist rule into their copyright flag, including rows with no credits.
+  const cid = song.cid ?? song.songId;
+  if (cid === '514540' || cid === '779499' || song.videoId === 'SVeYo5pUnY4' || song.videoId === 'nZ1DIbAWu10') return false;
   if (song.copyright) return true;
   if (FLAGGED_CIDS.has(song.cid ?? song.songId ?? '') || FLAGGED_VIDEOS.has(song.videoId ?? '')) return true;
   const names = [song.artist, song.composer, ...(song.credits ?? []).flatMap(credit => credit.names)];

@@ -8,7 +8,7 @@ import Image from '@/components/content/ContentImage';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { GAME_PATHS } from '@/lib/minigames/catalogue';
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import TransportIcon from '@/components/music/TransportIcons';
 import MusicHeader from '@/components/music/MusicHeader';
 import ScrollRow from '@/components/ui/ScrollRow';
@@ -171,16 +171,9 @@ export default function DiscoverPage({ songs: releaseSongs, characters, origins,
   ];
   const selectedChart = charts.find(item => item.key === songOrder);
 
-  // Only ONE facet is ever active at a time (every setter below spreads
-  // EMPTY_FACETS first), so the whole FacetState fits in a single
-  // "kind:value" query param -- ?facet=character:Amiya -- rather than
-  // four separate keys. That's not just tidier: useQueryState debounces
-  // each key's URL write independently from a snapshot of router.query,
-  // so two keys written in the same tick would race and the loser's
-  // change would vanish from the URL. One key can't race with itself.
-  // Split on the FIRST colon only, since facet values (song origins,
-  // artist names) can themselves contain colons.
-  const [facetParam, setFacetParam] = useQueryState('facet');
+  // Album links, history navigation and the browse controls all select the same
+  // detail view. Render the committed URL so shallow history entries work too.
+  const facetParam = typeof router.query.facet === 'string' ? router.query.facet : '';
   const facets = useMemo((): FacetState => {
     const sep = facetParam.indexOf(':');
     if (sep <= 0) return EMPTY_FACETS;
@@ -193,12 +186,16 @@ export default function DiscoverPage({ songs: releaseSongs, characters, origins,
     if (kind === 'album') return { ...EMPTY_FACETS, albumId: value };
     return EMPTY_FACETS;
   }, [facetParam]);
-  function setFacets(next: FacetState) {
-    if (next.character) setFacetParam(`character:${next.character}`);
-    else if (next.artist) setFacetParam(`artist:${next.artist}`);
-    else if (next.origin) setFacetParam(`origin:${next.origin}`);
-    else if (next.albumId) setFacetParam(`album:${next.albumId}`);
-    else setFacetParam('');
+  function openFacet(kind: 'character' | 'origin', value: string) {
+    const next: typeof router.query = { ...router.query, facet: `${kind}:${value}` };
+    // Preserve input that is still waiting for its debounced URL write.
+    if (query) next.q = query;
+    else delete next.q;
+    if (songOrder) next.sort = songOrder;
+    else delete next.sort;
+    if (browseCollection) next.browse = browseCollection;
+    else delete next.browse;
+    void router.replace({ pathname: router.pathname, query: next }, undefined, { scroll: false });
   }
 
   const hasActiveQuery = query.trim().length > 0;
@@ -303,22 +300,14 @@ export default function DiscoverPage({ songs: releaseSongs, characters, origins,
 
   function backToBrowse() {
     setInitialReturn(false);
-    setQuery('');
-    setFacets(EMPTY_FACETS);
-    // The two setters above reset local state immediately, but their
-    // URL writes are separately debounced snapshots of router.query --
-    // when q AND facet are both set, whichever write lands last was
-    // taken before the other's landed, resurrecting that key in the
-    // URL (state says browse, address bar says filtered; a reload
-    // would re-apply the zombie filter). One direct shallow replace
-    // drops both keys atomically; the hooks' own debounced writes then
-    // fire against the already-clean query and are no-ops.
+    // A single navigation clears the search and facet together. The query hooks
+    // cancel pending writes on navigation and read the destination on arrival.
     const cleaned = { ...router.query };
     delete cleaned.q;
     delete cleaned.facet;
     delete cleaned.artist;
     delete cleaned.from;
-    router.replace({ pathname: router.pathname, query: cleaned }, undefined, { shallow: true, scroll: false });
+    void router.replace({ pathname: router.pathname, query: cleaned }, undefined, { scroll: false });
   }
 
   function playSong(videoId: string, shelf?: typeof charts[number]) {
@@ -380,7 +369,12 @@ export default function DiscoverPage({ songs: releaseSongs, characters, origins,
   const hiddenArtistMatches = !includeEndfield && artistFilter.trim() ? releaseArtists.filter(a =>
     releaseSongs.some(song => song.game === 'endfield' && creditsArtist(song.artist, a.name)) &&
     musicFacetMatches(artistFilter, [a.name], ['endfield']) && !visibleArtists.some(shown => artistKey(shown.name) === artistKey(a.name))).length : 0;
-  const openAlbum = (albumId: string) => {
+  // Next can commit overlapping same-page pushes out of order, leaving the URL
+  // on one album while rendering another. Finish one route before applying the
+  // latest click. Replace any intermediate album so Back returns to the grid.
+  const openingAlbum = useRef(false);
+  const pendingAlbum = useRef<typeof router.query | null>(null);
+  const openAlbum = async (albumId: string) => {
     const next: typeof router.query = { ...router.query, facet: `album:${albumId}` };
     // Keep an immediately expanded grid even before its debounced URL write lands.
     if (browseCollection) next.browse = browseCollection;
@@ -388,7 +382,22 @@ export default function DiscoverPage({ songs: releaseSongs, characters, origins,
     delete next.q;
     delete next.sort;
     delete next.artist;
-    void router.push({ pathname: router.pathname, query: next }, undefined, { scroll: false });
+    pendingAlbum.current = next;
+    if (openingAlbum.current) return;
+    openingAlbum.current = true;
+    try {
+      let method: 'push' | 'replace' = 'push';
+      while (pendingAlbum.current) {
+        const query = pendingAlbum.current;
+        pendingAlbum.current = null;
+        const completed = await router[method]({ pathname: router.pathname, query }, undefined, { scroll: false });
+        if (!completed) break;
+        method = 'replace';
+      }
+    } finally {
+      openingAlbum.current = false;
+      pendingAlbum.current = null;
+    }
   };
 
   function filterAlbumArtist(name: string) {
@@ -544,7 +553,7 @@ export default function DiscoverPage({ songs: releaseSongs, characters, origins,
                       key={name}
                       type="button"
                       className="btn-bare music-discover-character-tile"
-                      onClick={() => setFacets({ ...EMPTY_FACETS, character: name })}
+                      onClick={() => openFacet('character', name)}
                     >
                       <CharacterPortrait name={name} artPath={artByName.get(name)} />
                       <span className="music-discover-character-name">{name}</span>
@@ -642,7 +651,7 @@ export default function DiscoverPage({ songs: releaseSongs, characters, origins,
                     key={c.name}
                     type="button"
                     className="btn-bare music-discover-character-tile"
-                    onClick={() => setFacets({ ...EMPTY_FACETS, character: c.name })}
+                    onClick={() => openFacet('character', c.name)}
                     title={songCount(c.count)}
                   >
                     <CharacterPortrait name={c.name} artPath={c.artPath} />
@@ -665,7 +674,7 @@ export default function DiscoverPage({ songs: releaseSongs, characters, origins,
                       type="button"
                       className="btn-bare music-discover-origin-pill"
                       style={{ fontSize: weightedPillSize(o.count, maxOriginCount) }}
-                      onClick={() => setFacets({ ...EMPTY_FACETS, origin: o.name })}
+                      onClick={() => openFacet('origin', o.name)}
                       title={songCount(o.count)}
                     >
                       {o.name}

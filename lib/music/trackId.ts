@@ -39,10 +39,14 @@ export function isStoredTrackId(id: unknown): id is string {
   return typeof id === 'string' && (YOUTUBE_ID.test(id) || isMsrTrackId(id));
 }
 
-/** The song's YouTube page, for a song that has one; null for a Monster Siren song. */
+// A watch link can exist even when playback and saved playlists use Monster Siren's ID.
+const MSR_WATCH_VIDEOS: Readonly<Record<string, string>> = {
+  '697672': 'E6n1Ga3445o', // Sal Terrae (vocal), RiverV Workshop.
+};
 export function youtubeWatchUrl(id: string): string | null {
   const source = id ? trackSource(id) : null;
-  return source?.kind === 'youtube' ? `https://www.youtube.com/watch?v=${source.videoId}` : null;
+  const video = source?.kind === 'msr' ? MSR_WATCH_VIDEOS[source.cid] : source?.videoId;
+  return video && YOUTUBE_ID.test(video) ? `https://www.youtube.com/watch?v=${video}` : null;
 }
 
 /** Where a track's lyric file is published (lib/music/albumsDataServer.ts writes them): one
