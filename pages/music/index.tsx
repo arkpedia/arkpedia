@@ -266,6 +266,7 @@ export default function MusicPage({ songLookup }: Props) {
                   <span className="music-now-playing-cover-fallback">♪</span>
                 )}
               </div>
+              {watchUrl && <a className="music-watch-link" href={watchUrl} target="_blank" rel="noreferrer">Watch on YouTube <ExternalLinkIcon /></a>}
 
             </div>
 
@@ -298,7 +299,6 @@ export default function MusicPage({ songLookup }: Props) {
                   </span>
                 )}
               </div>
-              {watchUrl && <div><a className="ghost btn-sm" href={watchUrl} target="_blank" rel="noreferrer">Watch on YouTube <ExternalLinkIcon /></a></div>}
               {alternateVersion && <button type="button" className="ghost btn-sm music-version-switch" disabled={!ready} onClick={switchVersion}>
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true"><path d="M4 7h15m-4-4 4 4-4 4M20 17H5m4-4-4 4 4 4" /></svg>
                 {alternateVersion.label}

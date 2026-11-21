@@ -231,7 +231,7 @@ for (const theme of ['dark', 'light']) {
     await page.goto('/music/discover?facet=album%3A0227');
     await page.locator('[data-song-id="msr:697672"] .music-song-row-main').click();
     await page.getByRole('link', { name: /Open Now playing$/ }).click();
-    const info = page.locator('.music-now-playing-song-info');
+    const info = page.locator('.music-now-playing-details');
     const watch = info.getByRole('link', { name: 'Watch on YouTube' });
     await expect(watch).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
