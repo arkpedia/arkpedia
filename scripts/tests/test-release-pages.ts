@@ -14,6 +14,8 @@ import { pageSource, releaseKey } from '../content/page-source.mjs';
  * default.
  */
 const OUTSIDE_THE_RELEASE: Record<string, string> = {
+  'pages/game-modes/ccb.tsx': 'Preview-only helper: its historical CC archive is pinned in config/ccb-archive.json and its map snapshot is generated at build time, outside production content publication until promotion.',
+  'pages/game-modes/integrated-strategies.tsx': 'Preview-only reference: generated from pinned CN/Global tables on build, intentionally outside the production content publication until promotion.',
   'pages/community/projects.tsx': 'Code-owned project directory; companion metadata has immutable asset pins and ships with the UI.',
   'pages/world/twitch.tsx': 'Twitch listings fetched at ISR, no game data',
   'pages/world/videos.tsx': 'YouTube listings fetched at ISR, no game data',

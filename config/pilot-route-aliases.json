@@ -8,6 +8,7 @@
     "/gamemodes": "/game-modes",
     "/gamemodes/stronghold-protocol": "/game-modes/stronghold-protocol",
     "/gamemodes/stronghold-protocol/stronghold-companion": "/game-modes/stronghold-protocol/stronghold-companion",
+    "/ccb": "/game-modes/ccb",
     "/gacha": "/gacha-simulator",
     "/changelog": "/whats-new",
     "/community": "/world",
