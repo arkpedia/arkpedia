@@ -23,7 +23,8 @@
 
 /* --- The section bar -----------------------------------------------------
    The section bar follows the shared page header and sticks under the site nav
-   while scrolling. Its own background keeps the section marks readable. */
+   while scrolling. Its bottom rule separates the header area from the scene. */
+.page-header:has(+ .terminal-bar) { border-bottom: 0; }
 .terminal-bar {
   /* Sticky under the site nav, which is `position: fixed` and shrinks when it
      collapses on scroll. TerminalNav measures that height and sets `top` inline --
