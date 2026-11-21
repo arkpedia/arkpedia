@@ -6,11 +6,11 @@ third-party script runs, and nothing is sticky, fixed or laid over content.
 | Placement | Where | Notes |
 | --- | --- | --- |
 | `home` | Home page, a panel directly under Events (the same on a phone) | full column width |
-| `header` | Beside a page title on desktop, or below the server clock inside the shared mobile navigation menu | 72 px tall on desktop, starting 16 px below the header's top edge on every page. The mobile banner scales to fit the drawer. |
+| `header` | Beside a page title on desktop, or below the server clock inside the shared mobile navigation menu | Starts 16 px below the desktop header’s top edge. It grows from 72 px to align with the lede when there is room. The mobile banner scales to fit the drawer. |
 | `support` | The "Our sponsor" section of `/support` | at the artwork's own width |
 
 Page content shows at most one slot besides `/support`'s section. The mobile navigation
-menu uses the same `header` campaign and keeps the page's title and controls in place.
+menu uses the same `header` campaign and can show its dedicated `mobileArtwork` below the clock.
 On desktop the header slot uses the empty space beside the title. The header reserves no extra
 room for the slot, so the page layout stays the same with or without a campaign. The slot stays
 hidden until it has measured that nothing in the header reaches under it (a long title, a control
@@ -50,14 +50,16 @@ The box takes the artwork's aspect ratio before the image loads. If the image ne
 content blocker, a failed request) the box keeps its size and holds a line of text, so nothing
 below it moves.
 
-`withContentPage` attaches the campaigns to every content route (`SITE_TABLES`) and drops the
-ones outside their dates at each request, so the server's HTML never holds an expired slot. The
-browser does not re-check with the reader's clock, so a slot never appears or disappears under a
-reader mid-visit; a campaign's start and end reach a page with its next revalidation. A record
-this deployment cannot read stops the export that carries it, and at request time shows no
-sponsor instead of failing the page. A page that is not a content route (`/about`,
+An `eventActivityId` takes its window from the corresponding Global event in the content release.
+The release compiler includes it once the event has confirmed opening and closing times.
+Leave `startAt` and `endAt` null in source for these campaigns.
+
+`withContentPage` attaches the campaigns to every content route (`SITE_TABLES`). The initial
+render uses the server time. An open tab switches at the published boundary and catches up when
+it regains focus. A malformed record stops the export that carries it. At request time an
+unreadable record leaves the slot empty. A page that is not a content route (`/about`,
 `/changelog`, `/privacy`, the community video pages) takes the campaigns the live release
-published with `/support` (`withSiteTables`, `siteTablesStaticProps` in `lib/content/server.ts`).
+published with `/support` and uses that release’s image revisions (`withSiteTables`, `siteTablesStaticProps` in `lib/content/server.ts`).
 The error pages and the development-only pages carry none and show no slot.
 
 ## Reviewing a draft
@@ -74,4 +76,4 @@ outside `/advertisements/`.
 
 1. Add the files to arkpedia-image-assets as its `ADDING-ASSETS.md` describes, and merge.
 2. Add the campaign to `sponsor-campaigns.json` as `draft`; review it locally.
-3. Fill in `url`, `startAt` and `endAt`, set `status` to `active`, and release the data.
+3. Fill in `url` and either the fixed dates or the `eventActivityId`, set `status` to `active`, and release the data.

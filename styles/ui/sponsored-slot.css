@@ -39,10 +39,8 @@ a.sponsored-slot-art:focus-visible { border-color: var(--teal); }
 .sponsored-slot-fallback { padding: 0 12px; font-size: 13px; color: var(--text-dim); text-align: center; }
 
 /* Beside a page's title (components/ui/PageHeader): the artwork laid over the empty space
-   to the right of the title, 72px tall on every header. It starts 16px below the
-   header's top edge on every header, with or without a
-   lede and slim or not, so it stays at one height from page to page (the shortest header,
-   91px, still holds it).
+   to the right of the title. It starts 16px below the top edge and is at least 72px tall.
+   When space permits, SponsoredSlot grows the artwork to the bottom edge of the lede text.
    It is out of the flow and the header reserves nothing for it, so every header and
    everything under it measures the same with or without a campaign. It stays hidden until
    SponsoredSlot has measured that nothing of the header reaches under it (a long title, a
@@ -63,7 +61,7 @@ a.sponsored-slot-art:focus-visible { border-color: var(--teal); }
 @media (max-width: 1000px) {
   .sponsored-slot--header { display: none; }
 }
-/* On phones the same compact artwork fits under the clock in the shared menu. */
+/* On phones the compact artwork fits under the clock in the shared menu. */
 .sponsored-slot--mobile-menu { align-items: flex-start; margin-top: 12px; }
 .sponsored-slot--mobile-menu .sponsored-slot-art { width: min(100%, calc(60px * var(--sponsored-menu-ratio))); }
 

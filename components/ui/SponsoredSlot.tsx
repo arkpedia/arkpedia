@@ -3,29 +3,51 @@ import Link from 'next/link';
 import { ContentImg } from '@/components/content/ContentImage';
 import { loadAssetImage } from '@/lib/assets/assetRetry';
 import { ContentTablesContext, useContentUrl } from '@/lib/content/context';
-import { sitePath, sponsorCampaignsFor, type SponsorCampaign, type SponsorCampaignTable, type SponsorPlacement } from '@/lib/sponsors/campaigns';
+import { sitePath, sponsorCampaignsFor, type SponsorCampaign, type SponsorCampaignTable, type SponsorSlot } from '@/lib/sponsors/campaigns';
 import { SPONSOR_STRINGS as S } from '@/lib/sponsors/strings';
 
 /* Draft campaigns show in `next dev` and on the Preview site (ARKPEDIA_PREVIEW, which
    next.config.js sets for the staging build role), never on the public site. */
 const DRAFTS = process.env.NODE_ENV !== 'production' || process.env.ARKPEDIA_PREVIEW === '1';
 
-/**
- * The campaign a placement shows now, or null.
- *
- * The server decides: withContentPage has already dropped the campaigns outside their
- * dates at the request (lib/content/server.ts), and the page shows what it was sent. The
- * reader's clock is deliberately not consulted, so a slot never appears or disappears
- * under a reader mid-visit and moves the content beside it; a campaign's start and end
- * reach a page with its next revalidation. A page that is not a content route (no
- * withContentPage) carries no table and shows nothing.
- */
-export function useSponsorCampaigns(placement: SponsorPlacement): SponsorCampaign[] {
+/** Largest timeout supported by browsers, in ms. Recheck when a boundary is further away. */
+const MAX_TIMER_MS = 2_147_483_647;
+
+function useSponsorCampaigns(placement: SponsorSlot): SponsorCampaign[] {
   const table = useContext(ContentTablesContext)['sponsor-campaigns'] as SponsorCampaignTable | undefined;
-  return useMemo(() => table ? sponsorCampaignsFor(table, placement, null, DRAFTS) : [], [table, placement]);
+  const [readerClock, setReaderClock] = useState<{ table: SponsorCampaignTable; now: number } | null>(null);
+  useEffect(() => {
+    if (!table) return;
+    const boundaries = sponsorCampaignsFor(table, placement, null, DRAFTS)
+      .filter(campaign => campaign.status === 'active')
+      .flatMap(({ startAt, endAt }) => [startAt, endAt].flatMap(date => date === null ? [] : [Date.parse(date)]))
+      .sort((left, right) => left - right);
+    if (!boundaries.length) return;
+
+    let timer: number | undefined;
+    const update = () => {
+      window.clearTimeout(timer);
+      const now = Date.now();
+      setReaderClock({ table, now });
+      const next = boundaries.find(boundary => boundary > now);
+      if (next !== undefined) timer = window.setTimeout(update, Math.min(next - now, MAX_TIMER_MS));
+    };
+    update();
+    window.addEventListener('focus', update);
+    document.addEventListener('visibilitychange', update);
+    return () => {
+      window.clearTimeout(timer);
+      window.removeEventListener('focus', update);
+      document.removeEventListener('visibilitychange', update);
+    };
+  }, [table, placement]);
+
+  // Match the server through hydration, then update at the campaign boundaries.
+  const now = readerClock && readerClock.table === table ? readerClock.now : table?.now ?? null;
+  return useMemo(() => table ? sponsorCampaignsFor(table, placement, now, DRAFTS) : [], [table, placement, now]);
 }
-/** The first of them: the one the server's HTML shows, and the one whose shape sizes the slot. */
-export function useSponsorCampaign(placement: SponsorPlacement): SponsorCampaign | null {
+/** The first campaign sizes the slot. */
+export function useSponsorCampaign(placement: SponsorSlot): SponsorCampaign | null {
   return useSponsorCampaigns(placement)[0] ?? null;
 }
 
@@ -97,7 +119,27 @@ function useClearSpace(ref: React.RefObject<HTMLElement | null>, enabled: boolea
     const header = slot?.parentElement;
     if (!enabled || !slot || !header) return;
     let live = true;
-    const measure = () => { if (live) setClear(clearOfSiblings(slot)); };
+    const measure = () => {
+      if (!live) return;
+      slot.style.removeProperty('height');
+      const lede = header.querySelector(':scope > .sub');
+      const base = slot.getBoundingClientRect();
+      if (lede && base.height) {
+        // Align with the text itself, including the last line of a wrapping lede.
+        const range = document.createRange();
+        range.selectNodeContents(lede);
+        const height = range.getBoundingClientRect().bottom - base.top;
+        if (height > base.height) {
+          slot.style.height = `${height}px`;
+          if (clearOfSiblings(slot)) {
+            setClear(true);
+            return;
+          }
+          slot.style.removeProperty('height');
+        }
+      }
+      setClear(clearOfSiblings(slot));
+    };
     measure();
     const observer = new ResizeObserver(measure);
     observer.observe(header);
@@ -120,10 +162,10 @@ function useClearSpace(ref: React.RefObject<HTMLElement | null>, enabled: boolea
  * keeps that size if the image never does (a content blocker): it then holds a line of
  * text instead, so nothing around it moves.
  */
-export default function SponsoredSlot({ placement, className = '' }: { placement: SponsorPlacement | 'mobile-menu'; className?: string }) {
+export default function SponsoredSlot({ placement, className = '' }: { placement: SponsorSlot; className?: string }) {
   const inMobileMenu = placement === 'mobile-menu';
   // Beside a title (and in the phone menu) the campaigns take turns; elsewhere the first shows.
-  const all = useSponsorCampaigns(inMobileMenu ? 'header' : placement);
+  const all = useSponsorCampaigns(placement);
   const turning = placement === 'header' || inMobileMenu;
   const [failed, setFailed] = useState<string | null>(null);
   const ref = useRef<HTMLElement>(null);
