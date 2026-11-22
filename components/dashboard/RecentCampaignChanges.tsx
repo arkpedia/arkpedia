@@ -24,7 +24,7 @@ export default function RecentCampaignChanges({ base }: { base?: SponsorCampaign
     return () => controller.abort();
   }, [request]);
 
-  return <main className={styles.workspace}>
+  return <main className={styles.workspace}><section className={'panel ' + styles.dashboardSection}>
     <div className={styles.maintenanceBar}>
       <h2 className="section-title">Latest save per campaign</h2>
       <button className="btn-sm" type="button" disabled={status === 'loading'}
@@ -43,5 +43,5 @@ export default function RecentCampaignChanges({ base }: { base?: SponsorCampaign
         <div>{row.actor}<div className="sub"><time dateTime={row.updatedAt}>{new Date(row.updatedAt).toLocaleString()}</time> · v{row.revision}</div></div>
       </li>;
     })}</ul>
-  </main>;
+  </section></main>;
 }

@@ -1,6 +1,7 @@
 import { completeOperatorText } from '@/lib/operators/operatorTextServer';
 import TranslationNote from '@/components/operators/TranslationNote';
 import CombatText, { CombatKeywords } from '@/components/operators/CombatText';
+import { withOperatorGuides } from '@/lib/dashboard/operatorGuideStore';
 import { hasMasteryGuidance, hasMasteryPriority } from '@/lib/operators/skillRecommendation';
 import PageMeta from '@/components/layout/PageMeta';
 import BaseSkillText from '@/components/operators/BaseSkillText';
@@ -451,7 +452,7 @@ function GuideVideoCard({ guide, operatorName }: { guide: GuideEntry; operatorNa
     };
   }, [guide.videoId]);
 
-  const displayTitle = info?.title || guide.label || `${operatorName} Guide`;
+  const displayTitle = guide.editorialCaption?.label || info?.title || guide.label || `${operatorName} Guide`;
 
   return (
     <a
@@ -465,7 +466,7 @@ function GuideVideoCard({ guide, operatorName }: { guide: GuideEntry; operatorNa
       </div>
       <div className="video-card-copy">
         <p className="video-card-title">{displayTitle}</p>
-        {info?.author && <p className="video-card-meta">{info.author}</p>}
+        {(guide.editorialCaption?.creator || info?.author) && <p className="video-card-meta">{guide.editorialCaption?.creator || info?.author}</p>}
       </div>
     </a>
   );
@@ -1947,5 +1948,5 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/op
       const { operatorEP } = await import('@/lib/operators/operatorEP');
       return operatorEP(page.operator);
     },
-  })),
+  })).then(withOperatorGuides),
 });

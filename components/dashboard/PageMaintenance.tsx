@@ -44,7 +44,7 @@ export default function PageMaintenance() {
     } finally { setBusy(null); }
   }
 
-  return <main className={styles.workspace}>
+  return <main className={styles.workspace}><section className={'panel ' + styles.dashboardSection}>
     <div className={styles.maintenanceBar}>
       <h2 className="section-title">Public pages</h2>
       <button type="button" className="btn btn-sm" disabled={!!busy} onClick={() => void check()}>Check versions</button>
@@ -65,5 +65,5 @@ export default function PageMaintenance() {
       </li>;
     })}</ul>}
     <p role="status">{message}</p>
-  </main>;
+  </section></main>;
 }

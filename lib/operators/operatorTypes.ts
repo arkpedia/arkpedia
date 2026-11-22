@@ -181,6 +181,7 @@ export interface TechniqueEntry {
 }
 
 export interface GuideEntry {
+  editorialCaption?: { label: string; creator: string };
   videoId: string;
   label?: string | null;
   /** The channel that made it, as the records write it (e.g. "kukkikaze"). */
