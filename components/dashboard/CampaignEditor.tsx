@@ -36,7 +36,7 @@ function ArtworkField({ title, art, fallback, shape, change, upload, clear, clea
   upload: (file: File) => Promise<void>; clear?: () => void; clearLabel?: string; empty?: string;
 }) {
   const preview = art.image ? art : fallback;
-  return <fieldset className={styles.artwork}><legend>{title}</legend>
+  return <fieldset className={'panel ' + styles.artwork}><legend>{title}</legend>
     {preview?.image && <ArtworkPreview art={preview} shape={shape} />}
     {!preview?.image && empty && <p className="sub">{empty}</p>}
     {!art.image && fallback?.image && <small>Using page artwork</small>}
@@ -74,7 +74,7 @@ export default function CampaignEditor({ initial, historyId }: { initial: Catalo
     setMessage('');
   }
   return <main className={styles.workspace}>
-    <div className={styles.toolbar}>
+    <div className={'panel ' + styles.campaignBar}>
       <label className={styles.picker}>Campaign<StyledSelect label="Campaign" value={selected}
         onChange={id => { select(id); setMessage(''); setHistoryOpen(false); }} options={[...(!selected ? [{ value: '', label: 'New draft' }] : []),
           ...(removed ? [{ value: selected, label: campaignLabel({ id: selected, sponsor: '' }) + ' (removed)' }] : []),
@@ -210,7 +210,7 @@ function CampaignForm({ source, edit, selected, draft, events, records, historyO
         change={alt => patch({ mobileArtwork: { ...(c.mobileArtwork ?? blankArt), alt } })} upload={f => upload(f, 'mobile')}
         clear={() => { patch({ mobileArtwork: undefined }); setMobile(undefined); }} />}
     </div>
-    <details className={styles.details} open={!selected && !draft.sponsor}>
+    <details className={'panel ' + styles.details} open={!selected && !draft.sponsor}>
       <summary>Campaign details and placements</summary>
       <div className={styles.detailsGrid}>
       <label>Campaign ID<input type="text" required pattern="[a-z0-9][a-z0-9\-]*" maxLength={100} readOnly={!!selected} value={c.id} onChange={e => patch({ id: e.target.value })} /></label>

@@ -13,7 +13,8 @@
 .actions { grid-column: 1 / -1; }
 .form > .fields { max-width: 42rem; }
 .artworkGrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 18rem), 1fr)); gap: var(--page-gutter); align-items: start; }
-.artwork, .placements { border: 0; margin: 0; padding: 0; min-width: 0; }
+.placements { border: 0; }
+.artwork, .placements { margin: 0; padding: 0; min-width: 0; }
 .artwork legend { margin-bottom: 6px; }
 .artworkFigure { display: grid; gap: 4px; min-width: 0; margin: 0; }
 .placements { display: flex; flex-wrap: wrap; gap: 8px; }
@@ -36,3 +37,32 @@
 @media (max-width: 600px) { .changeRow { grid-template-columns: minmax(0, 1fr); } }
 .modeCheck { visibility: hidden; }
 [aria-pressed="true"] > .modeCheck { visibility: visible; }
+
+.campaignBar, .guideHeading { display: flex; align-items: end; gap: 8px; flex-wrap: wrap; }
+.campaignBar, .dashboardSection, .details { padding: var(--heading-gap); }
+.campaignBar { margin-bottom: var(--page-gutter); }
+.artwork { padding: var(--card-inset); }
+.artwork legend { padding-inline: 4px; }
+.guideLayout { display: grid; grid-template-columns: minmax(15rem, 1fr) minmax(0, 2.6fr); align-items: start; gap: var(--heading-gap); }
+.guideSidebar, .guideBody { min-width: 0; padding: var(--page-gutter); }
+.guidePicker, .guideForm, .guideEntry { display: grid; gap: var(--heading-gap); border: 0; padding: 0; margin: 0; min-width: 0; }
+.guideList { display: grid; gap: 4px; }
+.guideList button { text-align: left; white-space: normal; justify-content: flex-start; overflow-wrap: anywhere; }
+.operatorIdentity { display: flex; align-items: center; gap: 10px; }
+.guideList img { flex: none; }
+.guideForm > button, .guideEntry > button { justify-self: start; }
+.guideEntry { border-bottom: 1px solid var(--line); padding-block: 8px var(--heading-gap); }
+.guideControls, .guideHeading { display: flex; flex-wrap: wrap; align-items: end; gap: var(--heading-gap); }
+.guideHeading { justify-content: space-between; align-items: center; margin-bottom: var(--heading-gap); }
+.guideHeading h2, .guideSidebar h3 { margin: 0; }
+.guideForm textarea { resize: vertical; min-width: 0; width: 100%; }
+.guideBody > :last-child, .guideBody [role="status"]:empty { margin-bottom: 0; }
+.tabStrip { overflow-x: auto; }
+.tabStrip > button { flex: 0 0 auto; }
+@media (max-width: 760px) {
+  .guideLayout { grid-template-columns: minmax(0, 1fr); }
+  .guideSidebar, .guideBody { padding: var(--heading-gap); }
+  .guideList { display: flex; flex-wrap: wrap; }
+  .skillName { display: none; }
+  .tabStrip { padding-inline: var(--heading-gap); }
+}

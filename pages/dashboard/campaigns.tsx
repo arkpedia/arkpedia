@@ -1,6 +1,9 @@
 import { useState } from 'react';
 import { useRouter } from 'next/router';
 import Tabs, { tabPanelProps } from '@/components/ui/Tabs';
+import { ContentContext } from '@/lib/content/context';
+import { ICONS } from '@/components/layout/NavIcons';
+import OperatorGuides from '@/components/dashboard/OperatorGuides';
 import RecentCampaignChanges from '@/components/dashboard/RecentCampaignChanges';
 import PageMaintenance from '@/components/dashboard/PageMaintenance';
 import styles from '@/components/dashboard/CampaignEditor.module.css';
@@ -25,20 +28,30 @@ export const getServerSideProps: GetServerSideProps<DashboardProps> = async ({ r
   } catch { res.statusCode = 503; return { props: { catalog: null } }; }
 };
 
-const sections = [{ value: 'campaigns', label: 'Campaigns' }, { value: 'recent', label: 'Recent changes' }, { value: 'maintenance', label: 'Maintenance' }] as const;
+const sections = [
+  { value: 'campaigns', label: 'Campaigns', icon: ICONS.grid },
+  { value: 'guides', label: 'Operator guides', icon: ICONS.profile },
+  { value: 'recent', label: 'Recent changes', icon: ICONS.history },
+  { value: 'maintenance', label: 'Maintenance', icon: ICONS.base },
+] as const;
 
 export default function CampaignDashboard({ catalog, historyId }: DashboardProps) {
   const router = useRouter();
-  const tab = router.query.tab === 'maintenance' || router.query.tab === 'recent' ? router.query.tab : 'campaigns';
+  const tab = sections.find(section => section.value === router.query.tab)?.value ?? 'campaigns';
+  const [openedGuides, setOpenedGuides] = useState(tab === 'guides');
   const [openedMaintenance, setOpenedMaintenance] = useState(tab === 'maintenance');
-  return <><PageMeta title="Arkpedia admin" description="Manage Arkpedia banners and refresh published pages." path="/dashboard/campaigns" />
-    <PageHeader eyebrow="Arkpedia // Dashboard" title="Arkpedia admin" slim compact />
+  return <><PageMeta title="Arkpedia admin" description="Edit campaigns, operator guides and published pages." path="/dashboard/campaigns" />
+    <PageHeader eyebrow="Arkpedia // Editorial workspace" title="Arkpedia admin" slim compact />
     <Tabs id="dashboard" label="Admin sections" className={styles.tabStrip} options={sections} value={tab} onChange={value => {
+      if (value === 'guides') setOpenedGuides(true);
       if (value === 'maintenance') setOpenedMaintenance(true);
       void router.replace({ pathname: router.pathname, query: { tab: value } }, undefined, { shallow: true, scroll: false });
     }} />
     <div {...tabPanelProps('dashboard', 'campaigns')} hidden={tab !== 'campaigns'}>
       {catalog ? <CampaignEditor key={historyId} initial={catalog} historyId={historyId} /> : <p role="alert">Campaign storage is unavailable.</p>}
+    </div>
+    <div {...tabPanelProps('dashboard', 'guides')} hidden={tab !== 'guides'}>
+      {(tab === 'guides' || openedGuides) && <ContentContext.Provider value={catalog?.release ?? null}><OperatorGuides /></ContentContext.Provider>}
     </div>
     <div {...tabPanelProps('dashboard', 'recent')} hidden={tab !== 'recent'}>
       {tab === 'recent' && <RecentCampaignChanges base={catalog?.base} />}

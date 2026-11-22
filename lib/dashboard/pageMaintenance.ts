@@ -44,9 +44,8 @@ export async function maintenanceStatus(origin: string, bucket?: Pick<RefreshHis
   };
 }
 
-export async function refreshPublicPage(
-  route: RefreshPage, origin: string, req: { headers: IncomingHttpHeaders },
-  revalidate: (path: string) => Promise<void>, bucket: Pick<RefreshHistory, 'put'>,
+export async function revalidatePublicPath(
+  route: string, origin: string, req: { headers: IncomingHttpHeaders }, revalidate: (path: string) => Promise<void>,
 ) {
   // OpenNext's res.revalidate targets req.headers.host and may forward cookies.
   // The private admin root redirects to the editor. Regenerate the public route
@@ -58,6 +57,13 @@ export async function refreshPublicPage(
   } finally {
     req.headers = adminHeaders;
   }
+}
+
+export async function refreshPublicPage(
+  route: RefreshPage, origin: string, req: { headers: IncomingHttpHeaders },
+  revalidate: (path: string) => Promise<void>, bucket: Pick<RefreshHistory, 'put'>,
+) {
+  await revalidatePublicPath(route, origin, req, revalidate);
   try {
     await bucket.put(historyKey(route), '');
     return { refreshed: route };
