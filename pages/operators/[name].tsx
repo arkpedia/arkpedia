@@ -1,6 +1,7 @@
 import { completeOperatorText } from '@/lib/operators/operatorTextServer';
 import TranslationNote from '@/components/operators/TranslationNote';
 import CombatText, { CombatKeywords } from '@/components/operators/CombatText';
+import type { EditorialGuideEntry } from '@/lib/dashboard/operatorGuide';
 import { withOperatorGuides } from '@/lib/dashboard/operatorGuideStore';
 import { hasMasteryGuidance, hasMasteryPriority } from '@/lib/operators/skillRecommendation';
 import PageMeta from '@/components/layout/PageMeta';
@@ -418,7 +419,7 @@ function TechniqueList({
   );
 }
 
-function GuideVideoCard({ guide, operatorName }: { guide: GuideEntry; operatorName: string }) {
+function GuideVideoCard({ guide, operatorName }: { guide: EditorialGuideEntry; operatorName: string }) {
   const [info, setInfo] = useState<{ title: string; author: string } | null>(null);
 
   useEffect(() => {

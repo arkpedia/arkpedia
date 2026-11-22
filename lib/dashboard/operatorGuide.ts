@@ -1,5 +1,8 @@
 import { getSkillIconPath } from '../operators/operatorIconPaths';
-import { getSkillList, type Operator, type SkillRecommendationEntry } from '../operators/operatorTypes';
+import { getSkillList, type GuideEntry, type Operator, type SkillRecommendationEntry } from '../operators/operatorTypes';
+
+export type EditorialGuideEntry = GuideEntry & { editorialCaption?: { label: string; creator: string } };
+type EditorialOperator = Omit<Operator, 'guides'> & { guides?: EditorialGuideEntry[] | null };
 
 export type GuideValue =
   | { kind: 'mastery'; entries: SkillRecommendationEntry[] }
@@ -30,7 +33,7 @@ export function guideFields(op: Operator, edits: GuideEdit[]): GuideField[] {
   ];
 }
 
-export function applyGuideEdits(op: Operator, edits: GuideEdit[]): Operator {
+export function applyGuideEdits(op: Operator, edits: GuideEdit[]): EditorialOperator {
   if (!edits.some(edit => edit.value)) return op;
   const values = new Map(edits.map(edit => [edit.field, edit.value]));
   const skills = getSkillList(op).map((skill, i) => {

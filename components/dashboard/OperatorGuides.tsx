@@ -38,7 +38,9 @@ function MasteryFields({ entries, change }: { entries: SkillRecommendationEntry[
   </>;
 }
 
-function endpoint(name: string) { return '/api/dashboard/operator-guides?' + new URLSearchParams({ operator: name }); }
+function requestGuide(name: string, options: RequestInit) {
+  return fetch(`/api/dashboard/operator-guides?operator=${encodeURIComponent(name)}`, options);
+}
 
 export default function OperatorGuides() {
   const { operators, loading } = useOperatorSearchCatalogue(true);
@@ -64,7 +66,7 @@ export default function OperatorGuides() {
     const controller = new AbortController();
     async function load() {
       try {
-        const response = await fetch(endpoint(name), { signal: controller.signal, cache: 'no-store' });
+        const response = await requestGuide(name, { signal: controller.signal, cache: 'no-store' });
         if (!response.ok) throw new Error('Could not load this operator’s guides.');
         const result: GuideDocument = await response.json();
         if (controller.signal.aborted) return;
@@ -90,7 +92,7 @@ export default function OperatorGuides() {
     if (!field || !doc || saving) return;
     setSaving(true); setMessage(''); setError('');
     try {
-      const response = await fetch(endpoint(name), { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      const response = await requestGuide(name, { method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ key, revision: field.revision, source: field.source, value: next }) });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || 'Could not confirm publication.');
