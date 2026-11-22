@@ -118,6 +118,15 @@ function validFile(route: string, file: ContentFile) {
     && Number.isSafeInteger(file.bytes) && file.bytes > 0 && file.bytes <= 25_000_000;
 }
 
+/** Read the channel now, including when a previous release remains available in memory. */
+export async function publishedContentPointer(pilot = pilotOrigin()): Promise<ContentPointer> {
+  // No channel-to-live fallback for a candidate pilot: its own pointer must exist.
+  const pointerBytes = pilot ? await read(`${pilot}${DELIVERY_PREFIX}current.json`, 2048) : await readPointer(origin());
+  const pointer = JSON.parse(pointerBytes.toString()) as ContentPointer;
+  if (pointer.schema !== CONTENT_SCHEMA || !SHA.test(pointer.release) || !GIT_SHA.test(pointer.revision) || !SHA.test(pointer.manifestSha256)) throw new Error('Unsupported content pointer');
+  return pointer;
+}
+
 export async function loadRelease(): Promise<Loaded | undefined> {
   if (process.env.ARKPEDIA_CONTENT_DISABLED === '1' || process.env.ARKPEDIA_EXPORT_CONTENT === '1') return undefined;
   if (Date.now() - checkedAt < (process.env.ARKPEDIA_CONTENT_TEST === '1' ? 0 : REFRESH_MS)) return cached;
@@ -126,10 +135,7 @@ export async function loadRelease(): Promise<Loaded | undefined> {
     try {
       const pilot = pilotOrigin();
       const root = pilot ?? origin();
-      // No channel-to-live fallback for a candidate pilot: its own pointer must exist.
-      const pointerBytes = pilot ? await read(`${pilot}${DELIVERY_PREFIX}current.json`, 2048) : await readPointer(root);
-      const pointer = JSON.parse(pointerBytes.toString()) as ContentPointer;
-      if (pointer.schema !== CONTENT_SCHEMA || !SHA.test(pointer.release) || !GIT_SHA.test(pointer.revision) || !SHA.test(pointer.manifestSha256)) throw new Error('Unsupported content pointer');
+      const pointer = await publishedContentPointer(pilot);
       const baseUrl = pilot ? deliveryBaseUrl(pilot, pointer, { allowLocalHttp: process.env.ARKPEDIA_CONTENT_TEST === '1' })
         : root === DEFAULT_ORIGIN ? assetUrl('arkpedia-data', pointer.revision, 'release') : `${root}/${pointer.revision}/release`;
       if (cached?.context.release === pointer.release && cached.context.baseUrl === baseUrl) return cached;

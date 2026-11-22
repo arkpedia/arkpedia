@@ -109,3 +109,11 @@ confirmed Global start and end. Its selected predecessor stays eligible through
 a delayed opening, and the incoming campaign ends at the event close. Other
 campaigns keep their own schedules. To schedule another handoff, select the
 incoming campaign as the next one's predecessor.
+
+### Refreshing a public page
+
+In **Maintenance**, compare the version served by Home, About, Support or Schedule
+with the published content release. **Check versions** reads the four public pages.
+**Refresh** regenerates one page and checks again. Select its name to inspect the
+result on the public site. The last admin refresh time comes from the environment's
+R2 bucket under `dashboard/page-refresh/`. Recording starts with this feature.

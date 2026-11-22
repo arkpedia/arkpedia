@@ -1,14 +1,14 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { dashboardActor, dashboardDatabase, dashboardEnv, dashboardOrigin } from '@/lib/dashboard/access';
-import { canonicalPublicHref } from '@/lib/nav/publicRoutes';
+import maintenance from './maintenance';
 import { samePlacements } from '@/lib/sponsors/campaignSchedule';
-import { REFRESH_PAGES } from '@/lib/dashboard/refreshPages';
 import { editorCatalog, expireReaderCampaigns } from '@/lib/dashboard/campaignCatalog';
 import { EditConflict, InvalidEdit, invalidateCampaignEdits, saveCampaign } from '@/lib/dashboard/campaignStore';
 
 export const config = { api: { bodyParser: { sizeLimit: '2mb' } } };
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+  if (req.method === 'POST' && req.body?.action === 'refresh') return maintenance(req, res);
   res.setHeader('Cache-Control', 'private, no-store');
   const env = dashboardEnv();
   const actor = await dashboardActor(env, req.headers);
@@ -19,12 +19,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (req.method === 'POST') {
       if (req.headers.origin !== dashboardOrigin(env)?.origin) return void res.status(403).end();
       if (req.headers['content-type']?.split(';')[0] !== 'application/json') return void res.status(415).end();
-      if (req.body?.action === 'refresh') {
-        const route = req.body.route;
-        if (!REFRESH_PAGES.includes(route)) return void res.status(400).json({ error: 'Choose a supported page.' });
-        await res.revalidate(canonicalPublicHref(route));
-        return void res.json({ refreshed: route });
-      }
       if (req.body?.creating || req.body?.campaign?.eventActivityId) {
         const { base, edits, events } = await editorCatalog();
         const id = req.body.id;

@@ -2,7 +2,6 @@ import { useState, type FormEvent } from 'react';
 import type { CampaignEdit } from '@/lib/dashboard/campaignStore';
 import { samePlacements, type CampaignEvent } from '@/lib/sponsors/campaignSchedule';
 import { SPONSOR_PLACEMENTS, type SponsorArtwork, type SponsorCampaign } from '@/lib/sponsors/campaigns';
-import { REFRESH_PAGES } from '@/lib/dashboard/refreshPages';
 import StyledSelect from '@/components/ui/StyledSelect';
 import { ContentImg } from '@/components/content/ContentImage';
 import { loadAssetImage } from '@/lib/assets/assetRetry';
@@ -56,17 +55,6 @@ export default function CampaignEditor({ initial }: { initial: Catalog }) {
   const source = catalog.base.find(c => c.id === selected);
   const edit = catalog.edits.find(e => e.id === selected);
   const [message, setMessage] = useState('');
-  const [route, setRoute] = useState<string>('/');
-  const [checking, setChecking] = useState(false);
-  async function refresh() {
-    setChecking(true);
-    try {
-      const response = await fetch('/api/dashboard/campaigns', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'refresh', route }) });
-      setMessage(response.ok ? 'Refreshed ' + route : 'Page refresh failed.');
-    } catch { setMessage('Page refresh failed.'); }
-    finally { setChecking(false); }
-  }
   function startDraft(copy?: SponsorCampaign) {
     let id = '';
     if (copy) {
@@ -92,10 +80,6 @@ export default function CampaignEditor({ initial }: { initial: Catalog }) {
       draft={draft} events={catalog.events} records={records}
       onSave={(next, id) => { setCatalog(next); if (id) select(id); else startDraft(); setMessage(id && next.groups[id] === 'Drafts' ? 'Draft saved.' : 'Saved. Open pages refresh campaigns within about two minutes.'); }} />
     <p role="status">{message}</p>
-    <section><h2 className="section-title">Page maintenance</h2>
-      <div className={styles.actions}><label>Page <StyledSelect label="Page to refresh" value={route} onChange={setRoute} options={REFRESH_PAGES.map(path => ({ value: path, label: path }))} /></label>
-        <button className="btn btn-sm" disabled={checking} onClick={() => void refresh()}>Refresh cached page</button>
-      </div></section>
   </main>;
 }
 
