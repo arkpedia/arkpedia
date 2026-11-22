@@ -98,7 +98,14 @@ Preview and production. Missing Access configuration denies editor requests.
 
 ### Preparing the next event
 
-Select a campaign and choose **Duplicate**, or start with **New draft**. Choose
+For an existing event campaign such as LootBar Kirin Yato or LootBar Aphrissa,
+open the **Campaign** dropdown and look under **Waiting for Global dates**.
+Select the original, preview or replace **Page artwork** and **Mobile menu artwork**,
+and choose **Save campaign**. **Follow published campaign schedule** keeps both
+variants tied to the original event opening. **Restore published version** removes
+the saved override.
+
+For a new campaign, select a campaign and choose **Duplicate**, or start with **New draft**. Choose
 **Follow a Global event** and select the event by name. Under **At event opening**,
 choose the current campaign to replace or keep the other campaigns. A replacement
 uses the same placements as its predecessor. The page-header and mobile-menu previews

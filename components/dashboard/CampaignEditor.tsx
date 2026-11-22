@@ -1,4 +1,6 @@
 import { useState, type FormEvent } from 'react';
+import { ContentContext } from '@/lib/content/context';
+import type { ContentRelease } from '@/lib/content/types';
 import type { CampaignEdit } from '@/lib/dashboard/campaignStore';
 import { samePlacements, type CampaignEvent } from '@/lib/sponsors/campaignSchedule';
 import { SPONSOR_PLACEMENTS, type SponsorArtwork, type SponsorCampaign } from '@/lib/sponsors/campaigns';
@@ -7,7 +9,7 @@ import { ContentImg } from '@/components/content/ContentImage';
 import { loadAssetImage } from '@/lib/assets/assetRetry';
 import styles from './CampaignEditor.module.css';
 
-export interface Catalog { base: SponsorCampaign[]; edits: CampaignEdit[]; events: CampaignEvent[]; groups: Record<string, string> }
+export interface Catalog { release?: ContentRelease | null; base: SponsorCampaign[]; edits: CampaignEdit[]; events: CampaignEvent[]; groups: Record<string, string> }
 const blankArt: SponsorArtwork = { image: '', width: 0, height: 0, alt: '' };
 const blank: SponsorCampaign = { ...blankArt, id: '', sponsor: '', status: 'draft', url: '', placements: ['header'], startAt: null, endAt: null };
 function campaignLabel(c: SponsorCampaign) {
@@ -76,9 +78,17 @@ export default function CampaignEditor({ initial }: { initial: Catalog }) {
       <button type="button" className="btn-sm" onClick={() => startDraft()}>New draft</button>
       <button type="button" className="ghost" disabled={!selected} onClick={() => startDraft(edit?.campaign ?? source)}>Duplicate</button>
     </div>
-    <CampaignForm key={selected + '-' + (edit?.revision ?? 0) + '-' + draftKey} source={source} edit={edit} selected={selected}
-      draft={draft} events={catalog.events} records={records}
-      onSave={(next, id) => { setCatalog(next); if (id) select(id); else startDraft(); setMessage(id && next.groups[id] === 'Drafts' ? 'Draft saved.' : 'Saved. Open pages refresh campaigns within about two minutes.'); }} />
+    <ContentContext.Provider value={catalog.release ?? null}>
+      <CampaignForm key={selected + '-' + (edit?.revision ?? 0) + '-' + draftKey} source={source} edit={edit} selected={selected}
+        draft={draft} events={catalog.events} records={records}
+        onSave={(next, id) => {
+          setCatalog(next);
+          if (id) select(id); else startDraft();
+          const group = next.groups[id];
+          setMessage(group === 'Drafts' ? 'Draft saved.' : group === 'Waiting for Global dates'
+            ? 'Saved. Waiting for confirmed Global dates.' : 'Saved. Open pages refresh campaigns within about two minutes.');
+        }} />
+    </ContentContext.Provider>
     <p role="status">{message}</p>
   </main>;
 }
@@ -89,8 +99,8 @@ function CampaignForm({ source, edit, selected, draft, events, records, onSave }
   onSave: (next: Catalog, id: string) => void;
 }) {
   const [c, set] = useState<SponsorCampaign>(edit?.campaign ?? source ?? draft);
-  const [timing, setTiming] = useState(c.eventActivityId || !selected ? 'event'
-    : (edit?.campaign ? edit.followsRelease : !!source) ? 'published' : 'fixed');
+  const [timing, setTiming] = useState((edit?.campaign ? edit.followsRelease : !!source) ? 'published'
+    : c.eventActivityId || !selected ? 'event' : 'fixed');
   const event = events.find(e => e.id === c.eventActivityId);
   const previous = records.find(r => r.id === c.replacesCampaignId && r.id !== c.id && r.status === 'active' && samePlacements(r, c));
   const replacements = records.filter(r => r.id !== c.id && r.status === 'active' && samePlacements(r, c));
@@ -144,6 +154,9 @@ function CampaignForm({ source, edit, selected, draft, events, records, onSave }
         { value: 'event', label: 'Follow a Global event' }, { value: 'fixed', label: 'Set dates or run continuously' },
         ...(source ? [{ value: 'published', label: 'Follow published campaign schedule' }] : []),
       ]} /></label>
+      {timing === 'published' && source?.eventActivityId && <p className="notice">
+        {events.find(e => e.id === source.eventActivityId)?.name ?? source.eventActivityId} · Waiting for Global dates
+      </p>}
       {timing === 'event' && <>
         <label>Global event<StyledSelect label="Global event" value={c.eventActivityId ?? ''} placeholder="Choose an event"
           onChange={id => patch({ eventActivityId: id })} options={eventOptions} /></label>
