@@ -14,6 +14,15 @@ test('expanded reading pane stays in the frame and the header search still works
     await expect(expand).toBeHidden();
   } else {
     const details = page.locator('[class*="details"]').filter({ has: page.getByRole('navigation', { name: 'Operator sections' }) }).first();
+    const checkSearchEdge = async () => {
+      const gallery = (await page.locator('main [class*="gallery"]').first().boundingBox())!;
+      const field = (await page.locator('header .page-header-actions').boundingBox())!;
+      const sponsor = page.locator('header .sponsored-slot--header');
+      const banner = await sponsor.isVisible() ? await sponsor.boundingBox() : null;
+      const right = Math.min(gallery.x + gallery.width, banner ? banner.x - 16 : Infinity);
+      expect(Math.abs(field.x + field.width - right)).toBeLessThanOrEqual(1);
+    };
+    await checkSearchEdge();
     const before = (await details.boundingBox())!;
     await expand.click();
     const after = (await details.boundingBox())!;
@@ -22,6 +31,7 @@ test('expanded reading pane stays in the frame and the header search still works
     const frame = (await page.locator('header.page-header').boundingBox())!;
     expect(Math.abs(after.x + after.width - (frame.x + frame.width - 24))).toBeLessThanOrEqual(1);
     await expect(search).toBeVisible();
+    await checkSearchEdge();
   }
   await search.fill('zzzznooperator');
   await expect(page.getByText('No operators found.')).toBeVisible();
