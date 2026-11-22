@@ -1,11 +1,12 @@
-import { useState, type FormEvent } from 'react';
+import { useRef, useState, type FormEvent } from 'react';
 import { ContentContext } from '@/lib/content/context';
 import type { ContentRelease } from '@/lib/content/types';
 import type { CampaignEdit } from '@/lib/dashboard/campaignStore';
 import { samePlacements, type CampaignEvent } from '@/lib/sponsors/campaignSchedule';
 import { SPONSOR_PLACEMENTS, type SponsorArtwork, type SponsorCampaign } from '@/lib/sponsors/campaigns';
+import CampaignHistory from './CampaignHistory';
+import ArtworkPreview from './ArtworkPreview';
 import StyledSelect from '@/components/ui/StyledSelect';
-import { ContentImg } from '@/components/content/ContentImage';
 import { loadAssetImage } from '@/lib/assets/assetRetry';
 import styles from './CampaignEditor.module.css';
 
@@ -36,9 +37,7 @@ function ArtworkField({ title, art, fallback, shape, change, upload, clear }: {
 }) {
   const preview = art.image ? art : fallback;
   return <fieldset className={styles.artwork}><legend>{title}</legend>
-    {preview?.image && <ContentImg className={shape === 'header' ? styles.headerPreview : shape === 'menu' ? styles.menuPreview : styles.preview}
-      src={preview.image} width={preview.width} height={preview.height} alt={preview.alt}
-      style={shape === 'menu' ? { width: Math.min(preview.width, 60 * preview.width / preview.height) } : undefined} />}
+    {preview?.image && <ArtworkPreview art={preview} shape={shape} />}
     {!art.image && fallback?.image && <small>Using page artwork</small>}
     <label>Image (600 KiB max)<input type="file" accept="image/png,image/jpeg,image/webp"
       onChange={e => { const file = e.target.files?.[0]; if (file) void upload(file); }} /></label>
@@ -57,7 +56,9 @@ export default function CampaignEditor({ initial }: { initial: Catalog }) {
   const source = catalog.base.find(c => c.id === selected);
   const edit = catalog.edits.find(e => e.id === selected);
   const [message, setMessage] = useState('');
+  const [historyOpen, setHistoryOpen] = useState(false);
   function startDraft(copy?: SponsorCampaign) {
+    setHistoryOpen(false);
     let id = '';
     if (copy) {
       const prefix = copy.id.slice(0, 85) + '-next';
@@ -73,16 +74,19 @@ export default function CampaignEditor({ initial }: { initial: Catalog }) {
   return <main className={styles.workspace}>
     <div className={styles.toolbar}>
       <label className={styles.picker}>Campaign<StyledSelect label="Campaign" value={selected}
-        onChange={id => { select(id); setMessage(''); }} options={[...(!selected ? [{ value: '', label: 'New draft' }] : []),
+        onChange={id => { select(id); setMessage(''); setHistoryOpen(false); }} options={[...(!selected ? [{ value: '', label: 'New draft' }] : []),
           ...records.map(c => ({ value: c.id, label: campaignLabel(c), group: catalog.groups[c.id] }))]} /></label>
       <button type="button" className="btn-sm" onClick={() => startDraft()}>New draft</button>
       <button type="button" className="ghost" disabled={!selected} onClick={() => startDraft(edit?.campaign ?? source)}>Duplicate</button>
+      {selected && <button type="button" className="ghost" aria-expanded={historyOpen} aria-controls="campaign-history"
+        onClick={() => { setHistoryOpen(!historyOpen); setMessage(''); }}>History</button>}
     </div>
     <ContentContext.Provider value={catalog.release ?? null}>
       <CampaignForm key={selected + '-' + (edit?.revision ?? 0) + '-' + draftKey} source={source} edit={edit} selected={selected}
-        draft={draft} events={catalog.events} records={records}
+        draft={draft} events={catalog.events} records={records} historyOpen={historyOpen}
+        closeHistory={() => setHistoryOpen(false)}
         onSave={(next, id) => {
-          setCatalog(next);
+          setCatalog(next); setHistoryOpen(false);
           if (id) select(id); else startDraft();
           const group = next.groups[id];
           setMessage(group === 'Drafts' ? 'Draft saved.' : group === 'Waiting for Global dates'
@@ -93,9 +97,10 @@ export default function CampaignEditor({ initial }: { initial: Catalog }) {
   </main>;
 }
 
-function CampaignForm({ source, edit, selected, draft, events, records, onSave }: {
+function CampaignForm({ source, edit, selected, draft, events, records, historyOpen, closeHistory, onSave }: {
   source?: SponsorCampaign; edit?: CampaignEdit; selected: string;
   draft: SponsorCampaign; events: CampaignEvent[]; records: SponsorCampaign[];
+  historyOpen: boolean; closeHistory: () => void;
   onSave: (next: Catalog, id: string) => void;
 }) {
   const [c, set] = useState<SponsorCampaign>(edit?.campaign ?? source ?? draft);
@@ -108,12 +113,14 @@ function CampaignForm({ source, edit, selected, draft, events, records, onSave }
   if (c.eventActivityId && !event) eventOptions.push({ value: c.eventActivityId, label: c.eventActivityId });
   const [desktop, setDesktop] = useState<string>();
   const [mobile, setMobile] = useState<string>();
+  const saveButton = useRef<HTMLButtonElement>(null);
+  const [restored, setRestored] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const patch = (fields: Partial<SponsorCampaign>) => set(old => ({ ...old, ...fields }));
 
   async function upload(file: File, isMobile: boolean) {
-    setBusy(true); setError('');
+    setBusy(true); setError(''); setRestored('');
     try {
       const { art, encoded } = await readArtwork(file);
       if (isMobile) { patch({ mobileArtwork: { ...art, alt: c.mobileArtwork?.alt ?? c.alt } }); setMobile(encoded); }
@@ -147,7 +154,18 @@ function CampaignForm({ source, edit, selected, draft, events, records, onSave }
     void save(false, button?.value === 'schedule' ? 'active' : c.status);
   }
   const incomplete = !c.image || !c.placements.length || (timing === 'event' && !c.eventActivityId);
-  return <form onSubmit={submit}><fieldset disabled={busy} className={styles.form}>
+  function restoreArtwork(version: SponsorCampaign, label: string) {
+    const { image, width, height, alt } = version;
+    patch({ image, width, height, alt, mobileArtwork: c.placements.includes('header') ? version.mobileArtwork : undefined });
+    setDesktop(undefined); setMobile(undefined); setError('');
+    setRestored(label + ' artwork loaded. Save your changes to apply it.');
+    closeHistory();
+    requestAnimationFrame(() => saveButton.current?.focus());
+  }
+  return <><section id="campaign-history" hidden={!historyOpen}>
+    {historyOpen && <CampaignHistory campaignId={selected} source={source} currentRevision={edit?.revision ?? 0}
+      disabled={busy} restore={restoreArtwork} />}
+  </section><form hidden={historyOpen} onSubmit={submit}><fieldset disabled={busy} className={styles.form}>
     <div className={styles.fields}>
       <h2 className="section-title">{selected ? campaignLabel(c) : 'New draft'}</h2>
       <label>Timing<StyledSelect label="Timing" value={timing} onChange={setTiming} options={[
@@ -192,10 +210,11 @@ function CampaignForm({ source, edit, selected, draft, events, records, onSave }
         {{ header: 'Page and mobile menu', home: 'Homepage', support: 'Support' }[p]}</label>)}</fieldset>
       </div>
     </details>
-    <div className={styles.actions}><button className="primary btn-sm" disabled={incomplete}>
+    <div className={styles.actions}><button ref={saveButton} className="primary btn-sm" disabled={incomplete}>
       {c.status === 'draft' ? 'Save draft' : c.status === 'active' && timing === 'event' ? 'Schedule campaign' : 'Save campaign'}</button>
       {c.status === 'draft' && timing === 'event' && <button className="btn-sm" type="submit" value="schedule" disabled={incomplete}>Schedule campaign</button>}
       {edit?.campaign && <button className={source ? 'ghost' : 'danger'} type="button" onClick={() => void save(true)}>{source ? 'Restore published version' : 'Remove campaign'}</button>}
+      {restored && <p role="status">{restored}</p>}
       {error && <p role="alert">{error}</p>}</div>
-  </fieldset></form>;
+  </fieldset></form></>;
 }

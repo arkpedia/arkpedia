@@ -3,7 +3,7 @@ import { dashboardActor, dashboardDatabase, dashboardEnv, dashboardOrigin } from
 import maintenance from './maintenance';
 import { samePlacements } from '@/lib/sponsors/campaignSchedule';
 import { editorCatalog, expireReaderCampaigns } from '@/lib/dashboard/campaignCatalog';
-import { EditConflict, InvalidEdit, invalidateCampaignEdits, saveCampaign } from '@/lib/dashboard/campaignStore';
+import { campaignHistory, EditConflict, InvalidEdit, invalidateCampaignEdits, saveCampaign } from '@/lib/dashboard/campaignStore';
 
 export const config = { api: { bodyParser: { sizeLimit: '2mb' } } };
 
@@ -16,6 +16,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const db = dashboardDatabase(env);
   if (!db) return void res.status(503).json({ error: 'Campaign storage is unavailable.' });
   try {
+    if (req.method === 'GET' && req.query.history !== undefined) {
+      const { history, before } = req.query;
+      if (typeof history !== 'string' || !/^[a-z0-9][a-z0-9-]{0,99}$/.test(history) ||
+          (before !== undefined && (typeof before !== 'string' || !/^[1-9][0-9]*$/.test(before) || !Number.isSafeInteger(Number(before))))) {
+        throw new InvalidEdit('Invalid campaign history request.');
+      }
+      return void res.json(await campaignHistory(db, history, before === undefined ? undefined : Number(before)));
+    }
     if (req.method === 'POST') {
       if (req.headers.origin !== dashboardOrigin(env)?.origin) return void res.status(403).end();
       if (req.headers['content-type']?.split(';')[0] !== 'application/json') return void res.status(415).end();

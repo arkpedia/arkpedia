@@ -29,3 +29,4 @@
   .pageRow > :nth-child(3) { grid-row: 3; }
   .pageRow > button { grid-column: 2; grid-row: 1 / 4; }
 }
+.historyPreviews { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 22rem), 1fr)); gap: var(--heading-gap); }

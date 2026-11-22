@@ -1,11 +1,57 @@
 import type { D1Database, D1PreparedStatement } from '@cloudflare/workers-types';
-import { checkSponsorCampaigns, type SponsorCampaign } from '@/lib/sponsors/campaigns';
+import { checkSponsorCampaigns, type SponsorArtwork, type SponsorCampaign } from '@/lib/sponsors/campaigns';
 
 export interface CampaignEdit {
   id: string;
   revision: number;
   followsRelease: boolean;
   campaign: SponsorCampaign | null;
+}
+
+export interface CampaignRevision {
+  revision: number;
+  actor: string;
+  updatedAt: string;
+  changes: string[];
+  campaign: SponsorCampaign | null;
+}
+
+export interface CampaignHistoryPage {
+  versions: CampaignRevision[];
+  nextBefore: number | null;
+}
+
+function sameArtwork(a?: SponsorArtwork, b?: SponsorArtwork) {
+  return a?.image === b?.image && a?.width === b?.width && a?.height === b?.height && a?.alt === b?.alt;
+}
+
+function revisionChanges(current: SponsorCampaign | null, previous: SponsorCampaign | null, timingChanged: boolean) {
+  if (!current || !previous) return [];
+  const changes: string[] = [];
+  if (!sameArtwork(current, previous)) changes.push('Page artwork');
+  if (!sameArtwork(current.mobileArtwork, previous.mobileArtwork)) changes.push('Mobile artwork');
+  if (current.url !== previous.url) changes.push('Destination');
+  if (current.status !== previous.status) changes.push('Status');
+  if (timingChanged || current.startAt !== previous.startAt || current.endAt !== previous.endAt ||
+      current.eventActivityId !== previous.eventActivityId || current.replacesCampaignId !== previous.replacesCampaignId) changes.push('Timing');
+  if (current.sponsor !== previous.sponsor) changes.push('Sponsor name');
+  if (current.placements.join() !== previous.placements.join()) changes.push('Placements');
+  return changes;
+}
+
+export async function campaignHistory(db: D1Database, id: string, before?: number): Promise<CampaignHistoryPage> {
+  const limit = 20;
+  const { results } = await db.prepare(`SELECT revision, actor, updated_at, follows_release, campaign_json
+    FROM campaign_editor_revisions WHERE campaign_id = ? AND revision < ?
+    ORDER BY revision DESC LIMIT ?`).bind(id, before ?? Number.MAX_SAFE_INTEGER, limit + 1)
+    .all<{ revision: number; actor: string; updated_at: string; follows_release: number; campaign_json: string | null }>();
+  const snapshots = results.map(row => row.campaign_json ? JSON.parse(row.campaign_json) as SponsorCampaign : null);
+  const versions = results.slice(0, limit).map((row, index) => ({
+    revision: row.revision, actor: row.actor, updatedAt: row.updated_at,
+    campaign: snapshots[index], changes: revisionChanges(snapshots[index], snapshots[index + 1] ?? null,
+      row.follows_release !== results[index + 1]?.follows_release),
+  }));
+  return { versions, nextBefore: results.length > limit ? versions[limit - 1].revision : null };
 }
 
 export async function campaignEdits(db: D1Database): Promise<CampaignEdit[]> {

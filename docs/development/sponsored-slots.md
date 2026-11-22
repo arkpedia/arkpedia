@@ -117,6 +117,19 @@ a delayed opening, and the incoming campaign ends at the event close. Other
 campaigns keep their own schedules. To schedule another handoff, select the
 incoming campaign as the next one's predecessor.
 
+### Campaign history
+
+Select a campaign and open **History** to see its admin saves. Choose a version
+to see who saved it, when, which fields changed from the preceding saved snapshot,
+and its page and mobile artwork. **Load older versions** continues the list.
+**Published artwork** previews the current data release. A reset or removal entry
+records the action without an artwork snapshot.
+
+**Restore artwork** loads the selected images and descriptions into the editor.
+Use the form’s save button to apply them and record a new revision under your
+signed-in email. This keeps the campaign’s other settings, including its event
+timing. Switching campaigns before saving discards the staged restoration.
+
 ### Refreshing a public page
 
 In **Maintenance**, compare the version served by Home, About, Support or Schedule
