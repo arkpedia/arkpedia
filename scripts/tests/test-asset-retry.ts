@@ -368,6 +368,7 @@ test('the retry script is in <head>, ahead of every image', () => {
  */
 const NOT_PUBLISHED_FILES: Record<string, string> = {
   'lib/patreon/sync.mjs: url': 'fixed-origin Patreon API v2 and OAuth requests, never published assets',
+  'lib/dashboard/pageMaintenance.ts: href': 'one of four canonical public HTML pages to inspect its served version',
   'lib/music/youtube.ts: url': 'the YouTube Data API',
   'lib/home/officialBroadcastServer.ts: url': 'fixed-origin YouTube and Bilibili broadcast metadata APIs, never published assets',
   'lib/music/youtubeFeedCache.ts: ...args': 'the injected fetch transport for YouTube channel Atom feeds (youtube.com/feeds/videos.xml)',

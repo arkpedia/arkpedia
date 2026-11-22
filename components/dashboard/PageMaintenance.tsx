@@ -2,10 +2,8 @@ import { useEffect, useState } from 'react';
 import { PAGE_NAMES, type MaintenanceStatus, type RefreshPage } from '@/lib/dashboard/refreshPages';
 import styles from './CampaignEditor.module.css';
 
-const endpoint = '/api/dashboard/maintenance';
-
 async function readStatus(signal?: AbortSignal): Promise<MaintenanceStatus> {
-  const response = await fetch(endpoint, { cache: 'no-store', signal });
+  const response = await fetch('/api/dashboard/maintenance', { cache: 'no-store', signal });
   if (!response.ok) throw new Error('Page status is unavailable. Try checking again.');
   return response.json();
 }
@@ -31,7 +29,7 @@ export default function PageMaintenance() {
     let refreshMessage = '';
     try {
       if (route) {
-        const response = await fetch(endpoint, {
+        const response = await fetch('/api/dashboard/maintenance', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ action: 'refresh', route }),
         });

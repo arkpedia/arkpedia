@@ -18,7 +18,7 @@ export function publicPageOrigin(role?: string, configured?: string) {
 
 async function servedRelease(href: string, route: RefreshPage) {
   // Inspect an ordinary public page load, including its normal cache behavior.
-  const response = await fetch(href, { redirect: 'error', signal: AbortSignal.timeout(10000) });
+  const response = await fetch(href, { redirect: 'manual', signal: AbortSignal.timeout(10000) });
   if (!response.ok) return null;
   const html = await response.text();
   const script = /<script\b[^>]*\bid="__NEXT_DATA__"[^>]*>([\s\S]*?)<\/script>/.exec(html);
