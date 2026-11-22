@@ -34,6 +34,10 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    at: '2026-11-22T12:03:25Z',
+    fixed: [{ title: 'More accurate technique sources', detail: 'Find projectile protection, accuracy debuffs and elemental buildup under the skills, talents and modules that apply them.', href: '/techniques' }],
+  },
+  {
     at: '2026-11-21T16:07:00Z',
     fixed: [{ title: 'Album covers stay in place on return', detail: 'Back keeps the album you opened in the same spot while the Most liked charts load.', href: '/music/discover?browse=albums' }],
   },
