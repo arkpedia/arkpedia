@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
 import ts from 'typescript';
+import { DASHBOARD_VARS } from './pilot-release-provider.mjs';
 import { codeFingerprint } from '../content/code-fingerprint.mjs';
 
 const ACCOUNT = '1ff51c10571eaa9934bc451e1bfdb361';
@@ -27,7 +28,7 @@ export function readPilotConfig(file = 'wrangler.jsonc') {
   if (!exact(config.services, [{ binding: 'WORKER_SELF_REFERENCE', service: 'arkpedia' }])) throw new Error('Pilot self-reference must target itself');
   if (!exact(config.durable_objects, { bindings: [{ name: 'NEXT_CACHE_DO_QUEUE', class_name: 'DOQueueHandler' }] })
     || !exact(config.migrations, [{ tag: 'v1', new_sqlite_classes: ['DOQueueHandler'] }])) throw new Error('Pilot queue and migration history must be preserved');
-  if (!exact(config.vars, { ARKPEDIA_AUTH_URL: AUTH_ORIGIN, ARKPEDIA_CONTENT_CHANNEL: 'live', ARKPEDIA_DEPLOYMENT_ROLE: 'production', ARKPEDIA_ACCOUNTS_ENABLED: '1' })) throw new Error('Pilot must use its existing account origin with main-compatible live data');
+  if (!exact(config.vars, { ARKPEDIA_AUTH_URL: AUTH_ORIGIN, ARKPEDIA_CONTENT_CHANNEL: 'live', ARKPEDIA_DEPLOYMENT_ROLE: 'production', ARKPEDIA_ACCOUNTS_ENABLED: '1', ...DASHBOARD_VARS })) throw new Error('Pilot must use its existing account origin with main-compatible live data');
   if (config.compatibility_date !== '2026-10-19' || !exact(config.compatibility_flags, ['nodejs_compat', 'global_fetch_strictly_public'])) throw new Error('Pilot runtime compatibility changed');
   if (!exact(config.triggers, { crons: ['17 4 * * *'] })) throw new Error('Production statistics must retain its single daily schedule');
   return config;

@@ -9,6 +9,10 @@ export default {
     await refreshDailyServices(env);
   },
   fetch(request, env, ctx) {
+    const url = new URL(request.url);
+    if (url.origin === env.ARKPEDIA_DASHBOARD_ORIGIN && url.pathname === '/') {
+      return Response.redirect(new URL('/dashboard/campaigns', url), 302);
+    }
     return protectPreviewRequest(request, env, () => app.fetch(request, env, ctx));
   },
 };
