@@ -28,6 +28,11 @@ export default function HeaderUtilities({ search, mobile = false, onOpen }: { se
       <button type="button" className="btn-bare site-nav-popitem" onClick={() => actions.open('import')}>{icon('transfer')}Import / export</button>
       <button type="button" className="btn-bare site-nav-popitem" onClick={() => actions.open('settings')}>{icon('profile')}Account settings</button>
       <Link prefetch={false} className="site-nav-popitem" href="/cookies">{icon('privacy')}Privacy choices</Link>
+      {typeof window !== 'undefined' && window.location.hostname === 'admin.arkpedia.net' && (
+        <Link prefetch={false} className="site-nav-popitem" href="/dashboard/campaigns" aria-current={router.pathname === '/dashboard/campaigns' ? 'page' : undefined}>
+          {icon('grid')}Admin dashboard
+        </Link>
+      )}
       <p className="label-tag">Appearance</p><ThemeToggle menu />
       <p className="label-tag">Audio</p><EventMusicSetting /><MusicVisualizerSetting menu />
     </ActionPopover>
