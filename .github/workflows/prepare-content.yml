@@ -326,6 +326,9 @@ jobs:
           cp -R "$RUNNER_TEMP/arkpedia-data/release" "$RUNNER_TEMP/prepared-content/release"
           node scripts/content/export.mjs "$RUNNER_TEMP/prepared-content"
           node scripts/content/validate-release.mjs "$RUNNER_TEMP/prepared-content"
+      - name: Audit operator and module techniques
+        if: github.event_name != 'schedule' || steps.prepared.outputs.cache-hit != 'true'
+        run: bash scripts/audits/check-release-techniques.sh
       # Publish only after the checked production deployments accept this schema.
       - name: Publish the validated public release
         id: publish

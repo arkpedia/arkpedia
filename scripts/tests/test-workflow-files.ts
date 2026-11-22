@@ -22,7 +22,7 @@ import yaml from 'js-yaml';
 const DIR = '.github/workflows';
 const files = fs.readdirSync(DIR).filter(name => /\.ya?ml$/.test(name)).sort();
 
-type Step = { name?: string; run?: unknown; uses?: unknown; if?: unknown };
+type Step = { 'continue-on-error'?: boolean; name?: string; run?: unknown; uses?: unknown; if?: unknown };
 type Job = { 'runs-on'?: unknown; steps?: Step[]; if?: unknown; 'timeout-minutes'?: unknown };
 type Workflow = { name?: unknown; on?: unknown; jobs?: Record<string, Job> };
 
@@ -236,4 +236,14 @@ test("pushes and same-repository PRs reuse only a successful exact-tree Check", 
   // Both artifacts are recorded last and only after actual execution validation.
   const last = steps.map(step => step.name).filter(name => name && !['Report a red Check on main', 'Close the red-Check report'].includes(name));
   assert.deepEqual(last.slice(-2), ['Record the code this Check passed', 'Record selected browser coverage']);
+});
+
+test('every candidate content build must pass the techniques audit before publication', () => {
+  const steps = load('prepare-content.yml').jobs!.prepare.steps!;
+  const compile = steps.findIndex(s => s.name === 'Validate and compile data (no website build)');
+  const gate = steps.findIndex(s => s.run === 'bash scripts/audits/check-release-techniques.sh');
+  const publish = steps.findIndex(s => s.name === 'Publish the validated public release');
+  assert.ok(compile >= 0 && compile < gate && gate < publish);
+  assert.equal(steps[gate].if, steps[compile].if);
+  assert.ok(!steps[gate]['continue-on-error']);
 });

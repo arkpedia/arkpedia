@@ -7,7 +7,7 @@
  *
  *   ARKPEDIA_EN_EXCEL=<.../en/gamedata/excel> npx tsx scripts/audits/audit-techniques-vs-gamedata.ts
  *
- * Defaults to the stage pipeline's cache (npm run stages:refresh fills it), and skips without it.
+ * Local reports can skip a missing cache. --strict requires complete inputs and fails on findings.
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -19,31 +19,59 @@ import { stripRichText } from '../lib/gametext.mjs';
 import { officialTrait, skillRows } from '../sync/sync-operator-english.mjs';
 // @ts-expect-error Node refresh scripts are plain JavaScript.
 import { moduleStages } from '../sync/module-stages.mjs';
+const strict = process.argv.includes('--strict');
 const GD = process.env.ARKPEDIA_EN_EXCEL ?? '.cache/upstream/en-gamedata/en/gamedata/excel';
-if (!fs.existsSync(`${GD}/character_table.json`)) { console.log(`SKIPPED: no EN game tables at ${GD} (set ARKPEDIA_EN_EXCEL)`); process.exit(0); }
+if (!strict && !fs.existsSync(`${GD}/character_table.json`)) { console.log(`SKIPPED: no EN game tables at ${GD} (set ARKPEDIA_EN_EXCEL)`); process.exit(0); }
 const ch = JSON.parse(fs.readFileSync(`${GD}/character_table.json`, 'utf8'));
 const sk = JSON.parse(fs.readFileSync(`${GD}/skill_table.json`, 'utf8'));
 const be = JSON.parse(fs.readFileSync(`${GD}/battle_equip_table.json`, 'utf8'));
 const ue = JSON.parse(fs.readFileSync(`${GD}/uniequip_table.json`, 'utf8'));
 // Amiya's Guard and Medic forms live only in char_patch_table, as for the refresh (characterOf).
-const patch = fs.existsSync(`${GD}/char_patch_table.json`) ? JSON.parse(fs.readFileSync(`${GD}/char_patch_table.json`, 'utf8')) : {};
+const patch = strict || fs.existsSync(`${GD}/char_patch_table.json`) ? JSON.parse(fs.readFileSync(`${GD}/char_patch_table.json`, 'utf8')) : {};
 /* The game's text as the English refresh writes it into the records (sync-operator-english.mjs,
    module-stages.mjs), so a difference here is the record's, not this script's: rich text stripped
    by the game's own tags only, every placeholder filled. A blanket <[^>]*> strip and a second
    filler here left "{atk:0%}" in module text, which the "reduce ... by N%" rule cannot read. */
 const talentNames = (c: any) => (Array.isArray(c.talents) ? c.talents : []).flatMap((t: any) => (Array.isArray(t.candidates) ? t.candidates : []).map((x: any) => x.name)).filter(Boolean);
 // charEquip is the character's own list; equipDict's charId is shared by Amiya's three forms.
-const ownModules = (cid: string) => Object.entries<any>(ue.equipDict).filter(([eid, eq]) => (Array.isArray(ue.charEquip?.[cid]) ? ue.charEquip[cid].includes(eid) : eq.charId === cid));
+const ownsModule = (cid: string, id: string) => Array.isArray(ue.charEquip?.[cid])
+  ? ue.charEquip[cid].includes(id) : ue.equipDict[id]?.charId === cid;
 const records: any[] = [];
 for (const dir of fs.readdirSync('data').filter((d) => /^operators-\dstar$/.test(d))) for (const f of fs.readdirSync(path.join('data', dir))) records.push(JSON.parse(fs.readFileSync(path.join('data', dir, f), 'utf8')));
+if (strict && [ch, sk, be, ue.equipDict, patch.patchChars].some(table => !table || !Object.keys(table).length)) {
+  throw new Error('Incomplete English game tables for the techniques audit');
+}
 const byId = new Map(records.map((r) => [r.internalName, r]));
 // Compare like sources. A match on S1 cannot hide a missing T2 or module stage.
 let checked = 0;
 let sources = 0;
 const differences: string[] = [];
-for (const [cid, character] of Object.entries<any>({ ...ch, ...patch.patchChars })) {
+const characters = { ...ch, ...patch.patchChars };
+const unverifiedOperators: string[] = [];
+const unverifiedModules: string[] = [];
+for (const op of records) {
+  if (!characters[op.internalName]) unverifiedOperators.push(op.name);
+  for (const mod of op.modules ?? []) {
+    if (mod.type !== 'Upgrade') continue;
+    if (!be[mod.moduleId]) unverifiedModules.push(`${op.name} / ${mod.name}`);
+    else if (!ownsModule(op.internalName, mod.moduleId)) differences.push(`${op.name} [${mod.moduleId}] module belongs to a different operator in EN`);
+  }
+  // Manual tags override automatic wording in the guide. Catch the two easily confused hit
+  // tags when the same source positively establishes the other effect, including CN-first records.
+  function checkHitTags(source: string, tags: any[], texts: string[], nonSkill: boolean) {
+    for (const { name } of tags) {
+      if (name !== 'Hit Reduction' && name !== 'Hit Rate Down') continue;
+      const other = name === 'Hit Reduction' ? 'Hit Rate Down' : 'Hit Reduction';
+      const evidence = texts.flatMap(text => detectAutoTechniqueMatches(op.rarity, [text], op.name, op.branch, op.class, nonSkill).map(match => match.name));
+      if (evidence.includes(other) && !evidence.includes(name)) differences.push(`${op.name} [${source}] tagged ${name}, wording indicates ${other}`);
+    }
+  }
+  for (const talent of op.talents ?? []) checkHitTags(talent.name, talent.technique ?? [], (talent.rows ?? []).map((r: any) => r.description), true);
+  for (const [i, skill] of (op.skills?.skillList ?? []).entries()) checkHitTags(`S${i + 1}`, skill.techniques ?? [], (skill.levels ?? []).map((l: any) => l.description), false);
+}
+for (const [cid, character] of Object.entries<any>(characters)) {
   const op = byId.get(cid);
-  if (!cid.startsWith('char_') || !op || op.isFuture) continue;
+  if (!cid.startsWith('char_') || !op) continue;
   checked++;
   function matches(texts: string[], source: string) {
     const result = new Set<string>();
@@ -66,16 +94,21 @@ for (const [cid, character] of Object.entries<any>({ ...ch, ...patch.patchChars 
   for (const [i, talent] of (Array.isArray(character.talents) ? character.talents : []).entries()) {
     const candidates = Array.isArray(talent.candidates) ? talent.candidates : [];
     if (!candidates.some((c: any) => c.description)) continue;
-    const record = op.talents?.find((t: any) => candidates.some((c: any) => c.name === t.name)) ?? op.talents?.[i];
+    const record = op.talents?.find((t: any) => candidates.some((c: any) => c.name && (c.name === t.name || t.rows?.some((r: any) => r.name === c.name)))) ?? op.talents?.[i];
     compare(`Talent ${record?.name ?? i + 1}`, candidates.map((c: any) => stripRichText(c.description)), (record?.rows ?? []).map((r: any) => r.description));
   }
   for (const [i, skill] of (Array.isArray(character.skills) ? character.skills : []).entries()) {
     const data = sk[skill.skillId];
+    if (skill.skillId && !data) differences.push(`${op.name} [S${i + 1}] missing EN skill ${skill.skillId}`);
     if (data) compare(`S${i + 1}`, skillRows(data).map((r: any) => r.description), (op.skills?.skillList?.[i]?.levels ?? []).map((r: any) => r.description));
   }
-  for (const [id, equip] of ownModules(cid)) {
-    if (!be[id]) continue;
+  for (const [id, equip] of Object.entries<any>(ue.equipDict)) {
+    if (!be[id] || !ownsModule(cid, id)) continue;
     const recorded = op.modules?.find((m: any) => m.moduleId === id);
+    if (!recorded) {
+      differences.push(`${op.name} [${id}] module missing from operator record`);
+      continue;
+    }
     const stages = moduleStages(equip, be[id], talentNames(character), (item: string) => item);
     for (const i of [0, 2]) {
       const stage = `Stage ${i + 1}`;
@@ -85,3 +118,7 @@ for (const [cid, character] of Object.entries<any>({ ...ch, ...patch.patchChars 
 }
 console.log(`Compared ${sources} sources across ${checked} EN operators. ${differences.length} rule differences to review.`);
 for (const difference of differences.sort()) console.log(difference);
+if (unverifiedOperators.length) console.log('Operators without an EN reference:', unverifiedOperators.sort().join(', '));
+if (unverifiedModules.length) console.log('Upgrade modules without EN battle data:', unverifiedModules.sort().join(', '));
+if (strict && (!checked || !sources)) throw new Error('No EN operator sources were compared');
+if (strict && differences.length) process.exitCode = 1;
