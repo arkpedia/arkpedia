@@ -13,7 +13,7 @@ import styles from './CampaignEditor.module.css';
 export interface Catalog { release?: ContentRelease | null; base: SponsorCampaign[]; edits: CampaignEdit[]; events: CampaignEvent[]; groups: Record<string, string> }
 const blankArt: SponsorArtwork = { image: '', width: 0, height: 0, alt: '' };
 const blank: SponsorCampaign = { ...blankArt, id: '', sponsor: '', status: 'draft', url: '', placements: ['header'], startAt: null, endAt: null };
-function campaignLabel(c: SponsorCampaign) {
+export function campaignLabel(c: Pick<SponsorCampaign, 'id' | 'sponsor'>) {
   return c.id.split('-').map(word => word.toLowerCase() === c.sponsor.toLowerCase() ? c.sponsor : word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
 }
 
@@ -46,9 +46,9 @@ function ArtworkField({ title, art, fallback, shape, change, upload, clear }: {
   </fieldset>;
 }
 
-export default function CampaignEditor({ initial }: { initial: Catalog }) {
+export default function CampaignEditor({ initial, historyId }: { initial: Catalog; historyId?: string }) {
   const [catalog, setCatalog] = useState(initial);
-  const [selected, select] = useState(initial.base[0]?.id ?? '');
+  const [selected, select] = useState(historyId ?? initial.base[0]?.id ?? '');
   const [draft, setDraft] = useState<SponsorCampaign>(blank);
   const [draftKey, setDraftKey] = useState(0);
   const ids = [...new Set([...catalog.base.map(c => c.id), ...catalog.edits.filter(e => e.campaign).map(e => e.id)])];
@@ -56,7 +56,8 @@ export default function CampaignEditor({ initial }: { initial: Catalog }) {
   const source = catalog.base.find(c => c.id === selected);
   const edit = catalog.edits.find(e => e.id === selected);
   const [message, setMessage] = useState('');
-  const [historyOpen, setHistoryOpen] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(!!historyId);
+  const removed = !!edit && !edit.campaign && !source;
   function startDraft(copy?: SponsorCampaign) {
     setHistoryOpen(false);
     let id = '';
@@ -75,14 +76,15 @@ export default function CampaignEditor({ initial }: { initial: Catalog }) {
     <div className={styles.toolbar}>
       <label className={styles.picker}>Campaign<StyledSelect label="Campaign" value={selected}
         onChange={id => { select(id); setMessage(''); setHistoryOpen(false); }} options={[...(!selected ? [{ value: '', label: 'New draft' }] : []),
+          ...(removed ? [{ value: selected, label: campaignLabel({ id: selected, sponsor: '' }) + ' (removed)' }] : []),
           ...records.map(c => ({ value: c.id, label: campaignLabel(c), group: catalog.groups[c.id] }))]} /></label>
       <button type="button" className="btn-sm" onClick={() => startDraft()}>New draft</button>
-      <button type="button" className="ghost" disabled={!selected} onClick={() => startDraft(edit?.campaign ?? source)}>Duplicate</button>
-      {selected && <button type="button" className="ghost" aria-expanded={historyOpen} aria-controls="campaign-history"
+      <button type="button" className="ghost" disabled={!selected || removed} onClick={() => startDraft(edit?.campaign ?? source)}>Duplicate</button>
+      {selected && !removed && <button type="button" className="ghost" aria-expanded={historyOpen} aria-controls="campaign-history"
         onClick={() => { setHistoryOpen(!historyOpen); setMessage(''); }}>History</button>}
     </div>
     <ContentContext.Provider value={catalog.release ?? null}>
-      <CampaignForm key={selected + '-' + (edit?.revision ?? 0) + '-' + draftKey} source={source} edit={edit} selected={selected}
+      {removed ? <CampaignHistory campaignId={selected} currentRevision={edit.revision} /> : <CampaignForm key={selected + '-' + (edit?.revision ?? 0) + '-' + draftKey} source={source} edit={edit} selected={selected}
         draft={draft} events={catalog.events} records={records} historyOpen={historyOpen}
         closeHistory={() => setHistoryOpen(false)}
         onSave={(next, id) => {
@@ -91,7 +93,7 @@ export default function CampaignEditor({ initial }: { initial: Catalog }) {
           const group = next.groups[id];
           setMessage(group === 'Drafts' ? 'Draft saved.' : group === 'Waiting for Global dates'
             ? 'Saved. Waiting for confirmed Global dates.' : 'Saved. Open pages refresh campaigns within about two minutes.');
-        }} />
+        }} />}
     </ContentContext.Provider>
     <p role="status">{message}</p>
   </main>;

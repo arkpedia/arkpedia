@@ -54,9 +54,41 @@ export async function campaignHistory(db: D1Database, id: string, before?: numbe
   return { versions, nextBefore: results.length > limit ? versions[limit - 1].revision : null };
 }
 
+export interface RecentCampaignChange {
+  id: string;
+  sponsor: string;
+  revision: number;
+  actor: string;
+  updatedAt: string;
+  cleared: boolean;
+  changes: string[];
+}
+
+const latestCampaignRevisions = `(SELECT campaign_id, MAX(revision) AS revision
+  FROM campaign_editor_revisions GROUP BY campaign_id)`;
+
+export async function recentCampaignChanges(db: D1Database): Promise<RecentCampaignChange[]> {
+  const { results } = await db.prepare(`SELECT r.*, p.campaign_json AS previous_json, p.follows_release AS previous_timing
+    FROM campaign_editor_revisions r JOIN ${latestCampaignRevisions} latest USING (campaign_id, revision)
+    LEFT JOIN campaign_editor_revisions p ON p.campaign_id = r.campaign_id AND p.revision = r.revision - 1
+    ORDER BY r.updated_at DESC, r.campaign_id`).all<{
+    campaign_id: string; revision: number; actor: string; updated_at: string;
+    follows_release: number; previous_timing: number | null; campaign_json: string | null; previous_json: string | null;
+  }>();
+  return results.map(row => {
+    const current: SponsorCampaign | null = row.campaign_json ? JSON.parse(row.campaign_json) : null;
+    const previous: SponsorCampaign | null = row.previous_json ? JSON.parse(row.previous_json) : null;
+    return {
+      id: row.campaign_id, sponsor: current?.sponsor ?? previous?.sponsor ?? '', revision: row.revision,
+      actor: row.actor, updatedAt: row.updated_at, cleared: !current,
+      changes: revisionChanges(current, previous, row.follows_release !== row.previous_timing),
+    };
+  });
+}
+
 export async function campaignEdits(db: D1Database): Promise<CampaignEdit[]> {
   const { results } = await db.prepare(`SELECT r.* FROM campaign_editor_revisions r JOIN
-    (SELECT campaign_id, MAX(revision) AS revision FROM campaign_editor_revisions GROUP BY campaign_id) latest
+    ${latestCampaignRevisions} latest
     USING (campaign_id, revision) ORDER BY r.updated_at DESC, r.campaign_id`).all<{
     campaign_id: string; revision: number; follows_release: number; campaign_json: string | null;
   }>();
