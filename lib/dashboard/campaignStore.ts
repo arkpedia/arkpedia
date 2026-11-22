@@ -28,6 +28,7 @@ function sameArtwork(a?: SponsorArtwork, b?: SponsorArtwork) {
 function revisionChanges(current: SponsorCampaign | null, previous: SponsorCampaign | null, timingChanged: boolean) {
   if (!current || !previous) return [];
   const changes: string[] = [];
+  if (!sameArtwork(current.mainArtwork ?? undefined, previous.mainArtwork ?? undefined)) changes.push('Main artwork');
   if (!sameArtwork(current, previous)) changes.push('Page artwork');
   if (!sameArtwork(current.mobileArtwork, previous.mobileArtwork)) changes.push('Mobile artwork');
   if (current.url !== previous.url) changes.push('Destination');
@@ -129,7 +130,7 @@ function storeImage(db: D1Database, encoded: unknown, writes: D1PreparedStatemen
 
 export async function saveCampaign(db: D1Database, actor: string, body: {
   id: string; revision: number; campaign: SponsorCampaign | null; followsRelease: boolean;
-  desktopUpload?: string; mobileUpload?: string;
+  mainUpload?: string; desktopUpload?: string; mobileUpload?: string;
 }) {
   if (!body || !/^[a-z0-9][a-z0-9-]{0,99}$/.test(body.id ?? '') || !Number.isSafeInteger(body.revision)
     || body.revision < 0 || typeof body.followsRelease !== 'boolean') throw new InvalidEdit('Invalid campaign change.');
@@ -137,8 +138,13 @@ export async function saveCampaign(db: D1Database, actor: string, body: {
   let campaign = body.campaign;
   if (campaign !== null) {
     if (!campaign || campaign.id !== body.id || (campaign.eventActivityId && body.followsRelease)) throw new InvalidEdit('Invalid campaign.');
+    if (body.mainUpload && campaign.mainArtwork) campaign.mainArtwork.image = storeImage(db, body.mainUpload, writes);
     if (body.desktopUpload) campaign.image = storeImage(db, body.desktopUpload, writes);
     if (body.mobileUpload && campaign.mobileArtwork) campaign.mobileArtwork.image = storeImage(db, body.mobileUpload, writes);
+    if (!campaign.image && campaign.placements?.length === 1 && campaign.placements[0] === 'home' && campaign.mainArtwork) {
+      const { image, width, height, alt } = campaign.mainArtwork;
+      campaign = { ...campaign, image, width, height, alt };
+    }
     try { campaign = checkSponsorCampaigns({ version: 1, campaigns: [campaign] }).campaigns[0]; }
     catch (error) { throw new InvalidEdit(error instanceof Error ? error.message : 'Invalid campaign.'); }
   }

@@ -39,6 +39,8 @@ export interface SponsorCampaign extends SponsorArtwork {
   eventActivityId?: string;
   /** An armed event campaign keeps this campaign running until the confirmed handoff. */
   replacesCampaignId?: string;
+  /** Explicit null leaves the homepage empty until its artwork is ready. Older records used their primary image. */
+  mainArtwork?: SponsorArtwork | null;
   /** A header campaign can use separate artwork in the mobile drawer. */
   mobileArtwork?: SponsorArtwork;
 }
@@ -97,6 +99,7 @@ export function checkSponsorCampaigns(value: unknown): SponsorCampaignTable {
     if (isSponsorInstant(c.startAt) && isSponsorInstant(c.endAt) && Date.parse(c.startAt) >= Date.parse(c.endAt)) fail('endAt must be after startAt');
     if (!Array.isArray(c.placements) || !c.placements.length || !c.placements.every(p => (SPONSOR_PLACEMENTS as readonly unknown[]).includes(p))) fail(`placements must list one or more of ${SPONSOR_PLACEMENTS.join(', ')}`);
     checkArtwork(c, fail);
+    if (c.mainArtwork != null) checkArtwork(c.mainArtwork, problem => fail(`mainArtwork: ${problem}`));
     if (c.mobileArtwork !== undefined) {
       if (!Array.isArray(c.placements) || !c.placements.includes('header')) fail('mobileArtwork requires the header placement');
       checkArtwork(c.mobileArtwork, problem => fail(`mobileArtwork: ${problem}`));
@@ -130,13 +133,14 @@ export function sponsorCampaignsFor(table: SponsorCampaignTable, slot: SponsorSl
   const mobile = slot === 'mobile-menu';
   const placement = mobile ? 'header' : slot;
   return table.campaigns.filter(campaign => {
-    if (!campaign.placements.includes(placement)) return false;
+    if (!campaign.placements.includes(placement) || (slot === 'home' && campaign.mainArtwork === null)) return false;
     if (campaign.status === 'draft') return drafts;
     if (campaign.status !== 'active' || !campaign.url || campaign.eventActivityId) return false;
     return nowMs === null || inWindow(campaign, nowMs);
   }).map(campaign => {
-    if (!mobile || !campaign.mobileArtwork) return campaign;
-    const { image, width, height, alt } = campaign.mobileArtwork;
+    const art = slot === 'home' ? campaign.mainArtwork : (mobile || slot === 'support') ? campaign.mobileArtwork : undefined;
+    if (!art) return campaign;
+    const { image, width, height, alt } = art;
     return { ...campaign, image, width, height, alt };
   });
 }
@@ -144,6 +148,21 @@ export function sponsorCampaignsFor(table: SponsorCampaignTable, slot: SponsorSl
 /** The first campaign a placement shows at `nowMs`, or null. */
 export function sponsorCampaignFor(table: SponsorCampaignTable, placement: SponsorSlot, nowMs: number | null, drafts = false): SponsorCampaign | null {
   return sponsorCampaignsFor(table, placement, nowMs, drafts)[0] ?? null;
+}
+
+/** Older releases split the same event into independent home, header and Support records.
+ * Normalize their authored shapes before any admin override or event-window selection. */
+export function unifiedLootBarCampaigns(table: SponsorCampaignTable): SponsorCampaignTable {
+  const main = table.campaigns.find(c => c.id === 'lootbar-violet-orchid-main');
+  const grouped = table.campaigns.some(c => c.id === 'lootbar-violet-orchid');
+  const campaigns = table.campaigns.flatMap((c): SponsorCampaign[] => {
+    if (grouped && (c.id === 'lootbar-violet-orchid-main' || c.id === 'lootbar-top-up')) return [];
+    if (c.mainArtwork !== undefined || !['lootbar-violet-orchid', 'lootbar-kirin-yato', 'lootbar-aphrissa'].includes(c.id)) return [c];
+    const art = c.id === 'lootbar-violet-orchid' ? main : undefined;
+    return [{ ...c, placements: [...SPONSOR_PLACEMENTS], mainArtwork: art
+      ? { image: art.image, width: art.width, height: art.height, alt: art.alt } : null }];
+  });
+  return { ...table, campaigns };
 }
 
 /** Older published tables already contain Violet's event closing. Bridge both of

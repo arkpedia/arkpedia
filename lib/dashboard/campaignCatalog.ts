@@ -2,7 +2,7 @@ import { withSiteTables } from '@/lib/content/server';
 import { contentUrl } from '@/lib/content/urls';
 import type { ContentRelease } from '@/lib/content/types';
 import { readSponsorSource } from '../content/release';
-import { checkSponsorCampaigns, type SponsorCampaignTable } from '@/lib/sponsors/campaigns';
+import { checkSponsorCampaigns, unifiedLootBarCampaigns, type SponsorCampaignTable } from '@/lib/sponsors/campaigns';
 import { dashboardDatabase, dashboardEnv } from './access';
 import { publishedCampaignEvents } from './publishedCampaignEvents';
 import { scheduledCampaigns } from '../sponsors/campaignSchedule';
@@ -23,7 +23,7 @@ async function campaignCatalog(forEditor = false) {
 export async function editorCatalog() {
   const { base, edits, events, campaigns, release } = await campaignCatalog(true);
   const source = release ? await readSponsorSource(release.release) : (await import('../../data/sponsor-campaigns.json')).default;
-  const definitions = checkSponsorCampaigns(source).campaigns;
+  const definitions = unifiedLootBarCampaigns(checkSponsorCampaigns(source)).campaigns;
   const publishedIds = new Set(base.campaigns.map(c => c.id));
   // Only the private catalogue includes these definitions. An artwork override
   // following the release becomes eligible when its original ID is published.
@@ -48,6 +48,7 @@ async function buildReaderCampaigns() {
   return { version: 1, now: Date.now(), campaigns: campaigns
     .filter(c => c.status === 'active' || (includeDrafts && c.status === 'draft'))
     .map(c => ({ ...c, image: contentUrl(c.image, release),
+      ...(c.mainArtwork && { mainArtwork: { ...c.mainArtwork, image: contentUrl(c.mainArtwork.image, release) } }),
       ...(c.mobileArtwork && { mobileArtwork: { ...c.mobileArtwork, image: contentUrl(c.mobileArtwork.image, release) } }) })) };
 }
 

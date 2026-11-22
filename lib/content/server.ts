@@ -3,7 +3,7 @@ import { defaultContentRevalidate } from './revalidation';
 import { REGIONAL_ROUTES, missingPageTables, pageTables } from './tables.mjs';
 import { operatorPageRoute } from '../operators/operatorPagePaths';
 import { loadRelease, readPageProps } from './release';
-import { applyLootBarHandoff, checkSponsorCampaigns, type SponsorCampaignTable } from '../sponsors/campaigns';
+import { applyLootBarHandoff, checkSponsorCampaigns, unifiedLootBarCampaigns, type SponsorCampaignTable } from '../sponsors/campaigns';
 export { contentChannel } from './release';
 import type { GetStaticProps, GetStaticPropsContext, GetStaticPropsResult, Redirect } from 'next';
 import { contentRoute, type ContentRelease } from './types';
@@ -36,7 +36,7 @@ async function attachTables<P extends object>(template: string, props: P, loader
 }
 
 async function readSponsors(value?: unknown): Promise<SponsorCampaignTable> {
-  const table = checkSponsorCampaigns(value ?? (await import('../../data/sponsor-campaigns.json')).default);
+  const table = unifiedLootBarCampaigns(checkSponsorCampaigns(value ?? (await import('../../data/sponsor-campaigns.json')).default));
   if (!table.campaigns.some(campaign => campaign.eventActivityId)) return applyLootBarHandoff(table);
   return applyLootBarHandoff((await import('../sponsors/eventCampaigns')).resolveSponsorEvents(table));
 }

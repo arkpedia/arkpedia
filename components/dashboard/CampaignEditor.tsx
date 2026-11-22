@@ -12,7 +12,7 @@ import styles from './CampaignEditor.module.css';
 
 export interface Catalog { release?: ContentRelease | null; base: SponsorCampaign[]; edits: CampaignEdit[]; events: CampaignEvent[]; groups: Record<string, string> }
 const blankArt: SponsorArtwork = { image: '', width: 0, height: 0, alt: '' };
-const blank: SponsorCampaign = { ...blankArt, id: '', sponsor: '', status: 'draft', url: '', placements: ['header'], startAt: null, endAt: null };
+const blank: SponsorCampaign = { ...blankArt, id: '', sponsor: '', status: 'draft', url: '', placements: [...SPONSOR_PLACEMENTS], mainArtwork: null, startAt: null, endAt: null };
 export function campaignLabel(c: Pick<SponsorCampaign, 'id' | 'sponsor'>) {
   return c.id.split('-').map(word => word.toLowerCase() === c.sponsor.toLowerCase() ? c.sponsor : word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
 }
@@ -31,18 +31,19 @@ async function readArtwork(file: File): Promise<Upload> {
   return { art: { image: data, width: img.naturalWidth, height: img.naturalHeight, alt: '' }, encoded: data.slice(data.indexOf(',') + 1) };
 }
 
-function ArtworkField({ title, art, fallback, shape, change, upload, clear }: {
+function ArtworkField({ title, art, fallback, shape, change, upload, clear, clearLabel, empty }: {
   title: string; art: SponsorArtwork; fallback?: SponsorArtwork; shape?: 'header' | 'menu'; change: (alt: string) => void;
-  upload: (file: File) => Promise<void>; clear?: () => void;
+  upload: (file: File) => Promise<void>; clear?: () => void; clearLabel?: string; empty?: string;
 }) {
   const preview = art.image ? art : fallback;
   return <fieldset className={styles.artwork}><legend>{title}</legend>
     {preview?.image && <ArtworkPreview art={preview} shape={shape} />}
+    {!preview?.image && empty && <p className="sub">{empty}</p>}
     {!art.image && fallback?.image && <small>Using page artwork</small>}
     <label>Image (600 KiB max)<input type="file" accept="image/png,image/jpeg,image/webp"
       onChange={e => { const file = e.target.files?.[0]; if (file) void upload(file); }} /></label>
     {art.image && <label>Image description<input type="text" required value={art.alt} onChange={e => change(e.target.value)} /></label>}
-    {clear && art.image && <button className="btn btn-sm" type="button" onClick={clear}>Use page artwork on mobile</button>}
+    {clear && art.image && <button className="btn btn-sm" type="button" onClick={clear}>{clearLabel ?? 'Use page artwork on mobile'}</button>}
   </fieldset>;
 }
 
@@ -80,8 +81,8 @@ export default function CampaignEditor({ initial, historyId }: { initial: Catalo
           ...records.map(c => ({ value: c.id, label: campaignLabel(c), group: catalog.groups[c.id] }))]} /></label>
       <button type="button" className="btn-sm" onClick={() => startDraft()}>New draft</button>
       <button type="button" className="ghost" disabled={!selected || removed} onClick={() => startDraft(edit?.campaign ?? source)}>Duplicate</button>
-      {selected && !removed && <button type="button" className="ghost" aria-expanded={historyOpen} aria-controls="campaign-history"
-        onClick={() => { setHistoryOpen(!historyOpen); setMessage(''); }}>History</button>}
+      {selected && !removed && <button type="button" className="filter-chip" aria-pressed={historyOpen} aria-expanded={historyOpen} aria-controls="campaign-history"
+        onClick={() => { setHistoryOpen(!historyOpen); setMessage(''); }}><span aria-hidden="true" className={styles.modeCheck}>✓</span>History</button>}
     </div>
     <ContentContext.Provider value={catalog.release ?? null}>
       {removed ? <CampaignHistory campaignId={selected} currentRevision={edit.revision} /> : <CampaignForm key={selected + '-' + (edit?.revision ?? 0) + '-' + draftKey} source={source} edit={edit} selected={selected}
@@ -108,11 +109,15 @@ function CampaignForm({ source, edit, selected, draft, events, records, historyO
   const [c, set] = useState<SponsorCampaign>(edit?.campaign ?? source ?? draft);
   const [timing, setTiming] = useState((edit?.campaign ? edit.followsRelease : !!source) ? 'published'
     : c.eventActivityId || !selected ? 'event' : 'fixed');
+  const onlyHome = c.placements.length === 1 && c.placements[0] === 'home';
+  const separateMain = c.placements.includes('home') && (!onlyHome || c.mainArtwork !== undefined);
+  const mainArt = c.mainArtwork === undefined ? c : c.mainArtwork ?? blankArt;
   const event = events.find(e => e.id === c.eventActivityId);
   const previous = records.find(r => r.id === c.replacesCampaignId && r.id !== c.id && r.status === 'active' && samePlacements(r, c));
   const replacements = records.filter(r => r.id !== c.id && r.status === 'active' && samePlacements(r, c));
   const eventOptions = events.map(e => ({ value: e.id, label: e.name }));
   if (c.eventActivityId && !event) eventOptions.push({ value: c.eventActivityId, label: c.eventActivityId });
+  const [main, setMain] = useState<string>();
   const [desktop, setDesktop] = useState<string>();
   const [mobile, setMobile] = useState<string>();
   const saveButton = useRef<HTMLButtonElement>(null);
@@ -121,11 +126,12 @@ function CampaignForm({ source, edit, selected, draft, events, records, historyO
   const [error, setError] = useState('');
   const patch = (fields: Partial<SponsorCampaign>) => set(old => ({ ...old, ...fields }));
 
-  async function upload(file: File, isMobile: boolean) {
+  async function upload(file: File, slot: 'main' | 'page' | 'mobile') {
     setBusy(true); setError(''); setRestored('');
     try {
       const { art, encoded } = await readArtwork(file);
-      if (isMobile) { patch({ mobileArtwork: { ...art, alt: c.mobileArtwork?.alt ?? c.alt } }); setMobile(encoded); }
+      if (slot === 'main') { patch({ mainArtwork: { ...art, alt: c.mainArtwork?.alt ?? c.alt } }); setMain(encoded); }
+      else if (slot === 'mobile') { patch({ mobileArtwork: { ...art, alt: c.mobileArtwork?.alt ?? c.alt } }); setMobile(encoded); }
       else { patch({ ...art, alt: c.alt }); setDesktop(encoded); }
     } catch { setError('Choose a readable PNG, JPEG or WebP image of 600 KiB or less.'); }
     finally { setBusy(false); }
@@ -136,13 +142,15 @@ function CampaignForm({ source, edit, selected, draft, events, records, historyO
     try {
       const image = desktop ? '' : c.image;
       const mobileArtwork = c.placements.includes('header') ? c.mobileArtwork : undefined;
-      const campaign = { ...c, status, image, eventActivityId: timing === 'event' ? c.eventActivityId : undefined,
+      const campaign = { ...c, status, image,
+        mainArtwork: c.mainArtwork && { ...c.mainArtwork, image: main ? '' : c.mainArtwork.image },
+        eventActivityId: timing === 'event' ? c.eventActivityId : undefined,
         replacesCampaignId: timing === 'event' ? previous?.id : undefined,
         mobileArtwork: mobileArtwork && { ...mobileArtwork, image: mobile ? '' : mobileArtwork.image },
         ...(timing !== 'fixed' && { startAt: null, endAt: null }) };
       const response = await fetch('/api/dashboard/campaigns', { method: 'POST',
         headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: c.id, revision: edit?.revision ?? 0,
-          campaign: reset ? null : campaign, creating: !selected, followsRelease: timing === 'published', desktopUpload: desktop, mobileUpload: mobile }) });
+          campaign: reset ? null : campaign, creating: !selected, followsRelease: timing === 'published', mainUpload: main, desktopUpload: desktop, mobileUpload: mobile }) });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || 'Save failed.');
       onSave(result, reset && !source ? '' : c.id);
@@ -155,11 +163,11 @@ function CampaignForm({ source, edit, selected, draft, events, records, historyO
     const button = (e.nativeEvent as SubmitEvent).submitter as HTMLButtonElement | null;
     void save(false, button?.value === 'schedule' ? 'active' : c.status);
   }
-  const incomplete = !c.image || !c.placements.length || (timing === 'event' && !c.eventActivityId);
+  const incomplete = !(onlyHome && separateMain ? mainArt.image : c.image) || !c.placements.length || (timing === 'event' && !c.eventActivityId);
   function restoreArtwork(version: SponsorCampaign, label: string) {
     const { image, width, height, alt } = version;
-    patch({ image, width, height, alt, mobileArtwork: c.placements.includes('header') ? version.mobileArtwork : undefined });
-    setDesktop(undefined); setMobile(undefined); setError('');
+    patch({ image, width, height, alt, mainArtwork: version.mainArtwork, mobileArtwork: c.placements.includes('header') ? version.mobileArtwork : undefined });
+    setMain(undefined); setDesktop(undefined); setMobile(undefined); setError('');
     setRestored(label + ' artwork loaded. Save your changes to apply it.');
     closeHistory();
     requestAnimationFrame(() => saveButton.current?.focus());
@@ -193,10 +201,13 @@ function CampaignForm({ source, edit, selected, draft, events, records, historyO
       {timing === 'fixed' && (['startAt','endAt'] as const).map(key => <label key={key}>{key === 'startAt' ? 'Starts' : 'Ends'} (optional, with timezone)
         <input type="text" placeholder="2026-12-01T15:00:00Z" value={c[key] ?? ''} onChange={e => patch({ [key]: e.target.value || null })} /></label>)}
     </div>
-    <div className={styles.fields}>
-      <ArtworkField title="Page artwork" art={c} shape={c.placements.includes('header') ? 'header' : undefined} change={alt => patch({ alt })} upload={f => upload(f, false)} />
+    <div className={styles.artworkGrid}>
+      {separateMain && <ArtworkField title="Main artwork" art={mainArt}
+        empty="Awaiting main artwork" change={alt => patch({ mainArtwork: { image: mainArt.image, width: mainArt.width, height: mainArt.height, alt } })}
+        upload={f => upload(f, 'main')} clearLabel="Remove main artwork" clear={() => { patch({ mainArtwork: null }); setMain(undefined); }} />}
+      {(!onlyHome || !separateMain) && <ArtworkField title={onlyHome ? 'Main artwork' : 'Page artwork'} art={c} shape={c.placements.includes('header') ? 'header' : undefined} change={alt => patch({ alt })} upload={f => upload(f, 'page')} />}
       {c.placements.includes('header') && <ArtworkField title="Mobile menu artwork" art={c.mobileArtwork ?? blankArt} fallback={c} shape="menu"
-        change={alt => patch({ mobileArtwork: { ...(c.mobileArtwork ?? blankArt), alt } })} upload={f => upload(f, true)}
+        change={alt => patch({ mobileArtwork: { ...(c.mobileArtwork ?? blankArt), alt } })} upload={f => upload(f, 'mobile')}
         clear={() => { patch({ mobileArtwork: undefined }); setMobile(undefined); }} />}
     </div>
     <details className={styles.details} open={!selected && !draft.sponsor}>
@@ -208,7 +219,8 @@ function CampaignForm({ source, edit, selected, draft, events, records, historyO
       <label>Status<StyledSelect label="Status" value={c.status} onChange={status => patch({ status: status as SponsorCampaign['status'] })}
         options={[{ value: 'active', label: 'Active' }, { value: 'ended', label: 'Paused' }, { value: 'draft', label: 'Draft' }]} /></label>
       <fieldset className={styles.placements}><legend>Placements</legend>{SPONSOR_PLACEMENTS.map(p => <label key={p} className="check"><input type="checkbox"
-        checked={c.placements.includes(p)} onChange={e => patch({ placements: e.target.checked ? [...c.placements, p] : c.placements.filter(x => x !== p) })} />
+        checked={c.placements.includes(p)} onChange={e => patch({ placements: e.target.checked ? [...c.placements, p] : c.placements.filter(x => x !== p),
+          ...(p === 'home' && e.target.checked && c.mainArtwork === undefined && { mainArtwork: null }) })} />
         {{ header: 'Page and mobile menu', home: 'Homepage', support: 'Support' }[p]}</label>)}</fieldset>
       </div>
     </details>
