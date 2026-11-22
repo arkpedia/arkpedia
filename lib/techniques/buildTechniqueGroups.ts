@@ -138,7 +138,7 @@ export function buildTechniqueGroups(): TechniqueGroup[] {
         }
       }
       talentTechniquesByIndex.set(ti, new Set());
-      for (const tech of [...manualTechs, ...autoTechs]) {
+      for (const tech of mergeTechniques(manualTechs, autoTechs)) {
         if (!tech.name) continue;
         talentDetectedNames.add(tech.name);
         talentTechniquesByIndex.get(ti)!.add(tech.name);

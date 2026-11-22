@@ -132,3 +132,61 @@ test('a technique the record names by hand is listed once, the record\'s entry',
     }
   }
 });
+
+test('projectile interception and enemy accuracy have separate source wording', () => {
+  for (const text of [
+    'Enemy projectile speed in attack range is greatly reduced, and all projectiles are removed when the skill expires.',
+    'Enemy projectiles passing through the wall have a 20% chance of being removed.',
+  ]) {
+    assert.ok(rules(text).includes('Hit Reduction'));
+    assert.ok(!rules(text).includes('Hit Rate Down'));
+  }
+  for (const text of [
+    'Ground enemies within the cloud have -20% Physical and Arts hit rate.',
+    'Reduces the hit rate of Physical and Arts attacks from enemies in the surrounding 8 tiles by 20%.',
+  ]) {
+    assert.ok(rules(text).includes('Hit Rate Down'));
+    assert.ok(!rules(text).includes('Hit Reduction'));
+  }
+  assert.ok(!rules('Throws 3 projectiles per attack. Gains 35% Arts Dodge.').includes('Hit Reduction'));
+});
+
+test('passive debuffs have an enemy subject and the correct stat', () => {
+  assert.ok(rules('Enemies that attack Bubble have their ATK reduced by 8%').includes('ATK Down'));
+  assert.ok(rules('Attacks inflict the following effect on enemies: Movement Speed reduced by 18%').includes('Movement Speed Down'));
+  assert.ok(!rules('After defeating an enemy, own ATK is reduced by 10%').includes('ATK Down'));
+});
+
+test('elemental buildup requires a source of buildup, including on a module', () => {
+  for (const effect of ['Burn', 'Necrosis', 'Nervous Impairment']) {
+    assert.ok(rules('Attacks deal an additional 10% as ' + effect).includes(effect));
+    for (const text of [
+      'When an enemy triggers a ' + effect + ' burst, deal additional Elemental Damage.',
+      'When attacked, half of the damage is received as ' + effect + '.',
+      'Enemies receive 22% more ' + effect + '.',
+    ]) assert.ok(!rules(text).includes(effect), text);
+  }
+  assert.ok(rules('Enemies take 70 points of Nervous Impairment.').includes('Nervous Impairment'));
+  assert.ok(rules('Attacks also deal 60 Necrosis.').includes('Necrosis'));
+});
+
+test('status application, healing and SP gains require the right recipient and action', () => {
+  const pairs = [
+    ['Stun', 'The target is Stunned for 1 second.', 'The Sniper and this unit have a chance to Stun themselves.'],
+    ['Levitate', 'Causes the target to Levitate for 3s.', 'Deals Arts damage to Levitated enemies when they fall.'],
+    ['Cold / Freeze', 'Attacks inflict Cold.', 'All Kjerag Operators gain Frozen immunity.'],
+    ['Fear', 'The last slash inflicts Fear.', 'Fever +2 whenever inflicting Slow or Fear.'],
+    ['SP Charging', 'The device grants the Operator 1 SP.', 'Equipment Alteration activates when SP is full.'],
+    ['Self-Sustain', 'Each attack restores 5% HP.', 'Attacks instead restore the HP of 2 allies.'],
+  ];
+  for (const [rule,positive,negative] of pairs) {
+    assert.ok(rules(positive).includes(rule), positive);
+    assert.ok(!rules(negative).includes(rule), negative);
+  }
+});
+
+test('a single-hit barrier threshold is distinct from an exhaustible HP barrier', () => {
+  assert.deepEqual(rules('A Crystal Barrier blocks all damage, shattering when 200 damage is taken.'), ['Crystal Barrier']);
+  assert.ok(rules('Immediately gains a Barrier equal to 130% Max HP.').includes('Barrier Generation'));
+  assert.ok(!rules('When attacked while under the effect of her own Barrier, deals damage to the attacker.').includes('Barrier Generation'));
+});

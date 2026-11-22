@@ -43,6 +43,7 @@ const NAME_KIND: Record<string, TechniqueKind> = {
   'Self-Sustain': 'Defense',
   'Barrier Generation': 'Defense',
   'Damage-Instance Shields': 'Defense',
+  'Crystal Barrier': 'Defense',
   'Status Resistance': 'Defense',
   'Hit Reduction': 'Defense',
   Revival: 'Defense',

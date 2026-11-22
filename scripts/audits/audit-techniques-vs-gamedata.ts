@@ -2,8 +2,8 @@
  * The Techniques page against the game's own text. For every technique rule, who it finds in
  * the EN game tables (character_table and, for Amiya's forms, char_patch_table traits and
  * talents, skill_table with each level's values filled in, battle_equip module stages 1 and 3 as
- * module-stages.mjs builds them) that the page, reading the operator records, does not. A name here is a detail the page misses: a rule that cannot read the record's
- * wording, record text that differs from the game's, or a trait the page skipped.
+ * module-stages.mjs builds them). Compare rules on each source in both directions: differences
+ * can indicate missing records, different wording, or a detector that missed an effect.
  *
  *   ARKPEDIA_EN_EXCEL=<.../en/gamedata/excel> npx tsx scripts/audits/audit-techniques-vs-gamedata.ts
  *
@@ -37,50 +37,51 @@ const ownModules = (cid: string) => Object.entries<any>(ue.equipDict).filter(([e
 const records: any[] = [];
 for (const dir of fs.readdirSync('data').filter((d) => /^operators-\dstar$/.test(d))) for (const f of fs.readdirSync(path.join('data', dir))) records.push(JSON.parse(fs.readFileSync(path.join('data', dir, f), 'utf8')));
 const byId = new Map(records.map((r) => [r.internalName, r]));
-type Hit = { rule: string; source: string; text: string };
-const names = (op: any, texts: string[], isTalent = false) => detectAutoTechniqueMatches(op.rarity, texts, op.name, op.branch, op.class, isTalent).filter((m) => !m.viaBranch).map((m) => m.name).filter((n): n is string => !!n);
-// What the page sees, by rule.
-function pageRules(op: any) {
-  const set = new Set<string>();
-  for (const t of (Array.isArray(op.talents) ? op.talents : [])) for (const row of (Array.isArray(t.rows) ? t.rows : [])) names(op, [row.description], true).forEach((n) => set.add(n));
-  for (const s of (Array.isArray(op.skills?.skillList) ? op.skills.skillList : [])) for (const l of (Array.isArray(s.levels) ? s.levels : [])) names(op, [l.description]).forEach((n) => set.add(n));
-  for (const m of (Array.isArray(op.modules) ? op.modules : [])) if (m.type === 'Upgrade') for (const st of (Array.isArray(m.stages) ? m.stages : [])) if ((st.stage === 'Stage 1' || st.stage === 'Stage 3') && st.effectText) names(op, [st.effectText], true).forEach((n) => set.add(n));
-  // Traits, as buildTechniqueGroups reads them (not for what a trait does for others).
-  const trait = traitText(op);
-  if (trait) names(op, [trait], true).filter((n) => !NOT_FROM_TRAITS.has(n)).forEach((n) => set.add(n));
-  // Branch-included rules count too.
-  detectAutoTechniqueMatches(op.rarity, ['x'], op.name, op.branch, op.class).filter((m) => m.viaBranch && m.name).forEach((m) => set.add(m.name!));
-  return set;
-}
-const missing: Record<string, { op: string; source: string; text: string }[]> = {};
-const traitOnly: Record<string, string[]> = {};
+// Compare like sources. A match on S1 cannot hide a missing T2 or module stage.
 let checked = 0;
-for (const [cid, c] of [...Object.entries<any>(ch), ...Object.entries<any>(patch.patchChars ?? {})]) {
-  if (!cid.startsWith('char_')) continue;
-  const op = byId.get(cid); if (!op || op.isFuture) continue;
+let sources = 0;
+const differences: string[] = [];
+for (const [cid, character] of Object.entries<any>({ ...ch, ...patch.patchChars })) {
+  const op = byId.get(cid);
+  if (!cid.startsWith('char_') || !op || op.isFuture) continue;
   checked++;
-  const page = pageRules(op);
-  const hits: Hit[] = [];
-  for (const t of (Array.isArray(c.talents) ? c.talents : [])) for (const cand of (Array.isArray(t.candidates) ? t.candidates : [])) { const text = stripRichText(cand.description); for (const n of names(op, [text], true)) hits.push({ rule: n, source: 'talent', text }); }
-  for (const s of (Array.isArray(c.skills) ? c.skills : [])) { const sd = sk[s.skillId]; if (!sd) continue; for (const { description: text } of skillRows(sd)) for (const n of names(op, [text])) hits.push({ rule: n, source: `skill ${sd.levels[0].name}`, text }); }
-  for (const [eid, eq] of ownModules(cid)) {
-    if (!be[eid]) continue;
-    // Stages 1 and 3, as the page reads them (buildTechniqueGroups).
-    moduleStages(eq, be[eid], talentNames(c), (id: string) => id).forEach((stage: { effectText: string | null }, i: number) => {
-      if ((i !== 0 && i !== 2) || !stage.effectText) return;
-      for (const n of names(op, [stage.effectText], true)) hits.push({ rule: n, source: `module ${eq.typeIcon.toUpperCase()} stage ${i + 1}`, text: stage.effectText });
-    });
+  function matches(texts: string[], source: string) {
+    const result = new Set<string>();
+    for (const text of texts) {
+      for (const match of detectAutoTechniqueMatches(op.rarity, [text], op.name, op.branch, op.class, !source.startsWith('S'))) {
+        if (match.name && !match.viaBranch && !(source === 'Trait' && NOT_FROM_TRAITS.has(match.name))) result.add(match.name);
+      }
+    }
+    return result;
   }
-  for (const h of hits) if (!page.has(h.rule)) { (missing[h.rule] ||= []); if (!missing[h.rule].some((x) => x.op === op.name)) missing[h.rule].push({ op: op.name, source: h.source, text: h.text.slice(0, 160) }); }
-  // Trait text the page reads differently from the game's.
-  const gameTrait = traitText({ trait: officialTrait(c) });
-  for (const n of names(op, gameTrait ? [gameTrait] : [], true)) if (!page.has(n) && !NOT_FROM_TRAITS.has(n)) (traitOnly[n] ||= []).push(op.name);
+  function compare(source: string, game: string[], record: string[]) {
+    if (!game.some(Boolean) && !record.some(Boolean)) return;
+    sources++;
+    const official = matches(game, source);
+    const recorded = matches(record, source);
+    for (const rule of official) if (!recorded.has(rule)) differences.push(`${op.name} [${source}] game only: ${rule}`);
+    for (const rule of recorded) if (!official.has(rule)) differences.push(`${op.name} [${source}] record only: ${rule}`);
+  }
+  compare('Trait', [traitText({ trait: officialTrait(character) }) ?? ''], [traitText(op) ?? '']);
+  for (const [i, talent] of (Array.isArray(character.talents) ? character.talents : []).entries()) {
+    const candidates = Array.isArray(talent.candidates) ? talent.candidates : [];
+    if (!candidates.some((c: any) => c.description)) continue;
+    const record = op.talents?.find((t: any) => candidates.some((c: any) => c.name === t.name)) ?? op.talents?.[i];
+    compare(`Talent ${record?.name ?? i + 1}`, candidates.map((c: any) => stripRichText(c.description)), (record?.rows ?? []).map((r: any) => r.description));
+  }
+  for (const [i, skill] of (Array.isArray(character.skills) ? character.skills : []).entries()) {
+    const data = sk[skill.skillId];
+    if (data) compare(`S${i + 1}`, skillRows(data).map((r: any) => r.description), (op.skills?.skillList?.[i]?.levels ?? []).map((r: any) => r.description));
+  }
+  for (const [id, equip] of ownModules(cid)) {
+    if (!be[id]) continue;
+    const recorded = op.modules?.find((m: any) => m.moduleId === id);
+    const stages = moduleStages(equip, be[id], talentNames(character), (item: string) => item);
+    for (const i of [0, 2]) {
+      const stage = `Stage ${i + 1}`;
+      compare(`${equip.typeIcon} ${stage}`, [stages[i]?.effectText ?? ''], [recorded?.stages?.find((s: any) => s.stage === stage)?.effectText ?? '']);
+    }
+  }
 }
-console.log('operators checked', checked);
-for (const [rule, list] of Object.entries(missing).sort((a, b) => b[1].length - a[1].length)) {
-  console.log(`\n## ${rule}: ${list.length} missing`);
-  for (const m of list.slice(0, 12)) console.log(`  - ${m.op} [${m.source}] ${m.text}`);
-  if (list.length > 12) console.log(`  ... +${list.length - 12} more: ${list.slice(12).map((m) => m.op).join(', ')}`);
-}
-console.log('\n## matched in the game\'s trait text but not on the page:');
-for (const [rule, ops] of Object.entries(traitOnly)) console.log(`  ${rule}: ${ops.length} — ${[...new Set(ops)].slice(0, 15).join(', ')}`);
+console.log(`Compared ${sources} sources across ${checked} EN operators. ${differences.length} rule differences to review.`);
+for (const difference of differences.sort()) console.log(difference);

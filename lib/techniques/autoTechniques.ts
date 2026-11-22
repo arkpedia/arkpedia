@@ -56,10 +56,8 @@ interface AutoTechniqueRule {
   statPattern?: string; // matches "{statPattern} ... -{number}%?" within the same clause (e.g. "DEF ... -50%") -- for stat-debuff searches. Distinct from requireAllOf/requireOrdered: only highlightSeparately controls how the two pieces render, since the text between them (e.g. "of enemies around the Curse Doll by") isn't meant to be highlighted, unlike Self-Sustain's full-span highlight.
   highlightSeparately?: boolean; // renders matchedKeyword and matchedKeywordEnd as two independent highlighted spans instead of highlighting the whole range between them
   skillsOnly?: boolean; // this rule only ever scans skill text -- talent text is skipped entirely for this rule, regardless of keyword match
-  excludeWords?: string[]; // words stripped from the text before matching -- e.g. "stunned" contains "stun" as a substring but doesn't count as the Stun status itself
-  excludePatterns?: RegExp[]; // same idea as excludeWords, but for patterns with variable text that a plain string can't cover
-  exemptOperators?: string[]; // these operators skip excludeWords entirely -- for cases where the general exclusion would incorrectly disqualify a specific operator who genuinely has the effect
-  excludeOperators?: string[]; // these operators NEVER match this rule, regardless of keyword -- the opposite direction from exemptOperators, for a specific operator whose text happens to contain the keyword in an unrelated sense
+  excludePatterns?: RegExp[]; // discard unrelated phrases before looking for the effect
+  excludeOperators?: string[]; // these operators NEVER match this rule, regardless of keyword
   excludeBranches?: string[]; // operators of these branches never match this rule, regardless of keyword -- e.g. actual Push Stroker-branch pushers shouldn't count as "Pseudo-Pusher"
   includeBranches?: string[]; // operators of these branches ALWAYS match this rule, regardless of keyword -- for cases where the effect is real but the text doesn't literally contain any of the rule's keywords (e.g. lifesteal-based branches describing HP drain without saying "recovers"/"restore")
   excludeClasses?: string[]; // operators of these classes never match this rule, regardless of keyword -- distinct from excludeBranches (class is the broader category, e.g. "Medic", branch is the narrower one within it, e.g. "Multi-target Medic")
@@ -173,6 +171,24 @@ function findStatMinusNumber(originalText: string, statWord: string): { statMatc
   const isRigid = RIGID_STAT_WORDS.includes(statWord);
   const escaped = statWord.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const flags = isRigid ? 'g' : 'gi';
+  // "Reduces the hit rate of Physical and Arts attacks ... by 20%" and
+  // "-20% Physical and Arts hit rate" both modify accuracy, not damage.
+  if (statWord === 'hit rate') {
+    const verbal = /\b(?:reduces?|lowers?|decreases?) (?:the )?(?:physical and arts )?(hit rate)\b(?: of [^.,;\n]{1,100}?)? by (-?\d+(?:\.\d+)?%)/i.exec(originalText);
+    if (verbal) return { statMatch: verbal[1], numberMatch: verbal[2] };
+    const typed = /(-\d+(?:\.\d+)?%) (?:physical and arts|physical|arts) (hit rate)\b/i.exec(originalText);
+    if (typed) return { statMatch: typed[2], numberMatch: typed[1] };
+  }
+  // Passive reductions need an enemy subject. An operator's own stat penalty
+  // (for example "this unit's DEF is reduced by ...") is not a debuff.
+  const passive = new RegExp(`\\b(${escaped}) (?:is |are )?(?:reduced|lowered|decreased) by (\\d+(?:\\.\\d+)?%?)`, flags);
+  for (const lowered of originalText.matchAll(passive)) {
+    const subject = originalText.slice(0, lowered.index);
+    if (/\b(?:enem(?:y|ies)|targets?)\b(?: (?:that|with|within|in) [^.;,:\n]{1,50})? (?:have|has) (?:their )?$/i.test(subject)
+        || /\b(?:enem(?:y|ies)|targets?)(?:['’]s?|:)\s*$/i.test(subject)) {
+      return { statMatch: lowered[1], numberMatch: lowered[2] };
+    }
+  }
   // The minus sign must NOT be directly attached to a letter/digit --
   // fixes unit names like "Cherry-3" being misread as a "-3" stat
   // modifier (confirmed: Mitm's own summon is literally named that).
@@ -229,7 +245,7 @@ function findStatMinusNumber(originalText: string, statWord: string): { statMatc
 
 export const FRAGILITY_TECHNIQUE_NAMES = ['Standard Fragility', 'Physical Fragility', 'Arts Fragility', 'Elemental Fragility'];
 export const STATUS_TECHNIQUE_NAMES = ['Bind', 'Stun', 'Levitate', 'Lure', 'Fear', 'Cold / Freeze', 'Sleep', 'Weightless', 'Silence', 'Teleport', 'Frighten', 'Slow'];
-export const DAMAGE_NEGATION_TECHNIQUE_NAMES = ['Invulnerable', 'Immortality', 'Invisibility', 'Camouflage', 'damage-instance shields'];
+export const DAMAGE_NEGATION_TECHNIQUE_NAMES = ['Invulnerable', 'Immortality', 'Invisibility', 'Camouflage', 'Damage-Instance Shields'];
 export const STATS_DEBUFF_TECHNIQUE_NAMES = ['DEF Down', 'RES Down', 'ATK Down', 'ASPD Down', 'Movement Speed Down', 'Hit Rate Down'];
 export const ENHANCE_ARTS_DAMAGE_TECHNIQUE_NAMES = ['RES Down', 'Arts Fragility', 'Arts Damage Taken', 'Standard Fragility', 'Cold / Freeze', 'Burn'];
 export const ENHANCE_PHYSICAL_DAMAGE_TECHNIQUE_NAMES = ['DEF Down', 'Physical Fragility', 'Physical Damage Taken', 'Standard Fragility', 'Steal DEF'];
@@ -284,6 +300,14 @@ for (const [umbrella, members] of Object.entries(UMBRELLA_MEMBERS)) {
 
 const EXISTING_SLOW_OR_BIND = /\baffected by (?:both )?(?:slow(?:(?: or | and )bind)?|bind)\b/g;
 
+// A burst condition or a multiplier on existing buildup does not apply buildup.
+function buildupPatterns(effect: string): RegExp[] {
+  return [
+    new RegExp(`\\bas (?:additional )?${effect}\\b`, 'i'),
+    new RegExp(`\\b(?:deals?|takes?|inflicts?) (?:an additional )?\\d+(?:\\.\\d+)? (?:points? of )?${effect}\\b`, 'i'),
+  ];
+}
+
 const AUTO_TECHNIQUE_RULES: AutoTechniqueRule[] = [
   {
     keywords: ['Fragile'],
@@ -322,17 +346,19 @@ const AUTO_TECHNIQUE_RULES: AutoTechniqueRule[] = [
     maxRarity: 6,
   },
   {
-    keywords: ['Stun'],
-    excludeWords: ['stunned'],
-    excludePatterns: [/\bstun(?:s|ning)?\s+(?:self|(?:all )?allied units)\b/g],
-    exemptOperators: ['Spuria', 'Manticore'],
+    matchPatterns: [/\bstun(?:s|ning)?\b/i, /\b(?:targets?|enem(?:y|ies)) (?:is |are )stunned for\b/i],
+    excludePatterns: [
+      /\bstun(?:s|ning)?\s+(?:self|themselves|herself|himself|(?:all )?allied (?:units|operators))\b/g,
+      /\b(?:immune|immunity|resistant|resistance) to stun\b|\bstun(?:\/freeze)? (?:immunity|resistance)\b/g,
+    ],
     name: 'Stun',
     description: 'Unable to move, attack, or use special abilities, can remove Low-Hovering statuses.',
     minRarity: 1,
     maxRarity: 6,
   },
   {
-    keywords: ['Levitate'],
+    matchPatterns: [/\blevitates?\b/i, /\b(?:are|is|become|becomes) levitated\b/i, /\binflicting levitate\b/i],
+    excludePatterns: [/\b(?:remove[sd]? |with |under )levitate\b/g, /\blevitate effect ends\b/g],
     name: 'Levitate',
     description: 'Unable to move, attack, or use special abilities, becomes an aerial enemy. Enemies with weight 3 or above gets half the levitation time.',
     minRarity: 1,
@@ -346,7 +372,7 @@ const AUTO_TECHNIQUE_RULES: AutoTechniqueRule[] = [
     maxRarity: 6,
   },
   {
-    keywords: ['Fear'],
+    matchPatterns: [/\b(?:inflict(?:s|ing)?|appl(?:y|ies)|casting) fear\b/i, /\b(?:is|are|become) feared\b/i],
     name: 'Fear',
     description: 'Move away from the unit taking precedence over their taken route, but cannot be blocked.',
     minRarity: 1,
@@ -354,6 +380,7 @@ const AUTO_TECHNIQUE_RULES: AutoTechniqueRule[] = [
   },
   {
     keywords: ['Cold', 'Freeze', 'Frozen'],
+    excludePatterns: [/\b(?:frozen|cold|freeze) immunity\b|\b(?:immune|immunity) to (?:frozen|cold|freeze)\b/g],
     excludeOperators: ['Lee'],
     name: 'Cold / Freeze',
     description: 'After being hit by two Cold or one Freeze, become frozen. Unable to move, attack, or use special skills, -15 RES.',
@@ -379,7 +406,7 @@ const AUTO_TECHNIQUE_RULES: AutoTechniqueRule[] = [
     maxRarity: 6,
   },
   {
-    keywords: ['Silence', 'disable'],
+    matchPatterns: [/\bsilenc(?:e|es|ed|ing)\b/i, /\bdisabl(?:e|es|ing) [^.;\n]{0,45}?special abilit(?:y|ies)\b/i],
     name: 'Silence',
     description: 'Disable special abilities of enemies if possible.',
     minRarity: 1,
@@ -401,7 +428,7 @@ const AUTO_TECHNIQUE_RULES: AutoTechniqueRule[] = [
   },
   {
     matchPatterns: [/\bslow(?:s|ed|ing)?\b/i],
-    excludePatterns: [EXISTING_SLOW_OR_BIND],
+    excludePatterns: [EXISTING_SLOW_OR_BIND, /\bwhenever inflicting slow or fear\b|\bslowed or feared enemies\b/g],
     name: 'Slow',
     description: 'Reduce the movement speed of the enemies by 80% (does not reduce further with other slow applications, but can add to the slow time. Can stack with movement speed down applications).',
     minRarity: 1,
@@ -413,7 +440,11 @@ const AUTO_TECHNIQUE_RULES: AutoTechniqueRule[] = [
       ['hp'],
     ],
     requireOrdered: true,
-    excludePatterns: [/\brestores? (?:device hp|double sp and hp to the special high ground)\b/g],
+    excludePatterns: [
+      /\brestores? (?:device hp|double sp and hp to the special high ground)\b/g,
+      /\brestores? the hp of (?:\d+ )?allies\b|\brestores? hp to (?:the |an )?ally\b/g,
+      /\b(?:no longer restores?|allies (?:in the area )?recover) hp\b/g,
+    ],
     excludeClasses: ['Medic'],
     includeBranches: ['Reaper', 'Juggernaut', 'Soloblade', 'Guardian'],
     showBranchIcon: true,
@@ -447,6 +478,7 @@ const AUTO_TECHNIQUE_RULES: AutoTechniqueRule[] = [
   },
   {
     requireAllOf: [['sp', 'skill point', 'skill points']],
+    excludePatterns: [/\b(?:when|while) sp is full\b|\b(?:sp|skill point) cost\b/g],
     name: 'SP Charging',
     description: 'Provides more SP to self or others.',
     minRarity: 1,
@@ -469,7 +501,15 @@ const AUTO_TECHNIQUE_RULES: AutoTechniqueRule[] = [
     maxRarity: 6,
   },
   {
+    keywords: ['crystal barrier'],
+    name: 'Crystal Barrier',
+    description: 'Blocks incoming damage and shatters when a single hit reaches its damage threshold.',
+    minRarity: 1,
+    maxRarity: 6,
+  },
+  {
     keywords: ['barrier'],
+    excludePatterns: [/\bcrystal barrier\b/g, /\bunder the effect of (?:her |his |its |their )?own barrier\b/g],
     name: 'Barrier Generation',
     description: 'Gains barrier that acts like a second HP bar, needing to reach 0 before affecting their HP.',
     minRarity: 1,
@@ -533,6 +573,16 @@ const AUTO_TECHNIQUE_RULES: AutoTechniqueRule[] = [
     matchPatterns: [/\b(?:arts|physical|true|elemental) damage to (?:the|its) attacker\b/i],
     name: 'Reflection Damage',
     description: 'Deals damage back to attackers.',
+    minRarity: 1,
+    maxRarity: 6,
+  },
+  {
+    matchPatterns: [
+      /\benemy projectile speed [^.;\n]{0,55}(?:reduced|lowered)\b/i,
+      /\benemy projectiles [^.;\n]{0,80}(?:removed|destroyed)\b/i,
+    ],
+    name: 'Hit Reduction',
+    description: 'Slows or removes incoming enemy projectiles before they reach an ally.',
     minRarity: 1,
     maxRarity: 6,
   },
@@ -629,7 +679,8 @@ const AUTO_TECHNIQUE_RULES: AutoTechniqueRule[] = [
     maxRarity: 6,
   },
   {
-    keywords: ['burn'],
+    matchPatterns: buildupPatterns('Burn'),
+    excludePatterns: [/\b(?:received|taken) as burn\b/g],
     excludeOperators: ['Tachanka', 'Firewhistle'],
     name: 'Burn',
     description: 'Deals 7000 Elemental Damage, RES -20 for 10 seconds (recovery time).',
@@ -637,14 +688,16 @@ const AUTO_TECHNIQUE_RULES: AutoTechniqueRule[] = [
     maxRarity: 6,
   },
   {
-    keywords: ['necrosis'],
+    matchPatterns: buildupPatterns('Necrosis'),
+    excludePatterns: [/\b(?:received|taken) as necrosis\b/g],
     name: 'Necrosis',
     description: 'Deals 800 Elemental Damage per second over 15s. Inflicts Enfeeble which reduces ATK by 50% but decays over the 15s (recovery time).',
     minRarity: 1,
     maxRarity: 6,
   },
   {
-    keywords: ['nervous impairment'],
+    matchPatterns: buildupPatterns('Nervous Impairment'),
+    excludePatterns: [/\b(?:received|taken) as nervous impairment\b/g],
     name: 'Nervous Impairment',
     description: 'Deals an instant 6000 Elemental Damage and 3 stacks of Paralysis, recovers in 10 seconds.',
     minRarity: 1,
@@ -695,18 +748,13 @@ const AUTO_TECHNIQUE_RULES: AutoTechniqueRule[] = [
  * them counts, since the keyword might only appear at certain skill
  * levels or promotion stages. Each rule matches on ANY of its keywords,
  * not all of them -- e.g. Bind matches "Bind", "Bound", or "Binds".
- * excludeWords are stripped from the text first, so a rule's keyword
- * doesn't false-positive off a different word that merely contains it
- * as a substring (e.g. "stunned" containing "stun") -- UNLESS this
- * operator is listed in that rule's exemptOperators, in which case the
- * stripping is skipped and the original text is matched as-is.
  * excludeBranches rejects the rule entirely for operators of that
  * branch, regardless of keyword match (e.g. actual Push Stroker/
  * Hookmaster operators don't count as "Pseudo-Pusher"/"Pseudo-Puller").
  * excludeClasses does the same at the class level (e.g. Medic-class
  * operators don't count as "Self-Sustain" -- they recover HP as their
  * defining trait, not as a bonus self-sufficiency effect).
- * excludePatterns works like excludeWords but for variable text a plain
+ * excludePatterns removes variable text a plain
  * string can't cover (e.g. "recovers 5 DP" vs "recovers 10 DP" -- DP
  * recovery isn't HP self-sustain, regardless of the number).
  *
@@ -776,20 +824,8 @@ export function detectAutoTechniqueMatches(
       matches.push({ name: rule.name, description: rule.description, viaBranch: true, matchedKeyword: null, matchedKeywordEnd: null, highlightSeparately: false });
       continue;
     }
-    const isExempt = !!operatorName && !!rule.exemptOperators?.includes(operatorName);
     let combined = combinedRaw;
-    if (!isExempt) {
-      if (rule.excludeWords) {
-        for (const excluded of rule.excludeWords) {
-          combined = combined.split(excluded.toLowerCase()).join(' ');
-        }
-      }
-      if (rule.excludePatterns) {
-        for (const pattern of rule.excludePatterns) {
-          combined = combined.replace(pattern, ' ');
-        }
-      }
-    }
+    for (const pattern of rule.excludePatterns ?? []) combined = combined.replace(pattern, ' ');
     if (rule.requireAllOf) {
       if (rule.requireOrdered && rule.requireAllOf.length === 2) {
         // Order-aware: the first group's word must genuinely occur
