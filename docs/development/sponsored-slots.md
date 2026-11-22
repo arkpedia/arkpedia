@@ -119,6 +119,10 @@ incoming campaign as the next one's predecessor.
 
 ### Campaign history
 
+Open **Recent changes** for the latest admin save per campaign, newest first. Each
+row shows the editor, local time, revision and changed fields. Select the campaign
+name to open its history. Removed campaigns retain a read-only history.
+
 Select a campaign and open **History** to see its admin saves. Choose a version
 to see who saved it, when, which fields changed from the preceding saved snapshot,
 and its page and mobile artwork. **Load older versions** continues the list.

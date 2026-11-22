@@ -4,7 +4,7 @@ import test from 'node:test';
 // @ts-expect-error Available in the supported Node runtime.
 import { DatabaseSync } from 'node:sqlite';
 import type { D1Database } from '@cloudflare/workers-types';
-import { campaignHistory } from '../../lib/dashboard/campaignStore';
+import { campaignHistory, recentCampaignChanges } from '../../lib/dashboard/campaignStore';
 
 test('private campaign history isolates campaigns and compares revisions across a page boundary', async () => {
   const sqlite = new DatabaseSync(':memory:');
@@ -18,9 +18,14 @@ test('private campaign history isolates campaigns and compares revisions across 
         new Date(1000 * revision).toISOString(), 1, revision === 22 ? null : JSON.stringify(snapshot));
     }
     insert.run('other', 1, 'other@example.org', new Date().toISOString(), 0, null);
-    const db = { prepare: (sql: string) => ({ bind: (...values: (string | number)[]) => ({
+    const db = { prepare: (sql: string) => ({ all: async () => ({ results: sqlite.prepare(sql).all() }), bind: (...values: (string | number)[]) => ({
       all: async () => ({ results: sqlite.prepare(sql).all(...values) }),
     }) }) } as unknown as D1Database;
+    const recent = await recentCampaignChanges(db);
+    assert.deepEqual(recent.map(row => [row.id, row.revision, row.cleared]), [['other', 1, true], ['test', 23, false]]);
+    assert.equal(recent[1].actor, 'first@example.org');
+    assert.equal(recent[1].updatedAt, new Date(23000).toISOString());
+    assert.deepEqual(recent[1].changes, []);
     const first = await campaignHistory(db, 'test');
     assert.equal(first.versions.length, 20);
     assert.deepEqual(first.versions[0].changes, []);
@@ -32,6 +37,12 @@ test('private campaign history isolates campaigns and compares revisions across 
     assert.equal(second.versions[1].actor, 'second@example.org');
     assert.equal(second.versions[1].updatedAt, new Date(2000).toISOString());
     assert.equal(second.nextBefore, null);
+    const snapshot = first.versions[0].campaign!;
+    insert.run('test', 24, 'third@example.org', new Date().toISOString(), 1, JSON.stringify({ ...snapshot, alt: 'Revised' }));
+    const latest = (await recentCampaignChanges(db)).find(row => row.id === 'test')!;
+    assert.deepEqual(latest.changes, ['Page artwork']);
+    assert.equal(latest.actor, 'third@example.org');
+    assert.ok(!('campaign' in latest));
     assert.deepEqual(await campaignHistory(db, 'empty'), { versions: [], nextBefore: null });
   } finally { sqlite.close(); }
 });

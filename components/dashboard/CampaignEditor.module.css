@@ -30,3 +30,5 @@
   .pageRow > button { grid-column: 2; grid-row: 1 / 4; }
 }
 .historyPreviews { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 22rem), 1fr)); gap: var(--heading-gap); }
+.changeRow { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 4px 16px; padding-block: 10px; border-bottom: 1px solid var(--line); overflow-wrap: anywhere; }
+@media (max-width: 600px) { .changeRow { grid-template-columns: minmax(0, 1fr); } }
