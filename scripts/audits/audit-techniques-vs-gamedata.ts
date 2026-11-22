@@ -5,11 +5,13 @@
  * module-stages.mjs builds them). Compare rules on each source in both directions: differences
  * can indicate missing records, different wording, or a detector that missed an effect.
  *
- *   ARKPEDIA_EN_EXCEL=<.../en/gamedata/excel> npx tsx scripts/audits/audit-techniques-vs-gamedata.ts
+ * CN-only operators and upgrade modules use the pinned Chinese tables (techniques-cn.ts).
+ * Run bash scripts/audits/check-release-techniques.sh to reproduce the pre-publication check.
  *
  * Local reports can skip a missing cache. --strict requires complete inputs and fails on findings.
  */
 import fs from 'node:fs';
+import { auditChineseTechniques } from './techniques-cn';
 import path from 'node:path';
 import { detectAutoTechniqueMatches } from '../../lib/techniques/autoTechniques';
 import { NOT_FROM_TRAITS, traitText } from '../../lib/techniques/buildTechniqueGroups';
@@ -47,14 +49,10 @@ let checked = 0;
 let sources = 0;
 const differences: string[] = [];
 const characters = { ...ch, ...patch.patchChars };
-const unverifiedOperators: string[] = [];
-const unverifiedModules: string[] = [];
 for (const op of records) {
-  if (!characters[op.internalName]) unverifiedOperators.push(op.name);
   for (const mod of op.modules ?? []) {
     if (mod.type !== 'Upgrade') continue;
-    if (!be[mod.moduleId]) unverifiedModules.push(`${op.name} / ${mod.name}`);
-    else if (!ownsModule(op.internalName, mod.moduleId)) differences.push(`${op.name} [${mod.moduleId}] module belongs to a different operator in EN`);
+    if (be[mod.moduleId] && !ownsModule(op.internalName, mod.moduleId)) differences.push(`${op.name} [${mod.moduleId}] module belongs to a different operator in EN`);
   }
   // Manual tags override automatic wording in the guide. Catch the two easily confused hit
   // tags when the same source positively establishes the other effect, including CN-first records.
@@ -116,9 +114,12 @@ for (const [cid, character] of Object.entries<any>(characters)) {
     }
   }
 }
-console.log(`Compared ${sources} sources across ${checked} EN operators. ${differences.length} rule differences to review.`);
+console.log(`Compared ${sources} sources across ${checked} EN operators.`);
+const cnDirectory = process.env.ARKPEDIA_CN_EXCEL ?? '.cache/upstream/cn-resource/gamedata/excel';
+if (strict || fs.existsSync(path.join(cnDirectory, 'character_table.json'))) {
+  auditChineseTechniques(records, characters, be, cnDirectory, differences);
+} else console.log(`SKIPPED: no CN game tables at ${cnDirectory} (set ARKPEDIA_CN_EXCEL)`);
+console.log(`${differences.length} rule differences to review.`);
 for (const difference of differences.sort()) console.log(difference);
-if (unverifiedOperators.length) console.log('Operators without an EN reference:', unverifiedOperators.sort().join(', '));
-if (unverifiedModules.length) console.log('Upgrade modules without EN battle data:', unverifiedModules.sort().join(', '));
 if (strict && (!checked || !sources)) throw new Error('No EN operator sources were compared');
 if (strict && differences.length) process.exitCode = 1;
