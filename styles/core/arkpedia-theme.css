@@ -648,6 +648,9 @@ a.ghost.panel:focus-visible { border-color: var(--teal); }
 }
 :where(input, select, textarea):focus { border-color: var(--teal); }
 
+/* Editorial text is read in the same face on the public page and in its editor. */
+.prose-input { font-family: var(--font-body); font-size: 1rem; line-height: 1.5; }
+
 /* Opt-in numeric field, shared with NumberInput without repainting legacy consumers. */
 .number-input {
   min-height: var(--control-h);

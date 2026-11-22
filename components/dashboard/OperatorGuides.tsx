@@ -31,7 +31,7 @@ function MasteryFields({ entries, change }: { entries: SkillRecommendationEntry[
         <label>Order<StyledSelect label="Order" value={entry.order ?? ''} onChange={order => update(i, { order: order || null })}
           options={[...new Set([...ranks, entry.order ?? ''])].map(value => ({ value, label: value || 'Unspecified' }))} /></label>
       </div>
-      <label>Explanation<textarea rows={4} maxLength={5000} value={entry.explanation ?? ''} onChange={e => update(i, { explanation: e.target.value || null })} /></label>
+      <label>Explanation<textarea className="prose-input" rows={4} maxLength={5000} value={entry.explanation ?? ''} onChange={e => update(i, { explanation: e.target.value || null })} /></label>
       <button className="ghost" type="button" onClick={() => change(entries.filter((_, index) => i !== index))}>Remove recommendation</button>
     </fieldset>)}
     <button className="btn-sm" type="button" disabled={entries.length >= 12} onClick={() => change([...entries, { ...blankEntry }])}>Add recommendation</button>
@@ -129,8 +129,8 @@ export default function OperatorGuides() {
             <fieldset className={styles.guideForm} disabled={saving}>
               {value.kind === 'mastery' ? <MasteryFields entries={value.entries} change={entries => setDraft({ kind: 'mastery', entries })} /> : <>
                 <div><a className="ghost" href={'https://www.youtube.com/watch?v=' + encodeURIComponent(key.slice('video:'.length))} target="_blank" rel="noopener noreferrer">Watch video ↗</a></div>
-                <label>Video title<input value={value.label} maxLength={500} onChange={e => setDraft({ ...value, label: e.target.value })} /></label>
-                <label>Creator credit<input value={value.creator} maxLength={200} onChange={e => setDraft({ ...value, creator: e.target.value })} /></label>
+                <label>Video title<input type="text" className="prose-input" value={value.label} maxLength={500} onChange={e => setDraft({ ...value, label: e.target.value })} /></label>
+                <label>Creator credit<input type="text" className="prose-input" value={value.creator} maxLength={200} onChange={e => setDraft({ ...value, creator: e.target.value })} /></label>
               </>}
               <div className={styles.actions}><button type="submit" className="primary btn-sm" disabled={!dirty}>{restoring ? 'Restore source version' : 'Publish changes'}</button>
                 {dirty && <button type="button" className="ghost" onClick={() => { setDraft(null); setError(''); }}>Discard edits</button>}
