@@ -937,11 +937,11 @@ export default function OperatorDetailPage({ chibis = {}, summons = [], epTrack,
       {/* The frame is the viewport under the nav: the header, then the workspace
           (artwork | information) filling what is left, so on a desktop the page itself
           never scrolls and the information panel scrolls inside it. */}
-      <div className={pageStyles.frame} ref={frameRef}>
+      <div className={`${pageStyles.frame}${infoExpanded ? ` ${pageStyles.infoExpanded}` : ''}`} ref={frameRef}>
       <PageHeader slim eyebrow={<>Rhodes Island // <Link prefetch={false} href="/operators">Operator roster</Link></>}
         title={operator.name} actions={<OperatorSearch section={activeSection} />} />
 
-      <main className={`${pageStyles.page}${infoExpanded ? ` ${pageStyles.infoExpanded}` : ''}`} onClick={(event) => {
+      <main className={pageStyles.page} onClick={(event) => {
         const link = (event.target as HTMLElement).closest('a[href^="#"]');
         if (!link || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
         event.preventDefault();

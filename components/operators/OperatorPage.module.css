@@ -12,31 +12,48 @@
    selector written twice or a class nothing renders. */
 
 /* --- the frame: header + workspace, the viewport under the nav ------------------ */
-.frame { display: flex; flex-direction: column; width: 100%; height: calc(100dvh - var(--nav-h, 52px) - 2px); min-height: 0; }
+.frame {
+  --rail-width: 28px;
+  --pane-gap: 8px;
+  --gallery-share: calc(7 / 12);
+  --gallery-width: calc((100% - var(--rail-width) - 2 * var(--pane-gap)) * var(--gallery-share));
+  display: flex; flex-direction: column; width: 100%; height: calc(100dvh - var(--nav-h, 52px) - 2px); min-height: 0;
+}
+.frame.infoExpanded { --gallery-share: 0.25; }
 .frame > header { flex-shrink: 0; width: 100%; }
 /* On a desktop the jump-to-operator search sits beside the title instead of under
    it: the workspace below is bounded to the viewport, so every header pixel is
    taken from the artwork. The h1 itself is PageHeader's, untouched. */
 @media (min-width: 901px) {
-  /* Match the workspace columns (.page below) within the space available to the header. */
-  .frame > header { display: grid; grid-template-columns: minmax(0, 7fr) 28px minmax(0, 5fr); align-items: end; column-gap: 8px; }
-  .frame > header > :global(.eyebrow), .frame > header > h1 { grid-column: 1; }
-  .frame > header > :global(.page-header-actions) { grid-column: 3; grid-row: 1 / span 2; align-self: end; max-width: 340px; margin: 0 0 4px; }
-  .frame > header > :global(.page-header-actions) > * { flex: 1; }
+  /* The search ends at the artwork edge. A wide sponsor can claim the last
+     few pixels at intermediate widths; keep the normal gap beside its art. */
+  .frame > header:global(.page-header) {
+    --banner-space: calc(var(--header-sponsor-width, 0px) + 16px);
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) min(224px, var(--gallery-width))
+      max(calc(100% - var(--gallery-width)), var(--banner-space));
+    align-items: end;
+    padding-inline-end: var(--page-gutter);
+  }
+  .frame > header > :global(.eyebrow), .frame > header > h1 { grid-column: 1; padding-inline-end: 12px; }
+  .frame > header > :global(.page-header-actions) { grid-column: 2; grid-row: 1 / span 2; margin: 0 0 4px; min-width: 0; }
+  .frame > header > :global(.page-header-actions) > * { flex: 1; min-width: 0; }
+  /* In the narrow artwork pane, give long operator names their own row. */
+  .frame.infoExpanded > header > :global(.eyebrow), .frame.infoExpanded > header > h1 { grid-column: 1 / -1; margin-inline-end: var(--banner-space); }
+  .frame.infoExpanded > header > :global(.page-header-actions) { grid-row: 3; margin: 4px 0 0; }
 }
 .page {
   display: grid;
   flex: 1;
-  grid-template-columns: minmax(0, 7fr) 28px minmax(0, 5fr);
+  grid-template-columns: var(--gallery-width) var(--rail-width) minmax(0, 1fr);
   align-items: stretch;
-  gap: 8px;
+  gap: var(--pane-gap);
   width: 100%;
   min-height: 0;
   padding-top: 16px;
   padding-bottom: 16px;
   color: var(--text);
 }
-.page.infoExpanded { grid-template-columns: minmax(0, 3fr) 28px minmax(0, 9fr); }
 /* Plain links in the panel's prose: text colour and an underline at rest, teal on
    hover. Teal at rest was saying "on" about every link. */
 .page a:not([class]) { color: var(--text); text-decoration: underline; text-decoration-color: var(--text-faint); text-underline-offset: 3px; }
@@ -314,7 +331,7 @@
   /* A phone reads down the document: the artwork (a captured height, so the address
      bar hiding cannot resize it mid-scroll), then the panel, its header pinned. */
   .frame { height: auto; }
-  .page, .page.infoExpanded { flex: none; grid-template-columns: minmax(0, 1fr); gap: 20px; }
+  .page { flex: none; grid-template-columns: minmax(0, 1fr); gap: 20px; }
   .gallery, .details { grid-column: 1; }
   .gallery { height: var(--operator-mobile-art-height, min(70svh, 600px)); }
   .splitRail { display: none; }
