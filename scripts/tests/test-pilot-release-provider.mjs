@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { PILOT, MEDIA_SECRET_UPDATE, PATREON_SECRET_UPDATE, PRE_CUTOVER_VERSION, assertPilotBindings, assertPilotIdentity, pilotReleaseMessage, readPilotIdentity,
+import { PILOT, DASHBOARD_VARS, MEDIA_SECRET_UPDATE, PATREON_SECRET_UPDATE, PRE_CUTOVER_VERSION, assertPilotBindings, assertPilotIdentity, pilotReleaseMessage, readPilotIdentity,
   createPilotProvider } from '../deploy/pilot-release-provider.mjs';
 import { publishPilotRelease } from '../deploy/pilot-release.mjs';
 
@@ -38,6 +38,17 @@ function identity(id = PILOT.legacyVersion) {
     dirty: false, contentSchema: 2, contentChannel: id === PILOT.legacyVersion ? 'dev-live' : 'live', deploymentRole: 'production' };
 }
 const binding = (v, name) => v.resources.bindings.find(b => b.name === name);
+
+test('new uploads require the complete production Access configuration', () => {
+  const v = version(nextVersion);
+  assert.throws(() => assertPilotBindings(v, { requireDashboard: true }), /unexpected pilot bindings/);
+  for (const [name, text] of Object.entries(DASHBOARD_VARS)) {
+    v.resources.bindings.push({ name, type: 'plain_text', text });
+  }
+  assert.equal(assertPilotBindings(v, { requireDashboard: true }), v);
+  binding(v, 'ARKPEDIA_DASHBOARD_ACCESS_AUD').text = 'another-application';
+  assert.throws(() => assertPilotBindings(v), /invalid dashboard configuration/);
+});
 
 test('Patreon setup accepts only the complete secret set and exact authorized dashboard version', () => {
   const v = enableAccounts(version(nextVersion));
@@ -132,6 +143,7 @@ function harness({ token = true, staleAfterDeploy = 0, missingMetadataReads = 0,
   let staleReads = 0;
   const waits = [];
   const versions = new Map([[PILOT.legacyVersion, version()], [nextVersion, version(nextVersion)]]);
+  versions.get(nextVersion).resources.bindings.push(...Object.entries(DASHBOARD_VARS).map(([name, text]) => ({ name, type: 'plain_text', text })));
   if (accounts) enableAccounts(versions.get(nextVersion));
   const commands = [];
   const run = (_executable, args, options) => {

@@ -23,6 +23,12 @@ export const MEDIA_SECRET_UPDATE = Object.freeze({
   source: '8ee3f3dc7852991791bec6f3a2717d98d69f0594',
   fingerprint: 'ec5ff11e156fc580c52c60c0c623ee8ab2ee0b71294a091334a0a925fc4baf02',
 });
+// Public identifiers of the passkey-protected production Access application.
+export const DASHBOARD_VARS = Object.freeze({
+  ARKPEDIA_DASHBOARD_ORIGIN: 'https://admin.arkpedia.net',
+  ARKPEDIA_DASHBOARD_ACCESS_ISSUER: 'https://mocchibird.cloudflareaccess.com',
+  ARKPEDIA_DASHBOARD_ACCESS_AUD: 'eed7b63a921dcb0b52565bcd1dabc11e6536e5e6558c6bbd9b4c2417388f2451',
+});
 const MEDIA_SECRETS = ['TWITCH_CLIENT_ID', 'TWITCH_CLIENT_SECRET', 'YOUTUBE_API_KEY'];
 const PATREON_SECRETS = ['PATREON_CAMPAIGN_ID', 'PATREON_CLIENT_ID', 'PATREON_CLIENT_SECRET', 'PATREON_CREATOR_ACCESS_TOKEN', 'PATREON_CREATOR_REFRESH_TOKEN'];
 // Maintainer-authorized dashboard secret setup on 2026-11-13. The serving build
@@ -80,16 +86,18 @@ function releaseOwner(version) {
   return owner;
 }
 
-export function assertPilotBindings(version) {
+export function assertPilotBindings(version, { requireDashboard = false } = {}) {
   requireValue(UUID.test(version?.id ?? '') && Array.isArray(version?.resources?.bindings), 'invalid version metadata');
   const bindings = version.resources.bindings;
   const legacy = version.id === PILOT.legacyVersion;
   const accounts = bindings.some(b => b.name === 'ARKPEDIA_ACCOUNTS_ENABLED');
   const patreon = bindings.some(b => PATREON_SECRETS.includes(b.name));
+  const dashboard = requireDashboard || bindings.some(b => Object.hasOwn(DASHBOARD_VARS, b.name));
   const names = ['ARKPEDIA_ACCOUNTS_DB', 'ARKPEDIA_AUTH_URL', 'ASSETS', 'BETTER_AUTH_SECRET',
     'GOOGLE_CLIENT_ID', 'GOOGLE_CLIENT_SECRET', 'DISCORD_CLIENT_ID', 'DISCORD_CLIENT_SECRET',
     'NEXT_CACHE_DO_QUEUE', 'NEXT_INC_CACHE_R2_BUCKET', 'WORKER_SELF_REFERENCE',
     ...(legacy || version.id === MEDIA_SECRET_UPDATE.baseline ? [] : MEDIA_SECRETS),
+    ...(dashboard ? Object.keys(DASHBOARD_VARS) : []),
     ...(patreon && !legacy ? PATREON_SECRETS : []),
     ...(legacy ? [] : ['ARKPEDIA_CONTENT_CHANNEL', 'ARKPEDIA_DEPLOYMENT_ROLE']),
     ...(accounts ? ['ARKPEDIA_ACCOUNTS_ENABLED', 'ACCOUNT_TRAFFIC_LIMIT', 'ACCOUNT_IP_LIMIT'] : [])];
@@ -106,6 +114,11 @@ export function assertPilotBindings(version) {
     for (const [name, namespace, limit] of [['ACCOUNT_TRAFFIC_LIMIT', '2026110201', 6000], ['ACCOUNT_IP_LIMIT', '2026110202', 300]]) {
       const rate = binding(name, 'ratelimit');
       requireValue(String(rate.namespace_id) === namespace && rate.simple?.limit === limit && rate.simple?.period === 60, 'account request limits changed');
+    }
+  }
+  if (dashboard) {
+    for (const [name, value] of Object.entries(DASHBOARD_VARS)) {
+      requireValue(binding(name, 'plain_text').text === value, `invalid dashboard configuration for ${name}`);
     }
   }
   const previousOrigin = [PILOT.legacyVersion, MEDIA_SECRET_UPDATE.baseline, MEDIA_SECRET_UPDATE.version, PRE_CUTOVER_VERSION].includes(version.id);
@@ -231,7 +244,7 @@ export function createPilotProvider({ run = execFileSync, request = fetch, envir
           if (!/\[code: 100146\]/.test(String(error.stderr ?? ''))) throw error;
         }
         if (actual) {
-          assertPilotBindings(actual);
+          assertPilotBindings(actual, { requireDashboard: true });
           requireValue(actual.annotations?.['workers/message'] === message, 'deployed pilot version/owner differs');
           return actual;
         }
