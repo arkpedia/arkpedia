@@ -6,8 +6,8 @@ import ArtworkPreview from './ArtworkPreview';
 import styles from './CampaignEditor.module.css';
 
 export default function CampaignHistory({ campaignId, source, currentRevision, disabled, restore }: {
-  campaignId: string; source?: SponsorCampaign; currentRevision: number; disabled: boolean;
-  restore: (campaign: SponsorCampaign, label: string) => void;
+  campaignId: string; source?: SponsorCampaign; currentRevision: number; disabled?: boolean;
+  restore?: (campaign: SponsorCampaign, label: string) => void;
 }) {
   const [versions, setVersions] = useState<CampaignRevision[]>([]);
   const [selected, select] = useState('');
@@ -66,6 +66,6 @@ export default function CampaignHistory({ campaignId, source, currentRevision, d
       {header && <div><h3 className="section-title">Mobile menu artwork</h3>
         <ArtworkPreview art={snapshot.mobileArtwork ?? snapshot} shape="menu" />
         {!snapshot.mobileArtwork && <p className="sub">Uses page artwork</p>}</div>}
-    </div><div><button className="btn-sm" type="button" disabled={disabled} onClick={() => restore(snapshot, label)}>Restore artwork</button></div></>}
+    </div>{restore && <div><button className="btn-sm" type="button" disabled={disabled} onClick={() => restore(snapshot, label)}>Restore artwork</button></div>}</>}
   </div>;
 }

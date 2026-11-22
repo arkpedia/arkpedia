@@ -3,7 +3,7 @@ import { dashboardActor, dashboardDatabase, dashboardEnv, dashboardOrigin } from
 import maintenance from './maintenance';
 import { samePlacements } from '@/lib/sponsors/campaignSchedule';
 import { editorCatalog, expireReaderCampaigns } from '@/lib/dashboard/campaignCatalog';
-import { campaignHistory, EditConflict, InvalidEdit, invalidateCampaignEdits, saveCampaign } from '@/lib/dashboard/campaignStore';
+import { campaignHistory, EditConflict, InvalidEdit, invalidateCampaignEdits, recentCampaignChanges, saveCampaign } from '@/lib/dashboard/campaignStore';
 
 export const config = { api: { bodyParser: { sizeLimit: '2mb' } } };
 
@@ -16,6 +16,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const db = dashboardDatabase(env);
   if (!db) return void res.status(503).json({ error: 'Campaign storage is unavailable.' });
   try {
+    if (req.method === 'GET' && req.query.view === 'recent') return void res.json(await recentCampaignChanges(db));
     if (req.method === 'GET' && req.query.history !== undefined) {
       const { history, before } = req.query;
       if (typeof history !== 'string' || !/^[a-z0-9][a-z0-9-]{0,99}$/.test(history) ||
