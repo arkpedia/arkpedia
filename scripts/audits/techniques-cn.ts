@@ -15,17 +15,22 @@ import { moduleStages } from '../sync/module-stages.mjs';
 const nativeRules: [string, RegExp][] = [
   ['Standard Fragility', /(?:敌人|目标)获得[^；。，]{0,18}[%％](?:的)?脆弱/],
   ['Barrier Generation', /获得[^。；，]{0,28}(?:的|点)屏障/],
-  ['Levitate', /浮空(?:所有)?(?:目标|敌人)|使(?:目标|敌人)浮空/],
+  ['Levitate', /浮空(?:所有)?(?:目标|敌人)|使(?:目标|敌人)浮空|地面敌人浮空\d/],
   ['Burn', /(?:附带|额外造成)[^；。，]{0,30}的灼燃损伤/],
   ['Necrosis', /(?:附带|额外造成)[^；。，]{0,30}的坏死损伤/],
   ['Nervous Impairment', /(?:附带|额外造成)[^；。，]{0,30}的神经损伤/],
   ['Camouflage', /(?:自身|自己)获得迷彩/],
+  ['Corrosion', /(?:附带|造成)[^。；，]{0,30}的侵蚀损伤(?!冷却|爆发)/],
+  ['Skill Control', /可(?:随时)?(?:主动关闭|停止)技能|技能可随时主动关闭/],
+  ['Hold Charges', /可充能\d+次/],
+  ['Ammo-based Skills', /(?:技能|攻击)装有\d+发弹药/],
+  ['Overload / Charged', /过载[：:]/],
   ['Hit Rate Down', /(?:敌人|目标|敌方)[^。；，]{0,32}命中率(?:下降|降低|[−-]\d)|降低(?:敌人|目标|敌方)[^。；，]{0,25}命中率/],
   ['Hit Reduction', /敌方(?:子弹|投射物|飞行物)[^。；，]{0,30}(?:速度[^。；，]{0,5}降低|被清除)|清除[^。；，]{0,12}敌方(?:子弹|投射物|飞行物)/],
   ['Stun', /使(?:目标|敌人|其)(?:陷入)?(?:眩晕|晕眩)|(?:造成|并附带)[^。；，]{0,16}秒(?:眩晕|晕眩)/],
   ['Bind', /使(?:目标|敌人|其)(?:被)?束缚|束缚(?:目标|敌人)/],
   ['Slow', /使(?:目标|敌人|其)停顿|停顿(?:周围|范围内)[^。；，]{0,15}敌人/],
-  ['Fear', /使(?:目标|敌人|其)恐惧/],
+  ['Fear', /使(?:目标|敌人|其)恐惧|概率恐惧敌人/],
   ['Weightless', /使[^。；，]{0,18}(?:敌人|目标)失重/],
   ['True Damage', /造成[^；。，]{0,45}真实伤害/],
   ['Reveal Invisibility', /(?:使[^。；，]{0,18}敌人失去隐匿|可以攻击隐匿(?:的)?敌人)/],
@@ -70,7 +75,13 @@ export function auditChineseTechniques(records: any[], englishCharacters: Record
       if (native.length) nativeSources++;
       const known = translated.filter((t): t is string => typeof t === 'string' && !!t);
       if (known.length) translatedSources++;
-      if (!known.length && !native.length) structuralOnly++;
+      // Each promotion or potential needs its own evidence. A translated base row
+      // cannot vouch for new wording in a later row of the same talent.
+      const uncovered = texts.filter((text, i) => !translated[i]?.trim() && !nativeRules.some(([, rule]) => rule.test(text)));
+      if (uncovered.length) {
+        structuralOnly++;
+        for (const text of new Set(uncovered)) report(`missing translation or native technique evidence: ${text}`);
+      }
       const expected = new Set([...native, ...names(known)]);
       const actual = names(record);
       const explicit = tags.map(tag => tag.name);

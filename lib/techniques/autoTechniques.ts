@@ -249,7 +249,7 @@ export const DAMAGE_NEGATION_TECHNIQUE_NAMES = ['Invulnerable', 'Immortality', '
 export const STATS_DEBUFF_TECHNIQUE_NAMES = ['DEF Down', 'RES Down', 'ATK Down', 'ASPD Down', 'Movement Speed Down', 'Hit Rate Down'];
 export const ENHANCE_ARTS_DAMAGE_TECHNIQUE_NAMES = ['RES Down', 'Arts Fragility', 'Arts Damage Taken', 'Standard Fragility', 'Cold / Freeze', 'Burn'];
 export const ENHANCE_PHYSICAL_DAMAGE_TECHNIQUE_NAMES = ['DEF Down', 'Physical Fragility', 'Physical Damage Taken', 'Standard Fragility', 'Steal DEF'];
-export const ELEMENTAL_DAMAGE_TECHNIQUE_NAMES = ['Burn', 'Necrosis', 'Nervous Impairment'];
+export const ELEMENTAL_DAMAGE_TECHNIQUE_NAMES = ['Burn', 'Necrosis', 'Nervous Impairment', 'Corrosion'];
 export const STEAL_TECHNIQUE_NAMES = ['Steal ATK', 'Steal ASPD', 'Steal DEF'];
 // The old catch-all "AFK" technique (embedded directly per-skill in
 // each operator's own data, like every umbrella member here) was split
@@ -684,6 +684,14 @@ const AUTO_TECHNIQUE_RULES: AutoTechniqueRule[] = [
     excludeOperators: ['Tachanka', 'Firewhistle'],
     name: 'Burn',
     description: 'Deals 7000 Elemental Damage, RES -20 for 10 seconds (recovery time).',
+    minRarity: 1,
+    maxRarity: 6,
+  },
+  {
+    name: 'Corrosion',
+    description: 'Inflicts Corrosion buildup on enemies. On burst, it deals Elemental damage and permanently reduces DEF.',
+    matchPatterns: [...buildupPatterns('Corrosion'), /\binflicts? (?:additional )?corrosion (?:equal to|on (?:the )?(?:target|enem))/i],
+    excludePatterns: [/\b(?:received|taken) as corrosion\b/g],
     minRarity: 1,
     maxRarity: 6,
   },
