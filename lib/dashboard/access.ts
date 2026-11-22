@@ -1,10 +1,11 @@
 import type { IncomingHttpHeaders } from 'node:http';
-import type { D1Database } from '@cloudflare/workers-types';
+import type { D1Database, R2Bucket } from '@cloudflare/workers-types';
 import { getCloudflareContext } from '@opennextjs/cloudflare';
 import { createRemoteJWKSet, jwtVerify } from 'jose';
 import type { PatreonEnv } from '@/lib/patreon/sync.mjs';
 
 interface DashboardEnv extends Partial<PatreonEnv> {
+  NEXT_INC_CACHE_R2_BUCKET?: R2Bucket;
   ARKPEDIA_DASHBOARD_ORIGIN?: string;
   ARKPEDIA_DASHBOARD_ACCESS_ISSUER?: string;
   ARKPEDIA_DASHBOARD_ACCESS_AUD?: string;
