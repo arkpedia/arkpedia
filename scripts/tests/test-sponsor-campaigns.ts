@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { applyLootBarHandoff, checkSponsorCampaigns, sitePath, sponsorCampaignFor, sponsorCampaignsFor, type SponsorCampaign } from '../../lib/sponsors/campaigns';
+import { applyLootBarHandoff, unifiedLootBarCampaigns, checkSponsorCampaigns, sitePath, sponsorCampaignFor, sponsorCampaignsFor, type SponsorCampaign } from '../../lib/sponsors/campaigns';
 import { resolveSponsorEvents } from '../../lib/sponsors/eventCampaigns';
 import record from '../../data/sponsor-campaigns.json';
 
@@ -90,11 +90,13 @@ test('a link is an https address or a path on this site, never another scheme or
 test('Violet bridges a delayed Kirin opening on both page and mobile and ends there permanently', () => {
   const violet = campaign({ id: 'lootbar-violet-orchid', placements: ['header'] });
   const home = { ...violet, id: 'lootbar-violet-orchid-main', placements: ['home'] as SponsorCampaign['placements'] };
-  const pending = applyLootBarHandoff(table(home, violet));
+  const support = campaign({ id: 'lootbar-top-up', placements: ['support'] });
+  const pending = applyLootBarHandoff(unifiedLootBarCampaigns(table(home, violet, support)));
+  assert.deepEqual(pending.campaigns.map(c => c.id), [violet.id]);
   const opening = '2026-12-10T15:00:00Z';
   const kirin = campaign({ id: 'lootbar-kirin-yato', placements: ['header'], startAt: opening,
     endAt: '2026-12-20T11:00:00Z', mobileArtwork: { ...violet, image: '/advertisements/acme/mobile.webp' } });
-  const confirmed = applyLootBarHandoff(table(home, violet, kirin));
+  const confirmed = applyLootBarHandoff(unifiedLootBarCampaigns(table(home, violet, kirin)));
   for (const slot of ['header', 'mobile-menu'] as const) {
     assert.equal(sponsorCampaignFor(pending, slot, at(opening))?.id, violet.id);
     assert.equal(sponsorCampaignFor(confirmed, slot, at(opening) - 1)?.id, violet.id);
@@ -102,8 +104,13 @@ test('Violet bridges a delayed Kirin opening on both page and mobile and ends th
     assert.equal(sponsorCampaignFor(confirmed, slot, at(kirin.endAt!)), null);
   }
   assert.equal(sponsorCampaignFor(confirmed, 'mobile-menu', at(opening))?.image, kirin.mobileArtwork?.image);
-  assert.equal(sponsorCampaignFor(confirmed, 'home', at(opening) - 1)?.id, home.id);
+  assert.equal(sponsorCampaignFor(confirmed, 'home', at(opening) - 1)?.id, violet.id);
   assert.equal(sponsorCampaignFor(confirmed, 'home', at(opening)), null);
+  assert.equal(sponsorCampaignFor(confirmed, 'support', at(opening))?.image, kirin.mobileArtwork?.image);
+  const updated = { ...confirmed, campaigns: confirmed.campaigns.map(c => c.id === kirin.id ? { ...c, mainArtwork: home } : c) };
+  assert.equal(sponsorCampaignFor(updated, 'home', at(opening))?.id, kirin.id);
+  assert.equal(sponsorCampaignFor(updated, 'home', at(opening))?.image, home.image);
+  assert.deepEqual(unifiedLootBarCampaigns(updated), updated);
 });
 
 test('an editor handoff keeps both predecessor placements through delays and switches them together', () => {

@@ -78,13 +78,16 @@ outside `/advertisements/`.
 ## Campaign dashboard
 
 Open [Arkpedia Admin](https://admin.arkpedia.net). On your first visit, choose passkey setup and verify your enrollment email. Use the saved passkey to sign in. Publishers can
-upload page and mobile PNG, JPEG or WebP artwork (600 KiB each), add sponsored
+upload main, page and mobile PNG, JPEG or WebP artwork (600 KiB each), add sponsored
 HTTPS links and Arkpedia links, schedule or pause a campaign, restore the data
 release version, and refresh the cached homepage, About, Support or Schedule.
 The reader checks for campaign changes while the page is visible. A campaign
 set to follow the published schedule inherits new event timings automatically.
 Violet Orchid's page, menu and homepage artwork stays eligible through the
-confirmed opening of Kirin R Yato. Only the page and menu have Kirin artwork.
+confirmed opening of Kirin R Yato. Each event owns one campaign and one history.
+The main slot accepts artwork later while the event's page and mobile artwork follow
+the confirmed window. An explicitly empty main slot skips the homepage. Support
+uses that campaign’s mobile artwork when present.
 
 Use the environment's accounts D1 database with migration
 `0025_campaign_editor.sql`. Configure a Cloudflare Access self-hosted

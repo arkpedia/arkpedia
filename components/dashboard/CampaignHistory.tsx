@@ -46,6 +46,7 @@ export default function CampaignHistory({ campaignId, source, currentRevision, d
   const snapshot = published ? source : version?.campaign;
   const label = published ? 'Published' : 'Version ' + selected;
   const header = snapshot?.placements.includes('header');
+  const onlyHome = snapshot?.placements.length === 1 && snapshot.placements[0] === 'home';
   return <div className={styles.fields}>
     <h2 className="section-title">Campaign history</h2>
     {busy && <p role="status">Loading history…</p>}
@@ -62,7 +63,9 @@ export default function CampaignHistory({ campaignId, source, currentRevision, d
     {!!version?.changes.length && <p>Changed {version.changes.map(change => change.toLowerCase()).join(', ')}.</p>}
     {version && !snapshot && <p>{source ? 'This save switched back to the published campaign.' : 'This save removed the campaign.'}</p>}
     {snapshot && <><div className={styles.historyPreviews}>
-      <div><h3 className="section-title">Page artwork</h3><ArtworkPreview art={snapshot} shape={header ? 'header' : undefined} /></div>
+      {snapshot.placements.includes('home') && snapshot.mainArtwork !== undefined && <div><h3 className="section-title">Main artwork</h3>
+        {snapshot.mainArtwork ? <ArtworkPreview art={snapshot.mainArtwork} /> : <p className="sub">Awaiting main artwork</p>}</div>}
+      {(!onlyHome || snapshot.mainArtwork === undefined) && <div><h3 className="section-title">{onlyHome ? 'Main artwork' : 'Page artwork'}</h3><ArtworkPreview art={snapshot} shape={header ? 'header' : undefined} /></div>}
       {header && <div><h3 className="section-title">Mobile menu artwork</h3>
         <ArtworkPreview art={snapshot.mobileArtwork ?? snapshot} shape="menu" />
         {!snapshot.mobileArtwork && <p className="sub">Uses page artwork</p>}</div>}

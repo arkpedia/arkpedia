@@ -5,7 +5,7 @@ import { samePlacements } from '@/lib/sponsors/campaignSchedule';
 import { editorCatalog, expireReaderCampaigns } from '@/lib/dashboard/campaignCatalog';
 import { campaignHistory, EditConflict, InvalidEdit, invalidateCampaignEdits, recentCampaignChanges, saveCampaign } from '@/lib/dashboard/campaignStore';
 
-export const config = { api: { bodyParser: { sizeLimit: '2mb' } } };
+export const config = { api: { bodyParser: { sizeLimit: '3mb' } } };
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method === 'POST' && req.body?.action === 'refresh') return maintenance(req, res);
@@ -28,6 +28,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (req.method === 'POST') {
       if (req.headers.origin !== dashboardOrigin(env)?.origin) return void res.status(403).end();
       if (req.headers['content-type']?.split(';')[0] !== 'application/json') return void res.status(415).end();
+      if (['lootbar-violet-orchid-main', 'lootbar-top-up'].includes(req.body?.id)) {
+        throw new InvalidEdit('These banners now belong to Violet Orchid. Reload the campaign editor.');
+      }
       if (req.body?.creating || req.body?.campaign?.eventActivityId) {
         const { base, edits, events } = await editorCatalog();
         const id = req.body.id;

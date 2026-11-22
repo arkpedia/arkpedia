@@ -1,6 +1,6 @@
 .workspace { padding: var(--page-gutter); }
 .form, .fields, .artwork, .detailsGrid, .picker { display: grid; gap: 12px; min-width: 0; }
-.form { grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; border: 0; padding: 0; }
+.form { grid-template-columns: minmax(0, 1fr); align-items: start; border: 0; padding: 0; }
 .toolbar { display: flex; align-items: end; gap: 8px; flex-wrap: wrap; margin-bottom: var(--heading-gap); }
 .picker { flex: 0 1 28rem; max-width: 100%; }
 .headerPreview { width: min(100%, 436.5px); aspect-ratio: 4.5; height: auto; object-fit: contain; }
@@ -11,7 +11,8 @@
 .actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .preview { width: 100%; height: auto; max-height: 160px; object-fit: contain; }
 .actions { grid-column: 1 / -1; }
-@media (max-width: 720px) { .form { grid-template-columns: minmax(0, 1fr); } }
+.form > .fields { max-width: 42rem; }
+.artworkGrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 18rem), 1fr)); gap: var(--page-gutter); align-items: start; }
 .artwork, .placements { border: 0; margin: 0; padding: 0; min-width: 0; }
 .artwork legend { margin-bottom: 6px; }
 .placements { display: flex; flex-wrap: wrap; gap: 8px; }
@@ -32,3 +33,5 @@
 .historyPreviews { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 22rem), 1fr)); gap: var(--heading-gap); }
 .changeRow { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 4px 16px; padding-block: 10px; border-bottom: 1px solid var(--line); overflow-wrap: anywhere; }
 @media (max-width: 600px) { .changeRow { grid-template-columns: minmax(0, 1fr); } }
+.modeCheck { visibility: hidden; }
+[aria-pressed="true"] > .modeCheck { visibility: visible; }
