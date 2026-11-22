@@ -95,3 +95,17 @@ policy in Cloudflare Zero Trust. Select only **Passkeys** for the application. C
 `ARKPEDIA_DASHBOARD_ACCESS_ISSUER` (team HTTPS origin) and
 `ARKPEDIA_DASHBOARD_ACCESS_AUD`. Use separate audiences and databases for
 Preview and production. Missing Access configuration denies editor requests.
+
+### Preparing the next event
+
+Select a campaign and choose **Duplicate**, or start with **New draft**. Choose
+**Follow a Global event** and select the event by name. Under **At event opening**,
+choose the current campaign to replace or keep the other campaigns. A replacement
+uses the same placements as its predecessor. The page-header and mobile-menu previews
+show both variants, including the fallback when only page artwork is supplied.
+
+**Save draft** keeps the artwork off the live site. Choose **Schedule campaign** to arm it. The incoming campaign waits for a
+confirmed Global start and end. Its selected predecessor stays eligible through
+a delayed opening, and the incoming campaign ends at the event close. Other
+campaigns keep their own schedules. To schedule another handoff, select the
+incoming campaign as the next one's predecessor.
