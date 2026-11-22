@@ -27,6 +27,10 @@ A release is compiled by the app commit the job checks out (main's, or dev's for
 
 A held release goes out once its branch's deployments run the code: let Check and Deploy finish on that branch (a red Check or a failed Deploy each opens its own issue). On main, then dispatch `Prepare content release`, or wait for the next scheduled run; Deploy also starts it again after main's last deployment while the issue is open. On dev, the next successful Deploy of dev starts dev's run again by itself. After this gate first merges, production serves no `build-info.json` until that commit deploys, so every run is held until then.
 
+## Pre-publication technique audit
+
+Every scheduled, patch, or editorial content build runs `bash scripts/audits/check-release-techniques.sh` before publishing. It compares candidate operator records with the five English game tables at the revision in `data/upstream.lock.json`. The Actions log names the operator, source, and difference. A mismatch or missing reference table fails the preparation. Operators and upgrade modules awaiting English game data are listed separately. Conflicting manual projectile and accuracy tags are also checked against the recorded skill or talent wording, including CN-first operators.
+
 ## Alerts
 
 Each alert is one issue, found by a hidden marker (`scripts/content/alert-issue.mjs`), commented on at most once a day and closed when the condition clears.
