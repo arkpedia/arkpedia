@@ -18,7 +18,7 @@ const DEFAULT_ORIGIN = 'https://raw.githubusercontent.com/arkpedia/arkpedia-data
 const REFRESH_MS = 60_000;
 const SHA = /^[a-f0-9]{64}$/;
 const GIT_SHA = /^[a-f0-9]{40}$/;
-type Loaded = { manifest: ContentManifest; context: ContentRelease };
+type Loaded = { revision: string; manifest: ContentManifest; context: ContentRelease };
 let cached: Loaded | undefined;
 let checkedAt = 0;
 let pending: Promise<Loaded | undefined> | undefined;
@@ -40,6 +40,24 @@ export async function readPageProps(loaded: Loaded, route: string): Promise<Reco
     pageCache.set(cacheKey, props);
   }
   return resolved === route || operatorPageAcceptsName(props, route) ? props : null;
+}
+
+let sponsorSource: { hash: string; value: unknown } | undefined;
+
+/** The admin editor also needs the records omitted from public pages while their
+ * event dates are unknown. Read the input that produced the same release. */
+export async function readSponsorSource(releaseId: string): Promise<unknown> {
+  const loaded = await loadRelease();
+  if (loaded?.context.release !== releaseId) throw new Error('Campaign release changed. Reload the dashboard.');
+  const path = 'data/sponsor-campaigns.json';
+  const hash = loaded.manifest.sourceHashes?.[path];
+  if (!hash) return { version: 1, campaigns: [] }; // Releases before the sponsor table existed.
+  if (sponsorSource?.hash === hash) return sponsorSource.value;
+  const bytes = await read(`${origin()}/${loaded.revision}/source/${path}`, 1_000_000);
+  if (digest(bytes) !== hash) throw new Error('Campaign source checksum mismatch');
+  const value: unknown = JSON.parse(bytes.toString());
+  sponsorSource = { hash, value };
+  return value;
 }
 
 /** Read one verified page from the same published release used by ISR. */
@@ -150,7 +168,7 @@ export async function loadRelease(): Promise<Loaded | undefined> {
         || !Object.values(manifest.assets).every(value => typeof value === 'string' && GIT_SHA.test(value))
         || !manifest.assets['arkpedia-image-assets'] || !manifest.assets['arkpedia-skin-assets']
         || !Object.entries(manifest.pages).every(([route, file]) => validFile(route, file))) throw new Error('Invalid content manifest');
-      cached = { manifest, context: { release: pointer.release, baseUrl, assets: manifest.assets, ...(media ? { media } : {}) } };
+      cached = { revision: pointer.revision, manifest, context: { release: pointer.release, baseUrl, assets: manifest.assets, ...(media ? { media } : {}) } };
       pageCache.clear();
       return cached;
     } catch (error) {

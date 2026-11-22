@@ -1,7 +1,8 @@
 import { withSiteTables } from '@/lib/content/server';
 import { contentUrl } from '@/lib/content/urls';
 import type { ContentRelease } from '@/lib/content/types';
-import type { SponsorCampaignTable } from '@/lib/sponsors/campaigns';
+import { readSponsorSource } from '../content/release';
+import { checkSponsorCampaigns, type SponsorCampaignTable } from '@/lib/sponsors/campaigns';
 import { dashboardDatabase, dashboardEnv } from './access';
 import { publishedCampaignEvents } from './publishedCampaignEvents';
 import { scheduledCampaigns } from '../sponsors/campaignSchedule';
@@ -20,10 +21,16 @@ async function campaignCatalog(forEditor = false) {
 }
 
 export async function editorCatalog() {
-  const { base, edits, events, campaigns } = await campaignCatalog(true);
+  const { base, edits, events, campaigns, release } = await campaignCatalog(true);
+  const source = release ? await readSponsorSource(release.release) : (await import('../../data/sponsor-campaigns.json')).default;
+  const definitions = checkSponsorCampaigns(source).campaigns;
+  const publishedIds = new Set(base.campaigns.map(c => c.id));
+  // Only the private catalogue includes these definitions. An artwork override
+  // following the release becomes eligible when its original ID is published.
+  const editorBase = [...base.campaigns, ...definitions.filter(c => c.eventActivityId && !publishedIds.has(c.id))];
   const now = Date.now();
   const groups: Record<string, string> = Object.create(null);
-  for (const c of mergeCampaigns(base.campaigns, edits)) {
+  for (const c of mergeCampaigns(editorBase, edits)) {
     const effective = campaigns.find(row => row.id === c.id);
     if (c.status === 'draft') groups[c.id] = 'Drafts';
     else if (c.status === 'ended') groups[c.id] = 'Paused';
@@ -32,7 +39,7 @@ export async function editorCatalog() {
     else if (effective.startAt && Date.parse(effective.startAt) > now) groups[c.id] = 'Up next';
     else groups[c.id] = 'Live now';
   }
-  return { base: base.campaigns, edits, events, groups };
+  return { base: editorBase, edits, events, groups, release: release ?? null };
 }
 
 async function buildReaderCampaigns() {

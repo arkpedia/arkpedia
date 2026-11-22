@@ -7,6 +7,7 @@ export interface ContentManifest {
   schema: number;
   release: string;
   generatedAt: string;
+  sourceHashes?: Record<string, string>;
   generator: string;
   assets: Record<string, string>;
   pages: Record<string, ContentFile>;
