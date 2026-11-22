@@ -105,3 +105,31 @@ test('Violet bridges a delayed Kirin opening on both page and mobile and ends th
   assert.equal(sponsorCampaignFor(confirmed, 'home', at(opening) - 1)?.id, home.id);
   assert.equal(sponsorCampaignFor(confirmed, 'home', at(opening)), null);
 });
+
+test('an editor handoff keeps both predecessor placements through delays and switches them together', () => {
+  const previous = campaign({ id: 'previous', placements: ['header'], endAt: '2026-11-20T00:00:00Z' });
+  const house = campaign({ id: 'music', placements: ['header'], url: '/music', endAt: null });
+  const incoming = campaign({ id: 'next', placements: ['header'], eventActivityId: 'act_next', replacesCampaignId: previous.id,
+    startAt: null, endAt: null, mobileArtwork: { image: '/advertisements/acme/menu.webp', width: 900, height: 200, alt: 'Phone banner' } });
+  const opening = '2026-12-12T15:00:00Z', closing = '2026-12-22T11:00:00Z';
+  const pending = { activityId: 'act_next', global: { startAt: opening, endAt: closing, status: 'datamined' } };
+  const confirmed = { ...pending, global: { ...pending.global, status: 'announced' } };
+  const raw = table(previous, incoming, house);
+  for (const events of [[], [pending]]) {
+    const waiting = resolveSponsorEvents(raw, events);
+    assert.deepEqual(sponsorCampaignsFor(waiting, 'header', at(opening)).map(c => c.id), ['previous','music']);
+  }
+  for (const status of ['draft', 'ended'] as const) {
+    const inactive = resolveSponsorEvents(table(previous, { ...incoming, status }, house), [confirmed]);
+    assert.equal(inactive.campaigns.find(c => c.id === 'previous')?.endAt, previous.endAt);
+  }
+  const published = resolveSponsorEvents(raw, [confirmed]);
+  for (const slot of ['header','mobile-menu'] as const) {
+    assert.deepEqual(sponsorCampaignsFor(published, slot, at(opening) - 1).map(c => c.id), ['previous','music']);
+    assert.deepEqual(sponsorCampaignsFor(published, slot, at(opening)).map(c => c.id), ['next','music']);
+    assert.deepEqual(sponsorCampaignsFor(published, slot, at(closing)).map(c => c.id), ['music']);
+  }
+  assert.equal(sponsorCampaignFor(published, 'mobile-menu', at(opening))?.image, incoming.mobileArtwork?.image);
+  const delayed = resolveSponsorEvents(raw, [{ ...confirmed, global: { ...confirmed.global, startAt: '2026-12-15T15:00:00Z' } }]);
+  assert.equal(sponsorCampaignFor(delayed, 'header', at(opening))?.id, previous.id);
+});

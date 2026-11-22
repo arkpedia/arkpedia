@@ -37,6 +37,8 @@ export interface SponsorCampaign extends SponsorArtwork {
   placements: SponsorPlacement[];
   /** The confirmed Global event window supplies both dates during content preparation. */
   eventActivityId?: string;
+  /** An armed event campaign keeps this campaign running until the confirmed handoff. */
+  replacesCampaignId?: string;
   /** A header campaign can use separate artwork in the mobile drawer. */
   mobileArtwork?: SponsorArtwork;
 }
@@ -102,6 +104,10 @@ export function checkSponsorCampaigns(value: unknown): SponsorCampaignTable {
     if (c.eventActivityId !== undefined) {
       if (typeof c.eventActivityId !== 'string' || !/^[a-z0-9_]+$/.test(c.eventActivityId)) fail('eventActivityId must identify a game activity');
       if (c.startAt !== null || c.endAt !== null) fail('an event campaign takes its dates from the event');
+    }
+    if (c.replacesCampaignId !== undefined && (!c.eventActivityId || typeof c.replacesCampaignId !== 'string'
+      || !/^[a-z0-9][a-z0-9-]*$/.test(c.replacesCampaignId) || c.replacesCampaignId === c.id)) {
+      fail('choose another campaign to replace at the Global event opening');
     }
     return c as unknown as SponsorCampaign;
   });

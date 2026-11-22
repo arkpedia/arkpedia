@@ -46,7 +46,13 @@ async function readerOverrides(table: SponsorCampaignTable): Promise<SponsorCamp
   const db = dashboardDatabase(dashboardEnv());
   if (!db) return table;
   const { mergeCampaigns, cachedCampaignEdits } = await import('../dashboard/campaignStore');
-  return { ...table, campaigns: mergeCampaigns(table.campaigns, await cachedCampaignEdits(db)) };
+  const includeDrafts = process.env.NODE_ENV !== 'production' || process.env.ARKPEDIA_PREVIEW === '1';
+  const campaigns = mergeCampaigns(table.campaigns, await cachedCampaignEdits(db))
+    .filter(c => c.status === 'active' || (includeDrafts && c.status === 'draft'));
+  if (!campaigns.some(c => c.eventActivityId && c.status === 'active')) return { ...table, campaigns };
+  const { publishedCampaignEvents } = await import('../dashboard/publishedCampaignEvents');
+  const { scheduledCampaigns } = await import('../sponsors/campaignSchedule');
+  return { ...table, campaigns: scheduledCampaigns(campaigns, await publishedCampaignEvents()) };
 }
 
 /** A release compiles confirmed event windows once and carries them without a clock.

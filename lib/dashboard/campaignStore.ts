@@ -58,7 +58,7 @@ export async function saveCampaign(db: D1Database, actor: string, body: {
   const writes: D1PreparedStatement[] = [];
   let campaign = body.campaign;
   if (campaign !== null) {
-    if (!campaign || campaign.id !== body.id || campaign.eventActivityId !== undefined) throw new InvalidEdit('Invalid campaign.');
+    if (!campaign || campaign.id !== body.id || (campaign.eventActivityId && body.followsRelease)) throw new InvalidEdit('Invalid campaign.');
     if (body.desktopUpload) campaign.image = storeImage(db, body.desktopUpload, writes);
     if (body.mobileUpload && campaign.mobileArtwork) campaign.mobileArtwork.image = storeImage(db, body.mobileUpload, writes);
     try { campaign = checkSponsorCampaigns({ version: 1, campaigns: [campaign] }).campaigns[0]; }

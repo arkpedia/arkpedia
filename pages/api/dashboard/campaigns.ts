@@ -1,8 +1,9 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { dashboardActor, dashboardDatabase, dashboardEnv, dashboardOrigin } from '@/lib/dashboard/access';
 import { canonicalPublicHref } from '@/lib/nav/publicRoutes';
+import { samePlacements } from '@/lib/sponsors/campaignSchedule';
 import { REFRESH_PAGES } from '@/lib/dashboard/refreshPages';
-import { campaignCatalog, expireReaderCampaigns } from '@/lib/dashboard/campaignCatalog';
+import { editorCatalog, expireReaderCampaigns } from '@/lib/dashboard/campaignCatalog';
 import { EditConflict, InvalidEdit, invalidateCampaignEdits, saveCampaign } from '@/lib/dashboard/campaignStore';
 
 export const config = { api: { bodyParser: { sizeLimit: '2mb' } } };
@@ -24,12 +25,31 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         await res.revalidate(canonicalPublicHref(route));
         return void res.json({ refreshed: route });
       }
+      if (req.body?.creating || req.body?.campaign?.eventActivityId) {
+        const { base, edits, events } = await editorCatalog();
+        const id = req.body.id;
+        const incoming = req.body.campaign;
+        if (req.body.creating && (base.some(c => c.id === id) || edits.some(edit => edit.id === id))) {
+          throw new InvalidEdit('This campaign ID is already in use. Choose a new ID.');
+        }
+        if (incoming?.eventActivityId) {
+          const prior = edits.find(e => e.id === id)?.campaign;
+          if (!events.some(e => e.id === incoming.eventActivityId) && prior?.eventActivityId !== incoming.eventActivityId) {
+            throw new InvalidEdit('Choose an event from the published Global schedule.');
+          }
+          if (incoming.replacesCampaignId) {
+            const outgoing = edits.find(e => e.id === incoming.replacesCampaignId)?.campaign ?? base.find(c => c.id === incoming.replacesCampaignId);
+            if (!outgoing || !Array.isArray(incoming.placements) || !samePlacements(outgoing, incoming)) {
+              throw new InvalidEdit('Choose a campaign with the same placements to replace.');
+            }
+          }
+        }
+      }
       await saveCampaign(db, actor, req.body);
       invalidateCampaignEdits();
       expireReaderCampaigns();
     } else if (req.method !== 'GET') return void res.status(405).end();
-    const { base, edits } = await campaignCatalog();
-    res.json({ base: base.campaigns, edits });
+    res.json(await editorCatalog());
   } catch (error) {
     if (error instanceof InvalidEdit) return void res.status(400).json({ error: error.message });
     if (error instanceof EditConflict) return void res.status(409).json({ error: 'Another editor saved this campaign. Reload before saving.' });
