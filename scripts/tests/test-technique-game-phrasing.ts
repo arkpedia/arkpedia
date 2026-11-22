@@ -190,3 +190,10 @@ test('a single-hit barrier threshold is distinct from an exhaustible HP barrier'
   assert.ok(rules('Immediately gains a Barrier equal to 130% Max HP.').includes('Barrier Generation'));
   assert.ok(!rules('When attacked while under the effect of her own Barrier, deals damage to the attacker.').includes('Barrier Generation'));
 });
+
+test('Corrosion credits the source of buildup without crediting a burst or cooldown bonus', () => {
+  assert.ok(rules('When dealing Physical damage, inflicts Corrosion equal to 8% of ATK.').includes('Corrosion'));
+  for (const text of ['When Corrosion bursts, gains Barrier.', "Reduces the target's Corrosion cooldown.", 'Reduces Corrosion taken by 20%.']) {
+    assert.ok(!rules(text).includes('Corrosion'), text);
+  }
+});

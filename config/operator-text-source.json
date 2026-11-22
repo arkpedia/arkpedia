@@ -1,8 +1,8 @@
 {
   "repository": "arkpedia/arkpedia-data",
-  "revision": "16ffcddeb1bde746abd9476cfa9b009cfdabd7d7",
+  "revision": "9ad75519660f719743df1128204fae485117fcda",
   "files": {
-    "operator-translations.json": "67689aca547d587ff256cf4a669facef4593b685f0ed77410aed0a1bb6e8bf0d",
+    "operator-translations.json": "ed09cfc77bbf9d155c8fd5f8e0a2a945c6138edc7970a3c3f862186c033539b6",
     "combat-keywords.json": "d9b6d90e9c153813020cd853302e40fa1c8aa96637061c2d1bdbe16977099858",
     "base-skill-glossary.json": "73c0fef629e3f75cbf5e6e81e8afc05702ed568c7afaa56e06c4ba00e6629761"
   },
@@ -11,7 +11,9 @@
       "bb6b739a6458381547650efaead8ac0b48c71ab1b482b668673b2a02fe7bc9ae",
       "9035796535b4a11e378526703ca67396f2e5249d80aa5303ee02a80625309c08",
       "755b13150556da4ec7077e3117b5cf734e63b31a6e94fef6f29cf2f5083f176d",
-      "4e1c5e9b8ab2f3de4bd77be2423238625172097784e4e0ec2d35ea2241d765f4"
+      "4e1c5e9b8ab2f3de4bd77be2423238625172097784e4e0ec2d35ea2241d765f4",
+      "67689aca547d587ff256cf4a669facef4593b685f0ed77410aed0a1bb6e8bf0d",
+      "6889fce122b0cd42c1debb27f1a377c91ad80e908f9539b3bc66152d630d3095"
     ]
   }
 }

@@ -83,6 +83,15 @@ test('the pinned CN source catches translation errors, wrong hit tags and missin
   assert.equal(clean.status, 0, clean.stdout + clean.stderr);
   assert.match(clean.stdout, /1 CN-only operators and 1 CN-only modules/);
 
+  const talentWithUnknownRow = { talents: [{ candidates: [{ description: accuracy }, { description: '自身攻击力提高' }] }] };
+  put('cn/character_table', { char_global: {}, char_new: talentWithUnknownRow });
+  const uncovered = run();
+  assert.equal(uncovered.status, 1);
+  assert.match(uncovered.stdout, /New arrival \[CN Talent 1\] missing translation or native technique evidence: 自身攻击力提高/);
+  Object.assign(overlay, { char_new: { strings: { '自身攻击力提高': 'Increases own ATK' }, translator: 'Arkpedia' } });
+  put('data/operator-translations', overlay);
+  assert.equal(run().status, 0, 'a reviewed stat-only translation needs no technique tag');
+
   overlay.char_global.strings[invisible] = 'Can attack Camouflaged enemies';
   put('data/operator-translations', overlay);
   cnOnly.talents[0].technique[0].name = 'Hit Reduction';
