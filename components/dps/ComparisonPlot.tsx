@@ -4,7 +4,16 @@ import { downloadBlob } from '@/lib/ui/downloadBlob';
 import { ContentImg } from '@/components/content/ContentImage';
 import SegmentedControl from '@/components/ui/SegmentedControl';
 import StyledSelect from '@/components/ui/StyledSelect';
-import { calculate, profile, rankLabel, type Build, type Target } from '@/lib/dps/calculator';
+import {
+  buildConditions,
+  calculate,
+  initialTarget,
+  profile,
+  rankLabel,
+  selectedModule,
+  type Build,
+  type Target,
+} from '@/lib/dps/calculator';
 import { firstBurst } from '@/lib/dps/breakpoints';
 import { renderComparisonImage, type ImageView } from '@/lib/dps/comparisonImage';
 import css from './Dps.module.css';
@@ -43,6 +52,43 @@ function measure(b: Build, t: Target, metric: Metric) {
     ? firstBurst(b, t, 'build')[metric]
     : calculate(b, t)[metric];
 }
+function seriesLabels(builds: Build[]) {
+  const descriptions = builds.map((b) => [
+    'E' + b.elite + ' Lv ' + b.level,
+    'P' + b.potential,
+    b.stage ? selectedModule(b)!.name + b.stage : 'No module',
+    b.operator === 'phatm2' && b.skill === 2 ? (b.plotSummon ? 'Blood’s Whisper' : 'Skill attacks') : '',
+    buildConditions(b),
+  ]);
+  return builds.map((b, i) => {
+    const peers = builds.flatMap((peer, j) =>
+      peer.operator === b.operator && peer.skill === b.skill ? [descriptions[j]] : [],
+    );
+    const differences = descriptions[i].filter((value, k) => peers.some((peer) => peer[k] !== value));
+    return [
+      profile(b).name + (b.skill ? ' S' + b.skill + ' ' + rankLabel(b.rank) : ' · Normal'),
+      ...differences,
+    ]
+      .filter(Boolean)
+      .join(' · ');
+  });
+}
+const metricUnits: Record<Metric, string> = {
+  dps: 'HP/s',
+  damage: 'HP/action',
+  injuryRate: 'injury/s',
+  injury: 'injury/action',
+  seconds: 's',
+  repeat: 's',
+};
+function targetDelta(value: number, baseline: number, metric: Metric) {
+  const delta = value - baseline;
+  const magnitude = fmt(Math.abs(delta));
+  if (magnitude === '0') return 'Same as #1';
+  if (metric === 'seconds' || metric === 'repeat')
+    return magnitude + ' s ' + (delta < 0 ? 'faster' : 'slower') + ' than #1';
+  return (delta > 0 ? '+' : '−') + magnitude + ' ' + metricUnits[metric] + ' vs #1';
+}
 export default function ComparisonPlot({
   builds,
   target,
@@ -58,14 +104,19 @@ export default function ComparisonPlot({
   const [chosenAxis, setAxis] = useState<'def' | 'res' | 'injuryRes' | 'elementalRes'>();
   const [chosenMetric, setMetric] = useState<Metric>();
   const results = useMemo(() => builds.map((b) => calculate(b, target)), [builds, target]);
-  const metric = chosenMetric ?? (results.every((r) => r.dps === null) ? 'damage' : 'dps');
-  const axis =
-    chosenAxis ??
-    (['seconds', 'repeat', 'injury', 'injuryRate'].includes(metric)
-      ? 'injuryRes'
-      : results.every((r) => r.components.Physical > 0 && r.components.Arts === 0)
-        ? 'def'
-        : 'res');
+  // Choose from source capabilities so changing the target or moving the probe keeps the chart stable.
+  const sources = useMemo(() => builds.map((b) => calculate(b, initialTarget)), [builds]);
+  const buildupOnly = sources.every((r) => r.damage === 0 && r.injury > 0);
+  const perAction = sources.some((r) => r.interval === null);
+  const defaultMetric = buildupOnly ? (perAction ? 'injury' : 'seconds') : perAction ? 'damage' : 'dps';
+  const metric = chosenMetric ?? defaultMetric;
+  const names = useMemo(() => seriesLabels(builds), [builds]);
+  const defaultAxis = ['seconds', 'repeat', 'injury', 'injuryRate'].includes(metric)
+    ? 'injuryRes'
+    : sources.every((r) => r.components.Physical > 0 && r.components.Arts === 0)
+      ? 'def'
+      : 'res';
+  const axis = chosenAxis ?? defaultAxis;
   const [inspection, setInspection] = useState<{ target: Target; axis: string; value: number } | null>(null);
   const inspect = (value: number) => setInspection({ target, axis, value });
   const probe =
@@ -98,13 +149,18 @@ export default function ComparisonPlot({
         : [],
     [view, builds, points, target, axis, metric],
   );
+  const targetMetric = view === 'timeline' ? 'seconds' : metric;
+  const targetBursts = useMemo(
+    () => (view === 'timeline' || timing ? builds.map((b) => firstBurst(b, target, 'build')) : []),
+    [view, timing, builds, target],
+  );
+  const targetValues = results.map((r, i) =>
+    targetMetric === 'seconds' || targetMetric === 'repeat' ? targetBursts[i][targetMetric] : r[targetMetric],
+  );
   const series = builds.map((b, i) => ({
     b,
-    selected:
-      view === 'timeline'
-        ? null
-        : measure(b, probe === target[axis] ? target : { ...target, [axis]: probe }, metric),
-    burst: view === 'timeline' ? firstBurst(b, target, 'build') : null,
+    selected: probe === target[axis] ? targetValues[i] : measure(b, { ...target, [axis]: probe }, metric),
+    burst: view === 'timeline' ? targetBursts[i] : null,
     ys: curves[i] ?? [],
   }));
   const lastTime = Math.max(
@@ -214,19 +270,25 @@ export default function ComparisonPlot({
           <div className={css.controls}>
             <Pick
               label="Measure"
-              value={metric}
-              options={Object.entries(metrics).map(([value, label]) => ({ value, label }))}
+              value={chosenMetric ?? 'auto'}
+              options={[
+                { value: 'auto', label: 'Auto · ' + metrics[defaultMetric] },
+                ...Object.entries(metrics).map(([value, label]) => ({ value, label })),
+              ]}
               change={(v) => {
                 if (zoom.startsWith('s') && v !== 'seconds' && v !== 'repeat') setZoom('full');
-                setMetric(v as typeof metric);
+                setMetric(v === 'auto' ? undefined : (v as typeof metric));
               }}
             />
             {view === 'curve' && (
               <Pick
                 label="Vary"
-                value={axis}
-                options={Object.entries(labels).map(([value, label]) => ({ value, label }))}
-                change={(v) => setAxis(v as typeof axis)}
+                value={chosenAxis ?? 'auto'}
+                options={[
+                  { value: 'auto', label: 'Auto · ' + labels[defaultAxis] },
+                  ...Object.entries(labels).map(([value, label]) => ({ value, label })),
+                ]}
+                change={(v) => setAxis(v === 'auto' ? undefined : (v as typeof axis))}
               />
             )}
             {view === 'curve' && (
@@ -235,6 +297,26 @@ export default function ComparisonPlot({
           </div>
         </div>
       )}
+      <div className={css.targetResults} role="group" aria-label="Selected target results">
+        <small>
+          {targetName} · {metrics[targetMetric]}
+        </small>
+        {series.map(({ b }, i) => (
+          <div key={b.id}>
+            <span style={{ borderColor: color(i) }}>
+              #{i + 1} {names[i]}
+            </span>
+            <strong>
+              {targetValues[i] === null
+                ? 'Unavailable'
+                : fmt(targetValues[i]) + ' ' + metricUnits[targetMetric]}
+            </strong>
+            {i > 0 && targetValues[i] !== null && targetValues[0] !== null && (
+              <small>{targetDelta(targetValues[i], targetValues[0], targetMetric)}</small>
+            )}
+          </div>
+        ))}
+      </div>
       {view === 'curve' ? (
         <div
           className={css.curveFrame}
@@ -259,7 +341,7 @@ export default function ComparisonPlot({
               fmt(min) +
               ' to ' +
               fmt(max) +
-              '. Values at the probe are listed below.'
+              '. Values are listed alongside the chart.'
             }
             onPointerDown={(e) => {
               const q = e.currentTarget.createSVGPoint();
@@ -435,18 +517,27 @@ export default function ComparisonPlot({
       {view !== 'timeline' && !timing && series.some((s) => s.selected === null) && (
         <small>Choose a per-action measure to compare single activations.</small>
       )}
-      {(view === 'timeline' || timing) && builds.some(b => b.operator === 'cello' && b.skill === 1) && (
-        <small>Virtuosa S1 timing assumes full opening charges, one target in her aura, and uninterrupted SP recovery.</small>
+      {(view === 'timeline' || timing) && builds.some((b) => b.operator === 'cello' && b.skill === 1) && (
+        <small>
+          Virtuosa S1 timing assumes full opening charges, one target in her aura, and uninterrupted SP
+          recovery.
+        </small>
       )}
-      <div className={css.legend}>
-        {series.map((row, index) => (
-          <span key={row.b.id}>
-            <i style={{ background: color(index) }} />#{index + 1} {profile(row.b).name}{' '}
-            {row.b.skill ? 'S' + row.b.skill + ' ' + rankLabel(row.b.rank) : 'Normal'}{' '}
-            <strong>{legendValue(row)}</strong>
-          </span>
-        ))}
-      </div>
+      {(view === 'timeline' || (view === 'curve' && probe !== target[axis])) && (
+        <div className={css.legend}>
+          {view === 'curve' && (
+            <small>
+              At {labels[axis]} {fmt(probe)}
+            </small>
+          )}
+          {series.map((row, index) => (
+            <span key={row.b.id}>
+              <i style={{ background: color(index) }} />#{index + 1} {names[index]}{' '}
+              <strong>{legendValue(row)}</strong>
+            </span>
+          ))}
+        </div>
+      )}
       <div className={css.actions} aria-label="Export comparison" role="group">
         {(['condensed', 'detailed'] as const).map((view) => (
           <button

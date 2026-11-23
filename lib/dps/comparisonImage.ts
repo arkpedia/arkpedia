@@ -1,4 +1,4 @@
-import { buildLabel, burstThreshold, calculate, profile, type Build, type Target } from './calculator';
+import { buildConditions, buildLabel, burstThreshold, calculate, profile, type Build, type Target } from './calculator';
 import { fallout, firstBurst } from './breakpoints';
 
 export type ImageView = 'condensed' | 'detailed';
@@ -38,50 +38,6 @@ function plotImage(svg: SVGSVGElement, chartHeight: number) {
   image.src =
     'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(new XMLSerializer().serializeToString(copy));
   return image;
-}
-
-function conditions(b: Build) {
-  switch (b.operator) {
-    case 'hsgma2':
-      return [
-        b.tenacity ? 'Maximum Tenacity' : 'Minimum Tenacity',
-        b.skill === 3 && (b.lastStand ? 'Last stand' : 'Outside last stand'),
-      ]
-        .filter(Boolean)
-        .join(' · ');
-    case 'qiubai':
-      return [
-        { none: 'No control', one: 'Slow or Bind', both: 'Slow and Bind' }[b.control],
-        b.skill === 3 && (b.stacked ? 'Maximum ASPD stacks' : 'Initial ASPD'),
-      ]
-        .filter(Boolean)
-        .join(' · ');
-    case 'angel':
-      return [
-        b.stage && b.traitActive && (b.alternateModule ? 'Ground enemy in range' : 'Aerial target'),
-        b.stage >= 2 && b.alternateModule && (b.penetrationStacks ?? 0) + ' DEF ignore stacks',
-      ]
-        .filter(Boolean)
-        .join(' · ');
-    case 'skadi':
-      return b.stage && b.traitActive ? (b.alternateModule ? 'Target blocked' : 'After revival') : '';
-    case 'phatom':
-      return b.stage && b.alternateModule && b.traitActive ? 'No adjacent allies · clone undeployed' : '';
-    case 'rfrost':
-    case 'robin':
-    case 'doroth':
-    case 'wulfen':
-      return [
-        b.stage && b.lastStand ? 'Enhanced trap' : '',
-        b.operator === 'rfrost' &&
-          b.skill === 2 &&
-          (b.trapInRange ? 'Target within attack range' : 'Target outside attack range'),
-      ]
-        .filter(Boolean)
-        .join(' · ');
-    default:
-      return '';
-  }
 }
 
 function breakdown(b: Build, target: Target) {
@@ -186,7 +142,7 @@ export async function renderComparisonImage({
     value,
     color: token(colorToken),
     dashed: index % 2 === 1,
-    label: [buildLabel(build), calculate(build, target).source, conditions(build)]
+    label: [buildLabel(build), calculate(build, target).source, buildConditions(build)]
       .filter(Boolean)
       .join(' · '),
     details: view === 'detailed' ? breakdown(build, target) : [],

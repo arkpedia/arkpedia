@@ -129,3 +129,28 @@ test('Chen is searchable without punctuation and zoom follows Virtuosa’s burst
   await slider.press('End');
   await expect(plot).not.toHaveAttribute('aria-label', start!);
 });
+
+test('compares Virtuosa modules at the target independently of the probe', async ({ page }) => {
+  await page.goto('/dps-calculator');
+  await page.getByRole('combobox', { name: 'Add operator' }).fill('Virtuosa');
+  await page.getByRole('option', { name: 'Virtuosa', exact: true }).click();
+  await expect(page.getByRole('combobox', { name: 'Measure', exact: true })).toContainText('Time to first burst');
+  const slider = page.getByRole('slider', { name: 'Inspect Injury resistance' });
+  const results = page.getByRole('group', { name: 'Selected target results' });
+  await expect(results).toContainText(/#1 Virtuosa S3 M3/);
+  await page.getByRole('button', { name: 'Duplicate' }).click();
+  await expect(results).toContainText('Same as #1');
+  await page.getByRole('combobox', { name: 'Module', exact: true }).click();
+  await page.getByRole('option').last().click();
+  await expect(results).toContainText('#1 Virtuosa S3 M3 · No module');
+  await expect(results).toContainText('#2 Virtuosa S3 M3 · RIT-X3');
+  await expect(results).toContainText(/s faster than #1/);
+  const atTarget = await results.innerText();
+  await slider.press('End');
+  expect(await results.innerText()).toBe(atTarget);
+  await page.getByRole('combobox', { name: 'Measure', exact: true }).click();
+  await page.getByRole('option', { name: 'Injury / s', exact: true }).click();
+  await expect(results).toContainText('injury/s vs #1');
+  await page.getByRole('button', { name: 'Duplicate' }).last().click();
+  await expect(page.getByRole('combobox', { name: 'Measure', exact: true })).toContainText('Injury / s');
+});

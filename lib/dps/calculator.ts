@@ -125,6 +125,50 @@ export function buildLabel(b: Build) {
     b.stage ? selectedModule(b)!.name + b.stage : 'No module',
   ].join(' · ');
 }
+export function buildConditions(b: Build) {
+  switch (b.operator) {
+    case 'hsgma2':
+      return [
+        b.tenacity ? 'Maximum Tenacity' : 'Minimum Tenacity',
+        b.skill === 3 && (b.lastStand ? 'Last stand' : 'Outside last stand'),
+      ]
+        .filter(Boolean)
+        .join(' · ');
+    case 'qiubai':
+      return [
+        { none: 'No control', one: 'Slow or Bind', both: 'Slow and Bind' }[b.control],
+        b.skill === 3 && (b.stacked ? 'Maximum ASPD stacks' : 'Initial ASPD'),
+      ]
+        .filter(Boolean)
+        .join(' · ');
+    case 'angel':
+      return [
+        b.stage && b.traitActive && (b.alternateModule ? 'Ground enemy in range' : 'Aerial target'),
+        b.stage >= 2 && b.alternateModule && (b.penetrationStacks ?? 0) + ' DEF ignore stacks',
+      ]
+        .filter(Boolean)
+        .join(' · ');
+    case 'skadi':
+      return b.stage && b.traitActive ? (b.alternateModule ? 'Target blocked' : 'After revival') : '';
+    case 'phatom':
+      return b.stage && b.alternateModule && b.traitActive ? 'No adjacent allies · clone undeployed' : '';
+    case 'rfrost':
+    case 'robin':
+    case 'doroth':
+    case 'wulfen':
+      return [
+        b.stage && b.lastStand ? 'Enhanced trap' : '',
+        b.operator === 'rfrost' &&
+          b.skill === 2 &&
+          (b.trapInRange ? 'Target within attack range' : 'Target outside attack range'),
+      ]
+        .filter(Boolean)
+        .join(' · ');
+    default:
+      return '';
+  }
+}
+
 export type DamageType = 'Physical' | 'Arts' | 'True' | 'Elemental';
 function resist(amount: number, resistance: number) {
   return amount * Math.max(0.05, 1 - resistance / 100);

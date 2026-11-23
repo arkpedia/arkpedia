@@ -182,6 +182,22 @@
   object-fit: contain;
   min-height: 0;
 }
+.targetResults {
+  display: grid;
+  gap: 6px;
+  margin-block: 12px;
+  font-variant-numeric: tabular-nums;
+}
+.targetResults > div {
+  display: flex;
+  align-items: baseline;
+  gap: 4px 12px;
+  flex-wrap: wrap;
+}
+.targetResults span {
+  border-inline-start: 3px solid;
+  padding-inline-start: 8px;
+}
 .legend span {
   display: inline-flex;
   align-items: center;
