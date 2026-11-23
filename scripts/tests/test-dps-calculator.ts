@@ -254,3 +254,39 @@ test('burn fields scale injury with Arts damage dealt and Botani S1 uses its ope
   const thumpy = { ...createBuild('thumpy', 1), skill: 0, stage: 3 };
   near(calculate(thumpy, dummy, 1).atk - calculate(thumpy, dummy).atk, 5);
 });
+
+test('normal attacks from casters, ritualists and summoners respect RES', () => {
+  for (const id of ['warmy', 'nymph', 'ebnhlz', 'threye', 'ling', 'deepcl']) {
+    const build = { ...createBuild(id, 1), skill: 0, stage: 0 };
+    const r = calculate(build, { ...dummy, def: 9999, res: 40 });
+    near(r.components.Arts, r.atk * 0.6);
+    assert.equal(r.components.Physical, 0);
+  }
+});
+
+test('Exusiai mitigates every shot independently and uses the equipped module on aerial targets', () => {
+  const build = createBuild('angel', 1);
+  const wall = { ...dummy, def: 10000 };
+  for (const [skill, shots, scale] of [[0, 1, 1], [1, 3, 1.45], [2, 4, 1.25], [3, 5, 1.1]]) {
+    const r = calculate({ ...build, skill }, wall);
+    near(r.damage, shots * r.atk * scale * .05);
+    if (skill === 1) assert.equal(r.dps, null);
+  }
+  const equipped = { ...build, stage: 3 };
+  const grounded = calculate(equipped, dummy);
+  near(calculate({ ...equipped, traitActive: true }, dummy).damage, grounded.damage * 1.1);
+  const normal = calculate({ ...build, skill: 0 }, dummy);
+  assert.ok(calculate(build, dummy).interval! < normal.interval!);
+});
+
+test('Exusiai alternate module applies ground ASPD and staged DEF ignore independently', () => {
+  const b = { ...createBuild('angel', 1), stage: 3, alternateModule: true };
+  const t = { ...dummy, def: 400 };
+  const r = calculate(b, t);
+  near(calculate({ ...b, penetrationStacks: 25 }, t).damage - r.damage, 250 * 5);
+  near(calculate({ ...b, stage: 2, penetrationStacks: 25 }, t).damage -
+    calculate({ ...b, stage: 2 }, t).damage, 150 * 5);
+  const ground = calculate({ ...b, traitActive: true }, t);
+  near(ground.damage, r.damage);
+  assert.ok(ground.interval! < r.interval!);
+});

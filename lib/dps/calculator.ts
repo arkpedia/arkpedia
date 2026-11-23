@@ -57,6 +57,7 @@ export interface Build {
   traitActive: boolean;
   control: 'none' | 'one' | 'both';
   stacked: boolean;
+  penetrationStacks?: number;
 }
 export interface Target {
   def: number;
@@ -177,9 +178,13 @@ export function calculate(build: Build, t: Target, priorBursts = 0) {
   if (['skadi', 'graceb'].includes(p.id)) buff += first.atk ?? 0;
   if (p.id === 'phatom' && b.skill === 2) buff += (skill.times - 1) * skill.atk;
   if (p.id === 'phatom' && b.traitActive) buff += mod?.trait.atk ?? 0;
-  if (p.id === 'threye') buff += second.atk ?? 0;
+  if (p.id === 'angel' || p.id === 'threye') buff += second.atk ?? 0;
   let speed = 100 + potStat('ATTACK_SPEED') + (mod?.stats.attack_speed ?? 0) + (skill.attack_speed ?? 0);
   if (p.id === 'skadi' && b.traitActive) speed += mod?.trait.attack_speed ?? 0;
+  if (p.id === 'angel') {
+    speed += first.attack_speed ?? 0;
+    if (b.traitActive) speed += mod?.trait.attack_speed ?? 0;
+  }
   if (p.id === 'melan') buff += first.atk ?? 0;
   if (p.id === 'kaitou' && t.burst === 'Necrosis') buff += first.atk ?? 0;
   if (p.id === 'hsgma2' && b.tenacity) buff += (second.min_atk ?? 0) + (second.atk ?? 0);
@@ -201,7 +206,17 @@ export function calculate(build: Build, t: Target, priorBursts = 0) {
       ),
     ) / 30;
   const packet = (scale: number, type: DamageType) => mitigate(atk * scale, type, t);
-  let primary: DamageType = ['phatm2', 'kaitou', 'amiya'].includes(p.id) ? 'Arts' : 'Physical';
+  let primary: DamageType = [
+    'ritualist',
+    'primcaster',
+    'corecaster',
+    'blastcaster',
+    'mystic',
+    'summoner',
+    'artsfghter',
+  ].includes(p.branch)
+    ? 'Arts'
+    : 'Physical';
   if ((p.id === 'hsgma2' && b.skill) || (p.id === 'qiubai' && b.skill === 3)) primary = 'Arts';
   if (p.id === 'amiya' && b.skill === 3) primary = 'True';
   const hits = p.id === 'hsgma2' && b.skill === 3 ? (b.lastStand ? 4 : 2) : 1;
@@ -274,6 +289,8 @@ export function calculate(build: Build, t: Target, priorBursts = 0) {
     trait: mod?.trait ?? {},
     proc: b.lastStand,
     inRange: b.trapInRange,
+    traitActive: b.traitActive,
+    penetrationStacks: b.penetrationStacks ?? 0,
   });
   if (summon && b.plotSummon) {
     source = {

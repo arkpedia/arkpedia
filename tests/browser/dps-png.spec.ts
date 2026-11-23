@@ -58,9 +58,37 @@ test('SilverAsh S2 opens a timeline for modeled and full-roster allies', async (
   await add('Add timeline ally', 'Phantom');
   const table = page.getByRole('table', { name: /Deployment ·/ });
   await expect(table).toContainText('Bloody Opus');
-  await add('Add timeline ally', 'Exusiai');
+  await add('Add timeline ally', 'Shining');
   await page.getByRole('spinbutton', { name: 'Ally ATK at impact' }).fill('1200');
   await expect(table.getByRole('row').filter({ hasText: 'Stored S2 strike 1' })).toContainText('1,200');
   await page.getByRole('button', { name: 'Remove', exact: true }).click();
   await expect(timeline).toHaveCount(0);
+});
+
+test('inspecting a curve preserves the enemy and alternative charts export', async ({ page }) => {
+  await page.goto('/dps-calculator');
+  const op = page.getByRole('combobox', { name: 'Add operator', exact: true });
+  for (const name of ['Tragodia', 'Exusiai']) {
+    await op.fill(name);
+    await page.getByRole('option', { name, exact: true }).click();
+  }
+  const enemy = page.getByRole('combobox', { name: 'Find enemy' });
+  await enemy.fill('Slug');
+  await page.getByRole('option').first().click();
+  const res = page.getByRole('spinbutton', { name: 'RES', exact: true });
+  const initial = await res.inputValue();
+  await page.getByRole('slider', { name: 'Inspect RES' }).press('End');
+  await expect(res).toHaveValue(initial);
+  await expect(page.getByRole('button', { name: 'Customize', exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Reset probe to target' }).click();
+  await expect(page.getByRole('slider')).toHaveValue(initial);
+  for (const name of ['At target', 'Burst timeline']) {
+    await page.getByRole('button', { name, exact: true }).click();
+    const [file] = await Promise.all([
+      page.waitForEvent('download'),
+      page.getByRole('button', { name: 'Condensed PNG' }).click(),
+    ]);
+    expect(await file.failure()).toBeNull();
+  }
+  await expect(page.getByRole('img', { name: /First and second elemental bursts/ })).toBeVisible();
 });

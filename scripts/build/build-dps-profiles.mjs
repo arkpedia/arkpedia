@@ -23,6 +23,7 @@ async function generateProfiles() {
   const [characters, skills, equipment] = [0, 1, 2].map((index) => ({ ...cn[index], ...en[index] }));
   const modules = { equipDict: { ...cn[3].equipDict, ...en[3].equipDict } };
   const supported = {
+    char_103_angel: [1, 2, 3],
     char_1042_phatm2: [1, 2, 3],
     char_1044_hsgma2: [1, 3],
     char_4082_qiubai: [3],
@@ -209,7 +210,7 @@ async function generateProfiles() {
         };
       }),
       module: readModule(moduleId),
-      alternateModule: ['skadi', 'phatom'].includes(short) ? readModule('uniequip_003_' + short) : null,
+      alternateModule: ['angel', 'skadi', 'phatom'].includes(short) ? readModule('uniequip_003_' + short) : null,
     };
   });
   await writeFile('config/dps-profiles.json', JSON.stringify({ source, operators }, null, 1) + '\n');

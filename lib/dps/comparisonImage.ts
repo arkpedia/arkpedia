@@ -17,17 +17,17 @@ interface ExportOptions {
 const width = 1080;
 const inset = 36;
 const inner = width - inset * 2;
-const chartHeight = Math.round((inner * 261) / 700);
+
 const number = (n: number | null) =>
   n === null ? '—' : n.toLocaleString('en-US', { maximumFractionDigits: 2 });
 const seconds = (n: number | null) => (n === null ? '—' : number(n) + ' s');
 
 // The live SVG already contains the sampled steps, gaps, zoom clipping and probe.
 // Inline its theme paint before decoding it as an independent image.
-function plotImage(svg: SVGSVGElement) {
+function plotImage(svg: SVGSVGElement, chartHeight: number) {
   const copy = svg.cloneNode(true) as SVGSVGElement;
-  const originals = svg.querySelectorAll('text,line,path,circle');
-  copy.querySelectorAll('text,line,path,circle').forEach((el, i) => {
+  const originals = svg.querySelectorAll('text,line,path,circle,rect');
+  copy.querySelectorAll('text,line,path,circle,rect').forEach((el, i) => {
     const style = getComputedStyle(originals[i]);
     for (const prop of ['fill', 'stroke', 'stroke-width', 'stroke-dasharray', 'font-size', 'font-family']) {
       el.setAttribute(prop, style.getPropertyValue(prop));
@@ -54,6 +54,13 @@ function conditions(b: Build) {
       return [
         { none: 'No control', one: 'Slow or Bind', both: 'Slow and Bind' }[b.control],
         b.skill === 3 && (b.stacked ? 'Maximum ASPD stacks' : 'Initial ASPD'),
+      ]
+        .filter(Boolean)
+        .join(' · ');
+    case 'angel':
+      return [
+        b.stage && b.traitActive && (b.alternateModule ? 'Ground enemy in range' : 'Aerial target'),
+        b.stage >= 2 && b.alternateModule && (b.penetrationStacks ?? 0) + ' DEF ignore stacks',
       ]
         .filter(Boolean)
         .join(' · ');
@@ -161,7 +168,9 @@ export async function saveComparisonImage({
   series,
   timeline,
 }: ExportOptions) {
-  const image = plotImage(svg);
+  const box = svg.viewBox.baseVal;
+  const chartHeight = Math.round((inner * box.height) / box.width);
+  const image = plotImage(svg, chartHeight);
   const css = getComputedStyle(svg);
   const token = (name: string) => css.getPropertyValue(name).trim();
   const colors = {

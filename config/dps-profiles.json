@@ -2,6 +2,525 @@
  "source": "https://raw.githubusercontent.com/ArknightsAssets/ArknightsGamedata/e0cd8f274ffbcf57ed0b0684cb681620478ffe0e/en/gamedata/excel/",
  "operators": [
   {
+   "id": "angel",
+   "name": "Exusiai",
+   "region": "EN",
+   "branch": "fastshot",
+   "rarity": 6,
+   "trust": 90,
+   "phases": [
+    {
+     "maxLevel": 50,
+     "start": 183,
+     "end": 305,
+     "interval": 1
+    },
+    {
+     "maxLevel": 80,
+     "start": 305,
+     "end": 437,
+     "interval": 1
+    },
+    {
+     "maxLevel": 90,
+     "start": 437,
+     "end": 540,
+     "interval": 1
+    }
+   ],
+   "potential": [
+    {
+     "COST": -1
+    },
+    {},
+    {
+     "ATK": 27
+    },
+    {
+     "COST": -1
+    },
+    {}
+   ],
+   "talents": [
+    [
+     {
+      "elite": 1,
+      "level": 1,
+      "potential": 1,
+      "values": {
+       "attack_speed": 6
+      }
+     },
+     {
+      "elite": 1,
+      "level": 1,
+      "potential": 3,
+      "values": {
+       "attack_speed": 9
+      }
+     },
+     {
+      "elite": 2,
+      "level": 1,
+      "potential": 1,
+      "values": {
+       "attack_speed": 12
+      }
+     },
+     {
+      "elite": 2,
+      "level": 1,
+      "potential": 3,
+      "values": {
+       "attack_speed": 15
+      }
+     }
+    ],
+    [
+     {
+      "elite": 2,
+      "level": 1,
+      "potential": 1,
+      "values": {
+       "max_hp": 0.1,
+       "atk": 0.06
+      }
+     },
+     {
+      "elite": 2,
+      "level": 1,
+      "potential": 6,
+      "values": {
+       "max_hp": 0.13,
+       "atk": 0.08
+      }
+     }
+    ]
+   ],
+   "skills": [
+    {
+     "slot": 1,
+     "manual": false,
+     "token": null,
+     "name": "Charging Mode",
+     "elite": 0,
+     "ranks": [
+      {
+       "atk_scale": 1.05,
+       "times": 3,
+       "sp": 5,
+       "initialSp": 0,
+       "duration": 0
+      },
+      {
+       "atk_scale": 1.07,
+       "times": 3,
+       "sp": 5,
+       "initialSp": 0,
+       "duration": 0
+      },
+      {
+       "atk_scale": 1.09,
+       "times": 3,
+       "sp": 5,
+       "initialSp": 0,
+       "duration": 0
+      },
+      {
+       "atk_scale": 1.13,
+       "times": 3,
+       "sp": 4,
+       "initialSp": 0,
+       "duration": 0
+      },
+      {
+       "atk_scale": 1.15,
+       "times": 3,
+       "sp": 4,
+       "initialSp": 0,
+       "duration": 0
+      },
+      {
+       "atk_scale": 1.17,
+       "times": 3,
+       "sp": 4,
+       "initialSp": 0,
+       "duration": 0
+      },
+      {
+       "atk_scale": 1.21,
+       "times": 3,
+       "sp": 4,
+       "initialSp": 0,
+       "duration": 0
+      },
+      {
+       "atk_scale": 1.29,
+       "times": 3,
+       "sp": 4,
+       "initialSp": 0,
+       "duration": 0
+      },
+      {
+       "atk_scale": 1.37,
+       "times": 3,
+       "sp": 4,
+       "initialSp": 0,
+       "duration": 0
+      },
+      {
+       "atk_scale": 1.45,
+       "times": 3,
+       "sp": 4,
+       "initialSp": 0,
+       "duration": 0
+      }
+     ]
+    },
+    {
+     "slot": 2,
+     "manual": true,
+     "token": null,
+     "name": "Shooting Mode",
+     "elite": 1,
+     "ranks": [
+      {
+       "attack@atk_scale": 1,
+       "attack@times": 4,
+       "sp": 45,
+       "initialSp": 15,
+       "duration": 15
+      },
+      {
+       "attack@atk_scale": 1,
+       "attack@times": 4,
+       "sp": 44,
+       "initialSp": 15,
+       "duration": 15
+      },
+      {
+       "attack@atk_scale": 1,
+       "attack@times": 4,
+       "sp": 43,
+       "initialSp": 15,
+       "duration": 15
+      },
+      {
+       "attack@atk_scale": 1.05,
+       "attack@times": 4,
+       "sp": 42,
+       "initialSp": 15,
+       "duration": 15
+      },
+      {
+       "attack@atk_scale": 1.05,
+       "attack@times": 4,
+       "sp": 41,
+       "initialSp": 15,
+       "duration": 15
+      },
+      {
+       "attack@atk_scale": 1.05,
+       "attack@times": 4,
+       "sp": 40,
+       "initialSp": 15,
+       "duration": 15
+      },
+      {
+       "attack@atk_scale": 1.1,
+       "attack@times": 4,
+       "sp": 39,
+       "initialSp": 18,
+       "duration": 15
+      },
+      {
+       "attack@atk_scale": 1.15,
+       "attack@times": 4,
+       "sp": 38,
+       "initialSp": 20,
+       "duration": 15
+      },
+      {
+       "attack@atk_scale": 1.2,
+       "attack@times": 4,
+       "sp": 37,
+       "initialSp": 22,
+       "duration": 15
+      },
+      {
+       "attack@atk_scale": 1.25,
+       "attack@times": 4,
+       "sp": 35,
+       "initialSp": 25,
+       "duration": 15
+      }
+     ]
+    },
+    {
+     "slot": 3,
+     "manual": false,
+     "token": null,
+     "name": "Overloading Mode",
+     "elite": 2,
+     "ranks": [
+      {
+       "attack@atk_scale": 1,
+       "attack@times": 5,
+       "base_attack_time": 0,
+       "sp": 50,
+       "initialSp": 20,
+       "duration": 15
+      },
+      {
+       "attack@atk_scale": 1,
+       "attack@times": 5,
+       "base_attack_time": 0,
+       "sp": 48,
+       "initialSp": 20,
+       "duration": 15
+      },
+      {
+       "attack@atk_scale": 1,
+       "attack@times": 5,
+       "base_attack_time": 0,
+       "sp": 46,
+       "initialSp": 20,
+       "duration": 15
+      },
+      {
+       "attack@atk_scale": 1,
+       "attack@times": 5,
+       "base_attack_time": -0.05,
+       "sp": 44,
+       "initialSp": 20,
+       "duration": 15
+      },
+      {
+       "attack@atk_scale": 1,
+       "attack@times": 5,
+       "base_attack_time": -0.05,
+       "sp": 42,
+       "initialSp": 20,
+       "duration": 15
+      },
+      {
+       "attack@atk_scale": 1,
+       "attack@times": 5,
+       "base_attack_time": -0.05,
+       "sp": 40,
+       "initialSp": 20,
+       "duration": 15
+      },
+      {
+       "attack@atk_scale": 1,
+       "attack@times": 5,
+       "base_attack_time": -0.08,
+       "sp": 38,
+       "initialSp": 20,
+       "duration": 15
+      },
+      {
+       "attack@atk_scale": 1.03,
+       "attack@times": 5,
+       "base_attack_time": -0.08,
+       "sp": 36,
+       "initialSp": 20,
+       "duration": 15
+      },
+      {
+       "attack@atk_scale": 1.07,
+       "attack@times": 5,
+       "base_attack_time": -0.08,
+       "sp": 34,
+       "initialSp": 20,
+       "duration": 15
+      },
+      {
+       "attack@atk_scale": 1.1,
+       "attack@times": 5,
+       "base_attack_time": -0.11,
+       "sp": 30,
+       "initialSp": 20,
+       "duration": 15
+      }
+     ]
+    }
+   ],
+   "module": {
+    "name": "MAR-X",
+    "level": 60,
+    "stages": [
+     {
+      "stats": {
+       "max_hp": 110,
+       "atk": 27
+      },
+      "tokenStats": {},
+      "trait": {
+       "atk_scale": 1.1
+      },
+      "talents": {}
+     },
+     {
+      "stats": {
+       "max_hp": 160,
+       "atk": 35
+      },
+      "tokenStats": {},
+      "trait": {
+       "atk_scale": 1.1
+      },
+      "talents": {
+       "1": [
+        {
+         "elite": 2,
+         "level": 60,
+         "potential": 1,
+         "values": {
+          "atk": 0.06,
+          "max_hp": 0.1
+         }
+        },
+        {
+         "elite": 2,
+         "level": 60,
+         "potential": 6,
+         "values": {
+          "atk": 0.08,
+          "max_hp": 0.1
+         }
+        }
+       ]
+      }
+     },
+     {
+      "stats": {
+       "max_hp": 190,
+       "atk": 41
+      },
+      "tokenStats": {},
+      "trait": {
+       "atk_scale": 1.1
+      },
+      "talents": {
+       "1": [
+        {
+         "elite": 2,
+         "level": 60,
+         "potential": 1,
+         "values": {
+          "atk": 0.08,
+          "max_hp": 0.14
+         }
+        },
+        {
+         "elite": 2,
+         "level": 60,
+         "potential": 6,
+         "values": {
+          "atk": 0.1,
+          "max_hp": 0.17
+         }
+        }
+       ]
+      }
+     }
+    ]
+   },
+   "alternateModule": {
+    "name": "MAR-Y",
+    "level": 60,
+    "stages": [
+     {
+      "stats": {
+       "atk": 26,
+       "def": 26
+      },
+      "tokenStats": {},
+      "trait": {
+       "attack_speed": 8,
+       "cnt": 1
+      },
+      "talents": {}
+     },
+     {
+      "stats": {
+       "atk": 37,
+       "def": 37
+      },
+      "tokenStats": {},
+      "trait": {
+       "attack_speed": 8,
+       "cnt": 1
+      },
+      "talents": {
+       "0": [
+        {
+         "elite": 2,
+         "level": 60,
+         "potential": 1,
+         "values": {
+          "attack_speed": 12,
+          "def_penetrate_fixed": 6,
+          "max_stack_cnt": 25,
+          "duration": 5
+         }
+        },
+        {
+         "elite": 2,
+         "level": 60,
+         "potential": 3,
+         "values": {
+          "attack_speed": 15,
+          "def_penetrate_fixed": 6,
+          "max_stack_cnt": 25,
+          "duration": 5
+         }
+        }
+       ]
+      }
+     },
+     {
+      "stats": {
+       "atk": 43,
+       "def": 43
+      },
+      "tokenStats": {},
+      "trait": {
+       "attack_speed": 8,
+       "cnt": 1
+      },
+      "talents": {
+       "0": [
+        {
+         "elite": 2,
+         "level": 60,
+         "potential": 1,
+         "values": {
+          "attack_speed": 12,
+          "def_penetrate_fixed": 10,
+          "max_stack_cnt": 25,
+          "duration": 5
+         }
+        },
+        {
+         "elite": 2,
+         "level": 60,
+         "potential": 3,
+         "values": {
+          "attack_speed": 15,
+          "def_penetrate_fixed": 10,
+          "max_stack_cnt": 25,
+          "duration": 5
+         }
+        }
+       ]
+      }
+     }
+    ]
+   }
+  },
+  {
    "id": "phatm2",
    "name": "Tragodia",
    "region": "EN",

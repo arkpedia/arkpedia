@@ -12,6 +12,8 @@ export interface SourceInputs {
   trait: Values;
   proc: boolean;
   inRange: boolean;
+  traitActive: boolean;
+  penetrationStacks: number;
 }
 export const elements: Record<string, string> = Object.fromEntries(
   Object.entries({
@@ -37,6 +39,8 @@ export function sourceAction({
   trait: m,
   proc,
   inRange,
+  traitActive,
+  penetrationStacks,
 }: SourceInputs): {
   parts: Record<DamageType, number>;
   injury: number;
@@ -71,6 +75,7 @@ export function sourceAction({
   if (
     !slot &&
     ![
+      'angel',
       'phonor',
       'thumpy',
       'oxi',
@@ -86,6 +91,16 @@ export function sourceAction({
   )
     return null;
   switch (id) {
+    case 'angel': {
+      const shots = s['attack@times'] ?? s.times ?? 1;
+      const scale = (s['attack@atk_scale'] ?? s.atk_scale ?? 1) * (traitActive ? (m.atk_scale ?? 1) : 1);
+      const ignore = (a.def_penetrate_fixed ?? 0) * Math.min(penetrationStacks, a.max_stack_cnt ?? 0);
+      parts.Physical = shots * mitigate(atk * scale, 'Physical', { ...t, def: Math.max(0, t.def - ignore) });
+      if (slot) name = shots + '-shot volley';
+      if (slot === 1) trigger('Charged three-shot volley');
+      note = 'Each shot is mitigated separately.' + (slot === 1 ? ' One charged attack.' : '');
+      break;
+    }
     case 'phonor':
       art();
       rawInjury = a['attack@dark_damage_value'] ?? 0;

@@ -243,3 +243,17 @@
 .panel tr > :first-child {
   padding-inline-start: 0;
 }
+
+.rowPlot {
+  display: block;
+  width: 100%;
+  background: var(--well);
+  margin-block: 10px;
+}
+.rowPlot text {
+  fill: var(--text);
+  font: 10px var(--font-mono);
+}
+.rowPlot line {
+  stroke: var(--line);
+}

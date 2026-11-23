@@ -29,6 +29,12 @@ import css from '@/components/dps/Dps.module.css';
 
 const range = (min: number, max: number) => Array.from({ length: max - min + 1 }, (_, i) => min + i);
 const baseline = new Set([
+  'angel',
+  'warmy',
+  'nymph',
+  'deepcl',
+  'otter',
+  'ling',
   'phatm2',
   'hsgma2',
   'qiubai',
@@ -159,6 +165,13 @@ function Editor({ b, update }: { b: Build; update: (v: Build) => void }) {
       {p.id === 'phatm2' &&
         b.skill === 2 &&
         toggle('Plot Blood’s Whisper ticks', b.plotSummon, (v) => set({ plotSummon: v }))}
+      {p.id === 'angel' && b.stage > 0 &&
+        toggle(b.alternateModule ? 'Ground enemy in range' : 'Attacking an aerial target', b.traitActive, (v) => set({ traitActive: v }))}
+      {p.id === 'angel' && b.alternateModule && b.stage >= 2 && (
+        <Pick label="DEF ignore stacks" value={b.penetrationStacks ?? 0}
+          options={range(0, selectedModule(b)!.stages[b.stage - 1].talents[0][0].values.max_stack_cnt)}
+          change={v => set({penetrationStacks: +v})} />
+      )}
       {p.id === 'skadi' &&
         b.stage > 0 &&
         toggle(b.alternateModule ? 'Attacking a blocked target' : 'After revival', b.traitActive, (v) =>
@@ -578,10 +591,6 @@ export default function DpsCalculator({
       elementalRes: row.elementalRes,
     });
   }
-  function customize(next: Target) {
-    setEnemy(null);
-    setTarget(next);
-  }
   function add(items: Build[]) {
     if (!items.length) return;
     setBuilds((prev) => [...prev, ...items]);
@@ -756,7 +765,6 @@ export default function DpsCalculator({
                   }
                   builds={builds}
                   target={target}
-                  setTarget={customize}
                 />
                 <section className={css.panel}>
                   <h2 className="section-title">Build comparison</h2>

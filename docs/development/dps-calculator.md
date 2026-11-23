@@ -1,6 +1,6 @@
 # DPS calculator
 
-The Planner compares independent builds against the same target. The response curve varies one defense while the other settings stay fixed. The table gives HP loss and elemental injury separately. Selecting a row reveals which attack, tick or activation the values represent. Single activations have no sustained DPS. The damage composition chart uses a common absolute scale across builds.
+The calculator compares independent builds against the same target. The response curve varies one defense while the other settings stay fixed. The probe inspects the curve independently of the selected enemy. At target compares builds at the enemy’s actual defenses. Burst timeline plots absolute first and second burst times from first contact and marks recovery between them. Both PNG exports use the selected chart. The table gives HP loss and elemental injury separately. Selecting a row reveals which attack, tick or activation the values represent. Single activations have no sustained DPS. The damage composition chart uses a common absolute scale across builds.
 
 ## Calculation order
 
