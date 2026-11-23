@@ -6,7 +6,8 @@ import {formatDayMonthYear} from '@/lib/pulls/format';
 import {BannerArt,OperatorTile,bannerTitle} from './PullPollVisuals';
 import PullPollOperatorResults from './PullPollOperatorResults';
 import styles from './PullPoll.module.css';
-const percent=(count:number,total:number)=>total?Math.round(count/total*100):0;
+import {pollPercent as percent} from '@/lib/polls/pull-poll-share';
+import PullPollShareImage from './PullPollShareImage';
 export function resultVerdict(row:PollBannerResult):{value:Stamp;label:string}{
   const verdict=row.pull>=row.maybe&&row.pull>=row.skip?'pull':row.maybe>=row.skip?'maybe':'skip';
   return {value:verdict,label:`${verdict} ${percent(row[verdict],row.answers)}%`};
@@ -18,13 +19,17 @@ export function ResultSplit({row,label}:{row:PollBannerResult;label?:string}){
 export default function PullPollResults({banners,portraits,ballot,detailed=false,owned={}}:{banners:PollBanner[];portraits:Record<string,PollPortrait>;ballot:Ballot;detailed?:boolean;owned?:OwnedPotentials}){
   const [selected,setSelected]=useState<PollOperatorResult|null>(null);
   const {result,error,retry}=usePullPollResults();
+  const [exportOpen,setExportOpen]=useState(false);
   const ids=new Set(banners.map(b=>b.id));
   const operatorRows=useMemo(()=>result?.operators.filter(row=>banners.some(b=>b.id===row.banner&&b.operators.includes(row.name)))??[],[result,banners]);
   const most=[...operatorRows].filter(r=>r.answers).sort((a,b)=>b.want/b.answers-a.want/a.answers||b.answers-a.answers)[0];
   const max=[...operatorRows].filter(r=>r.answers&&r.maxPotential).sort((a,b)=>b.maxPotential/b.answers-a.maxPotential/a.answers)[0];
   const skipped=result?.banners.filter(r=>ids.has(r.id)&&r.answers).sort((a,b)=>b.skip/b.answers-a.skip/a.answers)[0];
   return <div className={styles.results}>
-    <p className={styles.resultsIntro}>{result?`${result.ballots.toLocaleString('en-US')} ${result.ballots===1?'Doctor has':'Doctors have'} shared their plans. Where’s the Orundum going?`:'Loading the community’s plans…'} <span className="hint">Updates every 30 seconds</span></p>
+    <div className={styles.resultsIntro}><p>{result?`${result.ballots.toLocaleString('en-US')} ${result.ballots===1?'Doctor has':'Doctors have'} shared their plans. Where’s the Orundum going?`:'Loading the community’s plans…'} <span className="hint">Updates every 30 seconds</span></p>
+      <button className="ghost btn-sm" disabled={!skipped} onClick={()=>setExportOpen(true)} aria-haspopup="dialog">Export results</button>
+    </div>
+    {exportOpen&&result&&<PullPollShareImage banners={banners} results={result} initialDetailed={detailed} portraits={portraits} onClose={()=>setExportOpen(false)}/>}
     {error&&<p className="notice notice-danger" role="status">{error} <button className="ghost btn-sm" onClick={retry}>Retry results</button></p>}
     {result&&result.ballots===0&&<p className="notice">No entries yet. Be the first Doctor to share a plan.</p>}
     {detailed&&result&&result.ballots>0&&<div className={styles.resultHighlights}>

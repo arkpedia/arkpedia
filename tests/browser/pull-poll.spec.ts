@@ -249,3 +249,47 @@ for(const theme of ['dark','light'])test(`simple symbols and default detailed st
   await expect.poll(async()=>{const s=await symbols();return s.wave>100&&s.cross>600;}).toBe(true);const before=await symbols();await dialog.getByRole('checkbox',{name:'Show legend',exact:true}).uncheck();await expect(dialog.getByRole('button',{name:'Download PNG',exact:true})).toBeEnabled({timeout:20000});await expect.poll(symbols).toEqual(before);await dialog.getByRole('button',{name:'Detailed',exact:true}).click();await expect(canvas).toHaveAttribute('data-display','detailed-stamps');await expect(dialog.getByRole('checkbox')).toHaveCount(2);await expect(dialog.getByRole('checkbox',{name:'Show banner stamps',exact:true})).toHaveCount(0);await dialog.getByRole('checkbox',{name:'Show legend',exact:true}).check();await expect(canvas).toHaveAttribute('data-legend','visible');await expect(dialog.getByRole('button',{name:'Download PNG',exact:true})).toBeEnabled({timeout:20000});await expect(canvas).toBeInViewport({ratio:1});await expect(dialog.getByRole('button',{name:'Download PNG',exact:true})).toBeInViewport({ratio:1});
   if(process.env.ARKPEDIA_QA_CAPTURE){await fs.mkdir(process.env.ARKPEDIA_QA_CAPTURE,{recursive:true});const png=await canvas.evaluate(el=>(el as HTMLCanvasElement).toDataURL().split(',')[1]);await fs.writeFile(`${process.env.ARKPEDIA_QA_CAPTURE}/restored-symbols-${theme}-${info.project.name}.png`,Buffer.from(png,'base64'));await page.screenshot({path:`${process.env.ARKPEDIA_QA_CAPTURE}/restored-dialog-${theme}-${info.project.name}.png`,animations:'disabled'});}
 });
+
+for(const theme of ['dark','light'])test(`export community results with banner and operator percentages (${theme})`,async({page},info)=>{
+  test.setTimeout(70000);
+  const state=await setup(page,theme);
+  await page.goto('/polls/pull-or-skip',{waitUntil:'domcontentloaded'});
+  const resultsTab=page.getByRole('tab',{name:'Results',exact:true});
+  await resultsTab.click();
+  const exportButton=page.getByRole('button',{name:'Export results',exact:true});
+  await expect(exportButton).toBeDisabled();
+  await expect(page.getByText('No entries yet.',{exact:false})).toBeVisible();
+  await page.getByRole('tab',{name:'Your picks',exact:true}).click();
+  const banner=page.getByRole('article').filter({has:page.getByRole('button',{name:/^(Choose|Hide) per operator/})}).first();
+  const title=await banner.getAttribute('aria-label');
+  const catalogue=await page.evaluate(()=>JSON.parse(document.getElementById('__NEXT_DATA__')!.textContent!).props.pageProps.banners as {id:string;name:string;operators:string[]}[]);
+  const entry=catalogue.find(b=>b.name===title)!;
+  expect(entry.operators.length).toBeGreaterThan(0);
+  const name=entry.operators[0];
+  state.results={ballots:10,banners:[{id:entry.id,answers:8,pull:5,maybe:2,skip:1}],operators:[{banner:entry.id,name,answers:3,want:2,maybe:1,no:0,totalPotential:2,maxPotential:0,potentials:[2,0,0,0,0,0]}]};
+  await resultsTab.click();
+  await exportButton.click();
+  const dialog=page.getByRole('dialog',{name:'Community poll results'});
+  const image=dialog.getByRole('img',{name:'Community poll results image'});
+  await expect(image).toHaveAccessibleDescription(/8 answers, Pull 63%, Maybe 25%, Skip 13%/);
+  const download=dialog.getByRole('button',{name:'Download PNG'});
+  for(const format of ['simple','detailed']){
+    if(format==='detailed'){
+      await dialog.getByRole('button',{name:'Detailed'}).click();
+      await expect(image).toHaveAccessibleDescription(new RegExp(name+' want a copy 67%'));
+    }
+    await expect(download).toBeEnabled({timeout:20000});
+    await expect(download).toBeInViewport();
+    const [file]=await Promise.all([page.waitForEvent('download'),download.click()]);
+    expect(file.suggestedFilename()).toBe('arkpedia-pull-or-skip-results-'+format+'.png');
+    const dest=info.outputPath(format+'.png');
+    await file.saveAs(dest);
+    const png=await fs.readFile(dest);
+    expect(png.subarray(1,4).toString()).toBe('PNG');
+    expect(png.readUInt32BE(16)).toBe(1200);
+    expect(png.readUInt32BE(20)).toBe(Number(await image.getAttribute('height')));
+  }
+  await dialog.getByRole('button',{name:'Close',exact:true}).click();
+  await expect(exportButton).toBeFocused();
+  expect(state.writes).toHaveLength(0);
+});
