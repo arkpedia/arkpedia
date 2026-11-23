@@ -159,7 +159,11 @@ export default function PullPollShareImage(props:ShareProps){
     <SegmentedControl label="Share image display" value={display} onChange={setDisplay} options={[{value:'simple',label:'Simple'},{value:'detailed',label:'Detailed'}]}/>
     {results&&<div className={styles.imageOptions}>
       <SegmentedControl label="Image layout" value={layout} onChange={setLayout} options={[{value:'sheet',label:'Full sheet'},{value:'square',label:'Social square'}]}/>
-      {social&&cards.length>1&&<label>Card <select aria-label="Social card" value={index} onChange={e=>setCardIndex(Number(e.target.value))}>{cards.map((card,i)=><option key={i} value={i}>{i+1} / {cards.length} · {bannerTitle(card.banner)}</option>)}</select></label>}
+      {social&&cards.length>1&&<>
+        <button className="ghost btn-sm" aria-label="Previous card" disabled={index===0} onClick={()=>setCardIndex(index-1)}>Previous</button>
+        <span className="hint" aria-live="polite">Card {index+1} of {cards.length}</span>
+        <button className="ghost btn-sm" aria-label="Next card" disabled={index===cards.length-1} onClick={()=>setCardIndex(index+1)}>Next</button>
+      </>}
     </div>}
     {(!results||detailed)&&<div className={styles.imageOptions}>
       {detailed?<label className="check"><input type="checkbox" checked={includeOffBanner} onChange={e=>setIncludeOffBanner(e.target.checked)}/>Include off-banner limited operators</label>:!results&&<label className="check"><input type="checkbox" checked={bannerStamps} onChange={e=>setBannerStamps(e.target.checked)}/>Banner art with stamps</label>}
