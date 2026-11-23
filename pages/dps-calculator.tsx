@@ -1,3 +1,4 @@
+import { fetchAsset } from '@/lib/assets/assetRetry';
 import { withContentPage } from '@/lib/content/server';
 import { Fragment, useMemo, useRef, useState, type RefObject } from 'react';
 import PageHeader from '@/components/ui/PageHeader';
@@ -334,7 +335,7 @@ function Deployment({
     loading.current = true;
     setLoadError(false);
     try {
-      const response = await fetch('/dps-deployment-allies.json');
+      const response = await fetchAsset('/dps-deployment-allies.json');
       if (!response.ok) throw new Error('Roster unavailable');
       setFullRoster(await response.json());
     } catch {
