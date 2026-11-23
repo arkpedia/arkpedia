@@ -112,8 +112,18 @@ function StatisticsLeaderboard({metric,rows,query,onQuery,onClose,controls,sampl
     </>)}
   </ImportDialog>;
 }
+function rankingOperators(operators:StatisticsOperator[]):StatisticsOperator[]{
+  return operators.map(({name,charIds,rarity,className,icon,skills,skillIcons,art})=>({
+    name,charIds,rarity,className,icon,skills,
+    ...(skillIcons!==undefined?{skillIcons}:{}),...(art!==undefined?{art}:{}),
+  }));
+}
+
 export const getStaticProps:GetStaticProps<Props>=withContentPage<Props>('/community/statistics',async()=>{
   const {communityOperators}=await import('@/lib/community/catalogues');
-  const operators=await communityOperators();
-  return {props:{operators}};
-},{bundledWhenUnpublished:true});
+  return {props:{operators:rankingOperators(await communityOperators())}};
+},{
+  bundledWhenUnpublished:true,
+  // Existing content releases still carry the full catalogue records.
+  finalize:async props=>({...props,operators:rankingOperators(props.operators)}),
+});
