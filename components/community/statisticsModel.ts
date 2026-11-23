@@ -20,10 +20,27 @@ export const statisticsMetrics = [
 ];
 export type StatisticsMetric = typeof statisticsMetrics[number] & {relative?:boolean};
 export const displayStatisticsMetric=(metric:StatisticsMetric,relative:boolean):StatisticsMetric=>({...metric,relative,unit:relative?metric.relativeUnit:metric.unit,description:relative?metric.relativeDescription:metric.description});
-export const formatRankingValue=(value:number,metric:StatisticsMetric)=>metric.relative?`${(value*100).toFixed(1)}%`:value.toLocaleString('en-US');
-const number=(value:number)=>value.toLocaleString('en-US');
+const number=new Intl.NumberFormat('en-US').format;
+export const formatRankingValue=(value:number,metric:StatisticsMetric)=>metric.relative?`${(value*100).toFixed(1)}%`:number(value);
+type RankingFilters={class:string;rarity:string;relative?:boolean;order?:string};
+type UnrankedRow=Omit<RankingRow,'rank'>;
 
-export function statisticsRankings(operators:StatisticsOperator[],data:CommunityRankings|null,filters:{class:string;rarity:string;relative?:boolean;order?:string}):Map<string,RankingRow[]> {
+export function statisticsRankings(operators:StatisticsOperator[],data:CommunityRankings|null,filters:RankingFilters):Map<string,RankingRow[]> {
+  return selectStatisticsRankings(statisticsRankingRows(operators,data,filters.relative),filters);
+}
+
+export function selectStatisticsRankings(rows:Map<string,UnrankedRow[]>,filters:Omit<RankingFilters,'relative'>):Map<string,RankingRow[]> {
+  const rarity=filters.rarity?Number(filters.rarity):null;
+  const direction=filters.order==='asc'?1:-1;
+  return new Map(Array.from(rows,([metric,entries])=>{
+    const eligible=entries.filter(({operator})=>!operator||((!filters.class||operator.className===filters.class)&&(rarity===null||operator.rarity===rarity)));
+    eligible.sort((a,b)=>direction*(a.value-b.value)||a.entity.name.localeCompare(b.entity.name)||a.key.localeCompare(b.key));
+    let rank=1;
+    return [metric,eligible.map((row,index)=>{if(index===0||row.value!==eligible[index-1].value)rank=index+1;return {...row,rank};})];
+  }));
+}
+
+export function statisticsRankingRows(operators:StatisticsOperator[],data:CommunityRankings|null,relative=false):Map<string,UnrankedRow[]> {
   if(!data)return new Map();
   const roster=new Map(data.roster?.map(r=>[r.operator,r]));
   const replays=new Map<string,{squads:number;deployed:number;benched:number;activations:number;skills:Map<number,number>}>();
@@ -38,24 +55,19 @@ export function statisticsRankings(operators:StatisticsOperator[],data:Community
   },{squads:0,deployed:0,benched:0,activations:0,skills:new Map<number,number>()})}));
   // The comparison sample stays fixed when class/rarity filters narrow the displayed operators.
   const activationTotal=complete.reduce((sum,{op,b})=>sum+(b.squads?[0,1,2].filter(skill=>skill<op.skills).reduce((n,skill)=>n+(b.skills.get(skill)??0),0):0),0);
-  const eligible=complete.filter(({op})=>(!filters.class||op.className===filters.class)&&(!filters.rarity||op.rarity===Number(filters.rarity)));
   const coverage=new Map(data.stageCoverage?.map(row=>[row.operator,row.stages]));
-  const sort=(rows:Omit<RankingRow,'rank'>[])=>{
-    rows.sort((a,b)=>(filters.order==='asc'?a.value-b.value:b.value-a.value)||a.entity.name.localeCompare(b.entity.name)||a.key.localeCompare(b.key));
-    let rank=1;return rows.map((row,i)=>{if(i===0||row.value!==rows[i-1].value)rank=i+1;return {...row,rank};});
-  };
   return new Map(statisticsMetrics.map(metric=>{
     if(metric.value==='clears'){
       const total=(data.stageClears??[]).reduce((sum,row)=>sum+row.clears,0);
-      return [metric.value,sort((data.stageClears??[]).flatMap(stage=>filters.relative&&!total?[]:[{entity:{name:stage.code,icon:stage.image?`/stages-images/${encodeURIComponent(stage.image)}`:null,href:`/stages/browse?s=${encodeURIComponent(stage.slug)}`,subtitle:''},key:stage.stageId,suffix:stage.name,count:stage.clears,value:filters.relative?stage.clears/total:stage.clears,detail:filters.relative?`${number(stage.clears)} / ${number(total)} recorded clears`:''}]))];
+      return [metric.value,(data.stageClears??[]).flatMap(stage=>relative&&!total?[]:[{entity:{name:stage.code,icon:stage.image?`/stages-images/${encodeURIComponent(stage.image)}`:null,href:`/stages/browse?s=${encodeURIComponent(stage.slug)}`,subtitle:''},key:stage.stageId,suffix:stage.name,count:stage.clears,value:relative?stage.clears/total:stage.clears,detail:relative?`${number(stage.clears)} / ${number(total)} recorded clears`:''}])];
     }
-    const rows=eligible.flatMap(({op,r,b}):Omit<RankingRow,'rank'>[]=>{
+    const rows=complete.flatMap(({op,r,b}):UnrankedRow[]=>{
       if(['e2','unraised','maxed'].includes(metric.value)&&op.name!=='Amiya'&&op.charIds.some(id=>['char_1001_amiya2','char_1037_amiya3'].includes(id)))return [];
       if(metric.value==='owned'&&op.rarity!==6)return [];
       if(metric.value==='m9'&&op.skills!==3||metric.value==='e2'&&op.rarity<4||metric.value==='maxed'&&op.rarity!==6)return [];
-      const make=(count:number,denominator:number,label:string,suffix='',detail='',skill?:number):Omit<RankingRow,'rank'>[]=>{
-        if(filters.relative&&denominator<=0)return [];
-        return [{operator:op,entity:{name:op.name,icon:op.icon,art:op.art,href:operatorHref(op.name,'community'),subtitle:`${op.className} · ${op.rarity}★`,...(skill===undefined?{}:{skillIcon:op.skillIcons?.[skill]??null})},key:suffix?`${op.name}:${suffix}`:op.name,suffix,count,value:filters.relative?count/denominator:count,detail:filters.relative?`${number(count)} / ${number(denominator)} ${label}`:detail}];
+      const make=(count:number,denominator:number,label:string,suffix='',detail='',skill?:number):UnrankedRow[]=>{
+        if(relative&&denominator<=0)return [];
+        return [{operator:op,entity:{name:op.name,icon:op.icon,art:op.art,href:operatorHref(op.name,'community'),subtitle:`${op.className} · ${op.rarity}★`,...(skill===undefined?{}:{skillIcon:op.skillIcons?.[skill]??null})},key:suffix?`${op.name}:${suffix}`:op.name,suffix,count,value:relative?count/denominator:count,detail:relative?`${number(count)} / ${number(denominator)} ${label}`:detail}];
       };
       if(metric.value==='stage-coverage')return data.stageCoverage!=null&&b.squads?make(coverage.get(op.name)??0,data.clearedStages??0,'distinct cleared stages'):[];
       if(metric.battle){
@@ -73,6 +85,6 @@ export function statisticsRankings(operators:StatisticsOperator[],data:Community
       const label=metric.value==='owned'?'contributors':metric.value==='unraised'?'known builds':'owners';
       return make(r[metric.value as 'e2'|'m9'|'owned'|'unraised'|'maxed'],denominator,label,'',`${number(r.owned)} owners`);
     });
-    return [metric.value,sort(rows)];
+    return [metric.value,rows];
   }));
 }

@@ -287,7 +287,7 @@
      ends on the image's own opacity (a dimmed icon stays dimmed), and no fill, so once
      played it leaves nothing behind; :where() keeps it at zero specificity, so an image
      with an animation of its own (the operator artwork's cross-fade) keeps that. */
-  :root[data-image-arrivals] img:not([data-shown]) {
+  :root[data-image-arrivals] img:not([data-shown], [fetchpriority="high"]) {
     opacity: 0;
   }
   :where(img[data-arrived]) {

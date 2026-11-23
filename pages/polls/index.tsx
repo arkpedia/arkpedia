@@ -3,7 +3,7 @@ import PullPollIndexCard from '@/components/community/PullPollIndexCard';
 import type {PollBanner,PollPortrait} from '@/lib/polls/pull-poll';
 import {useMemo} from 'react';
 import MakerSampleCards from '@/components/community/MakerSampleCards';
-import {useSkinRatings} from '@/lib/polls/useSkinRatings';
+import {useSkinRatingResults} from '@/lib/polls/useSkinRatings';
 import {skinRatingRows} from '@/lib/polls/skin-rating-statistics';
 import type {PollSkin} from '@/lib/polls/skin-poll';
 import type { GetStaticProps } from 'next';
@@ -28,7 +28,7 @@ function LeaderFigures({leaders}:{leaders:Leader[]}){
   })}</>;
 }
 export default function Polls({skins=[],previousLeaders=[],pullBanners=[],pullPortraits={},makerSamples=[],now}:Props){
-  const {result,error}=useSkinRatings(null);
+  const {result,error}=useSkinRatingResults();
   const leaders=useMemo(()=>skinRatingRows(result?.ranking??[],skins,'skins').slice(0,3).map(row=>({...row,href:`/polls/favourite-skins?view=results&detail=${encodeURIComponent(row.id)}`})),[result,skins]);
   return <>
     <PageMeta title="Community polls" description="Vote in Arkpedia community polls and explore previous results." path="/polls"/>

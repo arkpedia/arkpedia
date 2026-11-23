@@ -1,4 +1,4 @@
-import {useEffect,useId,useRef,useState} from 'react';
+import {useEffect,useId,useLayoutEffect,useRef,useState} from 'react';
 import SegmentedControl from '@/components/ui/SegmentedControl';
 import ImportDialog from '@/components/account/ImportDialog';
 import {useContentUrl} from '@/lib/content/context';
@@ -20,7 +20,7 @@ type ShareProps={banners:PollBanner[];portraits:Record<string,PollPortrait>;onCl
 export default function PullPollShareImage(props:ShareProps){
   const {onClose}=props;
   const [{banners,ballot={},portraits,owned={},results}]=useState(props);
-  const canvas=useRef<HTMLCanvasElement>(null),stampStyles=useRef<HTMLDivElement>(null),url=useContentUrl(),descriptionId=useId();
+  const canvas=useRef<HTMLCanvasElement>(null),preview=useRef<HTMLDivElement>(null),stampStyles=useRef<HTMLDivElement>(null),url=useContentUrl(),descriptionId=useId();
   const [ready,setReady]=useState(false),[message,setMessage]=useState(''),[retry,setRetry]=useState(0),[display,setDisplay]=useState(props.initialDetailed?'detailed':'simple'),[bannerStamps,setBannerStamps]=useState(false),[includeOffBanner,setIncludeOffBanner]=useState(true),[showLegend,setShowLegend]=useState(true);
   const detailed=display==='detailed';
   const resultRows=results?resultImageRows(banners,results,detailed,includeOffBanner):[];
@@ -34,15 +34,15 @@ export default function PullPollShareImage(props:ShareProps){
   const tags=stamped||detailed;
   const description=results?shownResults.map(r=>[bannerTitle(r.banner),r.answers,...r.split.map(v=>v.label+' '+v.value),...r.operators.map(op=>op.name+' want a copy '+op.value)].join(', ')).join('. '):answered.map(b=>`${bannerTitle(b)}: ${tags?STAMP_LABELS[stampKey(ballot[b.id],b,portraits,owned) as Stamp]:pullIntent(ballot[b.id])}${detailed?`; ${planned(b).map(op=>op.interest==='maybe'?`Maybe ${op.label}`:op.label).join(', ')}`:''}`).join('. ');
 
-  useEffect(()=>{
-    const element=canvas.current,body=element?.parentElement,dialog=element?.closest('dialog'),header=dialog?.querySelector('header');
+  useLayoutEffect(()=>{
+    const element=preview.current,body=element?.parentElement,dialog=element?.closest('dialog'),header=dialog?.querySelector('header');
     if(!element||!body||!dialog||!header)return;
     const fitPreview=()=>{
       const frame=getComputedStyle(dialog),box=getComputedStyle(body),pixels=(value:string)=>parseFloat(value)||0;
       const controls=[...body.children].filter(child=>child!==element&&getComputedStyle(child).position!=='absolute');
       const occupied=controls.reduce((total,child)=>{const style=getComputedStyle(child);return total+child.getBoundingClientRect().height+pixels(style.marginTop)+pixels(style.marginBottom);},0);
       const maximum=pixels(frame.maxHeight)||window.innerHeight-80,own=getComputedStyle(element);
-      element.style.maxHeight=`${Math.max(80,maximum-header.getBoundingClientRect().height-pixels(frame.borderTopWidth)-pixels(frame.borderBottomWidth)-pixels(box.paddingTop)-pixels(box.paddingBottom)-occupied-pixels(own.marginTop)-pixels(own.marginBottom)-10)}px`;
+      element.style.height=`${Math.max(80,maximum-header.getBoundingClientRect().height-pixels(frame.borderTopWidth)-pixels(frame.borderBottomWidth)-pixels(box.paddingTop)-pixels(box.paddingBottom)-occupied-pixels(own.marginTop)-pixels(own.marginBottom)-10)}px`;
     };
     const observer=new ResizeObserver(fitPreview);for(const child of [body,header,...body.children])if(child!==element)observer.observe(child);
     fitPreview();window.addEventListener('resize',fitPreview);
@@ -179,7 +179,9 @@ export default function PullPollShareImage(props:ShareProps){
       {!results&&<label className="check"><input type="checkbox" checked={showLegend} onChange={e=>setShowLegend(e.target.checked)}/>Show legend</label>}
     </div>}
     {!results&&<div ref={stampStyles} className="visually-hidden" aria-hidden="true">{(Object.keys(STAMP_LABELS) as Stamp[]).map(value=><VerdictStamp key={value} value={value}/>)}</div>}
-    <canvas data-legend={!results&&showLegend?'visible':'hidden'} data-display={results?display:stamped?'stamps':detailed?'detailed-stamps':display} ref={canvas} width="1200" height="400" aria-describedby={descriptionId} className={styles.imageCanvas} role="img" aria-label={results?'Community poll results image':`Your pull plan share image with ${answered.length} answered banners`}/>
+    <div className={styles.imagePreview} ref={preview} aria-busy={!ready}>
+      <canvas data-legend={!results&&showLegend?'visible':'hidden'} data-display={results?display:stamped?'stamps':detailed?'detailed-stamps':display} ref={canvas} width="1200" height="400" aria-describedby={descriptionId} className={styles.imageCanvas} role="img" aria-label={results?'Community poll results image':`Your pull plan share image with ${answered.length} answered banners`}/>
+    </div>
     <p id={descriptionId} className="visually-hidden">{description}</p>
     <div className={styles.imageActions}><span className="hint" role="status">{message}</span>
       <button className="primary btn-sm" disabled={!ready} onClick={()=>void save(false)}>Download PNG</button><button className="ghost btn-sm" disabled={!ready} onClick={()=>void save(true)}>Copy image</button><button className="ghost btn-sm" onClick={()=>setRetry(value=>value+1)}>Retry artwork</button></div>
