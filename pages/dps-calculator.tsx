@@ -717,8 +717,10 @@ export default function DpsCalculator({
                   {builds.flatMap((b, index) => {
                     const action = calculate(b, target);
                     if (!action.element) return [];
-                    const module = selectedModule(b);
-                    const eliteScale = module?.name === 'RIT-X' ? module.stages[b.stage - 1]?.trait.ep_damage_scale : undefined;
+                    const equipped = selectedModule(b);
+                    const eliteScale = equipped?.name === 'RIT-X'
+                      ? equipped.stages[b.stage - 1]?.trait.ep_damage_scale
+                      : undefined;
                     const amountLabel = action.empowered ? 'cycle average / action' : 'per action';
                     const sources: ('build' | 'summon')[] =
                       action.summon && !b.plotSummon ? ['build', 'summon'] : ['build'];
