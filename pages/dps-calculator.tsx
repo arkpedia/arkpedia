@@ -483,7 +483,7 @@ export default function DpsCalculator({
         path="/dps-calculator"
         description="Compare operator builds, damage curves and elemental burst breakpoints."
       />
-      <PageHeader title="DPS Calculator" eyebrow="Planner // Combat analysis" slim />
+      <PageHeader title="DPS Calculator" eyebrow="Tools // Combat analysis" slim />
       <main className={css.page}>
         <div className={css.workspace}>
           <div className={css.left}>

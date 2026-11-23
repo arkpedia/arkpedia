@@ -99,8 +99,8 @@ export const GROUPS: NavGroup[] = [
     at('/operators'), at('/skins'), at('/synergies'), at('/techniques'), at('/obtain-method'),
     at('/enemies'), at('/stages'), at('/story'), at('/manga'), at('/artists'), at('/voice-actors'),
   ] },
-  { id: 'guides', label: 'Guides', items: [at('/farming'), at('/base'), at('/recruitment'), at("/gacha-simulator"), at('/selector-tickets'), at("/game-modes")] },
-  { id: 'own', label: 'Planner', items: [at("/operator-planner"), at("/dps-calculator"), at("/pull-planner"), at('/skin-planner'), at("/reward-tracker")] },
+  { id: 'guides', label: 'Tools', items: [at('/dps-calculator'), at('/farming'), at('/base'), at('/recruitment'), at("/gacha-simulator"), at('/selector-tickets'), at("/game-modes")] },
+  { id: 'own', label: 'Planner', items: [at("/operator-planner"), at("/pull-planner"), at('/skin-planner'), at("/reward-tracker")] },
   { id: 'community', label: 'Community', dividersAfter: ['/community/support-units'], items: [at('/polls'),at('/community/statistics'),at('/community/support-units'),at('/community/projects'),at('/world')] },
   { id: 'extras', label: 'Extras', items: [at('/music'),at('/polls/tier-list'),at('/polls/chart-maker'),at('/games')] },
   /* The owner asked for the two views as a menu instead of tabs on the page (2026-10-29). */
