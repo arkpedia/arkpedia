@@ -2,10 +2,10 @@ import {useCallback,useEffect,useRef,useState} from 'react';
 import type {SavedSkinRating,SkinRatingResult} from './skin-ratings';
 import {usePollResults} from './usePollResults';
 
-const ratingUrl='/api/cloud-account/polls/favourite-skins?mode=ratings';
 const isSkinResults=(data:SkinRatingResult)=>data?.version===2&&Array.isArray(data.ranking)&&Number.isFinite(data.raters)&&Number.isFinite(data.ratings);
+const requestResults=(signal:AbortSignal)=>fetch('/api/cloud-account/polls/favourite-skins?mode=ratings&view=results',{credentials:'omit',cache:'no-store',signal});
 export function useSkinRatingResults(enabled=true){
-  return usePollResults(`${ratingUrl}&view=results`,isSkinResults,enabled);
+  return usePollResults(requestResults,isSkinResults,enabled);
 }
 
 interface RatingError {message:string;current?:SavedSkinRating;profile?:boolean}
@@ -16,7 +16,7 @@ export function useSkinRatings(owner:string|null){
   const load=useCallback(async(signal?:AbortSignal)=>{
     if(!owner||locks.current.size)return;
     const version=generation.current,sequence=++read.current;
-    const response=await fetch(`${ratingUrl}&view=mine&owner=${encodeURIComponent(owner)}`,{cache:'no-store',signal}),data=await response.json();
+    const response=await fetch(`/api/cloud-account/polls/favourite-skins?mode=ratings&view=mine&owner=${encodeURIComponent(owner)}`,{cache:'no-store',signal}),data=await response.json();
     if(!response.ok)throw Error(data.error??'Could not load ratings.');
     if(data.version!==2||!Array.isArray(data.mine))throw Error('Reload the page to use the new skin ratings.');
     if(!mounted.current||signal?.aborted||version!==generation.current||sequence!==read.current)return;
@@ -35,7 +35,7 @@ export function useSkinRatings(owner:string|null){
     if(!owner||!loaded||locks.current.has(skin))return;
     locks.current.add(skin);generation.current++;setPending(new Set(locks.current));setDraft(prev=>({...prev,[skin]:rating}));setFailures(prev=>{const next={...prev};delete next[skin];return next;});
     try{
-      const response=await fetch(ratingUrl,{method:rating===null?'DELETE':'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({owner,skin,rating,revision:savedRef.current.get(skin)?.revision??0})});
+      const response=await fetch('/api/cloud-account/polls/favourite-skins?mode=ratings',{method:rating===null?'DELETE':'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({owner,skin,rating,revision:savedRef.current.get(skin)?.revision??0})});
       const data=await response.json();if(!mounted.current)return;
       if(!response.ok){setFailures(prev=>({...prev,[skin]:{message:data.error??'Rating was not saved. Please retry.',profile:response.status===428,...(data.current?{current:data.current}:{})}}));return;}
       const next=new Map(savedRef.current);next.set(skin,data);savedRef.current=next;setSaved(next);setDraft(prev=>{const next={...prev};delete next[skin];return next;});

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 
 const REFRESH_MS = 30_000;
 
-export function usePollResults<T>(url: string, validate: (value: T) => boolean, enabled = true) {
+export function usePollResults<T>(request: (signal: AbortSignal) => Promise<Response>, validate: (value: T) => boolean, enabled = true) {
   const [result, setResult] = useState<T | null>(null);
   const [error, setError] = useState('');
   const [attempt, setAttempt] = useState(0);
@@ -18,7 +18,7 @@ export function usePollResults<T>(url: string, validate: (value: T) => boolean, 
       loading = true;
       lastRequest = performance.now();
       try {
-        const response = await fetch(url, { credentials: 'omit', cache: 'no-store', signal: controller.signal });
+        const response = await request(controller.signal);
         const data = await response.json();
         if (!response.ok || !validate(data)) throw Error(data?.error ?? 'Results are temporarily unavailable.');
         if (!controller.signal.aborted) {
@@ -41,6 +41,6 @@ export function usePollResults<T>(url: string, validate: (value: T) => boolean, 
       window.removeEventListener('focus', refresh);
       document.removeEventListener('visibilitychange', refresh);
     };
-  }, [attempt, enabled, url, validate]);
+  }, [attempt, enabled, request, validate]);
   return { result, error, retry };
 }
