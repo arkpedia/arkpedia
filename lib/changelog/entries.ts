@@ -35,7 +35,7 @@ export interface ChangelogEntry {
 export const CHANGELOG: ChangelogEntry[] = [
   {
     at: '2026-11-23T05:56:44Z',
-    added: [{ title: 'Share Pull or Skip results', detail: 'Download the community vote as a full sheet or a square card for each banner.', href: '/polls/pull-or-skip?view=results' }],
+    added: [{ title: 'Share Pull or Skip results', detail: 'Export a full sheet or a Single Banner card. Detailed results include operator portraits and vote percentages.', href: '/polls/pull-or-skip?view=results' }],
   },
   {
     at: '2026-11-23T00:45:00Z',

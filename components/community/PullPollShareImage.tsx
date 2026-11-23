@@ -60,7 +60,10 @@ export default function PullPollShareImage(props:ShareProps){
       await Promise.race([document.fonts.ready,new Promise(resolve=>window.setTimeout(resolve,1500))]);
       const shown=answered,images=new Map<string,HTMLImageElement>();
       const artPath=(b:PollBanner)=>{const art=applicationBannerArt(b);return art?assetUrl(art.repository,art.revision,encodeAssetPath(art.path)):b.image;};
-      const paths=[...new Set(shown.flatMap(b=>[artPath(b),...(detailed&&!results?planned(b).map(op=>portraits[op.name]?.icon):[])]).filter((p):p is string=>!!p))];
+      const paths=[...new Set(shown.flatMap((banner,i)=>{
+        const operators=results?shownResults[i].operators:detailed?planned(banner):[];
+        return [artPath(banner),...operators.map(op=>portraits[op.name]?.icon)];
+      }).filter((path):path is string=>!!path))];
       const artwork=Promise.all(paths.map(async path=>{try{images.set(path,await loadAssetImage(path.startsWith('https:')?path:url(path),{crossOrigin:'anonymous',signal:abort.signal}));}catch{}}));
       // Budget decoding independently of cancellation, which may not settle decode().
       // Keep already decoded pictures alive until their pixels reach the canvas.
@@ -89,6 +92,12 @@ export default function PullPollShareImage(props:ShareProps){
         const bounds=c.measureText(value);c.fillText(value,x+(bounds.actualBoundingBoxLeft-bounds.actualBoundingBoxRight)/2,y+(bounds.actualBoundingBoxAscent-bounds.actualBoundingBoxDescent)/2);c.restore();
       };
       const draw=(path:string|null|undefined,x:number,y:number,w:number,h:number,grey=false)=>{const image=path?images.get(path):undefined;if(!image)return false;const scale=Math.min(w/image.naturalWidth,h/image.naturalHeight);c.save();if(grey){c.filter='grayscale(1)';c.globalAlpha=.45;}c.drawImage(image,x+(w-image.naturalWidth*scale)/2,y+(h-image.naturalHeight*scale)/2,image.naturalWidth*scale,image.naturalHeight*scale);c.restore();return true;};
+      const drawPortrait=(name:string,x:number,y:number,size:number)=>{
+        c.fillStyle=well;c.fillRect(x,y,size,size);
+        if(!draw(portraits[name]?.icon,x,y,size,size)){
+          centeredLabel(name.slice(0,2),x+size/2,y+size/2,`700 ${Math.round(size*.45)}px Rajdhani`,dim);
+        }
+      };
       const drawStamp=(banner:PollBanner,y:number,rowHeight:number)=>{
         const key=stampKey(ballot[banner.id],banner,portraits,owned),element=stampStyles.current?.querySelector<HTMLElement>(`[data-stamp="${key}"]`);
         if(!key||!element)return;
@@ -104,7 +113,7 @@ export default function PullPollShareImage(props:ShareProps){
       };
       const danger=ink('--danger'),line=ink('--line');
       if(social){
-        drawSocialResult(c,social,bannerTitle(social.banner),images.get(artPath(social.banner)??''),`${index+1} / ${cards.length}`,{bg,text,dim,pull:teal,maybe:amber,skip:danger,panel});
+        drawSocialResult(c,social,bannerTitle(social.banner),images.get(artPath(social.banner)??''),`${index+1} / ${cards.length}`,{bg,text,dim,pull:teal,maybe:amber,skip:danger,panel},drawPortrait);
         abort.abort();setReady(true);setMessage('1080 × 1080 · '+bannerTitle(social.banner));return;
       }
       c.fillStyle=bg;c.fillRect(0,0,1200,height);
@@ -125,7 +134,7 @@ export default function PullPollShareImage(props:ShareProps){
         const v=pullIntent(ballot[b.id]),choice=v==='maybe'?'~':v==='skip'?'X':'PULL',accent=v==='maybe'?amber:v==='skip'?danger:teal;
         c.fillStyle=panel;c.fillRect(0,y,1200,rowHeight);c.strokeRect(1,y,1198,rowHeight);if(!stamped){c.beginPath();c.moveTo(artWidth,y);c.lineTo(artWidth,y+rowHeight);c.stroke();}
         if(!draw(artPath(b),4,y+4,artWidth-8,rowHeight-8,v==='skip'&&tags))label(bannerTitle(b),20,y+rowHeight/2,'700 25px Rajdhani',dim,artWidth-40);
-        if(resultRow){drawResultPanel(c,resultRow,bannerTitle(b),y,rowHeight,{text,dim,pull:teal,maybe:amber,skip:danger},label);return;}
+        if(resultRow){drawResultPanel(c,resultRow,bannerTitle(b),y,rowHeight,{text,dim,pull:teal,maybe:amber,skip:danger},label,drawPortrait);return;}
         if(stamped){drawStamp(b,y,rowHeight);return;}
         if(!detailed){verdict(choice,(artWidth+1200)/2,y+rowHeight/2,v==='pull'?80:v==='maybe'?Math.min(240,rowHeight*1.15):Math.min(180,rowHeight*.9),accent);return;}
         drawStamp(b,y,rowHeight);
@@ -158,7 +167,7 @@ export default function PullPollShareImage(props:ShareProps){
   return <ImportDialog title={results?'Community poll results':'My pull plan'} className={styles.imageDialog} onClose={onClose}>
     <SegmentedControl label="Share image display" value={display} onChange={setDisplay} options={[{value:'simple',label:'Simple'},{value:'detailed',label:'Detailed'}]}/>
     {results&&<div className={styles.imageOptions}>
-      <SegmentedControl label="Image layout" value={layout} onChange={setLayout} options={[{value:'sheet',label:'Full sheet'},{value:'square',label:'Social square'}]}/>
+      <SegmentedControl label="Image layout" value={layout} onChange={setLayout} options={[{value:'sheet',label:'Full sheet'},{value:'square',label:'Single Banner'}]}/>
       {social&&cards.length>1&&<>
         <button className="ghost btn-sm" aria-label="Previous card" disabled={index===0} onClick={()=>setCardIndex(index-1)}>Previous</button>
         <span className="hint" aria-live="polite">Card {index+1} of {cards.length}</span>
