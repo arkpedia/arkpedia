@@ -85,7 +85,7 @@ jobs:
       # one, so an outage of any single source never stops the day's run.
       - name: Load the last known upstream revisions
         if: github.event_name == 'schedule'
-        uses: actions/cache/restore@v6
+        uses: actions/cache/restore@v6.1.0
         with:
           path: .cache/refresh-fingerprint
           key: refresh-fingerprint-${{ github.run_id }}
@@ -98,7 +98,7 @@ jobs:
         run: node scripts/content/refresh-fingerprint.mjs
       - name: Remember the upstream revisions
         if: github.event_name == 'schedule' && steps.upstream.outcome == 'success'
-        uses: actions/cache/save@v6
+        uses: actions/cache/save@v6.1.0
         with:
           path: .cache/refresh-fingerprint
           key: refresh-fingerprint-${{ github.run_id }}
@@ -116,7 +116,7 @@ jobs:
       - name: Reuse a successfully prepared input set
         id: prepared
         if: github.event_name == 'schedule'
-        uses: actions/cache@v6
+        uses: actions/cache@v6.1.0
         with:
           path: .cache/prepared-inputs
           key: prepared-content-v1-${{ steps.upstream.outputs.fingerprint }}${{ steps.imports.outputs.head && format('-imports-{0}', steps.imports.outputs.head) || '' }}
@@ -268,7 +268,7 @@ jobs:
 
       - name: Restore the public YouTube discovery archive
         if: github.event_name != 'schedule' || steps.prepared.outputs.cache-hit != 'true'
-        uses: actions/cache/restore@v6
+        uses: actions/cache/restore@v6.1.0
         with:
           path: .cache/youtube-discovery/archive.json
           key: youtube-discovery-${{ github.run_id }}
@@ -279,14 +279,14 @@ jobs:
         run: node --import tsx scripts/sync/sync-youtube-discovery.ts
       - name: Keep the public YouTube discovery archive
         if: github.event_name != 'schedule' || steps.prepared.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v6
+        uses: actions/cache/save@v6.1.0
         with:
           path: .cache/youtube-discovery/archive.json
           key: youtube-discovery-${{ github.run_id }}
 
       - name: Restore cached YouTube categories
         if: github.event_name != 'schedule' || steps.prepared.outputs.cache-hit != 'true'
-        uses: actions/cache/restore@v6
+        uses: actions/cache/restore@v6.1.0
         with:
           path: .cache/youtube-discovery/topics.json
           key: youtube-topics-${{ github.run_id }}
@@ -303,7 +303,7 @@ jobs:
         run: node --import tsx scripts/sync/sync-youtube-topics.ts
       - name: Keep cached YouTube categories
         if: github.event_name != 'schedule' || steps.prepared.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v6
+        uses: actions/cache/save@v6.1.0
         with:
           path: .cache/youtube-discovery/topics.json
           key: youtube-topics-${{ github.run_id }}
