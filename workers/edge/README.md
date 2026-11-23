@@ -36,6 +36,12 @@ For a GET or HEAD of a page, or of a page's data (`/_next/data/<build>/….json`
 It never keeps a response that is not a 200, sets a cookie, or is marked `private`, `no-store` or
 `no-cache`. It also never keeps a page whose build it can't tell.
 
+**Filter URLs:** `/operators`, `/community/statistics`, and `/polls/favourite-skins`
+reuse the base page's HTML when every query parameter belongs to that page's client-side
+filter allowlist. Misses and background refreshes fetch the base page. The browser keeps
+the original address and reads the filters after hydration. Other query combinations and
+Next page-data requests retain their full cache addresses.
+
 **Straight through, never cached:** every other method; `/api/*` (the account routes among
 them); `/account`; `/_next/image`; `/_next/static/*`; `/cdn-cgi/*`; any file (a path ending in an
 extension); and requests with `Authorization`, `Range`, `Upgrade` or Next's preview-mode cookies.
