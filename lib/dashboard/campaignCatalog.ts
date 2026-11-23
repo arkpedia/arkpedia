@@ -1,3 +1,4 @@
+import { publicRotations } from '../sponsors/rotation';
 import { withSiteTables } from '@/lib/content/server';
 import { contentUrl } from '@/lib/content/urls';
 import type { ContentRelease } from '@/lib/content/types';
@@ -6,7 +7,7 @@ import { checkSponsorCampaigns, unifiedLootBarCampaigns, type SponsorCampaignTab
 import { dashboardDatabase, dashboardEnv } from './access';
 import { publishedCampaignEvents } from './publishedCampaignEvents';
 import { scheduledCampaigns } from '../sponsors/campaignSchedule';
-import { campaignEdits, mergeCampaigns } from './campaignStore';
+import { readCampaignSettings, mergeCampaigns } from './campaignStore';
 
 async function campaignCatalog(forEditor = false) {
   const props = await withSiteTables({}, false) as {
@@ -14,10 +15,10 @@ async function campaignCatalog(forEditor = false) {
   };
   const base = props.__contentTables['sponsor-campaigns'];
   const db = dashboardDatabase(dashboardEnv());
-  const edits = db ? await campaignEdits(db) : [];
+  const { edits, plans } = db ? await readCampaignSettings(db) : { edits: [], plans: {} };
   const merged = mergeCampaigns(base.campaigns, edits);
   const events = forEditor || merged.some(c => c.eventActivityId && c.status === 'active') ? await publishedCampaignEvents() : [];
-  return { base, edits, events, campaigns: scheduledCampaigns(merged, events), release: props.__contentRelease };
+  return { base, edits, events, plans, campaigns: scheduledCampaigns(merged, events), release: props.__contentRelease };
 }
 
 export async function editorCatalog() {
@@ -42,14 +43,22 @@ export async function editorCatalog() {
   return { base: editorBase, edits, events, groups, release: release ?? null };
 }
 
-async function buildReaderCampaigns() {
-  const { campaigns, release } = await campaignCatalog();
-  const includeDrafts = process.env.NODE_ENV !== 'production' || process.env.ARKPEDIA_PREVIEW === '1';
-  return { version: 1, now: Date.now(), campaigns: campaigns
-    .filter(c => c.status === 'active' || (includeDrafts && c.status === 'draft'))
+function publicTable({ campaigns, release, plans }: Awaited<ReturnType<typeof campaignCatalog>>, includeDrafts: boolean): SponsorCampaignTable {
+  const visible = campaigns.filter(c => c.status === 'active' || (includeDrafts && c.status === 'draft'));
+  return { version: 1, now: Date.now(), rotations: publicRotations(visible, plans), campaigns: visible
     .map(c => ({ ...c, image: contentUrl(c.image, release),
       ...(c.mainArtwork && { mainArtwork: { ...c.mainArtwork, image: contentUrl(c.mainArtwork.image, release) } }),
       ...(c.mobileArtwork && { mobileArtwork: { ...c.mobileArtwork, image: contentUrl(c.mobileArtwork.image, release) } }) })) };
+}
+
+export async function rotationCatalog() {
+  const catalog = await campaignCatalog();
+  return { table: publicTable(catalog, false), plans: catalog.plans };
+}
+
+async function buildReaderCampaigns() {
+  const includeDrafts = process.env.NODE_ENV !== 'production' || process.env.ARKPEDIA_PREVIEW === '1';
+  return publicTable(await campaignCatalog(), includeDrafts);
 }
 
 let cache: { until: number; value: ReturnType<typeof buildReaderCampaigns> } | undefined;

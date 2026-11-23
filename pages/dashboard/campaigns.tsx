@@ -3,6 +3,7 @@ import { useRouter } from 'next/router';
 import Tabs, { tabPanelProps } from '@/components/ui/Tabs';
 import { ContentContext } from '@/lib/content/context';
 import { ICONS } from '@/components/layout/NavIcons';
+import CampaignRotations from '@/components/dashboard/CampaignRotations';
 import OperatorGuides from '@/components/dashboard/OperatorGuides';
 import RecentCampaignChanges from '@/components/dashboard/RecentCampaignChanges';
 import PageMaintenance from '@/components/dashboard/PageMaintenance';
@@ -29,7 +30,8 @@ export const getServerSideProps: GetServerSideProps<DashboardProps> = async ({ r
 };
 
 const sections = [
-  { value: 'campaigns', label: 'Campaigns', icon: ICONS.grid },
+  { value: 'campaigns', label: 'Ad Campaigns', icon: ICONS.grid },
+  { value: 'rotation', label: 'Ad rotation', icon: ICONS.transfer },
   { value: 'guides', label: 'Operator guides', icon: ICONS.profile },
   { value: 'recent', label: 'Recent changes', icon: ICONS.history },
   { value: 'maintenance', label: 'Maintenance', icon: ICONS.base },
@@ -49,6 +51,9 @@ export default function CampaignDashboard({ catalog, historyId }: DashboardProps
     }} />
     <div {...tabPanelProps('dashboard', 'campaigns')} hidden={tab !== 'campaigns'}>
       {catalog ? <CampaignEditor key={historyId} initial={catalog} historyId={historyId} /> : <p role="alert">Campaign storage is unavailable.</p>}
+    </div>
+    <div {...tabPanelProps('dashboard', 'rotation')} hidden={tab !== 'rotation'}>
+      <CampaignRotations active={tab === 'rotation'} />
     </div>
     <div {...tabPanelProps('dashboard', 'guides')} hidden={tab !== 'guides'}>
       {(tab === 'guides' || openedGuides) && <ContentContext.Provider value={catalog?.release ?? null}><OperatorGuides /></ContentContext.Provider>}

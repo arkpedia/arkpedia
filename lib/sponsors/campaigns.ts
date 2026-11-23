@@ -1,3 +1,5 @@
+import { isRotationSlot, rotationTurns, type RotationTurn, type RotationSlot } from './rotation';
+
 /**
  * Sponsor campaigns: which sponsored artwork a page's slot shows, if any.
  *
@@ -48,6 +50,7 @@ export interface SponsorCampaign extends SponsorArtwork {
 export interface SponsorCampaignTable {
   version: 1;
   campaigns: SponsorCampaign[];
+  rotations?: Partial<Record<RotationSlot, RotationTurn[]>>;
   /** The server's time for the first render. Release exports carry no clock. */
   now?: number;
 }
@@ -132,12 +135,19 @@ const inWindow = (campaign: SponsorCampaign, nowMs: number) =>
 export function sponsorCampaignsFor(table: SponsorCampaignTable, slot: SponsorSlot, nowMs: number | null, drafts = false): SponsorCampaign[] {
   const mobile = slot === 'mobile-menu';
   const placement = mobile ? 'header' : slot;
-  return table.campaigns.filter(campaign => {
+  const eligible = table.campaigns.filter(campaign => {
     if (!campaign.placements.includes(placement) || (slot === 'home' && campaign.mainArtwork === null)) return false;
     if (campaign.status === 'draft') return drafts;
     if (campaign.status !== 'active' || !campaign.url || campaign.eventActivityId) return false;
     return nowMs === null || inWindow(campaign, nowMs);
-  }).map(campaign => {
+  });
+  const turns = isRotationSlot(slot) && table.rotations?.[slot];
+  let ordered = eligible;
+  if (turns && turns.length) {
+    const byId = new Map(eligible.map(c => [c.id, c]));
+    ordered = rotationTurns([...byId.keys()], turns).filter(turn => turn.enabled).map(turn => byId.get(turn.id)!);
+  }
+  return ordered.map(campaign => {
     const art = slot === 'home' ? campaign.mainArtwork : (mobile || slot === 'support') ? campaign.mobileArtwork : undefined;
     if (!art) return campaign;
     const { image, width, height, alt } = art;

@@ -16,3 +16,5 @@ export function shareOperatorInterests(banner:PollBanner,choices:Record<string,W
     const wanted=copies.find(op=>op.name===name);return wanted?[{...wanted,interest:'pull' as const}]:[];
   });
 }
+
+export const pollPercent=(count:number,total:number)=>total?Math.round(count/total*100):0;

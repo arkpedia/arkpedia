@@ -1,3 +1,4 @@
+import { publicRotations } from '../sponsors/rotation';
 import { contentPageClock, type PageClockField, type PageClockMoment } from './pageClock';
 import { defaultContentRevalidate } from './revalidation';
 import { REGIONAL_ROUTES, missingPageTables, pageTables } from './tables.mjs';
@@ -45,14 +46,17 @@ async function readerOverrides(table: SponsorCampaignTable): Promise<SponsorCamp
   const { dashboardEnv, dashboardDatabase } = await import('../dashboard/access');
   const db = dashboardDatabase(dashboardEnv());
   if (!db) return table;
-  const { mergeCampaigns, cachedCampaignEdits } = await import('../dashboard/campaignStore');
+  const { mergeCampaigns, cachedCampaignSettings } = await import('../dashboard/campaignStore');
   const includeDrafts = process.env.NODE_ENV !== 'production' || process.env.ARKPEDIA_PREVIEW === '1';
-  const campaigns = mergeCampaigns(table.campaigns, await cachedCampaignEdits(db))
+  const { edits, plans } = await cachedCampaignSettings(db);
+  let campaigns = mergeCampaigns(table.campaigns, edits)
     .filter(c => c.status === 'active' || (includeDrafts && c.status === 'draft'));
-  if (!campaigns.some(c => c.eventActivityId && c.status === 'active')) return { ...table, campaigns };
-  const { publishedCampaignEvents } = await import('../dashboard/publishedCampaignEvents');
-  const { scheduledCampaigns } = await import('../sponsors/campaignSchedule');
-  return { ...table, campaigns: scheduledCampaigns(campaigns, await publishedCampaignEvents()) };
+  if (campaigns.some(c => c.eventActivityId && c.status === 'active')) {
+    const { publishedCampaignEvents } = await import('../dashboard/publishedCampaignEvents');
+    const { scheduledCampaigns } = await import('../sponsors/campaignSchedule');
+    campaigns = scheduledCampaigns(campaigns, await publishedCampaignEvents());
+  }
+  return { ...table, campaigns, rotations: publicRotations(campaigns, plans) };
 }
 
 /** A release compiles confirmed event windows once and carries them without a clock.

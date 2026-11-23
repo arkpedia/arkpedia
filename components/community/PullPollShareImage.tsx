@@ -5,20 +5,34 @@ import {useContentUrl} from '@/lib/content/context';
 import {applicationBannerArt} from '@/lib/polls/pull-poll-art';
 import {assetUrl,encodeAssetPath} from '@/lib/assets/assetUrl';
 import {loadAssetImage} from '@/lib/assets/assetRetry';
-import {bannerChoice,pullIntent,stampKey,STAMP_LABELS,type Stamp,type Ballot,type PollBanner,type PollPortrait,type OwnedPotentials} from '@/lib/polls/pull-poll';
+import {bannerChoice,pullIntent,stampKey,STAMP_LABELS,type Stamp,type Ballot,type PollBanner,type PollPortrait,type OwnedPotentials,type PullPollResults} from '@/lib/polls/pull-poll';
 import {shareOperatorInterests} from '@/lib/polls/pull-poll-share';
 import {bannerTitle,VerdictStamp} from './PullPollVisuals';
+import {drawSocialResult,socialResultCards,drawResultPanel,resultImageRows,resultPanelHeight} from './pullPollResultImage';
 import styles from './PullPoll.module.css';
 
-/** Preview, download and clipboard share one complete bitmap, growing for longer plans. */
-export default function PullPollShareImage({banners:initialBanners,ballot:initialBallot,portraits:initialPortraits,owned:initialOwned={},onClose}:{banners:PollBanner[];ballot:Ballot;portraits:Record<string,PollPortrait>;owned?:OwnedPotentials;onClose:()=>void}){
-  const [{banners,ballot,portraits,owned}]=useState(()=>({banners:initialBanners,ballot:initialBallot,portraits:initialPortraits,owned:initialOwned}));
+type ShareProps={banners:PollBanner[];portraits:Record<string,PollPortrait>;onClose:()=>void} & (
+  {ballot:Ballot;owned?:OwnedPotentials;results?:never;initialDetailed?:never} |
+  {results:PullPollResults;initialDetailed:boolean;ballot?:never;owned?:never}
+);
+
+/** Preview, download and clipboard all use the same snapshot and full-resolution bitmap. */
+export default function PullPollShareImage(props:ShareProps){
+  const {onClose}=props;
+  const [{banners,ballot={},portraits,owned={},results}]=useState(props);
   const canvas=useRef<HTMLCanvasElement>(null),stampStyles=useRef<HTMLDivElement>(null),url=useContentUrl(),descriptionId=useId();
-  const [ready,setReady]=useState(false),[message,setMessage]=useState(''),[retry,setRetry]=useState(0),[display,setDisplay]=useState('simple'),[bannerStamps,setBannerStamps]=useState(false),[includeOffBanner,setIncludeOffBanner]=useState(true),[showLegend,setShowLegend]=useState(true);
-  const answered=banners.filter(b=>bannerChoice(ballot[b.id],b,owned)),detailed=display==='detailed',stamped=!detailed&&bannerStamps,artWidth=stamped?1200:600;
+  const [ready,setReady]=useState(false),[message,setMessage]=useState(''),[retry,setRetry]=useState(0),[display,setDisplay]=useState(props.initialDetailed?'detailed':'simple'),[bannerStamps,setBannerStamps]=useState(false),[includeOffBanner,setIncludeOffBanner]=useState(true),[showLegend,setShowLegend]=useState(true);
+  const detailed=display==='detailed';
+  const resultRows=results?resultImageRows(banners,results,detailed,includeOffBanner):[];
+  const [layout,setLayout]=useState('sheet'),[cardIndex,setCardIndex]=useState(0);
+  const cards=socialResultCards(resultRows),index=Math.min(cardIndex,Math.max(0,cards.length-1));
+  const social=results&&layout==='square'?cards[index]:undefined;
+  const shownResults=social?[social]:resultRows;
+  const answered=results?shownResults.map(r=>r.banner):banners.filter(b=>bannerChoice(ballot[b.id],b,owned));
+  const stamped=!results&&!detailed&&bannerStamps,artWidth=stamped?1200:600;
   const planned=(b:PollBanner)=>shareOperatorInterests(b,ballot[b.id],owned).filter(op=>!detailed||includeOffBanner||!b.returningOperators?.includes(op.name));
   const tags=stamped||detailed;
-  const description=answered.map(b=>`${bannerTitle(b)}: ${tags?STAMP_LABELS[stampKey(ballot[b.id],b,portraits,owned) as Stamp]:pullIntent(ballot[b.id])}${detailed?`; ${planned(b).map(op=>op.interest==='maybe'?`Maybe ${op.label}`:op.label).join(', ')}`:''}`).join('. ');
+  const description=results?shownResults.map(r=>[bannerTitle(r.banner),r.answers,...r.split.map(v=>v.label+' '+v.value),...r.operators.map(op=>op.name+' want a copy '+op.value)].join(', ')).join('. '):answered.map(b=>`${bannerTitle(b)}: ${tags?STAMP_LABELS[stampKey(ballot[b.id],b,portraits,owned) as Stamp]:pullIntent(ballot[b.id])}${detailed?`; ${planned(b).map(op=>op.interest==='maybe'?`Maybe ${op.label}`:op.label).join(', ')}`:''}`).join('. ');
 
   useEffect(()=>{
     const element=canvas.current,body=element?.parentElement,dialog=element?.closest('dialog'),header=dialog?.querySelector('header');
@@ -33,7 +47,7 @@ export default function PullPollShareImage({banners:initialBanners,ballot:initia
     const observer=new ResizeObserver(fitPreview);for(const child of [body,header,...body.children])if(child!==element)observer.observe(child);
     fitPreview();window.addEventListener('resize',fitPreview);
     return()=>{observer.disconnect();window.removeEventListener('resize',fitPreview);};
-  },[display]);
+  },[display,layout]);
 
   useEffect(()=>{
     const abort=new AbortController();let disposed=false;
@@ -41,26 +55,28 @@ export default function PullPollShareImage({banners:initialBanners,ballot:initia
       const timer=window.setTimeout(resolve,12000);
       abort.signal.addEventListener('abort',()=>{clearTimeout(timer);resolve();},{once:true});
     });
-    setReady(false);setMessage('Preparing your pull plan…');
+    setReady(false);setMessage(results?'Preparing poll results…':'Preparing your pull plan…');
     void (async()=>{
       await Promise.race([document.fonts.ready,new Promise(resolve=>window.setTimeout(resolve,1500))]);
       const shown=answered,images=new Map<string,HTMLImageElement>();
       const artPath=(b:PollBanner)=>{const art=applicationBannerArt(b);return art?assetUrl(art.repository,art.revision,encodeAssetPath(art.path)):b.image;};
-      const paths=[...new Set(shown.flatMap(b=>[artPath(b),...(detailed?planned(b).map(op=>portraits[op.name]?.icon):[])]).filter((p):p is string=>!!p))];
+      const paths=[...new Set(shown.flatMap(b=>[artPath(b),...(detailed&&!results?planned(b).map(op=>portraits[op.name]?.icon):[])]).filter((p):p is string=>!!p))];
       const artwork=Promise.all(paths.map(async path=>{try{images.set(path,await loadAssetImage(path.startsWith('https:')?path:url(path),{crossOrigin:'anonymous',signal:abort.signal}));}catch{}}));
       // Budget decoding independently of cancellation, which may not settle decode().
       // Keep already decoded pictures alive until their pixels reach the canvas.
       await Promise.race([artwork,deadline]);
       if(disposed||!canvas.current)return;
       const measure=canvas.current.getContext('2d');if(!measure)return;measure.font='700 30px Rajdhani';
-      const rows=shown.map(b=>{
+      const rows=shown.map((b,index)=>{
         const art=images.get(artPath(b)??''),artHeight=art?Math.ceil((artWidth-8)*art.naturalHeight/art.naturalWidth)+8:250;
-        const operators=detailed?planned(b):[];
+        const resultRow=shownResults[index];
+        const operators=detailed&&!results?planned(b):[];
         const slotHeight=operators.some(op=>measure.measureText(op.label).width>174)?194:166;
-        return {banner:b,operators,slotHeight,rowHeight:Math.max(artHeight,operators.length?24+Math.ceil(operators.length/3)*slotHeight:0)};
+        return {banner:b,resultRow,operators,slotHeight,rowHeight:Math.max(artHeight,resultRow?resultPanelHeight(resultRow):0,operators.length?24+Math.ceil(operators.length/3)*slotHeight:0)};
       });
       const headerHeight=150,footerHeight=52,height=headerHeight+rows.reduce((sum,row)=>sum+row.rowHeight,0)+footerHeight;
-      canvas.current.height=height;
+      canvas.current.width=social?1080:1200;
+      canvas.current.height=social?1080:height;
       const context=canvas.current.getContext('2d');if(!context)return;
       const c=context,theme=getComputedStyle(document.documentElement),ink=(token:string)=>theme.getPropertyValue(token).trim();
       const bg=ink('--bg'),panel=ink('--panel'),well=ink('--well'),text=ink('--text-bright'),dim=ink('--text-dim'),teal=ink('--teal'),amber=ink('--amber');
@@ -87,10 +103,16 @@ export default function PullPollShareImage({banners:initialBanners,ballot:initia
         centeredLabel(value,0,0,font,paint.color);c.restore();
       };
       const danger=ink('--danger'),line=ink('--line');
+      if(social){
+        drawSocialResult(c,social,bannerTitle(social.banner),images.get(artPath(social.banner)??''),`${index+1} / ${cards.length}`,{bg,text,dim,pull:teal,maybe:amber,skip:danger,panel});
+        abort.abort();setReady(true);setMessage('1080 × 1080 · '+bannerTitle(social.banner));return;
+      }
       c.fillStyle=bg;c.fillRect(0,0,1200,height);
-      label('ARKNIGHTS // PULL PLAN',24,72,'700 64px Rajdhani',text);
+      label(results?'PULL OR SKIP // RESULTS':'ARKNIGHTS // PULL PLAN',24,72,'700 64px Rajdhani',text);
       label('arkpedia.net/polls/pull-or-skip',24,122,'28px "JetBrains Mono"',teal);
-      if(showLegend){
+      if(results){
+        c.save();c.textAlign='right';label(results.ballots.toLocaleString('en-US')+(results.ballots===1?' submission':' submissions'),1176,122,'28px "JetBrains Mono"',dim);c.restore();
+      }else if(showLegend){
         for(const [index,item] of [{text:'Pull',color:teal},{text:'Maybe',color:amber},{text:'Skip',color:danger}].entries()){
           const x=800+index*128;c.fillStyle=item.color;c.fillRect(x,52,24,24);
           label(item.text,x+34,73,'700 26px Rajdhani',text);
@@ -98,11 +120,12 @@ export default function PullPollShareImage({banners:initialBanners,ballot:initia
       }
       c.lineWidth=2;c.strokeStyle=line;
       let rowTop=headerHeight;
-      rows.forEach(({banner:b,operators,slotHeight,rowHeight})=>{
+      rows.forEach(({banner:b,resultRow,operators,slotHeight,rowHeight})=>{
         const y=rowTop;rowTop+=rowHeight;
         const v=pullIntent(ballot[b.id]),choice=v==='maybe'?'~':v==='skip'?'X':'PULL',accent=v==='maybe'?amber:v==='skip'?danger:teal;
         c.fillStyle=panel;c.fillRect(0,y,1200,rowHeight);c.strokeRect(1,y,1198,rowHeight);if(!stamped){c.beginPath();c.moveTo(artWidth,y);c.lineTo(artWidth,y+rowHeight);c.stroke();}
         if(!draw(artPath(b),4,y+4,artWidth-8,rowHeight-8,v==='skip'&&tags))label(bannerTitle(b),20,y+rowHeight/2,'700 25px Rajdhani',dim,artWidth-40);
+        if(resultRow){drawResultPanel(c,resultRow,bannerTitle(b),y,rowHeight,{text,dim,pull:teal,maybe:amber,skip:danger},label);return;}
         if(stamped){drawStamp(b,y,rowHeight);return;}
         if(!detailed){verdict(choice,(artWidth+1200)/2,y+rowHeight/2,v==='pull'?80:v==='maybe'?Math.min(240,rowHeight*1.15):Math.min(180,rowHeight*.9),accent);return;}
         drawStamp(b,y,rowHeight);
@@ -121,25 +144,33 @@ export default function PullPollShareImage({banners:initialBanners,ballot:initia
       });
       label('ARKPEDIA',24,height-16,'700 30px Rajdhani',text);
       abort.abort();
-      setReady(true);setMessage(paths.some(p=>!images.has(p))?'Some artwork could not load. Your choices are still included.':`1200 × ${height} · All ${answered.length} answered banners in one image`);
+      setReady(true);setMessage(paths.some(p=>!images.has(p))?(results?'Some artwork could not load. All percentages are included.':'Some artwork could not load. Your choices are still included.'):`1200 × ${height} · All ${answered.length} answered banners in one image`);
     })().catch(()=>{abort.abort();if(!disposed)setMessage('Could not prepare your image. Please retry.');});
     return()=>{disposed=true;abort.abort();};
   // Rebuild for the selected image format or an explicit retry; the dialog owns this snapshot.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  },[retry,display,bannerStamps,includeOffBanner,showLegend]);
+  },[retry,display,bannerStamps,includeOffBanner,showLegend,layout,index]);
   const blob=()=>new Promise<Blob>((resolve,reject)=>canvas.current?.toBlob(value=>value?resolve(value):reject(Error('Image export is unavailable.')),'image/png'));
   async function save(copy:boolean){try{
     if(copy){if(!navigator.clipboard?.write||typeof ClipboardItem==='undefined')throw Error('Copy image is unavailable in this browser. Download the PNG instead.');await navigator.clipboard.write([new ClipboardItem({'image/png':blob()})]);setMessage('Image copied.');}
-    else{const image=await blob(),address=URL.createObjectURL(image),link=document.createElement('a');link.href=address;link.download='arkpedia-pull-plan.png';link.click();setTimeout(()=>URL.revokeObjectURL(address),1000);setMessage('PNG downloaded.');}
+    else{const image=await blob(),address=URL.createObjectURL(image),link=document.createElement('a');link.href=address;link.download=results?'arkpedia-pull-or-skip-results-'+display+(social?'-card-'+(index+1):'')+'.png':'arkpedia-pull-plan.png';link.click();setTimeout(()=>URL.revokeObjectURL(address),1000);setMessage('PNG downloaded.');}
   }catch(e){setMessage(e instanceof Error?e.message:'Image export failed. Please try again.');}}
-  return <ImportDialog title="My pull plan" className={styles.imageDialog} onClose={onClose}>
+  return <ImportDialog title={results?'Community poll results':'My pull plan'} className={styles.imageDialog} onClose={onClose}>
     <SegmentedControl label="Share image display" value={display} onChange={setDisplay} options={[{value:'simple',label:'Simple'},{value:'detailed',label:'Detailed'}]}/>
-    <div className={styles.imageOptions}>
-      {detailed?<label className="check"><input type="checkbox" checked={includeOffBanner} onChange={e=>setIncludeOffBanner(e.target.checked)}/>Include off-banner limited operators</label>:<label className="check"><input type="checkbox" checked={bannerStamps} onChange={e=>setBannerStamps(e.target.checked)}/>Banner art with stamps</label>}
-      <label className="check"><input type="checkbox" checked={showLegend} onChange={e=>setShowLegend(e.target.checked)}/>Show legend</label>
-    </div>
-    <div ref={stampStyles} className="visually-hidden" aria-hidden="true">{(Object.keys(STAMP_LABELS) as Stamp[]).map(value=><VerdictStamp key={value} value={value}/>)}</div>
-    <canvas data-legend={showLegend?'visible':'hidden'} data-display={stamped?'stamps':detailed?'detailed-stamps':display} ref={canvas} width="1200" height="400" aria-describedby={descriptionId} className={styles.imageCanvas} role="img" aria-label={`Your pull plan share image with ${answered.length} answered banners`}/>
+    {results&&<div className={styles.imageOptions}>
+      <SegmentedControl label="Image layout" value={layout} onChange={setLayout} options={[{value:'sheet',label:'Full sheet'},{value:'square',label:'Social square'}]}/>
+      {social&&cards.length>1&&<>
+        <button className="ghost btn-sm" aria-label="Previous card" disabled={index===0} onClick={()=>setCardIndex(index-1)}>Previous</button>
+        <span className="hint" aria-live="polite">Card {index+1} of {cards.length}</span>
+        <button className="ghost btn-sm" aria-label="Next card" disabled={index===cards.length-1} onClick={()=>setCardIndex(index+1)}>Next</button>
+      </>}
+    </div>}
+    {(!results||detailed)&&<div className={styles.imageOptions}>
+      {detailed?<label className="check"><input type="checkbox" checked={includeOffBanner} onChange={e=>setIncludeOffBanner(e.target.checked)}/>Include off-banner limited operators</label>:!results&&<label className="check"><input type="checkbox" checked={bannerStamps} onChange={e=>setBannerStamps(e.target.checked)}/>Banner art with stamps</label>}
+      {!results&&<label className="check"><input type="checkbox" checked={showLegend} onChange={e=>setShowLegend(e.target.checked)}/>Show legend</label>}
+    </div>}
+    {!results&&<div ref={stampStyles} className="visually-hidden" aria-hidden="true">{(Object.keys(STAMP_LABELS) as Stamp[]).map(value=><VerdictStamp key={value} value={value}/>)}</div>}
+    <canvas data-legend={!results&&showLegend?'visible':'hidden'} data-display={results?display:stamped?'stamps':detailed?'detailed-stamps':display} ref={canvas} width="1200" height="400" aria-describedby={descriptionId} className={styles.imageCanvas} role="img" aria-label={results?'Community poll results image':`Your pull plan share image with ${answered.length} answered banners`}/>
     <p id={descriptionId} className="visually-hidden">{description}</p>
     <div className={styles.imageActions}><span className="hint" role="status">{message}</span>
       <button className="primary btn-sm" disabled={!ready} onClick={()=>void save(false)}>Download PNG</button><button className="ghost btn-sm" disabled={!ready} onClick={()=>void save(true)}>Copy image</button><button className="ghost btn-sm" onClick={()=>setRetry(value=>value+1)}>Retry artwork</button></div>

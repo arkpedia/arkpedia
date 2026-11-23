@@ -34,6 +34,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    at: '2026-11-23T05:56:44Z',
+    added: [{ title: 'Share Pull or Skip results', detail: 'Download the community vote as a full sheet or a square card for each banner.', href: '/polls/pull-or-skip?view=results' }],
+  },
+  {
+    at: '2026-11-23T00:45:00Z',
+    fixed: [{ title: 'Official dates for limited-time events', detail: 'The schedule uses Global announcement times for events like Positional Football Championship.', href: '/schedule' }],
+  },
+  {
     at: '2026-11-22T12:03:25Z',
     fixed: [{ title: 'More accurate technique sources', detail: 'Find projectile protection, accuracy debuffs and elemental buildup under the skills, talents and modules that apply them.', href: '/techniques' }],
   },

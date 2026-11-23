@@ -4,6 +4,7 @@ import { ContentImg } from '@/components/content/ContentImage';
 import { loadAssetImage } from '@/lib/assets/assetRetry';
 import { ContentTablesContext, useContentUrl } from '@/lib/content/context';
 import { sitePath, sponsorCampaignsFor, type SponsorCampaign, type SponsorCampaignTable, type SponsorSlot } from '@/lib/sponsors/campaigns';
+import { defaultTurnSeconds, isRotationSlot } from '@/lib/sponsors/rotation';
 import { SPONSOR_STRINGS as S } from '@/lib/sponsors/strings';
 
 /* Draft campaigns show in `next dev` and on the Preview site (ARKPEDIA_PREVIEW, which
@@ -51,32 +52,34 @@ export function useSponsorCampaign(placement: SponsorSlot): SponsorCampaign | nu
   return useSponsorCampaigns(placement)[0] ?? null;
 }
 
-/** How long each campaign shows where a placement has more than one. */
-const TURN_MS = 8000;
-
 /**
  * Whose turn it is, where a placement has several campaigns: the first on the server and at
- * hydration, then the next every TURN_MS. It waits while the pointer or the keyboard focus is
+ * hydration, then each for its configured duration. It waits while the pointer or the keyboard focus is
  * on the slot and while the tab is hidden, and never turns for a reader who asked for reduced
  * motion. The next campaign's image is fetched ahead of its turn so the change is not a blank.
  */
-function useTurn(ref: React.RefObject<HTMLElement | null>, campaigns: SponsorCampaign[]): SponsorCampaign | null {
+function useTurn(ref: React.RefObject<HTMLElement | null>, campaigns: SponsorCampaign[], placement: SponsorSlot): SponsorCampaign | null {
   const [turn, setTurn] = useState(0);
   const contentUrl = useContentUrl();
+  const table = useContext(ContentTablesContext)['sponsor-campaigns'] as SponsorCampaignTable | undefined;
   const count = campaigns.length;
+  const current = campaigns[turn % count];
+  const seconds = (isRotationSlot(placement) && table?.rotations?.[placement]?.find(entry => entry.id === current?.id)?.seconds) || defaultTurnSeconds;
+  const nextImage = campaigns[(turn + 1) % count]?.image;
+  const nextUrl = nextImage && (nextImage.startsWith('https://') ? nextImage : contentUrl(nextImage));
   useEffect(() => {
     const slot = ref.current;
     if (count < 2 || !slot || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-    const next = campaigns[(turn + 1) % count];
+    if (!nextUrl) return;
     // Ahead of its turn; a failure here is not an error, the slot's own image shows its fallback.
-    void loadAssetImage(next.image.startsWith('https://') ? next.image : contentUrl(next.image)).catch(() => {});
+    void loadAssetImage(nextUrl).catch(() => {});
     const timer = window.setInterval(() => {
       if (document.hidden || slot.matches(':hover, :focus-within') || getComputedStyle(slot).display === 'none') return;
       setTurn(value => (value + 1) % count);
-    }, TURN_MS);
+    }, seconds * 1000);
     return () => window.clearInterval(timer);
-  }, [ref, campaigns, count, turn, contentUrl]);
-  return campaigns[turn % Math.max(count, 1)] ?? null;
+  }, [ref, count, current?.id, seconds, nextUrl, turn]);
+  return current ?? null;
 }
 
 /** One image and link. The page header reserves a fixed desktop slot. Other placements
@@ -89,7 +92,7 @@ export default function SponsoredSlot({ placement, className = '' }: { placement
   const [failed, setFailed] = useState<string | null>(null);
   const ref = useRef<HTMLElement>(null);
   const first = all[0] ?? null;
-  const shown = useTurn(ref, turning ? all : all.slice(0, 1));
+  const shown = useTurn(ref, turning ? all : all.slice(0, 1), placement);
   const campaign = shown ?? first;
   if (!campaign || !first) return null;
   // The box keeps the first campaign's shape through every turn, so a turn moves nothing.
