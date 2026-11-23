@@ -30,7 +30,7 @@ export const getServerSideProps: GetServerSideProps<DashboardProps> = async ({ r
 };
 
 const sections = [
-  { value: 'campaigns', label: 'Campaigns', icon: ICONS.grid },
+  { value: 'campaigns', label: 'Ad Campaigns', icon: ICONS.grid },
   { value: 'rotation', label: 'Ad rotation', icon: ICONS.transfer },
   { value: 'guides', label: 'Operator guides', icon: ICONS.profile },
   { value: 'recent', label: 'Recent changes', icon: ICONS.history },
