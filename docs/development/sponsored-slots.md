@@ -18,7 +18,7 @@ The home page, which has its own layout, uses its separate campaign panel.
 ## Taking turns, and Arkpedia's own banners
 
 Where the `header` placement has more than one usable campaign, they take turns in the same box
-every 8 seconds (`useTurn` in `components/ui/SponsoredSlot.tsx`), in the record's order. The
+in campaign order for eight seconds each by default. In **Admin → Ad rotation**, each placement shows its own live list and artwork. Choose **Edit rotation** to move a banner earlier or later, change its seconds per turn, or clear **Include** to pause it on that placement. **Save rotation** updates readers through the live campaign feed. A newly eligible campaign joins automatically, and a single eligible banner stays visible continuously. The
 server's HTML always shows the first. The turn waits while the pointer or keyboard focus is on
 the slot and while the tab is hidden, and never happens for a reader who asked for reduced
 motion. The desktop slot uses a fixed 4.5:1 frame. In the drawer the box keeps the first

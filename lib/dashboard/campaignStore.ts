@@ -1,3 +1,4 @@
+import { isRotationSlot, validTurns, type RotationPlans, type RotationSlot } from '../sponsors/rotation';
 import type { D1Database, D1PreparedStatement } from '@cloudflare/workers-types';
 import { checkSponsorCampaigns, type SponsorArtwork, type SponsorCampaign } from '@/lib/sponsors/campaigns';
 
@@ -163,14 +164,40 @@ export async function saveCampaign(db: D1Database, actor: string, body: {
   }
 }
 
-let readerEdits: { db: D1Database; until: number; edits: Promise<CampaignEdit[]> } | undefined;
-export function invalidateCampaignEdits() { readerEdits = undefined; }
-export function cachedCampaignEdits(db: D1Database) {
-  if (readerEdits?.db === db && readerEdits.until > Date.now()) return readerEdits.edits;
-  const edits = campaignEdits(db).catch(error => {
-    if (readerEdits?.edits === edits) readerEdits = undefined;
+export async function readRotationPlans(db: D1Database): Promise<RotationPlans> {
+  const { results } = await db.prepare('SELECT placement, revision, turns FROM sponsor_rotations')
+    .all<{ placement: RotationSlot; revision: number; turns: string }>();
+  return Object.fromEntries(results.map(row => [row.placement, { revision: row.revision, turns: JSON.parse(row.turns) }]));
+}
+
+export async function saveRotation(db: D1Database, actor: string, slot: unknown, revision: unknown, turns: unknown) {
+  if (!isRotationSlot(slot) || typeof revision !== 'number' || !Number.isSafeInteger(revision) || revision < 0 || !validTurns(turns)) {
+    throw new InvalidEdit('Choose a valid rotation and whole seconds from 1 to 3600 for each banner.');
+  }
+  const saved = turns.map(({ id, seconds, enabled }) => ({ id, seconds, enabled }));
+  const json = JSON.stringify(saved);
+  const statement = revision === 0
+    ? db.prepare('INSERT INTO sponsor_rotations (placement, revision, turns, editor, updated_at) VALUES (?, 1, ?, ?, ?) ON CONFLICT DO NOTHING')
+      .bind(slot, json, actor, new Date().toISOString())
+    : db.prepare('UPDATE sponsor_rotations SET turns = ?, editor = ?, updated_at = ?, revision = revision + 1 WHERE placement = ? AND revision = ?')
+      .bind(json, actor, new Date().toISOString(), slot, revision);
+  if ((await statement.run()).meta.changes !== 1) throw new EditConflict();
+  return { revision: revision + 1, turns: saved };
+}
+
+export async function readCampaignSettings(db: D1Database) {
+  const [edits, plans] = await Promise.all([campaignEdits(db), readRotationPlans(db)]);
+  return { edits, plans };
+}
+
+let readerSettings: { db: D1Database; until: number; value: ReturnType<typeof readCampaignSettings> } | undefined;
+export function invalidateCampaignEdits() { readerSettings = undefined; }
+export function cachedCampaignSettings(db: D1Database) {
+  if (readerSettings?.db === db && readerSettings.until > Date.now()) return readerSettings.value;
+  const value = readCampaignSettings(db).catch(error => {
+    if (readerSettings?.value === value) readerSettings = undefined;
     throw error;
   });
-  readerEdits = { db, edits, until: Date.now() + 15000 };
-  return edits;
+  readerSettings = { db, until: Date.now() + 15000, value };
+  return value;
 }
