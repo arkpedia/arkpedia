@@ -122,6 +122,7 @@ jobs:
         if: github.event_name != 'schedule' || steps.prepared.outputs.cache-hit != 'true'
         env:
           DATA_REF: ${{ inputs.data_ref || ((github.event_name == 'schedule' || inputs.refresh_upstream) && 'imports') || 'main' }}
+          DEFAULT_IMPORT: ${{ !inputs.data_ref && (github.event_name == 'schedule' || inputs.refresh_upstream) }}
           # The imports branch is rebuilt from main by each import, and editorial edits reach main
           # after it: always merged.
           MERGE_MAIN: ${{ (inputs.merge_main || inputs.data_ref == 'imports' || (!inputs.data_ref && (github.event_name == 'schedule' || inputs.refresh_upstream))) && 'true' || '' }}
@@ -129,8 +130,18 @@ jobs:
           set -euo pipefail
           [[ "$DATA_REF" =~ ^[A-Za-z0-9][A-Za-z0-9_./-]*$ ]]
           git clone --depth 1 https://github.com/arkpedia/arkpedia-data.git "$RUNNER_TEMP/arkpedia-data"
-          git -C "$RUNNER_TEMP/arkpedia-data" fetch --depth 1 origin "$DATA_REF"
-          git -C "$RUNNER_TEMP/arkpedia-data" checkout --detach FETCH_HEAD
+          if git -C "$RUNNER_TEMP/arkpedia-data" fetch --depth 1 origin "$DATA_REF"; then
+            git -C "$RUNNER_TEMP/arkpedia-data" checkout --detach FETCH_HEAD
+          else
+            # If the default import is unavailable, keep compiling the last published records.
+            # An explicit ref or a network failure still fails the release.
+            [[ "$DEFAULT_IMPORT" == true ]]
+            status=0
+            git -C "$RUNNER_TEMP/arkpedia-data" ls-remote --exit-code origin "refs/heads/$DATA_REF" >/dev/null || status=$?
+            [[ "$status" == 2 ]]
+            echo "::warning::The imports branch is missing. Using the latest published data from main."
+            git -C "$RUNNER_TEMP/arkpedia-data" checkout --detach origin/main
+          fi
           # A correction branch is published as a fast-forward of main, so it must
           # already contain main. Say so now, not after the compile; the publish
           # step checks again in case main moves in between.
