@@ -113,3 +113,6 @@
 
 .imageOptions { display:flex; flex-wrap:wrap; gap:8px 20px; }
 .submissionSuccess { --dialog-w:360px; }
+
+.imageOptions label:has(select) { min-width:0; max-width:100%; }
+.imageOptions select { max-width:100%; }

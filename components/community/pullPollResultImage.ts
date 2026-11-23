@@ -42,3 +42,51 @@ export function drawResultPanel(c:CanvasRenderingContext2D,row:ImageRow,title:st
     c.save();c.textAlign='right';label(value,x+width,baseline,'24px "JetBrains Mono"',value==='No answers'?colors.dim:colors.pull);c.restore();
   });
 }
+
+/** Keep type at feed size, splitting a long operator list across successive cards. */
+export function socialResultCards(rows:ImageRow[]){
+  return rows.flatMap(row=>Array.from({length:Math.max(1,Math.ceil(row.operators.length/4))},(_,index)=>({
+    ...row,operators:row.operators.slice(index*4,index*4+4),
+  })));
+}
+
+export function drawSocialResult(c:CanvasRenderingContext2D,row:ImageRow,title:string,art:HTMLImageElement|undefined,
+  position:string,colors:{bg:string;text:string;dim:string;pull:string;maybe:string;skip:string;panel:string}){
+  const side=1080,inset=50,usable=side-inset*2;
+  function text(value:string,x:number,y:number,size:number,color:string,mono=false,maxWidth=usable){
+    c.font=mono?`500 ${size}px "JetBrains Mono"`:`700 ${size}px Rajdhani`;
+    c.fillStyle=color;c.fillText(value,x,y,maxWidth);
+  }
+  c.fillStyle=colors.bg;c.fillRect(0,0,side,side);
+  text('PULL OR SKIP',inset,82,66,colors.text);
+  c.save();c.textAlign='right';text('COMMUNITY RESULTS',side-inset,76,31,colors.pull,true);c.restore();
+  const artTop=111,artHeight=row.operators.length?319:470;
+  c.fillStyle=colors.panel;c.fillRect(0,artTop,side,artHeight);
+  if(art){
+    const scale=Math.min(side/art.naturalWidth,artHeight/art.naturalHeight);
+    const w=art.naturalWidth*scale,h=art.naturalHeight*scale;
+    c.drawImage(art,(side-w)/2,artTop+(artHeight-h)/2,w,h);
+  }else{
+    text(title,inset,artTop+artHeight/2+20,62,colors.text);
+  }
+  const y=artTop+artHeight;
+  text(title,inset,y+73,64,colors.text);
+  text(row.answers,inset,y+119,36,colors.dim,true);
+  let barX=inset;
+  row.split.forEach(({choice,label,value,fraction},index)=>{
+    const x=inset+index*usable/3;
+    text(label,x,y+189,44,colors[choice]);
+    text(value,x,y+277,90,colors.text);
+    c.fillStyle=colors[choice];c.fillRect(barX,y+301,usable*fraction,18);barX+=usable*fraction;
+  });
+  if(row.operators.length){
+    text('Want a copy',inset,y+375,38,colors.dim);
+    row.operators.forEach(({name,value},i)=>{
+      const baseline=y+427+i*47;
+      text(name,inset,baseline,40,colors.text,false,usable-248);
+      c.save();c.textAlign='right';text(value,side-inset,baseline,34,colors.text,true);c.restore();
+    });
+  }
+  text('arkpedia.net/polls/pull-or-skip',inset,1043,30,colors.dim,true);
+  c.save();c.textAlign='right';text(position,side-inset,1043,30,colors.dim,true);c.restore();
+}

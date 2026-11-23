@@ -8,7 +8,7 @@ import {loadAssetImage} from '@/lib/assets/assetRetry';
 import {bannerChoice,pullIntent,stampKey,STAMP_LABELS,type Stamp,type Ballot,type PollBanner,type PollPortrait,type OwnedPotentials,type PullPollResults} from '@/lib/polls/pull-poll';
 import {shareOperatorInterests} from '@/lib/polls/pull-poll-share';
 import {bannerTitle,VerdictStamp} from './PullPollVisuals';
-import {drawResultPanel,resultImageRows,resultPanelHeight} from './pullPollResultImage';
+import {drawSocialResult,socialResultCards,drawResultPanel,resultImageRows,resultPanelHeight} from './pullPollResultImage';
 import styles from './PullPoll.module.css';
 
 type ShareProps={banners:PollBanner[];portraits:Record<string,PollPortrait>;onClose:()=>void} & (
@@ -24,11 +24,15 @@ export default function PullPollShareImage(props:ShareProps){
   const [ready,setReady]=useState(false),[message,setMessage]=useState(''),[retry,setRetry]=useState(0),[display,setDisplay]=useState(props.initialDetailed?'detailed':'simple'),[bannerStamps,setBannerStamps]=useState(false),[includeOffBanner,setIncludeOffBanner]=useState(true),[showLegend,setShowLegend]=useState(true);
   const detailed=display==='detailed';
   const resultRows=results?resultImageRows(banners,results,detailed,includeOffBanner):[];
-  const answered=results?resultRows.map(r=>r.banner):banners.filter(b=>bannerChoice(ballot[b.id],b,owned));
+  const [layout,setLayout]=useState('sheet'),[cardIndex,setCardIndex]=useState(0);
+  const cards=socialResultCards(resultRows),index=Math.min(cardIndex,Math.max(0,cards.length-1));
+  const social=results&&layout==='square'?cards[index]:undefined;
+  const shownResults=social?[social]:resultRows;
+  const answered=results?shownResults.map(r=>r.banner):banners.filter(b=>bannerChoice(ballot[b.id],b,owned));
   const stamped=!results&&!detailed&&bannerStamps,artWidth=stamped?1200:600;
   const planned=(b:PollBanner)=>shareOperatorInterests(b,ballot[b.id],owned).filter(op=>!detailed||includeOffBanner||!b.returningOperators?.includes(op.name));
   const tags=stamped||detailed;
-  const description=results?resultRows.map(r=>[bannerTitle(r.banner),r.answers,...r.split.map(v=>v.label+' '+v.value),...r.operators.map(op=>op.name+' want a copy '+op.value)].join(', ')).join('. '):answered.map(b=>`${bannerTitle(b)}: ${tags?STAMP_LABELS[stampKey(ballot[b.id],b,portraits,owned) as Stamp]:pullIntent(ballot[b.id])}${detailed?`; ${planned(b).map(op=>op.interest==='maybe'?`Maybe ${op.label}`:op.label).join(', ')}`:''}`).join('. ');
+  const description=results?shownResults.map(r=>[bannerTitle(r.banner),r.answers,...r.split.map(v=>v.label+' '+v.value),...r.operators.map(op=>op.name+' want a copy '+op.value)].join(', ')).join('. '):answered.map(b=>`${bannerTitle(b)}: ${tags?STAMP_LABELS[stampKey(ballot[b.id],b,portraits,owned) as Stamp]:pullIntent(ballot[b.id])}${detailed?`; ${planned(b).map(op=>op.interest==='maybe'?`Maybe ${op.label}`:op.label).join(', ')}`:''}`).join('. ');
 
   useEffect(()=>{
     const element=canvas.current,body=element?.parentElement,dialog=element?.closest('dialog'),header=dialog?.querySelector('header');
@@ -43,7 +47,7 @@ export default function PullPollShareImage(props:ShareProps){
     const observer=new ResizeObserver(fitPreview);for(const child of [body,header,...body.children])if(child!==element)observer.observe(child);
     fitPreview();window.addEventListener('resize',fitPreview);
     return()=>{observer.disconnect();window.removeEventListener('resize',fitPreview);};
-  },[display]);
+  },[display,layout]);
 
   useEffect(()=>{
     const abort=new AbortController();let disposed=false;
@@ -65,13 +69,14 @@ export default function PullPollShareImage(props:ShareProps){
       const measure=canvas.current.getContext('2d');if(!measure)return;measure.font='700 30px Rajdhani';
       const rows=shown.map((b,index)=>{
         const art=images.get(artPath(b)??''),artHeight=art?Math.ceil((artWidth-8)*art.naturalHeight/art.naturalWidth)+8:250;
-        const resultRow=resultRows[index];
+        const resultRow=shownResults[index];
         const operators=detailed&&!results?planned(b):[];
         const slotHeight=operators.some(op=>measure.measureText(op.label).width>174)?194:166;
         return {banner:b,resultRow,operators,slotHeight,rowHeight:Math.max(artHeight,resultRow?resultPanelHeight(resultRow):0,operators.length?24+Math.ceil(operators.length/3)*slotHeight:0)};
       });
       const headerHeight=150,footerHeight=52,height=headerHeight+rows.reduce((sum,row)=>sum+row.rowHeight,0)+footerHeight;
-      canvas.current.height=height;
+      canvas.current.width=social?1080:1200;
+      canvas.current.height=social?1080:height;
       const context=canvas.current.getContext('2d');if(!context)return;
       const c=context,theme=getComputedStyle(document.documentElement),ink=(token:string)=>theme.getPropertyValue(token).trim();
       const bg=ink('--bg'),panel=ink('--panel'),well=ink('--well'),text=ink('--text-bright'),dim=ink('--text-dim'),teal=ink('--teal'),amber=ink('--amber');
@@ -98,6 +103,10 @@ export default function PullPollShareImage(props:ShareProps){
         centeredLabel(value,0,0,font,paint.color);c.restore();
       };
       const danger=ink('--danger'),line=ink('--line');
+      if(social){
+        drawSocialResult(c,social,bannerTitle(social.banner),images.get(artPath(social.banner)??''),`${index+1} / ${cards.length}`,{bg,text,dim,pull:teal,maybe:amber,skip:danger,panel});
+        abort.abort();setReady(true);setMessage('1080 × 1080 · '+bannerTitle(social.banner));return;
+      }
       c.fillStyle=bg;c.fillRect(0,0,1200,height);
       label(results?'PULL OR SKIP // RESULTS':'ARKNIGHTS // PULL PLAN',24,72,'700 64px Rajdhani',text);
       label('arkpedia.net/polls/pull-or-skip',24,122,'28px "JetBrains Mono"',teal);
@@ -140,14 +149,18 @@ export default function PullPollShareImage(props:ShareProps){
     return()=>{disposed=true;abort.abort();};
   // Rebuild for the selected image format or an explicit retry; the dialog owns this snapshot.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  },[retry,display,bannerStamps,includeOffBanner,showLegend]);
+  },[retry,display,bannerStamps,includeOffBanner,showLegend,layout,index]);
   const blob=()=>new Promise<Blob>((resolve,reject)=>canvas.current?.toBlob(value=>value?resolve(value):reject(Error('Image export is unavailable.')),'image/png'));
   async function save(copy:boolean){try{
     if(copy){if(!navigator.clipboard?.write||typeof ClipboardItem==='undefined')throw Error('Copy image is unavailable in this browser. Download the PNG instead.');await navigator.clipboard.write([new ClipboardItem({'image/png':blob()})]);setMessage('Image copied.');}
-    else{const image=await blob(),address=URL.createObjectURL(image),link=document.createElement('a');link.href=address;link.download=results?'arkpedia-pull-or-skip-results-'+display+'.png':'arkpedia-pull-plan.png';link.click();setTimeout(()=>URL.revokeObjectURL(address),1000);setMessage('PNG downloaded.');}
+    else{const image=await blob(),address=URL.createObjectURL(image),link=document.createElement('a');link.href=address;link.download=results?'arkpedia-pull-or-skip-results-'+display+(social?'-card-'+(index+1):'')+'.png':'arkpedia-pull-plan.png';link.click();setTimeout(()=>URL.revokeObjectURL(address),1000);setMessage('PNG downloaded.');}
   }catch(e){setMessage(e instanceof Error?e.message:'Image export failed. Please try again.');}}
   return <ImportDialog title={results?'Community poll results':'My pull plan'} className={styles.imageDialog} onClose={onClose}>
     <SegmentedControl label="Share image display" value={display} onChange={setDisplay} options={[{value:'simple',label:'Simple'},{value:'detailed',label:'Detailed'}]}/>
+    {results&&<div className={styles.imageOptions}>
+      <SegmentedControl label="Image layout" value={layout} onChange={setLayout} options={[{value:'sheet',label:'Full sheet'},{value:'square',label:'Social square'}]}/>
+      {social&&cards.length>1&&<label>Card <select aria-label="Social card" value={index} onChange={e=>setCardIndex(Number(e.target.value))}>{cards.map((card,i)=><option key={i} value={i}>{i+1} / {cards.length} · {bannerTitle(card.banner)}</option>)}</select></label>}
+    </div>}
     {(!results||detailed)&&<div className={styles.imageOptions}>
       {detailed?<label className="check"><input type="checkbox" checked={includeOffBanner} onChange={e=>setIncludeOffBanner(e.target.checked)}/>Include off-banner limited operators</label>:!results&&<label className="check"><input type="checkbox" checked={bannerStamps} onChange={e=>setBannerStamps(e.target.checked)}/>Banner art with stamps</label>}
       {!results&&<label className="check"><input type="checkbox" checked={showLegend} onChange={e=>setShowLegend(e.target.checked)}/>Show legend</label>}

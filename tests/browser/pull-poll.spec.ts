@@ -289,6 +289,13 @@ for(const theme of ['dark','light'])test(`export community results with banner a
     expect(png.readUInt32BE(16)).toBe(1200);
     expect(png.readUInt32BE(20)).toBe(Number(await image.getAttribute('height')));
   }
+  await dialog.getByRole('button',{name:'Social square'}).click();
+  await expect(download).toBeEnabled({timeout:20000});
+  const [square]=await Promise.all([page.waitForEvent('download'),download.click()]);
+  const squarePath=info.outputPath('social-square.png');
+  await square.saveAs(squarePath);
+  const squarePng=await fs.readFile(squarePath);
+  expect([squarePng.readUInt32BE(16),squarePng.readUInt32BE(20)]).toEqual([1080,1080]);
   await dialog.getByRole('button',{name:'Close',exact:true}).click();
   await expect(exportButton).toBeFocused();
   expect(state.writes).toHaveLength(0);
