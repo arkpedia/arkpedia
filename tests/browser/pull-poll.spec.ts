@@ -253,6 +253,11 @@ for(const theme of ['dark','light'])test(`simple symbols and default detailed st
 for(const theme of ['dark','light'])test(`export community results with banner and operator percentages (${theme})`,async({page},info)=>{
   test.setTimeout(70000);
   const state=await setup(page,theme);
+  // An identifiable portrait colour lets the download test distinguish icons from the initials fallback.
+  await page.route(/-star-icons\//,route=>route.fulfill({
+    contentType:'image/svg+xml',headers:{'access-control-allow-origin':'*'},
+    body:'<svg xmlns="http://www.w3.org/2000/svg" width="52" height="52"><rect width="52" height="52" fill="#e1169f"/></svg>',
+  }));
   await page.goto('/polls/pull-or-skip',{waitUntil:'domcontentloaded'});
   const resultsTab=page.getByRole('tab',{name:'Results',exact:true});
   await resultsTab.click();
@@ -272,6 +277,13 @@ for(const theme of ['dark','light'])test(`export community results with banner a
   const dialog=page.getByRole('dialog',{name:'Community poll results'});
   const image=dialog.getByRole('img',{name:'Community poll results image'});
   await expect(image).toHaveAccessibleDescription(/8 answers, Pull 63%, Maybe 25%, Skip 13%/);
+  const portraitPixels=()=>image.evaluate(element=>{
+    const canvas=element as HTMLCanvasElement;
+    const pixels=canvas.getContext('2d')!.getImageData(0,0,canvas.width,canvas.height).data;
+    let count=0;
+    for(let i=0;i<pixels.length;i+=4)if(pixels[i]===225&&pixels[i+1]===22&&pixels[i+2]===159)count++;
+    return count;
+  });
   const download=dialog.getByRole('button',{name:'Download PNG'});
   for(const format of ['simple','detailed']){
     if(format==='detailed'){
@@ -279,6 +291,7 @@ for(const theme of ['dark','light'])test(`export community results with banner a
       await expect(image).toHaveAccessibleDescription(new RegExp(name+' want a copy 67%'));
     }
     await expect(download).toBeEnabled({timeout:20000});
+    if(format==='detailed')await expect.poll(portraitPixels,{timeout:20000}).toBeGreaterThan(1000);
     await expect(download).toBeInViewport();
     const [file]=await Promise.all([page.waitForEvent('download'),download.click()]);
     expect(file.suggestedFilename()).toBe('arkpedia-pull-or-skip-results-'+format+'.png');
@@ -289,8 +302,9 @@ for(const theme of ['dark','light'])test(`export community results with banner a
     expect(png.readUInt32BE(16)).toBe(1200);
     expect(png.readUInt32BE(20)).toBe(Number(await image.getAttribute('height')));
   }
-  await dialog.getByRole('button',{name:'Social square'}).click();
+  await dialog.getByRole('button',{name:'Single Banner'}).click();
   await expect(download).toBeEnabled({timeout:20000});
+  await expect.poll(portraitPixels,{timeout:20000}).toBeGreaterThan(2000);
   const [square]=await Promise.all([page.waitForEvent('download'),download.click()]);
   const squarePath=info.outputPath('social-square.png');
   await square.saveAs(squarePath);
