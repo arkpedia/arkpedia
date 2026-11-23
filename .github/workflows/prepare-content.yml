@@ -109,7 +109,10 @@ jobs:
       - name: Read the imported records
         id: imports
         if: github.event_name == 'schedule'
-        run: echo "head=$(git ls-remote https://github.com/arkpedia/arkpedia-data.git refs/heads/imports | cut -f1)" | tee -a "$GITHUB_OUTPUT"
+        run: |
+          set -euo pipefail
+          head=$(git ls-remote https://github.com/arkpedia/arkpedia-data.git refs/heads/imports | cut -f1)
+          echo "head=$head" | tee -a "$GITHUB_OUTPUT"
       - name: Reuse a successfully prepared input set
         id: prepared
         if: github.event_name == 'schedule'
@@ -123,6 +126,7 @@ jobs:
         env:
           DATA_REF: ${{ inputs.data_ref || ((github.event_name == 'schedule' || inputs.refresh_upstream) && 'imports') || 'main' }}
           DEFAULT_IMPORT: ${{ !inputs.data_ref && (github.event_name == 'schedule' || inputs.refresh_upstream) }}
+          IMPORT_HEAD: ${{ steps.imports.outputs.head }}
           # The imports branch is rebuilt from main by each import, and editorial edits reach main
           # after it: always merged.
           MERGE_MAIN: ${{ (inputs.merge_main || inputs.data_ref == 'imports' || (!inputs.data_ref && (github.event_name == 'schedule' || inputs.refresh_upstream))) && 'true' || '' }}
@@ -130,12 +134,13 @@ jobs:
           set -euo pipefail
           [[ "$DATA_REF" =~ ^[A-Za-z0-9][A-Za-z0-9_./-]*$ ]]
           git clone --depth 1 https://github.com/arkpedia/arkpedia-data.git "$RUNNER_TEMP/arkpedia-data"
-          if git -C "$RUNNER_TEMP/arkpedia-data" fetch --depth 1 origin "$DATA_REF"; then
+          # A scheduled run must compile the same import commit that names its cache entry.
+          if git -C "$RUNNER_TEMP/arkpedia-data" fetch --depth 1 origin "${IMPORT_HEAD:-$DATA_REF}"; then
             git -C "$RUNNER_TEMP/arkpedia-data" checkout --detach FETCH_HEAD
           else
             # If the default import is unavailable, keep compiling the last published records.
             # An explicit ref or a network failure still fails the release.
-            [[ "$DEFAULT_IMPORT" == true ]] || exit 1
+            [[ "$DEFAULT_IMPORT" == true && -z "$IMPORT_HEAD" ]] || exit 1
             status=0
             git -C "$RUNNER_TEMP/arkpedia-data" ls-remote --exit-code origin "refs/heads/$DATA_REF" >/dev/null || status=$?
             [[ "$status" == 2 ]] || exit 1
