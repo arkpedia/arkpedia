@@ -49,6 +49,7 @@ export const LINKS: NavLink[] = [
   { href: '/base', label: 'Base', icon: 'base' },
   { href: '/account', label: 'My account', icon: 'roster' },
   { href: "/reward-tracker", label: 'Reward Tracker', icon: 'prime' },
+  { href: '/dps-calculator', label: 'DPS Calculator', icon: 'calculator' },
   { href: "/operator-planner", label: 'Operator Planner', icon: 'planner' },
   { href: "/pull-planner", label: 'Pull Planner', icon: 'calculator' },
   { href: '/skin-planner', label: 'Skin Planner', icon: 'skins' },
@@ -99,7 +100,7 @@ export const GROUPS: NavGroup[] = [
     at('/enemies'), at('/stages'), at('/story'), at('/manga'), at('/artists'), at('/voice-actors'),
   ] },
   { id: 'guides', label: 'Guides', items: [at('/farming'), at('/base'), at('/recruitment'), at("/gacha-simulator"), at('/selector-tickets'), at("/game-modes")] },
-  { id: 'own', label: 'Planner', items: [at("/operator-planner"), at("/pull-planner"), at('/skin-planner'), at("/reward-tracker")] },
+  { id: 'own', label: 'Planner', items: [at("/operator-planner"), at("/dps-calculator"), at("/pull-planner"), at('/skin-planner'), at("/reward-tracker")] },
   { id: 'community', label: 'Community', dividersAfter: ['/community/support-units'], items: [at('/polls'),at('/community/statistics'),at('/community/support-units'),at('/community/projects'),at('/world')] },
   { id: 'extras', label: 'Extras', items: [at('/music'),at('/polls/tier-list'),at('/polls/chart-maker'),at('/games')] },
   /* The owner asked for the two views as a menu instead of tabs on the page (2026-10-29). */

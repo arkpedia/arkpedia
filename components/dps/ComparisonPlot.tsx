@@ -1,0 +1,170 @@
+import { useState } from 'react';
+import StyledSelect from '@/components/ui/StyledSelect';
+import { calculate, profile, type Build, type Target } from '@/lib/dps/calculator';
+import css from './Dps.module.css';
+
+export const colors = [
+  'var(--teal)',
+  'var(--amber)',
+  'var(--cat-blue)',
+  'var(--rarity-4)',
+  'var(--cat-orange)',
+  'var(--status-positive)',
+];
+export const color = (b: Build) => colors[(b.id - 1) % colors.length];
+export const fmt = (n: number | null) =>
+  n == null ? '—' : n.toLocaleString('en-US', { maximumFractionDigits: 2 });
+export function Pick({
+  label,
+  value,
+  options,
+  change,
+}: {
+  label: string;
+  value: string | number;
+  options: (string | number | { value: string; label: string })[];
+  change: (s: string) => void;
+}) {
+  return (
+    <div className={css.field}>
+      <span>{label}</span>
+      <StyledSelect
+        label={label}
+        value={String(value)}
+        onChange={change}
+        options={options.map((o) => (typeof o === 'object' ? o : { label: String(o), value: String(o) }))}
+      />
+    </div>
+  );
+}
+export default function ComparisonPlot({
+  builds,
+  target,
+  setTarget,
+}: {
+  builds: Build[];
+  target: Target;
+  setTarget: (t: Target) => void;
+}) {
+  const [axis, setAxis] = useState<'def' | 'res' | 'injuryRes' | 'elementalRes'>('res');
+  const [metric, setMetric] = useState<'dps' | 'damage' | 'injuryRate' | 'injury'>('dps');
+  const range = axis === 'def' ? 3000 : 100;
+  const labels = {
+    def: 'DEF',
+    res: 'RES',
+    injuryRes: 'Injury resistance',
+    elementalRes: 'Elemental resistance',
+  };
+  const metrics = {
+    dps: 'HP damage / s',
+    damage: 'HP damage / action',
+    injuryRate: 'Injury / s',
+    injury: 'Injury / action',
+  };
+  const points = Array.from({ length: 61 }, (_, i) => (i * range) / 60);
+  const series = builds
+    .map((b) => ({ b, ys: points.map((x) => calculate(b, { ...target, [axis]: x })[metric]) }))
+    .filter((s) => s.ys[0] != null);
+  const highest = Math.max(1, ...series.flatMap((s) => s.ys.map((y) => y ?? 0)));
+  const unit = 10 ** Math.floor(Math.log10(highest));
+  const max = (Math.ceil((highest / unit) * 2) * unit) / 2;
+  const X = (x: number) => 62 + (x / range) * 608,
+    Y = (y: number) => 218 - (y / max) * 180;
+  return (
+    <section className={css.panel}>
+      <div className={css.heading}>
+        <h2>Response curve</h2>
+        <div className={css.controls}>
+          <Pick
+            label="Measure"
+            value={metric}
+            options={Object.entries(metrics).map(([value, label]) => ({ value, label }))}
+            change={(v) => setMetric(v as typeof metric)}
+          />
+          <Pick
+            label="Vary"
+            value={axis}
+            options={Object.entries(labels).map(([value, label]) => ({ value, label }))}
+            change={(v) => setAxis(v as typeof axis)}
+          />
+        </div>
+      </div>
+      <svg
+        className={css.plot}
+        viewBox="0 0 700 261"
+        role="img"
+        aria-label={
+          metrics[metric] + ' versus ' + labels[axis] + '. Values at the selected target are listed below.'
+        }
+        onPointerDown={(e) => {
+          const q = e.currentTarget.createSVGPoint();
+          q.x = e.clientX;
+          q.y = e.clientY;
+          const matrix = e.currentTarget.getScreenCTM();
+          if (!matrix) return;
+          const pos = q.matrixTransform(matrix.inverse());
+          setTarget({
+            ...target,
+            [axis]: Math.max(0, Math.min(range, Math.round(((pos.x - 62) * range) / 608))),
+          });
+        }}
+      >
+        <text x="62" y="19">
+          {metrics[metric]}
+        </text>
+        {[0, 1, 2, 3, 4].map((i) => (
+          <g key={i}>
+            <line x1="62" x2="670" y1={Y((max * i) / 4)} y2={Y((max * i) / 4)} />
+            <text x="53" textAnchor="end" y={Y((max * i) / 4) + 4}>
+              {fmt((max * i) / 4)}
+            </text>
+          </g>
+        ))}
+        {[0, 1, 2, 3, 4].map((i) => (
+          <text key={i} x={X((i * range) / 4)} y="237" textAnchor="middle">
+            {fmt((i * range) / 4)}
+          </text>
+        ))}
+        <text x="366" y="256" textAnchor="middle">
+          {labels[axis]}
+        </text>
+        <line className={css.cursor} x1={X(target[axis])} x2={X(target[axis])} y1="34" y2="218" />
+        {series.map(({ b, ys }) => (
+          <g key={b.id}>
+            <polyline
+              fill="none"
+              stroke={color(b)}
+              strokeWidth="2.5"
+              strokeDasharray={b.id % 2 === 0 ? '7 3' : undefined}
+              points={ys.map((y, i) => X(points[i]) + ',' + Y(y ?? 0)).join(' ')}
+            />
+            <circle fill={color(b)} cx={X(target[axis])} cy={Y(calculate(b, target)[metric] ?? 0)} r="4" />
+          </g>
+        ))}
+      </svg>
+      <label className={css.probe}>
+        {labels[axis]}{' '}
+        <input
+          type="range"
+          aria-label={'Inspect ' + labels[axis]}
+          min={0}
+          max={range}
+          value={target[axis]}
+          onChange={(e) => setTarget({ ...target, [axis]: +e.target.value })}
+        />
+        <output>{target[axis]}</output>
+      </label>
+      {series.length < builds.length && (
+        <small>Choose a per-action measure to compare single activations.</small>
+      )}
+      <div className={css.legend}>
+        {builds.map((b) => (
+          <span key={b.id}>
+            <i style={{ background: color(b) }} />#{b.id} {profile(b).name}{' '}
+            <strong>{fmt(calculate(b, target)[metric])}</strong>
+          </span>
+        ))}
+      </div>
+    </section>
+  );
+}

@@ -1,0 +1,244 @@
+.page {
+  display: grid;
+  gap: 16px;
+  padding-block: 20px 44px;
+  min-width: 0;
+}
+.workspace {
+  display: grid;
+  grid-template-columns: minmax(285px, 0.85fr) minmax(0, 1.8fr);
+  align-items: start;
+  gap: 16px;
+}
+.left,
+.right {
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+}
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-frame);
+  padding: 16px;
+  min-width: 0;
+}
+.panel h2 {
+  margin: 0 0 12px;
+}
+.heading,
+.row,
+.actions,
+.add,
+.controls,
+.legend,
+.probe,
+.check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.heading {
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+.heading h2 {
+  margin: 0;
+}
+.row {
+  gap: 12px;
+}
+.row img {
+  border-radius: var(--radius);
+  background: var(--well);
+  object-fit: cover;
+}
+.page small,
+.field,
+.legend,
+.probe,
+.panel p {
+  color: var(--text-dim);
+}
+.page small {
+  display: block;
+  font-size: 0.78rem;
+  line-height: 1.55;
+}
+.page strong,
+.panel summary {
+  color: var(--text-bright);
+}
+.build {
+  padding: 12px;
+  background: var(--well);
+  border-left: 3px solid;
+  margin-block: 8px;
+}
+.actions {
+  margin-top: 8px;
+  flex-wrap: wrap;
+}
+.controls,
+.legend {
+  flex-wrap: wrap;
+}
+.field {
+  display: grid;
+  gap: 4px;
+  font: 500 0.76rem var(--font-body);
+  min-width: 0;
+}
+.field input {
+  background: var(--well);
+  color: var(--text);
+  border: 1px solid var(--control-border);
+  border-radius: var(--radius-control);
+  height: var(--control-h);
+  padding-inline: 8px;
+  width: 85px;
+  font: inherit;
+}
+.add {
+  align-items: end;
+  margin-top: 15px;
+}
+.add > .field {
+  flex: 1;
+}
+.fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+.editor {
+  margin-top: 14px;
+}
+.check {
+  margin-top: 8px;
+}
+.plot {
+  display: block;
+  width: 100%;
+  max-height: 295px;
+  background: var(--well);
+  border-radius: var(--radius);
+}
+.plot text {
+  fill: var(--text-dim);
+  font: 12px var(--font-mono);
+}
+.plot line {
+  stroke: var(--line);
+}
+.plot .cursor {
+  stroke: var(--text-faint);
+  stroke-dasharray: 3 5;
+}
+.probe {
+  margin: 10px 0;
+  font: 12px var(--font-mono);
+}
+.probe input {
+  flex: 1;
+  accent-color: var(--teal);
+}
+.probe output {
+  min-width: 4ch;
+}
+.legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font: 12px var(--font-mono);
+}
+.legend i {
+  width: 14px;
+  height: 3px;
+}
+.scroll {
+  overflow-x: auto;
+}
+.panel table {
+  width: 100%;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+  margin-block: 10px;
+}
+.panel td,
+.panel th {
+  padding: 9px 10px;
+  text-align: right;
+  border-bottom: 1px solid var(--line);
+  font-size: 0.86rem;
+  vertical-align: top;
+}
+.panel th:first-child,
+.panel td:first-child {
+  text-align: left;
+}
+.panel thead th {
+  color: var(--text-dim);
+  font-weight: 500;
+}
+.panel summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+.breakdown {
+  font-weight: 400;
+}
+.breakdown dl {
+  margin: 8px 0;
+}
+.breakdown dl div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+.breakdown dd {
+  margin: 0;
+}
+@media (max-width: 780px) {
+  .workspace {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .panel {
+    padding: 12px;
+  }
+  .heading {
+    align-items: start;
+  }
+  .panel th,
+  .panel td {
+    padding: 7px;
+  }
+  .page {
+    gap: 12px;
+  }
+}
+
+.composition {
+  margin-top: 14px;
+}
+.bar {
+  display: flex;
+  height: 9px;
+  margin: 6px 0;
+  background: var(--well);
+}
+
+@media (max-width: 780px) {
+  .left,
+  .right {
+    display: contents;
+  }
+  .left > section:nth-child(2) {
+    order: 2;
+  }
+  .right > section:nth-child(2) {
+    order: 3;
+  }
+}
