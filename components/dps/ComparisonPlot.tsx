@@ -1,18 +1,13 @@
-import { useId, useState } from 'react';
+import { useId, useRef, useState, type RefObject } from 'react';
 import StyledSelect from '@/components/ui/StyledSelect';
 import { calculate, profile, rankLabel, type Build, type Target } from '@/lib/dps/calculator';
 import { firstBurst } from '@/lib/dps/breakpoints';
+import { saveComparisonImage, type ImageView } from '@/lib/dps/comparisonImage';
 import css from './Dps.module.css';
 
-export const colors = [
-  'var(--teal)',
-  'var(--amber)',
-  'var(--cat-blue)',
-  'var(--rarity-4)',
-  'var(--cat-orange)',
-  'var(--status-positive)',
-];
-export const color = (b: Build) => colors[(b.id - 1) % colors.length];
+const colorTokens = ['--teal', '--amber', '--cat-blue', '--rarity-4', '--cat-orange', '--status-positive'];
+const colorToken = (b: Build) => colorTokens[(b.id - 1) % colorTokens.length];
+export const color = (b: Build) => 'var(' + colorToken(b) + ')';
 export const fmt = (n: number | null) =>
   n == null ? '—' : n.toLocaleString('en-US', { maximumFractionDigits: 2 });
 export function Pick({
@@ -42,10 +37,14 @@ export default function ComparisonPlot({
   builds,
   target,
   setTarget,
+  targetName,
+  timelineRef,
 }: {
   builds: Build[];
   target: Target;
   setTarget: (t: Target) => void;
+  targetName: string;
+  timelineRef: RefObject<HTMLTableElement | null>;
 }) {
   const [axis, setAxis] = useState<'def' | 'res' | 'injuryRes' | 'elementalRes'>('res');
   const [metric, setMetric] = useState<'dps' | 'damage' | 'injuryRate' | 'injury' | 'seconds' | 'repeat'>(
@@ -92,6 +91,34 @@ export default function ComparisonPlot({
       : fullMax;
   const X = (x: number) => 62 + (x / range) * 608,
     Y = (y: number) => 218 - (y / max) * 180;
+  const chart = useRef<SVGSVGElement>(null);
+  const [saving, setSaving] = useState<ImageView | null>(null);
+  const [exportError, setExportError] = useState('');
+  async function save(view: ImageView) {
+    if (!chart.current || saving || !builds.length) return;
+    setSaving(view);
+    setExportError('');
+    try {
+      await saveComparisonImage({
+        view,
+        svg: chart.current,
+        target,
+        targetName,
+        metric: metrics[metric],
+        probe: labels[axis] + ' ' + fmt(target[axis]),
+        timeline: timelineRef.current,
+        series: series.map(({ b, selected }) => ({
+          build: b,
+          colorToken: colorToken(b),
+          value: fmt(selected) + (timing && selected !== null ? ' s' : ''),
+        })),
+      });
+    } catch {
+      setExportError('Could not create the PNG. Please try again.');
+    } finally {
+      setSaving(null);
+    }
+  }
   return (
     <section className={css.panel}>
       <div className={css.heading}>
@@ -116,6 +143,7 @@ export default function ComparisonPlot({
         </div>
       </div>
       <svg
+        ref={chart}
         className={css.plot}
         viewBox="0 0 700 261"
         role="img"
@@ -211,8 +239,9 @@ export default function ComparisonPlot({
       </label>
       {timing && (
         <small>
-          Measured from first contact against an empty gauge. The second burst includes recovery and refill.
-          A dash in the legend means the burst falls outside the source’s active window or its trigger timing is unknown.
+          Measured from first contact against an empty gauge. The second burst includes recovery and refill. A
+          dash in the legend means the burst falls outside the source’s active window or its trigger timing is
+          unknown.
         </small>
       )}
       {!timing && series.some((s) => s.selected === null) && (
@@ -230,6 +259,21 @@ export default function ComparisonPlot({
           </span>
         ))}
       </div>
+      <div className={css.actions} aria-label="Export comparison" role="group">
+        {(['condensed', 'detailed'] as const).map((view) => (
+          <button
+            type="button"
+            key={view}
+            className="btn btn-sm"
+            disabled={!!saving || !builds.length}
+            onClick={() => void save(view)}
+          >
+            {view === 'condensed' ? 'Condensed PNG' : 'Detailed PNG'}
+          </button>
+        ))}
+      </div>
+      {saving && <small role="status">Preparing PNG…</small>}
+      {exportError && <small role="alert">{exportError}</small>}
     </section>
   );
 }

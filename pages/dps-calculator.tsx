@@ -1,5 +1,5 @@
 import { withContentPage } from '@/lib/content/server';
-import { Fragment, useMemo, useRef, useState } from 'react';
+import { Fragment, useMemo, useRef, useState, type RefObject } from 'react';
 import PageHeader from '@/components/ui/PageHeader';
 import PageMeta from '@/components/layout/PageMeta';
 import Image from '@/components/content/ContentImage';
@@ -310,10 +310,12 @@ function Deployment({
   builds,
   target,
   addExamples,
+  timelineRef,
 }: {
   builds: Build[];
   target: Target;
   addExamples: () => void;
+  timelineRef: RefObject<HTMLTableElement | null>;
 }) {
   const ss = builds.filter((b) => b.operator === 'svash2' && b.skill === 2);
   const allies = builds.filter((b) => b.operator !== 'svash2');
@@ -358,7 +360,22 @@ function Deployment({
               />
             )}
           </div>
-          <table>
+          <table
+            ref={timelineRef}
+            aria-label={
+              'Deployment · #' +
+              s.id +
+              ' ' +
+              profile(s).name +
+              ' S2 with #' +
+              a.id +
+              ' ' +
+              profile(a).name +
+              ' · ' +
+              Math.min(stacks, maxStacks) +
+              ' stored casts'
+            }
+          >
             <thead>
               <tr>
                 <th>Time</th>
@@ -433,6 +450,7 @@ export default function DpsCalculator({
   const [level, setLevel] = useState(0);
   const [builds, setBuilds] = useState<Build[]>(initial),
     [edit, setEdit] = useState<number | null>(null);
+  const timelineRef = useRef<HTMLTableElement>(null);
   const next = useRef(3),
     [target, setTarget] = useState<Target>(initialTarget);
   function selectEnemy(preset: EnemyPreset, row: EnemyLevel) {
@@ -611,7 +629,15 @@ export default function DpsCalculator({
             </section>
           </div>
           <div className={css.right}>
-            <ComparisonPlot builds={builds} target={target} setTarget={customize} />
+            <ComparisonPlot
+              timelineRef={timelineRef}
+              targetName={
+                enemy ? [enemy.name, enemy.code, 'Lv ' + level].filter(Boolean).join(' · ') : 'Custom target'
+              }
+              builds={builds}
+              target={target}
+              setTarget={customize}
+            />
             <section className={css.panel}>
               <h2 className="section-title">Build comparison</h2>
               <div className={css.scroll}>
@@ -753,6 +779,7 @@ export default function DpsCalculator({
         )}
         <DamageComposition builds={builds} target={target} />
         <Deployment
+          timelineRef={timelineRef}
           builds={builds}
           target={target}
           addExamples={() =>
