@@ -115,7 +115,8 @@ async function generateProfiles() {
     if (markers.test(JSON.stringify(texts)) && !supported[id] && !defensiveOnly.has(short))
       throw Error('Review new elemental operator or deployable before refreshing DPS profiles: ' + id);
   }
-  const operators = Object.entries(supported).map(([id, slots]) => {
+  // Older regional archives predate some of the reviewed kits. Build only kits present at this pin.
+  const operators = Object.entries(supported).filter(([id]) => characters[id]).map(([id, slots]) => {
     const c = characters[id];
     const short = id.split('_').at(-1);
     const moduleNumber = { ifrit: '003', thorns: '003', ebnhlz: '004', mlyss: '004' }[short] ?? '002';
