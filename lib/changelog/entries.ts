@@ -34,6 +34,10 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    at: '2026-11-23T14:14:48Z',
+    added: [{ title: 'Review your skin ratings by tier', detail: 'Compare and update saved scores in Rated with full-size or compact artwork.', href: '/polls/favourite-skins?rated=rated' }],
+  },
+  {
     at: '2026-11-23T05:56:44Z',
     added: [{ title: 'Share Pull or Skip results', detail: 'Export a full sheet or Single Banner card with portraits and vote percentages in Detailed view.', href: '/polls/pull-or-skip?view=results' }],
   },
