@@ -32,7 +32,7 @@ hydrated records win. This allows a checked correction to reach existing live da
 replacing a later content release.
 Prebuild, predev and pretest perform this step. `completeOperatorText` backfills old
 published operator page/API payloads server-side; newer exports carry
-`operatorTextVersion: 5` and remain authoritative. Only relevant definitions travel
+`operatorTextVersion: 6` and remain authoritative. Only relevant definitions travel
 to the browser, never the entire translation dictionary. Website presentation types
 live in `operatorTextTypes.ts`, separate from the shared game importer schema.
 
