@@ -36,8 +36,9 @@
 .mood { color:var(--amber); font-size:12px; margin-left:12px; }
 .saveStatus { font:10px var(--font-mono); text-transform:uppercase; color:var(--text-faint); }
 .results { margin-top:18px; }
-.resultsIntro { margin-bottom:20px; }
-.resultsIntro > span { margin-left:10px; }
+.resultsIntro { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:10px; margin-bottom:20px; }
+.resultsIntro p { margin:0; }
+.resultsIntro p > span { margin-left:10px; }
 .resultHighlights { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,240px),1fr)); gap:10px; margin-bottom:28px; }
 .resultHighlight { display:flex; align-items:center; gap:12px; padding:12px 14px; background:var(--panel); border:1px solid var(--line); }
 .resultHighlight > div { display:grid; gap:3px; }
