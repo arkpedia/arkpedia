@@ -135,10 +135,10 @@ jobs:
           else
             # If the default import is unavailable, keep compiling the last published records.
             # An explicit ref or a network failure still fails the release.
-            [[ "$DEFAULT_IMPORT" == true ]]
+            [[ "$DEFAULT_IMPORT" == true ]] || exit 1
             status=0
             git -C "$RUNNER_TEMP/arkpedia-data" ls-remote --exit-code origin "refs/heads/$DATA_REF" >/dev/null || status=$?
-            [[ "$status" == 2 ]]
+            [[ "$status" == 2 ]] || exit "$status"
             echo "::warning::The imports branch is missing. Using the latest published data from main."
             git -C "$RUNNER_TEMP/arkpedia-data" checkout --detach origin/main
           fi
