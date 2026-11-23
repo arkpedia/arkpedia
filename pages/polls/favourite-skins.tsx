@@ -17,7 +17,7 @@ import {useCloudSync} from '@/lib/cloud-account/SyncProvider';
 import {useQueryRecord} from '@/lib/hooks/useQueryState';
 import {withContentPage} from '@/lib/content/server';
 import type {PollSkin} from '@/lib/polls/skin-poll';
-import {useSkinRatings} from '@/lib/polls/useSkinRatings';
+import {useSkinRatingResults,useSkinRatings} from '@/lib/polls/useSkinRatings';
 import styles from '@/components/community/SkinRatings.module.css';
 
 interface Props {skins:PollSkin[]}
@@ -32,9 +32,10 @@ function SkinRatings({skins,owner,accountLoading}:Props&{owner:string|null;accou
   const tiers=useRef<HTMLDivElement>(null);
   const tierOpener=useRef<{id:string;button:HTMLButtonElement}|null>(null);
   const [filters,set]=useQueryRecord(defaults),[shown,setShown]=useState(30),[zooming,setZooming]=useState(false);
-  const {result,error,saved,draft,failures,pending,load,save,reloadSaved,ready}=useSkinRatings(owner),hold=useSwitchHold('skin-ratings');
+  const {error,saved,draft,failures,pending,load,save,reloadSaved,ready}=useSkinRatings(owner),hold=useSwitchHold('skin-ratings');
   const catalogue=useMemo(()=>new Map(skins.map(skin=>[skin.id,skin])),[skins]);
   const selected=catalogue.get(filters.skin),results=filters.view==='results';
+  const ranking=useSkinRatingResults(results);
   const tierList=!!owner&&filters.rated==='rated';
   const ratedOrder=filters.ratedOrder==='asc'?'asc':'desc';
   const compact=filters.tierSize==='compact';
@@ -130,7 +131,7 @@ function SkinRatings({skins,owner,accountLoading}:Props&{owner:string|null;accou
           <LoadOnScroll shown={Math.min(shown,filtered.length)} total={filtered.length} onMore={()=>setShown(n=>n+30)}/>
         </section>
         <section {...tabPanelProps('skin-poll','results')} hidden={!results} className={styles.results}>
-          {results&&<SkinRatingResults ownRatings={owner&&ready?saved:null} skins={skins} result={result} error={error} onRetry={()=>void load().catch(()=>{})} filters={filters} onChange={patch=>{hold.capture();set(patch);}}/>}
+          {results&&<SkinRatingResults ownRatings={owner&&ready?saved:null} skins={skins} result={ranking.result} error={ranking.error} onRetry={ranking.retry} filters={filters} onChange={patch=>{hold.capture();set(patch);}}/>}
         </section>
       </div>
       {selected&&<ImportDialog title={selected.name} className={styles.ratingDialog} dismissible={!zooming} onClose={closeSkin} actions={!zooming&&<button className="ghost btn-sm" onClick={closeSkin}>Back to skins</button>}>

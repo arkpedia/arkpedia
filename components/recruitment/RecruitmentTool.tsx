@@ -4,7 +4,7 @@ import Head from 'next/head';
 import Image from '@/components/content/ContentImage';
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
-import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
+import { memo, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import PipWindow, { isOperaBrowser, pipSupported, usePipWindow } from '@/components/ui/PipWindow';
 import ThemeToggle from '@/components/layout/ThemeToggle';
 import PageHeader from '@/components/ui/PageHeader';
@@ -101,9 +101,15 @@ export default function RecruitmentTool({ operators, guaranteedCombos4, guarante
      selectedTags, the results the deferred copy (328 ms per press in the field, 2026-10-27). */
   const shownTags = useDeferredValue(selectedTags);
   const combos = useMemo(() => computeTagCombos(shownTags, operators), [shownTags, operators]);
-  const visibleCombos = showAllPossibilities ? combos : combos.filter((combo) => !comboShouldBeHidden(combo.operators));
-  const multiTagCombos = sortByRarityPriority(visibleCombos.filter((combo) => combo.tags.length > 1));
-  const singleTagCombos = sortByRarityPriority(visibleCombos.filter((combo) => combo.tags.length === 1));
+  const {visibleCombos,multiTagCombos,singleTagCombos}=useMemo(()=>{
+    const visibleCombos=showAllPossibilities?combos:combos.filter(combo=>!comboShouldBeHidden(combo.operators));
+    return {
+      visibleCombos,
+      multiTagCombos:sortByRarityPriority(visibleCombos.filter(combo=>combo.tags.length>1)),
+      singleTagCombos:sortByRarityPriority(visibleCombos.filter(combo=>combo.tags.length===1)),
+    };
+  },[combos,showAllPossibilities]);
+  const openPreview=useCallback((operator:RecruitableOperator,inPip:boolean)=>setPreview({inPip,item:{name:operator.name,rarity:operator.rarity??6,icon:getOperatorIconPath(operator)}}),[]);
 
   const cheatSheetGroups = useMemo(() => {
     // Each target floor has its own minimal combinations; merge by tag set.
@@ -168,7 +174,6 @@ export default function RecruitmentTool({ operators, guaranteedCombos4, guarante
 
   function renderTool(isCompact: boolean, inPip = false) {
     const otherPage = `${isCompact ? '/recruitment' : '/recruitment/popout'}${recruitmentViewHash(view)}`;
-    const openPreview = (operator: RecruitableOperator) => setPreview({ inPip, item: { name: operator.name, rarity: operator.rarity ?? 6, icon: getOperatorIconPath(operator) } });
     return (
       <div className={`recruit-page${isCompact ? ' recruit-page-compact' : ''}`} style={{ '--recruit-text-size': `${view.textSize ?? 14}px` } as CSSProperties}>
         {isCompact ? (
@@ -295,8 +300,8 @@ export default function RecruitmentTool({ operators, guaranteedCombos4, guarante
                   </div>
                 ) : (
                   <>
-                    {multiTagCombos.length > 0 && <ComboGroup title="Combined tags" combos={multiTagCombos} hideTwoStars={!showAllPossibilities} onPreview={openPreview} tagLabel={tagLabel} />}
-                    {singleTagCombos.length > 0 && <ComboGroup title="Single tags" combos={singleTagCombos} hideTwoStars={!showAllPossibilities} onPreview={openPreview} tagLabel={tagLabel} />}
+                    {multiTagCombos.length > 0 && <ComboGroup title="Combined tags" combos={multiTagCombos} hideTwoStars={!showAllPossibilities} onPreview={openPreview} tagLabel={tagLabel} inPip={inPip} />}
+                    {singleTagCombos.length > 0 && <ComboGroup title="Single tags" combos={singleTagCombos} hideTwoStars={!showAllPossibilities} onPreview={openPreview} tagLabel={tagLabel} inPip={inPip} />}
                   </>
                 )}
               </section>
@@ -393,14 +398,14 @@ function TagRow({ label, options, selectedTags, onToggle, tagLabel }: { tagLabel
   );
 }
 
-function ComboGroup({ title, combos, hideTwoStars, onPreview, tagLabel }: { tagLabel: (tag: string) => string; title: string; combos: TagCombo[]; hideTwoStars: boolean; onPreview: (operator: RecruitableOperator) => void }) {
+const ComboGroup=memo(function ComboGroup({ title, combos, hideTwoStars, onPreview, tagLabel, inPip }: { tagLabel: (tag: string) => string; title: string; combos: TagCombo[]; hideTwoStars: boolean; onPreview: (operator: RecruitableOperator,inPip:boolean) => void; inPip:boolean }) {
   return (
     <div className="recruit-combo-block">
       <h3 className="recruit-combo-heading">{title}</h3>
-      {combos.map((combo) => <ComboRow key={combo.tags.join('|')} combo={combo} hideTwoStars={hideTwoStars} onPreview={onPreview} tagLabel={tagLabel} />)}
+      {combos.map((combo) => <ComboRow key={combo.tags.join('|')} combo={combo} hideTwoStars={hideTwoStars} onPreview={operator=>onPreview(operator,inPip)} tagLabel={tagLabel} />)}
     </div>
   );
-}
+});
 
 function ComboRow({ combo, hideTwoStars, onPreview, tagLabel }: { tagLabel: (tag: string) => string; combo: TagCombo; hideTwoStars: boolean; onPreview: (operator: RecruitableOperator) => void }) {
   const { colorClass } = getComboRarityInfo(combo.operators);

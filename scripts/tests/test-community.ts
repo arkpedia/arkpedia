@@ -20,7 +20,7 @@ const statsOnly:CommunityChoices={stats:true,shareTag:false,openRequests:false,a
 function snapshot(uid='100'):CommunitySnapshot{return {server:'en',uid,doctor:'Doctor#1234',importedAt:new Date(clock).toISOString(),slots:3,equipmentKnown:true,
   operators:[{operator:'Thorns',elite:2,level:60,m0:0,m1:0,m2:3,modules:{0:3}}],skins:[{skin:'char_293_thorns@test#1',equipped:true}],
   supports:[{operator:'Thorns',elite:2,level:60,skill:3,mastery:2,module:'uniequip_002_thorns',moduleLevel:3}]};}
-function harness(){
+function harness(now=()=>clock){
   const queries:string[]=[];
   const pollIds=new Set(skinsData.filter(s=>s.skinId&&s.model).map(s=>s.skinId!));
   const sqlite=new DatabaseSync(':memory:');sqlite.exec('PRAGMA foreign_keys=ON');
@@ -37,7 +37,7 @@ function harness(){
   function user(id:string){sqlite.prepare('INSERT INTO "user"(id,name,email,createdAt,updatedAt)VALUES(?,?,?,?,?)').run(id,'Private Provider Name',id+'@example.invalid','2026-01-01','2026-01-01');sqlite.prepare('INSERT INTO arkpedia_profile(userId,username,usernameKey,updatedAt)VALUES(?,?,?,?)').run(id,id,id,'2026-01-01');}
   async function call(kind:'sharing'|'stats'|'supports'|'availability'|'rankings'|'skin-poll'|'friends',owner:string|null,method='GET',body?:unknown,query:Record<string,string>={},headers:Record<string,string>={}){
     let status=200,result:any;const response={setHeader:()=>{},status:(n:number)=>{status=n;return response;},json:(v:unknown)=>{result=v;return response;},end:()=>{}};
-    await createCommunityHandler(kind,{resolveEnv:()=>env,authenticate:async()=>owner,now:()=>clock,pollSkinIds:async()=>pollIds})({method,headers:{origin:env.ARKPEDIA_AUTH_URL,'content-type':'application/json',...headers},query,body:body&&typeof body==='object'?{owner,...body}:body} as NextApiRequest,response as unknown as NextApiResponse);
+    await createCommunityHandler(kind,{resolveEnv:()=>env,authenticate:async()=>owner,now,pollSkinIds:async()=>pollIds})({method,headers:{origin:env.ARKPEDIA_AUTH_URL,'content-type':'application/json',...headers},query,body:body&&typeof body==='object'?{owner,...body}:body} as NextApiRequest,response as unknown as NextApiResponse);
     return {status,result};
   }
   const publish=(owner:string,uid:string,choices=all,changes:Partial<CommunitySnapshot>={})=>call('sharing',owner,'PUT',{action:'consent',revision:0,choices,snapshot:{...snapshot(uid),...changes}});
@@ -622,7 +622,8 @@ test('production aggregate snapshots are Preview-only, thresholded and expose a 
 });
 
 test('independent skin ratings persist per skin, resume privately, and retain revisions after clearing',async()=>{
-  const h=harness(),ids=[...h.pollIds].slice(0,3),q={mode:'ratings'};try{
+  let now=clock;
+  const h=harness(()=>now),ids=[...h.pollIds].slice(0,3),q={mode:'ratings'};try{
     h.user('rater');h.user('rater2');h.user('incomplete-rater');h.sqlite.prepare('DELETE FROM arkpedia_profile WHERE userId=?').run('incomplete-rater');
     assert.equal((await h.call('skin-poll','incomplete-rater','PUT',{skin:ids[0],rating:8,revision:0},q)).status,428);
     assert.equal((await h.call('skin-poll','rater','DELETE',{skin:'arbitrary-not-a-skin',revision:0},q)).status,400);
@@ -633,7 +634,14 @@ test('independent skin ratings persist per skin, resume privately, and retain re
     assert.equal((await h.call('skin-poll','rater','PUT',{skin:ids[0],rating:8,revision:0},q,{origin:'https://other.invalid'})).status,403);
     for(const skin of ids)assert.equal((await h.call('skin-poll','rater','PUT',{skin,rating:8,revision:0},q)).status,200);
     assert.equal((await h.call('skin-poll','rater2','PUT',{skin:ids[0],rating:10,revision:0},q)).status,200);
-    const publicData=(await h.call('skin-poll',null,'GET',undefined,q)).result;assert.equal(publicData.raters,2);assert.equal(publicData.ratings,4);assert.equal(publicData.mine,undefined);
+    const countScans=()=>h.queries.filter(sql=>sql.includes('count(DISTINCT userId)')).length;
+    const results={...q,view:'results'},personal={...q,view:'mine',owner:'rater'};
+    assert.equal((await h.call('skin-poll',null,'GET',undefined,{...q,view:'mine'})).status,401);
+    assert.equal((await h.call('skin-poll','rater','GET',undefined,personal)).result.mine.length,3);
+    assert.equal(countScans(),0,'the rating screen only reads personal rows');
+    const [first,second]=await Promise.all([h.call('skin-poll','rater','GET',undefined,results),h.call('skin-poll',null,'GET',undefined,results)]);
+    assert.equal(first.status,200);assert.deepEqual(second,first);assert.equal(countScans(),1,'concurrent public readers share the first scan');
+    const publicData=first.result;assert.equal(publicData.raters,2);assert.equal(publicData.ratings,4);assert.equal(publicData.mine,undefined);
     assert.equal(publicData.ranking.find((row:any)=>row.skin===ids[0]).total,18);assert.ok(!JSON.stringify(publicData).includes('\"rater\"'));
     assert.deepEqual(publicData.ranking.find((row:any)=>row.skin===ids[0]).histogram,[0,0,0,0,0,0,0,1,0,1]);
     assert.equal((await h.call('skin-poll',null)).result.ballots,1,'the earlier ranked ballot remains intact');
@@ -643,10 +651,15 @@ test('independent skin ratings persist per skin, resume privately, and retain re
     assert.equal((await h.call('skin-poll','rater','PUT',{skin:ids[0],rating:6,revision:1},q)).result.revision,2);
     assert.equal((await h.call('skin-poll','rater','DELETE',{skin:ids[0],revision:1},q)).status,409);
     assert.equal((await h.call('skin-poll','rater','DELETE',{skin:ids[0],revision:2},q)).result.revision,3);
+    assert.equal((await h.call('skin-poll','rater','GET',undefined,personal)).result.mine.find((row:any)=>row.skin===ids[0]).revision,3);
+    assert.equal((await h.call('skin-poll',null,'GET',undefined,results)).result.ratings,4);
+    assert.equal(countScans(),1,'saves leave the public projection valid until refresh');
+    now+=30_000;
     assert.deepEqual((await h.call('skin-poll',null,'GET',undefined,q)).result.ranking.find((row:any)=>row.skin===ids[0]).histogram,[0,0,0,0,0,0,0,0,0,1]);
+    assert.equal(countScans(),2);
     assert.equal((await h.call('skin-poll','rater','PUT',{skin:ids[0],rating:9,revision:0},q)).status,409);
     assert.equal((await h.call('skin-poll','rater','PUT',{skin:ids[0],rating:9,revision:3},q)).status,200);
-    h.sqlite.prepare('DELETE FROM "user" WHERE id=?').run('rater');assert.equal((await h.call('skin-poll',null,'GET',undefined,q)).result.ratings,1);
+    h.sqlite.prepare('DELETE FROM "user" WHERE id=?').run('rater');now+=30_000;assert.equal((await h.call('skin-poll',null,'GET',undefined,q)).result.ratings,1);
     assert.equal((await h.call('skin-poll',null)).result.ballots,0,'the new scale never invents ranked ballots');
   }finally{h.sqlite.close();}
 });

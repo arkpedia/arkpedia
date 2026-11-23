@@ -2,15 +2,17 @@ import {expect,test,type Locator,type Page} from '@playwright/test';
 import {readOnly} from './census-routes';
 async function setup(page:Page,theme:string){
   await readOnly(page);await page.addInitScript(theme=>localStorage.setItem('theme',theme),theme);
-  const state={owner:'rater' as string|null,ratings:new Map<string,Map<string,{skin:string;rating:number|null;revision:number}>>(),writes:[] as any[],fail:false,conflict:false,profile:false};
+  const state={owner:'rater' as string|null,ratings:new Map<string,Map<string,{skin:string;rating:number|null;revision:number}>>(),reads:[] as (string|null)[],writes:[] as any[],fail:false,conflict:false,profile:false};
   await page.route('**/api/cloud-account',route=>route.fulfill(state.owner?{json:{user:{id:state.owner,name:'Private name'},profile:{username:'Poll tester',friendTag:null,friendServer:null},linkedProviders:['google'],linkedAccounts:[{id:'g',providerId:'google'}],revision:0,syncReviewed:true,gameSync:false,personalSync:false,historySync:false,paused:false,data:{},providers:['google','discord']}}:{status:401,json:{providers:['google']}}));
   await page.route('**/api/community/sharing',route=>route.fulfill({json:{stats:false,shareTag:false,openRequests:false,revision:0}}));
   await page.route('**/api/cloud-account/polls/favourite-skins?**',async route=>{
     const req=route.request(),owner=state.owner,mine=state.ratings.get(owner??'')??new Map();if(owner)state.ratings.set(owner,mine);
     if(req.method()==='GET'){
+      const view=new URL(req.url()).searchParams.get('view');state.reads.push(view);
+      if(view==='mine')return route.fulfill(owner?{json:{version:2,mine:[...mine.values()]}}:{status:401,json:{error:'Sign in to see your saved ratings.'}});
       const ranking=new Map<string,{skin:string;total:number;ratings:number;histogram:number[]}>();let raters=0,ratings=0;
       for(const rows of state.ratings.values()){let has=false;for(const row of rows.values())if(row.rating!==null){has=true;ratings++;const prev=ranking.get(row.skin)??{skin:row.skin,total:0,ratings:0,histogram:Array(10).fill(0)};prev.total+=row.rating;prev.ratings++;prev.histogram[row.rating-1]++;ranking.set(row.skin,prev);}if(has)raters++;}
-      return route.fulfill({json:{version:2,raters,ratings,ranking:[...ranking.values()],...(owner?{mine:[...mine.values()]}:{})}});
+      return route.fulfill({json:{version:2,raters,ratings,ranking:[...ranking.values()],...(owner&&view!=='results'?{mine:[...mine.values()]}:{})}});
     }
     const body=req.postDataJSON();state.writes.push(body);
     if(state.profile)return route.fulfill({status:428,json:{error:'Choose your Arkpedia username before rating.'}});
@@ -175,6 +177,7 @@ for(const theme of ['dark','light'])test(`ratings autosave, resume, edit and cle
   await expect(dialog.locator('img')).toHaveCount(1);await dialog.locator('img').evaluateAll(async images=>{await Promise.all(images.map(image=>(image as HTMLImageElement).decode()));});expect(await dialog.locator('img').evaluate(image=>(image as HTMLImageElement).naturalWidth>0)).toBe(true);
   if(process.env.ARKPEDIA_QA_CAPTURE)await page.screenshot({path:`${process.env.ARKPEDIA_QA_CAPTURE}/skin-rating-${theme}-${info.project.name}.png`,animations:'disabled'});
   const ratedPositions=await positions();await clear().focus();await page.keyboard.press('Enter');await expect(dialog.getByText('Rating cleared.',{exact:true})).toBeVisible();await expect(clear()).toBeVisible();await expect(clear()).toBeDisabled();expect(await positions()).toEqual(ratedPositions);await page.keyboard.press('Escape');await expect(cards(page)).toHaveCount(5);
+  expect(new Set(state.reads)).toEqual(new Set(['mine']));
   await expect.poll(()=>new URL(page.url()).searchParams.get('skin')).toBeNull();state.owner='other';await page.reload();await expect(page.getByText(/0 \/ \d+ rated/)).toBeVisible();await expect(cards(page)).toHaveCount(0);
   await page.getByRole('group',{name:'Show skins',exact:true}).getByRole('button',{name:'All',exact:true}).click();await expect(cards(page).first()).toBeVisible();expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
 });
@@ -202,6 +205,7 @@ for(const theme of ['dark','light'])test(`public tier list, detailed statistics 
   const skins=await page.evaluate(()=>((window as any).__NEXT_DATA__.props.pageProps.skins as {id:string;name:string;operator:string}[]).slice(0,4));
   state.ratings.set('alice',new Map(skins.map((skin,i)=>[skin.id,{skin:skin.id,rating:[1,6,10,8][i],revision:1}])));state.ratings.set('bob',new Map(skins.slice(0,2).map((skin,i)=>[skin.id,{skin:skin.id,rating:[10,6][i],revision:1}])));
   await page.goto('/polls/favourite-skins?view=results&display=tierlist&weighted=off');await expect(page.getByRole('region',{name:'Average 5.5 out of 10',exact:true})).toBeVisible();
+  expect(state.reads).toEqual(['results']);
   await expect(page.getByRole('button',{name:'Tier list',exact:true})).toHaveAttribute('aria-pressed','true');
   const header=(score:string)=>page.getByRole('region',{name:`Average ${score} out of 10`,exact:true}).getByText(score,{exact:true});
   await expectStickyTierHandoff(header('10.0'),header('8.0'));

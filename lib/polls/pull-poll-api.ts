@@ -4,11 +4,12 @@ import { allowAccountRequest, accountLimited } from '@/lib/cloud-account/limits'
 import { parseBallot, activePollBanners, PULL_POLL_ID, type PollBanner } from './pull-poll';
 import { pullPollResults } from './pull-poll-results';
 import { pullPollCatalogue } from './pull-poll-catalogue';
+import { pollResultSnapshot } from './resultSnapshot';
 
 const COOKIE = '__Host-arkpedia-pull-poll';
 export async function pullPoll(req: NextApiRequest, res: NextApiResponse, db: D1Database, owner: string | null,
   catalogue: () => Promise<{ banners: PollBanner[] }> = pullPollCatalogue) {
-  if(req.method==='GET' && req.query?.view==='results')return res.json(await pullPollResults(db));
+  if(req.method==='GET' && req.query?.view==='results')return res.json(await pollResultSnapshot(db, PULL_POLL_ID, () => pullPollResults(db)));
   let anonymous = req.cookies[COOKIE];
   if (!anonymous || !/^[a-f0-9-]{36}$/.test(anonymous)) {
     if (req.method !== 'GET') return res.status(409).json({ error: 'Reload the poll to start an anonymous entry.' });

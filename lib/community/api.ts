@@ -83,10 +83,14 @@ export function createCommunityHandler(kind:'sharing'|'stats'|'supports'|'availa
       if(kind==='stats')return await stats(req,res,db);
       if(kind==='supports')return await supports(req,res,db,time);
       if(kind==='friends'&&req.method==='GET'&&req.query.mine!=='1')return await friendProfiles(req,res,db,null,time);
+      if(req.method==='GET'&&req.query.view==='results'){
+        if(kind==='pull-poll')return await pullPoll(req,res,db,null);
+        if(kind==='skin-poll'&&req.query.mode==='ratings')return await skinRatings(req,res,db,null,pollSkinIds,now);
+      }
       const owner=await authenticate(req,env);
       if(kind==='friends')return await friendProfiles(req,res,db,owner,time);
       if(kind==='pull-poll')return await pullPoll(req,res,db,owner);
-      if(kind==='skin-poll')return await (req.query.mode==='ratings'?skinRatings:skinPoll)(req,res,db,owner,pollSkinIds);
+      if(kind==='skin-poll')return req.query.mode==='ratings'?await skinRatings(req,res,db,owner,pollSkinIds,now):await skinPoll(req,res,db,owner,pollSkinIds);
       if(!owner)return res.status(401).json({error:kind==='availability'?'Sign in to report availability.':'Sign in to choose community sharing.'});
       if(kind==='availability')return await availability(req,res,db,owner,time);
       const row=await readRow(db,owner,time);
