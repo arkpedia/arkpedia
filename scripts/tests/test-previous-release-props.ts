@@ -589,7 +589,7 @@ for (const route of Object.keys(PREVIOUS.pages)) {
 }
 
 for (const template of UNPUBLISHED) {
-  if (template === '/artists' || template === '/voice-actors' || template === '/dps-calculator') {
+  if (template === '/artists' || template === '/voice-actors') {
     test(`${template} retains its populated build snapshot until a release publishes it`, async () => {
       const page = await pageModule(template);
       await withRelease(Object.keys(PREVIOUS.pages), async () => {

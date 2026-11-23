@@ -835,12 +835,14 @@ export default function DpsCalculator({
 
 export const getStaticProps = withContentPage('/dps-calculator', async () => {
   const { default: archive } = await import('@/config/dps-profiles.json');
-  const { enemyTargets } = await import('@/lib/dps/enemyTargets');
+  const enemies = process.env.ARKPEDIA_EXPORT_CONTENT === '1'
+    ? (await import('@/lib/dps/enemyTargets')).enemyTargets()
+    : (await import('@/data/dps-enemy-presets.json')).default as EnemyPreset[];
   return {
     props: {
-      enemies: enemyTargets(),
+      enemies,
       profiles: archive.operators as unknown as Profile[],
       dataSource: archive.source,
     },
   };
-});
+}, { bundledWhenUnpublished: true });
