@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 
 test('downloads the zoomed comparison as condensed and detailed PNGs', async ({ page }, info) => {
@@ -21,12 +22,20 @@ test('downloads the zoomed comparison as condensed and detailed PNGs', async ({ 
   await page.getByRole('combobox', { name: 'Measure', exact: true }).click();
   await page.getByRole('option', { name: 'Time to first burst (s)', exact: true }).click();
   await page.getByRole('combobox', { name: 'Vertical zoom', exact: true }).click();
-  await page.getByRole('option', { name: 'First 30 s', exact: true }).click();
+  await page.getByRole('option', { name: '30 s window', exact: true }).click();
   let height = 0;
   for (const view of ['Condensed', 'Detailed']) {
+    await page.getByRole('button', { name: view + ' PNG', exact: true }).click();
+    const dialog = page.getByRole('dialog', { name: view + ' PNG preview' });
+    const picture = dialog.getByRole('img');
+    await expect(picture).toBeVisible();
+    const previewHex = await picture.evaluate(async el => {
+      const bytes = await (await fetch((el as HTMLImageElement).src)).arrayBuffer();
+      return Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', bytes))).join(',');
+    });
     const [file] = await Promise.all([
       page.waitForEvent('download'),
-      page.getByRole('button', { name: view + ' PNG', exact: true }).click(),
+      dialog.getByRole('button', { name: 'Save image' }).click(),
     ]);
     expect(file.suggestedFilename()).toBe('arkpedia-dps-' + view.toLowerCase() + '.png');
     const path = info.outputPath(file.suggestedFilename());
@@ -35,6 +44,8 @@ test('downloads the zoomed comparison as condensed and detailed PNGs', async ({ 
     expect(png.subarray(0, 8)).toEqual(Buffer.from('89504e470d0a1a0a', 'hex'));
     expect(png.readUInt32BE(16)).toBe(1080);
     expect(png.readUInt32BE(20)).toBeGreaterThan(height);
+    expect(Array.from(createHash('sha256').update(png).digest()).join(',')).toBe(previewHex);
+    await dialog.getByRole('button', { name: 'Close' }).click();
     height = png.readUInt32BE(20);
   }
   await page.getByRole('button', { name: 'Remove', exact: true }).click();
@@ -80,15 +91,41 @@ test('inspecting a curve preserves the enemy and alternative charts export', asy
   await page.getByRole('slider', { name: 'Inspect RES' }).press('End');
   await expect(res).toHaveValue(initial);
   await expect(page.getByRole('button', { name: 'Customize', exact: true })).toBeVisible();
-  await page.getByRole('button', { name: 'Reset probe to target' }).click();
-  await expect(page.getByRole('slider')).toHaveValue(initial);
+  await expect(page.getByRole('button', { name: 'Reset probe to target' })).toHaveCount(0);
   for (const name of ['At target', 'Burst timeline']) {
     await page.getByRole('button', { name, exact: true }).click();
+    await page.getByRole('button', { name: 'Condensed PNG' }).click();
     const [file] = await Promise.all([
       page.waitForEvent('download'),
-      page.getByRole('button', { name: 'Condensed PNG' }).click(),
+      page.getByRole('button', { name: 'Save image' }).click(),
     ]);
     expect(await file.failure()).toBeNull();
+    await page.getByRole('dialog').press('Escape');
   }
   await expect(page.getByRole('img', { name: /First and second elemental bursts/ })).toBeVisible();
+});
+
+test('Chen is searchable without punctuation and zoom follows Virtuosa’s burst timing', async ({ page }) => {
+  await page.goto('/dps-calculator');
+  const search = page.getByRole('combobox', { name: 'Add operator', exact: true });
+  await search.fill('Chen');
+  await page.getByRole('option', { name: "Ch'en", exact: true }).click();
+  await page.getByRole('button', { name: 'Remove', exact: true }).click();
+  await search.fill('Virtuosa');
+  await page.getByRole('option', { name: 'Virtuosa', exact: true }).click();
+  await page.getByRole('combobox', { name: 'Measure', exact: true }).click();
+  await page.getByRole('option', { name: 'Time to first burst (s)', exact: true }).click();
+  for (const slot of [3, 2, 1]) {
+    await page.getByRole('combobox', { name: 'Damage source', exact: true }).click();
+    await page.getByRole('option', { name: new RegExp('^S' + slot) }).click();
+    await expect(page.getByRole('cell').filter({ hasText: /First at .* s/ }).first()).toBeVisible();
+  }
+  await page.getByRole('combobox', { name: 'Vertical zoom', exact: true }).click();
+  await page.getByRole('option', { name: '4×', exact: true }).click();
+  const slider = page.getByRole('slider', { name: 'Inspect Injury resistance' });
+  const plot = page.getByRole('img', { name: /vertical range/ });
+  await slider.press('Home');
+  const start = await plot.getAttribute('aria-label');
+  await slider.press('End');
+  await expect(plot).not.toHaveAttribute('aria-label', start!);
 });

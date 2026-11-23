@@ -29,6 +29,7 @@ import css from '@/components/dps/Dps.module.css';
 
 const range = (min: number, max: number) => Array.from({ length: max - min + 1 }, (_, i) => min + i);
 const baseline = new Set([
+  'chen',
   'angel',
   'warmy',
   'nymph',
@@ -654,7 +655,7 @@ export default function DpsCalculator({
               <div className={css.add}>
                 <BuildSearch
                   label="Add operator"
-                  placeholder="Search operators to add…"
+                  placeholder={`Search ${pickOps.length} modeled operators…`}
                   choices={pickOps}
                   pick={(id) => add([createBuild(id, next.current++)])}
                 />

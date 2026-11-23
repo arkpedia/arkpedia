@@ -23,6 +23,7 @@ async function generateProfiles() {
   const [characters, skills, equipment] = [0, 1, 2].map((index) => ({ ...cn[index], ...en[index] }));
   const modules = { equipDict: { ...cn[3].equipDict, ...en[3].equipDict } };
   const supported = {
+    char_010_chen: [1, 2, 3],
     char_103_angel: [1, 2, 3],
     char_1042_phatm2: [1, 2, 3],
     char_1044_hsgma2: [1, 3],
@@ -44,7 +45,7 @@ async function generateProfiles() {
     char_4146_nymph: [1, 2, 3],
     char_1040_blaze2: [1, 2, 3],
     char_4204_mantra: [1, 2, 3],
-    char_245_cello: [1],
+    char_245_cello: [1, 2, 3],
     char_2026_yu: [1],
     char_4235_thumpy: [2, 3],
     char_293_thorns: [1],
@@ -203,6 +204,7 @@ async function generateProfiles() {
           elite: elite(entry.unlockCond.phase),
           ranks: levels.map((r) => ({
             ...board(r.blackboard),
+            ...(short === 'cello' && slot === 1 ? { charges: r.spData.maxChargeTime } : {}),
             sp: r.spData.spCost,
             initialSp: r.spData.initSp,
             duration: r.duration,

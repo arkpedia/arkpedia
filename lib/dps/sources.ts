@@ -75,6 +75,7 @@ export function sourceAction({
   if (
     !slot &&
     ![
+      'chen',
       'angel',
       'phonor',
       'thumpy',
@@ -91,6 +92,18 @@ export function sourceAction({
   )
     return null;
   switch (id) {
+    case 'chen': {
+      const scale = s.atk_scale ?? 1;
+      hit('Physical', scale, slot === 0 ? 2 : (s.times ?? 1));
+      if (slot === 2) hit('Arts', scale);
+      if (slot) {
+        trigger(['', 'Sheathed Strike', 'Chi Xiao · Unsheath', 'Chi Xiao · Shadowless'][slot]);
+        parts.Physical *= m.damage_scale ?? 1;
+        parts.Arts *= m.damage_scale ?? 1;
+      }
+      note = slot === 3 ? 'All slashes land on the same target.' : 'One target.';
+      break;
+    }
     case 'angel': {
       const shots = s['attack@times'] ?? s.times ?? 1;
       const scale = (s['attack@atk_scale'] ?? s.atk_scale ?? 1) * (traitActive ? (m.atk_scale ?? 1) : 1);
@@ -270,16 +283,30 @@ export function sourceAction({
       }
       break;
     case 'cello':
-      injuryAmp *= b.ep_damage_scale ?? 1;
-      if (slot) {
+      injuryAmp *= 1 + ((b.ep_damage_scale ?? 1) - 1) * (s.scale_delta_to_one ?? 1);
+      if (slot === 1) {
         trigger('Golden Ecstasy');
+        if (locked) {
+          note = 'The charge is held while the target is in fallout.';
+          break;
+        }
         hit('Arts', s.atk_scale);
         rawInjury = atk * s.ep_damage_ratio;
+      } else if (slot === 2) {
+        name = 'Requiem Mass attack';
+        art();
+        rawInjury = atk * s.ep_damage_ratio;
       } else {
-        field('Talent aura', 1);
+        field(slot === 3 ? 'Liberal Tango aura' : 'Talent aura', 1);
         rawInjury = atk * (a.ep_damage_ratio ?? 0);
       }
-      note = 'The aura and skill can be compared as separate sources.';
+      note =
+        slot === 1
+          ? 'Burst timing estimates start with full charges and an aura tick at first contact. Casts use the attack interval, with 1 SP/s and no animation lockout. Charges replenish during fallout.'
+          : slot === 2
+            ? 'One target. Timing includes her attacks and aura. Allied hits are excluded.'
+            : 'One aura tick per second while the target stays in range.';
+
       break;
     case 'yu':
       injuryAmp *= m.ep_damage_scale ?? 1;

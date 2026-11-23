@@ -2,6 +2,409 @@
  "source": "https://raw.githubusercontent.com/ArknightsAssets/ArknightsGamedata/e0cd8f274ffbcf57ed0b0684cb681620478ffe0e/en/gamedata/excel/",
  "operators": [
   {
+   "id": "chen",
+   "name": "Ch'en",
+   "region": "EN",
+   "branch": "sword",
+   "rarity": 6,
+   "trust": 50,
+   "phases": [
+    {
+     "maxLevel": 50,
+     "start": 249,
+     "end": 361,
+     "interval": 1.3
+    },
+    {
+     "maxLevel": 80,
+     "start": 361,
+     "end": 469,
+     "interval": 1.3
+    },
+    {
+     "maxLevel": 90,
+     "start": 469,
+     "end": 610,
+     "interval": 1.3
+    }
+   ],
+   "potential": [
+    {
+     "COST": -1
+    },
+    {
+     "RESPAWN_TIME": -4
+    },
+    {
+     "ATK": 23
+    },
+    {},
+    {
+     "COST": -1
+    }
+   ],
+   "talents": [
+    [
+     {
+      "elite": 1,
+      "level": 1,
+      "potential": 1,
+      "values": {
+       "interval": 5,
+       "sp": 1
+      }
+     },
+     {
+      "elite": 2,
+      "level": 1,
+      "potential": 1,
+      "values": {
+       "interval": 4,
+       "sp": 1
+      }
+     }
+    ],
+    [
+     {
+      "elite": 2,
+      "level": 1,
+      "potential": 1,
+      "values": {
+       "atk": 0.05,
+       "def": 0.05,
+       "prob": 0.1
+      }
+     },
+     {
+      "elite": 2,
+      "level": 1,
+      "potential": 5,
+      "values": {
+       "atk": 0.06,
+       "def": 0.06,
+       "prob": 0.13
+      }
+     }
+    ]
+   ],
+   "skills": [
+    {
+     "slot": 1,
+     "manual": false,
+     "token": null,
+     "name": "Sheathed Strike",
+     "elite": 0,
+     "ranks": [
+      {
+       "atk_scale": 2,
+       "stun": 1,
+       "sp": 7,
+       "initialSp": 0,
+       "duration": 0
+      },
+      {
+       "atk_scale": 2.1,
+       "stun": 1,
+       "sp": 7,
+       "initialSp": 0,
+       "duration": 0
+      },
+      {
+       "atk_scale": 2.2,
+       "stun": 1,
+       "sp": 7,
+       "initialSp": 0,
+       "duration": 0
+      },
+      {
+       "atk_scale": 2.3,
+       "stun": 1.25,
+       "sp": 6,
+       "initialSp": 0,
+       "duration": 0
+      },
+      {
+       "atk_scale": 2.4,
+       "stun": 1.25,
+       "sp": 6,
+       "initialSp": 0,
+       "duration": 0
+      },
+      {
+       "atk_scale": 2.5,
+       "stun": 1.25,
+       "sp": 6,
+       "initialSp": 0,
+       "duration": 0
+      },
+      {
+       "atk_scale": 2.6,
+       "stun": 1.5,
+       "sp": 5,
+       "initialSp": 0,
+       "duration": 0
+      },
+      {
+       "atk_scale": 2.8,
+       "stun": 1.5,
+       "sp": 5,
+       "initialSp": 0,
+       "duration": 0
+      },
+      {
+       "atk_scale": 3,
+       "stun": 1.5,
+       "sp": 5,
+       "initialSp": 0,
+       "duration": 0
+      },
+      {
+       "atk_scale": 3.2,
+       "stun": 1.5,
+       "sp": 4,
+       "initialSp": 0,
+       "duration": 0
+      }
+     ]
+    },
+    {
+     "slot": 2,
+     "manual": false,
+     "token": null,
+     "name": "Chi Xiao - Unsheath",
+     "elite": 1,
+     "ranks": [
+      {
+       "atk_scale": 3.3,
+       "max_target": 4,
+       "sp": 27,
+       "initialSp": 10,
+       "duration": 0
+      },
+      {
+       "atk_scale": 3.4,
+       "max_target": 4,
+       "sp": 27,
+       "initialSp": 10,
+       "duration": 0
+      },
+      {
+       "atk_scale": 3.5,
+       "max_target": 4,
+       "sp": 27,
+       "initialSp": 10,
+       "duration": 0
+      },
+      {
+       "atk_scale": 3.7,
+       "max_target": 5,
+       "sp": 26,
+       "initialSp": 12,
+       "duration": 0
+      },
+      {
+       "atk_scale": 3.8,
+       "max_target": 5,
+       "sp": 26,
+       "initialSp": 12,
+       "duration": 0
+      },
+      {
+       "atk_scale": 3.9,
+       "max_target": 5,
+       "sp": 26,
+       "initialSp": 12,
+       "duration": 0
+      },
+      {
+       "atk_scale": 4.1,
+       "max_target": 6,
+       "sp": 25,
+       "initialSp": 14,
+       "duration": 0
+      },
+      {
+       "atk_scale": 4.4,
+       "max_target": 6,
+       "sp": 23,
+       "initialSp": 15,
+       "duration": 0
+      },
+      {
+       "atk_scale": 4.7,
+       "max_target": 6,
+       "sp": 21,
+       "initialSp": 16,
+       "duration": 0
+      },
+      {
+       "atk_scale": 5,
+       "max_target": 7,
+       "sp": 20,
+       "initialSp": 20,
+       "duration": 0
+      }
+     ]
+    },
+    {
+     "slot": 3,
+     "manual": false,
+     "token": null,
+     "name": "Chi Xiao - Shadowless",
+     "elite": 2,
+     "ranks": [
+      {
+       "atk_scale": 2,
+       "times": 10,
+       "stun": 2,
+       "sp": 40,
+       "initialSp": 10,
+       "duration": 0
+      },
+      {
+       "atk_scale": 2.1,
+       "times": 10,
+       "stun": 2,
+       "sp": 40,
+       "initialSp": 10,
+       "duration": 0
+      },
+      {
+       "atk_scale": 2.2,
+       "times": 10,
+       "stun": 2,
+       "sp": 40,
+       "initialSp": 10,
+       "duration": 0
+      },
+      {
+       "atk_scale": 2.3,
+       "times": 10,
+       "stun": 2.5,
+       "sp": 38,
+       "initialSp": 10,
+       "duration": 0
+      },
+      {
+       "atk_scale": 2.4,
+       "times": 10,
+       "stun": 2.5,
+       "sp": 38,
+       "initialSp": 10,
+       "duration": 0
+      },
+      {
+       "atk_scale": 2.5,
+       "times": 10,
+       "stun": 2.5,
+       "sp": 38,
+       "initialSp": 10,
+       "duration": 0
+      },
+      {
+       "atk_scale": 2.6,
+       "times": 10,
+       "stun": 3,
+       "sp": 36,
+       "initialSp": 10,
+       "duration": 0
+      },
+      {
+       "atk_scale": 2.8,
+       "times": 10,
+       "stun": 3,
+       "sp": 34,
+       "initialSp": 13,
+       "duration": 0
+      },
+      {
+       "atk_scale": 3,
+       "times": 10,
+       "stun": 3,
+       "sp": 32,
+       "initialSp": 16,
+       "duration": 0
+      },
+      {
+       "atk_scale": 3.2,
+       "times": 10,
+       "stun": 4,
+       "sp": 30,
+       "initialSp": 20,
+       "duration": 0
+      }
+     ]
+    }
+   ],
+   "module": {
+    "name": "SWO-X",
+    "level": 60,
+    "stages": [
+     {
+      "stats": {
+       "atk": 50,
+       "attack_speed": 5
+      },
+      "tokenStats": {},
+      "trait": {
+       "damage_scale": 1.1,
+       "value": 0.1
+      },
+      "talents": {}
+     },
+     {
+      "stats": {
+       "atk": 65,
+       "attack_speed": 6
+      },
+      "tokenStats": {},
+      "trait": {
+       "damage_scale": 1.1,
+       "value": 0.1
+      },
+      "talents": {
+       "0": [
+        {
+         "elite": 2,
+         "level": 60,
+         "potential": 1,
+         "values": {
+          "interval": 3,
+          "sp": 1
+         }
+        }
+       ]
+      }
+     },
+     {
+      "stats": {
+       "atk": 80,
+       "attack_speed": 7
+      },
+      "tokenStats": {},
+      "trait": {
+       "damage_scale": 1.1,
+       "value": 0.1
+      },
+      "talents": {
+       "0": [
+        {
+         "elite": 2,
+         "level": 60,
+         "potential": 1,
+         "values": {
+          "interval": 3,
+          "sp": 1
+         }
+        }
+       ]
+      }
+     }
+    ]
+   },
+   "alternateModule": null
+  },
+  {
    "id": "angel",
    "name": "Exusiai",
    "region": "EN",
@@ -7683,6 +8086,7 @@
       {
        "atk_scale": 1.8,
        "ep_damage_ratio": 0.75,
+       "charges": 1,
        "sp": 7,
        "initialSp": 0,
        "duration": -1
@@ -7690,6 +8094,7 @@
       {
        "atk_scale": 1.9,
        "ep_damage_ratio": 0.75,
+       "charges": 1,
        "sp": 7,
        "initialSp": 2,
        "duration": -1
@@ -7697,6 +8102,7 @@
       {
        "atk_scale": 2,
        "ep_damage_ratio": 0.75,
+       "charges": 1,
        "sp": 7,
        "initialSp": 4,
        "duration": -1
@@ -7704,6 +8110,7 @@
       {
        "atk_scale": 2.1,
        "ep_damage_ratio": 0.85,
+       "charges": 2,
        "sp": 7,
        "initialSp": 6,
        "duration": -1
@@ -7711,6 +8118,7 @@
       {
        "atk_scale": 2.2,
        "ep_damage_ratio": 0.85,
+       "charges": 2,
        "sp": 7,
        "initialSp": 8,
        "duration": -1
@@ -7718,6 +8126,7 @@
       {
        "atk_scale": 2.3,
        "ep_damage_ratio": 0.85,
+       "charges": 2,
        "sp": 7,
        "initialSp": 10,
        "duration": -1
@@ -7725,6 +8134,7 @@
       {
        "atk_scale": 2.4,
        "ep_damage_ratio": 0.95,
+       "charges": 2,
        "sp": 6,
        "initialSp": 12,
        "duration": -1
@@ -7732,6 +8142,7 @@
       {
        "atk_scale": 2.6,
        "ep_damage_ratio": 1,
+       "charges": 3,
        "sp": 6,
        "initialSp": 14,
        "duration": -1
@@ -7739,6 +8150,7 @@
       {
        "atk_scale": 2.8,
        "ep_damage_ratio": 1.05,
+       "charges": 3,
        "sp": 6,
        "initialSp": 16,
        "duration": -1
@@ -7746,9 +8158,198 @@
       {
        "atk_scale": 3,
        "ep_damage_ratio": 1.1,
+       "charges": 3,
        "sp": 6,
        "initialSp": 18,
        "duration": -1
+      }
+     ]
+    },
+    {
+     "slot": 2,
+     "manual": true,
+     "token": null,
+     "name": "'Requiem Mass'",
+     "elite": 1,
+     "ranks": [
+      {
+       "attack_speed": 15,
+       "ep_damage_ratio": 0.1,
+       "sp": 38,
+       "initialSp": 0,
+       "duration": 20
+      },
+      {
+       "attack_speed": 20,
+       "ep_damage_ratio": 0.1,
+       "sp": 37,
+       "initialSp": 2,
+       "duration": 20
+      },
+      {
+       "attack_speed": 25,
+       "ep_damage_ratio": 0.1,
+       "sp": 36,
+       "initialSp": 4,
+       "duration": 20
+      },
+      {
+       "attack_speed": 30,
+       "ep_damage_ratio": 0.15,
+       "sp": 34,
+       "initialSp": 7,
+       "duration": 20
+      },
+      {
+       "attack_speed": 35,
+       "ep_damage_ratio": 0.15,
+       "sp": 33,
+       "initialSp": 9,
+       "duration": 20
+      },
+      {
+       "attack_speed": 40,
+       "ep_damage_ratio": 0.15,
+       "sp": 32,
+       "initialSp": 11,
+       "duration": 20
+      },
+      {
+       "attack_speed": 45,
+       "ep_damage_ratio": 0.2,
+       "sp": 30,
+       "initialSp": 14,
+       "duration": 20
+      },
+      {
+       "attack_speed": 50,
+       "ep_damage_ratio": 0.2,
+       "sp": 28,
+       "initialSp": 14,
+       "duration": 20
+      },
+      {
+       "attack_speed": 55,
+       "ep_damage_ratio": 0.2,
+       "sp": 26,
+       "initialSp": 14,
+       "duration": 20
+      },
+      {
+       "attack_speed": 60,
+       "ep_damage_ratio": 0.25,
+       "sp": 24,
+       "initialSp": 14,
+       "duration": 20
+      }
+     ]
+    },
+    {
+     "slot": 3,
+     "manual": true,
+     "token": null,
+     "name": "'Liberal Tango'",
+     "elite": 2,
+     "ranks": [
+      {
+       "atk": 0.7,
+       "scale_delta_to_one": 1.6,
+       "cello_s_3[max_hp].max_hp": 0.15,
+       "cello_s_3[atk].atk": 0.15,
+       "cello_s_3[def].def": 0.15,
+       "sp": 60,
+       "initialSp": 20,
+       "duration": 30
+      },
+      {
+       "atk": 0.8,
+       "scale_delta_to_one": 1.7,
+       "cello_s_3[max_hp].max_hp": 0.15,
+       "cello_s_3[atk].atk": 0.15,
+       "cello_s_3[def].def": 0.15,
+       "sp": 60,
+       "initialSp": 22,
+       "duration": 30
+      },
+      {
+       "atk": 0.9,
+       "scale_delta_to_one": 1.8,
+       "cello_s_3[max_hp].max_hp": 0.15,
+       "cello_s_3[atk].atk": 0.15,
+       "cello_s_3[def].def": 0.15,
+       "sp": 60,
+       "initialSp": 24,
+       "duration": 30
+      },
+      {
+       "atk": 1.05,
+       "scale_delta_to_one": 1.9,
+       "cello_s_3[max_hp].max_hp": 0.2,
+       "cello_s_3[atk].atk": 0.2,
+       "cello_s_3[def].def": 0.2,
+       "sp": 60,
+       "initialSp": 26,
+       "duration": 32
+      },
+      {
+       "atk": 1.15,
+       "scale_delta_to_one": 2,
+       "cello_s_3[max_hp].max_hp": 0.2,
+       "cello_s_3[atk].atk": 0.2,
+       "cello_s_3[def].def": 0.2,
+       "sp": 60,
+       "initialSp": 28,
+       "duration": 32
+      },
+      {
+       "atk": 1.25,
+       "scale_delta_to_one": 2.1,
+       "cello_s_3[max_hp].max_hp": 0.2,
+       "cello_s_3[atk].atk": 0.2,
+       "cello_s_3[def].def": 0.2,
+       "sp": 60,
+       "initialSp": 30,
+       "duration": 32
+      },
+      {
+       "atk": 1.4,
+       "scale_delta_to_one": 2.2,
+       "cello_s_3[max_hp].max_hp": 0.25,
+       "cello_s_3[atk].atk": 0.25,
+       "cello_s_3[def].def": 0.25,
+       "sp": 60,
+       "initialSp": 32,
+       "duration": 34
+      },
+      {
+       "atk": 1.55,
+       "scale_delta_to_one": 2.3,
+       "cello_s_3[max_hp].max_hp": 0.25,
+       "cello_s_3[atk].atk": 0.25,
+       "cello_s_3[def].def": 0.25,
+       "sp": 60,
+       "initialSp": 35,
+       "duration": 36
+      },
+      {
+       "atk": 1.65,
+       "scale_delta_to_one": 2.4,
+       "cello_s_3[max_hp].max_hp": 0.25,
+       "cello_s_3[atk].atk": 0.25,
+       "cello_s_3[def].def": 0.25,
+       "sp": 60,
+       "initialSp": 37,
+       "duration": 38
+      },
+      {
+       "atk": 1.8,
+       "scale_delta_to_one": 2.5,
+       "cello_s_3[max_hp].max_hp": 0.3,
+       "cello_s_3[atk].atk": 0.3,
+       "cello_s_3[def].def": 0.3,
+       "sp": 60,
+       "initialSp": 40,
+       "duration": 40
       }
      ]
     }

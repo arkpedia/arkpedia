@@ -1,6 +1,5 @@
 import { buildLabel, burstThreshold, calculate, profile, type Build, type Target } from './calculator';
 import { fallout, firstBurst } from './breakpoints';
-import { downloadBlob } from '../ui/downloadBlob';
 
 export type ImageView = 'condensed' | 'detailed';
 interface ExportOptions {
@@ -158,7 +157,7 @@ function breakdown(b: Build, target: Target) {
   return lines.filter(Boolean);
 }
 
-export async function saveComparisonImage({
+export async function renderComparisonImage({
   view,
   svg,
   metric,
@@ -320,5 +319,5 @@ export async function saveComparisonImage({
       'image/png',
     ),
   );
-  downloadBlob(blob, 'arkpedia-dps-' + view + '.png');
+  return blob;
 }

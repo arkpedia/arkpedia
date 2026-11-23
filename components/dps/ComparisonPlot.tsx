@@ -1,9 +1,12 @@
-import { useEffect, useId, useMemo, useRef, useState, type RefObject } from 'react';
+import { useEffect, useId, useMemo, useRef, useState, type CSSProperties, type RefObject } from 'react';
+import ImportDialog from '@/components/account/ImportDialog';
+import { downloadBlob } from '@/lib/ui/downloadBlob';
+import { ContentImg } from '@/components/content/ContentImage';
 import SegmentedControl from '@/components/ui/SegmentedControl';
 import StyledSelect from '@/components/ui/StyledSelect';
 import { calculate, profile, rankLabel, type Build, type Target } from '@/lib/dps/calculator';
 import { firstBurst } from '@/lib/dps/breakpoints';
-import { saveComparisonImage, type ImageView } from '@/lib/dps/comparisonImage';
+import { renderComparisonImage, type ImageView } from '@/lib/dps/comparisonImage';
 import css from './Dps.module.css';
 
 const colorTokens = ['--teal', '--amber', '--cat-blue', '--rarity-4', '--cat-orange', '--status-positive'];
@@ -55,10 +58,14 @@ export default function ComparisonPlot({
   const [chosenAxis, setAxis] = useState<'def' | 'res' | 'injuryRes' | 'elementalRes'>();
   const [chosenMetric, setMetric] = useState<Metric>();
   const results = useMemo(() => builds.map((b) => calculate(b, target)), [builds, target]);
+  const metric = chosenMetric ?? (results.every((r) => r.dps === null) ? 'damage' : 'dps');
   const axis =
     chosenAxis ??
-    (results.every((r) => r.components.Physical > 0 && r.components.Arts === 0) ? 'def' : 'res');
-  const metric = chosenMetric ?? (results.every((r) => r.dps === null) ? 'damage' : 'dps');
+    (['seconds', 'repeat', 'injury', 'injuryRate'].includes(metric)
+      ? 'injuryRes'
+      : results.every((r) => r.components.Physical > 0 && r.components.Arts === 0)
+        ? 'def'
+        : 'res');
   const [inspection, setInspection] = useState<{ target: Target; axis: string; value: number } | null>(null);
   const inspect = (value: number) => setInspection({ target, axis, value });
   const probe =
@@ -121,14 +128,20 @@ export default function ComparisonPlot({
   const fullMax = (Math.ceil((highest / unit) * 2) * unit) / 2;
   const zoomOptions = [
     { value: 'full', label: 'Full range' },
-    ...(timing ? [15, 30, 60].map((n) => ({ value: 's' + n, label: 'First ' + n + ' s' })) : []),
+    ...(timing ? [15, 30, 60].map((n) => ({ value: 's' + n, label: n + ' s window' })) : []),
     ...[2, 4, 8, 16].map((n) => ({ value: 'x' + n, label: n + '×' })),
   ];
-  const max = zoom.startsWith('s')
+  const span = zoom.startsWith('s')
     ? Math.min(fullMax, Number(zoom.slice(1)))
     : zoom.startsWith('x')
       ? fullMax / Number(zoom.slice(1))
       : fullMax;
+  const values = series.flatMap((row) => (row.selected === null ? [] : [row.selected]));
+  const low = Math.min(...values),
+    high = Math.max(...values);
+  const focus = high - low <= span ? (low + high) / 2 : values[0];
+  const min = values.length ? Math.max(0, Math.min(fullMax - span, focus - span / 2)) : 0;
+  const max = min + span;
   const panel = useRef<HTMLElement>(null);
   const [compact, setCompact] = useState(false);
   useEffect(() => {
@@ -141,16 +154,24 @@ export default function ComparisonPlot({
   const right = chartWidth - 30;
   const plotWidth = right - 62;
   const X = (x: number) => 62 + (x / range) * plotWidth,
-    Y = (y: number) => 218 - (y / max) * 180;
+    Y = (y: number) => 218 - ((y - min) / span) * 180;
   const chart = useRef<SVGSVGElement>(null);
   const [saving, setSaving] = useState<ImageView | null>(null);
+  const [preview, setPreview] = useState<{ view: ImageView; blob: Blob } | null>(null);
+  const [previewUrl, setPreviewUrl] = useState('');
+  useEffect(() => {
+    if (!preview) return;
+    const url = URL.createObjectURL(preview.blob);
+    setPreviewUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [preview]);
   const [exportError, setExportError] = useState('');
   async function save(imageView: ImageView) {
     if (!chart.current || saving || !builds.length) return;
     setSaving(imageView);
     setExportError('');
     try {
-      await saveComparisonImage({
+      const blob = await renderComparisonImage({
         view: imageView,
         svg: chart.current,
         target,
@@ -164,6 +185,7 @@ export default function ComparisonPlot({
           value: legendValue(row),
         })),
       });
+      setPreview({ view: imageView, blob });
     } catch {
       setExportError('Could not create the PNG. Please try again.');
     } finally {
@@ -214,7 +236,16 @@ export default function ComparisonPlot({
         </div>
       )}
       {view === 'curve' ? (
-        <>
+        <div
+          className={css.curveFrame}
+          style={
+            {
+              maxWidth: (295 * chartWidth) / 261,
+              '--axis-left': (62 / chartWidth) * 100 + '%',
+              '--axis-right': ((chartWidth - right) / chartWidth) * 100 + '%',
+            } as CSSProperties
+          }
+        >
           <svg
             ref={chart}
             className={css.plot}
@@ -224,9 +255,11 @@ export default function ComparisonPlot({
               metrics[metric] +
               ' versus ' +
               labels[axis] +
-              ', vertical range 0 to ' +
+              ', vertical range ' +
+              fmt(min) +
+              ' to ' +
               fmt(max) +
-              '. Values at the selected target are listed below.'
+              '. Values at the probe are listed below.'
             }
             onPointerDown={(e) => {
               const q = e.currentTarget.createSVGPoint();
@@ -243,9 +276,9 @@ export default function ComparisonPlot({
                 <rect x="57" y="38" width={plotWidth + 10} height="185" />
               </clipPath>
             </defs>
-            {highest > max && (
+            {span < fullMax && (
               <text x={right} y="19" textAnchor="end">
-                Showing 0–{fmt(max)}
+                Showing {fmt(min)}–{fmt(max)}
                 {timing ? ' s' : ''}
               </text>
             )}
@@ -254,9 +287,9 @@ export default function ComparisonPlot({
             </text>
             {[0, 1, 2, 3, 4].map((i) => (
               <g key={i}>
-                <line x1="62" x2={right} y1={Y((max * i) / 4)} y2={Y((max * i) / 4)} />
-                <text x="53" textAnchor="end" y={Y((max * i) / 4) + 4}>
-                  {fmt((max * i) / 4)}
+                <line x1="62" x2={right} y1={Y(min + (span * i) / 4)} y2={Y(min + (span * i) / 4)} />
+                <text x="53" textAnchor="end" y={Y(min + (span * i) / 4) + 4}>
+                  {fmt(min + (span * i) / 4)}
                 </text>
               </g>
             ))}
@@ -296,7 +329,6 @@ export default function ComparisonPlot({
             })}
           </svg>
           <label className={css.probe}>
-            {labels[axis]}{' '}
             <input
               type="range"
               aria-label={'Inspect ' + labels[axis]}
@@ -307,12 +339,7 @@ export default function ComparisonPlot({
             />
             <output>{fmt(probe)}</output>
           </label>
-          {probe !== target[axis] && (
-            <button type="button" className="btn btn-sm" onClick={() => setInspection(null)}>
-              Reset probe to target
-            </button>
-          )}
-        </>
+        </div>
       ) : (
         <svg
           ref={chart}
@@ -408,6 +435,9 @@ export default function ComparisonPlot({
       {view !== 'timeline' && !timing && series.some((s) => s.selected === null) && (
         <small>Choose a per-action measure to compare single activations.</small>
       )}
+      {(view === 'timeline' || timing) && builds.some(b => b.operator === 'cello' && b.skill === 1) && (
+        <small>Virtuosa S1 timing assumes full opening charges, one target in her aura, and uninterrupted SP recovery.</small>
+      )}
       <div className={css.legend}>
         {series.map((row, index) => (
           <span key={row.b.id}>
@@ -430,6 +460,28 @@ export default function ComparisonPlot({
           </button>
         ))}
       </div>
+      {preview && (
+        <ImportDialog
+          title={(preview.view === 'condensed' ? 'Condensed' : 'Detailed') + ' PNG preview'}
+          className={'account-dialog-fit ' + css.previewDialog}
+          onClose={() => {
+            setPreview(null);
+            setPreviewUrl('');
+          }}
+          actions={
+            <button
+              className="btn primary btn-sm"
+              onClick={() => downloadBlob(preview.blob, 'arkpedia-dps-' + preview.view + '.png')}
+            >
+              Save image
+            </button>
+          }
+        >
+          {previewUrl && (
+            <ContentImg className={css.previewImage} src={previewUrl} alt="DPS comparison export" />
+          )}
+        </ImportDialog>
+      )}
       {saving && <small role="status">Preparing PNG…</small>}
       {exportError && <small role="alert">{exportError}</small>}
     </section>

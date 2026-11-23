@@ -290,3 +290,27 @@ test('Exusiai alternate module applies ground ASPD and staged DEF ignore indepen
   near(ground.damage, r.damage);
   assert.ok(ground.interval! < r.interval!);
 });
+
+test('Ch’en splits Unsheath into independently mitigated packets and amplifies skill damage after defense', () => {
+  const b = {...createBuild('chen', 1), skill: 2, stage: 3};
+  const r = calculate(b, {...dummy, def: 600, res: 75});
+  near(r.components.Arts, 5 * r.atk * .25 * 1.1);
+  near(r.components.Physical, (5 * r.atk - 600) * 1.1);
+  near(calculate({...b, skill: 0}, dummy).damage, r.atk * 2);
+  near(calculate({...b, skill: 3}, dummy).damage, r.atk * 3.2 * 10 * 1.1);
+});
+test('Virtuosa stacks the skill with her aura and amplifies only the bonus portion of Mental Inversion on S3', () => {
+  const b = {...createBuild('cello', 1), stage: 3};
+  const s3 = calculate(b, dummy);
+  near(s3.damage, 0);
+  near(s3.injury, s3.atk * .1 * (1 + .33 * 2.5) * 1.18);
+  for (const skill of [1,2,3]) {
+    const r = firstBurst({...b, skill}, dummy);
+    assert.ok(r.seconds !== null && r.seconds >= 0);
+    if (skill !== 2) assert.ok(r.repeat !== null && r.repeat >= 15);
+  }
+  const s2 = calculate({...b,skill:2}, dummy);
+  near(s2.periodic, s2.atk * .1 * 1.33 * 1.18);
+  near(s2.injury, s2.atk * .25 * 1.33 * 1.18);
+  near(calculate({...b,skill:1}, {...dummy,burst:'Necrosis'}).damage,0);
+});

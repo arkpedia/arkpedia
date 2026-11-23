@@ -36,6 +36,55 @@ export function firstBurst(b: Build, target: Target, source: 'build' | 'summon' 
     summon: !!summon,
   };
   if (!r.element || !(injury > 0)) return out;
+  if (b.operator === 'cello' && skill && (b.skill === 1 || b.skill === 2)) {
+    // Both streams hit one surviving target. S1 holds charges through Necrosis fallout.
+    const charged = b.skill === 1;
+    const end = charged ? Infinity : skill.duration;
+    const capacity = (skill.charges ?? 1) * skill.sp;
+    let sp = capacity,
+      previous = 0,
+      nextCast = 0,
+      nextAura = 0;
+    let gauge = 0,
+      ready = 0,
+      events = 0;
+    out.unit = 'injury events';
+    while (Math.min(nextCast, nextAura) < end - EPS) {
+      const time = Math.min(nextCast, nextAura);
+      sp = Math.min(capacity, sp + time - previous);
+      previous = time;
+      const open = time >= ready - EPS;
+      if (nextCast <= time + EPS) {
+        if (!charged || open) {
+          if (open) {
+            gauge += injury;
+            events++;
+          }
+          if (charged) sp -= skill.sp;
+          nextCast = time + Math.max(r.attackInterval, charged ? skill.sp - sp : 0);
+        } else nextCast = ready;
+      }
+      if (nextAura <= time + EPS) {
+        if (open && gauge < goal - EPS) {
+          gauge += r.periodic;
+          events++;
+        }
+        nextAura++;
+      }
+      if (gauge < goal - EPS) continue;
+      if (out.seconds !== null) {
+        out.repeat = time - out.seconds;
+        return out;
+      }
+      out.count = events;
+      out.seconds = time;
+      out.recovery = recoverySeconds.Necrosis;
+      ready = time + out.recovery;
+      gauge = 0;
+    }
+    out.limited = true;
+    return out;
+  }
   const needed = hitsRequired(goal, injury)!;
   if (!interval) {
     // Botani's extra packet only lands on an empty Corrosion gauge.

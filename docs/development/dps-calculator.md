@@ -1,6 +1,6 @@
 # DPS calculator
 
-The calculator compares independent builds against the same target. The response curve varies one defense while the other settings stay fixed. The probe inspects the curve independently of the selected enemy. At target compares builds at the enemy’s actual defenses. Burst timeline plots absolute first and second burst times from first contact and marks recovery between them. Both PNG exports use the selected chart. The table gives HP loss and elemental injury separately. Selecting a row reveals which attack, tick or activation the values represent. Single activations have no sustained DPS. The damage composition chart uses a common absolute scale across builds.
+The calculator compares independent builds against the same target. The response curve varies one defense while the other settings stay fixed. The probe inspects the curve independently of the selected enemy. At target compares builds at the enemy’s actual defenses. Burst timeline plots absolute first and second burst times from first contact and marks recovery between them. Vertical zoom follows the probe. Where several values exceed the zoom window, the first available build anchors it. Both PNG buttons preview the selected chart and save the same rendered file. The table gives HP loss and elemental injury separately. Selecting a row reveals which attack, tick or activation the values represent. Single activations have no sustained DPS. The damage composition chart uses a common absolute scale across builds.
 
 ## Calculation order
 
@@ -14,6 +14,8 @@ The calculator compares independent builds against the same target. The response
 The enemy selector joins the handbook to the simulator combat archive by enemy ID. Each level inherits its unspecified fields from level zero. The combat record supplies rank, DEF, Arts RES, injury resistance and elemental damage resistance. Named presets use the rank’s gauge. Custom targets can override it. Stage-specific stat overrides and phase changes are outside this preset.
 
 Both timing measures start at first contact with an empty gauge. The second measures the elapsed time from the first burst to the second on the same surviving target. The model follows the attack clock through recovery, discards injury during lockout, and resets periodic sources that end on burst. The base recovery windows come from the enemy entries in the [game glossary](https://github.com/ArknightsAssets/ArknightsGamedata/blob/e0cd8f274ffbcf57ed0b0684cb681620478ffe0e/cn/gamedata/excel/gamedata_const.json). Tragodia S3 and Botani S2 increase the recovery rate. Thumpy’s physical hits subtract time from the running Corrosion cooldown. The next Corrosion buildup uses the reduced DEF. A bounded source can expire before either burst. A manually triggered source can have a known action count with unknown timing.
+
+Virtuosa’s S1 timing scenario starts with full stored charges. The first cast and first aura tick land at first contact, and the model assumes one SP per second without animation lockout. S2 combines her own attack and one-second aura against one target during the active window. S3 applies its talent multiplier to the bonus Necrosis percentage, then measures the aura on the same surviving target.
 
 ## Extending coverage
 

@@ -178,7 +178,7 @@ export function calculate(build: Build, t: Target, priorBursts = 0) {
   if (['skadi', 'graceb'].includes(p.id)) buff += first.atk ?? 0;
   if (p.id === 'phatom' && b.skill === 2) buff += (skill.times - 1) * skill.atk;
   if (p.id === 'phatom' && b.traitActive) buff += mod?.trait.atk ?? 0;
-  if (p.id === 'angel' || p.id === 'threye') buff += second.atk ?? 0;
+  if (p.id === 'angel' || p.id === 'threye' || p.id === 'chen') buff += second.atk ?? 0;
   let speed = 100 + potStat('ATTACK_SPEED') + (mod?.stats.attack_speed ?? 0) + (skill.attack_speed ?? 0);
   if (p.id === 'skadi' && b.traitActive) speed += mod?.trait.attack_speed ?? 0;
   if (p.id === 'angel') {
@@ -341,6 +341,16 @@ export function calculate(build: Build, t: Target, priorBursts = 0) {
     Object.assign(components, source.parts);
     injury = source.injury;
   }
+  if (p.id === 'cello' && (b.skill === 1 || b.skill === 2)) {
+    periodic =
+      t.burst === 'None'
+        ? atk *
+          (first.ep_damage_ratio ?? 0) *
+          (second.ep_damage_scale ?? 1) *
+          (t.tier === 'Grunt' ? 1 : (mod?.trait.ep_damage_scale ?? 1)) *
+          Math.max(0.05, 1 - t.injuryRes / 100)
+        : 0;
+  }
   const cadence = source ? source.cadence : interval;
   const damage = Object.values(components).reduce((sum, amount) => sum + amount, 0);
   return {
@@ -350,6 +360,7 @@ export function calculate(build: Build, t: Target, priorBursts = 0) {
     sourceAtk,
     effects: additionalEffects(p.id, b.skill, atk, skill, first, mod?.trait ?? {}, t),
     interval: cadence,
+    attackInterval: interval,
     source: source?.name ?? (b.skill ? 'Skill attacks' : 'Normal attack'),
     note: source?.note ?? '',
     element: elements[p.id],

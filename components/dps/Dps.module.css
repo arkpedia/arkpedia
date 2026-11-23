@@ -147,16 +147,40 @@
   stroke: var(--text-faint);
   stroke-dasharray: 3 5;
 }
+.curveFrame {
+  width: 100%;
+  margin-inline: auto;
+}
 .probe {
-  margin: 10px 0;
+  position: relative;
+  display: block;
+  margin: 8px 0;
+  padding-block-end: 16px;
   font: 12px var(--font-mono);
 }
 .probe input {
-  flex: 1;
+  display: block;
+  /* Native range thumbs stop half a thumb width inside the input. */
+  margin: 0 0 0 calc(var(--axis-left) - 8px);
+  width: calc(100% - var(--axis-left) - var(--axis-right) + 16px);
+  height: var(--control-h);
   accent-color: var(--teal);
 }
 .probe output {
-  min-width: 4ch;
+  position: absolute;
+  right: var(--axis-right);
+  bottom: 0;
+}
+.previewDialog {
+  --dialog-w: 1080px;
+  margin: auto;
+}
+.previewImage {
+  display: block;
+  max-width: 100%;
+  max-height: 76dvh;
+  object-fit: contain;
+  min-height: 0;
 }
 .legend span {
   display: inline-flex;
