@@ -1,5 +1,5 @@
 import { withContentPage } from '@/lib/content/server';
-import { useRef, useState } from 'react';
+import { Fragment, useMemo, useRef, useState } from 'react';
 import PageHeader from '@/components/ui/PageHeader';
 import PageMeta from '@/components/layout/PageMeta';
 import Image from '@/components/content/ContentImage';
@@ -17,8 +17,12 @@ import {
   type Build,
   type Target,
   initialTarget,
+  threshold,
+  burstThreshold,
 } from '@/lib/dps/calculator';
 import { firstBurst, fallout } from '@/lib/dps/breakpoints';
+import BuildSearch from '@/components/dps/BuildSearch';
+import type { EnemyPreset, EnemyLevel } from '@/lib/dps/enemyTargets';
 import { deploymentSequence } from '@/lib/dps/deployment';
 import css from '@/components/dps/Dps.module.css';
 
@@ -384,28 +388,76 @@ function Deployment({
     </details>
   );
 }
-export default function DpsCalculator({ profiles, dataSource }: { profiles: Profile[]; dataSource: string }) {
+export default function DpsCalculator({
+  profiles,
+  dataSource,
+  enemies = [],
+}: {
+  profiles: Profile[];
+  dataSource: string;
+  enemies?: EnemyPreset[];
+}) {
   const createBuild = (id: string, number: number) =>
     buildFromProfile(profiles.find((p) => p.id === id)!, number);
   const initial = [
     { ...createBuild('phatm2', 1), level: 60 },
     { ...createBuild('phatm2', 2), stage: 3 },
   ];
-  const pickOps = [...profiles]
-    .sort((a, b) => a.name.localeCompare(b.name))
-    .map((p) => ({ value: p.id, label: p.name + (p.region === 'CN' ? ' (CN)' : '') }));
-
+  const pickOps = useMemo(
+    () =>
+      [...profiles]
+        .sort((a, b) => a.name.localeCompare(b.name, 'en'))
+        .map((p) => ({
+          id: p.id,
+          name: p.name,
+          detail: p.region === 'CN' ? 'CN' : undefined,
+        })),
+    [profiles],
+  );
+  const pickEnemies = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const e of enemies) {
+      const key = e.name + '/' + e.code;
+      counts.set(key, (counts.get(key) ?? 0) + 1);
+    }
+    return enemies.map((e) => ({
+      id: e.id,
+      name: e.name,
+      code: e.code,
+      detail: [e.code, e.levels[0].tier, counts.get(e.name + '/' + e.code)! > 1 ? e.id : '']
+        .filter(Boolean)
+        .join(' · '),
+    }));
+  }, [enemies]);
+  const [enemy, setEnemy] = useState<EnemyPreset | null>(null);
+  const [level, setLevel] = useState(0);
   const [builds, setBuilds] = useState<Build[]>(initial),
-    [choice, setChoice] = useState('phatm2'),
     [edit, setEdit] = useState<number | null>(null);
   const next = useRef(3),
     [target, setTarget] = useState<Target>(initialTarget);
+  function selectEnemy(preset: EnemyPreset, row: EnemyLevel) {
+    setEnemy(preset);
+    setLevel(row.level);
+    setTarget({
+      ...initialTarget,
+      tier: row.tier,
+      def: row.def,
+      res: row.res,
+      injuryRes: row.injuryRes,
+      elementalRes: row.elementalRes,
+    });
+  }
+  function customize(next: Target) {
+    setEnemy(null);
+    setTarget(next);
+  }
   function add(items: Build[]) {
     if (!items.length) return;
     setBuilds((prev) => [...prev, ...items]);
     setEdit(items[0].id);
   }
   const tiers = ['Grunt', 'Elite', 'Boss'] as const;
+  const columns = enemy || target.thresholdOverride ? [target.tier] : tiers;
   return (
     <>
       <PageMeta
@@ -460,39 +512,96 @@ export default function DpsCalculator({ profiles, dataSource }: { profiles: Prof
                 </article>
               ))}
               <div className={css.add}>
-                <Pick label="Operator" options={pickOps} value={choice} change={setChoice} />
-                <button className="btn btn-sm" onClick={() => add([createBuild(choice, next.current++)])}>
-                  Add build
-                </button>
+                <BuildSearch
+                  label="Add operator"
+                  placeholder="Search operators to add…"
+                  choices={pickOps}
+                  pick={(id) => add([createBuild(id, next.current++)])}
+                />
               </div>
             </section>
             <section className={css.panel}>
-              <h2 className="section-title">Target</h2>
-              <div className={css.controls}>
-                <Pick
-                  label="Class"
-                  value={target.tier}
-                  options={[...tiers]}
-                  change={(v) => setTarget({ ...target, tier: v as Target['tier'] })}
+              <div className={css.heading}>
+                <h2 className="section-title">Target</h2>
+                <strong>
+                  {enemy ? [enemy.name, enemy.code].filter(Boolean).join(' · ') : 'Custom target'}
+                </strong>
+              </div>
+              {enemies.length > 0 && (
+                <BuildSearch
+                  label="Find enemy"
+                  placeholder="Search enemies by name or code…"
+                  choices={pickEnemies}
+                  pick={(id) => {
+                    const preset = enemies.find((e) => e.id === id)!;
+                    selectEnemy(preset, preset.levels[0]);
+                  }}
                 />
+              )}
+              {enemy && (
+                <div className={css.preset}>
+                  <small>Base combat stats · {enemy.levels.find((l) => l.level === level)?.tier}</small>
+                  {enemy.levels.length > 1 && (
+                    <Pick
+                      label="Enemy level"
+                      value={level}
+                      options={enemy.levels.map((l) => l.level)}
+                      change={(v) => selectEnemy(enemy, enemy.levels.find((l) => l.level === +v)!)}
+                    />
+                  )}
+                  <button className="btn btn-sm" onClick={() => setEnemy(null)}>
+                    Customize
+                  </button>
+                </div>
+              )}
+              <div className={css.controls}>
+                {!enemy && (
+                  <Pick
+                    label="Class"
+                    value={target.tier}
+                    options={[...tiers]}
+                    change={(v) =>
+                      setTarget({ ...target, tier: v as Target['tier'], thresholdOverride: undefined })
+                    }
+                  />
+                )}
                 <Pick
                   label="Active burst"
                   value={target.burst}
                   options={['None', 'Necrosis', 'Burn', 'Corrosion', 'Nervous Impairment', 'Rampage']}
                   change={(v) => setTarget({ ...target, burst: v })}
                 />
+                <label className={css.field}>
+                  Burst threshold
+                  <input
+                    type="number"
+                    min={1}
+                    max={10000}
+                    readOnly={!!enemy}
+                    placeholder={String(threshold(target.tier))}
+                    value={enemy ? burstThreshold(target) : (target.thresholdOverride ?? '')}
+                    onChange={(e) => {
+                      const n = e.currentTarget.valueAsNumber;
+                      setTarget({
+                        ...target,
+                        thresholdOverride: Number.isFinite(n) ? Math.min(10000, Math.max(1, n)) : undefined,
+                      });
+                    }}
+                  />
+                </label>
                 {(['def', 'res', 'elementalRes', 'injuryRes'] as const).map((key, i) => (
                   <label key={key} className={css.field}>
                     {['DEF', 'RES', 'Elemental RES', 'Injury resistance'][i]}
                     <input
                       type="number"
                       min="0"
-                      max={i ? 100 : 3000}
+                      readOnly={!!enemy}
+                      max={i ? 100 : undefined}
                       value={target[key]}
                       onChange={(e) =>
                         setTarget({
                           ...target,
-                          [key]: Math.min(i ? 100 : 3000, Math.max(0, Number(e.target.value))),
+                          [key]: Math.min(i ? 100 : Infinity, Math.max(0, Number(e.target.value))),
                         })
                       }
                     />
@@ -502,7 +611,7 @@ export default function DpsCalculator({ profiles, dataSource }: { profiles: Prof
             </section>
           </div>
           <div className={css.right}>
-            <ComparisonPlot builds={builds} target={target} setTarget={setTarget} />
+            <ComparisonPlot builds={builds} target={target} setTarget={customize} />
             <section className={css.panel}>
               <h2 className="section-title">Build comparison</h2>
               <div className={css.scroll}>
@@ -548,49 +657,97 @@ export default function DpsCalculator({ profiles, dataSource }: { profiles: Prof
         </div>
         {builds.some((b) => calculate(b, target).element) && (
           <section className={css.panel}>
-            <h2 className="section-title">First burst from an empty gauge</h2>
+            <h2 className="section-title">Elemental burst timing</h2>
+            {columns.length === 1 && (
+              <small>
+                {[enemy?.name, target.tier, fmt(burstThreshold(target)) + ' injury to burst']
+                  .filter(Boolean)
+                  .join(' · ')}
+              </small>
+            )}
             <div className={css.scroll}>
               <table>
                 <thead>
                   <tr>
                     <th>Source</th>
-                    {tiers.map((t) => (
-                      <th key={t}>
-                        {t} · {t === 'Boss' ? '2,000' : '1,000'}
-                      </th>
-                    ))}
+                    {columns.length === 1
+                      ? ['Injury', 'To burst', 'First burst', 'Recovery', 'Next burst interval'].map(
+                          (label) => <th key={label}>{label}</th>,
+                        )
+                      : columns.map((t) => (
+                          <th key={t}>
+                            {enemy ? enemy.name + ' · ' : ''}
+                            {t} · {fmt(burstThreshold({ ...target, tier: t }))}
+                          </th>
+                        ))}
                   </tr>
                 </thead>
                 <tbody>
-                  {builds
-                    .filter((b) => calculate(b, target).element)
-                    .map((b) => (
-                      <tr key={b.id}>
+                  {builds.flatMap((b) => {
+                    const action = calculate(b, target);
+                    if (!action.element) return [];
+                    const sources: ('build' | 'summon')[] =
+                      action.summon && !b.plotSummon ? ['build', 'summon'] : ['build'];
+                    return sources.map((source) => (
+                      <tr key={b.id + source}>
                         <th>
-                          #{b.id} {profile(b).name}
-                          <small>
-                            {calculate(b, target).summon ? 'Blood’s Whisper' : calculate(b, target).source}
-                          </small>
+                          #{b.id} {profile(b).name}{' '}
+                          {b.skill > 0 ? 'S' + b.skill + ' ' + rankLabel(b.rank) : ''}
+                          <small>{source === 'summon' ? 'Blood’s Whisper' : action.source}</small>
                         </th>
-                        {tiers.map((tier) => {
-                          const r = firstBurst(b, { ...target, tier });
+                        {columns.map((tier) => {
+                          const r = firstBurst(b, { ...target, tier }, source);
+                          if (columns.length === 1) {
+                            const seconds = (time: number | null) => (time === null ? '—' : fmt(time) + ' s');
+                            return (
+                              <Fragment key={tier}>
+                                <td>
+                                  {fmt(r.amount)} <small>{r.summon ? 'per summon' : 'per action'}</small>
+                                </td>
+                                <td>
+                                  {r.count ? r.count + ' ' + r.unit : r.limited ? 'Below threshold' : '—'}
+                                </td>
+                                <td>{seconds(r.seconds)}</td>
+                                <td>{seconds(r.recovery)}</td>
+                                <td>
+                                  {r.limited && r.seconds !== null && r.repeat === null
+                                    ? 'One burst this window'
+                                    : seconds(r.repeat)}
+                                </td>
+                              </Fragment>
+                            );
+                          }
                           return (
                             <td key={tier}>
                               {r.count ? r.count + ' ' + r.unit : r.limited ? 'Below threshold' : '—'}
                               <small>
-                                {fmt(r.amount)} injury{r.limited ? ' / summon' : ' / action'}
+                                {fmt(r.amount)} injury{r.summon ? ' / summon' : ' / action'}
                               </small>
+                              {r.seconds !== null && (
+                                <small>
+                                  First at {fmt(r.seconds)} s
+                                  {r.repeat !== null && ' · next in ' + fmt(r.repeat) + ' s'}
+                                </small>
+                              )}
+                              {r.recovery !== null && (
+                                <small>
+                                  {fmt(r.recovery)} s recovery
+                                  {r.repeat === null && r.limited ? ' · no second burst this window' : ''}
+                                </small>
+                              )}
                             </td>
                           );
                         })}
                       </tr>
-                    ))}
+                    ));
+                  })}
                 </tbody>
               </table>
             </div>
             <small>
-              Selected source alone. Tragodia’s S3 includes its per-second injury. A summon must reach
-              threshold within one deployment.
+              Time starts at the first hit or tick with an empty gauge. Each source acts alone on a surviving
+              target. The interval to the next burst includes recovery and rebuilding the gauge. Externally
+              triggered actions show the required count when their timing depends on another actor.
             </small>
           </section>
         )}
@@ -647,11 +804,14 @@ export default function DpsCalculator({ profiles, dataSource }: { profiles: Prof
   );
 }
 
-export const getStaticProps = withContentPage(
-  '/dps-calculator',
-  async () => {
-    const { default: archive } = await import('@/config/dps-profiles.json');
-    return { props: { profiles: archive.operators as unknown as Profile[], dataSource: archive.source } };
-  },
-  { bundledWhenUnpublished: true },
-);
+export const getStaticProps = withContentPage('/dps-calculator', async () => {
+  const { default: archive } = await import('@/config/dps-profiles.json');
+  const { enemyTargets } = await import('@/lib/dps/enemyTargets');
+  return {
+    props: {
+      enemies: enemyTargets(),
+      profiles: archive.operators as unknown as Profile[],
+      dataSource: archive.source,
+    },
+  };
+});

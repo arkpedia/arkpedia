@@ -36,6 +36,8 @@ interface SuggestProps<T> extends BaseProps {
   onPick: (item: T) => void;
   /** The list's accessible name: "Matching operators". */
   suggestLabel: string;
+  /** Allow browsing suggestions before typing. */
+  suggestOnEmpty?: boolean;
   /** Shown when the field has text and nothing matches. Omit to show no list. */
   emptyText?: ReactNode;
   /** Open the list above the field (a field low on a phone screen). */
@@ -66,7 +68,7 @@ export default function SearchInput<T>(props: SearchInputProps<T>) {
   const items = suggest?.suggestions ?? EMPTY;
   const pick = (item: T) => { suggest?.onPick(item); setOpen(false); };
   const nav = useKeyboardListNav(items as T[], pick);
-  const showList = !!suggest && open && value.trim() !== '' && (items.length > 0 || suggest.emptyText !== undefined);
+  const showList = !!suggest && open && (value.trim() !== '' || !!suggest.suggestOnEmpty) && (items.length > 0 || suggest.emptyText !== undefined);
 
   function keyDown(event: KeyboardEvent<HTMLInputElement>) {
     /* While an IME is composing (Japanese, Chinese, Korean titles), Enter confirms
@@ -77,7 +79,7 @@ export default function SearchInput<T>(props: SearchInputProps<T>) {
       else if (value) { event.preventDefault(); onChange(''); }
     } else if (showList) {
       nav.handleKeyDown(event);
-    } else if (suggest && (event.key === 'ArrowDown' || event.key === 'ArrowUp') && value.trim()) {
+    } else if (suggest && (event.key === 'ArrowDown' || event.key === 'ArrowUp') && (value.trim() || suggest.suggestOnEmpty)) {
       event.preventDefault();
       setOpen(true);
     }
@@ -104,6 +106,7 @@ export default function SearchInput<T>(props: SearchInputProps<T>) {
         value={value}
         onChange={(event) => { onChange(event.target.value); setOpen(true); }}
         onFocus={() => setOpen(true)}
+        onClick={() => { if (suggest?.suggestOnEmpty) setOpen(true); }}
         onKeyDown={keyDown}
         {...(suggest ? {
           role: 'combobox',

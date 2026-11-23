@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import StyledSelect from '@/components/ui/StyledSelect';
-import { calculate, profile, type Build, type Target } from '@/lib/dps/calculator';
+import { calculate, profile, rankLabel, type Build, type Target } from '@/lib/dps/calculator';
+import { firstBurst } from '@/lib/dps/breakpoints';
 import css from './Dps.module.css';
 
 export const colors = [
@@ -47,8 +48,12 @@ export default function ComparisonPlot({
   setTarget: (t: Target) => void;
 }) {
   const [axis, setAxis] = useState<'def' | 'res' | 'injuryRes' | 'elementalRes'>('res');
-  const [metric, setMetric] = useState<'dps' | 'damage' | 'injuryRate' | 'injury'>('dps');
-  const range = axis === 'def' ? 3000 : 100;
+  const [metric, setMetric] = useState<'dps' | 'damage' | 'injuryRate' | 'injury' | 'seconds' | 'repeat'>(
+    'dps',
+  );
+  const [zoom, setZoom] = useState('full');
+  const clipId = useId();
+  const range = axis === 'def' ? Math.max(3000, Math.ceil(target.def / 500) * 500) : 100;
   const labels = {
     def: 'DEF',
     res: 'RES',
@@ -56,18 +61,35 @@ export default function ComparisonPlot({
     elementalRes: 'Elemental resistance',
   };
   const metrics = {
+    seconds: 'Time to first burst (s)',
+    repeat: 'First to second burst (s)',
     dps: 'HP damage / s',
     damage: 'HP damage / action',
     injuryRate: 'Injury / s',
     injury: 'Injury / action',
   };
   const points = Array.from({ length: 61 }, (_, i) => (i * range) / 60);
-  const series = builds
-    .map((b) => ({ b, ys: points.map((x) => calculate(b, { ...target, [axis]: x })[metric]) }))
-    .filter((s) => s.ys[0] != null);
-  const highest = Math.max(1, ...series.flatMap((s) => s.ys.map((y) => y ?? 0)));
+  const timing = metric === 'seconds' || metric === 'repeat';
+  const measure = (b: Build, t: Target) =>
+    metric === 'seconds' || metric === 'repeat' ? firstBurst(b, t, 'build')[metric] : calculate(b, t)[metric];
+  const series = builds.map((b) => ({
+    b,
+    selected: measure(b, target),
+    ys: points.map((x) => measure(b, { ...target, [axis]: x })),
+  }));
+  const highest = Math.max(1, ...series.flatMap((s) => [s.selected ?? 0, ...s.ys.map((y) => y ?? 0)]));
   const unit = 10 ** Math.floor(Math.log10(highest));
-  const max = (Math.ceil((highest / unit) * 2) * unit) / 2;
+  const fullMax = (Math.ceil((highest / unit) * 2) * unit) / 2;
+  const zoomOptions = [
+    { value: 'full', label: 'Full range' },
+    ...(timing ? [15, 30, 60].map((n) => ({ value: 's' + n, label: 'First ' + n + ' s' })) : []),
+    ...[2, 4, 8, 16].map((n) => ({ value: 'x' + n, label: n + '×' })),
+  ];
+  const max = zoom.startsWith('s')
+    ? Math.min(fullMax, Number(zoom.slice(1)))
+    : zoom.startsWith('x')
+      ? fullMax / Number(zoom.slice(1))
+      : fullMax;
   const X = (x: number) => 62 + (x / range) * 608,
     Y = (y: number) => 218 - (y / max) * 180;
   return (
@@ -79,7 +101,10 @@ export default function ComparisonPlot({
             label="Measure"
             value={metric}
             options={Object.entries(metrics).map(([value, label]) => ({ value, label }))}
-            change={(v) => setMetric(v as typeof metric)}
+            change={(v) => {
+              if (zoom.startsWith('s') && v !== 'seconds' && v !== 'repeat') setZoom('full');
+              setMetric(v as typeof metric);
+            }}
           />
           <Pick
             label="Vary"
@@ -87,6 +112,7 @@ export default function ComparisonPlot({
             options={Object.entries(labels).map(([value, label]) => ({ value, label }))}
             change={(v) => setAxis(v as typeof axis)}
           />
+          <Pick label="Vertical zoom" value={zoom} options={zoomOptions} change={setZoom} />
         </div>
       </div>
       <svg
@@ -94,7 +120,12 @@ export default function ComparisonPlot({
         viewBox="0 0 700 261"
         role="img"
         aria-label={
-          metrics[metric] + ' versus ' + labels[axis] + '. Values at the selected target are listed below.'
+          metrics[metric] +
+          ' versus ' +
+          labels[axis] +
+          ', vertical range 0 to ' +
+          fmt(max) +
+          '. Values at the selected target are listed below.'
         }
         onPointerDown={(e) => {
           const q = e.currentTarget.createSVGPoint();
@@ -109,6 +140,17 @@ export default function ComparisonPlot({
           });
         }}
       >
+        <defs>
+          <clipPath id={clipId}>
+            <rect x="57" y="38" width="618" height="185" />
+          </clipPath>
+        </defs>
+        {highest > max && (
+          <text x="670" y="19" textAnchor="end">
+            Showing 0–{fmt(max)}
+            {timing ? ' s' : ''}
+          </text>
+        )}
         <text x="62" y="19">
           {metrics[metric]}
         </text>
@@ -129,18 +171,31 @@ export default function ComparisonPlot({
           {labels[axis]}
         </text>
         <line className={css.cursor} x1={X(target[axis])} x2={X(target[axis])} y1="34" y2="218" />
-        {series.map(({ b, ys }) => (
-          <g key={b.id}>
-            <polyline
-              fill="none"
-              stroke={color(b)}
-              strokeWidth="2.5"
-              strokeDasharray={b.id % 2 === 0 ? '7 3' : undefined}
-              points={ys.map((y, i) => X(points[i]) + ',' + Y(y ?? 0)).join(' ')}
-            />
-            <circle fill={color(b)} cx={X(target[axis])} cy={Y(calculate(b, target)[metric] ?? 0)} r="4" />
-          </g>
-        ))}
+        {series.map(({ b, ys, selected }) => {
+          let path = '';
+          ys.forEach((y, i) => {
+            if (y === null) return;
+            const x = X(points[i]);
+            path +=
+              i === 0 || ys[i - 1] === null
+                ? ' M' + x + ',' + Y(y)
+                : timing
+                  ? ' H' + x + ' V' + Y(y)
+                  : ' L' + x + ',' + Y(y);
+          });
+          return (
+            <g key={b.id} clipPath={'url(#' + clipId + ')'}>
+              <path
+                d={path}
+                fill="none"
+                stroke={color(b)}
+                strokeWidth="2.5"
+                strokeDasharray={b.id % 2 === 0 ? '7 3' : undefined}
+              />
+              {selected !== null && <circle fill={color(b)} cx={X(target[axis])} cy={Y(selected)} r="4" />}
+            </g>
+          );
+        })}
       </svg>
       <label className={css.probe}>
         {labels[axis]}{' '}
@@ -154,14 +209,24 @@ export default function ComparisonPlot({
         />
         <output>{target[axis]}</output>
       </label>
-      {series.length < builds.length && (
+      {timing && (
+        <small>
+          Measured from first contact against an empty gauge. The second burst includes recovery and refill.
+          A dash in the legend means the burst falls outside the source’s active window or its trigger timing is unknown.
+        </small>
+      )}
+      {!timing && series.some((s) => s.selected === null) && (
         <small>Choose a per-action measure to compare single activations.</small>
       )}
       <div className={css.legend}>
-        {builds.map((b) => (
+        {series.map(({ b, selected }) => (
           <span key={b.id}>
             <i style={{ background: color(b) }} />#{b.id} {profile(b).name}{' '}
-            <strong>{fmt(calculate(b, target)[metric])}</strong>
+            {b.skill ? 'S' + b.skill + ' ' + rankLabel(b.rank) : 'Normal'}{' '}
+            <strong>
+              {fmt(selected)}
+              {timing && selected !== null ? ' s' : ''}
+            </strong>
           </span>
         ))}
       </div>

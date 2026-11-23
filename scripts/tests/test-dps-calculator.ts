@@ -162,3 +162,75 @@ test('Frost S2 only contributes the three follow-up shots inside operator range'
   near(volley.damage - trap.damage, 3 * mitigate(trap.atk * 1.8, 'Physical', target));
   assert.equal(volley.interval, null);
 });
+
+test('archived enemy targets use the combat rank and inherit per-level defenses', async () => {
+  const { enemyTargets } = await import('../../lib/dps/enemyTargets');
+  const enemies = enemyTargets();
+  const levels = (id: string) => enemies.find((e) => e.id === id)!.levels;
+  assert.deepEqual(
+    levels('enemy_1502_crowns').map((l) => [l.def, l.res, l.tier]),
+    [
+      [120, 50, 'Boss'],
+      [150, 50, 'Boss'],
+      [250, 50, 'Boss'],
+    ],
+  );
+  assert.equal(levels('enemy_2093_skzams')[0].tier, 'Boss');
+  const colossus = levels('enemy_10078_mprein_2')[0];
+  assert.deepEqual([colossus.tier, colossus.injuryRes, colossus.elementalRes], ['Elite', 10, 0]);
+  assert.equal(new Set(enemies.map((e) => e.id)).size, enemies.length);
+});
+
+test('a periodic source restarts on the first eligible contact after fallout', () => {
+  const build = { ...createBuild('yu', 1), skill: 0 };
+  const t = { ...dummy, tier: 'Grunt' as const };
+  const perHit = calculate(build, t).injury;
+  const r = firstBurst(build, { ...t, thresholdOverride: perHit * 3 });
+  assert.equal(r.count, 3);
+  assert.equal(r.seconds, 2);
+  assert.equal(r.recovery, 10);
+  assert.equal(r.repeat, 12);
+  assert.equal(firstBurst(build, { ...t, thresholdOverride: perHit }).seconds, 0);
+});
+
+test('Tragodia S3 resets the mark on burst and reapplies it after accelerated recovery', () => {
+  const build = { ...createBuild('phatm2', 1), skill: 3 };
+  const r = firstBurst(build, dummy);
+  near(r.seconds!, 5); // The fifth second's independent tick reaches the boss threshold.
+  near(r.recovery!, 10 / 1.5);
+  near(r.repeat!, 12.8);
+  const s1 = firstBurst({ ...build, skill: 1 }, dummy);
+  near(s1.recovery!, 10);
+  near(s1.seconds!, 8);
+  const summon = firstBurst({ ...build, skill: 2, stage: 3 }, dummy, 'summon');
+  near(summon.seconds!, 5.5);
+  assert.equal(summon.repeat, null);
+  assert.equal(summon.limited, true);
+});
+
+test('Corrosion recovery handles both faster recovery and physical hit cooldown reductions', () => {
+  const thumpy = { ...createBuild('thumpy', 1), skill: 0 };
+  const r = firstBurst(thumpy, dummy);
+  near(r.recovery!, 5);
+  assert.ok(firstBurst({ ...thumpy, potential: 3 }, dummy).recovery! < r.recovery!);
+  const botany = firstBurst({ ...createBuild('botany', 2), skill: 2 }, dummy);
+  near(botany.recovery!, 8 / 1.25);
+  near(botany.repeat!, 16.5);
+});
+
+test('externally triggered injury returns a count without inventing an action interval', () => {
+  const r = firstBurst({ ...createBuild('yu', 1), skill: 1 }, dummy);
+  assert.ok(r.count! > 1);
+  assert.equal(r.seconds, null);
+  assert.equal(r.repeat, null);
+});
+
+test('burn fields scale injury with Arts damage dealt and Botani S1 uses its opening bonus once', () => {
+  const blaze = { ...createBuild('blaze2', 1), skill: 1 };
+  near(calculate(blaze, { ...dummy, res: 50 }).injury, calculate(blaze, dummy).injury / 2);
+  const botani = { ...createBuild('botany', 1), skill: 1 };
+  const injury = calculate(botani, dummy).injury;
+  assert.equal(firstBurst(botani, { ...dummy, thresholdOverride: 2 * injury }).count, 3);
+  const thumpy = { ...createBuild('thumpy', 1), skill: 0, stage: 3 };
+  near(calculate(thumpy, dummy, 1).atk - calculate(thumpy, dummy).atk, 5);
+});

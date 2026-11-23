@@ -9,6 +9,12 @@ The Planner compares independent builds against the same target. The response cu
 3. Calculate HP loss by damage type, then any injury derived from the damage dealt or directly from ATK. Apply the target's injury resistance and burst lockout. The first-burst table starts with an empty gauge and tests individual actions or ticks against 1,000 for a grunt or elite and 2,000 for a boss.
 4. Resolve deployment interactions at their event times. A marked ally's SilverAsh the Reignfrost S2 strikes land at 1.0 and 1.4 seconds. Each reads the ally's ATK at that instant. Self-deployment skills resolve at deployment, and a manual auto-recovery skill waits for both the requested delay and available SP. Same-time activation precedes the strike. The model assumes uninterrupted range and normal SP recovery. The timing reference is [Arkpedia's reviewed SilverAsh controller](https://github.com/arkpedia/arkpedia-stage-simulator-standalone/blob/5ded8215ae50330577d031093d73aec8c992e811/server/sim/content/arkpedia-svash2.js).
 
+## Enemy presets and repeat bursts
+
+The enemy selector joins the handbook to the simulator combat archive by enemy ID. Each level inherits its unspecified fields from level zero. The combat record supplies rank, DEF, Arts RES, injury resistance and elemental damage resistance. Named presets use the rank’s gauge. Custom targets can override it. Stage-specific stat overrides and phase changes are outside this preset.
+
+Both timing measures start at first contact with an empty gauge. The second measures the elapsed time from the first burst to the second on the same surviving target. The model follows the attack clock through recovery, discards injury during lockout, and resets periodic sources that end on burst. The base recovery windows come from the enemy entries in the [game glossary](https://github.com/ArknightsAssets/ArknightsGamedata/blob/e0cd8f274ffbcf57ed0b0684cb681620478ffe0e/cn/gamedata/excel/gamedata_const.json). Tragodia S3 and Botani S2 increase the recovery rate. Thumpy’s physical hits subtract time from the running Corrosion cooldown. The next Corrosion buildup uses the reduced DEF. A bounded source can expire before either burst. A manually triggered source can have a known action count with unknown timing.
+
 ## Extending coverage
 
 The profile generator reads the ArknightsGamedata revision named in the hydrated data lock. The build and content exporter reuse the generated coefficients while that pin matches. To regenerate after editing the supported profiles, run:

@@ -63,6 +63,7 @@ export interface Target {
   res: number;
   elementalRes: number;
   injuryRes: number;
+  thresholdOverride?: number;
   tier: 'Grunt' | 'Elite' | 'Boss';
   burst: string;
 }
@@ -140,9 +141,12 @@ export function mitigate(amount: number, type: DamageType, target: Target) {
   }
 }
 export const threshold = (tier: Target['tier']) => (tier === 'Boss' ? 2000 : 1000);
+export function burstThreshold(target: Target) {
+  return target.thresholdOverride ?? threshold(target.tier);
+}
 export const hitsRequired = (gauge: number, amount: number) =>
   amount > 0 ? Math.ceil(gauge / amount - 1e-10) : null;
-export function calculate(build: Build, t: Target) {
+export function calculate(build: Build, t: Target, priorBursts = 0) {
   const b = normalize(build),
     p = profile(b),
     phase = p.phases[b.elite];
@@ -179,10 +183,15 @@ export function calculate(build: Build, t: Target) {
   if (p.id === 'kaitou' && t.burst === 'Necrosis') buff += first.atk ?? 0;
   if (p.id === 'hsgma2' && b.tenacity) buff += (second.min_atk ?? 0) + (second.atk ?? 0);
   if (p.id === 'threye') speed += second.attack_speed ?? 0;
-  if (p.id === 'botany' && t.burst === 'Corrosion') speed += first.attack_speed ?? 0;
+  if (p.id === 'botany')
+    speed +=
+      Math.min(first.max_stack_cnt ?? 0, Math.max(priorBursts, t.burst === 'Corrosion' ? 1 : 0)) *
+      (first.attack_speed ?? 0);
   if (p.id === 'qiubai' && b.skill === 3)
     speed += ((b.stacked ? skill.max_stack_cnt : 0) - 1) * skill.attack_speed;
-  const atk = base * (1 + buff);
+  const burstAtk =
+    p.id === 'thumpy' ? Math.min(priorBursts, second.max_stack_cnt ?? 0) * (second.atk ?? 0) : 0;
+  const atk = (base + burstAtk) * (1 + buff);
   const interval =
     Math.max(
       1,
@@ -245,7 +254,7 @@ export function calculate(build: Build, t: Target) {
         ticks,
         damage: ticks * packet(skill.atk_scale, 'Arts'),
         injury: ticks * perTick,
-        ticksToBurst: hitsRequired(threshold(t.tier), perTick),
+        ticksToBurst: hitsRequired(burstThreshold(t), perTick),
       };
     }
     if (b.skill === 3) periodic = buildup(atk * skill.ep_damage_ratio) / skill.interval;
@@ -318,6 +327,7 @@ export function calculate(build: Build, t: Target) {
   const damage = Object.values(components).reduce((sum, amount) => sum + amount, 0);
   return {
     base,
+    firstTalent: first,
     atk,
     sourceAtk,
     effects: additionalEffects(p.id, b.skill, atk, skill, first, mod?.trait ?? {}, t),
@@ -334,6 +344,6 @@ export function calculate(build: Build, t: Target) {
     periodic,
     summon,
     empowered,
-    attacks: empowered ? null : hitsRequired(threshold(t.tier), injury),
+    attacks: empowered ? null : hitsRequired(burstThreshold(t), injury),
   };
 }
