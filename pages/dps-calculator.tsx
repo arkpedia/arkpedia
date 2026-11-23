@@ -279,10 +279,10 @@ function DamageComposition({ builds, target }: { builds: Build[]; target: Target
   return (
     <details className={css.panel}>
       <summary>Damage by type · HP per action</summary>
-      {rows.map(({ b, result }) => (
+      {rows.map(({ b, result }, index) => (
         <div key={b.id} className={css.composition}>
           <strong>
-            #{b.id} {profile(b).name}
+            #{index + 1} {profile(b).name}
           </strong>
           <div className={css.bar} aria-hidden="true">
             {Object.entries(palette).map(([type, background]) => (
@@ -327,7 +327,7 @@ function Deployment({
     a = allies.find((b) => b.id === ally) ?? allies.find((b) => b.operator === 'skadi') ?? allies[0];
   const maxStacks = s ? profile(s).skills.find((x) => x.slot === 2)!.ranks[s.rank - 1].max_stack_cnt : 0;
   const opts = (bs: Build[]) =>
-    bs.map((b) => ({ value: String(b.id), label: '#' + b.id + ' ' + profile(b).name }));
+    bs.map((b) => ({ value: String(b.id), label: '#' + (builds.indexOf(b) + 1) + ' ' + profile(b).name }));
   return (
     <details className={css.panel}>
       <summary>Deployment timeline · SilverAsh the Reignfrost S2</summary>
@@ -364,11 +364,11 @@ function Deployment({
             ref={timelineRef}
             aria-label={
               'Deployment · #' +
-              s.id +
+              (builds.indexOf(s) + 1) +
               ' ' +
               profile(s).name +
               ' S2 with #' +
-              a.id +
+              (builds.indexOf(a) + 1) +
               ' ' +
               profile(a).name +
               ' · ' +
@@ -416,10 +416,6 @@ export default function DpsCalculator({
 }) {
   const createBuild = (id: string, number: number) =>
     buildFromProfile(profiles.find((p) => p.id === id)!, number);
-  const initial = [
-    { ...createBuild('phatm2', 1), level: 60 },
-    { ...createBuild('phatm2', 2), stage: 3 },
-  ];
   const pickOps = useMemo(
     () =>
       [...profiles]
@@ -448,10 +444,10 @@ export default function DpsCalculator({
   }, [enemies]);
   const [enemy, setEnemy] = useState<EnemyPreset | null>(null);
   const [level, setLevel] = useState(0);
-  const [builds, setBuilds] = useState<Build[]>(initial),
+  const [builds, setBuilds] = useState<Build[]>([]),
     [edit, setEdit] = useState<number | null>(null);
   const timelineRef = useRef<HTMLTableElement>(null);
-  const next = useRef(3),
+  const next = useRef(1),
     [target, setTarget] = useState<Target>(initialTarget);
   function selectEnemy(preset: EnemyPreset, row: EnemyLevel) {
     setEnemy(preset);
@@ -492,14 +488,14 @@ export default function DpsCalculator({
                 <h2 className="section-title">Builds</h2>
                 <small>100% trust</small>
               </div>
-              {builds.map((b) => (
-                <article key={b.id} className={css.build} style={{ borderLeftColor: color(b) }}>
+              {builds.map((b, index) => (
+                <article key={b.id} className={css.build} style={{ borderLeftColor: color(index) }}>
                   <div className={css.row}>
                     <Image src={getOperatorIconPath(profile(b))} alt="" width={48} height={48} />
                     <div>
                       <strong>{profile(b).name}</strong>
                       <small>
-                        #{b.id} · {buildLabel(b)}
+                        #{index + 1} · {buildLabel(b)}
                       </small>
                     </div>
                   </div>
@@ -629,56 +625,65 @@ export default function DpsCalculator({
             </section>
           </div>
           <div className={css.right}>
-            <ComparisonPlot
-              timelineRef={timelineRef}
-              targetName={
-                enemy ? [enemy.name, enemy.code, 'Lv ' + level].filter(Boolean).join(' · ') : 'Custom target'
-              }
-              builds={builds}
-              target={target}
-              setTarget={customize}
-            />
-            <section className={css.panel}>
-              <h2 className="section-title">Build comparison</h2>
-              <div className={css.scroll}>
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Build / source</th>
-                      <th>HP / action</th>
-                      <th>HP / s</th>
-                      <th>Injury / action</th>
-                      <th>Injury / s</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {builds.map((b) => {
-                      const r = calculate(b, target);
-                      return (
-                        <tr key={b.id}>
-                          <th>
-                            <details>
-                              <summary>
-                                #{b.id} {profile(b).name} · {r.source}
-                              </summary>
-                              <BuildDetails b={b} target={target} />
-                            </details>
-                          </th>
-                          <td>{fmt(r.damage)}</td>
-                          <td>{fmt(r.dps)}</td>
-                          <td>{fmt(r.injury)}</td>
-                          <td>{fmt(r.injuryRate)}</td>
+            {!builds.length ? (
+              <section className={css.panel}>
+                <h2 className="section-title">Build comparison</h2>
+                <p>Add an operator to plot damage and compare builds.</p>
+              </section>
+            ) : (
+              <>
+                <ComparisonPlot
+                  timelineRef={timelineRef}
+                  targetName={
+                    enemy ? [enemy.name, enemy.code, 'Lv ' + level].filter(Boolean).join(' · ') : 'Custom target'
+                  }
+                  builds={builds}
+                  target={target}
+                  setTarget={customize}
+                />
+                <section className={css.panel}>
+                  <h2 className="section-title">Build comparison</h2>
+                  <div className={css.scroll}>
+                    <table>
+                      <thead>
+                        <tr>
+                          <th>Build / source</th>
+                          <th>HP / action</th>
+                          <th>HP / s</th>
+                          <th>Injury / action</th>
+                          <th>Injury / s</th>
                         </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-              <small>
-                Single target. Rates describe the selected action while active. One-off triggers show damage
-                per use.
-              </small>
-            </section>
+                      </thead>
+                      <tbody>
+                        {builds.map((b, index) => {
+                          const r = calculate(b, target);
+                          return (
+                            <tr key={b.id}>
+                              <th>
+                                <details>
+                                  <summary>
+                                    #{index + 1} {profile(b).name} · {r.source}
+                                  </summary>
+                                  <BuildDetails b={b} target={target} />
+                                </details>
+                              </th>
+                              <td>{fmt(r.damage)}</td>
+                              <td>{fmt(r.dps)}</td>
+                              <td>{fmt(r.injury)}</td>
+                              <td>{fmt(r.injuryRate)}</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                  <small>
+                    Single target. Rates describe the selected action while active. One-off triggers show damage
+                    per use.
+                  </small>
+                </section>
+              </>
+            )}
           </div>
         </div>
         {builds.some((b) => calculate(b, target).element) && (
@@ -709,17 +714,23 @@ export default function DpsCalculator({
                   </tr>
                 </thead>
                 <tbody>
-                  {builds.flatMap((b) => {
+                  {builds.flatMap((b, index) => {
                     const action = calculate(b, target);
                     if (!action.element) return [];
+                    const module = selectedModule(b);
+                    const eliteScale = module?.name === 'RIT-X' ? module.stages[b.stage - 1]?.trait.ep_damage_scale : undefined;
+                    const amountLabel = action.empowered ? 'cycle average / action' : 'per action';
                     const sources: ('build' | 'summon')[] =
                       action.summon && !b.plotSummon ? ['build', 'summon'] : ['build'];
                     return sources.map((source) => (
                       <tr key={b.id + source}>
                         <th>
-                          #{b.id} {profile(b).name}{' '}
+                          #{index + 1} {profile(b).name}{' '}
                           {b.skill > 0 ? 'S' + b.skill + ' ' + rankLabel(b.rank) : ''}
                           <small>{source === 'summon' ? 'Blood’s Whisper' : action.source}</small>
+                          {eliteScale && eliteScale > 1 && (
+                            <small>RIT-X · +{fmt((eliteScale - 1) * 100)}% injury against Elites and Bosses</small>
+                          )}
                         </th>
                         {columns.map((tier) => {
                           const r = firstBurst(b, { ...target, tier }, source);
@@ -728,7 +739,7 @@ export default function DpsCalculator({
                             return (
                               <Fragment key={tier}>
                                 <td>
-                                  {fmt(r.amount)} <small>{r.summon ? 'per summon' : 'per action'}</small>
+                                  {fmt(r.amount)} <small>{r.summon ? 'per summon' : amountLabel}</small>
                                 </td>
                                 <td>
                                   {r.count ? r.count + ' ' + r.unit : r.limited ? 'Below threshold' : '—'}
@@ -747,7 +758,7 @@ export default function DpsCalculator({
                             <td key={tier}>
                               {r.count ? r.count + ' ' + r.unit : r.limited ? 'Below threshold' : '—'}
                               <small>
-                                {fmt(r.amount)} injury{r.summon ? ' / summon' : ' / action'}
+                                {fmt(r.amount)} injury{r.summon ? ' / summon' : action.empowered ? ' / action (cycle average)' : ' / action'}
                               </small>
                               {r.seconds !== null && (
                                 <small>
@@ -777,7 +788,7 @@ export default function DpsCalculator({
             </small>
           </section>
         )}
-        <DamageComposition builds={builds} target={target} />
+        {builds.length > 0 && <DamageComposition builds={builds} target={target} />}
         <Deployment
           timelineRef={timelineRef}
           builds={builds}

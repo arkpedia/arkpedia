@@ -46,6 +46,18 @@ test('Tragodia S2 matches P1 level and module breakpoints from both reference bu
   near(s1.empowered!.damagePerHit, 829.5);
   near(s1.empowered!.injuryPerHit, 328.482);
 });
+test('Tragodia S1 opens with a double hit and RIT-X increases injury against elites and bosses', () => {
+  const build = { ...createBuild('phatm2', 1), skill: 1 };
+  const grunt = { ...dummy, tier: 'Grunt' as const }, elite = { ...dummy, tier: 'Elite' as const };
+  assert.equal(firstBurst(build, grunt).count, firstBurst(build, elite).count);
+  const equipped = { ...build, stage: 3 };
+  near(calculate(equipped, elite).injury, calculate(equipped, grunt).injury * 1.18);
+  for (const [target, actions, seconds] of [[grunt, 3, 3.2], [elite, 2, 1.6], [dummy, 4, 4.8]] as const) {
+    const result = firstBurst(equipped, target);
+    assert.equal(result.count, actions);
+    near(result.seconds!, seconds);
+  }
+});
 test('elemental HP and damage-derived injury occur in different target states', () => {
   const dia = { ...createBuild('kaitou', 1), skill: 1 };
   const fresh = calculate(dia, { ...dummy, res: 50 }),

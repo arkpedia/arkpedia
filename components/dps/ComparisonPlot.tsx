@@ -6,8 +6,8 @@ import { saveComparisonImage, type ImageView } from '@/lib/dps/comparisonImage';
 import css from './Dps.module.css';
 
 const colorTokens = ['--teal', '--amber', '--cat-blue', '--rarity-4', '--cat-orange', '--status-positive'];
-const colorToken = (b: Build) => colorTokens[(b.id - 1) % colorTokens.length];
-export const color = (b: Build) => 'var(' + colorToken(b) + ')';
+const colorToken = (index: number) => colorTokens[index % colorTokens.length];
+export const color = (index: number) => 'var(' + colorToken(index) + ')';
 export const fmt = (n: number | null) =>
   n == null ? '—' : n.toLocaleString('en-US', { maximumFractionDigits: 2 });
 export function Pick({
@@ -107,9 +107,9 @@ export default function ComparisonPlot({
         metric: metrics[metric],
         probe: labels[axis] + ' ' + fmt(target[axis]),
         timeline: timelineRef.current,
-        series: series.map(({ b, selected }) => ({
+        series: series.map(({ b, selected }, index) => ({
           build: b,
-          colorToken: colorToken(b),
+          colorToken: colorToken(index),
           value: fmt(selected) + (timing && selected !== null ? ' s' : ''),
         })),
       });
@@ -199,7 +199,7 @@ export default function ComparisonPlot({
           {labels[axis]}
         </text>
         <line className={css.cursor} x1={X(target[axis])} x2={X(target[axis])} y1="34" y2="218" />
-        {series.map(({ b, ys, selected }) => {
+        {series.map(({ b, ys, selected }, index) => {
           let path = '';
           ys.forEach((y, i) => {
             if (y === null) return;
@@ -216,11 +216,11 @@ export default function ComparisonPlot({
               <path
                 d={path}
                 fill="none"
-                stroke={color(b)}
+                stroke={color(index)}
                 strokeWidth="2.5"
-                strokeDasharray={b.id % 2 === 0 ? '7 3' : undefined}
+                strokeDasharray={index % 2 === 1 ? '7 3' : undefined}
               />
-              {selected !== null && <circle fill={color(b)} cx={X(target[axis])} cy={Y(selected)} r="4" />}
+              {selected !== null && <circle fill={color(index)} cx={X(target[axis])} cy={Y(selected)} r="4" />}
             </g>
           );
         })}
@@ -248,9 +248,9 @@ export default function ComparisonPlot({
         <small>Choose a per-action measure to compare single activations.</small>
       )}
       <div className={css.legend}>
-        {series.map(({ b, selected }) => (
+        {series.map(({ b, selected }, index) => (
           <span key={b.id}>
-            <i style={{ background: color(b) }} />#{b.id} {profile(b).name}{' '}
+            <i style={{ background: color(index) }} />#{index + 1} {profile(b).name}{' '}
             {b.skill ? 'S' + b.skill + ' ' + rankLabel(b.rank) : 'Normal'}{' '}
             <strong>
               {fmt(selected)}

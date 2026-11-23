@@ -173,11 +173,11 @@ export async function saveComparisonImage({
     teal: token('--teal'),
   };
   const body = token('--font-body') || 'sans-serif';
-  const rows = series.map(({ build, value, colorToken }) => ({
-    name: '#' + build.id + ' ' + profile(build).name,
+  const rows = series.map(({ build, value, colorToken }, index) => ({
+    name: '#' + (index + 1) + ' ' + profile(build).name,
     value,
     color: token(colorToken),
-    dashed: build.id % 2 === 0,
+    dashed: index % 2 === 1,
     label: [buildLabel(build), calculate(build, target).source, conditions(build)]
       .filter(Boolean)
       .join(' · '),
