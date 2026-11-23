@@ -66,3 +66,11 @@
   .skillName { display: none; }
   .tabStrip { padding-inline: var(--heading-gap); }
 }
+
+.rotationGrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 24rem), 1fr)); gap: var(--heading-gap); align-items: start; }
+.rotationFields { border: 0; margin: 0; padding: 0; min-width: 0; }
+.rotationList { margin: 0; padding-inline-start: 1.5rem; }
+.rotationList li { padding: 4px 0 var(--heading-gap); overflow-wrap: anywhere; }
+.rotationList img { display: block; width: auto; max-width: 100%; height: auto; max-height: 4rem; margin-bottom: 4px; }
+.rotationControls { display: flex; align-items: end; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.rotationControls input[type="number"] { width: 5rem; }

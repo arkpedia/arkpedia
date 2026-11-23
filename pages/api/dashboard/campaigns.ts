@@ -2,8 +2,8 @@ import type { NextApiRequest, NextApiResponse } from 'next';
 import { dashboardActor, dashboardDatabase, dashboardEnv, dashboardOrigin } from '@/lib/dashboard/access';
 import maintenance from './maintenance';
 import { samePlacements } from '@/lib/sponsors/campaignSchedule';
-import { editorCatalog, expireReaderCampaigns } from '@/lib/dashboard/campaignCatalog';
-import { campaignHistory, EditConflict, InvalidEdit, invalidateCampaignEdits, recentCampaignChanges, saveCampaign } from '@/lib/dashboard/campaignStore';
+import { editorCatalog, expireReaderCampaigns, rotationCatalog } from '@/lib/dashboard/campaignCatalog';
+import { campaignHistory, EditConflict, InvalidEdit, invalidateCampaignEdits, recentCampaignChanges, saveCampaign, saveRotation } from '@/lib/dashboard/campaignStore';
 
 export const config = { api: { bodyParser: { sizeLimit: '3mb' } } };
 
@@ -16,6 +16,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const db = dashboardDatabase(env);
   if (!db) return void res.status(503).json({ error: 'Campaign storage is unavailable.' });
   try {
+    if (req.method === 'GET' && req.query.view === 'rotation') return void res.json(await rotationCatalog());
     if (req.method === 'GET' && req.query.view === 'recent') return void res.json(await recentCampaignChanges(db));
     if (req.method === 'GET' && req.query.history !== undefined) {
       const { history, before } = req.query;
@@ -28,6 +29,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (req.method === 'POST') {
       if (req.headers.origin !== dashboardOrigin(env)?.origin) return void res.status(403).end();
       if (req.headers['content-type']?.split(';')[0] !== 'application/json') return void res.status(415).end();
+      if (req.body?.action === 'rotation') {
+        const saved = await saveRotation(db, actor, req.body.slot, req.body.revision, req.body.turns);
+        invalidateCampaignEdits();
+        expireReaderCampaigns();
+        return void res.json(saved);
+      }
       if (['lootbar-violet-orchid-main', 'lootbar-top-up'].includes(req.body?.id)) {
         throw new InvalidEdit('These banners now belong to Violet Orchid. Reload the campaign editor.');
       }
@@ -58,7 +65,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     res.json(await editorCatalog());
   } catch (error) {
     if (error instanceof InvalidEdit) return void res.status(400).json({ error: error.message });
-    if (error instanceof EditConflict) return void res.status(409).json({ error: 'Another editor saved this campaign. Reload before saving.' });
+    if (error instanceof EditConflict) return void res.status(409).json({ error: req.body?.action === 'rotation' ? 'This rotation changed. Reload it before saving.' : 'Another editor saved this campaign. Reload before saving.' });
     res.status(503).json({ error: 'Campaign storage is unavailable. Reload to check the latest revision.' });
   }
 }
