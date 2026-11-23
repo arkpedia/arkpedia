@@ -62,7 +62,7 @@ async function generateProfiles() {
     char_4123_ela: [1, 2, 3],
     char_263_skadi: [2],
     char_4145_ulpia: [3],
-    char_250_phatom: [3],
+    char_250_phatom: [2, 3],
     char_4048_doroth: [1, 2, 3],
     char_451_robin: [1, 2],
     char_1045_svash2: [2],

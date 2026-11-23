@@ -363,8 +363,14 @@ export function sourceAction({
       hit('Physical', s.atk_scale);
       break;
     case 'phatom':
-      trigger('Night Raid on deploy');
-      hit('Physical', s.atk_scale);
+      if (slot === 2) {
+        trigger('Bloody Opus opening attack');
+        hit('Physical');
+        note = 'Full charges on deployment. Each of Phantom’s own attacks spends one charge.';
+      } else {
+        trigger('Night Raid on deploy');
+        hit('Physical', s.atk_scale);
+      }
       break;
     default:
       focus = true;

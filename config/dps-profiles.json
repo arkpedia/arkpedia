@@ -14002,6 +14002,85 @@
    ],
    "skills": [
     {
+     "slot": 2,
+     "manual": false,
+     "token": null,
+     "name": "Bloody Opus",
+     "elite": 1,
+     "ranks": [
+      {
+       "times": 7,
+       "atk": 0.1,
+       "sp": 0,
+       "initialSp": 0,
+       "duration": -1
+      },
+      {
+       "times": 7,
+       "atk": 0.11,
+       "sp": 0,
+       "initialSp": 0,
+       "duration": -1
+      },
+      {
+       "times": 7,
+       "atk": 0.12,
+       "sp": 0,
+       "initialSp": 0,
+       "duration": -1
+      },
+      {
+       "times": 8,
+       "atk": 0.13,
+       "sp": 0,
+       "initialSp": 0,
+       "duration": -1
+      },
+      {
+       "times": 8,
+       "atk": 0.14,
+       "sp": 0,
+       "initialSp": 0,
+       "duration": -1
+      },
+      {
+       "times": 8,
+       "atk": 0.15,
+       "sp": 0,
+       "initialSp": 0,
+       "duration": -1
+      },
+      {
+       "times": 9,
+       "atk": 0.16,
+       "sp": 0,
+       "initialSp": 0,
+       "duration": -1
+      },
+      {
+       "times": 9,
+       "atk": 0.17,
+       "sp": 0,
+       "initialSp": 0,
+       "duration": -1
+      },
+      {
+       "times": 9,
+       "atk": 0.18,
+       "sp": 0,
+       "initialSp": 0,
+       "duration": -1
+      },
+      {
+       "times": 10,
+       "atk": 0.2,
+       "sp": 0,
+       "initialSp": 0,
+       "duration": -1
+      }
+     ]
+    },
+    {
      "slot": 3,
      "manual": false,
      "token": null,

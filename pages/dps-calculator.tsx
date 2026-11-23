@@ -56,20 +56,21 @@ const cnSkills: Record<string, string[]> = {
 };
 function Editor({ b, update }: { b: Build; update: (v: Build) => void }) {
   const p = profile(b);
+  const allowsNormal = baseline.has(p.id) || !p.skills.length;
   const options = p.skills
     .filter((s) => s.elite <= b.elite)
     .map((s) => ({
       label: 'S' + s.slot + ' · ' + (cnSkills[p.id]?.[s.slot - 1] || s.name),
       value: String(s.slot),
     }));
-  if (baseline.has(p.id))
+  if (allowsNormal)
     options.unshift({
       value: '0',
       label: ['yu', 'cairn', 'cello'].includes(p.id) ? 'Talent aura' : 'Normal attack',
     });
   const set = (v: Partial<Build>) => {
     const next = { ...b, ...v };
-    if (!baseline.has(p.id) && !p.skills.some((s) => s.slot === next.skill && s.elite <= next.elite))
+    if (!allowsNormal && !p.skills.some((s) => s.slot === next.skill && s.elite <= next.elite))
       next.skill = p.skills.find((s) => s.elite <= next.elite)!.slot;
     update(normalize(next));
   };
@@ -86,7 +87,7 @@ function Editor({ b, update }: { b: Build; update: (v: Build) => void }) {
           label="Promotion"
           value={b.elite}
           options={range(
-            baseline.has(p.id) ? 0 : Math.min(...p.skills.map((s) => s.elite)),
+            allowsNormal ? 0 : Math.min(...p.skills.map((s) => s.elite)),
             p.phases.length - 1,
           ).map((v) => ({ label: 'Elite ' + v, value: String(v) }))}
           change={(v) => set({ elite: +v })}
@@ -103,7 +104,9 @@ function Editor({ b, update }: { b: Build; update: (v: Build) => void }) {
           options={range(1, 1 + p.potential.length)}
           change={(v) => set({ potential: +v })}
         />
-        <Pick label="Damage source" value={b.skill} options={options} change={(v) => set({ skill: +v })} />
+        {p.skills.length > 0 && (
+          <Pick label="Damage source" value={b.skill} options={options} change={(v) => set({ skill: +v })} />
+        )}
         {b.skill > 0 && (
           <Pick
             label="Skill rank"
@@ -309,38 +312,94 @@ function DamageComposition({ builds, target }: { builds: Build[]; target: Target
 function Deployment({
   builds,
   target,
-  addExamples,
+  roster,
   timelineRef,
 }: {
   builds: Build[];
   target: Target;
-  addExamples: () => void;
+  roster: Profile[];
   timelineRef: RefObject<HTMLTableElement | null>;
 }) {
   const ss = builds.filter((b) => b.operator === 'svash2' && b.skill === 2);
-  const allies = builds.filter((b) => b.operator !== 'svash2');
+  const [added, setAdded] = useState<Build[]>([]);
+  const nextAlly = useRef(-1);
+  const [overrides, setOverrides] = useState<Record<number, string>>({});
+  const [firstAttack, setFirstAttack] = useState<number | null>(null);
+  const allies = [...builds.filter((b) => b.operator !== 'svash2'), ...added];
+  const [fullRoster, setFullRoster] = useState<Profile[]>([]);
+  const [loadError, setLoadError] = useState(false);
+  const loading = useRef(false);
+  async function loadAllies() {
+    if (loading.current || fullRoster.length) return;
+    loading.current = true;
+    setLoadError(false);
+    try {
+      const response = await fetch('/dps-deployment-allies.json');
+      if (!response.ok) throw new Error('Roster unavailable');
+      setFullRoster(await response.json());
+    } catch {
+      setLoadError(true);
+    } finally {
+      loading.current = false;
+    }
+  }
+  const allProfiles = useMemo(() => {
+    const byId = new Map(fullRoster.map((p) => [p.id, p]));
+    for (const p of roster) byId.set(p.id, p);
+    return [...byId.values()];
+  }, [fullRoster, roster]);
+  const choices = useMemo(
+    () =>
+      allProfiles
+        .filter((p) => p.id !== 'svash2')
+        .map((p) => ({ id: p.id, name: p.name }))
+        .sort((a, b) => a.name.localeCompare(b.name)),
+    [allProfiles],
+  );
   const [owner, setOwner] = useState(0),
     [ally, setAlly] = useState(0),
     [stacks, setStacks] = useState(2),
     [delay, setDelay] = useState(0);
   const s = ss.find((b) => b.id === owner) ?? ss[0],
-    a = allies.find((b) => b.id === ally) ?? allies.find((b) => b.operator === 'skadi') ?? allies[0];
-  const maxStacks = s ? profile(s).skills.find((x) => x.slot === 2)!.ranks[s.rank - 1].max_stack_cnt : 0;
+    a = allies.find((b) => b.id === ally) ?? allies[0];
+  if (!s) return null;
+  const maxStacks = profile(s).skills.find((x) => x.slot === 2)!.ranks[s.rank - 1].max_stack_cnt;
+  const label = (b: Build) => (b.id < 0 ? 'Ally ' + (added.indexOf(b) + 1) : '#' + (builds.indexOf(b) + 1));
   const opts = (bs: Build[]) =>
-    bs.map((b) => ({ value: String(b.id), label: '#' + (builds.indexOf(b) + 1) + ' ' + profile(b).name }));
+    bs.map((b) => ({ value: String(b.id), label: label(b) + ' ' + profile(b).name }));
   return (
-    <details className={css.panel}>
+    <details
+      className={css.panel}
+      onToggle={(e) => {
+        if (e.currentTarget.open) void loadAllies();
+      }}
+    >
       <summary>Deployment timeline · SilverAsh the Reignfrost S2</summary>
       <p>
         Each stored strike uses the marked ally’s ATK when it lands. This scenario assumes the ally was left
         of the Eye when marked and the target stays in range.
       </p>
-      {(!a || !s) && (
-        <button className="btn btn-sm" onClick={addExamples}>
-          Add deployment builds
-        </button>
+      <div className={css.add}>
+        <BuildSearch
+          label="Add timeline ally"
+          placeholder="Search all operators…"
+          choices={choices}
+          pick={(id) => {
+            const build = buildFromProfile(allProfiles.find((p) => p.id === id)!, nextAlly.current--);
+            setAdded((prev) => [...prev, build]);
+            setAlly(build.id);
+          }}
+        />
+      </div>
+      {loadError && (
+        <p role="status">
+          Couldn’t load the full ally roster.{' '}
+          <button className="btn btn-sm" onClick={loadAllies}>
+            Retry
+          </button>
+        </p>
       )}
-      {a && s && (
+      {a && (
         <>
           <div className={css.controls}>
             <Pick label="SilverAsh build" value={s.id} options={opts(ss)} change={(v) => setOwner(+v)} />
@@ -360,6 +419,51 @@ function Deployment({
               />
             )}
           </div>
+          {a.id < 0 && (
+            <details key={a.id}>
+              <summary>Edit {profile(a).name} build</summary>
+              <Editor
+                b={a}
+                update={(updated) => setAdded((prev) => prev.map((b) => (b.id === updated.id ? updated : b)))}
+              />
+              <button
+                className="btn btn-sm"
+                onClick={() => setAdded((prev) => prev.filter((b) => b.id !== a.id))}
+              >
+                Remove ally
+              </button>
+            </details>
+          )}
+          {a.operator === 'phatom' && a.skill === 2 && (
+            <div className={css.controls}>
+              <Pick
+                label="Phantom’s first attack after deployment"
+                value={firstAttack ?? 'none'}
+                options={[
+                  { value: 'none', label: 'No attacks before strikes' },
+                  ...[0, 0.5, 1, 1.2, 1.4].map((v) => ({ value: String(v), label: v + ' s' })),
+                ]}
+                change={(v) => setFirstAttack(v === 'none' ? null : +v)}
+              />
+            </div>
+          )}
+          <details key={'atk-' + a.id} open={!profile(a).skills.length || undefined}>
+            <summary>Custom ally ATK</summary>
+            <label className={css.field}>
+              Ally ATK at impact
+              <input
+                type="number"
+                min="0"
+                step="any"
+                placeholder="Auto"
+                value={overrides[a.id] ?? ''}
+                onChange={(e) => setOverrides({ ...overrides, [a.id]: e.target.value })}
+              />
+            </label>
+            <small>
+              Enter the ally’s in-game ATK to include other buffs. Leave blank to use the calculated ATK.
+            </small>
+          </details>
           <table
             ref={timelineRef}
             aria-label={
@@ -367,10 +471,11 @@ function Deployment({
               (builds.indexOf(s) + 1) +
               ' ' +
               profile(s).name +
-              ' S2 with #' +
-              (builds.indexOf(a) + 1) +
+              ' S2 with ' +
+              label(a) +
               ' ' +
               profile(a).name +
+              (a.skill ? ' S' + a.skill + ' ' + rankLabel(a.rank) : '') +
               ' · ' +
               Math.min(stacks, maxStacks) +
               ' stored casts'
@@ -385,7 +490,15 @@ function Deployment({
               </tr>
             </thead>
             <tbody>
-              {deploymentSequence(s, a, target, stacks, delay).map((e) => (
+              {deploymentSequence(
+                s,
+                a,
+                target,
+                stacks,
+                delay,
+                firstAttack,
+                overrides[a.id] ? Math.max(0, Number(overrides[a.id])) : null,
+              ).map((e) => (
                 <tr key={e.label}>
                   <td>{fmt(e.time)} s</td>
                   <td>{e.label}</td>
@@ -396,6 +509,9 @@ function Deployment({
             </tbody>
           </table>
           <p>
+            {a.operator === 'phatom' &&
+              a.skill === 2 &&
+              'Each of Phantom’s attacks spends one Bloody Opus charge. Stored strikes use the remaining bonus. '}
             Manual skills wait for sufficient SP at 1 SP/s. At the same timestamp, activation precedes the
             strike. Other allies use their deployment ATK unless an activation is shown. Ulpianus’s anchor
             travel hit is separate.
@@ -791,20 +907,7 @@ export default function DpsCalculator({
           </section>
         )}
         {builds.length > 0 && <DamageComposition builds={builds} target={target} />}
-        <Deployment
-          timelineRef={timelineRef}
-          builds={builds}
-          target={target}
-          addExamples={() =>
-            add(
-              ['svash2', 'skadi', 'ulpia', 'phatom']
-                .filter(
-                  (id) => !builds.some((b) => b.operator === id && b.skill === createBuild(id, 0).skill),
-                )
-                .map((id) => createBuild(id, next.current++)),
-            )
-          }
-        />
+        <Deployment timelineRef={timelineRef} builds={builds} target={target} roster={profiles} />
         <details className={css.panel}>
           <summary>Formulas and coverage</summary>
           <p>

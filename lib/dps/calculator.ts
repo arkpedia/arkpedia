@@ -87,7 +87,7 @@ export function createBuild(p: Profile, id: number): Build {
     elite: p.phases.length - 1,
     level: p.phases.at(-1)!.maxLevel,
     potential: 1,
-    skill: operator === 'phatm2' ? 2 : (p.skills.at(-1)?.slot ?? 0),
+    skill: ['phatm2', 'phatom'].includes(operator) ? 2 : (p.skills.at(-1)?.slot ?? 0),
     rank: [4, 7, 10][p.phases.length - 1],
     stage: ['mlyss', 'ifrit', 'logos', 'ebnhlz', 'thorns', 'vvana'].includes(operator) ? 3 : 0,
     tenacity: false,
@@ -175,6 +175,7 @@ export function calculate(build: Build, t: Target, priorBursts = 0) {
   const skill = p.skills.find((s) => s.slot === b.skill)?.ranks[b.rank - 1] ?? {};
   let buff = ['philae', 'deepcl', 'folivo', 'lasher'].includes(p.id) ? 0 : (skill.atk ?? 0);
   if (['skadi', 'graceb'].includes(p.id)) buff += first.atk ?? 0;
+  if (p.id === 'phatom' && b.skill === 2) buff += (skill.times - 1) * skill.atk;
   if (p.id === 'phatom' && b.traitActive) buff += mod?.trait.atk ?? 0;
   if (p.id === 'threye') buff += second.atk ?? 0;
   let speed = 100 + potStat('ATTACK_SPEED') + (mod?.stats.attack_speed ?? 0) + (skill.attack_speed ?? 0);

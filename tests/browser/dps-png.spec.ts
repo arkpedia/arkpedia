@@ -44,3 +44,23 @@ test('downloads the zoomed comparison as condensed and detailed PNGs', async ({ 
   await page.getByRole('option', { name: 'Skadi', exact: true }).click();
   await expect(cards.first()).toContainText('#1 ·');
 });
+
+test('SilverAsh S2 opens a timeline for modeled and full-roster allies', async ({ page }) => {
+  await page.goto('/dps-calculator');
+  const timeline = page.locator('summary').filter({ hasText: 'Deployment timeline' });
+  await expect(timeline).toHaveCount(0);
+  const add = async (label: string, name: string) => {
+    await page.getByRole('combobox', { name: label, exact: true }).fill(name);
+    await page.getByRole('option', { name, exact: true }).click();
+  };
+  await add('Add operator', 'SilverAsh the Reignfrost');
+  await timeline.click();
+  await add('Add timeline ally', 'Phantom');
+  const table = page.getByRole('table', { name: /Deployment ·/ });
+  await expect(table).toContainText('Bloody Opus');
+  await add('Add timeline ally', 'Exusiai');
+  await page.getByRole('spinbutton', { name: 'Ally ATK at impact' }).fill('1200');
+  await expect(table.getByRole('row').filter({ hasText: 'Stored S2 strike 1' })).toContainText('1,200');
+  await page.getByRole('button', { name: 'Remove', exact: true }).click();
+  await expect(timeline).toHaveCount(0);
+});

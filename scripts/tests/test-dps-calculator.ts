@@ -92,7 +92,15 @@ test('deployment casts read the marked ally at each strike and respect available
   near(split.at(-1)!.atk, calculate(ulpia, dummy).atk);
   const early = deploymentSequence(owner, { ...ulpia, rank: 1 }, dummy, 2, 0);
   assert.ok(early.find((e) => e.label === 'Ally skill active')!.time > 1.4);
-  const night = deploymentSequence(owner, phantom, dummy, 1, 5);
+  assert.equal(phantom.skill, 2);
+  const normal = calculate({ ...phantom, skill: 0 }, dummy);
+  const full = deploymentSequence(owner, phantom, dummy, 2, 0);
+  near(full.at(-1)!.atk, normal.base * 3);
+  const spent = deploymentSequence(owner, phantom, dummy, 2, 0, 1.1);
+  near(spent.at(-2)!.atk, normal.base * 3);
+  near(spent.at(-1)!.atk, normal.base * 2.8);
+  assert.equal(spent.some(e => e.label === 'Night Raid hit'), false);
+  const night = deploymentSequence(owner, { ...phantom, skill: 3 }, dummy, 1, 5);
   near(night[1].damage, night[0].atk * 3);
   near(night[2].damage, night[0].atk * 3.8);
 });
