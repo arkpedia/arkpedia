@@ -63,11 +63,25 @@ export function translateOperator(operator: Operator, translations: Record<strin
   };
 }
 
+// Global skill descriptions also use inflections of the glossary headword.
+function keywordsForMechanics(keywords: BaseSkillKeyword[], mechanics: string): BaseSkillKeyword[] {
+  const matches = keywords.filter(keyword => mechanics.includes(keyword.text.toLowerCase()));
+  const takeOff = keywords.find(keyword => keyword.term === 'ba.liftoff' && keyword.text === 'Take Off');
+  if (takeOff) {
+    for (const text of ['Takes Off', 'Taking Off']) {
+      if (mechanics.includes(text.toLowerCase()) && !matches.some(keyword => keyword.text.toLowerCase() === text.toLowerCase())) {
+        matches.push({ ...takeOff, text });
+      }
+    }
+  }
+  return matches;
+}
+
 /** Content exports carry the compact result, so newer published data stays authoritative. */
 export function enrichOperatorText(operator: Operator, translations: Record<string, Translation>, keywords: BaseSkillKeyword[], glossary: BaseSkillGlossary = { terms: [], buffs: {} }): Operator {
   const translated = translateOperator(operator, translations);
   const mechanics = JSON.stringify([translated.trait, translated.skills, translated.talents, translated.modules, translated.potential]).toLowerCase();
-  return { ...translated, ...(translated.sourceRegion === 'CN' && translated.baseSkills ? { baseSkills: applyBaseSkillGlossary(translated.baseSkills, glossary) } : {}), operatorTextVersion: 5,
-    combatKeywords: keywords.filter(keyword => mechanics.includes(keyword.text.toLowerCase())),
+  return { ...translated, ...(translated.sourceRegion === 'CN' && translated.baseSkills ? { baseSkills: applyBaseSkillGlossary(translated.baseSkills, glossary) } : {}), operatorTextVersion: 6,
+    combatKeywords: keywordsForMechanics(keywords, mechanics),
   };
 }
