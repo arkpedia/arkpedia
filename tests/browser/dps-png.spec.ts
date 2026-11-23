@@ -92,7 +92,7 @@ test('inspecting a curve preserves the enemy and alternative charts export', asy
   await expect(res).toHaveValue(initial);
   await expect(page.getByRole('button', { name: 'Customize', exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Reset probe to target' })).toHaveCount(0);
-  for (const name of ['At target', 'Burst timeline']) {
+  for (const name of ['At target', 'Elemental burst']) {
     await page.getByRole('button', { name, exact: true }).click();
     await page.getByRole('button', { name: 'Condensed PNG' }).click();
     const [file] = await Promise.all([

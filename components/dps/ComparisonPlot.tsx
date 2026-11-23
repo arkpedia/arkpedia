@@ -232,7 +232,7 @@ export default function ComparisonPlot({
         svg: chart.current,
         target,
         targetName,
-        metric: view === 'timeline' ? 'Elemental burst timeline' : metrics[metric],
+        metric: view === 'timeline' ? 'Elemental burst' : metrics[metric],
         probe: view === 'curve' ? labels[axis] + ' ' + fmt(probe) : 'Selected target',
         timeline: timelineRef.current,
         series: series.map((row, index) => ({
@@ -258,7 +258,7 @@ export default function ComparisonPlot({
             [
               { value: 'curve', label: 'Response curve' },
               { value: 'bars', label: 'At target' },
-              { value: 'timeline', label: 'Burst timeline' },
+              { value: 'timeline', label: 'Elemental burst' },
             ] as const
           }
           value={view}
