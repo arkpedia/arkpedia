@@ -805,26 +805,28 @@ export default function DpsCalculator({
             effective defenses before the selected source’s own debuffs. Skill downtime, additional targets
             and burst fallout are outside the direct attack rate.
           </p>
-          <a
-            href={dataSource
-              .replace('raw.githubusercontent.com', 'github.com')
-              .replace('/ArknightsGamedata/', '/ArknightsGamedata/tree/')}
-          >
-            English game tables
-          </a>{' '}
-          ·{' '}
-          <a
-            href={dataSource
-              .replace('raw.githubusercontent.com', 'github.com')
-              .replace('/ArknightsGamedata/', '/ArknightsGamedata/tree/')
-              .replace('/en/', '/cn/')}
-          >
-            CN game tables
-          </a>{' '}
-          ·{' '}
-          <a href="https://github.com/arkpedia/arkpedia-stage-simulator-standalone/blob/5ded8215ae50330577d031093d73aec8c992e811/server/sim/content/arkpedia-svash2.js">
-            Deployment timing
-          </a>
+          <p className="hint">
+            <a
+              href={dataSource
+                .replace('raw.githubusercontent.com', 'github.com')
+                .replace('/ArknightsGamedata/', '/ArknightsGamedata/tree/')}
+            >
+              English game tables ↗
+            </a>{' '}
+            ·{' '}
+            <a
+              href={dataSource
+                .replace('raw.githubusercontent.com', 'github.com')
+                .replace('/ArknightsGamedata/', '/ArknightsGamedata/tree/')
+                .replace('/en/', '/cn/')}
+            >
+              CN game tables ↗
+            </a>{' '}
+            ·{' '}
+            <a href="https://github.com/arkpedia/arkpedia-stage-simulator-standalone/blob/5ded8215ae50330577d031093d73aec8c992e811/server/sim/content/arkpedia-svash2.js">
+              Deployment timing ↗
+            </a>
+          </p>
         </details>
       </main>
     </>

@@ -1,7 +1,7 @@
 .page {
   display: grid;
   gap: 16px;
-  padding-block: 20px 44px;
+  padding-block: 24px 44px;
   min-width: 0;
 }
 .workspace {
@@ -240,15 +240,6 @@
   background: var(--well);
 }
 
-@media (max-width: 780px) {
-  .left,
-  .right {
-    display: contents;
-  }
-  .left > section:nth-child(2) {
-    order: 2;
-  }
-  .right > section:nth-child(2) {
-    order: 3;
-  }
+.panel tr > :first-child {
+  padding-inline-start: 0;
 }
