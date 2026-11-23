@@ -1,4 +1,4 @@
-import {expect,test,type Page} from '@playwright/test';
+import {expect,test,type Locator,type Page} from '@playwright/test';
 import {readOnly} from './census-routes';
 async function setup(page:Page,theme:string){
   await readOnly(page);await page.addInitScript(theme=>localStorage.setItem('theme',theme),theme);
@@ -21,6 +21,143 @@ async function setup(page:Page,theme:string){
   return state;
 }
 const cards=(page:Page)=>page.getByRole('button',{name:/^Rate .+ by /});
+
+async function expectStickyTierHandoff(first:Locator,next:Locator){
+  const scrollToPinnedHeader=(header:Locator)=>header.evaluate(element=>{
+    const offset=parseFloat(getComputedStyle(element).top);
+    window.scrollBy(0,element.getBoundingClientRect().top-offset+32);
+    return offset;
+  });
+  const firstOffset=await scrollToPinnedHeader(first);
+  await expect.poll(async()=>(await first.boundingBox())!.y).toBeCloseTo(firstOffset,0);
+  const nextOffset=await scrollToPinnedHeader(next);
+  await expect.poll(async()=>(await next.boundingBox())!.y).toBeCloseTo(nextOffset,0);
+  const firstHeader=(await first.boundingBox())!;
+  expect(firstHeader.y+firstHeader.height).toBeLessThanOrEqual(nextOffset);
+}
+
+async function expectScoreBesideArt(score:Locator,art:Locator){
+  const [scoreBox,artBox]=await Promise.all([score.boundingBox(),art.boundingBox()]);
+  expect(scoreBox!.x+scoreBox!.width).toBeLessThanOrEqual(artBox!.x);
+}
+
+for(const theme of ['dark','light'])test(`rated skins tier list groups saved scores and supports re-rating (${theme})`,async({page},info)=>{
+  const state=await setup(page,theme);
+  await page.goto('/polls/favourite-skins');
+  const skins=await page.evaluate(()=>((window as any).__NEXT_DATA__.props.pageProps.skins as {id:string;name:string;operator:string}[]).slice(0,37));
+  const [low,high,alsoHigh,communityOnly,...middle]=skins;
+  const own=[low,high,alsoHigh,...middle].map((skin,i)=>[skin.id,{skin:skin.id,rating:[1,10,10][i]??5,revision:1}] as const);
+  state.ratings.set('rater',new Map(own));
+  state.ratings.set('community',new Map([[communityOnly.id,{skin:communityOnly.id,rating:10,revision:1}]]));
+  await page.reload();
+
+  const filters=page.getByRole('group',{name:'Show skins',exact:true});
+  const order=page.getByRole('group',{name:'Rating order',exact:true});
+  const highest=order.getByRole('button',{name:'Highest first',exact:true});
+  const lowest=order.getByRole('button',{name:'Lowest first',exact:true});
+  const compact=page.getByRole('checkbox',{name:'Compact tier list',exact:true});
+  const tierList=page.getByRole('group',{name:'Your ratings tier list',exact:true});
+  const row=(score:number)=>tierList.getByRole('region',{name:`Your rating ${score} out of 10`,exact:true});
+  const rate=(skin:typeof high)=>page.getByRole('button',{name:`Rate ${skin.name} by ${skin.operator}`,exact:true});
+  const search=page.getByRole('searchbox',{name:'Search by operator or skin name'});
+  const [allFilter,unratedFilter,ratedFilter]=['All','Unrated','Rated'].map(name=>filters.getByRole('button',{name,exact:true}));
+  const progress=page.getByText(/rated · Saved to your account/);
+  const layout=async()=>({
+    controls:await Promise.all([search,allFilter,unratedFilter,ratedFilter,progress].map(control=>control.boundingBox())),
+    galleryTop:(await cards(page).first().boundingBox())?.y,
+  });
+
+  await expect(order).toHaveCount(0);
+  await expect(progress).toBeVisible();
+  const allLayout=await layout();
+  const artSize=()=>rate(high).evaluate(card=>{
+    const {width,height}=card.firstElementChild!.getBoundingClientRect();
+    return {width,height};
+  });
+  const mobile=(page.viewportSize()?.width??1440)<=720;
+  await ratedFilter.click();
+  await expect(highest).toHaveAttribute('aria-pressed','true');
+  expect(await layout()).toEqual(allLayout);
+  await unratedFilter.click();
+  await expect(order).toHaveCount(0);
+  expect(await layout()).toEqual(allLayout);
+  await ratedFilter.click();
+  await expect(highest).toHaveAttribute('aria-pressed','true');
+  await expect(compact).not.toBeChecked();
+  await expect(tierList.getByRole('region').first()).toHaveAttribute('aria-label','Your rating 10 out of 10');
+  await expect(row(10).getByRole('button')).toHaveCount(2);
+  await expect(row(5)).toBeVisible();
+  await expect(rate(communityOnly)).toHaveCount(0);
+  await expect.poll(async()=>(await artSize()).height).toBe(mobile?190:220);
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
+
+  const header=(score:number)=>row(score).getByText(`${score}/10`,{exact:true});
+  await expectScoreBesideArt(header(10),rate(high));
+  await expectStickyTierHandoff(header(10),header(5));
+  if(process.env.ARKPEDIA_QA_CAPTURE){
+    await page.waitForLoadState('networkidle',{timeout:3000}).catch(()=>{});
+    await page.screenshot({path:`${process.env.ARKPEDIA_QA_CAPTURE}/rated-skins-tier-list-${theme}-${info.project.name}.png`,animations:'disabled'});
+  }
+
+  await page.evaluate(()=>window.scrollTo(0,document.body.scrollHeight));
+  await expect(row(1)).toBeVisible();
+  await expect(tierList.getByRole('region')).toHaveCount(3);
+  await expect(tierList.getByRole('region').last()).toHaveAttribute('aria-label','Your rating 1 out of 10');
+  await row(1).getByRole('button').click();
+  const dialog=page.getByRole('dialog');
+  await expect(dialog.getByRole('button',{name:'Next skin',exact:true})).toBeDisabled();
+  await dialog.getByRole('button',{name:'Previous skin',exact:true}).click();
+  await expect(dialog.getByRole('button',{name:'5 out of 10',exact:true})).toHaveAttribute('aria-pressed','true');
+  await page.keyboard.press('Escape');
+  await expect(dialog).toHaveCount(0);
+
+  await lowest.focus();
+  await lowest.press('Enter');
+  await expect(lowest).toBeFocused();
+  await expect(tierList.getByRole('region').first()).toHaveAttribute('aria-label','Your rating 1 out of 10');
+  await compact.check();
+
+  await search.fill('skin-with-no-matches');
+  await expect(page.getByText('No skins match these filters.',{exact:true})).toBeVisible();
+  await search.fill(high.name);
+  await expect(rate(high)).toBeVisible();
+  expect(await artSize()).toMatchObject({height:mobile?88:104});
+  expect((await artSize()).width).toBeLessThan(100);
+  await expectScoreBesideArt(header(10),rate(high));
+  await expect(row(5)).toHaveCount(0);
+  await expect.poll(()=>new URL(page.url()).searchParams.get('q')).toBe(high.name);
+  await page.reload();
+  await expect(lowest).toHaveAttribute('aria-pressed','true');
+  await expect(compact).toBeChecked();
+  await expect(search).toHaveValue(high.name);
+  await expect(rate(high)).toBeVisible();
+
+  await rate(high).focus();
+  await rate(high).press('Enter');
+  await expect(dialog.getByRole('button',{name:'10 out of 10',exact:true})).toHaveAttribute('aria-pressed','true');
+  await dialog.getByRole('button',{name:'2 out of 10',exact:true}).click();
+  await expect(dialog.getByText('Saved to your account.',{exact:true})).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(row(2).getByRole('button',{name:`Rate ${high.name} by ${high.operator}`,exact:true})).toBeFocused();
+  await rate(high).press('Enter');
+  await dialog.getByRole('button',{name:'Clear my rating',exact:true}).click();
+  await expect(dialog.getByText('Rating cleared.',{exact:true})).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(row(2)).toHaveCount(0);
+  await expect(search).toBeFocused();
+
+  await search.fill('');
+  await filters.getByRole('button',{name:'Unrated',exact:true}).click();
+  await expect(order).toHaveCount(0);
+  await expect(compact).toHaveCount(0);
+  await expect(tierList).toHaveCount(0);
+  await filters.getByRole('button',{name:'Rated',exact:true}).click();
+  await expect(lowest).toHaveAttribute('aria-pressed','true');
+  await highest.click();
+  await expect(tierList.getByRole('region').first()).toHaveAttribute('aria-label','Your rating 10 out of 10');
+  expect(state.writes).toHaveLength(2);
+});
+
 for(const theme of ['dark','light'])test(`ratings autosave, resume, edit and clear (${theme})`,async({page},info)=>{
   const state=await setup(page,theme);await page.goto('/polls/favourite-skins');await expect(page.getByText(/0 \/ \d+ rated · Saved to your account/)).toBeVisible();
   await cards(page).first().click();let dialog=page.getByRole('dialog');await expect(dialog.getByRole('group',{name:'Rate this skin from 1 to 10',exact:true}).getByRole('button')).toHaveCount(10);
@@ -66,6 +203,23 @@ for(const theme of ['dark','light'])test(`public tier list, detailed statistics 
   state.ratings.set('alice',new Map(skins.map((skin,i)=>[skin.id,{skin:skin.id,rating:[1,6,10,8][i],revision:1}])));state.ratings.set('bob',new Map(skins.slice(0,2).map((skin,i)=>[skin.id,{skin:skin.id,rating:[10,6][i],revision:1}])));
   await page.goto('/polls/favourite-skins?view=results&display=tierlist&weighted=off');await expect(page.getByRole('region',{name:'Average 5.5 out of 10',exact:true})).toBeVisible();
   await expect(page.getByRole('button',{name:'Tier list',exact:true})).toHaveAttribute('aria-pressed','true');
+  const header=(score:string)=>page.getByRole('region',{name:`Average ${score} out of 10`,exact:true}).getByText(score,{exact:true});
+  await expectStickyTierHandoff(header('10.0'),header('8.0'));
+  const art=page.getByRole('button',{name:`View full artwork of ${skins[0].name}`,exact:true});
+  const mobile=(page.viewportSize()?.width??1440)<=720;
+  await expect(art).toHaveCSS('height',mobile?'190px':'220px');
+  await expectScoreBesideArt(header('5.5'),art);
+  const compact=page.getByRole('checkbox',{name:'Compact tier list',exact:true});
+  await compact.check();
+  await expect(art).toHaveCSS('width',mobile?'72px':'88px');
+  await expect(art).toHaveCSS('height',mobile?'88px':'104px');
+  await expectScoreBesideArt(header('5.5'),art);
+  await art.focus();
+  await art.press('Enter');
+  const viewer=page.getByRole('dialog',{name:`${skins[0].name} artwork`,exact:true});
+  await expect(viewer).toBeVisible();
+  await viewer.getByRole('button',{name:'Back to ranking',exact:true}).click();
+  await expect(art).toBeFocused();
   if(process.env.ARKPEDIA_QA_CAPTURE)await page.screenshot({path:`${process.env.ARKPEDIA_QA_CAPTURE}/skin-tierlist-${theme}-${info.project.name}.png`,animations:'disabled'});
   const tile=page.getByRole('button',{name:`${skins[0].name} by ${skins[0].operator}: show rating statistics`,exact:true});await tile.focus();await tile.press('Enter');let dialog=page.getByRole('dialog',{name:skins[0].name,exact:true});
   await expect(dialog.getByText('5.50/10 average',{exact:true})).toBeVisible();await expect(dialog.getByRole('img',{name:/rating distribution from 1 to 10/})).toBeVisible();await expect(dialog.getByText('Small sample — results may change quickly.',{exact:true})).toBeVisible();
@@ -73,6 +227,7 @@ for(const theme of ['dark','light'])test(`public tier list, detailed statistics 
   if(process.env.ARKPEDIA_QA_CAPTURE)await page.screenshot({path:`${process.env.ARKPEDIA_QA_CAPTURE}/skin-distribution-${theme}-${info.project.name}.png`,animations:'disabled'});
   await page.keyboard.press('Escape');await expect(dialog).not.toBeVisible();await expect(tile).toBeFocused();await expect.poll(()=>new URL(page.url()).searchParams.get('detail')).toBeNull();
   await page.getByRole('button',{name:'Detailed',exact:true}).click();const table=page.getByRole('table',{name:'Detailed rating statistics',exact:true});await expect(table.locator('tbody tr')).toHaveCount(4);
+  await expect(compact).toHaveCount(0);
   await table.getByRole('button',{name:'Average',exact:false}).click();await expect(table.locator('thead th').nth(1)).toHaveAttribute('aria-sort','ascending');await expect(table.locator('tbody tr').first()).toContainText(skins[0].name);await expect(table.locator('tbody tr').first()).toContainText('3.25 – 7.75');
   if(info.project.name==='mobile'){const region=page.getByRole('region',{name:'Detailed rating statistics',exact:true});await page.getByRole('button',{name:'Scroll on through Detailed rating statistics',exact:true}).click();await expect.poll(()=>region.evaluate(el=>el.scrollLeft)).toBeGreaterThan(0);}
   if(process.env.ARKPEDIA_QA_CAPTURE)await page.screenshot({path:`${process.env.ARKPEDIA_QA_CAPTURE}/skin-detailed-${theme}-${info.project.name}.png`,animations:'disabled'});
@@ -129,7 +284,18 @@ for(const theme of ['dark','light'])test(`weighted rankings resist a lone ten an
   await page.goto('/polls/favourite-skins?view=results',{waitUntil:'domcontentloaded'});const weighted=page.getByRole('checkbox',{name:'Weighted Rating',exact:true}),podium=page.getByRole('list',{name:'Top three results',exact:true});await expect(weighted).toBeChecked();await expect(podium.getByRole('listitem').first()).toContainText(trusted.name);await expect(podium.getByText('Your score 9/10',{exact:true})).toBeVisible();
   await weighted.uncheck();await expect(podium.getByRole('listitem').first()).toContainText(rare.name);await expect(podium.getByRole('listitem').first()).toContainText('10.00/10');await expect(podium.getByText('Your score 9/10',{exact:true})).toBeVisible();await expect.poll(()=>new URL(page.url()).searchParams.get('weighted')).toBe('off');await page.reload({waitUntil:'domcontentloaded'});await expect(weighted).not.toBeChecked();
   await weighted.check();await page.getByRole('button',{name:'Detailed',exact:true}).click();const table=page.getByRole('table',{name:'Detailed rating statistics',exact:true});await expect(table.getByRole('columnheader',{name:/Weighted Rating/})).toBeVisible();await expect(table.getByRole('columnheader',{name:'Your score',exact:true})).toBeVisible();const ownRow=table.locator('tbody tr').filter({has:page.getByRole('button',{name:`${trusted.name}: show rating statistics`,exact:true})});await expect(ownRow.getByText('9/10',{exact:true})).toBeVisible();
+  await expect(ownRow.getByText(/vs average/)).toBeVisible();
   if(process.env.ARKPEDIA_QA_CAPTURE)await page.screenshot({path:`${process.env.ARKPEDIA_QA_CAPTURE}/skin-weighted-personal-${theme}-${info.project.name}.png`,animations:'disabled'});
-  await page.getByRole('button',{name:'Tier list',exact:true}).click();await expect(page.getByText('Your score 9/10',{exact:true})).toBeVisible();await page.getByRole('group',{name:'Results by',exact:true}).getByRole('button',{name:'Operators',exact:true}).click();await expect(page.getByText('Your score 7/10',{exact:true})).toBeVisible();await page.getByRole('button',{name:'Podium',exact:true}).click();await expect(podium.getByText('Your score 7/10',{exact:true})).toBeVisible();expect(state.writes).toHaveLength(0);
+  await page.getByRole('button',{name:'Tier list',exact:true}).click();
+  await page.getByRole('checkbox',{name:'Compact tier list',exact:true}).check();
+  await expect(page.getByText('Your score 9/10',{exact:true})).toBeVisible();
+  await expect(page.getByText(/vs average|Matches average/)).toHaveCount(0);
+  await page.getByRole('group',{name:'Results by',exact:true}).getByRole('button',{name:'Operators',exact:true}).click();
+  await expect(page.getByText('Your score 7/10',{exact:true})).toBeVisible();
+  await expect(page.getByText(/vs average|Matches average/)).toHaveCount(0);
+  await page.getByRole('button',{name:'Podium',exact:true}).click();
+  await expect(podium.getByText('Your score 7/10',{exact:true})).toBeVisible();
+  await expect(podium.getByText(/vs average/)).not.toHaveCount(0);
+  expect(state.writes).toHaveLength(0);
   await expect.poll(()=>new URL(page.url()).searchParams.get('group')).toBe('operators');await expect.poll(()=>new URL(page.url()).searchParams.get('display')).toBeNull();state.owner='other';await page.reload({waitUntil:'domcontentloaded'});await expect(podium.getByText('Your score —',{exact:true})).toBeVisible();await expect(page.getByText('Your score 7/10',{exact:true})).toHaveCount(0);expect(state.writes).toHaveLength(0);
 });
