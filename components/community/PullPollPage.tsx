@@ -1,5 +1,5 @@
 import PollGate from '@/components/community/PollGate';
-import type { PublicPoll } from '@/lib/polls/settings';
+import { pollNames, type PublicPoll } from '@/lib/polls/settings';
 import { useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import Link from 'next/link';
@@ -19,7 +19,7 @@ import {BannerArt,OperatorTile,bannerTitle} from '@/components/community/PullPol
 import {emptyPullPlan,plannerIntoPoll,pollIntoPlanner,PULL_POLL_SYNC,PULL_PLAN_EVENT} from '@/lib/polls/pull-poll-sync';
 import ImportDialog from '@/components/account/ImportDialog';
 import ProviderIcon from '@/components/account/ProviderIcon';
-import { ContentImg } from '@/components/content/ContentImage';
+import { ApplicationImage, ContentImg } from '@/components/content/ContentImage';
 import { useSwitchHold } from '@/components/ui/useSwitchHold';
 import { useQueryRecord } from '@/lib/hooks/useQueryState';
 import { useCloudSync } from '@/lib/cloud-account/SyncProvider';
@@ -38,6 +38,16 @@ function requestBallot(edition: Edition, options: RequestInit) {
   return edition === ENDFIELD_POLL
     ? fetch('/api/cloud-account/polls/endfield-pull-or-skip', options)
     : fetch('/api/cloud-account/polls/pull-or-skip', options);
+}
+function PollItemIcon({endfield, item}: {endfield: boolean; item: 'permit' | 'currency'}) {
+  if (endfield) {
+    const file = item === 'permit' ? 'Chartered_HH_Permit.png' : 'Oroberyl.png';
+    return <ApplicationImage asset={{
+      repository: 'arkpedia-image-assets', revision: '41f1b47da512a6a502b99c4a46c1d75176388499', path: `item-icons/endfield/${file}`,
+    }} alt="" width={22} height={22}/>;
+  }
+  const src = item === 'permit' ? '/material-icons/Headhunting%20Permit.webp' : '/material-icons/Orundum.webp';
+  return <ContentImg src={src} alt="" width={22} height={22}/>;
 }
 export default function PullPollPage(props: PageProps) {
   const sync = useCloudSync();
@@ -195,8 +205,8 @@ function PullPoll({policy,banners,now,owner,portraits=emptyPortraits,edition='pu
   function closeSubmission(){setPrompt(false);setContinuation(null);try{sessionStorage.removeItem(submissionKey);}catch{}}
   return <>
     {children}
-    <PageHeader slim back={{href:'/polls',label:'Community polls'}} eyebrow={endfield ? "Endfield // Community Polls" : "Rhodes Island // Community Polls"} title={endfield ? "Pull or Skip · Endfield" : "Pull or Skip"} sub={endfield ? "Which operators are you pulling for?" : "Doctor, the next banners are lined up. Who gets your Orundum?"}/>
-    <main className={styles.page}>
+    <PageHeader className={endfield ? 'endfield-poll' : undefined} slim back={{href:'/polls',label:'Community polls'}} eyebrow={endfield ? "Endfield // Community Polls" : "Rhodes Island // Community Polls"} title={pollNames[edition]} sub={endfield ? "Which operators are you pulling for?" : "Doctor, the next banners are lined up. Who gets your Orundum?"}/>
+    <main className={endfield ? `${styles.page} endfield-poll` : styles.page}>
       {policy.open && policy.closesAt !== null && <p className="hint">Voting closes <time dateTime={new Date(policy.closesAt).toISOString()}>{new Date(policy.closesAt).toLocaleString(undefined,{dateStyle:'medium',timeStyle:'long'})}</time>.</p>}
       {filters.view === 'results' && !policy.results && <p className="notice">Results are hidden. Voting is open.</p>}
       {!policy.open && <p className="notice">Voting is closed.</p>}
@@ -204,9 +214,9 @@ function PullPoll({policy,banners,now,owner,portraits=emptyPortraits,edition='pu
       {results&&<div className={styles.viewTools}><SegmentedControl label="Results display" value={detailed?'detailed':'simple'} onChange={display=>{hold.capture();setFilters({display});}} options={[{value:'simple',label:'Simple'},{value:'detailed',label:'Detailed'}]}/></div>}
       {results?<section {...(policy.results && policy.open ? tabPanelProps('pull-poll','results') : {})}><PullPollResults banners={visible} portraits={portraits} ballot={ballot} detailed={detailed} owned={owned} edition={edition}/></section>:<section {...(policy.results && policy.open ? tabPanelProps('pull-poll','vote') : {})}>
         <div className={styles.key} aria-label="How to vote">
-          <span data-choice="pull"><ContentImg src="/material-icons/Headhunting%20Permit.webp" alt="" width="22" height="22"/><b>Pull</b>{endfield ? 'I want this operator' : 'One copy of each new operator; featured operators on reruns.'}</span>
+          <span data-choice="pull"><PollItemIcon endfield={endfield} item="permit"/><b>Pull</b>{endfield ? 'I want this operator' : 'One copy of each new operator; featured operators on reruns.'}</span>
           <span data-choice="maybe"><b>Maybe</b>if the pity gods allow</span>
-          <span data-choice="skip"><ContentImg src="/material-icons/Orundum.webp" alt="" width="22" height="22"/><b>Skip</b>{endfield ? 'saving my pulls' : 'my Orundum stays home'}</span>
+          <span data-choice="skip"><PollItemIcon endfield={endfield} item="currency"/><b>Skip</b>{endfield ? 'my Oroberyl stays home' : 'my Orundum stays home'}</span>
           {endfield ? <a className="ghost btn-sm" href={ENDFIELD_SOURCE} target="_blank" rel="noreferrer">Official reveal <ExternalLinkIcon/></a> : <button className="ghost btn-sm" onClick={()=>setImporting(true)} disabled={!hydrated}>Import plan</button>}
         </div>
         {!endfield && (!syncDismissed||linked)&&<div className={styles.sync} data-linked={linked}>
@@ -223,7 +233,7 @@ function PullPoll({policy,banners,now,owner,portraits=emptyPortraits,edition='pu
               <div className={styles.portraits}>{banner.operators.map(name=><OperatorTile key={name} name={name} want={ballot[banner.id]?.[name]} portraits={portraits} owned={owned[name]??0}/>)}{!banner.operators.length&&<span className="hint">Lineup still classified</span>}</div>
             </div>}
             <div className={styles.bannerActions}>
-              <div className="poll-choice-group" role="group" aria-label={`Plan for ${banner.name}`}>{(['pull','maybe','skip'] as const).map(choice=><button key={choice} type="button" data-choice={choice} aria-pressed={choice==='pull'?pullSelected:verdict===choice} disabled={choice==='pull'&&banner.operators.length>0&&banner.operators.every(name=>pullWant(banner,name)<=0||(owned[name]??0)>=6)} onClick={()=>chooseBanner(banner,choice)}>{choice==='pull'&&<ContentImg src="/material-icons/Headhunting%20Permit.webp" alt="" width="22" height="22"/>}{choice[0].toUpperCase()+choice.slice(1)}</button>)}</div>
+              <div className="poll-choice-group" role="group" aria-label={`Plan for ${banner.name}`}>{(['pull','maybe','skip'] as const).map(choice=><button key={choice} type="button" data-choice={choice} aria-pressed={choice==='pull'?pullSelected:verdict===choice} disabled={choice==='pull'&&banner.operators.length>0&&banner.operators.every(name=>pullWant(banner,name)<=0||(owned[name]??0)>=6)} onClick={()=>chooseBanner(banner,choice)}>{choice==='pull'&&<PollItemIcon endfield={endfield} item="permit"/>}{choice[0].toUpperCase()+choice.slice(1)}</button>)}</div>
               {!!banner.operators.length&&<button className={`ghost ${styles.expand}`} aria-label={`${open?'Hide':'Choose'} per operator for ${bannerTitle(banner)}`} title="Choose per operator" aria-expanded={open} aria-controls={`pull-banner-detail-${index}`} onClick={()=>{hold.capture();setExpanded(prev=>({...prev,[banner.id]:!open}));}}>{open?'▴':'▾'}</button>}
             </div>
             {open&&<div id={`pull-banner-detail-${index}`} className={styles.details}>{banner.operators.map(name=>{

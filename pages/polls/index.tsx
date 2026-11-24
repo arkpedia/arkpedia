@@ -44,8 +44,10 @@ export default function Polls({skins=[],previousLeaders=[],pullBanners=[],pullPo
     <main className={styles.page}>
       <h2 className="section-title">Open now</h2>
       {!pull?.open && !drip?.open && !endfield?.open && <p className="hint" role="status">{settingsError ? 'Poll availability could not be loaded.' : polls ? 'No polls are open.' : 'Loading polls…'}</p>}
-      {pull?.open && <PullPollIndexCard showResults={pull.results} banners={pullBanners} portraits={pullPortraits} now={now}/>}
-      {endfield?.open && <PullPollIndexCard endfield showResults={endfield.results} banners={endfieldBanners} portraits={{}} now={now}/>}
+      {(pull?.open || endfield?.open) && <div className={styles.pullEditions} data-paired={!!pull?.open && !!endfield?.open}>
+        {pull?.open && <PullPollIndexCard showResults={pull.results} banners={pullBanners} portraits={pullPortraits} now={now}/>}
+        {endfield?.open && <PullPollIndexCard endfield showResults={endfield.results} banners={endfieldBanners} portraits={{}} now={now}/>}
+      </div>}
       {drip?.open && <section className={`panel ${styles.feature}`} aria-labelledby="drip-awards-title">
         <div className={styles.featureBody}>
           <div className={styles.copy}>

@@ -81,7 +81,7 @@ export default function PullPollShareImage(props:ShareProps){
       canvas.current.width=social?1080:1200;
       canvas.current.height=social?1080:height;
       const context=canvas.current.getContext('2d');if(!context)return;
-      const c=context,theme=getComputedStyle(document.documentElement),ink=(token:string)=>theme.getPropertyValue(token).trim();
+      const c=context,theme=getComputedStyle(canvas.current),ink=(token:string)=>theme.getPropertyValue(token).trim();
       const bg=ink('--bg'),panel=ink('--panel'),well=ink('--well'),text=ink('--text-bright'),dim=ink('--text-dim'),teal=ink('--teal'),amber=ink('--amber');
       const fit=(text:string,width:number)=>{let value=text;while(c.measureText(value).width>width&&value.length)value=value.slice(0,-1);return value===text?value:value.slice(0,-1)+'…';};
       const label=(textValue:string,x:number,y:number,font:string,color:string,width?:number)=>{c.font=font;c.fillStyle=color;c.fillText(width?fit(textValue,width):textValue,x,y);};

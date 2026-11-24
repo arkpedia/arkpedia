@@ -2,7 +2,7 @@ export const pollNames = {
   'pull-or-skip': 'Pull or Skip',
   'favourite-skins': 'Arkpedia Drip Awards',
   'power-scale': 'Power Scale',
-  'endfield-pull-or-skip': 'Pull or Skip · Endfield',
+  'endfield-pull-or-skip': 'Pull or Skip – Endfield 1.7 & 2.0 Livestream',
 } as const;
 export type PollId = keyof typeof pollNames;
 export type ResultsMode = 'live' | 'closed' | 'hidden';

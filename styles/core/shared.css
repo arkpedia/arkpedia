@@ -439,6 +439,20 @@ input, textarea, [contenteditable="true"] {
   -webkit-user-select: text !important;
 }
 
+/* Endfield keeps the shared poll components and uses its game's signal yellow.
+   In light mode, text and focus rings need darker ink against pale panels. */
+.endfield-poll {
+  --teal: #ffef38;
+  --heading: var(--teal);
+  --teal-dim: rgb(255 239 56 / 14%);
+  --teal-fill: #ffeb23;
+  --teal-fill-hi: #fff46e;
+  --teal-ink: #222006;
+}
+:root[data-theme="light"] .endfield-poll {
+  --teal: #6d5700;
+  --teal-dim: rgb(115 91 0 / 11%);
+}
 /* The one keyboard focus indicator. :focus-visible only, so mouse clicks stay
    quiet; individual inputs may add their own border/halo treatment on top,
    but nothing may remove this without replacing it. */

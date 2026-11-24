@@ -38,10 +38,27 @@ for (const theme of ['dark','light']) test(`unhide Endfield and submit artwork p
   await expect(page.getByText('This poll is unavailable.')).toBeVisible();
   expect(reads).toBe(0);
   await page.evaluate(() => (window as unknown as {next:{router:{push:(path:string)=>Promise<void>}}}).next.router.push('/dashboard/campaigns?tab=polls'));
-  await page.getByRole('form',{name:'Pull or Skip · Endfield'}).getByRole('button',{name:'Unhide poll'}).click();
+  await page.getByRole('form',{name:'Pull or Skip – Endfield 1.7 & 2.0 Livestream'}).getByRole('button',{name:'Unhide poll'}).click();
   await expect(page.getByText('Poll is public.')).toBeVisible();
   await page.goto('/polls');
-  await page.getByRole('region',{name:'Pull or Skip · Endfield'}).getByRole('link',{name:'Make your picks'}).click();
+  const arknights = page.getByRole('region',{name:'Pull or Skip',exact:true});
+  const endfield = page.getByRole('region',{name:'Pull or Skip – Endfield 1.7 & 2.0 Livestream'});
+  await expect(endfield.getByRole('heading')).toBeVisible();
+  const accent = (el:Element) => getComputedStyle(el).getPropertyValue('--teal-fill').trim().toLowerCase();
+  expect(await endfield.evaluate(accent)).toBe('#ffeb23');
+  expect(await arknights.evaluate(accent)).not.toBe('#ffeb23');
+  const a = (await arknights.boundingBox())!, b = (await endfield.boundingBox())!;
+  if (page.viewportSize()!.width >= 960) {
+    expect(Math.abs(a.y - b.y)).toBeLessThan(2);
+    expect(b.x).toBeGreaterThan(a.x + a.width);
+  } else {
+    expect(b.y).toBeGreaterThan(a.y + a.height);
+    expect(Math.abs(a.x - b.x)).toBeLessThan(2);
+  }
+  await endfield.getByRole('link',{name:'Make your picks'}).click();
+  await expect(page.getByRole('heading',{level:1})).toHaveText('Pull or Skip – Endfield 1.7 & 2.0 Livestream');
+  await expect(page.locator('main img[src*="Oroberyl.png"]')).toHaveCount(1);
+  await expect(page.locator('main img[src*="Chartered_HH_Permit.png"]')).toHaveCount(10);
   const cards = page.getByRole('main').getByRole('article');
   await expect(cards).toHaveCount(9);
   await expect(cards.locator('a img')).toHaveCount(9);

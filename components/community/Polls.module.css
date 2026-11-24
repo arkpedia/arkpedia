@@ -1,6 +1,14 @@
 .page { display:grid; gap:14px; }
 .page > h2 { margin:16px 0 0; }
 .page > h2:first-child { margin-top:0; }
+.pullEditions { display:grid; grid-template-columns:minmax(0,1fr); gap:14px; }
+@media (min-width:960px) {
+  .pullEditions[data-paired="true"] { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .pullEditions[data-paired="true"] .feature { display:flex; flex-direction:column; min-width:0; }
+  .pullEditions[data-paired="true"] .featureBody { flex:1; display:grid; grid-template-columns:minmax(0,1fr); align-content:space-between; }
+  .pullEditions[data-paired="true"] .copy { padding:var(--card-inset) var(--page-gutter) 0; }
+  .pullEditions[data-paired="true"] .ratingFacts { padding:var(--card-inset); }
+}
 .feature { overflow:hidden; }
 .featureBody { display:grid; grid-template-columns:minmax(0,0.9fr) minmax(0,1.1fr); align-items:center; }
 .copy { padding:32px 0 32px 28px; position:relative; z-index:3; }
