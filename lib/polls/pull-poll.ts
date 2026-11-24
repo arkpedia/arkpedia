@@ -49,7 +49,9 @@ export function parseBallot(value: unknown, banners: readonly Pick<PollBanner, '
     const choices: Record<string, Want> = {};
     for (const [name, want] of Object.entries(raw)) {
       if (!(banner.operators.includes(name) || (!banner.operators.length && name===BANNER_INTENT)) || (name===BANNER_INTENT && !banner.artwork && Number(want)>1) || !Number.isInteger(want) || Number(want) < -1 || Number(want) > 6) throw Error('Choose a valid operator potential.');
-      Object.defineProperty(choices, name, { value: want, enumerable: true, writable: true, configurable: true });
+      // Older Endfield clients recorded the requested number of copies. Any positive choice is Pull.
+      const verdict = banner.artwork && Number(want) > 0 ? 1 : want;
+      Object.defineProperty(choices, name, { value: verdict, enumerable: true, writable: true, configurable: true });
     }
     if (Object.keys(choices).length) Object.defineProperty(result, id, { value: choices, enumerable: true, writable: true, configurable: true });
   }

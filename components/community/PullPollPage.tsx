@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
-import { endfieldCopyGoals, endfieldPotential, ENDFIELD_DRAFT, ENDFIELD_POLL, ENDFIELD_SOURCE } from '@/lib/polls/endfield';
+import { ENDFIELD_DRAFT, ENDFIELD_POLL, ENDFIELD_SOURCE } from '@/lib/polls/endfield';
 import ExternalLinkIcon from '@/components/ui/ExternalLinkIcon';
 import PageHeader from '@/components/ui/PageHeader';
 import OperatorGameIcon from '@/components/operators/OperatorGameIcon';
@@ -28,7 +28,7 @@ import { nativeAccountAuth, nativeSignIn } from '@/lib/cloud-account/native-clie
 import { formatDayMonthYear } from '@/lib/pulls/format';
 import { parsePullPlan, PULL_PLAN_KEY, MAX_PLAN_FILE_SIZE } from '@/lib/pulls/plan';
 import { useReaderClock } from '@/lib/time/readerClock';
-import { BANNER_INTENT, bannerChoice, decodeBallot, importGoals, currentBallot, constrainOwned, activePollBanners, PULL_POLL_DRAFT, pullIntent, pullWant, setBannerChoice, walletMood, type PollPortrait, type Ballot, type PollBanner, type Want } from '@/lib/polls/pull-poll';
+import { bannerChoice, decodeBallot, importGoals, currentBallot, constrainOwned, activePollBanners, PULL_POLL_DRAFT, pullIntent, pullWant, setBannerChoice, walletMood, type PollPortrait, type Ballot, type PollBanner, type Want } from '@/lib/polls/pull-poll';
 import styles from '@/components/community/PullPoll.module.css';
 
 export interface PullPollProps { banners: PollBanner[]; now: number; portraits?:Record<string,PollPortrait> }
@@ -234,17 +234,9 @@ function PullPoll({policy,banners,now,owner,portraits=emptyPortraits,edition='pu
             </div>}
             <div className={styles.bannerActions}>
               <div className="poll-choice-group" role="group" aria-label={`Plan for ${banner.name}`}>{(['pull','maybe','skip'] as const).map(choice=><button key={choice} type="button" data-choice={choice} aria-pressed={choice==='pull'?pullSelected:verdict===choice} disabled={choice==='pull'&&banner.operators.length>0&&banner.operators.every(name=>pullWant(banner,name)<=0||(owned[name]??0)>=6)} onClick={()=>chooseBanner(banner,choice)}>{choice==='pull'&&<PollItemIcon endfield={endfield} item="permit"/>}{choice[0].toUpperCase()+choice.slice(1)}</button>)}</div>
-              {banner.artwork && <button type="button" className="ghost btn-sm" aria-label={`Target potential for ${banner.name}${pullSelected ? `, ${endfieldPotential(choices[BANNER_INTENT])}` : ''}`} aria-expanded={open} aria-controls={`pull-banner-detail-${index}`} onClick={()=>{hold.capture();setExpanded(prev=>({...prev,[banner.id]:!open}));}}>
-                {pullSelected ? endfieldPotential(choices[BANNER_INTENT]) : 'Potential'} {open?'▴':'▾'}
-              </button>}
-              {!!banner.operators.length&&<button className={`ghost ${styles.expand}`} aria-label={`${open?'Hide':'Choose'} per operator for ${bannerTitle(banner)}`} title="Choose per operator" aria-expanded={open} aria-controls={`pull-banner-detail-${index}`} onClick={()=>{hold.capture();setExpanded(prev=>({...prev,[banner.id]:!open}));}}>{open?'▴':'▾'}</button>}
+              {!!banner.operators.length&&<button className={`ghost ${styles.expand}`} aria-label={`Potentials for ${bannerTitle(banner)}`} aria-expanded={open} aria-controls={`pull-banner-detail-${index}`} onClick={()=>{hold.capture();setExpanded(prev=>({...prev,[banner.id]:!open}));}}>Potentials <span aria-hidden="true">{open?'▴':'▾'}</span></button>}
             </div>
-            {open&&<div id={`pull-banner-detail-${index}`} className={styles.details}>{banner.artwork && <div className={styles.pips}>
-              <span className="hint">Target potential</span>
-              <div className="poll-choice-group" role="group" aria-label={`Target potential for ${banner.name}`}>
-                {endfieldCopyGoals.map(copies=><button key={copies} type="button" aria-pressed={choices?.[BANNER_INTENT]===copies} onClick={()=>chooseOperator(banner,BANNER_INTENT,copies)}>{endfieldPotential(copies)}</button>)}
-              </div>
-            </div>}{banner.operators.map(name=>{
+            {open&&<div id={`pull-banner-detail-${index}`} className={styles.details}>{banner.operators.map(name=>{
               const want=ballot[banner.id]?.[name];return <div key={name} className={styles.operator}><OperatorTile name={name} want={ballot[banner.id]?.[name]} portraits={portraits} small owned={owned[name]??0}/><strong className={styles.operatorName}>{name}</strong><div className={styles.pips}>
                 <div className="poll-choice-group" role="group" aria-label={`Interest in ${name} on ${bannerTitle(banner)}`}><button data-choice="skip" aria-pressed={want===0} onClick={()=>chooseOperator(banner,name,0)}>{"Don't Want"}</button><button data-choice="maybe" aria-pressed={want===-1} onClick={()=>chooseOperator(banner,name,-1)}>Nice to have</button></div>
                 <div className="poll-choice-group" role="group" aria-label={`Potential for ${name} on ${bannerTitle(banner)}`}>{([1,2,3,4,5,6] as Want[]).map(p=><button key={p} aria-pressed={want===p} aria-label={`Potential ${p} for ${name}`} title={`Potential ${p}`} disabled={p<=(owned[name]??0)} onClick={()=>chooseOperator(banner,name,p)}><OperatorGameIcon label={`Potential ${p}`} size={16}/>{`P${p}`}</button>)}</div>

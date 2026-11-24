@@ -1,10 +1,5 @@
 import type { PollBanner } from './pull-poll';
 
-// Ballots store total copies. One copy is P0 in Endfield.
-export const endfieldCopyGoals = [1, 2, 3, 4, 5, 6] as const;
-export function endfieldPotential(copies: number) {
-  return `P${copies - 1}`;
-}
 export const ENDFIELD_BALLOT_ID = 'endfield-pull-or-skip-v1';
 export const ENDFIELD_DRAFT = 'arkpedia.endfield-pull-poll.v1';
 export const ENDFIELD_SOURCE = 'https://x.com/AKEndfield/status/2124116868583608507';

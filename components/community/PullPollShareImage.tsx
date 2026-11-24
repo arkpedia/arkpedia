@@ -5,8 +5,7 @@ import {useContentUrl} from '@/lib/content/context';
 import {applicationBannerArt} from '@/lib/polls/pull-poll-art';
 import {assetUrl,encodeAssetPath} from '@/lib/assets/assetUrl';
 import {loadAssetImage} from '@/lib/assets/assetRetry';
-import {endfieldPotential} from '@/lib/polls/endfield';
-import {BANNER_INTENT,bannerChoice,pullIntent,stampKey,STAMP_LABELS,type Stamp,type Ballot,type PollBanner,type PollPortrait,type OwnedPotentials,type PullPollResults} from '@/lib/polls/pull-poll';
+import {bannerChoice,pullIntent,stampKey,STAMP_LABELS,type Stamp,type Ballot,type PollBanner,type PollPortrait,type OwnedPotentials,type PullPollResults} from '@/lib/polls/pull-poll';
 import {shareOperatorInterests} from '@/lib/polls/pull-poll-share';
 import {bannerTitle,VerdictStamp} from './PullPollVisuals';
 import {drawSocialResult,socialResultCards,drawResultPanel,resultImageRows,resultPanelHeight} from './pullPollResultImage';
@@ -23,21 +22,18 @@ export default function PullPollShareImage(props:ShareProps){
   const [{banners,ballot={},portraits,owned={},results}]=useState(props);
   const canvas=useRef<HTMLCanvasElement>(null),preview=useRef<HTMLDivElement>(null),stampStyles=useRef<HTMLDivElement>(null),url=useContentUrl(),descriptionId=useId();
   const [ready,setReady]=useState(false),[message,setMessage]=useState(''),[retry,setRetry]=useState(0),[display,setDisplay]=useState(props.initialDetailed?'detailed':'simple'),[bannerStamps,setBannerStamps]=useState(false),[includeOffBanner,setIncludeOffBanner]=useState(true),[showLegend,setShowLegend]=useState(true);
-  const detailed=display==='detailed';
+  const endfieldPlan = !results && !!banners[0]?.artwork;
+  const detailed=!endfieldPlan && display==='detailed';
   const resultRows=results?resultImageRows(banners,results,detailed,includeOffBanner):[];
   const [layout,setLayout]=useState('sheet'),[cardIndex,setCardIndex]=useState(0);
   const cards=socialResultCards(resultRows),index=Math.min(cardIndex,Math.max(0,cards.length-1));
   const social=results&&layout==='square'?cards[index]:undefined;
   const shownResults=social?[social]:resultRows;
   const answered=results?shownResults.map(r=>r.banner):banners.filter(b=>bannerChoice(ballot[b.id],b,owned));
-  const stamped=!results&&!detailed&&bannerStamps,artWidth=stamped?1200:600;
+  const stamped=!endfieldPlan&&!results&&!detailed&&bannerStamps,artWidth=stamped?1200:600;
   const planned=(b:PollBanner)=>shareOperatorInterests(b,ballot[b.id],owned).filter(op=>!detailed||includeOffBanner||!b.returningOperators?.includes(op.name));
   const tags=stamped||detailed;
-  function artworkPick(banner:PollBanner) {
-    const copies=ballot[banner.id]?.[BANNER_INTENT];
-    return copies>0 ? `Target potential ${endfieldPotential(copies)}` : copies===0 ? 'Skip' : 'Maybe';
-  }
-  const description=results?shownResults.map(r=>[bannerTitle(r.banner),r.answers,...r.split.map(v=>v.label+' '+v.value),...r.operators.map(op=>op.name+' want a copy '+op.value)].join(', ')).join('. '):answered.map(b=>`${bannerTitle(b)}: ${tags?STAMP_LABELS[stampKey(ballot[b.id],b,portraits,owned) as Stamp]:pullIntent(ballot[b.id])}${detailed&&b.artwork?`; ${artworkPick(b)}`:detailed?`; ${planned(b).map(op=>op.interest==='maybe'?`Maybe ${op.label}`:op.label).join(', ')}`:''}`).join('. ');
+  const description=results?shownResults.map(r=>[bannerTitle(r.banner),r.answers,...r.split.map(v=>v.label+' '+v.value),...r.operators.map(op=>op.name+' want a copy '+op.value)].join(', ')).join('. '):answered.map(b=>`${bannerTitle(b)}: ${tags&&!b.artwork?STAMP_LABELS[stampKey(ballot[b.id],b,portraits,owned) as Stamp]:pullIntent(ballot[b.id])}${detailed&&!b.artwork?`; ${planned(b).map(op=>op.interest==='maybe'?`Maybe ${op.label}`:op.label).join(', ')}`:''}`).join('. ');
 
   useLayoutEffect(()=>{
     const element=preview.current,body=element?.parentElement,dialog=element?.closest('dialog'),header=dialog?.querySelector('header');
@@ -155,9 +151,7 @@ export default function PullPollShareImage(props:ShareProps){
           centeredLabel(fit(first,174),px+size/2,py+148,'700 30px Rajdhani',color);
           if(words.length)centeredLabel(fit(words.join(' '),174),px+size/2,py+176,'700 30px Rajdhani',color);
         });
-        if(b.artwork){
-          centeredLabel(artworkPick(b),(artWidth+1200)/2,y+rowHeight/2,'700 42px Rajdhani',accent);
-        }else if(!b.operators.length)label('Lineup still unconfirmed',artWidth+24,y+rowHeight-40,'22px Rajdhani',dim,550);
+        if(!b.operators.length)label('Lineup still unconfirmed',artWidth+24,y+rowHeight-40,'22px Rajdhani',dim,550);
       });
       label('ARKPEDIA',24,height-16,'700 30px Rajdhani',text);
       abort.abort();
@@ -173,7 +167,7 @@ export default function PullPollShareImage(props:ShareProps){
     else{const image=await blob(),address=URL.createObjectURL(image),link=document.createElement('a');link.href=address;link.download=results?'arkpedia-pull-or-skip-results-'+display+(social?'-card-'+(index+1):'')+'.png':'arkpedia-pull-plan.png';link.click();setTimeout(()=>URL.revokeObjectURL(address),1000);setMessage('PNG downloaded.');}
   }catch(e){setMessage(e instanceof Error?e.message:'Image export failed. Please try again.');}}
   return <ImportDialog title={results?'Community poll results':'My pull plan'} className={styles.imageDialog} onClose={onClose}>
-    <SegmentedControl label="Share image display" value={display} onChange={setDisplay} options={[{value:'simple',label:'Simple'},{value:'detailed',label:'Detailed'}]}/>
+    {!endfieldPlan&&<SegmentedControl label="Share image display" value={display} onChange={setDisplay} options={[{value:'simple',label:'Simple'},{value:'detailed',label:'Detailed'}]}/>}
     {results&&<div className={styles.imageOptions}>
       <SegmentedControl label="Image layout" value={layout} onChange={setLayout} options={[{value:'sheet',label:'Full sheet'},{value:'square',label:'Single Banner'}]}/>
       {social&&cards.length>1&&<>
@@ -183,10 +177,10 @@ export default function PullPollShareImage(props:ShareProps){
       </>}
     </div>}
     {(!results||detailed)&&<div className={styles.imageOptions}>
-      {detailed?<label className="check"><input type="checkbox" checked={includeOffBanner} onChange={e=>setIncludeOffBanner(e.target.checked)}/>Include off-banner limited operators</label>:!results&&<label className="check"><input type="checkbox" checked={bannerStamps} onChange={e=>setBannerStamps(e.target.checked)}/>Banner art with stamps</label>}
+      {detailed?<label className="check"><input type="checkbox" checked={includeOffBanner} onChange={e=>setIncludeOffBanner(e.target.checked)}/>Include off-banner limited operators</label>:!results&&!endfieldPlan&&<label className="check"><input type="checkbox" checked={bannerStamps} onChange={e=>setBannerStamps(e.target.checked)}/>Banner art with stamps</label>}
       {!results&&<label className="check"><input type="checkbox" checked={showLegend} onChange={e=>setShowLegend(e.target.checked)}/>Show legend</label>}
     </div>}
-    {!results&&<div ref={stampStyles} className="visually-hidden" aria-hidden="true">{(Object.keys(STAMP_LABELS) as Stamp[]).map(value=><VerdictStamp key={value} value={value}/>)}</div>}
+    {!results&&!endfieldPlan&&<div ref={stampStyles} className="visually-hidden" aria-hidden="true">{(Object.keys(STAMP_LABELS) as Stamp[]).map(value=><VerdictStamp key={value} value={value}/>)}</div>}
     <div className={styles.imagePreview} ref={preview} aria-busy={!ready}>
       <canvas data-legend={!results&&showLegend?'visible':'hidden'} data-display={results?display:stamped?'stamps':detailed?'detailed-stamps':display} ref={canvas} width="1200" height="400" aria-describedby={descriptionId} className={styles.imageCanvas} role="img" aria-label={results?'Community poll results image':`Your pull plan share image with ${answered.length} answered banners`}/>
     </div>
