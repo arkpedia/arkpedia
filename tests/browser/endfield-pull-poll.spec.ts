@@ -104,6 +104,8 @@ test('Endfield results appear only once voting closes', async ({page}) => {
     return route.fulfill({json:{owner:null,revision:0,choices:{}}});
   });
   await page.goto('/polls');
+  await expect(page.locator('time')).toHaveAttribute('datetime',new Date(closesAt).toISOString());
+  await expect(page.getByText(/Results will appear after voting closes/)).toBeVisible();
   await expect(page.getByRole('link',{name:'Make your picks'})).toBeVisible();
   await expect(page.getByRole('link',{name:/results/i})).toHaveCount(0);
   await page.goto('/polls/endfield-pull-or-skip?view=results');
@@ -117,5 +119,11 @@ test('Endfield results appear only once voting closes', async ({page}) => {
   await expect(page.getByRole('button',{name:'Send it'})).toHaveCount(0);
   await expect(page.getByText(/0 players have shared/)).toBeVisible();
   await page.goto('/polls');
+  await expect(page.getByRole('heading',{name:'Recent results',exact:true})).toBeVisible();
   await expect(page.getByRole('link',{name:'View results'})).toBeVisible();
+  await expect(page.getByRole('link',{name:'Make your picks'})).toHaveCount(0);
+  now += 7*24*60*60*1000;
+  await page.clock.fastForward(30_000);
+  const archive = page.getByRole('region',{name:'Previous results'});
+  await expect(archive.getByRole('link',{name:'View results'})).toBeVisible();
 });

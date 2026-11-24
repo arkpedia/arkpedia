@@ -31,6 +31,9 @@
 .ratingFacts { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px; margin:0; padding:16px 28px; border-top:1px solid var(--line-soft); text-align:center; }
 .ratingFacts dt { font-size:12px; color:var(--text-dim); }
 .ratingFacts dd { margin:4px 0 0; font-family:var(--font-display); font-size:22px; font-weight:700; line-height:1.2; color:var(--text-bright); }
+.closedCard { display:flex; align-items:center; justify-content:space-between; gap:var(--card-inset); flex-wrap:wrap; }
+.closedCard h3, .closedCard p { margin:4px 0; }
+.previous > section + section { margin-top:var(--card-inset); }
 .previous { min-width:0; }
 .archive { position:relative; display:flex; align-items:center; min-height:160px; overflow:hidden; text-decoration:none; }
 .archiveCopy { position:relative; z-index:1; max-width:62%; padding:4px 10px; }

@@ -18,13 +18,24 @@ for(const theme of ['dark','light']) test(`edit poll visibility, deadline and re
   await page.evaluate(()=> (window as unknown as {next:{router:{push:(path:string)=>Promise<void>}}}).next.router.push('/dashboard/campaigns?tab=polls'));
   const editor=page.getByRole('form',{name:'Pull or Skip',exact:true});
   const select=async(label:string,value:string)=>{
-    await editor.getByRole('combobox',{name:label}).click();
+    await editor.getByRole('combobox',{name:label,exact:true}).click();
     await page.getByRole('option',{name:value,exact:true}).click();
   };
+  await select('After voting closes','Keep in Open now');
   await select('Results','Show after voting closes');await select('Voting closes','At a set time');
   await editor.getByLabel('Closing time (UTC)').fill('2020-01-01T12:00');
   await editor.getByRole('button',{name:'Save settings'}).click();await expect(editor.getByRole('status')).toHaveText('Saved.');
   expect(settings[0].closesAt).toBe(Date.UTC(2020,0,1,12));
+  expect(settings[0].closedPlacement).toBe('featured');
+  const directory = await page.context().newPage();
+  await directory.route('**/api/polls/settings',route=>route.fulfill({json:Object.fromEntries(settings.filter(p=>p.visible).map(p=>[p.id,publicPoll(p,Date.now())]))}));
+  await directory.goto('/polls');
+  await expect(directory.getByRole('region',{name:'Pull or Skip',exact:true}).getByRole('link',{name:'View results'})).toBeVisible();
+  await select('After voting closes','Move to Previous results');
+  await editor.getByRole('button',{name:'Save settings'}).click();await expect(editor.getByRole('status')).toHaveText('Saved.');
+  await directory.reload();
+  await expect(directory.getByRole('region',{name:'Previous results'}).getByRole('region',{name:'Pull or Skip',exact:true})).toBeVisible();
+  await directory.close();
   await select('Voting closes','Never');await select('Poll visibility','Hidden');
   await editor.getByRole('button',{name:'Save settings'}).click();
   await expect(editor.getByRole('button',{name:'Unhide poll'})).toBeEnabled();expect(settings[0].closesAt).toBeNull();
