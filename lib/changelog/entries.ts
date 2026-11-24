@@ -34,6 +34,10 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    at: '2026-11-24T06:42:42Z',
+    fixed: [{ title: 'Music controls stay visible on mobile', detail: 'Account tabs scroll behind the expanded music player so you can still use its controls.', href: '/account' }],
+  },
+  {
     at: '2026-11-23T14:14:48Z',
     added: [{ title: 'Review your skin ratings by tier', detail: 'Compare and update saved scores in Rated with full-size or compact artwork.', href: '/polls/favourite-skins?rated=rated' }],
   },
