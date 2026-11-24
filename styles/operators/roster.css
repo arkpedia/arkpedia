@@ -51,10 +51,14 @@
 .roster-faction { flex: 0 1 220px; min-width: 160px; }
 .roster-obtain, .roster-branch { flex: 0 1 200px; min-width: 160px; }
 .roster-controls button { font-size: 12px; }
-/* On a phone the rows that held it at full width are in the Filters sheet
-   (components/ui/FilterSheet): the toolbar takes the line itself. */
+/* On phones the roster search shares a row with the sheet trigger.
+   Active chips get the full width on a separate row. */
 @media (max-width: 720px) {
   .roster-controls { width: 100%; }
+  .operator-roster-controls > .roster-search { flex: 1 1 0; min-width: 0; }
+  .operator-roster-controls > .filter-bar { display: contents; }
+  .operator-roster-controls .filter-bar-chips { flex-basis: 100%; }
+  .operator-roster-controls .filter-bar-chips:empty { display: none; }
 }
 .roster-rarity-class-row {
   display: flex;
