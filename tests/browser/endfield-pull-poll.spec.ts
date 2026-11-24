@@ -29,7 +29,7 @@ for (const theme of ['dark','light']) test(`unhide Endfield and submit artwork p
       ballots:1, banners:[{id:endfieldCards[0].id,answers:1,pull:1,maybe:0,skip:0}], operators:[]
     }});
     if (route.request().method() === 'PUT') {
-      expect(route.request().postDataJSON().choices).toEqual({[endfieldCards[0].id]:{$banner:5}});
+      expect(route.request().postDataJSON().choices).toEqual({[endfieldCards[0].id]:{$banner:1}});
       Object.assign(ballot, {choices:route.request().postDataJSON().choices,revision:1});
     }
     return route.fulfill({json:ballot});
@@ -72,15 +72,12 @@ for (const theme of ['dark','light']) test(`unhide Endfield and submit artwork p
   await pull.press('Enter');
   await expect(pull).toHaveAttribute('aria-pressed','true');
   await expect(cards.first().locator('.poll-stamp')).toBeVisible();
-  await cards.first().getByRole('button',{name:/P0/}).click();
-  await cards.first().getByRole('button',{name:'P4',exact:true}).click();
-  await expect(pull).toHaveAttribute('aria-pressed','true');
+  await expect(cards.first().getByRole('button')).toHaveCount(3);
   await page.getByRole('button',{name:'Send it'}).click();
   await page.getByRole('button',{name:'Submit anonymously'}).click();
   await page.getByRole('dialog',{name:'Successfully submitted'}).getByRole('button',{name:'Done'}).click();
   expect(await page.evaluate(() => localStorage.getItem('arkpedia.pull-poll.v1'))).toBe('{"sentinel":{}}');
   await page.reload();
-  await expect(cards.first().getByRole('button',{name:/P4/})).toBeVisible();
   await expect(pull).toHaveAttribute('aria-pressed','true');
   await page.getByRole('tab',{name:'Results'}).click();
   await expect(page.getByText(/1 player has shared/)).toBeVisible();

@@ -23,7 +23,8 @@ export async function pullPoll(req: NextApiRequest, res: NextApiResponse, db: D1
   const voter = owner ? `user:${owner}` : `guest:${anonymous}`;
   if (req.method === 'GET') {
     const row = await db.prepare('SELECT choices,revision FROM pull_poll_ballot WHERE poll=? AND voter=?').bind(pollId, voter).first<{ choices: string; revision: number }>();
-    return res.json({ owner, choices: row ? JSON.parse(row.choices) : {}, revision: row?.revision ?? 0 });
+    const saved = row ? JSON.parse(row.choices) : {};
+    return res.json({ owner, choices: endfield ? parseBallot(saved, endfieldBanners) : saved, revision: row?.revision ?? 0 });
   }
   if (req.body?.owner !== owner) return res.status(409).json({ error: 'Your signed-in account changed. Reload before submitting.' });
   if (!Number.isSafeInteger(req.body?.revision) || req.body.revision < 0) return res.status(400).json({ error: 'Invalid ballot revision.' });

@@ -5,8 +5,7 @@ import {useContentUrl} from '@/lib/content/context';
 import {applicationBannerArt} from '@/lib/polls/pull-poll-art';
 import {assetUrl,encodeAssetPath} from '@/lib/assets/assetUrl';
 import {loadAssetImage} from '@/lib/assets/assetRetry';
-import {endfieldPotential} from '@/lib/polls/endfield';
-import {BANNER_INTENT,bannerChoice,pullIntent,stampKey,STAMP_LABELS,type Stamp,type Ballot,type PollBanner,type PollPortrait,type OwnedPotentials,type PullPollResults} from '@/lib/polls/pull-poll';
+import {bannerChoice,pullIntent,stampKey,STAMP_LABELS,type Stamp,type Ballot,type PollBanner,type PollPortrait,type OwnedPotentials,type PullPollResults} from '@/lib/polls/pull-poll';
 import {shareOperatorInterests} from '@/lib/polls/pull-poll-share';
 import {bannerTitle,VerdictStamp} from './PullPollVisuals';
 import {drawSocialResult,socialResultCards,drawResultPanel,resultImageRows,resultPanelHeight} from './pullPollResultImage';
@@ -33,11 +32,7 @@ export default function PullPollShareImage(props:ShareProps){
   const stamped=!results&&!detailed&&bannerStamps,artWidth=stamped?1200:600;
   const planned=(b:PollBanner)=>shareOperatorInterests(b,ballot[b.id],owned).filter(op=>!detailed||includeOffBanner||!b.returningOperators?.includes(op.name));
   const tags=stamped||detailed;
-  function artworkPick(banner:PollBanner) {
-    const copies=ballot[banner.id]?.[BANNER_INTENT];
-    return copies>0 ? `Target potential ${endfieldPotential(copies)}` : copies===0 ? 'Skip' : 'Maybe';
-  }
-  const description=results?shownResults.map(r=>[bannerTitle(r.banner),r.answers,...r.split.map(v=>v.label+' '+v.value),...r.operators.map(op=>op.name+' want a copy '+op.value)].join(', ')).join('. '):answered.map(b=>`${bannerTitle(b)}: ${tags?STAMP_LABELS[stampKey(ballot[b.id],b,portraits,owned) as Stamp]:pullIntent(ballot[b.id])}${detailed&&b.artwork?`; ${artworkPick(b)}`:detailed?`; ${planned(b).map(op=>op.interest==='maybe'?`Maybe ${op.label}`:op.label).join(', ')}`:''}`).join('. ');
+  const description=results?shownResults.map(r=>[bannerTitle(r.banner),r.answers,...r.split.map(v=>v.label+' '+v.value),...r.operators.map(op=>op.name+' want a copy '+op.value)].join(', ')).join('. '):answered.map(b=>`${bannerTitle(b)}: ${tags&&!b.artwork?STAMP_LABELS[stampKey(ballot[b.id],b,portraits,owned) as Stamp]:pullIntent(ballot[b.id])}${detailed&&!b.artwork?`; ${planned(b).map(op=>op.interest==='maybe'?`Maybe ${op.label}`:op.label).join(', ')}`:''}`).join('. ');
 
   useLayoutEffect(()=>{
     const element=preview.current,body=element?.parentElement,dialog=element?.closest('dialog'),header=dialog?.querySelector('header');
@@ -107,7 +102,7 @@ export default function PullPollShareImage(props:ShareProps){
       const drawStamp=(banner:PollBanner,y:number,rowHeight:number)=>{
         const key=stampKey(ballot[banner.id],banner,portraits,owned),element=stampStyles.current?.querySelector<HTMLElement>(`[data-stamp="${key}"]`);
         if(!key||!element)return;
-        const paint=getComputedStyle(element),scale=artWidth/400,fontSize=parseFloat(paint.fontSize)*scale,font=`${paint.fontWeight} ${fontSize}px ${paint.fontFamily}`,value=STAMP_LABELS[key].toUpperCase();
+        const paint=getComputedStyle(element),scale=artWidth/400,fontSize=parseFloat(paint.fontSize)*scale,font=`${paint.fontWeight} ${fontSize}px ${paint.fontFamily}`,value=(banner.artwork ? key : STAMP_LABELS[key]).toUpperCase();
         c.font=font;
         const width=c.measureText(value).width+(parseFloat(paint.paddingLeft)+parseFloat(paint.paddingRight)+parseFloat(paint.borderLeftWidth)*2)*scale;
         const h=fontSize*1.2+(parseFloat(paint.paddingTop)+parseFloat(paint.paddingBottom)+parseFloat(paint.borderTopWidth)*2)*scale;
@@ -156,7 +151,7 @@ export default function PullPollShareImage(props:ShareProps){
           if(words.length)centeredLabel(fit(words.join(' '),174),px+size/2,py+176,'700 30px Rajdhani',color);
         });
         if(b.artwork){
-          centeredLabel(artworkPick(b),(artWidth+1200)/2,y+rowHeight/2,'700 42px Rajdhani',accent);
+          centeredLabel(v==='pull'?'Pull':v==='maybe'?'Maybe':'Skip',(artWidth+1200)/2,y+rowHeight/2,'700 42px Rajdhani',accent);
         }else if(!b.operators.length)label('Lineup still unconfirmed',artWidth+24,y+rowHeight-40,'22px Rajdhani',dim,550);
       });
       label('ARKPEDIA',24,height-16,'700 30px Rajdhani',text);
