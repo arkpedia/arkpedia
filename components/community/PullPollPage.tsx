@@ -1,3 +1,4 @@
+import PollTiming from '@/components/community/PollTiming';
 import PollGate from '@/components/community/PollGate';
 import { pollNames, type PublicPoll } from '@/lib/polls/settings';
 import { useEffect, useRef, useState } from 'react';
@@ -207,8 +208,8 @@ function PullPoll({policy,banners,now,owner,portraits=emptyPortraits,edition='pu
     {children}
     <PageHeader className={endfield ? 'endfield-poll' : undefined} slim back={{href:'/polls',label:'Community polls'}} eyebrow={endfield ? "Endfield // Community Polls" : "Rhodes Island // Community Polls"} title={pollNames[edition]} sub={endfield ? "Which operators are you pulling for?" : "Doctor, the next banners are lined up. Who gets your Orundum?"}/>
     <main className={endfield ? `${styles.page} endfield-poll` : styles.page}>
-      {policy.open && policy.closesAt !== null && <p className="hint">Voting closes <time dateTime={new Date(policy.closesAt).toISOString()}>{new Date(policy.closesAt).toLocaleString(undefined,{dateStyle:'medium',timeStyle:'long'})}</time>.</p>}
-      {filters.view === 'results' && !policy.results && <p className="notice">Results are hidden. Voting is open.</p>}
+      {policy.open && <PollTiming poll={policy}/>}
+      {policy.open && filters.view === 'results' && !policy.results && <p className="notice">Results are hidden. Voting is open.</p>}
       {!policy.open && <p className="notice">Voting is closed.</p>}
       {policy.open && policy.results && <Tabs label="Pull or Skip sections" id="pull-poll" value={results?'results':'vote'} onChange={view=>{hold.capture();setFilters({view});}} options={[{value:'vote',label:'Your picks'},{value:'results',label:'Results'}]}/>}
       {results&&<div className={styles.viewTools}><SegmentedControl label="Results display" value={detailed?'detailed':'simple'} onChange={display=>{hold.capture();setFilters({display});}} options={[{value:'simple',label:'Simple'},{value:'detailed',label:'Detailed'}]}/></div>}

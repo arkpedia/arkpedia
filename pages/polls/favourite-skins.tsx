@@ -1,3 +1,4 @@
+import PollTiming from '@/components/community/PollTiming';
 import PollGate from '@/components/community/PollGate';
 import type { PublicPoll } from '@/lib/polls/settings';
 import {useEffect,useMemo,useRef,useState} from 'react';
@@ -102,8 +103,8 @@ function SkinRatings({policy,skins,owner,accountLoading}:Props&{policy:PublicPol
     <PageMeta title="Arkpedia Drip Awards — test poll" description="Rate Arknights skins from 1 to 10, save your progress and explore the community ranking." path="/polls/favourite-skins"/>
     <PageHeader slim back={{href:'/polls',label:'Community polls'}} eyebrow="Rhodes Island // Community Polls" title="Arkpedia Drip Awards" sub="A very serious poll, for serious poll testing"/>
     <main>
-      {policy.open && policy.closesAt !== null && <p className="hint">Voting closes <time dateTime={new Date(policy.closesAt).toISOString()}>{new Date(policy.closesAt).toLocaleString(undefined,{dateStyle:'medium',timeStyle:'long'})}</time>.</p>}
-      {filters.view === 'results' && !policy.results && <p className="notice">Results are hidden. Voting is open.</p>}
+      {policy.open && <PollTiming poll={policy}/>}
+      {policy.open && filters.view === 'results' && !policy.results && <p className="notice">Results are hidden. Voting is open.</p>}
       {!policy.open && <p className="notice">Voting is closed.</p>}
       {policy.open && policy.results && <Tabs label="Poll sections" id="skin-poll" value={results?'results':'vote'} onChange={view=>change({view,skin:''})} options={[{value:'vote',label:'Rate skins'},{value:'results',label:'Live ranking'}]}/>}
       <div ref={hold.ref} style={hold.style}>

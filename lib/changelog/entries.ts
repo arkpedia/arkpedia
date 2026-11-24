@@ -34,6 +34,10 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    at: '2026-11-24T11:45:46Z',
+    added: [{ title: 'Poll deadlines and recent results', detail: 'See when voting closes in your time zone and find recently closed polls at the top of the polls page.', href: '/polls' }],
+  },
+  {
     at: '2026-11-24T11:17:20Z',
     changed: [{ title: 'Search and filter on one row', detail: 'On phones, Filters sits beside the Operator Roster search bar.', href: '/operators' }],
   },
