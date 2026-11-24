@@ -1,0 +1,11 @@
+{
+  "release": true,
+  "nav": [
+    {
+      "group": "extras",
+      "order": 30,
+      "label": "Chart Maker",
+      "icon": "axes"
+    }
+  ]
+}

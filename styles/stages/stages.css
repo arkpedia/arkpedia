@@ -727,6 +727,7 @@
   background: var(--panel-2);
   border-bottom: 1px solid var(--line-soft);
 }
+.mapless:hover .stage-mode-art { border-color: var(--line-soft); }
 .stage-mode-art img {
   object-fit: cover;
 }
@@ -786,6 +787,7 @@
   overflow: hidden;
   white-space: normal;
 }
+.mapless .stage-mode-name { color: var(--text-dim); }
 .stage-mode-sub {
   display: -webkit-box;
   -webkit-box-orient: vertical;

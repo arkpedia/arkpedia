@@ -27,6 +27,6 @@ The importer also owns `data/profile-avatars.json`. The picker fetches the catal
 
 1. Add the record to arkpedia-data's editorial source, retaining reviewed values and provenance.
 2. Declare every browser consumer in `lib/content/tables.mjs` and provide matching server loaders that return the JSON module's `.default`.
-3. Include new routes in `scripts/content/pages.json`, and cover old-release behavior in `test-previous-release-props.ts`.
+3. Declare release publication and the table names in the page's adjacent `.route.json`, and cover old-release behavior in `test-previous-release-props.ts`.
 4. Keep dynamic import loaders server-only. Do not expand the browser-bundle guard's allow lists.
 5. Advance browser fixture data deliberately once the source records are published, then check the affected pages on desktop and phone.

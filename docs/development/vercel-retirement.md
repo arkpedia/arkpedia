@@ -9,9 +9,8 @@ Domain registration/renewal and unrelated Vercel projects are separate decisions
 
 Cloudflare's existing checked-main application workflow remains the only production
 release owner. Native Preview retains its separate isolated publication workflow.
-`config/production.json` intentionally has no Vercel deployments. The retained
-legacy Deploy workflow is disabled at GitHub; even if manually enabled, its target
-matrix is empty. Vercel Git deployments remain disabled in `vercel.json`.
+`config/production.json` has no Vercel deployment targets. The legacy upload
+workflow has been removed. Vercel Git deployment remains disabled in `vercel.json`.
 
 Content publication still requires the clean canonical www build fingerprint,
 channel and schema to match its generator. The sole live reader is

@@ -1,0 +1,11 @@
+{
+  "release": true,
+  "nav": [
+    {
+      "group": "database",
+      "order": 80,
+      "label": "Story",
+      "icon": "story"
+    }
+  ]
+}

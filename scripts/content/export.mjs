@@ -7,6 +7,7 @@ import { execFileSync, spawn } from 'node:child_process';
 import { contentInput, releaseInput, SCHEMA } from './release-input.mjs';
 import { codeFingerprint } from './code-fingerprint.mjs';
 import { recordFiles } from './records.mjs';
+import { releaseRoutes as routes } from '../../lib/routes/catalogue.cjs';
 
 const args = process.argv.slice(2);
 // CI validates the checked-in snapshot; publication still records the latest holds by default.
@@ -17,7 +18,6 @@ const privateQuarantine = checkOnly ? quarantineSnapshot : null;
 const destination = path.resolve(args.find(arg => !arg.startsWith('--')) || '.cache/content-export');
 const release = path.join(destination, 'release');
 const source = path.join(destination, 'source');
-const routes = JSON.parse(fs.readFileSync('scripts/content/pages.json', 'utf8'));
 const sha = bytes => createHash('sha256').update(bytes).digest('hex');
 // The records on disk (scripts/content/records.mjs): pulled from arkpedia-data, then refreshed.
 const tracked = recordFiles();

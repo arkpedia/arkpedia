@@ -1,0 +1,13 @@
+{
+  "release": true,
+  "regional": true,
+  "clock": "minute",
+  "nav": [
+    {
+      "group": "database",
+      "order": 20,
+      "label": "Skins",
+      "icon": "skins"
+    }
+  ]
+}

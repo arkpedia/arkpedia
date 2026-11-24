@@ -1,0 +1,11 @@
+{
+  "release": true,
+  "nav": [
+    {
+      "group": "community",
+      "order": 20,
+      "label": "Community Stats",
+      "icon": "statistics"
+    }
+  ]
+}

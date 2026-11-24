@@ -544,25 +544,6 @@ test('a dev run reports and recovers on its own "(dev)" issues, and leaves produ
   }
 });
 
-test('a successful deploy starts a held release again, and does nothing when none is held', () => {
-  withGitHub(github => {
-    const again = stepScript('Release again if one was held for this deploy', 'deploy');
-    const held = ['--alert', 'content-release-held', '--title', 'Content release held'];
-    // Nothing held: no release is started.
-    let run = github.step(again);
-    assert.equal(run.status, 0, run.output);
-    assert.match(run.output, /No content release is held/);
-    assert.ok(!github.calls().some(call => call.startsWith('workflow run')), github.calls().join(', '));
-    assert.equal(github.alert(['find', ...held]), 'none');
-    // Held by the gate: the next successful deploy dispatches it.
-    github.seed([{ title: 'Content release held', body: '<!-- arkpedia-alert:content-release-held -->\nheld\n' }]);
-    assert.equal(github.alert(['find', ...held]), '1');
-    run = github.step(again);
-    assert.equal(run.status, 0, run.output);
-    assert.ok(github.calls().includes('workflow run prepare-content.yml'), github.calls().join(', '));
-  });
-});
-
 // arkpedia-data's Content release moves the live pointer after its own validator passes; the
 // release job polls the live branch for the commit it pushed, and alerts when it stays put.
 test('a release that does not go live opens an issue, and one that does closes it', () => {
@@ -656,38 +637,4 @@ test('a red Check on main opens one issue, a superseded run does not, and the ne
   }
   assert.doesNotMatch(check.slice(0, check.indexOf('  main-report:')), /issues: write/);
   assert.match(reportJob, /issues: write/);
-});
-
-test('a failed deploy opens one issue per deployment that its next deploy closes, even when the token is missing', () => {
-  // What the matrix gives each step (scripts/deploy/deploy-targets.mjs).
-  const SITE = { ALERT: 'deploy-failing-arkpedia-dev', SITE: 'https://arkpedia-dev.vercel.app', BRANCH: 'dev' };
-  withGitHub(github => {
-    const report = stepScript('Report the failed deploy', 'deploy'), close = stepScript('Close the failed-deploy report', 'deploy');
-    const failed = github.step(report, { ...SITE, FAKE_NOW: '2026-09-21T08:00:00Z', JOB_STATUS: 'failure', GITHUB_EVENT_NAME: 'workflow_run', DEPLOYING: 'd'.repeat(40) });
-    assert.equal(failed.status, 0, failed.output);
-    assert.equal(github.issues()[0].title, 'Deploy failing: arkpedia-dev.vercel.app');
-    assert.match(github.issues()[0].body, /^<!-- arkpedia-alert:deploy-failing-arkpedia-dev -->\nDeploy to https:\/\/arkpedia-dev\.vercel\.app ended with failure for dddddddddddd \(workflow_run, .*\): https:\/\/example\.invalid\/run\/1\. Production keeps its previous build, and content releases stay held until it runs dev's code\.\n$/);
-    // Another deployment's outage is its own issue, which this one's success leaves open.
-    github.step(report, { ALERT: 'deploy-failing-arkpedia-net', SITE: 'https://www.arkpedia.net', BRANCH: 'main', FAKE_NOW: '2026-09-21T08:00:00Z', JOB_STATUS: 'failure', GITHUB_EVENT_NAME: 'workflow_run', DEPLOYING: 'd'.repeat(40) });
-    assert.equal(github.issues()[1].title, 'Deploy failing: www.arkpedia.net');
-    assert.match(github.issues()[1].body, /content releases stay held until it runs main's code\.\n$/);
-    assert.equal(github.step(close, { ...SITE, DEPLOYING: 'e'.repeat(40) }).status, 0);
-    assert.equal(github.issues()[1].state, 'open');
-    assert.equal(github.issues()[0].state, 'closed');
-    assert.match(github.issues()[0].comments.at(-1)!.body, /^Deployed eeeeeeeeeeee: https:\/\/example\.invalid\/run\/1$/);
-  });
-  // When only the asset-link check after the deploy failed, production does run the new build:
-  // the issue says so instead of "keeps its previous build".
-  withGitHub(github => {
-    const report = stepScript('Report the failed deploy', 'deploy');
-    const failed = github.step(report, { ...SITE, FAKE_NOW: '2026-09-26T08:00:00Z', JOB_STATUS: 'failure', GITHUB_EVENT_NAME: 'workflow_run', DEPLOYING: 'f'.repeat(40), ASSET_LINKS: 'failure' });
-    assert.equal(failed.status, 0, failed.output);
-    assert.match(github.issues()[0].body, /^<!-- arkpedia-alert:deploy-failing-arkpedia-dev -->\nDeployed ffffffffffff to https:\/\/arkpedia-dev\.vercel\.app \(workflow_run, .*\), but its asset links lag the live content release: .* Production runs this build;/);
-    assert.doesNotMatch(github.issues()[0].body, /keeps its previous build/);
-  });
-  // The report needs the checkout; the token check used to run first and fail without one.
-  const names = [...fs.readFileSync('.github/workflows/deploy.yml', 'utf8').matchAll(/^ {6}- (?:name: (.*)|uses: (actions\/checkout)@)/gm)].map(match => match[1] ?? match[2]);
-  assert.ok(names.indexOf('actions/checkout') < names.indexOf('Refuse to run without the deploy token'), names.join(' | '));
-  // The reports follow every deploy step; resuming a held main release comes last, after success.
-  assert.deepEqual(names.slice(-3), ['Report the failed deploy', 'Close the failed-deploy report', 'Release again if one was held for this deploy']);
 });

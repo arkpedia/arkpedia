@@ -1,0 +1,13 @@
+{
+  "release": true,
+  "clock": "minute",
+  "nav": [
+    {
+      "group": "database",
+      "order": 50,
+      "label": "Obtain method",
+      "icon": "obtain",
+      "dividerAfter": true
+    }
+  ]
+}

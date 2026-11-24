@@ -1,0 +1,12 @@
+{
+  "release": "/pulls",
+  "regional": true,
+  "nav": [
+    {
+      "group": "own",
+      "order": 20,
+      "label": "Pull Planner",
+      "icon": "calculator"
+    }
+  ]
+}

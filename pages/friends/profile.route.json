@@ -1,0 +1,6 @@
+{
+  "release": true,
+  "tables": [
+    "game-account-map"
+  ]
+}

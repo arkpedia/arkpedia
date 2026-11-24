@@ -16,7 +16,7 @@ import App from '../../pages/_app';
 import { pageSource } from '../content/page-source.mjs';
 import { getSeasonalChallenge, seasonalFromRelease } from '../../lib/stages/terminal';
 import { discoverFromRelease, getDiscoverPageData, type DiscoverPageData } from '../../lib/music/albumsDataServer';
-import CONTENT_ROUTES from '../content/pages.json';
+import { releaseRoutes as CONTENT_ROUTES } from '../../lib/routes/catalogue.cjs';
 
 /*
  * A deploy renders against the live content release, and right after one that release is
@@ -96,18 +96,18 @@ function matchTemplate(template: string, route: string): Record<string, string> 
   return match ? Object.fromEntries(names.map((name, i) => [name, decodeURIComponent(match[i + 1])])) : null;
 }
 
-/** The route template (scripts/content/pages.json) a route is served by, and its params. */
+/** The release template a route is served by, and its params. */
 function templateOf(route: string): { template: string; params?: Record<string, string> } {
-  if ((CONTENT_ROUTES as string[]).includes(route)) return { template: route };
-  for (const template of CONTENT_ROUTES as string[]) {
+  if (CONTENT_ROUTES.includes(route)) return { template: route };
+  for (const template of CONTENT_ROUTES) {
     const params = matchTemplate(template, route);
     if (params) return { template, params };
   }
-  throw new Error(`${route} is not a content route (scripts/content/pages.json)`);
+  throw new Error(`${route} is not a declared content route`);
 }
 
 /** This checkout's content routes that the previous release publishes no page of. */
-const UNPUBLISHED = (CONTENT_ROUTES as string[]).filter((template) => !PREVIOUS.routes.some((route) => matchTemplate(template, route)));
+const UNPUBLISHED = CONTENT_ROUTES.filter((template) => !PREVIOUS.routes.some((route) => matchTemplate(template, route)));
 
 type PageModule = { default: ComponentType<object>; getStaticProps: GetStaticProps<object> };
 async function pageModule(template: string): Promise<PageModule> {

@@ -1,0 +1,7 @@
+{
+  "release": true,
+  "sitemap": "exclude",
+  "tables": [
+    "recruitment-tag-labels"
+  ]
+}

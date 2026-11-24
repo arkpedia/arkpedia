@@ -1,0 +1,13 @@
+{
+  "release": "/free-op",
+  "regional": true,
+  "clock": "minute",
+  "nav": [
+    {
+      "group": "own",
+      "order": 40,
+      "label": "Reward Tracker",
+      "icon": "prime"
+    }
+  ]
+}

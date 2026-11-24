@@ -10,8 +10,7 @@ const guard = path.resolve('scripts/audits/check-deployment-traces.mjs');
 test('deployment trace audit rejects local records, caches and secrets in development APIs', t => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'deployment-traces-'));
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
-  fs.mkdirSync(path.join(root, 'scripts/content'), { recursive: true });
-  fs.writeFileSync(path.join(root, 'scripts/content/pages.json'), '[]');
+  fs.mkdirSync(path.join(root, 'pages'));
   fs.mkdirSync(path.join(root, 'config'));
   fs.writeFileSync(path.join(root, 'config/pilot-route-aliases.json'), JSON.stringify({ routes: {} }));
   const trace = path.join(root, '.next/server/pages/api/dev/optimizer-results.js.nft.json');

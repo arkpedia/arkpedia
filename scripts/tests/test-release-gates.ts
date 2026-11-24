@@ -112,13 +112,13 @@ test('the code fingerprint moves with any file but docs, and ignores the working
 // The one list: check.yml skips exactly what the fingerprint leaves out. If Check skipped
 // more, a push the fingerprint sees would never deploy and releases would wait for the next
 // code push; if it skipped less, nothing breaks, but the file would also say what it is not.
-test('Check skips exactly the docs-only paths, on push and pull request, and Deploy follows every Check', () => {
+test('Check skips exactly the docs-only paths, on push and pull request, and production follows every main Check', () => {
   const check = fs.readFileSync('.github/workflows/check.yml', 'utf8');
   const ignored = [...check.matchAll(/^ {4}paths-ignore: (\[.*\])$/gm)].map(match => JSON.parse(match[1].replace(/'/g, '"')));
   assert.deepEqual(ignored, [DOCS_ONLY_PATHS, DOCS_ONLY_PATHS], 'push and pull_request each ignore exactly config/docs-only-paths.json');
   assert.doesNotMatch(check, /^\s+paths:/m, 'no paths allow-list, which would skip code changes');
   assert.match(check, /^ {2}push:\n {4}branches: \[main\]\n( {4}#.*\n)* {4}paths-ignore:/m);
-  const deploy = fs.readFileSync('.github/workflows/deploy.yml', 'utf8');
+  const deploy = fs.readFileSync('.github/workflows/production-release.yml', 'utf8');
   assert.match(deploy, /^ {2}workflow_run:\n {4}workflows: \[Check\]\n {4}types: \[completed\]\n {4}branches: \[main\]\n/m);
   assert.doesNotMatch(deploy, /paths(-ignore)?:/, 'Deploy runs after every Check on main, never filtered by path');
 });

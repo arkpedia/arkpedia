@@ -1,9 +1,11 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { loadPageCatalogue } from '../content/page-catalogue.cjs';
 
 const root = process.cwd();
-const pagesDir = path.join(root, '.next/server/pages');
-const templates = JSON.parse(fs.readFileSync(path.join(root, 'scripts/content/pages.json'), 'utf8'));
+const buildDir = path.resolve(root, process.env.NEXT_DIST_DIR || '.next');
+const pagesDir = path.join(buildDir, 'server/pages');
+const templates = loadPageCatalogue(root).flatMap(page => page.key ? [page.key, page.route] : []);
 const aliases = JSON.parse(fs.readFileSync(path.join(root, 'config/pilot-route-aliases.json'), 'utf8')).routes;
 const guarded = new Set([...templates.map(route => route === '/' ? '/index' : route), ...Object.values(aliases), '/api/artwork-voices']);
 
@@ -28,7 +30,8 @@ for (const trace of walk(pagesDir).filter(file => file.endsWith('.js.nft.json'))
   for (const file of files) {
     const resolved = path.resolve(path.dirname(trace), file);
     const relative = path.relative(root, resolved).replace(/\\/g, '/');
-    if (relative === '.env' || relative.startsWith('.env.') || relative.startsWith('data/') || relative.startsWith('public/') || relative.startsWith('.cache/')) {
+    const emitted = resolved === path.join(buildDir, 'package.json') || resolved.startsWith(`${path.join(buildDir, 'server')}${path.sep}`);
+    if (relative === '.env' || relative.startsWith('.env.') || relative.startsWith('data/') || relative.startsWith('public/') || (relative.startsWith('.cache/') && !emitted)) {
       leaks.push(`${route}: ${relative}`);
       if (leaks.length >= 20) break;
     }

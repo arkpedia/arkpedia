@@ -3,7 +3,7 @@ import { assetFileName } from '@/lib/assets/assetUrl';
 import { getAllOperators } from '@/lib/operators/operators';
 import { operatorRelease, releaseMarker } from '@/lib/operators/operatorAvailability';
 import { Operator } from '@/lib/operators/operatorTypes';
-import { GameOperator, PaletteArtwork, PaletteOperator } from './logic';
+import { toGameOperator, type PaletteArtwork, type PaletteOperator } from './logic';
 import palettes from '@/data/color-palettes.json';
 
 const WORDS = ['', 'one', 'two', 'three', 'four', 'five', 'six'];
@@ -13,13 +13,6 @@ const WORDS = ['', 'one', 'two', 'three', 'four', 'five', 'six'];
 function datedOperators(): Operator[] {
   return getAllOperators().filter((operator) => operatorRelease(operator) !== null);
 }
-function toGameOperator(operator: Operator): GameOperator {
-  return {
-    name: operator.name,
-    aliases: [...new Set(Object.values(operator.otherLanguages || {}).filter((value) => value && value !== 'N/A'))],
-  };
-}
-
 /** Every dated operator with palette artwork, each carrying its release marker. This is
  * what the page exports; the export used to keep only the operators released at that
  * moment, so one released afterwards stayed out of the game until the next release. */

@@ -1,0 +1,11 @@
+{
+  "release": "/results",
+  "nav": [
+    {
+      "group": "hidden",
+      "order": 10,
+      "label": "Power Scale",
+      "icon": "rate"
+    }
+  ]
+}

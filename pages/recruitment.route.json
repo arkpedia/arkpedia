@@ -1,0 +1,14 @@
+{
+  "release": true,
+  "tables": [
+    "recruitment-tag-labels"
+  ],
+  "nav": [
+    {
+      "group": "guides",
+      "order": 30,
+      "label": "Recruitment",
+      "icon": "recruitment"
+    }
+  ]
+}

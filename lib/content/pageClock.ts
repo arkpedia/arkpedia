@@ -1,3 +1,4 @@
+import { pageCatalogue } from '@/lib/routes/catalogue.cjs';
 import { serverWeekday } from '@/lib/time/servers.mjs';
 
 /** Presentation clocks belong to the request, not to a versioned game record.
@@ -8,39 +9,10 @@ import { serverWeekday } from '@/lib/time/servers.mjs';
  * once, at content export, and stays that way until the next release: the
  * export-worker clock guard (scripts/content/export-clock.mjs) refuses it.
  */
-const CLOCK_UNITS: Record<string, number> = {
-  '/': 60_000,
-  '/operators': 60_000,
-  '/skins': 60_000,
-  '/stages/supplies': 60_000,
-  '/stages': 1000,
-  '/stages/all': 1000,
-  '/stages/browse': 1000,
-  '/stages/regular': 1000,
-  '/schedule': 60_000,
-  '/farming': 60_000,
-  '/obtain-method': 60_000,
-  '/gacha': 60_000,
-  '/enemies': 60_000,
-  '/games/color-palette': 60_000,
-  '/games/music-guesser': 60_000,
-  '/planner': 60_000,
-  '/community': 60_000,
-  '/polls/pull-or-skip': 60_000,
-  '/polls': 60_000,
-  // Which outfit shops are over (components/skins/SkinPlanner).
-  '/skin-planner': 60_000,
-  '/free-op': 60_000,
-  // Which credited operators are on Global yet (components/operators/CreditDatabase).
-  '/artists': 60_000,
-  '/voice-actors': 60_000,
-};
+const clocks = new Map(pageCatalogue.flatMap(page =>
+  page.key && page.clock ? [[page.key, { unit: page.clock, serverDay: page.serverDay }] as const] : []));
 
-/** Every route contentPageClock gives a clock: each CLOCK_UNITS route (`now`), and
- *  /stages/supplies also receives `buildDay` for older payload compatibility. Their pages may read the clock only through
- *  lib/time/readerClock.ts; the no-restricted-syntax override in .eslintrc.json lists
- *  them, and scripts/tests/test-clock-lint.ts fails when a route here is missing there. */
-export const CLOCK_ROUTES: readonly string[] = Object.keys(CLOCK_UNITS);
+export const CLOCK_ROUTES: readonly string[] = [...clocks.keys()];
 
 /** The props contentPageClock owns. A page's data builder never sets them. */
 export type PageClockField = 'now' | 'buildDay';
@@ -49,18 +21,17 @@ export type PageClockField = 'now' | 'buildDay';
 export type PageClockMoment = { now: number } | { exporting: true };
 
 export function contentPageClock<P extends object>(route: string, props: P, moment: PageClockMoment): P {
-  const unit = CLOCK_UNITS[route];
-  const supplies = route === '/stages/supplies';
-  if (!unit && !supplies) return props;
+  const clock = clocks.get(route);
+  if (!clock) return props;
   // Clone: cached payloads and concurrent requests must remain independent.
   const result = { ...props } as P & { now?: number; buildDay?: string };
   if ('exporting' in moment) {
     delete result.now;
-    if (supplies) delete result.buildDay;
+    if (clock.serverDay) delete result.buildDay;
   } else {
     const { now } = moment;
-    if (unit) result.now = unit === 1000 ? Math.floor(now / 1000) : Math.floor(now / unit) * unit;
-    if (supplies) result.buildDay = serverWeekday(new Date(now));
+    result.now = clock.unit === 'second' ? Math.floor(now / 1000) : Math.floor(now / 60_000) * 60_000;
+    if (clock.serverDay) result.buildDay = serverWeekday(new Date(now));
   }
   return result;
 }

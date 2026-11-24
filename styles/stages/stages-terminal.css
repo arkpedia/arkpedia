@@ -1120,9 +1120,7 @@ a.regular-now:hover .regular-now-go::after { transform: translateX(3px); }
 .mapless { cursor: default; }
 .mapless:hover .score-node-art,
 .mapless:hover .explore-hero-art { border-color: transparent; }
-.mapless:hover .stage-mode-art { border-color: var(--line-soft); }
 .mapless .score-node-name,
-.mapless .stage-mode-name,
 .mapless .explore-hero-name { color: var(--text-dim); }
 /* The ART is not dimmed. Draining a content's own banner to say "not clickable" gives
    up the one thing these cards still have, and the corner note says it in words. */

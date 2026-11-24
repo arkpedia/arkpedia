@@ -1,0 +1,12 @@
+{
+  "sitemap": "omit",
+  "outsideRelease": "a permanent redirect to /schedule",
+  "nav": [
+    {
+      "group": "hidden",
+      "order": 10,
+      "label": "Events",
+      "icon": "events"
+    }
+  ]
+}

@@ -1077,7 +1077,6 @@
   min-width: 0;
   overflow-wrap: anywhere;
 }
-.base-summary-extra { margin-left: 6px; color: var(--cat-orange); }
 .base-chip-row { display: flex; flex-wrap: wrap; gap: 6px; }
 .base-summary-ideal {
   font-size: 11px;

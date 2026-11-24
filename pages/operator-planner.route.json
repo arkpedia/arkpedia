@@ -1,0 +1,25 @@
+{
+  "release": "/planner",
+  "tables": [
+    "base-formulas",
+    "battle-records",
+    "supply-stages",
+    "operatorLevelExpLmd",
+    "import-aliases",
+    "item-sort-ids",
+    "farming-tiers",
+    "material-catalogue",
+    "material-sanity",
+    "farming-events",
+    "permanent-rewards"
+  ],
+  "clock": "minute",
+  "nav": [
+    {
+      "group": "own",
+      "order": 10,
+      "label": "Operator Planner",
+      "icon": "planner"
+    }
+  ]
+}

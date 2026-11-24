@@ -15,7 +15,11 @@
 | `docs/development/` | Setup and data pipeline documentation. |
 | `docs/archive/` | Historical reviews and superseded preview notes; not current implementation requirements. |
 
-Pages remain in `pages/` because their paths define public URLs. Their components and styles live under feature folders; moving a component should never require changing a URL.
+Pages remain in `pages/` because their paths define public URLs. Their components and styles live under feature folders, so moving a component can preserve its URL.
+
+Add a `.route.json` alongside each page using the same name stem, including `index.route.json` for an index. A standalone public page declares `{"sitemap":"static"}`. A page that carries release data declares `{"release":true}` and supplies its builder via `withContentPage`. Use `tables`, `regional`, and `clock` for data and request timing that the page needs. Keep a release key string when renaming an existing URL, and add its compatibility redirect. `sitemap: "exclude"` suppresses a route from the release sitemap and `sitemap: "omit"` accounts for pages such as redirects outside the sitemap.
+
+An optional `nav` array places a page in an existing menu. Each entry declares `group`, `order`, `label`, and `icon`, with an optional `query` string or `dividerAfter`. Desktop, mobile and search consume that shared order. Server-rendered pages outside the content release declare `outsideRelease` with their reason. Run `node --import tsx --test scripts/tests/test-release-pages.ts scripts/tests/test-nav-links.ts scripts/tests/test-sitemap.ts` after adding a route.
 
 ## Find a feature
 

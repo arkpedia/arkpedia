@@ -337,7 +337,7 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/mu
   //
   // This body only ever runs while prerendering or in local development:
   // withContentPage serves the published release at runtime, and listing the route
-  // in scripts/content/pages.json excludes data/ and public/ from the function's
+  // in this route’s policy excludes data/ and public/ from the function's
   // file trace. So the ISR function neither traces the local data tree nor tries to
   // rewrite public/ on Vercel's read-only filesystem -- the two things the previous
   // plain-static version of this page existed to avoid.

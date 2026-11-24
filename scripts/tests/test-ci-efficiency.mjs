@@ -88,7 +88,7 @@ test('Next type validation stays enabled outside Check; lint remains an explicit
   }
   assert.deepEqual(config({ CI: 'true', ARKPEDIA_BUILD_CHECKS_PASSED: '1' }), { types: true, lintOption: false });
   assert.equal(steps.find(step => step.name === 'Lint').run, 'npm run lint -- --max-warnings 15');
-  for (const job of Object.values(workflow('deploy').jobs)) {
+  for (const job of Object.values(workflow('production-release').jobs)) {
     for (const step of job.steps ?? []) assert.equal(step.env?.ARKPEDIA_BUILD_CHECKS_PASSED, undefined);
     assert.equal(job.env?.ARKPEDIA_BUILD_CHECKS_PASSED, undefined);
   }
@@ -144,18 +144,20 @@ test('publication compatibility and rollback checks remain required before appro
 });
 
 test('only fresh hosted runners restore npm archives; every profile has one locked install owner', () => {
-  assert.equal(JSON.parse(fs.readFileSync('vercel.json', 'utf8')).installCommand, 'npm ci --include=dev');
-  for (const name of ['check', 'deploy', 'prepare-content']) {
+  for (const name of ['check', 'production-release', 'prepare-content']) {
     const jobs = Object.values(workflow(name).jobs);
-    const ownsInstall = step => name === 'deploy' ? step.name === 'Build' && step.run?.includes('vercel@') && step.run.includes(' build ') : step.run === 'npm ci';
+    const ownsInstall = step => step.run === 'npm ci';
     const installers = jobs.filter(job => job.steps?.some(ownsInstall));
     const cachesNpm = step => step.uses?.startsWith('actions/setup-node@') && step.with?.cache;
     const cached = jobs.flatMap(job => job.steps ?? []).filter(cachesNpm);
     assert.equal(installers.length, name === 'check' ? 7 : 1, name);
-    assert.equal(cached.length, installers.length, 'only clean-install jobs configure the npm cache');
+    assert.equal(cached.length, name === 'production-release' ? 0 : installers.length, 'production builds do not restore an npm cache');
     for (const job of installers) {
       assert.equal(job.steps.filter(ownsInstall).length, 1, 'one dependency install owner per selected job');
-      if (name === 'deploy') assert.equal(job.steps.filter(step => step.run === 'npm ci').length, 0, 'Vercel must not repeat an outer install');
+      if (name === 'production-release') {
+        assert.ok(job.steps.some(step => step.uses?.startsWith('actions/setup-node@') && step.with?.['package-manager-cache'] === false));
+        continue;
+      }
       const setups = job.steps.filter(cachesNpm);
       assert.equal(setups.length, 1, 'each selected profile installs once with its own cache policy');
       assert.equal(setups[0].with.cache, 'npm');

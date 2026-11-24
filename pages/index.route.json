@@ -1,0 +1,8 @@
+{
+  "release": true,
+  "tables": [
+    "sss-cycle"
+  ],
+  "regional": true,
+  "clock": "minute"
+}
