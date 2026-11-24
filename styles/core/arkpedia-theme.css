@@ -1049,8 +1049,20 @@ a.ghost.panel:focus-visible { border-color: var(--teal); }
 }
 
 /* Pull or Skip: joined choices, operator portraits and stamped verdicts. */
+/* The vote palette stays consistent when an edition changes its surrounding accent. */
+:root {
+  --poll-pull: var(--teal);
+  --poll-pull-fill: var(--teal-fill);
+  --poll-pull-ink: var(--teal-ink);
+}
+.endfield-poll [data-choice="pull"] {
+  --teal: var(--poll-pull);
+  --teal-fill: var(--poll-pull-fill);
+  --teal-ink: var(--poll-pull-ink);
+}
 .poll-banner-surface { background:var(--panel); border:1px solid var(--card-border); border-left:3px solid var(--line); border-radius:var(--radius); }
-.poll-banner-surface[data-verdict="pull"], .poll-banner-surface[data-verdict="custom"] { border-left-color:var(--teal); }
+.poll-banner-surface[data-verdict="pull"] { border-left-color:var(--poll-pull); }
+.poll-banner-surface[data-verdict="custom"] { border-left-color:var(--teal); }
 .poll-banner-surface[data-verdict="maybe"] { border-left-color:var(--amber); }
 .poll-banner-surface[data-verdict="skip"] { border-left-color:var(--text-faint); }
 .poll-banner-surface[data-verdict="skip"] .poll-portrait, .poll-banner-surface[data-verdict="skip"] img { filter:grayscale(1); opacity:.5; }
@@ -1061,6 +1073,7 @@ a.ghost.panel:focus-visible { border-color: var(--teal); }
 .poll-potential[data-want="maybe"] { color:var(--amber); }
 .poll-potential[data-want="skip"] { color:var(--text-faint); }
 .poll-stamp, .poll-your-choice { --poll-stamp-color:var(--teal); }
+:is(.poll-stamp,.poll-your-choice)[data-stamp="pull"] { --poll-stamp-color:var(--poll-pull); }
 :is(.poll-stamp,.poll-your-choice)[data-stamp="maybe"] { --poll-stamp-color:var(--amber); }
 :is(.poll-stamp,.poll-your-choice)[data-stamp="skip"] { --poll-stamp-color:var(--danger); }
 :is(.poll-stamp,.poll-your-choice)[data-stamp="dolphin"] { --poll-stamp-color:var(--heading); }

@@ -71,6 +71,15 @@ for (const theme of ['dark','light']) test(`unhide Endfield and submit artwork p
   await pull.focus();
   await pull.press('Enter');
   await expect(pull).toHaveAttribute('aria-pressed','true');
+  const voteColor = await page.evaluate(() => {
+    const probe = document.createElement('span');
+    probe.style.backgroundColor = 'var(--teal-fill)';
+    document.documentElement.append(probe);
+    const expected = getComputedStyle(probe).backgroundColor;
+    probe.remove();
+    return expected;
+  });
+  await expect(pull).toHaveCSS('background-color',voteColor);
   await expect(cards.first().locator('.poll-stamp')).toBeVisible();
   await page.getByRole('button',{name:'Send it'}).click();
   await page.getByRole('button',{name:'Submit anonymously'}).click();

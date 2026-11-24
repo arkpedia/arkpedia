@@ -53,7 +53,7 @@ export function socialResultCards(rows:ImageRow[]){
 }
 
 export function drawSocialResult(c:CanvasRenderingContext2D,row:ImageRow,title:string,art:HTMLImageElement|undefined,
-  position:string,colors:{bg:string;text:string;dim:string;pull:string;maybe:string;skip:string;panel:string},drawPortrait:DrawPortrait){
+  position:string,colors:{bg:string;text:string;dim:string;pull:string;maybe:string;skip:string;panel:string},drawPortrait:DrawPortrait,accent=colors.pull){
   const side=1080,inset=50,usable=side-inset*2;
   function text(value:string,x:number,y:number,size:number,color:string,mono=false,maxWidth=usable){
     c.font=mono?`500 ${size}px "JetBrains Mono"`:`700 ${size}px Rajdhani`;
@@ -61,7 +61,7 @@ export function drawSocialResult(c:CanvasRenderingContext2D,row:ImageRow,title:s
   }
   c.fillStyle=colors.bg;c.fillRect(0,0,side,side);
   text('PULL OR SKIP',inset,82,66,colors.text);
-  c.save();c.textAlign='right';text('COMMUNITY RESULTS',side-inset,76,31,colors.pull,true);c.restore();
+  c.save();c.textAlign='right';text('COMMUNITY RESULTS',side-inset,76,31,accent,true);c.restore();
   const artTop=111,artHeight=row.operators.length?Math.min(319,442-row.operators.length*54):470;
   c.fillStyle=colors.panel;c.fillRect(0,artTop,side,artHeight);
   if(art){

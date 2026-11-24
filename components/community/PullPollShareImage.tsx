@@ -82,7 +82,7 @@ export default function PullPollShareImage(props:ShareProps){
       canvas.current.height=social?1080:height;
       const context=canvas.current.getContext('2d');if(!context)return;
       const c=context,theme=getComputedStyle(canvas.current),ink=(token:string)=>theme.getPropertyValue(token).trim();
-      const bg=ink('--bg'),panel=ink('--panel'),well=ink('--well'),text=ink('--text-bright'),dim=ink('--text-dim'),teal=ink('--teal'),amber=ink('--amber');
+      const bg=ink('--bg'),panel=ink('--panel'),well=ink('--well'),text=ink('--text-bright'),dim=ink('--text-dim'),accent=ink('--teal'),pull=ink('--poll-pull'),amber=ink('--amber');
       const fit=(text:string,width:number)=>{let value=text;while(c.measureText(value).width>width&&value.length)value=value.slice(0,-1);return value===text?value:value.slice(0,-1)+'…';};
       const label=(textValue:string,x:number,y:number,font:string,color:string,width?:number)=>{c.font=font;c.fillStyle=color;c.fillText(width?fit(textValue,width):textValue,x,y);};
       const centeredLabel=(value:string,x:number,y:number,font:string,color:string)=>{c.save();c.textAlign='center';c.textBaseline='middle';label(value,x,y,font,color);c.restore();};
@@ -113,16 +113,16 @@ export default function PullPollShareImage(props:ShareProps){
       };
       const danger=ink('--danger'),line=ink('--line');
       if(social){
-        drawSocialResult(c,social,bannerTitle(social.banner),images.get(artPath(social.banner)??''),`${index+1} / ${cards.length}`,{bg,text,dim,pull:teal,maybe:amber,skip:danger,panel},drawPortrait);
+        drawSocialResult(c,social,bannerTitle(social.banner),images.get(artPath(social.banner)??''),`${index+1} / ${cards.length}`,{bg,text,dim,pull,maybe:amber,skip:danger,panel},drawPortrait,accent);
         abort.abort();setReady(true);setMessage('1080 × 1080 · '+bannerTitle(social.banner));return;
       }
       c.fillStyle=bg;c.fillRect(0,0,1200,height);
       label(results?'PULL OR SKIP // RESULTS':(banners[0]?.artwork?'ENDFIELD // PULL PLAN':'ARKNIGHTS // PULL PLAN'),24,72,'700 64px Rajdhani',text);
-      label(banners[0]?.artwork?'arkpedia.net/polls/endfield-pull-or-skip':'arkpedia.net/polls/pull-or-skip',24,122,'28px "JetBrains Mono"',teal);
+      label(banners[0]?.artwork?'arkpedia.net/polls/endfield-pull-or-skip':'arkpedia.net/polls/pull-or-skip',24,122,'28px "JetBrains Mono"',accent);
       if(results){
         c.save();c.textAlign='right';label(results.ballots.toLocaleString('en-US')+(results.ballots===1?' submission':' submissions'),1176,122,'28px "JetBrains Mono"',dim);c.restore();
       }else if(showLegend){
-        for(const [index,item] of [{text:'Pull',color:teal},{text:'Maybe',color:amber},{text:'Skip',color:danger}].entries()){
+        for(const [index,item] of [{text:'Pull',color:pull},{text:'Maybe',color:amber},{text:'Skip',color:danger}].entries()){
           const x=800+index*128;c.fillStyle=item.color;c.fillRect(x,52,24,24);
           label(item.text,x+34,73,'700 26px Rajdhani',text);
         }
@@ -131,10 +131,10 @@ export default function PullPollShareImage(props:ShareProps){
       let rowTop=headerHeight;
       rows.forEach(({banner:b,resultRow,operators,slotHeight,rowHeight})=>{
         const y=rowTop;rowTop+=rowHeight;
-        const v=pullIntent(ballot[b.id]),choice=v==='maybe'?'~':v==='skip'?'X':'PULL',accent=v==='maybe'?amber:v==='skip'?danger:teal;
+        const v=pullIntent(ballot[b.id]),choice=v==='maybe'?'~':v==='skip'?'X':'PULL',accent=v==='maybe'?amber:v==='skip'?danger:pull;
         c.fillStyle=panel;c.fillRect(0,y,1200,rowHeight);c.strokeRect(1,y,1198,rowHeight);if(!stamped){c.beginPath();c.moveTo(artWidth,y);c.lineTo(artWidth,y+rowHeight);c.stroke();}
         if(!draw(artPath(b),4,y+4,artWidth-8,rowHeight-8,v==='skip'&&tags))label(bannerTitle(b),20,y+rowHeight/2,'700 25px Rajdhani',dim,artWidth-40);
-        if(resultRow){drawResultPanel(c,resultRow,bannerTitle(b),y,rowHeight,{text,dim,pull:teal,maybe:amber,skip:danger},label,drawPortrait);return;}
+        if(resultRow){drawResultPanel(c,resultRow,bannerTitle(b),y,rowHeight,{text,dim,pull,maybe:amber,skip:danger},label,drawPortrait);return;}
         if(stamped){drawStamp(b,y,rowHeight);return;}
         if(!detailed){verdict(choice,(artWidth+1200)/2,y+rowHeight/2,v==='pull'?80:v==='maybe'?Math.min(240,rowHeight*1.15):Math.min(180,rowHeight*.9),accent);return;}
         drawStamp(b,y,rowHeight);
@@ -145,7 +145,7 @@ export default function PullPollShareImage(props:ShareProps){
           c.font='700 30px Rajdhani';
           const words=op.label.split(' ');let first=words.shift()??'';
           while(words.length&&c.measureText(first+' '+words[0]).width<=174)first+=' '+words.shift();
-          const color=op.interest==='maybe'?amber:teal;
+          const color=op.interest==='maybe'?amber:pull;
           centeredLabel(fit(first,174),px+size/2,py+148,'700 30px Rajdhani',color);
           if(words.length)centeredLabel(fit(words.join(' '),174),px+size/2,py+176,'700 30px Rajdhani',color);
         });
