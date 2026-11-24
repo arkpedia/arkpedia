@@ -38,6 +38,10 @@ export const CHANGELOG: ChangelogEntry[] = [
     added: [{ title: 'Poll deadlines and recent results', detail: 'See when voting closes in your time zone and find recently closed polls at the top of the polls page.', href: '/polls' }],
   },
   {
+    at: '2026-11-24T11:17:20Z',
+    changed: [{ title: 'Search and filter on one row', detail: 'On phones, Filters sits beside the Operator Roster search bar.', href: '/operators' }],
+  },
+  {
     at: '2026-11-24T06:42:42Z',
     fixed: [{ title: 'Music controls stay visible on mobile', detail: 'Account tabs scroll behind the expanded music player so you can still use its controls.', href: '/account' }],
   },

@@ -479,7 +479,7 @@ export default function OperatorsIndex({ operators, limitedBannerInfo = NO_LIMIT
 
       <PageHeader stickyActions eyebrow="Rhodes Island // Personnel Archive" title="Operator roster"
 
-        actions={<div className="roster-controls">
+        actions={<div className="roster-controls operator-roster-controls">
           <SearchInput className="roster-search" label="Search operators" name="operator-search" placeholder="Search by name…" value={search} onChange={setSearch} />
 
           {/* On a phone everything but the search folds into the Filters sheet. */}
