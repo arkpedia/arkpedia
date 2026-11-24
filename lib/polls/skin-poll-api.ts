@@ -1,3 +1,4 @@
+import { votingOpenSql } from './settingsStore';
 import type { NextApiRequest,NextApiResponse } from 'next';
 import type { D1Database } from '@cloudflare/workers-types';
 import { communityPoll } from '@/lib/community/catalogues';
@@ -35,7 +36,7 @@ export async function skinPoll(req:NextApiRequest,res:NextApiResponse,db:D1Datab
   if(req.method!=='DELETE'&&!validBallot(choices,await loadIds()))return res.status(400).json({error:'Choose five different skins from the catalogue.'});
   // Retain an empty ballot on withdrawal: stale devices cannot recreate a deleted vote.
   const row=await db.prepare(`INSERT INTO ranked_poll_ballot(poll,userId,choices,revision) SELECT ?,?,?,1
-    WHERE ?=0 OR EXISTS(SELECT 1 FROM ranked_poll_ballot WHERE poll=? AND userId=? AND revision=?)
+    WHERE ${votingOpenSql('favourite-skins')} AND (?=0 OR EXISTS(SELECT 1 FROM ranked_poll_ballot WHERE poll=? AND userId=? AND revision=?))
     ON CONFLICT(poll,userId) DO UPDATE SET choices=excluded.choices,revision=revision+1 WHERE ranked_poll_ballot.revision=?
     RETURNING revision`).bind(SKIN_POLL_ID,owner,JSON.stringify(choices),req.body.revision,SKIN_POLL_ID,owner,req.body.revision,req.body.revision).first<{revision:number}>();
   return row?res.json({choices,revision:row.revision}):res.status(409).json({error:'Your ballot changed on another device. Reload it before saving again.'});

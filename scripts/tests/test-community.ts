@@ -35,7 +35,7 @@ function harness(now=()=>clock){
   const limiter={limit:async()=>({success:true})};
   const env={ARKPEDIA_ACCOUNTS_DB:db,ARKPEDIA_AUTH_URL:'https://preview.example.invalid',BETTER_AUTH_SECRET:'test-only-secret-long-enough-for-hmac-01234567',GOOGLE_CLIENT_ID:'test',GOOGLE_CLIENT_SECRET:'test',DISCORD_CLIENT_ID:'',DISCORD_CLIENT_SECRET:'',ACCOUNT_TRAFFIC_LIMIT:limiter,ACCOUNT_IP_LIMIT:limiter};
   function user(id:string){sqlite.prepare('INSERT INTO "user"(id,name,email,createdAt,updatedAt)VALUES(?,?,?,?,?)').run(id,'Private Provider Name',id+'@example.invalid','2026-01-01','2026-01-01');sqlite.prepare('INSERT INTO arkpedia_profile(userId,username,usernameKey,updatedAt)VALUES(?,?,?,?)').run(id,id,id,'2026-01-01');}
-  async function call(kind:'sharing'|'stats'|'supports'|'availability'|'rankings'|'skin-poll'|'friends',owner:string|null,method='GET',body?:unknown,query:Record<string,string>={},headers:Record<string,string>={}){
+  async function call(kind:'sharing'|'stats'|'supports'|'availability'|'rankings'|'skin-poll'|'pull-poll'|'friends',owner:string|null,method='GET',body?:unknown,query:Record<string,string>={},headers:Record<string,string>={}){
     let status=200,result:any;const response={setHeader:()=>{},status:(n:number)=>{status=n;return response;},json:(v:unknown)=>{result=v;return response;},end:()=>{}};
     await createCommunityHandler(kind,{resolveEnv:()=>env,authenticate:async()=>owner,now,pollSkinIds:async()=>pollIds})({method,headers:{origin:env.ARKPEDIA_AUTH_URL,'content-type':'application/json',...headers},query,body:body&&typeof body==='object'?{owner,...body}:body} as NextApiRequest,response as unknown as NextApiResponse);
     return {status,result};
@@ -976,4 +976,38 @@ test('withdrawal clears automatic consent and a pending import cannot revive the
   assert.equal(h.sqlite.prepare('SELECT autoUpdate FROM community_friend_profile').get().autoUpdate,0);
   assert.equal((await h.call('sharing','alice','PUT',{...refresh,revision:withdrawal.result.revision})).status,409);
   assert.equal((await h.call('friends',null,'GET',undefined,{id:mine.id,link:'1'})).status,404);
+});
+
+test('editors can defer results until the deadline, hide a poll and reopen without losing ratings',async()=>{
+  const {readPollSetting,savePollSetting}=await import('../../lib/polls/settingsStore');
+  const {publicPoll}=await import('../../lib/polls/settings');
+  let time=Date.now();
+  const h=harness(()=>time);
+  try {
+    const initial=await readPollSetting(h.db,'favourite-skins');
+    const deadline=time+60_000;
+    const scheduled=await savePollSetting(h.db,{...initial,results:'closed',closesAt:deadline},'first');
+    assert.ok(scheduled);
+    assert.equal(await savePollSetting(h.db,{...initial,visible:false},'second'),null);
+    h.user('poll-editor-test');const owner='poll-editor-test',skin=[...h.pollIds][0];
+    const ratings={mode:'ratings'},ranking={...ratings,view:'results'};
+    assert.equal((await h.call('skin-poll',owner,'PUT',{skin,rating:9,revision:0},ratings)).status,200);
+    for(const query of [{},ratings,ranking]) assert.equal((await h.call('skin-poll',null,'GET',undefined,query)).status,403);
+    assert.equal((await h.call('skin-poll',owner,'GET',undefined,{...ratings,view:'mine'})).result.mine[0].rating,9);
+    time=deadline;
+    assert.equal((await h.call('skin-poll',owner,'PUT',{skin,rating:4,revision:1},ratings)).status,403);
+    assert.equal((await h.call('skin-poll',null,'GET',undefined,ranking)).result.ratings,1);
+    const hidden=await savePollSetting(h.db,{...scheduled,visible:false},'second');assert.ok(hidden);
+    assert.equal((await h.call('skin-poll',null,'GET',undefined,ranking)).status,404);
+    const reopened=await savePollSetting(h.db,{...hidden,visible:true,closesAt:null,results:'hidden'},'first');assert.ok(reopened);
+    assert.deepEqual(publicPoll(reopened,time),{open:true,results:false,closesAt:null});
+    assert.equal((await h.call('skin-poll',owner,'PUT',{skin,rating:4,revision:1},ratings)).status,200);
+    const pull=await readPollSetting(h.db,'pull-or-skip');
+    const held=await savePollSetting(h.db,{...pull,results:'hidden',closesAt:time},'first');assert.ok(held);
+    assert.equal((await h.call('pull-poll',null,'PUT',{})).status,403);
+    assert.equal((await h.call('pull-poll',null,'GET',undefined,{view:'results'})).status,403);
+    await savePollSetting(h.db,{...held,visible:false},'second');
+    assert.equal((await h.call('pull-poll',null)).status,404);
+    assert.equal(publicPoll(await readPollSetting(h.db,'power-scale'),time).open,false);
+  } finally {h.sqlite.close();}
 });

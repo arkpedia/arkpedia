@@ -6,6 +6,7 @@ import { ICONS } from '@/components/layout/NavIcons';
 import CampaignRotations from '@/components/dashboard/CampaignRotations';
 import OperatorGuides from '@/components/dashboard/OperatorGuides';
 import RecentCampaignChanges from '@/components/dashboard/RecentCampaignChanges';
+import PollControls from '@/components/dashboard/PollControls';
 import PageMaintenance from '@/components/dashboard/PageMaintenance';
 import styles from '@/components/dashboard/CampaignEditor.module.css';
 import PageMeta from '@/components/layout/PageMeta';
@@ -33,6 +34,7 @@ const sections = [
   { value: 'campaigns', label: 'Ad Campaigns', icon: ICONS.grid },
   { value: 'rotation', label: 'Ad rotation', icon: ICONS.transfer },
   { value: 'guides', label: 'Operator guides', icon: ICONS.profile },
+  { value: 'polls', label: 'Polls', icon: ICONS.polls },
   { value: 'recent', label: 'Recent changes', icon: ICONS.history },
   { value: 'maintenance', label: 'Maintenance', icon: ICONS.base },
 ] as const;
@@ -57,6 +59,9 @@ export default function CampaignDashboard({ catalog, historyId }: DashboardProps
     </div>
     <div {...tabPanelProps('dashboard', 'guides')} hidden={tab !== 'guides'}>
       {(tab === 'guides' || openedGuides) && <ContentContext.Provider value={catalog?.release ?? null}><OperatorGuides /></ContentContext.Provider>}
+    </div>
+    <div {...tabPanelProps('dashboard', 'polls')} hidden={tab !== 'polls'}>
+      {tab === 'polls' && <PollControls />}
     </div>
     <div {...tabPanelProps('dashboard', 'recent')} hidden={tab !== 'recent'}>
       {tab === 'recent' && <RecentCampaignChanges base={catalog?.base} />}

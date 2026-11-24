@@ -9,6 +9,8 @@ import { communityRankings, readCommunityRoster, type CommunityRosterRankings } 
 import { cachedCommunityRankings } from './rankingsCache';
 import {reportRankingFailure,type RankingBucket} from './sharedRankingsCache';
 import { deploymentPreviewStatistics } from './preview-statistics';
+import { publicPoll } from '@/lib/polls/settings';
+import { readPollSetting } from '@/lib/polls/settingsStore';
 import { pullPoll } from '@/lib/polls/pull-poll-api';
 import { skinRatings } from '@/lib/polls/skin-ratings-api';
 import { skinPoll,skinPollIds } from '@/lib/polls/skin-poll-api';
@@ -83,6 +85,15 @@ export function createCommunityHandler(kind:'sharing'|'stats'|'supports'|'availa
       if(kind==='stats')return await stats(req,res,db);
       if(kind==='supports')return await supports(req,res,db,time);
       if(kind==='friends'&&req.method==='GET'&&req.query.mine!=='1')return await friendProfiles(req,res,db,null,time);
+      if (kind === 'pull-poll' || kind === 'skin-poll') {
+        const setting = await readPollSetting(db, kind === 'pull-poll' ? 'pull-or-skip' : 'favourite-skins');
+        if (!setting.visible) return res.status(404).json({error:'This poll is unavailable.'});
+        const policy = publicPoll(setting,time);
+        if (req.method !== 'GET' && !policy.open) return res.status(403).json({error:'Voting has closed.'});
+        const readsResults = kind === 'pull-poll' ? req.query.view === 'results'
+          : !(req.query.mode === 'ratings' && req.query.view === 'mine');
+        if (req.method === 'GET' && readsResults && !policy.results) return res.status(403).json({error:'Poll results are hidden.'});
+      }
       if(req.method==='GET'&&req.query.view==='results'){
         if(kind==='pull-poll')return await pullPoll(req,res,db,null);
         if(kind==='skin-poll'&&req.query.mode==='ratings')return await skinRatings(req,res,db,null,pollSkinIds,now);

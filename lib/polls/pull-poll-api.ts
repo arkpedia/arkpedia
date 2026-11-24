@@ -1,3 +1,4 @@
+import { votingOpenSql } from './settingsStore';
 import type { NextApiRequest, NextApiResponse } from 'next';
 import type { D1Database } from '@cloudflare/workers-types';
 import { allowAccountRequest, accountLimited } from '@/lib/cloud-account/limits';
@@ -39,7 +40,7 @@ export async function pullPoll(req: NextApiRequest, res: NextApiResponse, db: D1
     if (!Object.keys(choices).length) throw Error('Choose at least one banner or operator.');
   } catch (error) { return res.status(400).json({ error: error instanceof Error ? error.message : 'Invalid poll choices.' }); }
   const row = await db.prepare(`INSERT INTO pull_poll_ballot(poll,voter,userId,choices,revision)
-    SELECT ?,?,?,?,1 WHERE ?=0 OR EXISTS(SELECT 1 FROM pull_poll_ballot WHERE poll=? AND voter=? AND revision=?)
+    SELECT ?,?,?,?,1 WHERE ${votingOpenSql('pull-or-skip')} AND (?=0 OR EXISTS(SELECT 1 FROM pull_poll_ballot WHERE poll=? AND voter=? AND revision=?))
     ON CONFLICT(poll,voter) DO UPDATE SET choices=excluded.choices,revision=revision+1,updatedAt=strftime('%Y-%m-%dT%H:%M:%fZ','now')
     WHERE pull_poll_ballot.revision=? RETURNING revision`)
     .bind(PULL_POLL_ID, voter, owner, JSON.stringify(choices), req.body.revision, PULL_POLL_ID, voter, req.body.revision, req.body.revision).first<{ revision: number }>();
