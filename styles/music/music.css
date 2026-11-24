@@ -645,12 +645,11 @@ body:has([data-music-widget]) main { padding-bottom: calc(var(--page-gutter) + 7
 
 /* Up next on Now playing: always three rows tall (the player sets the views' height). */
 
-/* The player bar (components/music/MusicTransportBar.tsx): held at the bottom of the window,
-   over the page's own background, so the song and the way back to it stay in reach. */
+/* Keep the player above sticky page controls (30) and below the queue (40). */
 .music-player-bottombar {
   position: sticky;
   bottom: 0;
-  z-index: 20;
+  z-index: 35;
   padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px));
   background: var(--bg);
 }
