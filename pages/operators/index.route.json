@@ -1,0 +1,12 @@
+{
+  "release": true,
+  "clock": "minute",
+  "nav": [
+    {
+      "group": "database",
+      "order": 10,
+      "label": "Operators",
+      "icon": "roster"
+    }
+  ]
+}

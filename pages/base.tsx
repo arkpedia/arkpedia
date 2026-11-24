@@ -194,7 +194,6 @@ export default function BasePage({ operators }: Props) {
   const presetControlsRef = useRef<HTMLDivElement>(null);
   const [selectedPreset, setSelectedPreset] = useState('');
   const [presetStatus, setPresetStatus] = useState('');
-  const [viewMode] = useState<'cumulated' | 'separated'>('cumulated');
   const [loginInterval, setLoginInterval] = useState(24);
   const [modelSettingsLoaded, setModelSettingsLoaded] = useState(false);
   const [trainingTarget, setTrainingTarget] = useState<TrainingTarget>({ class: 'Guard', branch: '', mastery: 1, timeReductionActive: false, instantTrainingReady: false });
@@ -988,12 +987,10 @@ export default function BasePage({ operators }: Props) {
   const summaryUnavailable = calculationSource === 'rotation' && !rotationCalculation?.totals;
   const {
     dailyExpGreen, dailyExpRed, dailyGoldMadeGreen, dailyGoldMadeRed,
-    dailyGoldSoldGreen, dailyGoldFromProvisoGreen, dailyGoldFromProvisoRed, dailyGoldSoldRed,
-    dailyExtraLmdFromOrdersGreen, dailyExtraLmdFromOrdersRed, dailyGoldWorthGreen, dailyGoldWorthRed,
+    dailyGoldSoldGreen, dailyGoldSoldRed, dailyGoldWorthGreen, dailyGoldWorthRed,
   } = calculationSource === 'rotation' ? rotationCalculation?.totals ?? {
     dailyExpGreen: 0, dailyExpRed: 0, dailyGoldMadeGreen: 0, dailyGoldMadeRed: 0,
-    dailyGoldSoldGreen: 0, dailyGoldSoldRed: 0, dailyGoldFromProvisoGreen: 0, dailyGoldFromProvisoRed: 0,
-    dailyExtraLmdFromOrdersGreen: 0, dailyExtraLmdFromOrdersRed: 0, dailyGoldWorthGreen: 0, dailyGoldWorthRed: 0,
+    dailyGoldSoldGreen: 0, dailyGoldSoldRed: 0, dailyGoldWorthGreen: 0, dailyGoldWorthRed: 0,
   } : currentCalculation;
   const facility = FACILITIES.find(f => f.id === roomPanelFacilityId);
 
@@ -2092,56 +2089,17 @@ export default function BasePage({ operators }: Props) {
                     <div className="base-summary-row">
                       <span className="base-summary-label">Average Pure Gold Sold</span>
                       <span className="base-summary-value">
-                        {dailyGoldSoldGreen > 0 ? (
-                          viewMode === 'cumulated' ? (
-                            renderDualStat(dailyGoldSoldGreen * mult, dailyGoldSoldRed * mult, (n) => `${n.toFixed(1)}/${unit}`)
-                          ) : (
-                            <>
-                              {renderDualStat(
-                                (dailyGoldSoldGreen - dailyGoldFromProvisoGreen) * mult,
-                                (dailyGoldSoldRed - dailyGoldFromProvisoRed) * mult,
-                                (n) => `${n.toFixed(1)}/${unit}`
-                              )}
-                              {dailyGoldFromProvisoGreen > 0 && (
-                                <span className="base-summary-extra">
-                                  +{(dailyGoldFromProvisoGreen * mult).toFixed(1)} from Proviso
-                                </span>
-                              )}
-                            </>
-                          )
-                        ) : (
-                          '—'
-                        )}
+                        {dailyGoldSoldGreen > 0
+                          ? renderDualStat(dailyGoldSoldGreen * mult, dailyGoldSoldRed * mult, (n) => `${n.toFixed(1)}/${unit}`)
+                          : '—'}
                       </span>
                     </div>
                     <div className="base-summary-row">
                       <span className="base-summary-label">LMD made</span>
                       <span className="base-summary-value">
-                        {dailyGoldWorthGreen > 0 ? (
-                          viewMode === 'cumulated' ? (
-                            renderDualStat(dailyGoldWorthGreen * mult, dailyGoldWorthRed * mult, (n) => `${Math.round(n).toLocaleString()} LMD/${unit}`)
-                          ) : (
-                            <>
-                              {renderDualStat(
-                                (dailyGoldWorthGreen - dailyExtraLmdFromOrdersGreen - dailyGoldFromProvisoGreen * 500) * mult,
-                                (dailyGoldWorthRed - dailyExtraLmdFromOrdersRed - dailyGoldFromProvisoRed * 500) * mult,
-                                (n) => `${Math.round(n).toLocaleString()} LMD/${unit}`
-                              )}
-                              {dailyExtraLmdFromOrdersGreen > 0 && (
-                                <span className="base-summary-extra">
-                                  +{Math.round(dailyExtraLmdFromOrdersGreen * mult).toLocaleString()} from order bonuses
-                                </span>
-                              )}
-                              {dailyGoldFromProvisoGreen > 0 && (
-                                <span className="base-summary-extra">
-                                  +{Math.round(dailyGoldFromProvisoGreen * 500 * mult).toLocaleString()} from Proviso&apos;s extra gold
-                                </span>
-                              )}
-                            </>
-                          )
-                        ) : (
-                          '—'
-                        )}
+                        {dailyGoldWorthGreen > 0
+                          ? renderDualStat(dailyGoldWorthGreen * mult, dailyGoldWorthRed * mult, (n) => `${Math.round(n).toLocaleString()} LMD/${unit}`)
+                          : '—'}
                       </span>
                     </div>
                   </>

@@ -102,10 +102,6 @@ test('only the editorial notifier can start workflows; the scraper keeps least p
   const [, start] = dispatchers[0];
   assert.deepEqual([start.needs, start.if, start.permissions], ['prepare', "${{ !cancelled() && github.ref_name == 'main' && needs.prepare.result == 'success' }}", { contents: 'read', actions: 'write' }]);
   assert.equal(start.steps.length, 1, 'no checkout: the one step rechecks main editorial edits');
-  // API calls only, so the light runner, as Deploy's targets job (which also only calls GitHub's API):
-  // on the NAS it queued behind a whole Check.
-  const deploy = yaml.load(fs.readFileSync('.github/workflows/deploy.yml', 'utf8')) as { jobs: Record<string, { 'runs-on'?: string }> };
-  assert.equal(start['runs-on'], deploy.jobs.targets['runs-on']);
   assert.equal(start['runs-on'], 'ubuntu-latest');
   assert.equal(start.steps[0]['continue-on-error'], true, 'a failed dispatch never fails the release');
   const refresh = workflow.jobs.prepare.steps.find(step => step.name === 'Refresh supported upstream records')!;

@@ -2,6 +2,7 @@ import js from '@eslint/js';
 import next from 'eslint-config-next/core-web-vitals';
 import globals from 'globals';
 import tseslint from 'typescript-eslint';
+import { pageCatalogue } from './lib/routes/catalogue.cjs';
 
 /*
  * Flat config (ESLint 9). `next lint` is gone in Next 16, so this replaced .eslintrc.json and
@@ -19,35 +20,13 @@ const PRIVATE_STATE = {
 /**
  * Pages that render on the server at the request's moment and hydrate in the reader's browser
  * later, so they may not read the clock: a render that does fails hydration (React #418/#423/#425)
- * once the two clocks disagree. They take the request's `now` (contentPageClock, CLOCK_UNITS in
+ * once the two clocks disagree. They take the request's `now` (contentPageClock in
  * lib/content/pageClock.ts) and useReaderClock(now) after mount (lib/time/readerClock.ts).
  */
-const NO_CLOCK = 'This page renders on the server at the request\'s moment and hydrates in the reader\'s browser later, so it may not read the clock here: a render that does fails hydration (React #418/#423/#425) once the two clocks disagree. Take the request\'s `now` prop (contentPageClock, CLOCK_UNITS in lib/content/pageClock.ts) and useReaderClock(now) after mount (lib/time/readerClock.ts).';
+const NO_CLOCK = 'This page renders on the server at the request\'s moment and hydrates in the reader\'s browser later, so it may not read the clock here: a render that does fails hydration (React #418/#423/#425) once the two clocks disagree. Take the request\'s `now` prop (contentPageClock in lib/content/pageClock.ts) and useReaderClock(now) after mount (lib/time/readerClock.ts).';
 
 const CLOCK_PAGES = [
-  'pages/index.tsx',
-  'pages/operators/index.tsx',
-  'pages/skins.tsx',
-  'pages/gacha-simulator.tsx',
-  'pages/stages/index.tsx',
-  'pages/stages/all.tsx',
-  'pages/stages/browse.tsx',
-  'pages/stages/regular.tsx',
-  'pages/stages/supplies.tsx',
-  'pages/schedule.tsx',
-  'pages/farming.tsx',
-  'pages/obtain-method.tsx',
-  'pages/enemies/index.tsx',
-  'pages/games/color-palette.tsx',
-  'pages/games/music-guesser.tsx',
-  'pages/operator-planner.tsx',
-  'pages/world.tsx',
-  'pages/polls/pull-or-skip.tsx',
-  'pages/polls/index.tsx',
-  'pages/skin-planner.tsx',
-  'pages/reward-tracker.tsx',
-  'pages/artists.tsx',
-  'pages/voice-actors.tsx',
+  ...pageCatalogue.flatMap(page => page.clock ? [page.file] : []),
   'components/operators/CreditDatabase.tsx',
   'components/schedule/EventsPanel.tsx',
   'components/home/GachaBannersPanel.tsx',

@@ -1,0 +1,15 @@
+{
+  "release": true,
+  "tables": [
+    "game-account-map"
+  ],
+  "nav": [
+    {
+      "group": "community",
+      "order": 30,
+      "label": "Find support units",
+      "icon": "roster",
+      "dividerAfter": true
+    }
+  ]
+}

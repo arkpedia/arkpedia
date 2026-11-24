@@ -1,0 +1,25 @@
+{
+  "release": true,
+  "tables": [
+    "event_colors",
+    "event_materials",
+    "headhunting_banners"
+  ],
+  "regional": true,
+  "clock": "minute",
+  "nav": [
+    {
+      "group": "schedule",
+      "order": 10,
+      "label": "Events",
+      "icon": "events"
+    },
+    {
+      "group": "schedule",
+      "order": 20,
+      "label": "Calendar",
+      "icon": "timeline",
+      "query": "view=calendar"
+    }
+  ]
+}

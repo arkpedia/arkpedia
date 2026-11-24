@@ -1,0 +1,12 @@
+{
+  "release": true,
+  "clock": "minute",
+  "nav": [
+    {
+      "group": "community",
+      "order": 10,
+      "label": "Polls",
+      "icon": "polls"
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+{
+  "release": true,
+  "nav": [
+    {
+      "group": "extras",
+      "order": 20,
+      "label": "Tier List Maker",
+      "icon": "tiers"
+    }
+  ]
+}

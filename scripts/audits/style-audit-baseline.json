@@ -11,8 +11,6 @@
     "site-nav-spacer: gamemodes.css, nav.css",
     "site-nav: gamemodes.css, nav.css",
     "stage-mapwrap: shared.css, stages.css",
-    "stage-mode-art: stages-terminal.css, stages.css",
-    "stage-mode-name: stages-terminal.css, stages.css",
     "sub: shared.css, stages.css",
     "terminal-panel: gamemodes.css, stages-terminal.css",
     "terminal-pill: gamemodes.css, stages-terminal.css",

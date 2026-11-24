@@ -1,0 +1,12 @@
+{
+  "sitemap": "static",
+  "outsideRelease": "no data of its own; only the site tables the live release published (siteTablesStaticProps)",
+  "nav": [
+    {
+      "group": "hidden",
+      "order": 10,
+      "label": "Cookies & privacy choices",
+      "icon": "cookies"
+    }
+  ]
+}

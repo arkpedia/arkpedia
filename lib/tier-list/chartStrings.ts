@@ -2,9 +2,10 @@
  * Every string the chart maker shows that the Tier List maker does not already have
  * (lib/tier-list/strings.ts), in one table.
  */
+import chartRoute from '@/pages/polls/chart-maker.route.json';
 import type { AxisEnd, AxisLine, ChartKind } from './chart';
 
-const CHART_NAME = 'Chart Maker';
+const CHART_NAME = chartRoute.nav[0].label;
 
 export const CHART_STRINGS = {
   title: CHART_NAME,

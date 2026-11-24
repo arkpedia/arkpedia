@@ -1,0 +1,15 @@
+{
+  "release": true,
+  "sitemap": "static",
+  "tables": [
+    "community-projects"
+  ],
+  "nav": [
+    {
+      "group": "community",
+      "order": 40,
+      "label": "Community projects",
+      "icon": "projects"
+    }
+  ]
+}

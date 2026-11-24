@@ -1,0 +1,12 @@
+{
+  "release": true,
+  "clock": "minute",
+  "nav": [
+    {
+      "group": "database",
+      "order": 110,
+      "label": "Voice Actors",
+      "icon": "microphone"
+    }
+  ]
+}

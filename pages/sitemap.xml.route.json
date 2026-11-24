@@ -1,0 +1,4 @@
+{
+  "sitemap": "omit",
+  "outsideRelease": "Writes sitemap XML from the current release on request."
+}

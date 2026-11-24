@@ -1,0 +1,16 @@
+{
+  "release": true,
+  "tables": [
+    "base-skill-slots",
+    "base-group-rosters",
+    "base-workshop-recipes"
+  ],
+  "nav": [
+    {
+      "group": "guides",
+      "order": 20,
+      "label": "Base",
+      "icon": "base"
+    }
+  ]
+}

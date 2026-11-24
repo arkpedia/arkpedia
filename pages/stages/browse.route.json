@@ -1,0 +1,11 @@
+{
+  "release": true,
+  "tables": [
+    "stage-tile-legend",
+    "stages-content",
+    "content-windows",
+    "story-groups"
+  ],
+  "regional": true,
+  "clock": "second"
+}

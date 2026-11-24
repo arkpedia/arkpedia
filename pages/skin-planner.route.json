@@ -1,0 +1,13 @@
+{
+  "release": true,
+  "regional": true,
+  "clock": "minute",
+  "nav": [
+    {
+      "group": "own",
+      "order": 30,
+      "label": "Skin Planner",
+      "icon": "skins"
+    }
+  ]
+}

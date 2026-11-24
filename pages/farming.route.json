@@ -1,0 +1,16 @@
+{
+  "release": true,
+  "tables": [
+    "farming-tiers"
+  ],
+  "regional": true,
+  "clock": "minute",
+  "nav": [
+    {
+      "group": "guides",
+      "order": 10,
+      "label": "Farming",
+      "icon": "farming"
+    }
+  ]
+}

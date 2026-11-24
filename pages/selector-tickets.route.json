@@ -1,0 +1,14 @@
+{
+  "release": true,
+  "tables": [
+    "selector-super-meta"
+  ],
+  "nav": [
+    {
+      "group": "guides",
+      "order": 50,
+      "label": "Selector Tickets",
+      "icon": "selector"
+    }
+  ]
+}

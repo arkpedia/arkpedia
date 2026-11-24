@@ -7,6 +7,7 @@ import { siteTablesStaticProps, withContentPage } from '../../lib/content/server
 import { pageFilePath } from '../../lib/content/pagePaths.mjs';
 import { missingPageTables, PAGE_TABLES, pageTables, SITE_TABLES } from '../../lib/content/tables.mjs';
 import { CONTENT_SCHEMA, type ContentManifest, type ContentPointer } from '../../lib/content/types';
+import { releaseRoutes } from '../../lib/routes/catalogue.cjs';
 
 /*
  * A game table the browser reads travels in the page's props (__contentTables), never in
@@ -145,6 +146,5 @@ test('the release validator refuses a page without its declared tables', () => {
   assert.match(validator, /for \(const route of Object\.keys\(PAGE_TABLES\)\)/);
   assert.match(validator, /missingPageTables\(route, /);
   // Every route that declares tables is one the export publishes.
-  const exported = JSON.parse(fs.readFileSync('scripts/content/pages.json', 'utf8')) as string[];
-  for (const route of Object.keys(PAGE_TABLES)) assert.ok(exported.includes(route), route);
+  for (const route of Object.keys(PAGE_TABLES)) assert.ok(releaseRoutes.includes(route), route);
 });

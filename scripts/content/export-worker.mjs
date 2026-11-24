@@ -5,6 +5,7 @@ import { createHash } from 'node:crypto';
 import { createRequire } from 'node:module';
 import { build } from 'esbuild';
 import { pageFilePath } from '../../lib/content/pagePaths.mjs';
+import { pageCatalogue } from '../../lib/routes/catalogue.cjs';
 import { pageSource } from './page-source.mjs';
 import { exportClockVerdict, guardExportClock, KNOWN_EXPORT_CLOCK_READS } from './export-clock.mjs';
 const [route, destination] = process.argv.slice(2);
@@ -30,7 +31,10 @@ await build({
   plugins: [{ name: 'data-only-styles', setup(builder) {
     builder.onLoad({ filter: /\.css$/ }, () => ({ contents: 'export default {};', loader: 'js' }));
   } }],
-  define: { 'process.env.ARKPEDIA_EXPORT_CONTENT': '"1"' },
+  define: {
+    'process.env.ARKPEDIA_EXPORT_CONTENT': '"1"',
+    ARKPEDIA_COMPILED_PAGE_CATALOGUE: JSON.stringify(pageCatalogue),
+  },
 });
 // Page code may not read the clock here (scripts/content/export-clock.mjs). Its frames
 // are the bundle's, or with source maps the repo's own files; Node and dependencies

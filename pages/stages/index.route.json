@@ -1,0 +1,13 @@
+{
+  "release": true,
+  "regional": true,
+  "clock": "second",
+  "nav": [
+    {
+      "group": "database",
+      "order": 70,
+      "label": "Stages",
+      "icon": "stages"
+    }
+  ]
+}

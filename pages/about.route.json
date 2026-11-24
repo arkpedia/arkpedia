@@ -1,0 +1,12 @@
+{
+  "sitemap": "static",
+  "outsideRelease": "no data of its own; only the site tables the live release published (siteTablesStaticProps)",
+  "nav": [
+    {
+      "group": "about",
+      "order": 10,
+      "label": "About Arkpedia",
+      "icon": "about"
+    }
+  ]
+}

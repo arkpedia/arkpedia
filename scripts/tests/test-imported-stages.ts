@@ -28,6 +28,16 @@ test("the importer's steps are read from its own lists, less those that always r
   assert.throws(() => importedStages(path.join(dir, 'nowhere')), /has no scripts\/content\/run-imports\.sh/);
 });
 
+test('the pinned stage catalogue takes precedence over legacy shell syntax', t => {
+  const dir = importer();
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  fs.mkdirSync(path.join(dir, 'config'));
+  fs.writeFileSync(path.join(dir, 'config/import-stages.json'), JSON.stringify({ version: 1, stages: ['new-stage', 'pin-upstream'] }));
+  assert.deepEqual([...importedStages(dir)], ['new-stage']);
+  fs.writeFileSync(path.join(dir, 'config/import-stages.json'), JSON.stringify({ version: 1, stages: ['new-stage', 'new-stage'] }));
+  assert.throws(() => importedStages(dir), /Invalid import stage catalogue/);
+});
+
 test('a step the importer ran is not run again, and one it did not still is', () => {
   const dir = importer();
   const app = fs.mkdtempSync(path.join(os.tmpdir(), 'arkpedia-app-'));

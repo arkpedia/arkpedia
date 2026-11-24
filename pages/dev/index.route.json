@@ -1,0 +1,4 @@
+{
+  "sitemap": "omit",
+  "outsideRelease": "development only (devOnlyStaticProps)"
+}

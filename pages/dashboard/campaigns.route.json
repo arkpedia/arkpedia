@@ -1,0 +1,4 @@
+{
+  "sitemap": "exclude",
+  "outsideRelease": "Private editor loads its authorized environment and current D1 revisions per request."
+}
