@@ -3,7 +3,9 @@ import StyledSelect from '@/components/ui/StyledSelect';
 import { pollNames, type PollSettings, type ResultsMode } from '@/lib/polls/settings';
 import styles from './CampaignEditor.module.css';
 
-const endpoint = '/api/dashboard/polls';
+function requestSettings(options: RequestInit) {
+  return fetch('/api/dashboard/polls',options);
+}
 function utcInput(time: number | null) {
   return time === null ? '' : new Date(time).toISOString().slice(0,16);
 }
@@ -21,7 +23,7 @@ function PollRow({ initial, onSaved }: { initial: PollSettings; onSaved: (s: Pol
   async function save() {
     setBusy(true); setMessage('');
     try {
-      const response = await fetch(endpoint,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({...initial, visible, results, closesAt})});
+      const response = await requestSettings({method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({...initial, visible, results, closesAt})});
       const data = await response.json();
       if (!response.ok) { setConflict(response.status === 409); throw Error(data.error); }
       onSaved(data); setMessage('Saved.');
@@ -31,7 +33,7 @@ function PollRow({ initial, onSaved }: { initial: PollSettings; onSaved: (s: Pol
   async function reload() {
     setBusy(true);
     try {
-      const response = await fetch(endpoint,{cache:'no-store'});
+      const response = await requestSettings({cache:'no-store'});
       if (!response.ok) throw Error();
       const updated = ((await response.json()) as PollSettings[]).find(s => s.id === initial.id);
       if (!updated) throw Error();
@@ -68,7 +70,7 @@ export default function PollControls() {
     const controller = new AbortController();
     async function load() {
       try {
-        const response = await fetch(endpoint,{cache:'no-store',signal:controller.signal});
+        const response = await requestSettings({cache:'no-store',signal:controller.signal});
         if (!response.ok) throw Error();
         const data = await response.json();
         if (!controller.signal.aborted) { setSettings(data); setError(false); }

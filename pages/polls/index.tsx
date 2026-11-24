@@ -65,7 +65,7 @@ export default function Polls({skins=[],previousLeaders=[],pullBanners=[],pullPo
         <h2 id="previous-polls-title" className="section-title">Previous results</h2>
          {closed.map(id => <div className={`panel ${styles.archive}`} key={id}>
           <h3 className="entity-title">{pollNames[id]}</h3>
-          {polls?.[id]?.results ? <Link className="ghost btn-sm" href={`/polls/${id}?view=results`}>View results</Link> : <span className="hint">Voting closed · Results hidden</span>}
+          {polls?.[id]?.results ? <Link className="ghost btn-sm" href={id === 'pull-or-skip' ? '/polls/pull-or-skip?view=results' : '/polls/favourite-skins?view=results'}>View results</Link> : <span className="hint">Voting closed · Results hidden</span>}
         </div>)}
         {power && (power.results ? <Link className={`directory-card lift ${styles.archive}`} href="/polls/power-scale" aria-label="Power Scale results">
           <div className={styles.archiveCopy}>
