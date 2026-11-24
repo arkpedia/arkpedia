@@ -1,3 +1,5 @@
+import PollGate from '@/components/community/PollGate';
+import type { PublicPoll } from '@/lib/polls/settings';
 import {useEffect,useMemo,useRef,useState} from 'react';
 import type {GetStaticProps} from 'next';
 import Link from 'next/link';
@@ -25,16 +27,16 @@ const defaults={q:'',view:'vote',rated:'all',ratedOrder:'desc',tierSize:'full',s
 const options=Array.from({length:10},(_,i)=>({value:i+1,label:String(i+1),ariaLabel:`${i+1} out of 10`}));
 export default function FavouriteSkins(props:Props){
   const {remote,status}=useCloudSync();
-  return <SkinRatings key={remote?.user.id??'guest'} {...props} owner={remote?.user.id??null} accountLoading={status==='loading'}/>;
+  return <PollGate id="favourite-skins">{policy => <SkinRatings policy={policy} key={remote?.user.id??'guest'} {...props} owner={remote?.user.id??null} accountLoading={status==='loading'}/>}</PollGate>;
 }
-function SkinRatings({skins,owner,accountLoading}:Props&{owner:string|null;accountLoading:boolean}){
+function SkinRatings({policy,skins,owner,accountLoading}:Props&{policy:PublicPoll;owner:string|null;accountLoading:boolean}){
   const toolbar=useRef<HTMLDivElement>(null);
   const tiers=useRef<HTMLDivElement>(null);
   const tierOpener=useRef<{id:string;button:HTMLButtonElement}|null>(null);
   const [filters,set]=useQueryRecord(defaults),[shown,setShown]=useState(30),[zooming,setZooming]=useState(false);
   const {error,saved,draft,failures,pending,load,save,reloadSaved,ready}=useSkinRatings(owner),hold=useSwitchHold('skin-ratings');
   const catalogue=useMemo(()=>new Map(skins.map(skin=>[skin.id,skin])),[skins]);
-  const selected=catalogue.get(filters.skin),results=filters.view==='results';
+  const selected=catalogue.get(filters.skin),results=policy.results && (!policy.open || filters.view==='results');
   const ranking=useSkinRatingResults(results);
   const tierList=!!owner&&filters.rated==='rated';
   const ratedOrder=filters.ratedOrder==='asc'?'asc':'desc';
@@ -100,9 +102,12 @@ function SkinRatings({skins,owner,accountLoading}:Props&{owner:string|null;accou
     <PageMeta title="Arkpedia Drip Awards — test poll" description="Rate Arknights skins from 1 to 10, save your progress and explore the community ranking." path="/polls/favourite-skins"/>
     <PageHeader slim back={{href:'/polls',label:'Community polls'}} eyebrow="Rhodes Island // Community Polls" title="Arkpedia Drip Awards" sub="A very serious poll, for serious poll testing"/>
     <main>
-      <Tabs label="Poll sections" id="skin-poll" value={results?'results':'vote'} onChange={view=>change({view,skin:''})} options={[{value:'vote',label:'Rate skins'},{value:'results',label:'Live ranking'}]}/>
+      {policy.open && policy.closesAt !== null && <p className="hint">Voting closes <time dateTime={new Date(policy.closesAt).toISOString()}>{new Date(policy.closesAt).toLocaleString(undefined,{dateStyle:'medium',timeStyle:'long'})}</time>.</p>}
+      {filters.view === 'results' && !policy.results && <p className="notice">Results are hidden. Voting is open.</p>}
+      {!policy.open && <p className="notice">Voting is closed.</p>}
+      {policy.open && policy.results && <Tabs label="Poll sections" id="skin-poll" value={results?'results':'vote'} onChange={view=>change({view,skin:''})} options={[{value:'vote',label:'Rate skins'},{value:'results',label:'Live ranking'}]}/>}
       <div ref={hold.ref} style={hold.style}>
-        <section {...tabPanelProps('skin-poll','vote')} hidden={results} className={styles.ratePanel}>
+        <section {...(policy.results && policy.open ? tabPanelProps('skin-poll','vote') : {})} hidden={results} className={styles.ratePanel}>
           <div className={styles.intro}><p>Rate any outfit from 1 to 10. Each rating saves automatically, so you can come back whenever you like.</p>
             {!owner&&!accountLoading&&<Link className="ghost btn-sm" href="?settings=profile">Sign in to Arkpedia to rate skins</Link>}
           </div>
@@ -111,7 +116,7 @@ function SkinRatings({skins,owner,accountLoading}:Props&{owner:string|null;accou
           </div>
           <div className={styles.progress}>
             <span className="hint">{filtered.length.toLocaleString('en-US')} skins</span>
-            <span className="hint" role="status">{accountLoading?'Checking sign-in…':owner?!ready?'Loading saved ratings…':`${rated} / ${skins.length} rated${pending.size?' · Saving…':Object.keys(failures).length?' · Some ratings need attention':' · Saved to your account'}`:'Rankings are public · Sign in to save your ratings'}</span>
+            <span className="hint" role="status">{accountLoading?'Checking sign-in…':owner?!ready?'Loading saved ratings…':`${rated} / ${skins.length} rated${pending.size?' · Saving…':Object.keys(failures).length?' · Some ratings need attention':' · Saved to your account'}`:'Sign in to save your ratings'}</span>
             {owner&&<div className={styles.tierOptions} inert={!tierList}>
               <SegmentedControl label="Rating order" value={ratedOrder} onChange={ratedOrder=>change({ratedOrder})} options={[{value:'desc',label:'Highest first'},{value:'asc',label:'Lowest first'}]}/>
               <label className="check">
@@ -130,11 +135,11 @@ function SkinRatings({skins,owner,accountLoading}:Props&{owner:string|null;accou
           {!filtered.length&&(!tierList||ready)&&<p className="notice" role="status">{tierList&&!rated?'You haven’t rated any skins yet.':filters.rated==='unrated'&&!filters.q?'You’ve rated every skin in this view. Come back when there are more!':'No skins match these filters.'}</p>}
           <LoadOnScroll shown={Math.min(shown,filtered.length)} total={filtered.length} onMore={()=>setShown(n=>n+30)}/>
         </section>
-        <section {...tabPanelProps('skin-poll','results')} hidden={!results} className={styles.results}>
+        <section {...(policy.results && policy.open ? tabPanelProps('skin-poll','results') : {})} hidden={!results} className={styles.results}>
           {results&&<SkinRatingResults ownRatings={owner&&ready?saved:null} skins={skins} result={ranking.result} error={ranking.error} onRetry={ranking.retry} filters={filters} onChange={patch=>{hold.capture();set(patch);}}/>}
         </section>
       </div>
-      {selected&&<ImportDialog title={selected.name} className={styles.ratingDialog} dismissible={!zooming} onClose={closeSkin} actions={!zooming&&<button className="ghost btn-sm" onClick={closeSkin}>Back to skins</button>}>
+      {!results&&selected&&<ImportDialog title={selected.name} className={styles.ratingDialog} dismissible={!zooming} onClose={closeSkin} actions={!zooming&&<button className="ghost btn-sm" onClick={closeSkin}>Back to skins</button>}>
         <div className={styles.ratingLayout} inert={zooming}><div className={styles.selectedArt}>{selected.image&&<button type="button" className="btn-bare skin-detail-art-button" aria-label={`View full artwork of ${selected.name}`} onClick={()=>setZooming(true)}><ResponsiveSkinArtwork src={selected.image} alt={selected.name} width={400} height={400} sizes="(max-width: 720px) 80vw, 440px"/><span className="skin-detail-expand" aria-hidden="true">View full artwork ↗</span></button>}{!selected.image&&<span className={`art-placeholder ${styles.missing}`}>Artwork unavailable</span>}</div>
           <div className={styles.ratingEditor}><p className="entity-title entity-title-sm entity-title-name">{selected.operator}</p><div className={styles.ratingHeading}><p className={styles.ratingPrompt}>Your rating <strong>{displayRating(selected.id)===null?'—':`${displayRating(selected.id)}/10`}</strong></p>{owner&&<button className="ghost btn-sm" aria-label="Clear my rating" disabled={!ready||displayRating(selected.id)===null||pending.has(selected.id)||!!failures[selected.id]?.current} onClick={()=>vote(selected.id,null)}>Clear</button>}</div>
             {owner?<><SegmentedControl label="Rate this skin from 1 to 10" className={styles.ratingChoices} value={displayRating(selected.id)??0} onChange={rating=>vote(selected.id,rating)} options={options.map(option=>({...option,disabled:!ready||pending.has(selected.id)}))}/>

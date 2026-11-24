@@ -1,3 +1,5 @@
+import { usePublicPolls } from '@/lib/polls/usePublicPolls';
+import { pollNames } from '@/lib/polls/settings';
 import Link from 'next/link';
 import PullPollIndexCard from '@/components/community/PullPollIndexCard';
 import type {PollBanner,PollPortrait} from '@/lib/polls/pull-poll';
@@ -28,15 +30,19 @@ function LeaderFigures({leaders}:{leaders:Leader[]}){
   })}</>;
 }
 export default function Polls({skins=[],previousLeaders=[],pullBanners=[],pullPortraits={},makerSamples=[],now}:Props){
-  const {result,error}=useSkinRatingResults();
+  const {polls,error:settingsError}=usePublicPolls();
+  const pull=polls?.['pull-or-skip'], drip=polls?.['favourite-skins'], power=polls?.['power-scale'];
+  const closed=(['pull-or-skip','favourite-skins'] as const).filter(id => polls?.[id] && !polls[id]?.open);
+  const {result,error}=useSkinRatingResults(!!drip?.results && drip.open);
   const leaders=useMemo(()=>skinRatingRows(result?.ranking??[],skins,'skins').slice(0,3).map(row=>({...row,href:`/polls/favourite-skins?view=results&detail=${encodeURIComponent(row.id)}`})),[result,skins]);
   return <>
     <PageMeta title="Community polls" description="Vote in Arkpedia community polls and explore previous results." path="/polls"/>
     <PageHeader slim eyebrow="Rhodes Island // Community" title="Community polls" sub="Pick your favourites. Follow the community’s verdict."/>
     <main className={styles.page}>
       <h2 className="section-title">Open now</h2>
-      <PullPollIndexCard banners={pullBanners} portraits={pullPortraits} now={now}/>
-      <section className={`panel ${styles.feature}`} aria-labelledby="drip-awards-title">
+      {!pull?.open && !drip?.open && <p className="hint" role="status">{settingsError ? 'Poll availability could not be loaded.' : polls ? 'No polls are open.' : 'Loading polls…'}</p>}
+      {pull?.open && <PullPollIndexCard showResults={pull.results} banners={pullBanners} portraits={pullPortraits} now={now}/>}
+      {drip?.open && <section className={`panel ${styles.feature}`} aria-labelledby="drip-awards-title">
         <div className={styles.featureBody}>
           <div className={styles.copy}>
             <span className="label-tag">Open poll · Test poll</span>
@@ -45,19 +51,23 @@ export default function Polls({skins=[],previousLeaders=[],pullBanners=[],pullPo
             <p className={styles.invitation}>Rate a few outfits now. Come back for the rest.</p>
             <div className={styles.actions}>
               <Link className="primary btn-sm" href="/polls/favourite-skins">Rate skins</Link>
-              <Link className="ghost" href="/polls/favourite-skins?view=results">Live ranking</Link>
+              {drip.results && <Link className="ghost" href="/polls/favourite-skins?view=results">Live ranking</Link>}
             </div>
-            <p className={`hint ${styles.access}`}>Rankings are public.<br/>An Arkpedia account is required to vote.</p>
+            <p className={`hint ${styles.access}`}>An Arkpedia account is required to vote.</p>
           </div>
-          <div className={styles.showcase} role="group" aria-label="Current skin leaders">{leaders.length?<LeaderFigures leaders={leaders}/>:<p className={`hint ${styles.emptyLeaders}`} role="status">{error?'Live leaders are temporarily unavailable.':result?'No ratings yet. Be the first to rate a skin.':'Loading live leaders…'}</p>}</div>
+          {drip.results && <div className={styles.showcase} role="group" aria-label="Current skin leaders">{leaders.length?<LeaderFigures leaders={leaders}/>:<p className={`hint ${styles.emptyLeaders}`} role="status">{error?'Live leaders are temporarily unavailable.':result?'No ratings yet. Be the first to rate a skin.':'Loading live leaders…'}</p>}</div>}
         </div>
         <dl className={styles.ratingFacts} aria-label="How skin ratings work">
           <div><dt>Rating scale</dt><dd>1–10</dd></div><div><dt>No limit</dt><dd>Any skin</dd></div><div><dt>Progress saved</dt><dd>Any time</dd></div>
         </dl>
-      </section>
-      <section className={styles.previous} aria-labelledby="previous-polls-title">
+      </section>}
+      {(closed.length > 0 || power) && <section className={styles.previous} aria-labelledby="previous-polls-title">
         <h2 id="previous-polls-title" className="section-title">Previous results</h2>
-        <Link className={`directory-card lift ${styles.archive}`} href="/polls/power-scale" aria-label="Power Scale results">
+         {closed.map(id => <div className={`panel ${styles.archive}`} key={id}>
+          <h3 className="entity-title">{pollNames[id]}</h3>
+          {polls?.[id]?.results ? <Link className="ghost btn-sm" href={`/polls/${id}?view=results`}>View results</Link> : <span className="hint">Voting closed · Results hidden</span>}
+        </div>)}
+        {power && (power.results ? <Link className={`directory-card lift ${styles.archive}`} href="/polls/power-scale" aria-label="Power Scale results">
           <div className={styles.archiveCopy}>
             <span className="label-tag">Closed poll</span>
             <h3 className={`entity-title entity-title-name ${styles.archiveTitle}`}>Power Scale</h3>
@@ -65,8 +75,8 @@ export default function Polls({skins=[],previousLeaders=[],pullBanners=[],pullPo
             <span className={styles.archiveAction}>Explore the results <span aria-hidden="true">↗</span></span>
           </div>
           <div className={styles.archiveArt} role="group" aria-label="Power Scale top three"><LeaderFigures leaders={previousLeaders}/></div>
-        </Link>
-      </section>
+        </Link> : <div className={`panel ${styles.archive}`}><h3 className="entity-title">Power Scale</h3><span className="hint">Voting closed · Results hidden</span></div>)}
+      </section>}
       <MakerSampleCards samples={makerSamples}/>
     </main>
   </>;
