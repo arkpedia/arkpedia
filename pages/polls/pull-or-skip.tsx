@@ -1,3 +1,5 @@
+import PollGate from '@/components/community/PollGate';
+import type { PublicPoll } from '@/lib/polls/settings';
 import { useEffect, useRef, useState } from 'react';
 import type { GetStaticProps } from 'next';
 import Link from 'next/link';
@@ -32,9 +34,9 @@ import styles from '@/components/community/PullPoll.module.css';
 interface Props { banners: PollBanner[]; now: number; portraits?:Record<string,PollPortrait> }
 export default function PullOrSkip(props: Props) {
   const sync = useCloudSync();
-  return <PullPoll key={sync.remote?.user.id ?? 'anonymous'} {...props} owner={sync.remote?.user.id ?? null}/>;
+  return <PollGate id="pull-or-skip">{policy => <PullPoll policy={policy} key={sync.remote?.user.id ?? 'anonymous'} {...props} owner={sync.remote?.user.id ?? null}/>}</PollGate>;
 }
-function PullPoll({banners,now,owner,portraits={}}:Props&{owner:string|null}) {
+function PullPoll({policy,banners,now,owner,portraits={}}:Props&{policy:PublicPoll;owner:string|null}) {
   const router = useRouter(), sync = useCloudSync(), accountActions=useAccountActions();
   const [filters,setFilters] = useQueryRecord({view:'vote',display:'simple'});
   const [ballot,setBallot] = useState<Ballot>({}), [hydrated,setHydrated] = useState(false);
@@ -49,9 +51,10 @@ function PullPoll({banners,now,owner,portraits={}}:Props&{owner:string|null}) {
   const ballotRef=useRef(ballot);ballotRef.current=ballot;
   const file = useRef<HTMLInputElement>(null), hadDraft = useRef(false), edited = useRef(false), request = useRef(false);
   const hold = useSwitchHold('pull-poll'), clock = useReaderClock(now,{onFocus:true,tickMs:1000});
-  const active = activePollBanners(banners,clock);
+  const ballotTime = !policy.open && policy.closesAt !== null ? policy.closesAt - 1 : clock;
+  const active = activePollBanners(banners,ballotTime);
   const visible = [...active].sort((a,b)=>a.start.localeCompare(b.start,'en')||a.id.localeCompare(b.id,'en'));
-  const results = filters.view === 'results', detailed = filters.display === 'detailed';
+  const results = policy.results && (!policy.open || filters.view === 'results'), detailed = filters.display === 'detailed';
   const answered = visible.filter(b => Object.keys(ballot[b.id] ?? {}).length).length;
   const dirty = JSON.stringify(ballot) !== submitted;
   useEffect(() => {
@@ -101,7 +104,7 @@ function PullPoll({banners,now,owner,portraits={}}:Props&{owner:string|null}) {
     const receive=()=>{const encoded=new URLSearchParams(window.location.hash.slice(1)).get('plan');if(!encoded)return;try{const next=decodeBallot(encoded,banners);edited.current=true;ballotRef.current=next;setBallot(next);setLinked(false);setNotice('Shared choices loaded as a draft. Nothing has been submitted.');}catch{setNotice('This shared poll could not be opened. Your local draft is unchanged.');}};
     window.addEventListener('hashchange',receive);return()=>window.removeEventListener('hashchange',receive);
   },[banners]);
-  useEffect(()=>{if(!hydrated)return;setBallot(previous=>{const next=constrainOwned(currentBallot(previous,activePollBanners(banners,clock)),owned);if(JSON.stringify(next)===JSON.stringify(previous))return previous;ballotRef.current=next;return next;});},[owned,hydrated,ballot,banners,clock]);
+  useEffect(()=>{if(!hydrated)return;setBallot(previous=>{const next=constrainOwned(currentBallot(previous,activePollBanners(banners,ballotTime)),owned);if(JSON.stringify(next)===JSON.stringify(previous))return previous;ballotRef.current=next;return next;});},[owned,hydrated,ballot,banners,ballotTime]);
   function writePlanner(next:Ballot){
     const raw=localStorage.getItem(PULL_PLAN_KEY),plan=raw?parsePullPlan(raw):emptyPullPlan();
     localStorage.setItem(PULL_PLAN_KEY,JSON.stringify(pollIntoPlanner(plan,next,visible,owned)));window.dispatchEvent(new Event(PULL_PLAN_EVENT));
@@ -134,7 +137,7 @@ function PullPoll({banners,now,owner,portraits={}}:Props&{owner:string|null}) {
     } catch { setNotice('Could not copy the link. Try again with clipboard access enabled.'); }
   }
   async function submit(choices=ballot) {
-    if (request.current || !ready) return;
+    if (!policy.open || request.current || !ready) return;
     request.current = true; setSuccess(false);setContinuation(null);try{sessionStorage.removeItem(PULL_POLL_SUBMISSION);}catch{}setWorking(true); setError('');
     const sent = constrainOwned(currentBallot(choices,activePollBanners(banners)),readPollOwnedPotentials(portraits));
     ballotRef.current=sent;setBallot(sent);
@@ -182,9 +185,12 @@ function PullPoll({banners,now,owner,portraits={}}:Props&{owner:string|null}) {
     <PageMeta title="Pull or Skip poll" description="Share your next Arknights pulls. Vote by banner or choose a potential for each featured operator." path="/polls/pull-or-skip"/>
     <PageHeader slim back={{href:'/polls',label:'Community polls'}} eyebrow="Rhodes Island // Community Polls" title="Pull or Skip" sub="Doctor, the next banners are lined up. Who gets your Orundum?"/>
     <main className={styles.page}>
-      <Tabs label="Pull or Skip sections" id="pull-poll" value={results?'results':'vote'} onChange={view=>{hold.capture();setFilters({view});}} options={[{value:'vote',label:'Your picks'},{value:'results',label:'Results'}]}/>
+      {policy.open && policy.closesAt !== null && <p className="hint">Voting closes <time dateTime={new Date(policy.closesAt).toISOString()}>{new Date(policy.closesAt).toLocaleString(undefined,{dateStyle:'medium',timeStyle:'long'})}</time>.</p>}
+      {filters.view === 'results' && !policy.results && <p className="notice">Results are hidden. Voting is open.</p>}
+      {!policy.open && <p className="notice">Voting is closed.</p>}
+      {policy.open && policy.results && <Tabs label="Pull or Skip sections" id="pull-poll" value={results?'results':'vote'} onChange={view=>{hold.capture();setFilters({view});}} options={[{value:'vote',label:'Your picks'},{value:'results',label:'Results'}]}/>}
       {results&&<div className={styles.viewTools}><SegmentedControl label="Results display" value={detailed?'detailed':'simple'} onChange={display=>{hold.capture();setFilters({display});}} options={[{value:'simple',label:'Simple'},{value:'detailed',label:'Detailed'}]}/></div>}
-      {results?<section {...tabPanelProps('pull-poll','results')}><PullPollResults banners={visible} portraits={portraits} ballot={ballot} detailed={detailed} owned={owned}/></section>:<section {...tabPanelProps('pull-poll','vote')}>
+      {results?<section {...(policy.results && policy.open ? tabPanelProps('pull-poll','results') : {})}><PullPollResults banners={visible} portraits={portraits} ballot={ballot} detailed={detailed} owned={owned}/></section>:<section {...(policy.results && policy.open ? tabPanelProps('pull-poll','vote') : {})}>
         <div className={styles.key} aria-label="How to vote">
           <span data-choice="pull"><ContentImg src="/material-icons/Headhunting%20Permit.webp" alt="" width="22" height="22"/><b>Pull</b>One copy of each new operator; featured operators on reruns.</span>
           <span data-choice="maybe"><b>Maybe</b>if the pity gods allow</span>
@@ -227,8 +233,8 @@ function PullPoll({banners,now,owner,portraits={}}:Props&{owner:string|null}) {
       </section>}
       {success&&<ImportDialog title="Successfully submitted" className={styles.submissionSuccess} onClose={()=>setSuccess(false)}><p>Your pull plan has been submitted.</p><button type="button" className="primary btn-sm" autoFocus onClick={()=>setSuccess(false)}>Done</button></ImportDialog>}
       {imageOpen&&<PullPollShareImage banners={visible} ballot={ballot} portraits={portraits} owned={owned} onClose={()=>setImageOpen(false)}/>}
-      {importing&&<ImportDialog title="Import pull planner" onClose={()=>setImporting(false)}><p>Import banner and operator goals from your saved Arkpedia pull plan. Matching banners replace their poll choices; other choices stay.</p><div className={styles.actions}><button className="primary btn-sm" onClick={()=>{try{const raw=localStorage.getItem(PULL_PLAN_KEY);if(!raw)throw Error('No pull plan is saved in this browser.');importPlan(raw);}catch(e){setNotice(e instanceof Error?e.message:'Could not read your plan.');}}}>Use this browser’s plan</button><button className="ghost btn-sm" onClick={()=>file.current?.click()}>Choose plan file</button></div><input ref={file} type="file" accept=".json,application/json" hidden onChange={event=>{const chosen=event.target.files?.[0];if(!chosen)return;if(chosen.size>MAX_PLAN_FILE_SIZE){setNotice('This file is too large for a pull plan.');return;}void chosen.text().then(importPlan).catch(()=>setNotice('Could not read this file.'));}}/>{notice&&<p role="status" className="notice">{notice}</p>}<p className="hint">Your pull planner is unchanged. <Link className="ghost btn-sm" href="/pull-planner">Open pull planner</Link>.</p></ImportDialog>}
-      {prompt&&!owner&&<ImportDialog title="Submit your pull plan" onClose={closeSubmission}>
+      {policy.open&&importing&&<ImportDialog title="Import pull planner" onClose={()=>setImporting(false)}><p>Import banner and operator goals from your saved Arkpedia pull plan. Matching banners replace their poll choices; other choices stay.</p><div className={styles.actions}><button className="primary btn-sm" onClick={()=>{try{const raw=localStorage.getItem(PULL_PLAN_KEY);if(!raw)throw Error('No pull plan is saved in this browser.');importPlan(raw);}catch(e){setNotice(e instanceof Error?e.message:'Could not read your plan.');}}}>Use this browser’s plan</button><button className="ghost btn-sm" onClick={()=>file.current?.click()}>Choose plan file</button></div><input ref={file} type="file" accept=".json,application/json" hidden onChange={event=>{const chosen=event.target.files?.[0];if(!chosen)return;if(chosen.size>MAX_PLAN_FILE_SIZE){setNotice('This file is too large for a pull plan.');return;}void chosen.text().then(importPlan).catch(()=>setNotice('Could not read this file.'));}}/>{notice&&<p role="status" className="notice">{notice}</p>}<p className="hint">Your pull planner is unchanged. <Link className="ghost btn-sm" href="/pull-planner">Open pull planner</Link>.</p></ImportDialog>}
+      {policy.open&&prompt&&!owner&&<ImportDialog title="Submit your pull plan" onClose={closeSubmission}>
         <p>How would you like to submit this entry?</p><p className="hint">Sign in or create an account with Google or Discord. You will return to this plan and it will submit with your account after setup.</p>
         <div className={styles.actions}>{(['google','discord'] as const).filter(provider=>sync.providers.includes(provider)).map(provider=><button key={provider} className="primary btn-sm" disabled={working} onClick={()=>void login(provider)}><ProviderIcon provider={provider}/>Continue with {provider==='google'?'Google':'Discord'}</button>)}</div>
         <p className="hint">Or confirm an anonymous entry. No account is required.</p><button className="ghost btn-sm" disabled={working} onClick={()=>void submit()}>Submit anonymously</button>

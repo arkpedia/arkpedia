@@ -154,3 +154,18 @@ returns to the same skin and score, with focus restored to the artwork trigger. 
 controls return to the skin list, ranking list or poll overview as appropriate.
 Unselected stage filters are omitted from statistics URLs; the empty `stage=` form
 failed on the deployed browser path even though the canonical request succeeded.
+
+## Admin poll controls
+
+In **Admin → Polls**, save each poll independently. Pull or Skip and Drip Awards accept
+a UTC closing time or **Never**. Results can be shown live, published when voting
+closes, or hidden indefinitely. Hiding the poll removes it from the directory and
+disables both voting and results at its direct link. Existing votes are retained
+when a poll closes, is hidden or reopens. Power Scale is an archive with display
+controls only. These are publication controls for Arkpedia's poll pages; historical
+Power Scale data has already been released publicly.
+
+The dashboard and voting API use the environment's accounts D1 database (migration
+0029). Public requests check the saved policy before serving an aggregate, including
+cached results and legacy skin ballots. Open pages refresh on focus and every 30
+seconds, and request the new state at the scheduled close.

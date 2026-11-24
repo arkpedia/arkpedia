@@ -1,3 +1,4 @@
+import PollGate from '@/components/community/PollGate';
 import { GetStaticProps } from 'next';
 import PageMeta from '@/components/layout/PageMeta';
 import { withContentPage } from '@/lib/content/server';
@@ -32,7 +33,11 @@ const COLUMNS: { label: string; sort?: SortKey }[] = [
   { label: 'Responses', sort: 'n' },
 ];
 
-export default function Results({ iconMap }: Props) {
+export default function PowerScale(props: Props) {
+  return <PollGate id="power-scale">{() => <Results {...props}/>}</PollGate>;
+}
+
+function Results({ iconMap }: Props) {
   const rows = FINAL_STATS_ROWS;
   const histograms = FINAL_HISTOGRAMS;
   const submissionCount = FINAL_SUBMISSION_COUNT;

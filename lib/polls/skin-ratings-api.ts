@@ -1,3 +1,4 @@
+import { votingOpenSql } from './settingsStore';
 import type {NextApiRequest,NextApiResponse} from 'next';
 import type {D1Database} from '@cloudflare/workers-types';
 import {allowAccountRequest,accountLimited} from '@/lib/cloud-account/limits';
@@ -36,7 +37,7 @@ export async function skinRatings(req:NextApiRequest,res:NextApiResponse,db:D1Da
   if(req.method==='DELETE'&&!(await loadIds()).has(skin)&&!await db.prepare('SELECT 1 n FROM skin_poll_rating WHERE poll=? AND userId=? AND skin=?').bind(SKIN_RATING_POLL_ID,owner,skin).first())return res.status(400).json({error:'Choose a skin you have rated or one from the catalogue.'});
   // Null is a tombstone: a stale device cannot resurrect a cleared rating.
   const row=await db.prepare(`INSERT INTO skin_poll_rating(poll,userId,skin,rating,revision) SELECT ?,?,?,?,1
-    WHERE ?=0 OR EXISTS(SELECT 1 FROM skin_poll_rating WHERE poll=? AND userId=? AND skin=? AND revision=?)
+    WHERE ${votingOpenSql('favourite-skins')} AND (?=0 OR EXISTS(SELECT 1 FROM skin_poll_rating WHERE poll=? AND userId=? AND skin=? AND revision=?))
     ON CONFLICT(poll,userId,skin) DO UPDATE SET rating=excluded.rating,revision=revision+1 WHERE skin_poll_rating.revision=?
     RETURNING skin,rating,revision`).bind(SKIN_RATING_POLL_ID,owner,skin,rating,revision,SKIN_RATING_POLL_ID,owner,skin,revision,revision).first<SavedSkinRating>();
   if(row)return res.json(row);
