@@ -1,5 +1,7 @@
 import { usePublicPolls } from '@/lib/polls/usePublicPolls';
 import { pollNames } from '@/lib/polls/settings';
+import { ContentImg } from '@/components/content/ContentImage';
+import { ENDFIELD_POLL, endfieldArt, endfieldCards } from '@/lib/polls/endfield';
 import Link from 'next/link';
 import PullPollIndexCard from '@/components/community/PullPollIndexCard';
 import type {PollBanner,PollPortrait} from '@/lib/polls/pull-poll';
@@ -32,7 +34,9 @@ function LeaderFigures({leaders}:{leaders:Leader[]}){
 export default function Polls({skins=[],previousLeaders=[],pullBanners=[],pullPortraits={},makerSamples=[],now}:Props){
   const {polls,error:settingsError}=usePublicPolls();
   const pull=polls?.['pull-or-skip'], drip=polls?.['favourite-skins'], power=polls?.['power-scale'];
-  const closed=(['pull-or-skip','favourite-skins'] as const).filter(id => polls?.[id] && !polls[id]?.open);
+  const endfield = polls?.[ENDFIELD_POLL];
+  const resultPaths = {'pull-or-skip':'/polls/pull-or-skip?view=results','favourite-skins':'/polls/favourite-skins?view=results',[ENDFIELD_POLL]:'/polls/endfield-pull-or-skip?view=results'};
+  const closed=(['pull-or-skip','favourite-skins',ENDFIELD_POLL] as const).filter(id => polls?.[id] && !polls[id]?.open);
   const {result,error}=useSkinRatingResults(!!drip?.results && drip.open);
   const leaders=useMemo(()=>skinRatingRows(result?.ranking??[],skins,'skins').slice(0,3).map(row=>({...row,href:`/polls/favourite-skins?view=results&detail=${encodeURIComponent(row.id)}`})),[result,skins]);
   return <>
@@ -40,8 +44,18 @@ export default function Polls({skins=[],previousLeaders=[],pullBanners=[],pullPo
     <PageHeader slim eyebrow="Rhodes Island // Community" title="Community polls" sub="Pick your favourites. Follow the community’s verdict."/>
     <main className={styles.page}>
       <h2 className="section-title">Open now</h2>
-      {!pull?.open && !drip?.open && <p className="hint" role="status">{settingsError ? 'Poll availability could not be loaded.' : polls ? 'No polls are open.' : 'Loading polls…'}</p>}
+      {!pull?.open && !drip?.open && !endfield?.open && <p className="hint" role="status">{settingsError ? 'Poll availability could not be loaded.' : polls ? 'No polls are open.' : 'Loading polls…'}</p>}
       {pull?.open && <PullPollIndexCard showResults={pull.results} banners={pullBanners} portraits={pullPortraits} now={now}/>}
+      {endfield?.open && <section className={`panel ${styles.feature}`} aria-labelledby="endfield-poll-title">
+        <div className={styles.featureBody}>
+          <div className={styles.copy}><h2 id="endfield-poll-title" className="entity-title entity-title-name">{pollNames[ENDFIELD_POLL]}</h2>
+            <p>Which of the nine revealed operators will you pull for?</p>
+            <div className={styles.actions}><Link className="primary btn-sm" href="/polls/endfield-pull-or-skip">Make your picks</Link>
+              {endfield.results && <Link className="ghost btn-sm" href="/polls/endfield-pull-or-skip?view=results">Results</Link>}</div>
+          </div>
+          <ContentImg alreadyPinned className={styles.endfieldArt} src={endfieldArt(endfieldCards[0].id,'medium')} alt={endfieldCards[0].description} width={3840} height={1634}/>
+        </div>
+      </section>}
       {drip?.open && <section className={`panel ${styles.feature}`} aria-labelledby="drip-awards-title">
         <div className={styles.featureBody}>
           <div className={styles.copy}>
@@ -65,7 +79,7 @@ export default function Polls({skins=[],previousLeaders=[],pullBanners=[],pullPo
         <h2 id="previous-polls-title" className="section-title">Previous results</h2>
          {closed.map(id => <div className={`panel ${styles.archive}`} key={id}>
           <h3 className="entity-title">{pollNames[id]}</h3>
-          {polls?.[id]?.results ? <Link className="ghost btn-sm" href={id === 'pull-or-skip' ? '/polls/pull-or-skip?view=results' : '/polls/favourite-skins?view=results'}>View results</Link> : <span className="hint">Voting closed · Results hidden</span>}
+          {polls?.[id]?.results ? <Link className="ghost btn-sm" href={resultPaths[id]}>View results</Link> : <span className="hint">Voting closed · Results hidden</span>}
         </div>)}
         {power && (power.results ? <Link className={`directory-card lift ${styles.archive}`} href="/polls/power-scale" aria-label="Power Scale results">
           <div className={styles.archiveCopy}>

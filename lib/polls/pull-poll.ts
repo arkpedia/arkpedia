@@ -36,7 +36,7 @@ export function pollBanners(banners: UpcomingBanner[], lineups: readonly Headhun
   });
 }
 /** -1 is good to have; zero is an explicit skip. Missing means unanswered. */
-export function parseBallot(value: unknown, banners: readonly PollBanner[]): Ballot {
+export function parseBallot(value: unknown, banners: readonly Pick<PollBanner, 'id' | 'operators'>[]): Ballot {
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw Error('Invalid poll choices.');
   const catalogue = new Map(banners.map(b => [b.id, b]));
   const result: Ballot = {};

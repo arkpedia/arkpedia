@@ -62,7 +62,7 @@ function harness(){
   async function call(owner:string|null,method='GET',body?:unknown,cookie='aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa',query:Record<string,string>={}){
     let status=200,result:any;const headers:Record<string,string>={};
     const response={setHeader:(key:string,value:string)=>{headers[key]=value;},status:(n:number)=>{status=n;return response;},json:(v:unknown)=>{result=v;return response;}};
-    await pullPoll({method,cookies:{'__Host-arkpedia-pull-poll':cookie},body,query} as unknown as NextApiRequest,response as unknown as NextApiResponse,db,owner,async()=>({banners}));
+    await pullPoll({method,cookies:{'__Host-arkpedia-pull-poll':cookie},body,query} as unknown as NextApiRequest,response as unknown as NextApiResponse,db,owner,{catalogue:async()=>({banners})});
     return {status,result,headers};
   }
   return {sqlite,call,scans:()=>scans};

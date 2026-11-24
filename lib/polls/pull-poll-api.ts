@@ -7,19 +7,22 @@ import { pullPollResults } from './pull-poll-results';
 import { pullPollCatalogue } from './pull-poll-catalogue';
 import { pollResultSnapshot } from './resultSnapshot';
 
-const COOKIE = '__Host-arkpedia-pull-poll';
+import { ENDFIELD_POLL, endfieldBallotItems } from './endfield';
 export async function pullPoll(req: NextApiRequest, res: NextApiResponse, db: D1Database, owner: string | null,
-  catalogue: () => Promise<{ banners: PollBanner[] }> = pullPollCatalogue) {
-  if(req.method==='GET' && req.query?.view==='results')return res.json(await pollResultSnapshot(db, PULL_POLL_ID, () => pullPollResults(db)));
-  let anonymous = req.cookies[COOKIE];
+  {catalogue = pullPollCatalogue, edition = 'pull-or-skip'}: {catalogue?: () => Promise<{ banners: PollBanner[] }>; edition?: 'pull-or-skip' | typeof ENDFIELD_POLL} = {}) {
+  const endfield = edition === ENDFIELD_POLL;
+  const pollId = endfield ? 'endfield-pull-or-skip-v1' : PULL_POLL_ID;
+  const cookie = endfield ? '__Host-arkpedia-endfield-poll' : '__Host-arkpedia-pull-poll';
+  if(req.method==='GET' && req.query?.view==='results')return res.json(await pollResultSnapshot(db, pollId, () => pullPollResults(db,pollId)));
+  let anonymous = req.cookies[cookie];
   if (!anonymous || !/^[a-f0-9-]{36}$/.test(anonymous)) {
     if (req.method !== 'GET') return res.status(409).json({ error: 'Reload the poll to start an anonymous entry.' });
     anonymous = crypto.randomUUID();
-    res.setHeader('Set-Cookie', `${COOKIE}=${anonymous}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=31536000`);
+    res.setHeader('Set-Cookie', `${cookie}=${anonymous}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=31536000`);
   }
   const voter = owner ? `user:${owner}` : `guest:${anonymous}`;
   if (req.method === 'GET') {
-    const row = await db.prepare('SELECT choices,revision FROM pull_poll_ballot WHERE poll=? AND voter=?').bind(PULL_POLL_ID, voter).first<{ choices: string; revision: number }>();
+    const row = await db.prepare('SELECT choices,revision FROM pull_poll_ballot WHERE poll=? AND voter=?').bind(pollId, voter).first<{ choices: string; revision: number }>();
     return res.json({ owner, choices: row ? JSON.parse(row.choices) : {}, revision: row?.revision ?? 0 });
   }
   if (req.body?.owner !== owner) return res.status(409).json({ error: 'Your signed-in account changed. Reload before submitting.' });
@@ -36,16 +39,16 @@ export async function pullPoll(req: NextApiRequest, res: NextApiResponse, db: D1
   }
   let choices;
   try {
-    choices = parseBallot(req.body.choices, activePollBanners((await catalogue()).banners));
+    choices = parseBallot(req.body.choices, endfield ? endfieldBallotItems : activePollBanners((await catalogue()).banners));
     if (!Object.keys(choices).length) throw Error('Choose at least one banner or operator.');
   } catch (error) { return res.status(400).json({ error: error instanceof Error ? error.message : 'Invalid poll choices.' }); }
   const row = await db.prepare(`INSERT INTO pull_poll_ballot(poll,voter,userId,choices,revision)
-    SELECT ?,?,?,?,1 WHERE ${votingOpenSql('pull-or-skip')} AND (?=0 OR EXISTS(SELECT 1 FROM pull_poll_ballot WHERE poll=? AND voter=? AND revision=?))
+    SELECT ?,?,?,?,1 WHERE ${votingOpenSql(edition)} AND (?=0 OR EXISTS(SELECT 1 FROM pull_poll_ballot WHERE poll=? AND voter=? AND revision=?))
     ON CONFLICT(poll,voter) DO UPDATE SET choices=excluded.choices,revision=revision+1,updatedAt=strftime('%Y-%m-%dT%H:%M:%fZ','now')
     WHERE pull_poll_ballot.revision=? RETURNING revision`)
-    .bind(PULL_POLL_ID, voter, owner, JSON.stringify(choices), req.body.revision, PULL_POLL_ID, voter, req.body.revision, req.body.revision).first<{ revision: number }>();
+    .bind(pollId, voter, owner, JSON.stringify(choices), req.body.revision, pollId, voter, req.body.revision, req.body.revision).first<{ revision: number }>();
   if (row && owner) await db.prepare('DELETE FROM pull_poll_ballot WHERE poll=? AND voter=? AND userId IS NULL')
-    .bind(PULL_POLL_ID, `guest:${anonymous}`).run();
+    .bind(pollId, `guest:${anonymous}`).run();
   // The insert must not recreate a missing ballot when a client expects an existing revision.
   // A matching row is updated atomically; stale revisions receive a conflict.
   return row ? res.json({ owner, choices, revision: row.revision }) : res.status(409).json({ error: 'Your submitted choices changed on another device. Reload before submitting again.' });

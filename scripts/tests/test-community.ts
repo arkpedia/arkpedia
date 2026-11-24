@@ -8,6 +8,8 @@ import type { NextApiRequest, NextApiResponse } from 'next';
 import type { AccountRecord } from '../../lib/account/accountStore';
 import { communitySnapshot, parseCommunitySnapshot, type CommunityChoices, type CommunitySnapshot } from '../../lib/community/model';
 import { createCommunityHandler } from '../../lib/community/api';
+import { endfieldCards, ENDFIELD_POLL } from '../../lib/polls/endfield';
+import { readPollSetting, savePollSetting } from '../../lib/polls/settingsStore';
 import skinsData from '../../data/skins.json';
 import { previewStatistics } from '../../lib/community/preview-statistics';
 import { collectArkpediaLikes } from '../../lib/music/arkpediaLikesServer';
@@ -35,9 +37,9 @@ function harness(now=()=>clock){
   const limiter={limit:async()=>({success:true})};
   const env={ARKPEDIA_ACCOUNTS_DB:db,ARKPEDIA_AUTH_URL:'https://preview.example.invalid',BETTER_AUTH_SECRET:'test-only-secret-long-enough-for-hmac-01234567',GOOGLE_CLIENT_ID:'test',GOOGLE_CLIENT_SECRET:'test',DISCORD_CLIENT_ID:'',DISCORD_CLIENT_SECRET:'',ACCOUNT_TRAFFIC_LIMIT:limiter,ACCOUNT_IP_LIMIT:limiter};
   function user(id:string){sqlite.prepare('INSERT INTO "user"(id,name,email,createdAt,updatedAt)VALUES(?,?,?,?,?)').run(id,'Private Provider Name',id+'@example.invalid','2026-01-01','2026-01-01');sqlite.prepare('INSERT INTO arkpedia_profile(userId,username,usernameKey,updatedAt)VALUES(?,?,?,?)').run(id,id,id,'2026-01-01');}
-  async function call(kind:'sharing'|'stats'|'supports'|'availability'|'rankings'|'skin-poll'|'pull-poll'|'friends',owner:string|null,method='GET',body?:unknown,query:Record<string,string>={},headers:Record<string,string>={}){
+  async function call(kind:'sharing'|'stats'|'supports'|'availability'|'rankings'|'skin-poll'|'pull-poll'|'endfield-poll'|'friends',owner:string|null,method='GET',body?:unknown,query:Record<string,string>={},headers:Record<string,string>={}){
     let status=200,result:any;const response={setHeader:()=>{},status:(n:number)=>{status=n;return response;},json:(v:unknown)=>{result=v;return response;},end:()=>{}};
-    await createCommunityHandler(kind,{resolveEnv:()=>env,authenticate:async()=>owner,now,pollSkinIds:async()=>pollIds})({method,headers:{origin:env.ARKPEDIA_AUTH_URL,'content-type':'application/json',...headers},query,body:body&&typeof body==='object'?{owner,...body}:body} as NextApiRequest,response as unknown as NextApiResponse);
+    await createCommunityHandler(kind,{resolveEnv:()=>env,authenticate:async()=>owner,now,pollSkinIds:async()=>pollIds})({method,cookies:{'__Host-arkpedia-endfield-poll':'00000000-0000-4000-8000-000000000001'},headers:{origin:env.ARKPEDIA_AUTH_URL,'content-type':'application/json',...headers},query,body:body&&typeof body==='object'?{owner,...body}:body} as unknown as NextApiRequest,response as unknown as NextApiResponse);
     return {status,result};
   }
   const publish=(owner:string,uid:string,choices=all,changes:Partial<CommunitySnapshot>={})=>call('sharing',owner,'PUT',{action:'consent',revision:0,choices,snapshot:{...snapshot(uid),...changes}});
@@ -1010,4 +1012,34 @@ test('editors can defer results until the deadline, hide a poll and reopen witho
     assert.equal((await h.call('pull-poll',null)).status,404);
     assert.equal(publicPoll(await readPollSetting(h.db,'power-scale'),time).open,false);
   } finally {h.sqlite.close();}
+});
+
+test('Endfield is hidden at launch and can publish, accept a separate ballot, and hide again', async () => {
+  const h = harness();
+  try {
+    const [first, second] = endfieldCards;
+    const choices = {[first.id]: {$banner: 1}, [second.id]: {$banner: -1}};
+    const vote = () => h.call('endfield-poll', null, 'PUT', {revision: 0, choices});
+    const results = () => h.call('endfield-poll', null, 'GET', undefined, {view:'results'});
+    const hidden = await readPollSetting(h.db, ENDFIELD_POLL);
+    assert.equal(hidden.visible, false);
+    assert.equal((await h.call('endfield-poll', null)).status, 404);
+    assert.equal((await results()).status, 404);
+    assert.equal((await vote()).status, 404);
+
+    const open = await savePollSetting(h.db, {...hidden, visible:true}, 'editor');
+    assert.ok(open?.visible);
+    assert.equal((await vote()).status, 200);
+    assert.deepEqual((await h.call('endfield-poll', null)).result.choices, choices);
+    const tally = (await results()).result;
+    assert.equal(tally.ballots, 1);
+    assert.equal(tally.banners.find((row:{id:string}) => row.id === first.id).pull, 1);
+    assert.equal(tally.banners.find((row:{id:string}) => row.id === second.id).maybe, 1);
+    assert.equal((await h.call('pull-poll', null, 'GET', undefined, {view:'results'})).result.ballots, 0);
+    assert.equal((await h.call('endfield-poll', null, 'PUT', {revision:1, choices:{[first.id]:{$banner:6}}})).status, 400);
+    const again = await savePollSetting(h.db, {...open!, visible:false}, 'editor');
+    assert.equal((await results()).status, 404);
+    await savePollSetting(h.db, {...again!, visible:true}, 'editor');
+    assert.deepEqual((await h.call('endfield-poll', null)).result.choices, choices);
+  } finally { h.sqlite.close(); }
 });

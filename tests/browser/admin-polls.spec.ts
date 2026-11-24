@@ -16,7 +16,7 @@ for(const theme of ['dark','light']) test(`edit poll visibility, deadline and re
   await page.goto('/polls');
   await expect(page.getByRole('heading',{name:'Pull or Skip'})).toBeVisible();
   await page.evaluate(()=> (window as unknown as {next:{router:{push:(path:string)=>Promise<void>}}}).next.router.push('/dashboard/campaigns?tab=polls'));
-  const editor=page.getByRole('form',{name:'Pull or Skip'});
+  const editor=page.getByRole('form',{name:'Pull or Skip',exact:true});
   const select=async(label:string,value:string)=>{
     await editor.getByRole('combobox',{name:label}).click();
     await page.getByRole('option',{name:value,exact:true}).click();
@@ -27,7 +27,7 @@ for(const theme of ['dark','light']) test(`edit poll visibility, deadline and re
   expect(settings[0].closesAt).toBe(Date.UTC(2020,0,1,12));
   await select('Voting closes','Never');await select('Poll visibility','Hidden');
   await editor.getByRole('button',{name:'Save settings'}).click();
-  await expect(editor.getByRole('button',{name:'Save settings'})).toBeDisabled();expect(settings[0].closesAt).toBeNull();
+  await expect(editor.getByRole('button',{name:'Unhide poll'})).toBeEnabled();expect(settings[0].closesAt).toBeNull();
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
   await page.goto('/polls');await expect(page.getByText('Rate skins',{exact:true})).toBeVisible();
   await expect(page.getByRole('heading',{name:'Pull or Skip'})).toHaveCount(0);
