@@ -7,7 +7,7 @@ export const STATIC_ROUTES = ['/about', '/games', '/credits', '/privacy', '/cook
 
 /** Routes the release lists that are not pages for a search engine: not indexed (PageMeta
  *  noindex), or a window of another page. Public names. */
-export const UNLISTED_ROUTES = new Set(['/dashboard/campaigns', '/account', '/friends', '/search', '/recruitment/popout']);
+export const UNLISTED_ROUTES = new Set(['/polls/endfield-pull-or-skip', '/dashboard/campaigns', '/account', '/friends', '/search', '/recruitment/popout']);
 
 /** A route encoded as the site's links encode it: each segment decoded, then encoded again
  *  with encodeURIComponent (operatorHref and the event and stage links do the same), so a

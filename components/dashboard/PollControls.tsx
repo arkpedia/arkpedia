@@ -20,13 +20,13 @@ function PollRow({ initial, onSaved }: { initial: PollSettings; onSaved: (s: Pol
   const archive = initial.id === 'power-scale';
   const closesAt = scheduled ? Date.parse(date + 'Z') : null;
   const dirty = initial.visible !== visible || initial.results !== results || initial.closesAt !== closesAt;
-  async function save() {
+  async function save(unhide = false) {
     setBusy(true); setMessage('');
     try {
-      const response = await requestSettings({method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({...initial, visible, results, closesAt})});
+      const response = await requestSettings({method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({...initial, visible:unhide || visible, results, closesAt})});
       const data = await response.json();
       if (!response.ok) { setConflict(response.status === 409); throw Error(data.error); }
-      onSaved(data); setMessage('Saved.');
+      onSaved(data); setVisible(data.visible); setMessage(unhide ? 'Poll is public.' : 'Saved.');
     } catch (error) { setMessage(error instanceof Error && error.message || 'Could not save the settings.'); }
     finally { setBusy(false); }
   }
@@ -55,7 +55,8 @@ function PollRow({ initial, onSaved }: { initial: PollSettings; onSaved: (s: Pol
             onChange={v => {setScheduled(v === 'scheduled'); setMessage('');}} options={[{value:'never',label:'Never'},{value:'scheduled',label:'At a set time'}]}/></label>
           {scheduled && <label>Closing time (UTC)<input type="datetime-local" required value={date} onChange={e => setDate(e.target.value)}/></label>}
         </>}
-        <button className="primary btn-sm" disabled={!dirty || conflict || scheduled && !Number.isFinite(closesAt)}>Save settings</button>
+        {!initial.visible && !dirty ? <button className="primary btn-sm" type="button" disabled={conflict} onClick={()=>void save(true)}>Unhide poll</button> :
+        <button className="primary btn-sm" disabled={!dirty || conflict || scheduled && !Number.isFinite(closesAt)}>Save settings</button>}
         {conflict && <button type="button" className="ghost btn-sm" onClick={() => void reload()}>Reload settings</button>}
       </div>
     </fieldset>

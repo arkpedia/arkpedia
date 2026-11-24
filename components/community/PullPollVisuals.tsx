@@ -18,7 +18,9 @@ export function VerdictStamp({value,label}:{value:Stamp;label?:string}){
 export function BannerArt({banner,choices,portraits,stamp,owned={}}:{banner:PollBanner;choices?:Record<string,Want>;portraits:Record<string,PollPortrait>;stamp?:{value:Stamp;label:string};owned?:OwnedPotentials}){
   const value=stamp?.value??stampKey(choices,banner,portraits,owned),applicationArt=applicationBannerArt(banner);
   return <div className={styles.art}>
-    {banner.image?<ContentImg src={banner.image} alt="" width="1024" height="559" onError={e=>{e.currentTarget.style.visibility='hidden';}} onLoad={e=>{e.currentTarget.style.visibility='visible';}}/>:applicationArt?<ApplicationImage asset={applicationArt} alt="" width={1024} height={559}/>:<span className={styles.artFallback}>Banner artwork pending</span>}
+    {banner.artwork && banner.image ? <a href={banner.artwork.original} target="_blank" rel="noreferrer" aria-label={`View full artwork: ${banner.artwork.description}`}>
+      <ContentImg alreadyPinned src={banner.image} width={3840} height={1634} alt={banner.artwork.description}/>
+    </a> : banner.image?<ContentImg src={banner.image} alt="" width="1024" height="559" onError={e=>{e.currentTarget.style.visibility='hidden';}} onLoad={e=>{e.currentTarget.style.visibility='visible';}}/>:applicationArt?<ApplicationImage asset={applicationArt} alt="" width={1024} height={559}/>:<span className={styles.artFallback}>Banner artwork pending</span>}
     {value&&<VerdictStamp value={value} label={stamp?.label}/>}
   </div>;
 }

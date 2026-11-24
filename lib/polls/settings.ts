@@ -2,6 +2,7 @@ export const pollNames = {
   'pull-or-skip': 'Pull or Skip',
   'favourite-skins': 'Arkpedia Drip Awards',
   'power-scale': 'Power Scale',
+  'endfield-pull-or-skip': 'Pull or Skip – Endfield 1.7 & 2.0 Livestream',
 } as const;
 export type PollId = keyof typeof pollNames;
 export type ResultsMode = 'live' | 'closed' | 'hidden';
@@ -29,5 +30,5 @@ export function validPollSettings(value: unknown): value is PollSettings {
 
 /** Bundled, read-only site builds have no editor or persistent poll settings. */
 export function defaultPollSettings(): PollSettings[] {
-  return (Object.keys(pollNames) as PollId[]).map(id => ({id,visible:true,results:'live',closesAt:null,revision:0}));
+  return (Object.keys(pollNames) as PollId[]).map(id => ({id,visible:id !== 'endfield-pull-or-skip',results:'live',closesAt:null,revision:0}));
 }

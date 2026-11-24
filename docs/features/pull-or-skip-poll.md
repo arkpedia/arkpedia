@@ -55,3 +55,9 @@ Detailed Results “You” badges use the same stamp classification and shared c
 artwork-and-pie-chart dialog with aggregate P1–P6 slices and independent Skip/Maybe
 filters. Counts come directly from ballot JSON aggregates; no voter identity is exposed
 and no database migration is needed.
+
+## Endfield edition
+
+The Endfield poll uses the nine illustrations in the [official reveal](https://x.com/AKEndfield/status/2124116868583608507). Readers can choose Pull, Maybe or Skip for each character. The same voting rows, verdict stamps, results views and share tools serve both editions. The illustrations identify the Endfield choices without character names or portraits. Endfield ballots and aggregate results are independent of the Arknights poll.
+
+The edition starts hidden. In the admin dashboard, open **Polls**, find **Pull or Skip – Endfield 1.7 & 2.0 Livestream**, and select **Unhide poll**. New visits to the community polls directory can open it immediately. The same row controls results visibility and the closing time.

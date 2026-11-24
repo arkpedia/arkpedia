@@ -81,7 +81,7 @@ export default function PullPollShareImage(props:ShareProps){
       canvas.current.width=social?1080:1200;
       canvas.current.height=social?1080:height;
       const context=canvas.current.getContext('2d');if(!context)return;
-      const c=context,theme=getComputedStyle(document.documentElement),ink=(token:string)=>theme.getPropertyValue(token).trim();
+      const c=context,theme=getComputedStyle(canvas.current),ink=(token:string)=>theme.getPropertyValue(token).trim();
       const bg=ink('--bg'),panel=ink('--panel'),well=ink('--well'),text=ink('--text-bright'),dim=ink('--text-dim'),teal=ink('--teal'),amber=ink('--amber');
       const fit=(text:string,width:number)=>{let value=text;while(c.measureText(value).width>width&&value.length)value=value.slice(0,-1);return value===text?value:value.slice(0,-1)+'…';};
       const label=(textValue:string,x:number,y:number,font:string,color:string,width?:number)=>{c.font=font;c.fillStyle=color;c.fillText(width?fit(textValue,width):textValue,x,y);};
@@ -117,8 +117,8 @@ export default function PullPollShareImage(props:ShareProps){
         abort.abort();setReady(true);setMessage('1080 × 1080 · '+bannerTitle(social.banner));return;
       }
       c.fillStyle=bg;c.fillRect(0,0,1200,height);
-      label(results?'PULL OR SKIP // RESULTS':'ARKNIGHTS // PULL PLAN',24,72,'700 64px Rajdhani',text);
-      label('arkpedia.net/polls/pull-or-skip',24,122,'28px "JetBrains Mono"',teal);
+      label(results?'PULL OR SKIP // RESULTS':(banners[0]?.artwork?'ENDFIELD // PULL PLAN':'ARKNIGHTS // PULL PLAN'),24,72,'700 64px Rajdhani',text);
+      label(banners[0]?.artwork?'arkpedia.net/polls/endfield-pull-or-skip':'arkpedia.net/polls/pull-or-skip',24,122,'28px "JetBrains Mono"',teal);
       if(results){
         c.save();c.textAlign='right';label(results.ballots.toLocaleString('en-US')+(results.ballots===1?' submission':' submissions'),1176,122,'28px "JetBrains Mono"',dim);c.restore();
       }else if(showLegend){
