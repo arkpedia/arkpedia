@@ -18,7 +18,7 @@ export default function PullPollIndexCard({banners,portraits,now,policy,endfield
   const upcoming=banners.filter(b=>b.artwork || Date.parse(b.endAt??`${b.end}T23:59:59-07:00`)>ballotTime).sort((a,b)=>a.start.localeCompare(b.start,'en'));
   const featured=[...upcoming.filter(b=>b.image),...upcoming.filter(b=>!b.image)].slice(0,3),answered=upcoming.filter(b=>bannerChoice(ballot[b.id],b)).length;
   return <section className={`panel ${overview.feature}${endfield ? ' endfield-poll' : ''}`} aria-labelledby={headingId}>
-    <div className={overview.featureBody}><div className={`${overview.copy} ${styles.copy}`}><span className="label-tag">{policy.open ? 'Open poll' : 'Closed poll'}</span><h2 id={headingId} className="entity-title entity-title-name">{title}</h2>{policy.open && <p>Pull, maybe or skip? See where the community is spending.</p>}
+    <div className={overview.featureBody}><div className={`${overview.copy} ${styles.copy}`}><span className="label-tag">{policy.open ? 'Open poll' : 'Closed poll'}</span><h2 id={headingId} className="entity-title entity-title-name">{title}</h2>{policy.open && <p>Pull, maybe or skip?</p>}
       <PollTiming poll={policy}/>
       <div className={styles.actions}>
         {policy.open ? <>
