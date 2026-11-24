@@ -29,7 +29,7 @@ for (const theme of ['dark','light']) test(`unhide Endfield and submit artwork p
       ballots:1, banners:[{id:endfieldCards[0].id,answers:1,pull:1,maybe:0,skip:0}], operators:[]
     }});
     if (route.request().method() === 'PUT') {
-      expect(route.request().postDataJSON().choices).toEqual({[endfieldCards[0].id]:{$banner:1}});
+      expect(route.request().postDataJSON().choices).toEqual({[endfieldCards[0].id]:{$banner:5}});
       Object.assign(ballot, {choices:route.request().postDataJSON().choices,revision:1});
     }
     return route.fulfill({json:ballot});
@@ -72,11 +72,15 @@ for (const theme of ['dark','light']) test(`unhide Endfield and submit artwork p
   await pull.press('Enter');
   await expect(pull).toHaveAttribute('aria-pressed','true');
   await expect(cards.first().locator('.poll-stamp')).toBeVisible();
+  await cards.first().getByRole('button',{name:/P0/}).click();
+  await cards.first().getByRole('button',{name:'P4',exact:true}).click();
+  await expect(pull).toHaveAttribute('aria-pressed','true');
   await page.getByRole('button',{name:'Send it'}).click();
   await page.getByRole('button',{name:'Submit anonymously'}).click();
   await page.getByRole('dialog',{name:'Successfully submitted'}).getByRole('button',{name:'Done'}).click();
   expect(await page.evaluate(() => localStorage.getItem('arkpedia.pull-poll.v1'))).toBe('{"sentinel":{}}');
   await page.reload();
+  await expect(cards.first().getByRole('button',{name:/P4/})).toBeVisible();
   await expect(pull).toHaveAttribute('aria-pressed','true');
   await page.getByRole('tab',{name:'Results'}).click();
   await expect(page.getByText(/1 player has shared/)).toBeVisible();
@@ -85,4 +89,36 @@ for (const theme of ['dark','light']) test(`unhide Endfield and submit artwork p
   await expect(cards.getByRole('heading')).toHaveCount(0);
   await expect(cards.first()).toContainText('100%');
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+});
+
+test('Endfield results appear only once voting closes', async ({page}) => {
+  const start = Date.UTC(2026, 10, 24, 12);
+  const closesAt = start + 60_000;
+  let now = start;
+  const settings = {...defaultPollSettings().find(poll=>poll.id===ENDFIELD_POLL)!, visible:true, results:'closed' as const, closesAt};
+  await page.clock.install({time:new Date(start)});
+  await page.route('**/api/polls/settings', route=>route.fulfill({json:{[ENDFIELD_POLL]:publicPoll(settings,now)}}));
+  let resultsReads = 0;
+  await page.route('**/api/cloud-account/polls/endfield-pull-or-skip*', route=>{
+    if (route.request().url().includes('view=results')) {
+      resultsReads++;
+      return route.fulfill({json:{ballots:0,banners:[],operators:[]}});
+    }
+    return route.fulfill({json:{owner:null,revision:0,choices:{}}});
+  });
+  await page.goto('/polls');
+  await expect(page.getByRole('link',{name:'Make your picks'})).toBeVisible();
+  await expect(page.getByRole('link',{name:/results/i})).toHaveCount(0);
+  await page.goto('/polls/endfield-pull-or-skip?view=results');
+  await expect(page.getByRole('button',{name:'Pull',exact:true}).first()).toBeVisible();
+  await expect(page.getByRole('tab',{name:'Results'})).toHaveCount(0);
+  await expect(page.getByRole('button',{name:'Export results'})).toHaveCount(0);
+  expect(resultsReads).toBe(0);
+  now = closesAt;
+  await page.clock.fastForward(60_000);
+  await expect(page.getByText('Voting is closed.')).toBeVisible();
+  await expect(page.getByRole('button',{name:'Send it'})).toHaveCount(0);
+  await expect(page.getByText(/0 players have shared/)).toBeVisible();
+  await page.goto('/polls');
+  await expect(page.getByRole('link',{name:'View results'})).toBeVisible();
 });

@@ -38,7 +38,7 @@ export function pollBanners(banners: UpcomingBanner[], lineups: readonly Headhun
   });
 }
 /** -1 is good to have; zero is an explicit skip. Missing means unanswered. */
-export function parseBallot(value: unknown, banners: readonly Pick<PollBanner, 'id' | 'operators'>[]): Ballot {
+export function parseBallot(value: unknown, banners: readonly Pick<PollBanner, 'id' | 'operators' | 'artwork'>[]): Ballot {
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw Error('Invalid poll choices.');
   const catalogue = new Map(banners.map(b => [b.id, b]));
   const result: Ballot = {};
@@ -48,7 +48,7 @@ export function parseBallot(value: unknown, banners: readonly Pick<PollBanner, '
     if (!banner || !raw || typeof raw !== 'object' || Array.isArray(raw)) throw Error('This poll’s banners changed. Reload before submitting.');
     const choices: Record<string, Want> = {};
     for (const [name, want] of Object.entries(raw)) {
-      if (!(banner.operators.includes(name) || (!banner.operators.length && name===BANNER_INTENT)) || (name===BANNER_INTENT&&Number(want)>1) || !Number.isInteger(want) || Number(want) < -1 || Number(want) > 6) throw Error('Choose a valid operator potential.');
+      if (!(banner.operators.includes(name) || (!banner.operators.length && name===BANNER_INTENT)) || (name===BANNER_INTENT && !banner.artwork && Number(want)>1) || !Number.isInteger(want) || Number(want) < -1 || Number(want) > 6) throw Error('Choose a valid operator potential.');
       Object.defineProperty(choices, name, { value: want, enumerable: true, writable: true, configurable: true });
     }
     if (Object.keys(choices).length) Object.defineProperty(result, id, { value: choices, enumerable: true, writable: true, configurable: true });
@@ -61,6 +61,7 @@ export function pullIntent(choices:Record<string,Want>|undefined):'pull'|'maybe'
 }
 export function bannerChoice(choices: Record<string, Want> | undefined, banner: PollBanner,owned:OwnedPotentials={}): string {
   if (!choices) return '';
+  if (banner.artwork) return pullIntent(choices);
   const values = banner.operators.length ? banner.operators.map(name=>choices[name]) : [choices[BANNER_INTENT]];
   if (values.every(w=>w===undefined)) return '';
   return values.every(w=>w===0) ? 'skip' : values.every(w=>w===-1) ? 'maybe'

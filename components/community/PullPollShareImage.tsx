@@ -5,7 +5,8 @@ import {useContentUrl} from '@/lib/content/context';
 import {applicationBannerArt} from '@/lib/polls/pull-poll-art';
 import {assetUrl,encodeAssetPath} from '@/lib/assets/assetUrl';
 import {loadAssetImage} from '@/lib/assets/assetRetry';
-import {bannerChoice,pullIntent,stampKey,STAMP_LABELS,type Stamp,type Ballot,type PollBanner,type PollPortrait,type OwnedPotentials,type PullPollResults} from '@/lib/polls/pull-poll';
+import {endfieldPotential} from '@/lib/polls/endfield';
+import {BANNER_INTENT,bannerChoice,pullIntent,stampKey,STAMP_LABELS,type Stamp,type Ballot,type PollBanner,type PollPortrait,type OwnedPotentials,type PullPollResults} from '@/lib/polls/pull-poll';
 import {shareOperatorInterests} from '@/lib/polls/pull-poll-share';
 import {bannerTitle,VerdictStamp} from './PullPollVisuals';
 import {drawSocialResult,socialResultCards,drawResultPanel,resultImageRows,resultPanelHeight} from './pullPollResultImage';
@@ -32,7 +33,11 @@ export default function PullPollShareImage(props:ShareProps){
   const stamped=!results&&!detailed&&bannerStamps,artWidth=stamped?1200:600;
   const planned=(b:PollBanner)=>shareOperatorInterests(b,ballot[b.id],owned).filter(op=>!detailed||includeOffBanner||!b.returningOperators?.includes(op.name));
   const tags=stamped||detailed;
-  const description=results?shownResults.map(r=>[bannerTitle(r.banner),r.answers,...r.split.map(v=>v.label+' '+v.value),...r.operators.map(op=>op.name+' want a copy '+op.value)].join(', ')).join('. '):answered.map(b=>`${bannerTitle(b)}: ${tags?STAMP_LABELS[stampKey(ballot[b.id],b,portraits,owned) as Stamp]:pullIntent(ballot[b.id])}${detailed?`; ${planned(b).map(op=>op.interest==='maybe'?`Maybe ${op.label}`:op.label).join(', ')}`:''}`).join('. ');
+  function artworkPick(banner:PollBanner) {
+    const copies=ballot[banner.id]?.[BANNER_INTENT];
+    return copies>0 ? `Target potential ${endfieldPotential(copies)}` : copies===0 ? 'Skip' : 'Maybe';
+  }
+  const description=results?shownResults.map(r=>[bannerTitle(r.banner),r.answers,...r.split.map(v=>v.label+' '+v.value),...r.operators.map(op=>op.name+' want a copy '+op.value)].join(', ')).join('. '):answered.map(b=>`${bannerTitle(b)}: ${tags?STAMP_LABELS[stampKey(ballot[b.id],b,portraits,owned) as Stamp]:pullIntent(ballot[b.id])}${detailed&&b.artwork?`; ${artworkPick(b)}`:detailed?`; ${planned(b).map(op=>op.interest==='maybe'?`Maybe ${op.label}`:op.label).join(', ')}`:''}`).join('. ');
 
   useLayoutEffect(()=>{
     const element=preview.current,body=element?.parentElement,dialog=element?.closest('dialog'),header=dialog?.querySelector('header');
@@ -83,6 +88,7 @@ export default function PullPollShareImage(props:ShareProps){
       const context=canvas.current.getContext('2d');if(!context)return;
       const c=context,theme=getComputedStyle(canvas.current),ink=(token:string)=>theme.getPropertyValue(token).trim();
       const bg=ink('--bg'),panel=ink('--panel'),well=ink('--well'),text=ink('--text-bright'),dim=ink('--text-dim'),teal=ink('--teal'),amber=ink('--amber');
+      const pullInk = getComputedStyle(document.documentElement).getPropertyValue('--teal').trim();
       const fit=(text:string,width:number)=>{let value=text;while(c.measureText(value).width>width&&value.length)value=value.slice(0,-1);return value===text?value:value.slice(0,-1)+'…';};
       const label=(textValue:string,x:number,y:number,font:string,color:string,width?:number)=>{c.font=font;c.fillStyle=color;c.fillText(width?fit(textValue,width):textValue,x,y);};
       const centeredLabel=(value:string,x:number,y:number,font:string,color:string)=>{c.save();c.textAlign='center';c.textBaseline='middle';label(value,x,y,font,color);c.restore();};
@@ -122,7 +128,7 @@ export default function PullPollShareImage(props:ShareProps){
       if(results){
         c.save();c.textAlign='right';label(results.ballots.toLocaleString('en-US')+(results.ballots===1?' submission':' submissions'),1176,122,'28px "JetBrains Mono"',dim);c.restore();
       }else if(showLegend){
-        for(const [index,item] of [{text:'Pull',color:teal},{text:'Maybe',color:amber},{text:'Skip',color:danger}].entries()){
+        for(const [index,item] of [{text:'Pull',color:pullInk},{text:'Maybe',color:amber},{text:'Skip',color:danger}].entries()){
           const x=800+index*128;c.fillStyle=item.color;c.fillRect(x,52,24,24);
           label(item.text,x+34,73,'700 26px Rajdhani',text);
         }
@@ -131,7 +137,7 @@ export default function PullPollShareImage(props:ShareProps){
       let rowTop=headerHeight;
       rows.forEach(({banner:b,resultRow,operators,slotHeight,rowHeight})=>{
         const y=rowTop;rowTop+=rowHeight;
-        const v=pullIntent(ballot[b.id]),choice=v==='maybe'?'~':v==='skip'?'X':'PULL',accent=v==='maybe'?amber:v==='skip'?danger:teal;
+        const v=pullIntent(ballot[b.id]),choice=v==='maybe'?'~':v==='skip'?'X':'PULL',accent=v==='maybe'?amber:v==='skip'?danger:pullInk;
         c.fillStyle=panel;c.fillRect(0,y,1200,rowHeight);c.strokeRect(1,y,1198,rowHeight);if(!stamped){c.beginPath();c.moveTo(artWidth,y);c.lineTo(artWidth,y+rowHeight);c.stroke();}
         if(!draw(artPath(b),4,y+4,artWidth-8,rowHeight-8,v==='skip'&&tags))label(bannerTitle(b),20,y+rowHeight/2,'700 25px Rajdhani',dim,artWidth-40);
         if(resultRow){drawResultPanel(c,resultRow,bannerTitle(b),y,rowHeight,{text,dim,pull:teal,maybe:amber,skip:danger},label,drawPortrait);return;}
@@ -149,7 +155,9 @@ export default function PullPollShareImage(props:ShareProps){
           centeredLabel(fit(first,174),px+size/2,py+148,'700 30px Rajdhani',color);
           if(words.length)centeredLabel(fit(words.join(' '),174),px+size/2,py+176,'700 30px Rajdhani',color);
         });
-        if(!b.operators.length)label('Lineup still unconfirmed',artWidth+24,y+rowHeight-40,'22px Rajdhani',dim,550);
+        if(b.artwork){
+          centeredLabel(artworkPick(b),(artWidth+1200)/2,y+rowHeight/2,'700 42px Rajdhani',accent);
+        }else if(!b.operators.length)label('Lineup still unconfirmed',artWidth+24,y+rowHeight-40,'22px Rajdhani',dim,550);
       });
       label('ARKPEDIA',24,height-16,'700 30px Rajdhani',text);
       abort.abort();
