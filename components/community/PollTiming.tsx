@@ -5,6 +5,6 @@ export default function PollTiming({poll}: {poll: PublicPoll}) {
   const date = new Date(poll.closesAt);
   return <p className="hint">{poll.open ? 'Voting closes' : 'Voting closed'}{' '}
     <time dateTime={date.toISOString()}>{date.toLocaleString(undefined, {year:'numeric', month:'short', day:'numeric', hour:'numeric', minute:'2-digit', timeZoneName:'short'})}</time>.
-    {poll.resultsAfterClose && ' Results will appear after voting closes.'}
+    {poll.resultsAfterClose && <><br/>Results will appear after voting closes.</>}
   </p>;
 }

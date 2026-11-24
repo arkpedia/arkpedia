@@ -21,9 +21,10 @@ export default function PullPollIndexCard({banners,portraits,now,policy,endfield
     <div className={overview.featureBody}><div className={`${overview.copy} ${styles.copy}`}><span className="label-tag">{policy.open ? 'Open poll' : 'Closed poll'}</span><h2 id={headingId} className="entity-title entity-title-name">{title}</h2>{policy.open && <p>Pull, maybe or skip? See where the community is spending.</p>}
       <PollTiming poll={policy}/>
       <div className={styles.actions}>
-        {policy.open && <Link className="primary btn-sm" href={path}>{answered ? 'Continue' : 'Make your picks'}</Link>}
-        {policy.results && <Link className={policy.open ? 'ghost btn-sm' : 'primary btn-sm'} href={path + '?view=results'}>{policy.open ? 'Results' : 'View results'}</Link>}
-        {!policy.open && !policy.results && <span className="hint">Results hidden</span>}
+        {policy.open ? <>
+          <Link className="primary btn-sm" href={path}>{answered ? 'Continue' : 'Make your picks'}</Link>
+          {policy.results && <Link className="ghost btn-sm" href={path + '?view=results'}>Results</Link>}
+        </> : policy.results ? <Link className="primary btn-sm" href={path + '?view=results'}>View results</Link> : <span className="hint">Results hidden</span>}
       </div>
       {policy.open && answered>0&&<p className={`hint ${overview.access}`}>{answered} / {upcoming.length} answered · Draft saved</p>}
     </div>
