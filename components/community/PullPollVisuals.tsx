@@ -20,7 +20,7 @@ export function BannerArt({banner,choices,portraits,stamp,owned={}}:{banner:Poll
   return <div className={styles.art}>
     {banner.artwork && banner.image ? <a href={banner.artwork.original} target="_blank" rel="noreferrer" aria-label={`View full artwork: ${banner.artwork.description}`}>
       <ContentImg alreadyPinned src={banner.image} width={3840} height={1634} alt={banner.artwork.description}/>
-    </a> : banner.image?<ContentImg src={banner.image} alt="" width="1024" height="559" onError={e=>{e.currentTarget.style.visibility='hidden';}} onLoad={e=>{e.currentTarget.style.visibility='visible';}}/>:applicationArt?<ApplicationImage asset={applicationArt} alt="" width={1024} height={559}/>:<span className={styles.artFallback}>Banner artwork pending</span>}
+    </a> : applicationArt?<ApplicationImage asset={applicationArt} alt="" width={1024} height={559}/>:banner.image?<ContentImg src={banner.image} alt="" width="1024" height="559" onError={e=>{e.currentTarget.style.visibility='hidden';}} onLoad={e=>{e.currentTarget.style.visibility='visible';}}/>:<span className={styles.artFallback}>Banner artwork pending</span>}
     {value&&<VerdictStamp value={value} label={stamp?.label ?? (banner.artwork ? value : undefined)}/>}
   </div>;
 }
