@@ -7,11 +7,11 @@ import { pullPollResults } from './pull-poll-results';
 import { pullPollCatalogue } from './pull-poll-catalogue';
 import { pollResultSnapshot } from './resultSnapshot';
 
-import { ENDFIELD_POLL, endfieldBanners } from './endfield';
+import { ENDFIELD_BALLOT_ID, ENDFIELD_POLL, endfieldBanners } from './endfield';
 export async function pullPoll(req: NextApiRequest, res: NextApiResponse, db: D1Database, owner: string | null,
   {catalogue = pullPollCatalogue, edition = 'pull-or-skip'}: {catalogue?: () => Promise<{ banners: PollBanner[] }>; edition?: 'pull-or-skip' | typeof ENDFIELD_POLL} = {}) {
   const endfield = edition === ENDFIELD_POLL;
-  const pollId = endfield ? 'endfield-pull-or-skip-v1' : PULL_POLL_ID;
+  const pollId = endfield ? ENDFIELD_BALLOT_ID : PULL_POLL_ID;
   const cookie = endfield ? '__Host-arkpedia-endfield-poll' : '__Host-arkpedia-pull-poll';
   if(req.method==='GET' && req.query?.view==='results')return res.json(await pollResultSnapshot(db, pollId, () => pullPollResults(db,pollId)));
   let anonymous = req.cookies[cookie];

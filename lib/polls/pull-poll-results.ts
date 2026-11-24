@@ -1,4 +1,5 @@
 import type {D1Database} from '@cloudflare/workers-types';
+import {ENDFIELD_BALLOT_ID} from './endfield';
 import {BANNER_INTENT,PULL_POLL_ID,type PullPollResults,type PollBannerResult,type PollOperatorResult} from './pull-poll';
 
 /** Public projections contain totals only; no voter identity or individual ballot leaves D1. */
@@ -13,7 +14,7 @@ export async function pullPollResults(db:D1Database,pollId=PULL_POLL_ID):Promise
       sum(CAST(o.value AS INTEGER)=-1) maybe,sum(CAST(o.value AS INTEGER)=0) no,
       sum(CASE WHEN CAST(o.value AS INTEGER)>0 THEN CAST(o.value AS INTEGER) ELSE 0 END) totalPotential,
       sum(CAST(o.value AS INTEGER)=1) p1,sum(CAST(o.value AS INTEGER)=2) p2,sum(CAST(o.value AS INTEGER)=3) p3,sum(CAST(o.value AS INTEGER)=4) p4,sum(CAST(o.value AS INTEGER)=5) p5,sum(CAST(o.value AS INTEGER)=6) p6,sum(CAST(o.value AS INTEGER)=6) maxPotential
-      FROM pull_poll_ballot b,json_each(b.choices) j,json_each(j.value) o WHERE b.poll=? AND o.key!=? GROUP BY j.key,o.key`).bind(pollId,BANNER_INTENT),
+      FROM pull_poll_ballot b,json_each(b.choices) j,json_each(j.value) o WHERE b.poll=? AND (o.key!=? OR b.poll=?) GROUP BY j.key,o.key`).bind(pollId,BANNER_INTENT,ENDFIELD_BALLOT_ID),
   ]);
   return {ballots:Number((results[0].results[0] as {ballots:number}|undefined)?.ballots??0),banners:results[1].results as unknown as PollBannerResult[],operators:(results[2].results as unknown as (PollOperatorResult&Record<string,number>)[]).map(row=>({...row,potentials:Array.from({length:6},(_,i)=>Number(row[`p${i+1}`]??0))}))};
 }

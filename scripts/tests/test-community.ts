@@ -1018,7 +1018,7 @@ test('Endfield is hidden at launch and can publish, accept a separate ballot, an
   const h = harness();
   try {
     const [first, second] = endfieldCards;
-    const choices = {[first.id]: {$banner: 1}, [second.id]: {$banner: -1}};
+    const choices = {[first.id]: {$banner: 6}, [second.id]: {$banner: -1}};
     const vote = () => h.call('endfield-poll', null, 'PUT', {revision: 0, choices});
     const results = () => h.call('endfield-poll', null, 'GET', undefined, {view:'results'});
     const hidden = await readPollSetting(h.db, ENDFIELD_POLL);
@@ -1033,10 +1033,11 @@ test('Endfield is hidden at launch and can publish, accept a separate ballot, an
     assert.deepEqual((await h.call('endfield-poll', null)).result.choices, choices);
     const tally = (await results()).result;
     assert.equal(tally.ballots, 1);
+    assert.deepEqual(tally.operators.find((row:{banner:string})=>row.banner===first.id).potentials,[0,0,0,0,0,1]);
     assert.equal(tally.banners.find((row:{id:string}) => row.id === first.id).pull, 1);
     assert.equal(tally.banners.find((row:{id:string}) => row.id === second.id).maybe, 1);
     assert.equal((await h.call('pull-poll', null, 'GET', undefined, {view:'results'})).result.ballots, 0);
-    assert.equal((await h.call('endfield-poll', null, 'PUT', {revision:1, choices:{[first.id]:{$banner:6}}})).status, 400);
+    assert.equal((await h.call('endfield-poll', null, 'PUT', {revision:1, choices:{[first.id]:{$banner:7}}})).status, 400);
     const again = await savePollSetting(h.db, {...open!, visible:false}, 'editor');
     assert.equal((await results()).status, 404);
     await savePollSetting(h.db, {...again!, visible:true}, 'editor');
