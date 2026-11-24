@@ -7,7 +7,7 @@ import { pullPollResults } from './pull-poll-results';
 import { pullPollCatalogue } from './pull-poll-catalogue';
 import { pollResultSnapshot } from './resultSnapshot';
 
-import { ENDFIELD_POLL, endfieldBallotItems } from './endfield';
+import { ENDFIELD_POLL, endfieldBanners } from './endfield';
 export async function pullPoll(req: NextApiRequest, res: NextApiResponse, db: D1Database, owner: string | null,
   {catalogue = pullPollCatalogue, edition = 'pull-or-skip'}: {catalogue?: () => Promise<{ banners: PollBanner[] }>; edition?: 'pull-or-skip' | typeof ENDFIELD_POLL} = {}) {
   const endfield = edition === ENDFIELD_POLL;
@@ -39,7 +39,7 @@ export async function pullPoll(req: NextApiRequest, res: NextApiResponse, db: D1
   }
   let choices;
   try {
-    choices = parseBallot(req.body.choices, endfield ? endfieldBallotItems : activePollBanners((await catalogue()).banners));
+    choices = parseBallot(req.body.choices, endfield ? endfieldBanners : activePollBanners((await catalogue()).banners));
     if (!Object.keys(choices).length) throw Error('Choose at least one banner or operator.');
   } catch (error) { return res.status(400).json({ error: error instanceof Error ? error.message : 'Invalid poll choices.' }); }
   const row = await db.prepare(`INSERT INTO pull_poll_ballot(poll,voter,userId,choices,revision)

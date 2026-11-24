@@ -117,8 +117,8 @@ export default function PullPollShareImage(props:ShareProps){
         abort.abort();setReady(true);setMessage('1080 × 1080 · '+bannerTitle(social.banner));return;
       }
       c.fillStyle=bg;c.fillRect(0,0,1200,height);
-      label(results?'PULL OR SKIP // RESULTS':'ARKNIGHTS // PULL PLAN',24,72,'700 64px Rajdhani',text);
-      label('arkpedia.net/polls/pull-or-skip',24,122,'28px "JetBrains Mono"',teal);
+      label(results?'PULL OR SKIP // RESULTS':(banners[0]?.artwork?'ENDFIELD // PULL PLAN':'ARKNIGHTS // PULL PLAN'),24,72,'700 64px Rajdhani',text);
+      label(banners[0]?.artwork?'arkpedia.net/polls/endfield-pull-or-skip':'arkpedia.net/polls/pull-or-skip',24,122,'28px "JetBrains Mono"',teal);
       if(results){
         c.save();c.textAlign='right';label(results.ballots.toLocaleString('en-US')+(results.ballots===1?' submission':' submissions'),1176,122,'28px "JetBrains Mono"',dim);c.restore();
       }else if(showLegend){

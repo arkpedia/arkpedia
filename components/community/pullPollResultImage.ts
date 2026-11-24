@@ -90,6 +90,6 @@ export function drawSocialResult(c:CanvasRenderingContext2D,row:ImageRow,title:s
       c.save();c.textAlign='right';text(value,side-inset,baseline,34,colors.text,true);c.restore();
     });
   }
-  text('arkpedia.net/polls/pull-or-skip',inset,1043,30,colors.dim,true);
+  text(row.banner.artwork?'arkpedia.net/polls/endfield-pull-or-skip':'arkpedia.net/polls/pull-or-skip',inset,1043,30,colors.dim,true);
   c.save();c.textAlign='right';text(position,side-inset,1043,30,colors.dim,true);c.restore();
 }

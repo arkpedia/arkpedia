@@ -1,7 +1,6 @@
 import { usePublicPolls } from '@/lib/polls/usePublicPolls';
 import { pollNames } from '@/lib/polls/settings';
-import { ContentImg } from '@/components/content/ContentImage';
-import { ENDFIELD_POLL, endfieldArt, endfieldCards } from '@/lib/polls/endfield';
+import { ENDFIELD_POLL, endfieldBanners } from '@/lib/polls/endfield';
 import Link from 'next/link';
 import PullPollIndexCard from '@/components/community/PullPollIndexCard';
 import type {PollBanner,PollPortrait} from '@/lib/polls/pull-poll';
@@ -46,16 +45,7 @@ export default function Polls({skins=[],previousLeaders=[],pullBanners=[],pullPo
       <h2 className="section-title">Open now</h2>
       {!pull?.open && !drip?.open && !endfield?.open && <p className="hint" role="status">{settingsError ? 'Poll availability could not be loaded.' : polls ? 'No polls are open.' : 'Loading polls…'}</p>}
       {pull?.open && <PullPollIndexCard showResults={pull.results} banners={pullBanners} portraits={pullPortraits} now={now}/>}
-      {endfield?.open && <section className={`panel ${styles.feature}`} aria-labelledby="endfield-poll-title">
-        <div className={styles.featureBody}>
-          <div className={styles.copy}><h2 id="endfield-poll-title" className="entity-title entity-title-name">{pollNames[ENDFIELD_POLL]}</h2>
-            <p>Which of the nine revealed operators will you pull for?</p>
-            <div className={styles.actions}><Link className="primary btn-sm" href="/polls/endfield-pull-or-skip">Make your picks</Link>
-              {endfield.results && <Link className="ghost btn-sm" href="/polls/endfield-pull-or-skip?view=results">Results</Link>}</div>
-          </div>
-          <ContentImg alreadyPinned className={styles.endfieldArt} src={endfieldArt(endfieldCards[0].id,'medium')} alt={endfieldCards[0].description} width={3840} height={1634}/>
-        </div>
-      </section>}
+      {endfield?.open && <PullPollIndexCard endfield showResults={endfield.results} banners={endfieldBanners} portraits={{}} now={now}/>}
       {drip?.open && <section className={`panel ${styles.feature}`} aria-labelledby="drip-awards-title">
         <div className={styles.featureBody}>
           <div className={styles.copy}>

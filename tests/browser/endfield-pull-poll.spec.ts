@@ -5,6 +5,10 @@ import { defaultPollSettings, publicPoll, type PollSettings } from '../../lib/po
 for (const theme of ['dark','light']) test(`unhide Endfield and submit artwork picks (${theme})`, async ({page}) => {
   await page.addInitScript(theme => localStorage.setItem('theme', theme), theme);
   const settings = defaultPollSettings();
+  await page.addInitScript(() => {
+    localStorage.setItem('arkpedia.pull-poll.v1', '{"sentinel":{}}');
+    localStorage.setItem('arkpedia.pull-poll.sync.v1', '1');
+  });
   const url = '/polls/endfield-pull-or-skip';
   const ballot = {owner:null, revision:0, choices:{}};
   let reads = 0;
@@ -40,18 +44,28 @@ for (const theme of ['dark','light']) test(`unhide Endfield and submit artwork p
   await page.getByRole('region',{name:'Pull or Skip · Endfield'}).getByRole('link',{name:'Make your picks'}).click();
   const cards = page.getByRole('main').getByRole('article');
   await expect(cards).toHaveCount(9);
-  await expect(cards.locator('img')).toHaveCount(9);
+  await expect(cards.locator('a img')).toHaveCount(9);
+  await expect(cards.getByRole('heading')).toHaveCount(0);
+  await expect(cards.locator('.poll-portrait')).toHaveCount(0);
+  await expect(page.getByText('Lineup still classified')).toHaveCount(0);
+  await expect(page.getByRole('button',{name:'Import plan'})).toHaveCount(0);
   await expect(cards.first().getByRole('link')).toHaveAttribute('href', /name=orig$/);
   const pull = cards.first().getByRole('button',{name:'Pull',exact:true});
   await pull.focus();
   await pull.press('Enter');
   await expect(pull).toHaveAttribute('aria-pressed','true');
+  await expect(cards.first().locator('.poll-stamp')).toBeVisible();
+  await page.getByRole('button',{name:'Send it'}).click();
   await page.getByRole('button',{name:'Submit anonymously'}).click();
-  await expect(page.getByText('Picks saved.')).toBeVisible();
+  await page.getByRole('dialog',{name:'Successfully submitted'}).getByRole('button',{name:'Done'}).click();
+  expect(await page.evaluate(() => localStorage.getItem('arkpedia.pull-poll.v1'))).toBe('{"sentinel":{}}');
   await page.reload();
   await expect(pull).toHaveAttribute('aria-pressed','true');
   await page.getByRole('tab',{name:'Results'}).click();
-  await expect(page.getByText('1 ballot submitted')).toBeVisible();
+  await expect(page.getByText(/1 player has shared/)).toBeVisible();
+  await expect(cards.getByRole('heading')).toHaveCount(0);
+  await page.getByRole('button',{name:'Detailed',exact:true}).click();
+  await expect(cards.getByRole('heading')).toHaveCount(0);
   await expect(cards.first()).toContainText('100%');
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
 });

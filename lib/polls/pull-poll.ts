@@ -11,6 +11,8 @@ export type Ballot = Record<string, Record<string, Want>>;
 export interface PollBanner {
   id: string; name: string; aliases: string[]; start: string; end: string;
   endAt: string | null; estimated: boolean; image: string | null; operators: string[]; category?:string; limited?:boolean;
+  /** Standalone artwork in reveal order, without a banner timetable or operator lineup. */
+  artwork?: { description: string; original: string };
   /** Returning limited operators in the off-banner pool; selectable individually. */
   returningOperators?: string[];
   newOperators?: string[]; sixStars?: string[]; rerun?:boolean;
@@ -70,7 +72,7 @@ export type OwnedPotentials=Record<string,number>;
 export function constrainOwned(ballot:Ballot,owned:OwnedPotentials):Ballot {
   return Object.fromEntries(Object.entries(ballot).map(([id,choices])=>[id,Object.fromEntries(Object.entries(choices).map(([name,want])=>[name,want>0&&want<=(owned[name]??0)?(owned[name]>=6?0:owned[name]+1):want]))])) as Ballot;
 }
-export function activePollBanners(banners:readonly PollBanner[],now=Date.now()):PollBanner[]{return banners.filter(b=>Date.parse(b.endAt??`${b.end}T23:59:59-07:00`)>now);}
+export function activePollBanners(banners:readonly PollBanner[],now=Date.now()):PollBanner[]{return banners.filter(b=>b.artwork || Date.parse(b.endAt??`${b.end}T23:59:59-07:00`)>now);}
 /** Keep historical drafts usable when a banner leaves the current catalogue. */
 export function currentBallot(value:unknown,banners:readonly PollBanner[]):Ballot {
   if(!value||typeof value!=='object'||Array.isArray(value))return parseBallot(value,banners);
