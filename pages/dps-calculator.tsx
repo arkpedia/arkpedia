@@ -504,9 +504,12 @@ function DamageComparison({ profiles, dataSource, enemies = [] }: CalculatorProp
   const baselineId = builds.some(build => build.id === baselineChoice) ? baselineChoice! : builds[0]?.id;
   const enemyLevel = enemy?.levels.find(row => row.level === level);
   const enemyForm = enemyLevel?.forms?.find(form => form.id === formId);
-  const targetName = enemy
-    ? [enemy.name, enemy.code, 'Lv ' + level, enemyForm?.name].filter(Boolean).join(' · ')
-    : 'Custom target';
+  const enemyName = enemy ? [enemy.name, enemy.code, 'Lv ' + level].filter(Boolean).join(' · ') : 'Custom target';
+  const targetName = enemyForm ? enemyName + ' · ' + enemyForm.name : enemyName;
+  const marching = enemyLevel?.forms?.find(form => form.id === 'marching');
+  const ruination = enemyLevel?.forms?.find(form => form.id === 'ruination');
+  const patriotPreset = enemyLevel?.patriotTiming && marching && ruination
+    ? { name: enemyName, timing: enemyLevel.patriotTiming, marching, ruination } : undefined;
   const targetResults = useMemo(() => builds.map(build => calculate(build, target)), [builds, target]);
   const hasDamageSource = targetResults.some(result => result.hps === null || result.damage > 0);
   const openingResults = useMemo(() => target.burst === 'None'
@@ -717,6 +720,7 @@ function DamageComparison({ profiles, dataSource, enemies = [] }: CalculatorProp
                   timelineRef={timelineRef}
                   targetName={targetName}
                   targetNote={enemyLevel?.defenseNote}
+                  patriotPreset={patriotPreset}
                   builds={builds}
                   target={target}
                   baselineId={baselineId}

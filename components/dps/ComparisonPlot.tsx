@@ -17,7 +17,7 @@ import {
 import { firstBurst } from '@/lib/dps/breakpoints';
 import { chartControls, type ChartMetric as Metric, type DefenseAxis } from '@/lib/dps/controls';
 import { damageBasis, dpsLabel, sharedDamageBasis } from '@/lib/dps/damageLabels';
-import { damageAtTime, damageTimeline } from '@/lib/dps/damageTimeline';
+import { damageAtTime, damageTimeline, fullFightDamageTimeline, patriotDamagePhases, type PatriotTimelinePreset } from '@/lib/dps/damageTimeline';
 import { renderComparisonImage, type ImageView } from '@/lib/dps/comparisonImage';
 import DamageTimelinePlot from './DamageTimelinePlot';
 import css from './Dps.module.css';
@@ -56,6 +56,7 @@ const chartViews = [
   { value: 'damage-time', label: 'Timeline' },
   { value: 'timeline', label: 'Elemental burst' },
 ] as const;
+const timelineLengths = [15, 30, 45, 60, 90, 120];
 type View = (typeof chartViews)[number]['value'];
 const labels: Record<DefenseAxis, string> = {
   def: 'DEF',
@@ -119,6 +120,7 @@ export default function ComparisonPlot({
   target,
   targetName,
   targetNote,
+  patriotPreset,
   timelineRef,
   baselineId,
 }: {
@@ -126,6 +128,7 @@ export default function ComparisonPlot({
   target: Target;
   targetName: string;
   targetNote?: string;
+  patriotPreset?: PatriotTimelinePreset;
   timelineRef: RefObject<HTMLTableElement | null>;
   baselineId?: number;
 }) {
@@ -241,19 +244,45 @@ export default function ComparisonPlot({
   const X = (x: number) => 62 + (x / range) * plotWidth,
     Y = (y: number) => 218 - ((y - min) / span) * 180;
   const chart = useRef<SVGSVGElement>(null);
-  const [duration, setDuration] = useState(45);
+  const [fixedDuration, setFixedDuration] = useState(45);
+  const [fightDuration, setFightDuration] = useState(120);
+  const [fightMode, setFightMode] = useState('fixed');
+  const [marchingEnds, setMarchingEnds] = useState(20);
   const [activationTime, setActivationTime] = useState(5);
   const [inspectedTime, setInspectedTime] = useState(5);
+  const fullFight = showingDamageTime && fightMode === 'full' ? patriotPreset : undefined;
+  const phases = useMemo(() => fullFight ? patriotDamagePhases(fullFight, target, marchingEnds) : [],
+    [fullFight, target, marchingEnds]);
+  const damageResumes = phases.at(-1)?.start ?? 0;
+  const ruinationStarts = phases[2]?.start ?? 0;
+  const lengthOptions = fullFight
+    ? [...timelineLengths, 180, 240, Math.max(300, Math.ceil((damageResumes + 15) / 60) * 60)]
+      .filter(length => length >= damageResumes + 15)
+    : timelineLengths;
+  const duration = fullFight ? Math.max(lengthOptions[0], fightDuration) : fixedDuration;
   const activation = Math.min(duration - 1, activationTime);
   const time = Math.min(duration, inspectedTime);
+  const inspectedPhase = phases.filter(phase => phase.start <= time).at(-1);
+  const phaseSummary = fullFight
+    ? `Marching 0–${fmt(marchingEnds)} s · Revival ${fmt(marchingEnds)}–${fmt(ruinationStarts)} s · Ruination from ${fmt(ruinationStarts)} s`
+    : undefined;
+  const phaseDescription = inspectedPhase && [
+    inspectedPhase.name,
+    ...(inspectedPhase.name === 'Revival' ? [] : [
+      fmt(inspectedPhase.target.def) + ' DEF',
+      fmt(inspectedPhase.target.res) + ' RES',
+    ]),
+    ...(inspectedPhase.invulnerable ? ['Invulnerable'] : []),
+  ].join(' · ');
+  const damageTargetName = fullFight ? fullFight.name + ' · Full fight' : targetName;
   const damageModels = useMemo(() => showingDamageTime
-    ? builds.map((b, i) => damageTimeline(b, target, results[i]))
-    : [], [showingDamageTime, builds, target, results]);
+    ? builds.map((b, i) => phases.length ? fullFightDamageTimeline(b, phases) : damageTimeline(b, target, results[i]))
+    : [], [showingDamageTime, builds, target, results, phases]);
   const damageRows = damageModels.map((timeline, i) => {
     const sample = timeline && damageAtTime(timeline, time, activation);
     let value = 'Timeline unavailable';
     if (timeline && sample) {
-      const phase = (sample.openingDamage && timeline.opening?.label) || (
+      const phase = sample.invulnerable ? 'Target invulnerable' : (sample.openingDamage && timeline.opening?.label) || (
         sample.skillActive ? 'Skill active' : sample.retreated ? 'Retreated'
           : timeline.attackDps > 0 ? 'Normal attacks' : 'Skill inactive'
       );
@@ -262,12 +291,14 @@ export default function ComparisonPlot({
     const details = [];
     if (timeline?.skill) {
       const { duration: length, dps } = timeline.skill;
-      details.push(`Skill DPS ${fmt(dps)} · ${fmt(activation)}–${fmt(activation + length)} s (${fmt(length)} s)`);
+      const label = fullFight ? 'Skill active' : 'Skill DPS ' + fmt(dps);
+      details.push(`${label} · ${fmt(activation)}–${fmt(activation + length)} s (${fmt(length)} s)`);
     }
     if (timeline?.opening) {
-      details.push(`${timeline.opening.label} at ${fmt(activation)} s · ${fmt(timeline.opening.damage)} damage`);
+      const opening = damageAtTime(timeline, activation, activation);
+      details.push(`${timeline.opening.label} at ${fmt(activation)} s · ${fmt(opening.openingDamage)} damage${opening.invulnerable ? ' (invulnerable)' : ''}`);
     }
-    if (timeline?.attackDps && (timeline.skill || timeline.opening)) {
+    if (!fullFight && timeline?.attackDps && (timeline.skill || timeline.opening)) {
       details.push(`Attack DPS ${fmt(timeline.attackDps)}`);
     }
     return { id: builds[i].id, color: color(i), timeline, value, details };
@@ -291,9 +322,10 @@ export default function ComparisonPlot({
       const blob = await renderComparisonImage({
         view: imageView,
         svg: chart.current,
-        target,
-        targetName: scenarioName,
-        targetNote: showingHealing ? undefined : targetNote,
+        target: inspectedPhase?.target ?? target,
+        targetName: showingDamageTime ? damageTargetName : scenarioName,
+        targetNote: phaseSummary ? `${phaseSummary} · Damage resumes at ${fmt(damageResumes)} s. Probe phase · ${phaseDescription}`
+          : showingHealing ? undefined : targetNote,
         healingView: showingHealing,
         metric: showingDamageTime ? 'Damage timeline' : view === 'timeline' ? 'Elemental burst' : metrics[metric],
         probe: showingDamageTime ? fmt(time) + ' s' : view === 'curve' ? labels[axis] + ' ' + fmt(probe) : 'Selected target',
@@ -329,9 +361,22 @@ export default function ComparisonPlot({
             <>
               <div className={css.heading}>
                 <div className={css.controls}>
-                  <Pick label="Chart length" value={duration} options={[15, 30, 45, 60, 90, 120].map(s => ({
+                  {patriotPreset && <Pick label="Patriot fight" value={fightMode}
+                    options={[{ value: 'fixed', label: 'Selected form' }, { value: 'full', label: 'Full fight' }]}
+                    change={setFightMode} />}
+                  {fullFight && (
+                    <label className={css.field}>
+                      Marching ends (s)
+                      <input type="number" min={0} max={120} step={0.1} value={marchingEnds}
+                        onChange={event => {
+                          const value = event.currentTarget.valueAsNumber;
+                          setMarchingEnds(Number.isFinite(value) ? Math.min(120, Math.max(0, Math.round(value * 10) / 10)) : 0);
+                        }} />
+                    </label>
+                  )}
+                  <Pick label="Chart length" value={duration} options={lengthOptions.map(s => ({
                     value: String(s), label: s + ' s',
-                  }))} change={value => setDuration(Number(value))} />
+                  }))} change={value => (fullFight ? setFightDuration : setFixedDuration)(Number(value))} />
                   {damageRows.some(row => row.timeline?.skill || row.timeline?.opening) && (
                     <label className={css.field}>
                       Activate skill at (s)
@@ -346,12 +391,16 @@ export default function ComparisonPlot({
                   )}
                 </div>
               </div>
+              {phaseSummary && <small aria-label="Patriot phase times">
+                {phaseSummary} · Damage resumes at {fmt(damageResumes)} s
+              </small>}
               <DamageTimelinePlot rows={damageRows} activation={activation} duration={duration}
-                time={time} inspect={setInspectedTime} width={chartWidth} chart={chart} />
+                time={time} inspect={setInspectedTime} width={chartWidth} chart={chart} phases={phases} />
             </>
           )}
           <div className={css.targetResults} role="group" aria-label="Damage timeline results">
-            <small>{targetName}{hasDamageTimeline && ' · ' + fmt(time) + ' s'}</small>
+            <small>{damageTargetName}{hasDamageTimeline && ' · ' + fmt(time) + ' s'}</small>
+            {phaseDescription && <small>{phaseDescription}</small>}
             {damageRows.map((row, i) => (
               <div key={row.id}>
                 <span style={{ borderColor: row.color }}>#{i + 1} {names[i]}</span>

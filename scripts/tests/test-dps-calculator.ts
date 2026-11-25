@@ -14,7 +14,7 @@ import { firstBurst, fallout } from '../../lib/dps/breakpoints';
 import { elements } from '../../lib/dps/sources';
 import { chartControls, targetControls } from '../../lib/dps/controls';
 import { damageBasis, dpsLabel } from '../../lib/dps/damageLabels';
-import { damageAtTime, damageTimeline } from '../../lib/dps/damageTimeline';
+import { damageAtTime, damageTimeline, fullFightDamageTimeline, patriotDamagePhases } from '../../lib/dps/damageTimeline';
 import { hpAt, patriotAttack, patriotFight, simulateSurvival, type Defense } from '../../lib/dps/survival';
 import type { PatriotStances } from '../../lib/dps/survivalRoster';
 const profiles = archive.operators as unknown as Profile[];
@@ -50,6 +50,33 @@ test('damage timelines use RES for Arts, handle retreat and omit healing or unkn
   assert.equal(damageAtTime(chimera, 35, 5).dps, 0);
   assert.equal(damageTimeline(createBuild('susuro', 2), initialTarget), null);
   assert.equal(damageTimeline(createBuild('blaze2', 3), initialTarget), null);
+});
+
+test('Patriot’s damage timeline switches defenses and blocks damage without resetting the skill clock', () => {
+  const preset = {
+    name: 'Patriot', timing: { revivalDuration: 60, ruinationInvulnerability: 15 },
+    marching: { def: 2100, res: 90 }, ruination: { def: 700, res: 45 },
+  };
+  const phases = patriotDamagePhases(preset, initialTarget, 12.1);
+  assert.deepEqual(phases.map(phase => [phase.start, phase.name, phase.invulnerable]), [
+    [0, 'Marching', false], [12.1, 'Revival', true], [72.1, 'Ruination', true], [87.1, 'Ruination', false],
+  ]);
+  const ulpianus = fullFightDamageTimeline(createBuild('ulpia', 1), phases)!;
+  near(damageAtTime(ulpianus, 5, 5).openingDamage, 7398.24);
+  near(damageAtTime(ulpianus, 12, 5).dps, 1534.56);
+  assert.equal(damageAtTime(ulpianus, 12.1, 5).dps, 0);
+  assert.equal(damageAtTime(ulpianus, 72.1, 5).dps, 0);
+  near(damageAtTime(ulpianus, 87.1, 5).dps, 379.6);
+  near(damageAtTime(ulpianus, 87.1, 87.1).openingDamage, 8798.24);
+  const blocked = damageAtTime(ulpianus, 87.1, 86.9);
+  near(blocked.dps, 2094.56);
+  assert.equal(blocked.openingDamage, 0);
+  assert.equal(blocked.skillActive, true);
+
+  const amiya = { ...createBuild('amiya', 2), skill: 1 };
+  const arts = fullFightDamageTimeline(amiya, phases)!;
+  near(damageAtTime(arts, 5, 5).dps, calculate(amiya, phases[0].target).dps!);
+  near(damageAtTime(arts, 87.1, 87.1).dps, calculate(amiya, phases[3].target).dps!);
 });
 
 test('survival uses the damage type and resolves a lethal hit before a simultaneous heal', () => {
@@ -488,6 +515,8 @@ test('archived enemy targets use the combat rank and inherit per-level defenses'
     ?.map(form => [form.name, form.def, form.res]);
   for (const level of [0, 1]) {
     assert.deepEqual(defenses(level, 'enemy_1506_patrt'), [['Marching', 2100, 90], ['Ruination', 700, 45]]);
+    assert.deepEqual(levels('enemy_1506_patrt').find(row => row.level === level)?.patriotTiming,
+      { revivalDuration: 60, ruinationInvulnerability: 15 });
   }
   assert.deepEqual(defenses(0, 'enemy_1533_stmkgt'), [['First form', 2000, 40], ['Second form', 500, 0]]);
   assert.deepEqual(defenses(1, 'enemy_1533_stmkgt'), [['First form', 2400, 40], ['Second form', 400, 0]]);

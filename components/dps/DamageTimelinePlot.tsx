@@ -1,5 +1,5 @@
 import type { CSSProperties, RefObject } from 'react';
-import { damageAtTime, type DamageTimeline } from '@/lib/dps/damageTimeline';
+import { damageAtTime, type DamageTargetPhase, type DamageTimeline } from '@/lib/dps/damageTimeline';
 import css from './Dps.module.css';
 
 const formatTick = new Intl.NumberFormat('en-US', { maximumFractionDigits: 1 });
@@ -12,6 +12,7 @@ export default function DamageTimelinePlot({
   inspect,
   width,
   chart,
+  phases,
 }: {
   rows: { id: number; timeline: DamageTimeline | null; color: string }[];
   activation: number;
@@ -20,6 +21,7 @@ export default function DamageTimelinePlot({
   inspect: (time: number) => void;
   width: number;
   chart: RefObject<SVGSVGElement | null>;
+  phases: DamageTargetPhase[];
 }) {
   const left = 62;
   const right = width - 30;
@@ -29,6 +31,9 @@ export default function DamageTimelinePlot({
   const plotted = rows.flatMap(({ id, timeline, color }, index) => {
     if (!timeline) return [];
     const times = new Set([0, duration]);
+    for (const phase of phases) {
+      if (phase.start <= duration) times.add(phase.start);
+    }
     if (activation <= duration && (timeline.skill || timeline.opening)) {
       times.add(activation);
       if (timeline.skill) times.add(Math.min(duration, activation + timeline.skill.duration));
@@ -43,6 +48,8 @@ export default function DamageTimelinePlot({
   const y = (dps: number) => bottom - (dps / max) * (bottom - top);
   const skillDurations = new Set(rows.flatMap(row => row.timeline ? [row.timeline.skill?.duration ?? 0] : []));
   const skillDuration = skillDurations.size === 1 ? [...skillDurations][0] : 0;
+  const namedPhases = phases.filter((phase, i) => phase.name !== phases[i - 1]?.name);
+  const inspectedPhase = namedPhases.filter(phase => phase.start <= time).at(-1);
 
   return (
     <div className={css.curveFrame}
@@ -63,11 +70,16 @@ export default function DamageTimelinePlot({
           const position = point.matrixTransform(matrix.inverse());
           inspect(Math.max(0, Math.min(duration, Math.round(((position.x - left) / (right - left)) * duration * 10) / 10)));
         }}>
-        <text x={left} y="19">DPS</text>
+        <text x={namedPhases.length ? 12 : left} y="19">DPS</text>
         {skillDuration > 0 && activation < duration && (
           <rect x={x(activation)} y={top} width={x(Math.min(duration, activation + skillDuration)) - x(activation)}
             height={bottom - top} fill="var(--teal)" fillOpacity=".1" />
         )}
+        {phases.map((phase, index) => phase.invulnerable && phase.start < duration && (
+          <rect key={phase.name} x={x(phase.start)} y={top}
+            width={x(Math.min(duration, phases[index + 1]?.start ?? duration)) - x(phase.start)}
+            height={bottom - top} fill="var(--text-faint)" fillOpacity=".15" />
+        ))}
         {[0, 1, 2, 3, 4].map(i => (
           <g key={i}>
             <line x1={left} x2={right} y1={y(max * i / 4)} y2={y(max * i / 4)} />
@@ -78,6 +90,15 @@ export default function DamageTimelinePlot({
           <text key={s} x={x(s)} y="237" textAnchor="middle">{formatTick.format(s)}</text>
         ))}
         <text x={(left + right) / 2} y="256" textAnchor="middle">Time (s)</text>
+        {namedPhases.map((phase, index) => {
+          if (phase.start >= duration) return null;
+          const finish = Math.min(duration, namedPhases[index + 1]?.start ?? duration);
+          const phaseWidth = x(finish) - x(phase.start);
+          return <g key={phase.name}>
+            {index > 0 && <line x1={x(phase.start)} x2={x(phase.start)} y1={top} y2={bottom} style={{ stroke: 'var(--text-faint)' }} />}
+            {phaseWidth >= 68 && <text x={x(phase.start) + phaseWidth / 2} y="19" textAnchor="middle">{phase.name}</text>}
+          </g>;
+        })}
         <line className={css.cursor} x1={x(time)} x2={x(time)} y1={top} y2={bottom} />
         {plotted.map(({ id, color, index, points, cursor }) => (
           <g key={id}>
@@ -89,7 +110,8 @@ export default function DamageTimelinePlot({
         ))}
       </svg>
       <label className={css.probe}>
-        <input type="range" aria-label="Inspect time" aria-valuetext={formatTick.format(time) + ' seconds'}
+        <input type="range" aria-label="Inspect time" aria-valuetext={formatTick.format(time) + ' seconds'
+            + (inspectedPhase ? ', ' + inspectedPhase.name : '')}
           min={0} max={duration} step={0.1} value={time} onChange={event => inspect(event.currentTarget.valueAsNumber)} />
         <output>{formatTick.format(time)} s</output>
       </label>

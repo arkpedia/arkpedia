@@ -5,6 +5,10 @@ export interface EnemyDefenseForm extends Defenses {
   id: string;
   name: string;
 }
+export interface PatriotDefenseTiming {
+  revivalDuration: number;
+  ruinationInvulnerability: number;
+}
 
 type Rule = {
   baseName: string;
@@ -173,12 +177,18 @@ export function enemyDefenseForms(id: string, base: Defenses, talents: ReadonlyM
     const marchingRes = talents.get('shield.magic_resistance');
     const ruinationDef = talents.get('immo_trigger[rage].def');
     if (commandDef === undefined || marchingDef === undefined || marchingRes === undefined || ruinationDef === undefined) return;
+    const revivalDuration = talents.get('reborn.duration');
+    const ruinationInvulnerability = talents.get('reborn.patrt_t_state_2[reborn_invincible].duration');
+    const patriotTiming = revivalDuration !== undefined && revivalDuration > 0
+      && ruinationInvulnerability !== undefined && ruinationInvulnerability >= 0
+      ? { revivalDuration, ruinationInvulnerability } : undefined;
     return {
       forms: [
         { id: 'marching', name: 'Marching', def: (base.def + commandDef) * (1 + marchingDef), res: base.res * (1 + marchingRes) },
         { id: 'ruination', name: 'Ruination', def: base.def + ruinationDef, res: base.res },
       ],
       note: 'Ruination uses the defenses after its opening invulnerability.',
+      patriotTiming,
     };
   }
 

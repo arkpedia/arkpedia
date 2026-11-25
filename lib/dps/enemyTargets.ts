@@ -1,5 +1,5 @@
 import type { Target } from './calculator';
-import { enemyDefenseForms, type EnemyDefenseForm } from './enemyDefenseForms';
+import { enemyDefenseForms, type EnemyDefenseForm, type PatriotDefenseTiming } from './enemyDefenseForms';
 import { readDataTable } from '../content/dataTable';
 import { getEnemyBundles } from '../enemies/enemies';
 
@@ -24,6 +24,7 @@ export interface EnemyPreset {
 export type EnemyLevel = Pick<Target, 'tier' | 'def' | 'res' | 'elementalRes' | 'injuryRes'> & {
   level: number;
   forms?: EnemyDefenseForm[];
+  patriotTiming?: PatriotDefenseTiming;
   defenseNote?: string;
 };
 const ranks = { NORMAL: 'Grunt', ELITE: 'Elite', BOSS: 'Boss' } as const;
@@ -72,6 +73,7 @@ export function enemyTargets(): EnemyPreset[] {
               elementalRes: attr('epDamageResistance'),
               injuryRes: attr('epResistance'),
               ...(reviewed && { forms: reviewed.forms }),
+              ...(reviewed?.patriotTiming && { patriotTiming: reviewed.patriotTiming }),
               ...(defenseNote && { defenseNote }),
             };
           })

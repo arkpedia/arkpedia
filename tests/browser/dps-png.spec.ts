@@ -76,6 +76,46 @@ test('applies selectable RES states for other enemies and identifies base-only r
   await expect(page.getByText('Only base defenses are available.', { exact: false })).toBeVisible();
 });
 
+test('shows Patriot’s full fight on the damage timeline with invulnerability and phase defenses', async ({ page }) => {
+  await page.goto('/dps-calculator');
+  await page.getByRole('combobox', { name: 'Add operator', exact: true }).fill('Ulpianus');
+  await page.getByRole('option', { name: 'Ulpianus', exact: true }).click();
+  await page.getByRole('combobox', { name: 'Find enemy', exact: true }).fill('Patriot');
+  await page.getByRole('option', { name: /^Patriot PT/ }).first().click();
+  await page.getByRole('button', { name: 'Timeline', exact: true }).click();
+  const fight = page.getByRole('combobox', { name: 'Patriot fight', exact: true });
+  await fight.click();
+  await page.getByRole('option', { name: 'Full fight', exact: true }).click();
+  const marching = page.getByRole('spinbutton', { name: 'Marching ends (s)', exact: true });
+  await marching.fill('12');
+  await expect(page.getByText('Marching 0–12 s · Revival 12–72 s · Ruination from 72 s · Damage resumes at 87 s')).toBeVisible();
+  const results = page.getByRole('group', { name: 'Damage timeline results' });
+  await expect(results).toContainText('Marching · 2,100 DEF · 90 RES');
+  await expect(results).toContainText('7,398.24 damage');
+  const time = page.getByRole('slider', { name: 'Inspect time', exact: true });
+  await time.fill('12');
+  await expect(results).toContainText('Revival · Invulnerable');
+  await expect(results).toContainText('0 DPS · Target invulnerable');
+  await time.fill('72');
+  await expect(results).toContainText('Ruination · 700 DEF · 45 RES · Invulnerable');
+  await expect(results).toContainText('0 DPS · Target invulnerable');
+  await time.fill('87');
+  await expect(results).toContainText('379.6 DPS · Normal attacks');
+  await page.getByRole('spinbutton', { name: 'Activate skill at (s)', exact: true }).fill('86');
+  await expect(results).toContainText('Anchor throw at 86 s · 0 damage (invulnerable)');
+  await time.fill('87');
+  await expect(results).toContainText('2,094.56 DPS · Skill active');
+  await marching.fill('120');
+  await expect(time).toHaveAttribute('max', '240');
+  await page.getByRole('button', { name: 'Detailed PNG', exact: true }).click();
+  await expect(page.getByRole('dialog', { name: 'Detailed PNG preview' }).getByRole('img')).toBeVisible();
+  await page.getByRole('dialog').press('Escape');
+  await fight.click();
+  await page.getByRole('option', { name: 'Selected form', exact: true }).click();
+  await expect(marching).toHaveCount(0);
+  await expect(time).toHaveAttribute('max', '45');
+});
+
 test('downloads the zoomed comparison as condensed and detailed PNGs', async ({ page }, info) => {
   await page.goto('/dps-calculator');
   const empty = page.getByText('Add an operator to compare damage or healing.');
