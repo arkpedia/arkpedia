@@ -518,7 +518,7 @@ button.event-banner-extra:focus-visible > .event-banner-extra-name { color: var(
 .event-pack-detail-image { display: block; width: 200px; height: 150px; object-fit: contain; margin: 0 auto 12px; border-radius: var(--radius); }
 .event-pack-detail-promo { width: 100%; max-width: 650px; height: auto; }
 .event-standalone-background-preview { width: min(100%, 420px); }
-.event-standalone-background-preview > .hint { margin: 0; }
+.event-standalone-background-preview > p { margin: 0; }
 .event-standalone-background-preview .event-pack-preview-trigger { margin: 0 0 8px; }
 .event-pack-preview-trigger {
   position: relative;
