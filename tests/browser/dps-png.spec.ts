@@ -292,3 +292,96 @@ test('compares direct healing and regeneration per ally', async ({ page }) => {
   await expect(page.getByRole('heading', { name: 'Healing comparison' })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
 });
+
+test('plots enemy damage and healing against an operator over time', async ({ page }) => {
+  await page.goto('/dps-calculator');
+  const survival = page.getByRole('tab', { name: 'Survival' });
+  const comparison = page.getByRole('tab', { name: 'Damage & healing' });
+  await comparison.focus();
+  await comparison.press('ArrowRight');
+  await expect(survival).toHaveAttribute('aria-selected', 'true');
+  const pick = async (label: string, text: string, option: RegExp) => {
+    await page.getByRole('combobox', { name: label, exact: true }).fill(text);
+    await page.getByRole('option', { name: option }).click();
+  };
+  await pick('Choose enemy', 'Caster', /^Caster A3$/);
+  await pick('Choose defender', 'Cuora', /^Cuora$/);
+  await page.getByText('Defender settings', { exact: true }).click();
+  await page.getByRole('spinbutton', { name: 'Max HP', exact: true }).fill('300');
+  await expect(page.getByRole('img', { name: 'Operator HP over time' })).toBeVisible();
+  await expect(page.getByText('Defeated at 8 s', { exact: true })).toBeVisible();
+  await expect(page.getByText(/50 DPS after defenses/)).toBeVisible();
+  await pick('Add healer', 'Haruka', /^Haruka$/);
+  await expect(page.getByText('Survives 30 s', { exact: true })).toBeVisible();
+  const probe = page.getByRole('slider', { name: 'Inspect time' });
+  await probe.fill('10');
+  const health = page.getByRole('group', { name: 'HP at inspected time' });
+  await expect(health).toContainText('With healing300 HP');
+  await expect(health).toContainText('Without healing0 HP');
+  await page.getByText('Edit healer', { exact: true }).click();
+  await page.getByRole('spinbutton', { name: 'Skill start for Haruka (seconds)' }).fill('10');
+  await expect(page.getByText('Defeated at 8 s', { exact: true })).toHaveCount(2);
+  await page.getByRole('button', { name: 'Remove Haruka', exact: true }).click();
+  await expect(health).not.toContainText('Without healing');
+  await comparison.click();
+  await expect(page.getByRole('combobox', { name: 'Add operator', exact: true })).toBeVisible();
+  await survival.click();
+  await expect(page.getByText('Defeated at 8 s', { exact: true })).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+});
+
+test('compares Faust’s special bolt with and without Cuora’s Shell Defense', async ({ page }) => {
+  await page.goto('/dps-calculator');
+  await page.getByRole('tab', { name: 'Survival' }).click();
+  await page.getByRole('combobox', { name: 'Choose enemy' }).fill('Faust');
+  await page.getByRole('option', { name: /^Faust FA$/ }).click();
+  await page.getByRole('combobox', { name: 'Choose defender' }).fill('Cuora');
+  await page.getByRole('option', { name: 'Cuora', exact: true }).click();
+  await page.getByText('Defender settings', { exact: true }).click();
+  await page.getByRole('spinbutton', { name: 'Max HP', exact: true }).fill('1000');
+  await page.getByText('Defender settings', { exact: true }).click();
+  await expect(page.getByText('Defeated at 20 s', { exact: true })).toBeVisible();
+  await expect(page.getByText('Special bolt at 20 s', { exact: false }).last()).toBeVisible();
+
+  await page.getByRole('combobox', { name: 'Enemy skill', exact: true }).click();
+  await page.getByRole('option', { name: 'Basic attacks only', exact: true }).click();
+  await expect(page.getByText('Defeated at 25 s', { exact: true })).toBeVisible();
+  await page.getByRole('combobox', { name: 'Enemy skill', exact: true }).click();
+  await page.getByRole('option', { name: 'Special bolt', exact: true }).click();
+  await page.getByRole('combobox', { name: 'Defender skill', exact: true }).click();
+  await page.getByRole('option', { name: /Shell Defense/ }).click();
+  await expect(page.getByText('Survives 30 s', { exact: true })).toBeVisible();
+  await expect(page.getByText(/Special bolt at 20 s · 240\.5 damage/)).toBeVisible();
+  await page.getByRole('spinbutton', { name: 'Defender skill start (seconds)' }).fill('22');
+  await expect(page.getByText('Defeated at 20 s', { exact: true })).toBeVisible();
+});
+
+test('models Patriot’s stances and Haruka’s full activation sequence', async ({ page }) => {
+  await page.goto('/dps-calculator');
+  await page.getByRole('tab', { name: 'Survival' }).click();
+  const pick = async (label: string, option: RegExp, query?: string) => {
+    const input = page.getByRole('combobox', { name: label, exact: true });
+    if (query) await input.fill(query); else await input.click();
+    await page.getByRole('option', { name: option }).click();
+  };
+  await pick('Choose enemy', /^Patriot PT$/, 'Patriot');
+  await pick('Choose defender', /^Cuora$/, 'Cuora');
+  await expect(page.getByRole('combobox', { name: 'Patriot stance' })).toContainText('Marching Stance');
+  await expect(page.getByText(/1,955 damage per hit · 4 hits per attack/)).toBeVisible();
+  await pick('Patriot stance', /^Ruination Stance$/);
+  await expect(page.getByText(/True damage aura · 100\.03 damage every 0\.8 s/)).toBeVisible();
+  await pick('Defender position', /^High ground outside aura$/);
+  await expect(page.getByText(/Spear throw at 18 s · 1,827 damage/)).toBeVisible();
+  await expect(page.getByText(/True damage aura ·/)).toHaveCount(0);
+  await pick('Defender position', /^High ground in aura$/);
+  await expect(page.getByText(/True damage aura ·/)).toBeVisible();
+  await pick('Add healer', /^Haruka$/, 'Haruka');
+  await page.getByText('Edit healer', { exact: true }).click();
+  await pick('Haruka skill timing', /^From deployment$/);
+  const planned = page.getByRole('group', { name: 'Planned healer activations' });
+  await expect(planned).toContainText('Haruka · 17–43 s, 60 s (permanent)');
+  await expect(page.getByRole('combobox', { name: 'Skill activation', exact: true })).toHaveCount(0);
+  await pick('Time window', /^90 s$/);
+  await expect(page.getByRole('slider', { name: 'Inspect time' })).toHaveAttribute('max', '90');
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+});

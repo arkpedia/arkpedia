@@ -14,11 +14,132 @@ import { firstBurst, fallout } from '../../lib/dps/breakpoints';
 import { elements } from '../../lib/dps/sources';
 import { chartControls, targetControls } from '../../lib/dps/controls';
 import { damageBasis, dpsLabel } from '../../lib/dps/damageLabels';
+import { hpAt, patriotAttack, simulateSurvival, type Defense } from '../../lib/dps/survival';
+import type { PatriotStances } from '../../lib/dps/survivalRoster';
 const profiles = archive.operators as unknown as Profile[];
 const createBuild = (id: string, number: number) =>
   buildFromProfile(profiles.find((p) => p.id === id)!, number);
 const dummy = { ...initialTarget, def: 0, res: 0 };
 const near = (a: number, b: number) => assert.ok(Math.abs(a - b) < 0.00001, a + ' vs ' + b);
+
+test('survival uses the damage type and resolves a lethal hit before a simultaneous heal', () => {
+  const defender: Defense = { hp: 350, def: 240, res: 25, dp: 10, blocksDirectHealing: false };
+  const sussurro = { ...createBuild('susuro', 1), skill: 0 };
+  const interval = calculate(sussurro, dummy).attackInterval;
+  const attack = { atk: 480, interval, type: 'Arts' } as const;
+  const arts = simulateSurvival(attack, defender, [{ build: sussurro, delay: 0 }], 15);
+  near(arts.hitDamage, 360);
+  near(arts.healed.defeatedAt!, interval);
+  assert.equal(arts.healed.finalHp, 0);
+  const physical = simulateSurvival({ ...attack, type: 'Physical' }, defender, [{ build: sussurro, delay: 0 }], 15);
+  near(physical.hitDamage, 240);
+  assert.equal(physical.healed.defeatedAt, null);
+  assert.equal(physical.healed.lowest, 110);
+  assert.equal(physical.healed.finalHp, 350);
+  near(physical.alone.defeatedAt!, 2 * interval);
+});
+
+test('survival respects Haruka’s finite first cast, permanent later cast and activation delay', () => {
+  const defender: Defense = { hp: 600, def: 0, res: 0, dp: 18, blocksDirectHealing: false };
+  const attack = { atk: 200, interval: 2, type: 'Physical' } as const;
+  const haruka = createBuild('haruka', 1);
+  const first = simulateSurvival(attack, defender, [{ build: { ...haruka, firstHealingCast: true }, delay: 0 }], 40);
+  assert.equal(first.alone.defeatedAt, 6);
+  assert.equal(first.healed.defeatedAt, 30);
+  const later = simulateSurvival(attack, defender, [{ build: haruka, delay: 0 }], 40);
+  assert.equal(later.healed.defeatedAt, null);
+  assert.equal(later.healed.finalHp, 600);
+  const late = simulateSurvival(attack, defender, [{ build: haruka, delay: 10 }], 40);
+  assert.equal(late.healed.defeatedAt, 6);
+});
+
+test('regeneration offsets damage between hits even when the defender rejects direct heals', () => {
+  const defender: Defense = { hp: 500, def: 0, res: 25, dp: 18, blocksDirectHealing: true };
+  const skadi = { build: createBuild('skadi2', 1), delay: 0 };
+  const haruka = { build: createBuild('haruka', 2), delay: 0 };
+  const attack = { atk: 600, interval: 2, type: 'Arts' } as const;
+  const result = simulateSurvival(attack, defender, [skadi, haruka], 15);
+  near(hpAt(result.healed.points, 3), 138.616);
+  near(hpAt(result.alone.points, 3), 50);
+  assert.deepEqual(result.healed, simulateSurvival(attack, defender, [skadi], 15).healed);
+  assert.equal(result.healed.defeatedAt, 4);
+});
+
+test('Faust replaces a basic shot after cooldown and Corrupted Knight pauses attacks to charge', () => {
+  const defender: Defense = { hp: 4000, def: 500, res: 0, dp: 18, blocksDirectHealing: false };
+  const attack = { atk: 1000, interval: 5, type: 'Physical' } as const;
+  const bolt = simulateSurvival({ ...attack, abilities: [{
+    name: 'Special bolt', type: 'Physical', scale: 2, firstReady: 17, cooldown: 17, delay: 0, mode: 'next-hit',
+  }] }, defender, [], 45);
+  assert.deepEqual(bolt.abilityHits.map(hit => hit.time), [20, 40]);
+  assert.equal(hpAt(bolt.alone.points, 20), 1000);
+  const charge = simulateSurvival({ ...attack, interval: 4, abilities: [{
+    name: 'Charged attack', type: 'Physical', scale: 3, firstReady: 22, cooldown: 22, delay: 4, mode: 'charge',
+  }] }, { ...defender, hp: 6000 }, [], 30);
+  assert.equal(hpAt(charge.alone.points, 24), 3500);
+  assert.equal(hpAt(charge.alone.points, 26), 1000);
+});
+
+test('defender skills change mitigation, HP cap and self-healing within their active window', () => {
+  const defender: Defense = { hp: 1000, def: 100, res: 25, dp: 18, blocksDirectHealing: false };
+  const cold = simulateSurvival({ atk: 400, interval: 5, type: 'Arts' }, defender, [], 15, {
+    name: 'Cold Resistance', hp: 0.5, res: 1, duration: 5, start: 6,
+  });
+  near(hpAt(cold.alone.points, 6), 1050);
+  near(hpAt(cold.alone.points, 10), 850);
+  near(hpAt(cold.alone.points, 11), 850 / 1.5);
+  assert.equal(cold.peakHp, 1500);
+  assert.equal(cold.finalMaxHp, 1000);
+  const shell = simulateSurvival({ atk: 200, interval: 4, type: 'Physical' }, defender, [], 12, {
+    name: 'Shell Defense', def: 1.3, regenerationRatio: 0.03, duration: 8, start: 0,
+  });
+  near(hpAt(shell.alone.points, 4), 990);
+  near(hpAt(shell.alone.points, 5), 1000);
+  near(hpAt(shell.alone.points, 8), 900);
+});
+
+test('Patriot mitigates each Marching hit and uses the Ruination attack pattern selected by position', () => {
+  const patriot: PatriotStances = {
+    marchingAtk: 2720, ruinationAtk: 1920, ruinationInterval: 3.6,
+    aura: { name: 'True damage aura', type: 'True', mode: 'aura', scale: 0.0521, firstReady: 0.8, cooldown: 0.8, delay: 0 },
+    spear: { name: 'Spear throw', type: 'Physical', mode: 'separate', scale: 1.35, firstReady: 15, cooldown: 20, delay: 3 },
+  };
+  const defense: Defense = { hp: 12000, def: 500, res: 60, dp: 20, blocksDirectHealing: false };
+  const marching = simulateSurvival(patriotAttack(patriot, 4, 'marching', 'melee'), defense, [], 30);
+  assert.equal(marching.basicHits, 4);
+  near(hpAt(marching.alone.points, 4), 12000 - 4 * (2720 - 500));
+  const melee = simulateSurvival(patriotAttack(patriot, 4, 'ruination', 'melee'), defense, [], 30);
+  near(hpAt(melee.alone.points, 3.6), 12000 - 4 * 1920 * 0.0521 - (1920 - 500));
+  const spear = simulateSurvival(patriotAttack(patriot, 4, 'ruination', 'spear'), defense, [], 45);
+  assert.deepEqual(spear.abilityHits.map(hit => hit.time), [18, 38]);
+  assert.equal(hpAt(spear.alone.points, 17.9), 12000);
+  near(hpAt(spear.alone.points, 18), 12000 - (1920 * 1.35 - 500));
+  const combined = simulateSurvival(patriotAttack(patriot, 4, 'ruination', 'spear-aura'), defense, [], 30);
+  near(hpAt(combined.alone.points, 18), hpAt(spear.alone.points, 18) - 22 * 1920 * 0.0521);
+});
+
+test('Haruka deployment timing charges twice and uses the weaker heal on her finite first cast', () => {
+  const defense: Defense = { hp: 10000, def: 0, res: 0, dp: 20, blocksDirectHealing: false };
+  const attack = { atk: 200, interval: 2, type: 'Physical' } as const;
+  const result = simulateSurvival(attack, defense, [{ build: createBuild('haruka', 1), delay: 0, cycle: true }], 90);
+  assert.deepEqual(result.healerCycles[0].casts, [{ start: 17, end: 43 }, { start: 60, end: null }]);
+  const hp = (time: number) => hpAt(result.healed.points, time);
+  near(hp(18.6) - hp(18.59), 401.25);
+  near(hp(44) - hp(43), -200);
+  near(hp(61.6) - hp(61.59), 561.75);
+});
+
+test('SP cycles honor Sussurro’s two-use limit and resume defender skills after their cooldown', () => {
+  const defense: Defense = { hp: 10000, def: 100, res: 0, dp: 20, blocksDirectHealing: false };
+  const attack = { atk: 200, interval: 2, type: 'Physical' } as const;
+  const result = simulateSurvival(attack, defense, [{ build: createBuild('susuro', 1), delay: 0, cycle: true }], 120, {
+    name: 'DEF Up', def: 0.5, duration: 10, start: 0, sp: { cost: 15, initial: 5 }, cycle: true,
+  });
+  assert.deepEqual(result.healerCycles[0].casts.map(cast => cast.start), [15, 60]);
+  assert.deepEqual(result.defenderWindows.slice(0, 3), [{ start: 10, end: 20 }, { start: 35, end: 45 }, { start: 60, end: 70 }]);
+  near(hpAt(result.alone.points, 8) - hpAt(result.alone.points, 10), 50);
+  near(hpAt(result.alone.points, 18) - hpAt(result.alone.points, 20), 100);
+});
 test('damage labels identify the modeled unit, including multi-hit and one-off sources', () => {
   const hit = (operator: string, skill: number, extra: { plotSummon?: boolean } = {}) =>
     calculate({ ...createBuild(operator, 1), skill, ...extra }, initialTarget);

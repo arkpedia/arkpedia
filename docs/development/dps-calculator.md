@@ -14,6 +14,20 @@ HPS measures healing per second for one ally with missing HP while the selected 
 
 Reviewed healing builds include Skadi the Corrupting Heart, Haruka, Sussurro, Ptilopsis and Perfumer. Skadi’s regeneration assumes the ally is in her or her Seaborn’s range and counts their shared aura once. Haruka S2 defaults to its second activation, when its ATK bonus and unlimited duration apply. Select First activation to compare its initial cast. Bubble pops depend on incoming hits and are shown per pop. Haruka S2’s follow-up damage depends on the actual HP restored and is outside this comparison. Coefficients come from the [pinned game skill table](https://github.com/ArknightsAssets/ArknightsGamedata/blob/e0cd8f274ffbcf57ed0b0684cb681620478ffe0e/en/gamedata/excel/skill_table.json).
 
+## Survival
+
+Select an enemy, a defending operator and any number of the reviewed healers. The enemy uses ATK, attack interval, attack speed and damage types from the enemy records. Select the attack type when the handbook lists both Physical and Arts. Enemies without supported attack data are omitted. The defender starts at full HP with the selected level, potential and full trust. Override the off-skill HP, DEF and RES to represent other stat buffs or a module.
+
+HP over time shows the defender with and without healers, with the same defender skill applied to both traces. One activation assumes the skill is ready at its configured time. From deployment uses the selected rank's initial SP and cost. Supported auto-recovery skills fire when ready, charge at 1 SP per second outside their active window, and respect use limits. At M3, Haruka S2 runs from 17 to 43 seconds and becomes permanent at 60 seconds. SP bonuses from other effects are excluded. Passive skills apply for the whole window. Modeled defender effects include DEF, RES, maximum HP and self-regeneration. Maximum-HP changes preserve the current HP fraction. The highlighted windows give the defender's skill uptime.
+
+Modeled enemy skills default to on. Faust’s special bolt replaces the first basic attack after its cooldown. FrostNova’s Ice Nova lands on cooldown. W’s C4 lands after a modeled three-second fuse. Corrupted Knight pauses basic attacks during its charged attack. Multipliers and cooldowns come from the enemy database. Skill impacts are marked above the HP chart. The basic attack DPS figure describes an off-skill defender and serves as a reference next to the timeline. The model assumes a stationary one-on-one encounter and approximates attack timing without animation, range or phase changes.
+
+Patriot uses a selected stance for the full run. Marching treats the defender as blocking and groups four separately mitigated hits at each attack timestamp. Ruination uses the chosen defender position to apply melee attacks, True damage aura ticks, or high-ground spear throws. Spear impacts use a modeled three-second wind-up. The model starts at the beginning of the selected stance without simulating revival, movement, or stage-specific changes.
+
+After a healer skill ends, the healer returns to normal healing. Each activation or expiration starts a fresh direct-heal interval. Regeneration applies continuously, and direct healing caps at missing HP. Simultaneous damage resolves before direct healing. A lethal hit ends recovery. Juggernauts, Reapers and Soloblades receive regeneration only. Stage modifiers, defensive talents and shields, effects such as Skadi’s Inspiration and Haruka’s Sanctuary, and triggered healing are outside this model.
+
+`scripts/build/build-dps-enemies.ts` generates the enemy and defender roster with the other calculator assets. The browser loads it when Survival first opens.
+
 ## Calculation order
 
 1. Read the operator and deployable stat curves, promotion gates, potentials, skill ranks, module stages and talent upgrades from the pinned EN and CN game tables. Interpolate within the selected promotion, then add trust, potential and module stats. Builds use full trust.

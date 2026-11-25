@@ -4,6 +4,11 @@
   padding-block: 24px 44px;
   min-width: 0;
 }
+.modePanel:not([hidden]) {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+}
 .workspace {
   display: grid;
   grid-template-columns: minmax(285px, 0.85fr) minmax(0, 1.8fr);

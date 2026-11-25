@@ -1,4 +1,4 @@
-import type { Build } from './calculator';
+import type { Build, Profile } from './calculator';
 
 export interface HealingOutput {
   direct: { amount: number; interval: number; targets: number } | null;
@@ -9,6 +9,8 @@ export interface HealingOutput {
 }
 
 type Coefficients = Record<string, number>;
+
+export const isHealingProfile = (p: Profile) => !!p.healingTrait || ['physician', 'ringhealer'].includes(p.branch);
 
 export function healingAtkBonus(
   build: Build,
