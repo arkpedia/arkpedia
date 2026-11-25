@@ -63,7 +63,10 @@ test('production compilation leaves community catalogues and the Preview snapsho
 });
 
 test('event rewards remain intact through build copying and the Worker ASSETS fallback', async () => {
-  const rewards = { events: { collab: { packs: [{ source: 'CN', offers: [{ name: 'Preview pack', contents: [{ name: 'Orundum', count: 600 }] }] }] } } };
+  const rewards = {
+    globalHomeCosmetics: { tm_example: { name: 'Preview theme', purchasePacks: ['preview_pack'] } },
+    events: { collab: { packs: [{ source: 'CN', offers: [{ name: 'Preview pack', contents: [{ name: 'Orundum', count: 600 }] }] }] } },
+  };
   const bytes = JSON.stringify(rewards);
   const root = tempRoot(Object.fromEntries(SHIPPED.map(file => [`data/${file}`, file === 'event-rewards.json' ? bytes : '[]'])));
   shipTables(root);
@@ -77,5 +80,5 @@ test('event rewards remain intact through build copying and the Worker ASSETS fa
   assert.deepEqual(actual, rewards);
   const page = fs.readFileSync('pages/events/[slug].tsx', 'utf8');
   assert.doesNotMatch(page, /import\(['"]@\/data\/event-rewards\.json/);
-  assert.match(page, /readShippedTable<EventRewardsFile>\('event-rewards.json'\)/);
+  assert.match(page, /readShippedTable<CosmeticRewardData>\('event-rewards.json'\)/);
 });
