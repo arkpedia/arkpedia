@@ -80,6 +80,13 @@ test('an event whose rewards are only an announcement and packs has Rewards, ope
   assert.match(right, />Announced<[\s\S]*>Packs</);
 });
 
+test('a published event can show a standalone background when its props predate the preview', () => {
+  const right = column(page({ name: "[Side Story – Celebration] Vremya, v Put'!", extras: extras({}) }));
+  assert.match(right, /id="event-section-panel-rewards"/);
+  assert.match(right, /aria-label="Preview background"/);
+  assert.match(right, /src="\/event-preview\/bg_anniversary_1\/background\.webp"/);
+});
+
 test('All is the reward card when the release carries one', () => {
   const right = column(page({
     rewardStores: [{ type: 'Login event', name: 'Sign-in', items: [{ name: 'Orundum', quantity: 600, price: null, currency: '', stock: '1', iconPath: null }] }],

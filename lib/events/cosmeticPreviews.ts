@@ -34,6 +34,7 @@ type GameAsset = { gameData?: { id: string } };
 export type CosmeticPreview = {
   pack?: string;
   activity?: string;
+  eventName?: string;
   source: string;
   scene: { title: string; name: string; image: string; native?: string } & GameAsset;
   theme?: HomeTheme & GameAsset;
@@ -57,6 +58,11 @@ const previews: readonly CosmeticPreview[] = catalogue;
 
 export function packCosmeticPreview(pack: string, source: string): CosmeticPreview | undefined {
   return previews.find(preview => preview.pack === pack && preview.source === source);
+}
+
+// Published event page payloads can predate a code-owned background preview.
+export function standaloneBackgroundPreview(eventName: string): CosmeticPreview | undefined {
+  return previews.find(preview => !preview.pack && preview.eventName === eventName);
 }
 
 const words = (value: string) => value.normalize('NFKC').toLowerCase()

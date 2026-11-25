@@ -37,7 +37,7 @@ import { publicFileExists } from '@/lib/assets/publicAssets';
 import { publishedArt } from '@/lib/art/publishedArt';
 import packArt from '@/data/event-pack-art.json';
 import { resolvePackArt } from '@/lib/events/packArt.mjs';
-import { regionalEventCosmeticPreview, regionalPackCosmeticPreview, type CosmeticEventExtras, type CosmeticRewardData } from '@/lib/events/cosmeticPreviews';
+import { regionalEventCosmeticPreview, regionalPackCosmeticPreview, standaloneBackgroundPreview, type CosmeticEventExtras, type CosmeticRewardData } from '@/lib/events/cosmeticPreviews';
 import { findSkinIconPath } from '@/lib/skins/skinIconLookup';
 import { materialOrderFor } from '@/lib/farming/materialSortOrder';
 import { loadMaterialCatalogue } from '@/lib/farming/materialCatalogueServer';
@@ -263,7 +263,8 @@ export default function EventDetailPage({
   const regionalImages = artAspect === POSTER_ASPECT && server !== 'en' ? [regionalArt(regionalWindow, modeImages[0] ?? null, server)].filter((src): src is string => !!src) : modeImages;
   const shownImages = menuArt ? [menuArt, ...(artAspect === CG_ASPECT ? regionalImages : [])] : regionalImages;
   const shownBannerImage = bannerName ? regionalArt(schedule?.banners?.[bannerName], bannerImage, server) : bannerImage;
-  const hasExtras = Boolean(extras.cosmeticPreview) || extras.packs.length + extras.furniture.length + extras.notices.length > 0;
+  const cosmeticPreview = extras.cosmeticPreview ?? standaloneBackgroundPreview(name);
+  const hasExtras = Boolean(cosmeticPreview) || extras.packs.length + extras.furniture.length + extras.notices.length > 0;
   // A page compiled by a release from before the News tab has no `news` at all.
   const news = extras.news ?? [];
   const board = extras.board ?? [];
@@ -301,7 +302,7 @@ export default function EventDetailPage({
 
   const rewardTypes = Array.from(new Set(rewardStores.map((s) => s.type)));
   // One list for the Tabs and for reading a link: All only when there are blocks to total.
-  const rewardTabs = rewardTabsFor(rewardTypes, extras);
+  const rewardTabs = rewardTabsFor(rewardTypes, { ...extras, cosmeticPreview });
   const [chosenRewardTab, setRewardTab] = useState<string>(ALL_TAB);
   /* The reward tab on screen, derived like the section: an event whose rewards are only packs,
      an announcement or furniture has no All and opens on its first tab. */
@@ -463,7 +464,7 @@ export default function EventDetailPage({
                   {activeRewardTab === ALL_TAB ? (
                     summary && summary.rows.length ? <RewardSummaryCard welfare={welfareOperators} skins={skins} eventName={name} summary={summary} artwork={shownImages[0] ?? regionalArt(regionalWindow, poster, server) ?? shownBannerImage} rewardNote={rewardNote?.replace('Global dates and rewards await confirmation', 'Global rewards await confirmation')} /> : <RewardTotalsRow totals={rewardTotals} />
                   ) : activeRewardTab === EXTRA_TABS.packs ? (
-                    <EventPacks groups={extras.packs} />
+                    <EventPacks groups={extras.packs} preview={cosmeticPreview} onPreviewOpenChange={setPreviewSceneOpen} />
                   ) : activeRewardTab === EXTRA_TABS.furniture ? (
                     <EventFurniture sets={extras.furniture} />
                   ) : activeRewardTab === EXTRA_TABS.notices ? (
