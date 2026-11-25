@@ -1,4 +1,4 @@
-import {useEffect,useId,useRef,useState} from 'react';
+import {useEffect,useId,useLayoutEffect,useRef,useState} from 'react';
 import SegmentedControl from '@/components/ui/SegmentedControl';
 import ImportDialog from '@/components/account/ImportDialog';
 import {useContentUrl} from '@/lib/content/context';
@@ -20,29 +20,30 @@ type ShareProps={banners:PollBanner[];portraits:Record<string,PollPortrait>;onCl
 export default function PullPollShareImage(props:ShareProps){
   const {onClose}=props;
   const [{banners,ballot={},portraits,owned={},results}]=useState(props);
-  const canvas=useRef<HTMLCanvasElement>(null),stampStyles=useRef<HTMLDivElement>(null),url=useContentUrl(),descriptionId=useId();
+  const canvas=useRef<HTMLCanvasElement>(null),preview=useRef<HTMLDivElement>(null),stampStyles=useRef<HTMLDivElement>(null),url=useContentUrl(),descriptionId=useId();
   const [ready,setReady]=useState(false),[message,setMessage]=useState(''),[retry,setRetry]=useState(0),[display,setDisplay]=useState(props.initialDetailed?'detailed':'simple'),[bannerStamps,setBannerStamps]=useState(false),[includeOffBanner,setIncludeOffBanner]=useState(true),[showLegend,setShowLegend]=useState(true);
-  const detailed=display==='detailed';
+  const endfieldPlan = !results && !!banners[0]?.artwork;
+  const detailed=!endfieldPlan && display==='detailed';
   const resultRows=results?resultImageRows(banners,results,detailed,includeOffBanner):[];
   const [layout,setLayout]=useState('sheet'),[cardIndex,setCardIndex]=useState(0);
   const cards=socialResultCards(resultRows),index=Math.min(cardIndex,Math.max(0,cards.length-1));
   const social=results&&layout==='square'?cards[index]:undefined;
   const shownResults=social?[social]:resultRows;
   const answered=results?shownResults.map(r=>r.banner):banners.filter(b=>bannerChoice(ballot[b.id],b,owned));
-  const stamped=!results&&!detailed&&bannerStamps,artWidth=stamped?1200:600;
+  const stamped=!endfieldPlan&&!results&&!detailed&&bannerStamps,artWidth=stamped?1200:600;
   const planned=(b:PollBanner)=>shareOperatorInterests(b,ballot[b.id],owned).filter(op=>!detailed||includeOffBanner||!b.returningOperators?.includes(op.name));
   const tags=stamped||detailed;
-  const description=results?shownResults.map(r=>[bannerTitle(r.banner),r.answers,...r.split.map(v=>v.label+' '+v.value),...r.operators.map(op=>op.name+' want a copy '+op.value)].join(', ')).join('. '):answered.map(b=>`${bannerTitle(b)}: ${tags?STAMP_LABELS[stampKey(ballot[b.id],b,portraits,owned) as Stamp]:pullIntent(ballot[b.id])}${detailed?`; ${planned(b).map(op=>op.interest==='maybe'?`Maybe ${op.label}`:op.label).join(', ')}`:''}`).join('. ');
+  const description=results?shownResults.map(r=>[bannerTitle(r.banner),r.answers,...r.split.map(v=>v.label+' '+v.value),...r.operators.map(op=>op.name+' want a copy '+op.value)].join(', ')).join('. '):answered.map(b=>`${bannerTitle(b)}: ${tags&&!b.artwork?STAMP_LABELS[stampKey(ballot[b.id],b,portraits,owned) as Stamp]:pullIntent(ballot[b.id])}${detailed&&!b.artwork?`; ${planned(b).map(op=>op.interest==='maybe'?`Maybe ${op.label}`:op.label).join(', ')}`:''}`).join('. ');
 
-  useEffect(()=>{
-    const element=canvas.current,body=element?.parentElement,dialog=element?.closest('dialog'),header=dialog?.querySelector('header');
+  useLayoutEffect(()=>{
+    const element=preview.current,body=element?.parentElement,dialog=element?.closest('dialog'),header=dialog?.querySelector('header');
     if(!element||!body||!dialog||!header)return;
     const fitPreview=()=>{
       const frame=getComputedStyle(dialog),box=getComputedStyle(body),pixels=(value:string)=>parseFloat(value)||0;
       const controls=[...body.children].filter(child=>child!==element&&getComputedStyle(child).position!=='absolute');
       const occupied=controls.reduce((total,child)=>{const style=getComputedStyle(child);return total+child.getBoundingClientRect().height+pixels(style.marginTop)+pixels(style.marginBottom);},0);
       const maximum=pixels(frame.maxHeight)||window.innerHeight-80,own=getComputedStyle(element);
-      element.style.maxHeight=`${Math.max(80,maximum-header.getBoundingClientRect().height-pixels(frame.borderTopWidth)-pixels(frame.borderBottomWidth)-pixels(box.paddingTop)-pixels(box.paddingBottom)-occupied-pixels(own.marginTop)-pixels(own.marginBottom)-10)}px`;
+      element.style.height=`${Math.max(80,maximum-header.getBoundingClientRect().height-pixels(frame.borderTopWidth)-pixels(frame.borderBottomWidth)-pixels(box.paddingTop)-pixels(box.paddingBottom)-occupied-pixels(own.marginTop)-pixels(own.marginBottom)-10)}px`;
     };
     const observer=new ResizeObserver(fitPreview);for(const child of [body,header,...body.children])if(child!==element)observer.observe(child);
     fitPreview();window.addEventListener('resize',fitPreview);
@@ -60,7 +61,10 @@ export default function PullPollShareImage(props:ShareProps){
       await Promise.race([document.fonts.ready,new Promise(resolve=>window.setTimeout(resolve,1500))]);
       const shown=answered,images=new Map<string,HTMLImageElement>();
       const artPath=(b:PollBanner)=>{const art=applicationBannerArt(b);return art?assetUrl(art.repository,art.revision,encodeAssetPath(art.path)):b.image;};
-      const paths=[...new Set(shown.flatMap(b=>[artPath(b),...(detailed&&!results?planned(b).map(op=>portraits[op.name]?.icon):[])]).filter((p):p is string=>!!p))];
+      const paths=[...new Set(shown.flatMap((banner,i)=>{
+        const operators=results?shownResults[i].operators:detailed?planned(banner):[];
+        return [artPath(banner),...operators.map(op=>portraits[op.name]?.icon)];
+      }).filter((path):path is string=>!!path))];
       const artwork=Promise.all(paths.map(async path=>{try{images.set(path,await loadAssetImage(path.startsWith('https:')?path:url(path),{crossOrigin:'anonymous',signal:abort.signal}));}catch{}}));
       // Budget decoding independently of cancellation, which may not settle decode().
       // Keep already decoded pictures alive until their pixels reach the canvas.
@@ -78,8 +82,9 @@ export default function PullPollShareImage(props:ShareProps){
       canvas.current.width=social?1080:1200;
       canvas.current.height=social?1080:height;
       const context=canvas.current.getContext('2d');if(!context)return;
-      const c=context,theme=getComputedStyle(document.documentElement),ink=(token:string)=>theme.getPropertyValue(token).trim();
+      const c=context,theme=getComputedStyle(canvas.current),ink=(token:string)=>theme.getPropertyValue(token).trim();
       const bg=ink('--bg'),panel=ink('--panel'),well=ink('--well'),text=ink('--text-bright'),dim=ink('--text-dim'),teal=ink('--teal'),amber=ink('--amber');
+      const pullInk = getComputedStyle(document.documentElement).getPropertyValue('--teal').trim();
       const fit=(text:string,width:number)=>{let value=text;while(c.measureText(value).width>width&&value.length)value=value.slice(0,-1);return value===text?value:value.slice(0,-1)+'…';};
       const label=(textValue:string,x:number,y:number,font:string,color:string,width?:number)=>{c.font=font;c.fillStyle=color;c.fillText(width?fit(textValue,width):textValue,x,y);};
       const centeredLabel=(value:string,x:number,y:number,font:string,color:string)=>{c.save();c.textAlign='center';c.textBaseline='middle';label(value,x,y,font,color);c.restore();};
@@ -89,6 +94,12 @@ export default function PullPollShareImage(props:ShareProps){
         const bounds=c.measureText(value);c.fillText(value,x+(bounds.actualBoundingBoxLeft-bounds.actualBoundingBoxRight)/2,y+(bounds.actualBoundingBoxAscent-bounds.actualBoundingBoxDescent)/2);c.restore();
       };
       const draw=(path:string|null|undefined,x:number,y:number,w:number,h:number,grey=false)=>{const image=path?images.get(path):undefined;if(!image)return false;const scale=Math.min(w/image.naturalWidth,h/image.naturalHeight);c.save();if(grey){c.filter='grayscale(1)';c.globalAlpha=.45;}c.drawImage(image,x+(w-image.naturalWidth*scale)/2,y+(h-image.naturalHeight*scale)/2,image.naturalWidth*scale,image.naturalHeight*scale);c.restore();return true;};
+      const drawPortrait=(name:string,x:number,y:number,size:number)=>{
+        c.fillStyle=well;c.fillRect(x,y,size,size);
+        if(!draw(portraits[name]?.icon,x,y,size,size)){
+          centeredLabel(name.slice(0,2),x+size/2,y+size/2,`700 ${Math.round(size*.45)}px Rajdhani`,dim);
+        }
+      };
       const drawStamp=(banner:PollBanner,y:number,rowHeight:number)=>{
         const key=stampKey(ballot[banner.id],banner,portraits,owned),element=stampStyles.current?.querySelector<HTMLElement>(`[data-stamp="${key}"]`);
         if(!key||!element)return;
@@ -104,16 +115,16 @@ export default function PullPollShareImage(props:ShareProps){
       };
       const danger=ink('--danger'),line=ink('--line');
       if(social){
-        drawSocialResult(c,social,bannerTitle(social.banner),images.get(artPath(social.banner)??''),`${index+1} / ${cards.length}`,{bg,text,dim,pull:teal,maybe:amber,skip:danger,panel});
+        drawSocialResult(c,social,bannerTitle(social.banner),images.get(artPath(social.banner)??''),`${index+1} / ${cards.length}`,{bg,text,dim,pull:teal,maybe:amber,skip:danger,panel},drawPortrait);
         abort.abort();setReady(true);setMessage('1080 × 1080 · '+bannerTitle(social.banner));return;
       }
       c.fillStyle=bg;c.fillRect(0,0,1200,height);
-      label(results?'PULL OR SKIP // RESULTS':'ARKNIGHTS // PULL PLAN',24,72,'700 64px Rajdhani',text);
-      label('arkpedia.net/polls/pull-or-skip',24,122,'28px "JetBrains Mono"',teal);
+      label(results?'PULL OR SKIP // RESULTS':(banners[0]?.artwork?'ENDFIELD // PULL PLAN':'ARKNIGHTS // PULL PLAN'),24,72,'700 64px Rajdhani',text);
+      label(banners[0]?.artwork?'arkpedia.net/polls/endfield-pull-or-skip':'arkpedia.net/polls/pull-or-skip',24,122,'28px "JetBrains Mono"',teal);
       if(results){
         c.save();c.textAlign='right';label(results.ballots.toLocaleString('en-US')+(results.ballots===1?' submission':' submissions'),1176,122,'28px "JetBrains Mono"',dim);c.restore();
       }else if(showLegend){
-        for(const [index,item] of [{text:'Pull',color:teal},{text:'Maybe',color:amber},{text:'Skip',color:danger}].entries()){
+        for(const [index,item] of [{text:'Pull',color:pullInk},{text:'Maybe',color:amber},{text:'Skip',color:danger}].entries()){
           const x=800+index*128;c.fillStyle=item.color;c.fillRect(x,52,24,24);
           label(item.text,x+34,73,'700 26px Rajdhani',text);
         }
@@ -122,10 +133,10 @@ export default function PullPollShareImage(props:ShareProps){
       let rowTop=headerHeight;
       rows.forEach(({banner:b,resultRow,operators,slotHeight,rowHeight})=>{
         const y=rowTop;rowTop+=rowHeight;
-        const v=pullIntent(ballot[b.id]),choice=v==='maybe'?'~':v==='skip'?'X':'PULL',accent=v==='maybe'?amber:v==='skip'?danger:teal;
+        const v=pullIntent(ballot[b.id]),choice=v==='maybe'?'~':v==='skip'?'X':'PULL',accent=v==='maybe'?amber:v==='skip'?danger:pullInk;
         c.fillStyle=panel;c.fillRect(0,y,1200,rowHeight);c.strokeRect(1,y,1198,rowHeight);if(!stamped){c.beginPath();c.moveTo(artWidth,y);c.lineTo(artWidth,y+rowHeight);c.stroke();}
         if(!draw(artPath(b),4,y+4,artWidth-8,rowHeight-8,v==='skip'&&tags))label(bannerTitle(b),20,y+rowHeight/2,'700 25px Rajdhani',dim,artWidth-40);
-        if(resultRow){drawResultPanel(c,resultRow,bannerTitle(b),y,rowHeight,{text,dim,pull:teal,maybe:amber,skip:danger},label);return;}
+        if(resultRow){drawResultPanel(c,resultRow,bannerTitle(b),y,rowHeight,{text,dim,pull:teal,maybe:amber,skip:danger},label,drawPortrait);return;}
         if(stamped){drawStamp(b,y,rowHeight);return;}
         if(!detailed){verdict(choice,(artWidth+1200)/2,y+rowHeight/2,v==='pull'?80:v==='maybe'?Math.min(240,rowHeight*1.15):Math.min(180,rowHeight*.9),accent);return;}
         drawStamp(b,y,rowHeight);
@@ -156,9 +167,9 @@ export default function PullPollShareImage(props:ShareProps){
     else{const image=await blob(),address=URL.createObjectURL(image),link=document.createElement('a');link.href=address;link.download=results?'arkpedia-pull-or-skip-results-'+display+(social?'-card-'+(index+1):'')+'.png':'arkpedia-pull-plan.png';link.click();setTimeout(()=>URL.revokeObjectURL(address),1000);setMessage('PNG downloaded.');}
   }catch(e){setMessage(e instanceof Error?e.message:'Image export failed. Please try again.');}}
   return <ImportDialog title={results?'Community poll results':'My pull plan'} className={styles.imageDialog} onClose={onClose}>
-    <SegmentedControl label="Share image display" value={display} onChange={setDisplay} options={[{value:'simple',label:'Simple'},{value:'detailed',label:'Detailed'}]}/>
+    {!endfieldPlan&&<SegmentedControl label="Share image display" value={display} onChange={setDisplay} options={[{value:'simple',label:'Simple'},{value:'detailed',label:'Detailed'}]}/>}
     {results&&<div className={styles.imageOptions}>
-      <SegmentedControl label="Image layout" value={layout} onChange={setLayout} options={[{value:'sheet',label:'Full sheet'},{value:'square',label:'Social square'}]}/>
+      <SegmentedControl label="Image layout" value={layout} onChange={setLayout} options={[{value:'sheet',label:'Full sheet'},{value:'square',label:'Single Banner'}]}/>
       {social&&cards.length>1&&<>
         <button className="ghost btn-sm" aria-label="Previous card" disabled={index===0} onClick={()=>setCardIndex(index-1)}>Previous</button>
         <span className="hint" aria-live="polite">Card {index+1} of {cards.length}</span>
@@ -166,11 +177,13 @@ export default function PullPollShareImage(props:ShareProps){
       </>}
     </div>}
     {(!results||detailed)&&<div className={styles.imageOptions}>
-      {detailed?<label className="check"><input type="checkbox" checked={includeOffBanner} onChange={e=>setIncludeOffBanner(e.target.checked)}/>Include off-banner limited operators</label>:!results&&<label className="check"><input type="checkbox" checked={bannerStamps} onChange={e=>setBannerStamps(e.target.checked)}/>Banner art with stamps</label>}
+      {detailed?<label className="check"><input type="checkbox" checked={includeOffBanner} onChange={e=>setIncludeOffBanner(e.target.checked)}/>Include off-banner limited operators</label>:!results&&!endfieldPlan&&<label className="check"><input type="checkbox" checked={bannerStamps} onChange={e=>setBannerStamps(e.target.checked)}/>Banner art with stamps</label>}
       {!results&&<label className="check"><input type="checkbox" checked={showLegend} onChange={e=>setShowLegend(e.target.checked)}/>Show legend</label>}
     </div>}
-    {!results&&<div ref={stampStyles} className="visually-hidden" aria-hidden="true">{(Object.keys(STAMP_LABELS) as Stamp[]).map(value=><VerdictStamp key={value} value={value}/>)}</div>}
-    <canvas data-legend={!results&&showLegend?'visible':'hidden'} data-display={results?display:stamped?'stamps':detailed?'detailed-stamps':display} ref={canvas} width="1200" height="400" aria-describedby={descriptionId} className={styles.imageCanvas} role="img" aria-label={results?'Community poll results image':`Your pull plan share image with ${answered.length} answered banners`}/>
+    {!results&&!endfieldPlan&&<div ref={stampStyles} className="visually-hidden" aria-hidden="true">{(Object.keys(STAMP_LABELS) as Stamp[]).map(value=><VerdictStamp key={value} value={value}/>)}</div>}
+    <div className={styles.imagePreview} ref={preview} aria-busy={!ready}>
+      <canvas data-legend={!results&&showLegend?'visible':'hidden'} data-display={results?display:stamped?'stamps':detailed?'detailed-stamps':display} ref={canvas} width="1200" height="400" aria-describedby={descriptionId} className={styles.imageCanvas} role="img" aria-label={results?'Community poll results image':`Your pull plan share image with ${answered.length} answered banners`}/>
+    </div>
     <p id={descriptionId} className="visually-hidden">{description}</p>
     <div className={styles.imageActions}><span className="hint" role="status">{message}</span>
       <button className="primary btn-sm" disabled={!ready} onClick={()=>void save(false)}>Download PNG</button><button className="ghost btn-sm" disabled={!ready} onClick={()=>void save(true)}>Copy image</button><button className="ghost btn-sm" onClick={()=>setRetry(value=>value+1)}>Retry artwork</button></div>

@@ -1,13 +1,9 @@
+import { pageCatalogue } from '@/lib/routes/catalogue.cjs';
 import { canonicalPublicHref } from '@/lib/nav/publicRoutes';
 import { SITE_ORIGIN } from './site';
 
-/** Pages a search engine should find that the content release does not list: no data
- *  function, or built outside the release (scripts/tests/test-release-pages.ts). Public names. */
-export const STATIC_ROUTES = ['/about', '/games', '/credits', '/privacy', '/cookies', '/support', '/whats-new', '/world/videos', '/world/twitch', '/world/youtube-live', '/community/projects'];
-
-/** Routes the release lists that are not pages for a search engine: not indexed (PageMeta
- *  noindex), or a window of another page. Public names. */
-export const UNLISTED_ROUTES = new Set(['/dashboard/campaigns', '/account', '/friends', '/search', '/recruitment/popout']);
+export const STATIC_ROUTES = pageCatalogue.flatMap(page => page.sitemap === 'static' ? [page.route] : []);
+export const UNLISTED_ROUTES = new Set(pageCatalogue.flatMap(page => page.sitemap === 'exclude' ? [page.route] : []));
 
 /** A route encoded as the site's links encode it: each segment decoded, then encoded again
  *  with encodeURIComponent (operatorHref and the event and stage links do the same), so a
@@ -26,7 +22,9 @@ export function normalizeRoute(route: string): string {
 export function sitemapRoutes(releasePages: Iterable<string> | null): string[] {
   const routes = new Set<string>(STATIC_ROUTES);
   for (const key of releasePages ?? []) {
-    const route = canonicalPublicHref(normalizeRoute(key));
+    const normalized = normalizeRoute(key);
+    if (UNLISTED_ROUTES.has(normalized)) continue;
+    const route = canonicalPublicHref(normalized);
     if (!UNLISTED_ROUTES.has(route)) routes.add(route);
   }
   return [...routes].sort();

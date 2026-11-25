@@ -4,7 +4,6 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
-import yaml from 'js-yaml';
 import { checkBuildFile, expectedBuildIdentity, readLiveBuild, validateBuildIdentity, waitForBuildIdentity } from '../deploy/check-build-identity.mjs';
 
 const expected = { version: 1, commit: 'a'.repeat(40), codeFingerprint: 'b'.repeat(64),
@@ -89,22 +88,4 @@ test('public identity reads bound response sizes and do not expose invalid respo
   await assert.rejects(read('PRIVATE-RESPONSE'),error=>error.message==='Build identity is not valid JSON');
   await assert.rejects(read('x'.repeat(16_385)),/size limit/);
   await assert.rejects(readLiveBuild('https://example.invalid',{fetcher:async()=>new Response('PRIVATE',{status:500})}),/unavailable/);
-});
-
-test('deployment has one locked install and checks local then public identity before success/publication', () => {
-  const workflow=yaml.load(fs.readFileSync('.github/workflows/deploy.yml','utf8'));
-  const steps=workflow.jobs.deploy.steps, index=name=>steps.findIndex(step=>step.name===name);
-  assert.equal(JSON.parse(fs.readFileSync('vercel.json','utf8')).installCommand,'npm ci --include=dev');
-  assert.equal(steps.filter(step=>step.run==='npm ci').length,0);
-  assert.ok(index('Build')<index('Verify the built output identity'));
-  assert.ok(index('Verify the built output identity')<index('Deploy'));
-  assert.ok(index('Deploy')<index('Verify the public deployed identity'));
-  assert.ok(index('Verify the public deployed identity')<index('Close the failed-deploy report'));
-  for(const name of ['Close the failed-deploy report','Release again if one was held for this deploy']){
-    assert.match(steps[index(name)].if,/steps\.build-identity\.outcome == 'success'/,name);
-  }
-  for(const name of ['Verify the built output identity','Verify the public deployed identity']){
-    assert.equal(steps[index(name)]['continue-on-error'],undefined);
-    assert.equal(steps[index(name)].env.ARKPEDIA_CONTENT_CHANNEL,'${{ matrix.target.contentChannel }}');
-  }
 });

@@ -26,8 +26,6 @@
   "ignoreFiles": ["**/*.d.mts"],
   // System tools used by offline fixtures and manual WebP importers.
   "ignoreBinaries": ["jq", "cwebp"],
-  // Cloudflare provides this Worker runtime built-in; it is not an npm dependency.
-  "ignoreDependencies": ["cloudflare"],
   "exclude": ["enumMembers", "duplicates"],
   // Modules shared with arkpedia-data's importer (test-importer-copies.ts holds them equal), whose
   // exports the import's own scripts use.

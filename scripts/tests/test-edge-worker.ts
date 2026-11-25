@@ -155,25 +155,64 @@ test('a miss asks the site Worker once and keeps the page; the next reader gets 
   assert.deepEqual([...second.headers.keys()].filter((name) => name.startsWith('x-arkpedia-edge-')), []);
 });
 
-test('the cache key is the address with its query; the Cache API never sees Vary', async () => {
-  const { ask, settle, cache, pageCalls } = setUp({ '/operators': page() });
+test('client-side filter URLs fetch and share the base HTML on the three allowed routes', async () => {
+  const routes = {
+    '/operators': ['?owned=missing&rarity=6', '?q=Violet%20Mizutsune%20Orchid'],
+    '/community/statistics': ['?mode=relative&order=asc', '?class=Guard&stage=main_01-07'],
+    '/polls/favourite-skins': ['?view=results&display=tierlist', '?rated=rated&tierSize=compact'],
+  };
+  const { ask, settle, cache, pageCalls } = setUp(Object.fromEntries(Object.keys(routes).map(path => [path, page({}, html(BUILD, path))])));
+  for (const [path, [first, second]] of Object.entries(routes)) {
+    assert.equal((await ask(path + first)).headers.get(STATE_HEADER), 'MISS');
+    await settle();
+    assert.equal((await ask(path)).headers.get(STATE_HEADER), 'HIT');
+    const hit = await ask(path + second);
+    assert.equal(hit.headers.get(STATE_HEADER), 'HIT');
+    assert.equal(await hit.text(), html(BUILD, path));
+    const head = await ask(path + second, { method: 'HEAD' });
+    assert.equal(head.headers.get(STATE_HEADER), 'HIT');
+    assert.equal(head.body, null);
+  }
+  for (const entry of cache.entries.values()) assert.equal(new Headers(entry.headers).has('vary'), false);
+  const expected = Object.keys(routes).map(path => SITE + path);
+  assert.deepEqual(pageCalls().map(call => call.url), expected);
+  assert.deepEqual([...cache.entries.keys()], expected);
+});
+
+test('unknown parameters, other routes and Next data keep their full addresses', async () => {
+  const data = `/_next/data/${BUILD}/operators.json`;
+  const { ask, settle, cache, pageCalls } = setUp({ '/operators': page(), '/schedule': page(), [data]: page() });
+  const urls = ['/operators?rarity=6&settings=profile', '/operators?view=results', '/schedule?view=list', `${data}?rarity=6`];
+  for (const url of urls) {
+    assert.equal((await ask(url)).headers.get(STATE_HEADER), 'MISS');
+    await settle();
+    assert.equal((await ask(url)).headers.get(STATE_HEADER), 'HIT');
+  }
+  const expected = urls.map(url => SITE + url);
+  assert.deepEqual(pageCalls().map(call => call.url), expected);
+  assert.deepEqual([...cache.entries.keys()], expected);
+});
+
+test('protected requests bypass filter sharing even when public HTML is cached', async () => {
+  const { ask, settle, site } = setUp({ '/operators': page() });
   await ask('/operators');
   await settle();
-  await ask('/operators?owned=missing');
-  await settle();
-  assert.equal(pageCalls().length, 2);
-  for (const entry of cache.entries.values()) assert.equal(new Headers(entry.headers).has('vary'), false);
-  assert.deepEqual([...cache.entries.keys()].sort(), [`${SITE}/operators`, `${SITE}/operators?owned=missing`]);
+  const bypassHeaders: HeadersInit[] = [{ authorization: 'Bearer x' }, { cookie: '__prerender_bypass=1' }, { range: 'bytes=0-10' }];
+  for (const headers of bypassHeaders) {
+    const request = new Request(`${SITE}/operators?rarity=6`, { headers });
+    assert.equal((await ask(request)).headers.has(STATE_HEADER), false);
+    assert.equal(site.calls.at(-1), request);
+  }
 });
 
 test('a stale page is answered at once and refreshed in the background, once for concurrent readers', async () => {
   let version = 1;
-  const { ask, settle, clock, pageCalls } = setUp({ '/schedule': () => new Response(html(BUILD, `v${version}`), { status: 200, headers: PAGE_HEADERS }) });
-  await ask('/schedule');
+  const { ask, settle, clock, pageCalls } = setUp({ '/operators': () => new Response(html(BUILD, `v${version}`), { status: 200, headers: PAGE_HEADERS }) });
+  await ask('/operators');
   await settle();
   clock.now += 61_000;
   version = 2;
-  const [a, b] = await Promise.all([ask('/schedule'), ask('/schedule')]);
+  const [a, b] = await Promise.all([ask('/operators?rarity=6'), ask('/operators?class=Guard')]);
   assert.equal(a.headers.get(STATE_HEADER), 'STALE');
   assert.equal(b.headers.get(STATE_HEADER), 'STALE');
   assert.equal(await a.text(), html(BUILD, 'v1'), 'the reader never waits for the refresh');
@@ -181,7 +220,8 @@ test('a stale page is answered at once and refreshed in the background, once for
   await settle();
   assert.equal(pageCalls().length, 2, 'one refresh for both readers');
   assert.equal(pageCalls()[1].headers.get(STATE_HEADER), 'refresh');
-  const after = await ask('/schedule');
+  assert.equal(pageCalls()[1].url, `${SITE}/operators`);
+  const after = await ask('/operators');
   assert.equal(after.headers.get(STATE_HEADER), 'HIT');
   assert.equal(await after.text(), html(BUILD, 'v2'));
 });

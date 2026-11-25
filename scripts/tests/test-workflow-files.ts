@@ -30,8 +30,8 @@ function load(name: string): Workflow {
   return yaml.load(fs.readFileSync(path.join(DIR, name), 'utf8')) as Workflow;
 }
 
-test('the workflow directory holds the three private workflows', () => {
-  for (const name of ['check.yml', 'deploy.yml', 'prepare-content.yml']) {
+test('the workflow directory holds the active application and content gates', () => {
+  for (const name of ['check.yml', 'production-release.yml', 'prepare-content.yml']) {
     assert.ok(files.includes(name), `${DIR}/${name} exists`);
   }
 });
@@ -99,100 +99,28 @@ test('all workflows use isolated hosted runners, including fork and Dependabot c
   assert.ok(Number(load('check.yml').jobs!['browser-tests']['timeout-minutes']) >= 35, 'full hosted browser coverage has enough time');
 });
 
-test('Deploy may start a held content release again', () => {
-  const deploy = load('deploy.yml') as unknown as { permissions?: Record<string, string>; jobs: Record<string, { steps?: { name?: string; run?: string }[] }> };
-  assert.equal(deploy.permissions?.actions, 'write', 'deploy.yml needs actions: write to dispatch prepare-content.yml');
-  const step = deploy.jobs.deploy.steps?.find(entry => entry.name === 'Release again if one was held for this deploy');
-  assert.ok(step?.run?.includes('gh workflow run prepare-content.yml'), 'deploy.yml re-dispatches a held release');
-});
-
-test("Deploy checks that production's asset links reach the live release's art, and still releases a held run after", () => {
-  const steps = (load('deploy.yml').jobs!.deploy.steps ?? []) as (Step & { id?: string; env?: Record<string, string> })[];
-  const index = (name: string) => steps.findIndex(step => step.name === name);
-  const check = steps[index("Check that asset links reach the release's art")];
-  assert.ok(check, "deploy.yml has the asset-link check");
-  assert.equal(check.run, 'node scripts/deploy/check-asset-redirects.mjs');
-  assert.equal(check.id, 'asset-links');
-  // After production has the build, and before the report that turns its failure into an issue.
-  assert.ok(index('Deploy') < index("Check that asset links reach the release's art") && index("Check that asset links reach the release's art") < index('Report the failed deploy'));
-  assert.equal(steps[index('Deploy')].id, 'deploy');
-  assert.equal(steps[index('Report the failed deploy')].env?.ASSET_LINKS, '${{ steps.asset-links.outcome }}');
-  // A failed asset check leaves production on the new build, so a held release still goes out:
-  // after the last of main's deployments (the ones the gate asks), once every earlier one has
-  // had its turn.
-  const releaseCondition = String(steps[index('Release again if one was held for this deploy')].if).replace(/^\$\{\{\s*|\s*\}\}$/g, '');
-  const mayResume = (identity: string | undefined, deploy = 'success', gate = true, last = true, cancelled = false) => {
-    const values: Record<string, string> = { 'cancelled()': String(cancelled), 'success()': 'false',
-      'steps.deploy.outcome': JSON.stringify(deploy), 'steps.build-identity.outcome': JSON.stringify(identity) ?? 'undefined',
-      'matrix.target.releaseGate': String(gate), 'matrix.target.last': String(last) };
-    let expression = releaseCondition;
-    for (const [name, value] of Object.entries(values)) expression = expression.replaceAll(name, value);
-    return Function(`"use strict"; return (${expression});`)() as boolean;
+test('production authorizes checked main before building and resumes content after publication', () => {
+  const workflow = load('production-release.yml') as Workflow & {
+    jobs: Record<string, Job & { needs?: string; permissions?: Record<string, string> }>;
   };
-  assert.equal(mayResume('success'), true, 'verified public identity may resume content despite an independent asset-check failure');
-  for (const identity of ['failure', 'skipped', undefined]) assert.equal(mayResume(identity), false, 'upload alone must never resume content');
-  assert.equal(mayResume('success', 'failure'), false);
-  assert.equal(mayResume('success', 'success', false), false);
-  assert.equal(mayResume('success', 'success', true, false), false);
-  assert.equal(mayResume('success', 'success', true, true, true), false);
-  // Each deployment's own site, not every one config/production.json lists.
-  assert.equal(check.env?.ARKPEDIA_DEPLOYMENTS, '${{ matrix.target.url }}');
-  // prebuild adopts the release's pins through one GitHub compare per differing repository.
-  assert.equal(steps[index('Build')].env?.GH_TOKEN, '${{ github.token }}');
-});
-
-test("only a green Check of a push to this repository's main deploys", () => {
-  // The targets job decides; every deployment waits on it and adds no condition that could
-  // run it anyway (always(), a bare !cancelled()).
-  const workflow = load('deploy.yml') as unknown as { concurrency?: { group?: string }; jobs: Record<string, Job & { needs?: unknown }> };
-  const jobs = workflow.jobs;
-  assert.equal(jobs.deploy.needs, 'targets');
-  assert.equal(jobs.deploy.if, "needs.targets.outputs.targets != '[]'");
-  // A group holds one waiting run: shared, a dev deploy queued behind main's would cancel it.
-  assert.equal(workflow.concurrency?.group, 'deploy-${{ github.event.workflow_run.head_branch || github.ref_name }}');
-  const condition = String(jobs.targets.if).replace(/\s+/g, ' ');
-  for (const part of [
+  const { release, 'resume-content': resume } = workflow.jobs;
+  for (const gate of [
     "github.event.workflow_run.conclusion == 'success'",
     "github.event.workflow_run.head_branch == 'main'",
     "github.event.workflow_run.event == 'push'",
     'github.event.workflow_run.head_repository.full_name == github.repository',
-  ]) assert.ok(condition.includes(part), `deploy.yml's if requires ${part}: ${condition}`);
-});
-
-/*
- * Deploy uploads to every live deployment in config/production.json, one after another, each
- * with its own project's ids and token (scripts/deploy/deploy-targets.mjs). On 2026-09-30
- * kukki's project (www.arkpedia.net) was Git-linked to this repository with its domains
- * assigned automatically; the listed-but-not-live entry is how it waits for the cutover.
- */
-test('Deploy runs once per listed deployment, with that project\'s ids and token', () => {
-  const workflow = load('deploy.yml') as unknown as { on: Record<string, { inputs?: Record<string, { description?: string; type?: string; default?: unknown }> }>; jobs: Record<string, Job & { strategy?: { 'max-parallel'?: number; 'fail-fast'?: boolean; matrix?: Record<string, string> }; env?: Record<string, string>; outputs?: Record<string, string> }> };
-  const { targets, deploy } = workflow.jobs;
-  const list = (targets.steps ?? []).find(step => step.name === 'List the deployments') as Step & { id?: string };
-  assert.equal(list?.id, 'list');
-  assert.equal(list?.run, `node scripts/deploy/deploy-targets.mjs --branch "$BRANCH" \${{ inputs.preview && '--preview' || '' }} >> "$GITHUB_OUTPUT"`);
-  assert.equal((list as Step & { env?: Record<string, string> }).env?.BRANCH, '${{ github.event.workflow_run.head_branch || github.ref_name }}');
-  assert.equal(targets.outputs?.targets, '${{ steps.list.outputs.targets }}');
-  assert.deepEqual(deploy.strategy, { 'max-parallel': 1, 'fail-fast': false, matrix: { target: '${{ fromJSON(needs.targets.outputs.targets) }}' } });
-  assert.deepEqual({ org: deploy.env?.VERCEL_ORG_ID, project: deploy.env?.VERCEL_PROJECT_ID, scope: deploy.env?.VERCEL_SCOPE }, { org: '${{ matrix.target.orgId }}', project: '${{ matrix.target.projectId }}', scope: '${{ matrix.target.scope }}' });
-  const preview = workflow.on.workflow_dispatch.inputs?.preview;
-  assert.deepEqual([preview?.type, preview?.default], ['boolean', false]);
-  assert.match(String(preview?.description), /not live yet/);
-  const steps = (deploy.steps ?? []) as (Step & { env?: Record<string, string> })[];
-  // No step reads a fixed secret: each takes the token its deployment names.
-  for (const step of steps) {
-    if (step.env?.VERCEL_TOKEN) assert.equal(step.env.VERCEL_TOKEN, '${{ secrets[matrix.target.tokenSecret] }}', `${step.name}'s token`);
-  }
-  assert.ok(steps.filter(step => step.env?.VERCEL_TOKEN).length >= 4);
-  // A preview deploys no production and reports nothing: its site sits behind a Vercel login.
-  const byName = (name: string) => steps.find(step => step.name === name)!;
-  assert.equal(byName('Build').env?.PROD, "${{ matrix.target.production && '--prod' || '' }}");
-  assert.equal(byName('Deploy').env?.PROD, "${{ matrix.target.production && '--prod' || '' }}");
-  assert.equal(byName("Check that asset links reach the release's art").if, 'matrix.target.production');
-  assert.match(String(byName('Report the failed deploy').if), /^matrix\.target\.production && /);
-  assert.match(String(byName('Close the failed-deploy report').if), /^matrix\.target\.production && /);
-  // The pulled settings carry the project's secrets; they leave the runner whatever happened.
-  assert.deepEqual([byName('Forget the pulled project settings').if, byName('Forget the pulled project settings').run], ['always()', 'rm -rf .vercel']);
+  ]) assert.ok(String(release.if).includes(gate), gate);
+  const commands = (release.steps ?? []).map(step => String(step.run));
+  const authorize = commands.findIndex(run => run.includes('pilot-release-gate.mjs'));
+  const install = commands.indexOf('npm ci');
+  const build = commands.indexOf('npm run cf:build');
+  const assets = commands.findIndex(run => run.includes('check-public-assets-ready.mjs'));
+  const publish = commands.findIndex(run => run.includes('pilot-release.mjs'));
+  assert.ok(authorize >= 0 && authorize < install && install < build && build < assets && assets < publish);
+  assert.equal(resume.needs, 'release');
+  assert.equal(resume.if, 'success()');
+  assert.equal(resume.permissions?.actions, 'write');
+  assert.ok(resume.steps?.some(step => String(step.run).includes('resume-pilot-content.mjs')));
 });
 
 test("pushes and same-repository PRs reuse only a successful exact-tree Check", () => {

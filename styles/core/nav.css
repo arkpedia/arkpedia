@@ -406,11 +406,9 @@
 /* --nav-h is the bar as MobileNavDrawer's ResizeObserver measures it, so the spacer
    follows the bar wherever it goes. The fallback is only what the first paint uses,
    before the effect has run -- keep it equal to the bar's height above. */
-/* The desktop bar's place the same way (Sitenav measures it): 54px is the bar on a
-   desktop, 10px padding each side of its 33px row and the border, so the first paint
-   already leaves it room. */
+/* Reserve the controls, the bar's vertical padding and its border on first paint. */
 .site-nav-spacer {
-  height: var(--nav-h, 54px);
+  height: var(--nav-h, calc(var(--control-h) + 21px));
 }
 .mobile-nav-spacer {
   display: none;

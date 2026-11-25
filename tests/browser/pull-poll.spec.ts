@@ -27,7 +27,7 @@ async function dismissSubmissionSuccess(page:Page){
   await success.getByRole('button',{name:'Done',exact:true}).click();await expect(success).toHaveCount(0);
 }
 const firstBanner=(page:Page)=>page.getByRole('article').first();
-const expand=async(page:Page)=>{const banner=firstBanner(page),button=banner.getByRole('button',{name:/^(Choose|Hide) per operator/});if(await button.getAttribute('aria-expanded')==='false')await button.click();return banner;};
+const expand=async(page:Page)=>{const banner=firstBanner(page),button=banner.getByRole('button',{name:/^Potentials for/});if(await button.getAttribute('aria-expanded')==='false')await button.click();return banner;};
 const potential=(page:Page,n:number)=>firstBanner(page).getByRole('group',{name:/^Potential for/}).first().getByRole('button',{name:new RegExp(`^Potential ${n} for`)});
 test('share image retains decoded artwork and remains downloadable when another image never settles',async({page})=>{
   test.setTimeout(45000);
@@ -51,10 +51,14 @@ for(const theme of ['dark','light'])test(`mockup banner rows, inline potentials,
   const state=await setup(page,theme);await page.goto('/polls/pull-or-skip?display=detailed#local-draft',{waitUntil:'domcontentloaded'});const banner=firstBanner(page);
   await banner.getByRole('button',{name:'Pull',exact:true}).click();await expect(banner).toHaveAttribute('data-verdict','pull');await expect(banner.getByText('Pulling!',{exact:true})).toBeVisible();expect(state.writes).toHaveLength(0);
   if(process.env.ARKPEDIA_QA_CAPTURE)await page.screenshot({path:`${process.env.ARKPEDIA_QA_CAPTURE}/pull-poll-compact-${theme}-${info.project.name}.png`,animations:'disabled'});
-  await expand(page);await potential(page,4).click();await expect(potential(page,4)).toHaveAttribute('aria-pressed','true');await expect(banner).toHaveAttribute('data-verdict','custom');await expect(banner.getByText('Whale!',{exact:true})).toBeVisible();
+  const disclosure=banner.getByRole('button',{name:/^Potentials for/});
+  await expect(disclosure).toHaveText('Potentials ▾');
+  await expand(page);
+  await expect(disclosure).toHaveText('Potentials ▴');
+  await potential(page,4).click();await expect(potential(page,4)).toHaveAttribute('aria-pressed','true');await expect(banner).toHaveAttribute('data-verdict','custom');await expect(banner.getByText('Whale!',{exact:true})).toBeVisible();
   await expect(banner.getByRole('button',{name:'Pull',exact:true})).toHaveAttribute('aria-pressed','true');
   await potential(page,6).click();const levi=banner.getByText('Leviathan!!',{exact:true});await expect(levi).toBeVisible();await expect.poll(()=>levi.evaluate(el=>{const stamp=el.getBoundingClientRect(),art=el.parentElement!.getBoundingClientRect();return stamp.left>=art.left&&stamp.right<=art.right&&stamp.top>=art.top&&stamp.bottom<=art.bottom;})).toBe(true);await potential(page,4).click();
-  await banner.getByRole('button',{name:/^Hide per operator/}).click();await expand(page);await expect(potential(page,4)).toHaveAttribute('aria-pressed','true');
+  await banner.getByRole('button',{name:/^Potentials for/}).click();await expand(page);await expect(potential(page,4)).toHaveAttribute('aria-pressed','true');
   await page.reload({waitUntil:'domcontentloaded'});await expand(page);await expect(potential(page,4)).toHaveAttribute('aria-pressed','true');expect(state.writes).toHaveLength(0);
   await page.context().grantPermissions(['clipboard-read','clipboard-write']);await page.getByRole('button',{name:'Copy poll link',exact:true}).click();await expect(page.getByText(/Poll link copied/)).toBeVisible();
   const share=await page.evaluate(()=>navigator.clipboard.readText());expect(share).toBe(new URL('/polls/pull-or-skip',page.url()).href);await page.goto(share,{waitUntil:'domcontentloaded'});await page.reload({waitUntil:'domcontentloaded'});await expand(page);await expect(potential(page,4)).toHaveAttribute('aria-pressed','true');
@@ -93,7 +97,7 @@ for(const theme of ['dark','light'])test(`higher potentials round-trip through t
   });
   await page.goto('/polls/pull-or-skip',{waitUntil:'domcontentloaded'});
   const banner=page.getByRole('article',{name:'Deterministic Chaos',exact:true});
-  await banner.getByRole('button',{name:/^Choose per operator/}).click();
+  await banner.getByRole('button',{name:/^Potentials for/}).click();
   await expect(banner.getByRole('button',{name:'Potential 1 for Aphrissa',exact:true})).toBeDisabled();
   const pull=banner.getByRole('button',{name:'Pull',exact:true});
   const target=(potential:number)=>banner.getByRole('button',{name:`Potential ${potential} for Aphrissa`,exact:true});
@@ -158,7 +162,7 @@ for(const theme of ['dark','light'])test(`limited Pull selects featured operator
   const data=await page.evaluate(()=>{const b=(window as any).__NEXT_DATA__.props.pageProps.banners.find((b:any)=>b.returningOperators?.length&&Date.parse(b.endAt??`${b.end}T23:59:59-07:00`)>Date.now());return b?{name:b.name,featured:b.operators.filter((name:string)=>!b.returningOperators.includes(name)),returning:b.returningOperators}:null;});
   expect(data,'the catalogue includes an upcoming limited banner with returning operators').not.toBeNull();const banner=page.getByRole('article',{name:data!.name,exact:true});
   await banner.getByRole('button',{name:'Maybe',exact:true}).click();await banner.getByRole('button',{name:'Pull',exact:true}).click();await expect(banner).toHaveAttribute('data-verdict','pull');await expect(banner.getByRole('button',{name:'Pull',exact:true})).toHaveAttribute('aria-pressed','true');await expect(banner.getByText('Pulling!',{exact:true})).toBeVisible();
-  await banner.getByRole('button',{name:/^Choose per operator/}).click();
+  await banner.getByRole('button',{name:/^Potentials for/}).click();
   for(const name of data!.featured)await expect(banner.getByRole('button',{name:`Potential 1 for ${name}`,exact:true})).toHaveAttribute('aria-pressed','true');
   for(const name of data!.returning)await expect(banner.getByRole('group',{name:new RegExp(`^Interest in ${name} on`)}).getByRole('button',{name:"Don't Want",exact:true})).toHaveAttribute('aria-pressed','true');
   await banner.getByRole('button',{name:`Potential 2 for ${data!.returning[0]}`,exact:true}).click();await expect(banner).toHaveAttribute('data-verdict','custom');
@@ -187,7 +191,7 @@ for(const theme of ['dark','light'])test(`ownership, new operators, and potentia
   await page.addInitScript(()=>{const operatorBuilds={Aphrissa:{elite:0,level:1,skillLevel:1,masteries:{},potential:5}};localStorage.setItem('plannerRoster',JSON.stringify(operatorBuilds));localStorage.setItem('arkpediaAccount',JSON.stringify({version:1,server:'en',importedAt:new Date().toISOString(),doctor:'Poll tester',operators:['Aphrissa'],skins:[],cleared:[],operatorBuilds}));});
   await page.goto('/polls/pull-or-skip',{waitUntil:'domcontentloaded'});await expect(page.getByRole('article',{name:/Kernel|Standard Pool|Joint Operation|Locating|Orienteering/})).toHaveCount(0);
   const banner=page.getByRole('article',{name:'Deterministic Chaos',exact:true});await expect(banner.getByText('Owned',{exact:true})).toBeVisible();await expect(banner.locator('.poll-potential[data-want=owned]')).toHaveText('P5');
-  await banner.getByRole('button',{name:/^Choose per operator/}).click();
+  await banner.getByRole('button',{name:/^Potentials for/}).click();
   for(let p=1;p<=5;p++)await expect(banner.getByRole('button',{name:`Potential ${p} for Aphrissa`,exact:true})).toBeDisabled();
   await banner.getByRole('button',{name:'Pull',exact:true}).click();await expect(banner.getByRole('button',{name:'Potential 6 for Aphrissa',exact:true})).toHaveAttribute('aria-pressed','true');await expect(banner.getByRole('button',{name:'Potential 1 for Pedro',exact:true})).toHaveAttribute('aria-pressed','true');await expect(banner.getByRole('group',{name:/^Interest in Wulfenite/}).getByRole('button',{name:'Nice to have',exact:true})).toHaveAttribute('aria-pressed','true');await expect(banner.getByText('Pulling!',{exact:true})).toBeVisible();await expect(banner.locator('.poll-potential[data-want=pull]').filter({hasText:'P6'})).toHaveCount(2);
   if(process.env.ARKPEDIA_QA_CAPTURE)await page.screenshot({path:`${process.env.ARKPEDIA_QA_CAPTURE}/poll-owned-${theme}-${info.project.name}.png`,animations:'disabled'});
@@ -236,7 +240,7 @@ for(const theme of ['dark','light'])test(`your results badge matches the pull, m
   await setup(page,theme);await page.goto('/polls/pull-or-skip',{waitUntil:'domcontentloaded'});const banners=page.getByRole('article'),expected=[];
   for(const [i,choice] of ['Pull','Maybe','Skip'].entries()){
     const banner=banners.nth(i);await banner.getByRole('button',{name:choice,exact:true}).click();
-    if(choice==='Maybe'){await banner.getByRole('button',{name:/^Choose per operator/}).click();await banner.getByRole('button',{name:"Don't Want",exact:true}).last().click();}
+    if(choice==='Maybe'){await banner.getByRole('button',{name:/^Potentials for/}).click();await banner.getByRole('button',{name:"Don't Want",exact:true}).last().click();}
     expected.push({title:await banner.getByRole('heading').textContent(),stamp:choice.toLowerCase(),color:await banner.locator('.poll-stamp').evaluate(el=>getComputedStyle(el).color)});
   }
   await page.getByRole('tab',{name:'Results',exact:true}).click();await page.getByRole('button',{name:'Detailed',exact:true}).click();
@@ -253,6 +257,11 @@ for(const theme of ['dark','light'])test(`simple symbols and default detailed st
 for(const theme of ['dark','light'])test(`export community results with banner and operator percentages (${theme})`,async({page},info)=>{
   test.setTimeout(70000);
   const state=await setup(page,theme);
+  // An identifiable portrait colour lets the download test distinguish icons from the initials fallback.
+  await page.route(/-star-icons\//,route=>route.fulfill({
+    contentType:'image/svg+xml',headers:{'access-control-allow-origin':'*'},
+    body:'<svg xmlns="http://www.w3.org/2000/svg" width="52" height="52"><rect width="52" height="52" fill="#e1169f"/></svg>',
+  }));
   await page.goto('/polls/pull-or-skip',{waitUntil:'domcontentloaded'});
   const resultsTab=page.getByRole('tab',{name:'Results',exact:true});
   await resultsTab.click();
@@ -260,7 +269,7 @@ for(const theme of ['dark','light'])test(`export community results with banner a
   await expect(exportButton).toBeDisabled();
   await expect(page.getByText('No entries yet.',{exact:false})).toBeVisible();
   await page.getByRole('tab',{name:'Your picks',exact:true}).click();
-  const banner=page.getByRole('article').filter({has:page.getByRole('button',{name:/^(Choose|Hide) per operator/})}).first();
+  const banner=page.getByRole('article').filter({has:page.getByRole('button',{name:/^Potentials for/})}).first();
   const title=await banner.getAttribute('aria-label');
   const catalogue=await page.evaluate(()=>JSON.parse(document.getElementById('__NEXT_DATA__')!.textContent!).props.pageProps.banners as {id:string;name:string;operators:string[]}[]);
   const entry=catalogue.find(b=>b.name===title)!;
@@ -272,6 +281,13 @@ for(const theme of ['dark','light'])test(`export community results with banner a
   const dialog=page.getByRole('dialog',{name:'Community poll results'});
   const image=dialog.getByRole('img',{name:'Community poll results image'});
   await expect(image).toHaveAccessibleDescription(/8 answers, Pull 63%, Maybe 25%, Skip 13%/);
+  const portraitPixels=()=>image.evaluate(element=>{
+    const canvas=element as HTMLCanvasElement;
+    const pixels=canvas.getContext('2d')!.getImageData(0,0,canvas.width,canvas.height).data;
+    let count=0;
+    for(let i=0;i<pixels.length;i+=4)if(pixels[i]===225&&pixels[i+1]===22&&pixels[i+2]===159)count++;
+    return count;
+  });
   const download=dialog.getByRole('button',{name:'Download PNG'});
   for(const format of ['simple','detailed']){
     if(format==='detailed'){
@@ -279,6 +295,7 @@ for(const theme of ['dark','light'])test(`export community results with banner a
       await expect(image).toHaveAccessibleDescription(new RegExp(name+' want a copy 67%'));
     }
     await expect(download).toBeEnabled({timeout:20000});
+    if(format==='detailed')await expect.poll(portraitPixels,{timeout:20000}).toBeGreaterThan(1000);
     await expect(download).toBeInViewport();
     const [file]=await Promise.all([page.waitForEvent('download'),download.click()]);
     expect(file.suggestedFilename()).toBe('arkpedia-pull-or-skip-results-'+format+'.png');
@@ -289,8 +306,9 @@ for(const theme of ['dark','light'])test(`export community results with banner a
     expect(png.readUInt32BE(16)).toBe(1200);
     expect(png.readUInt32BE(20)).toBe(Number(await image.getAttribute('height')));
   }
-  await dialog.getByRole('button',{name:'Social square'}).click();
+  await dialog.getByRole('button',{name:'Single Banner'}).click();
   await expect(download).toBeEnabled({timeout:20000});
+  await expect.poll(portraitPixels,{timeout:20000}).toBeGreaterThan(2000);
   const [square]=await Promise.all([page.waitForEvent('download'),download.click()]);
   const squarePath=info.outputPath('social-square.png');
   await square.saveAs(squarePath);

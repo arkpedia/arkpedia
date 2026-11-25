@@ -74,6 +74,24 @@ test('elemental explanations distinguish enemies and allies and strip game marku
   assert.equal(entries[0].definition, 'Against enemies: 6000 damage and 3 stacks of Paralysis\nOn allies: Stunned for 10s');
 });
 
+test('Take Off inflections use the same game definition in older operator pages and previews', async () => {
+  const { completeOperatorText } = await import('../../lib/operators/operatorTextServer');
+  const dictionary = JSON.parse(fs.readFileSync('data/combat-keywords.json', 'utf8')) as NonNullable<Operator['combatKeywords']>;
+  const canonical = dictionary.find(entry => entry.term === 'ba.liftoff' && entry.text === 'Take Off')!;
+  for (const [path, forms] of [
+    ['operators-6star/Violet Mizutsune Orchid', ['Takes Off']],
+    ['operators-4star/Contrail', ['Takes Off', 'Taking Off']],
+  ] as const) {
+    const raw = JSON.parse(fs.readFileSync(`data/${path}.json`, 'utf8')) as Operator;
+    const { operator } = await completeOperatorText({ operator: { ...raw, operatorTextVersion: 5, combatKeywords: [] } });
+    for (const text of forms) {
+      const entry = operator.combatKeywords?.find(keyword => keyword.text === text);
+      assert.deepEqual(entry, { ...canonical, text });
+    }
+    assert.deepEqual(buildGachaOperatorPreview(operatorPreviewSource(operator)).combatKeywords, operator.combatKeywords);
+  }
+});
+
 test('CN shared base terms use game IDs, consistent English and the same member explanations', () => {
   const glossary = JSON.parse(fs.readFileSync('data/base-skill-glossary.json', 'utf8')) as BaseSkillGlossary;
   const ops = getAllOperators();
@@ -157,7 +175,7 @@ test('version 4 published fan wording receives the corrected CN overview', { ski
   const older = { ...op, operatorTextVersion: 4 as const, review: { ...op.review!, official: op.review!.official!.replaceAll('burdenbeast', 'herdbeast') } };
   const { completeOperatorText } = await import('../../lib/operators/operatorTextServer');
   const result = await completeOperatorText({ operator: older });
-  assert.equal(result.operator.operatorTextVersion, 5);
+  assert.equal(result.operator.operatorTextVersion, 6);
   assert.match(result.operator.review?.official ?? '', /burdenbeast/);
   assert.doesNotMatch(result.operator.review?.official ?? '', /herdbeast/);
 });
@@ -184,12 +202,12 @@ test('old published operator props receive the same text enrichment as source co
   const page = { operator: raw, retained: 'other published page props' };
   const completed = await completeOperatorText(page);
   assert.equal(completed.retained, page.retained);
-  assert.equal(completed.operator.operatorTextVersion, 5);
+  assert.equal(completed.operator.operatorTextVersion, 6);
   assert.equal(getSkillList(completed.operator)[0].name, 'Erosion');
   assert.ok(completed.operator.combatKeywords?.some(term => term.name === 'Corrosion'));
   assert.equal(await completeOperatorText(completed), completed, 'already enriched published props remain authoritative');
   const legacy = await completeOperatorText({ operator: { ...raw, operatorTextVersion: 1 as const } });
-  assert.equal(legacy.operator.operatorTextVersion, 5);
+  assert.equal(legacy.operator.operatorTextVersion, 6);
   assert.doesNotMatch(legacy.operator.review?.official ?? '', /\p{Script=Han}/u, 'version 1 payloads must receive the missing overview translation');
   assert.equal(getSkillList(raw)[0].name, '冲蚀', 'the cached published object is not mutated');
 });

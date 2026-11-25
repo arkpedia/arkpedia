@@ -36,12 +36,20 @@ const PLACES: Place[] = [
   { route: '/synergies', item: 'main .technique-card', press: (s) => s.getByRole('group', { name: 'Buff' }).getByRole('button', { name: 'Ammo', exact: true }), chip: 'Ammo', key: 'buff', value: 'Ammo' },
 ];
 
-/** Where the list starts, the bar's top and the reader's scroll: what may not move. */
+/** Track the list, the trigger, and the reader's scroll across sheet interactions. */
 const frame = (page: Page) => page.evaluate(() => ({
   main: Math.round(document.querySelector('main')!.getBoundingClientRect().top),
-  bar: Math.round(document.querySelector('.filter-bar')!.getBoundingClientRect().top),
+  trigger: Math.round(document.querySelector('.filter-bar-open')!.getBoundingClientRect().top),
   scroll: Math.round(scrollY),
 }));
+
+async function expectRosterSearchRow(page: Page) {
+  const search = (await page.getByRole('searchbox', { name: 'Search operators' }).boundingBox())!;
+  const trigger = (await page.locator('.filter-bar-open').boundingBox())!;
+  expect(search.y).toBe(trigger.y);
+  expect(search.height).toBe(trigger.height);
+  expect(search.x + search.width).toBeLessThan(trigger.x);
+}
 
 async function query(page: Page, key: string, value: string | null) {
   await expect.poll(() => new URL(page.url()).searchParams.get(key)).toBe(value);
@@ -74,6 +82,7 @@ for (const theme of ['dark', 'light'] as const) {
       // Every filter is behind the button.
       await expect(place.press(page)).toHaveCount(0);
       await expect(filters).toHaveText(/^Filters$/);
+      if (place.route === '/operators') await expectRosterSearchRow(page);
       const before = await frame(page);
 
       // Opened from the keyboard: the sheet is labelled, holds focus, and Escape closes it,
@@ -103,12 +112,22 @@ for (const theme of ['dark', 'light'] as const) {
       await expect(filters).toHaveText(/^Filters\s*1$/);
       const chip = page.locator('.filter-tag', { hasText: place.chip });
       await expect(chip).toHaveCount(1);
-      expect(await frame(page), 'applying a filter under the sheet').toEqual(before);
+      const filtered = await frame(page);
+      if (place.route === '/operators') {
+        // The chips get a row below the roster search while a filter is active.
+        await expectRosterSearchRow(page);
+        expect(filtered).toMatchObject({ trigger: before.trigger, scroll: before.scroll });
+        const chipRow = (await page.locator('.filter-bar-chips').boundingBox())!;
+        expect(chipRow.y).toBeGreaterThan(filtered.trigger);
+        expect(filtered.main - before.main).toBeGreaterThanOrEqual(chipRow.height);
+      } else {
+        expect(filtered, 'applying a filter under the sheet').toEqual(before);
+      }
       await sheet.getByRole('button', { name: 'Done', exact: true }).click();
       await expect(sheet).toHaveCount(0);
-      expect(await frame(page), 'Done').toEqual(before);
+      expect(await frame(page), 'Done').toEqual(filtered);
 
-      // The chip's × is the site's ×, and removes the filter without moving anything.
+      // Removing the chip returns focus and restores the initial layout.
       const x = chip.getByRole('button', { name: `Remove filter: ${place.chip}` });
       const box = await x.evaluate((el) => {
         const s = getComputedStyle(el);
@@ -202,7 +221,7 @@ test('a shared address opens on its chips, and the sheet keeps the page under it
   await page.goto('/operators');
   await expect(page.locator('main .roster-card').first()).toBeVisible();
   await expect(page.locator('.filter-tag')).toHaveCount(0);
-  await page.locator('.filter-bar').evaluate((el) => window.scrollTo(0, el.getBoundingClientRect().top + scrollY - 40));
+  await page.locator('.filter-bar-open').evaluate((el) => window.scrollTo(0, el.getBoundingClientRect().top + scrollY - 40));
   await page.waitForTimeout(300);
   const before = await frame(page);
   await page.getByRole('button', { name: /^Filters/ }).click();
@@ -218,10 +237,13 @@ test('a shared address opens on its chips, and the sheet keeps the page under it
     return Math.round(main.getBoundingClientRect().top + scrollY + main.querySelector('.roster-grid')!.getBoundingClientRect().height);
   });
   expect(natural, 'the list alone ends above the bottom of the reader\'s screen').toBeLessThan(before.scroll + 844);
-  expect(await frame(page), 'a filter that shortens the list, under the sheet').toEqual(before);
+  const filtered = await frame(page);
+  expect(filtered, 'a filter that shortens the list, under the sheet').toMatchObject({
+    trigger: before.trigger, scroll: before.scroll,
+  });
   await sheet.getByRole('button', { name: 'Done', exact: true }).click();
   await page.waitForTimeout(300);
-  expect(await frame(page), 'a filter that shortens the list').toEqual(before);
+  expect(await frame(page), 'a filter that shortens the list').toEqual(filtered);
   await page.getByRole('button', { name: 'Remove filter: Medic', exact: true }).click();
   await page.getByRole('button', { name: 'Remove filter: 1★', exact: true }).click();
   await query(page, 'rarity', null);

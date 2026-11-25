@@ -19,10 +19,11 @@ export function resultImageRows(banners:PollBanner[],results:PullPollResults,det
 }
 
 type ImageRow=ReturnType<typeof resultImageRows>[number];
-export const resultPanelHeight=(row:ImageRow)=>200+(row.operators.length?45+row.operators.length*38:0);
+type DrawPortrait=(name:string,x:number,y:number,size:number)=>void;
+export const resultPanelHeight=(row:ImageRow)=>200+(row.operators.length?45+row.operators.length*57:0);
 
 export function drawResultPanel(c:CanvasRenderingContext2D,row:ImageRow,title:string,top:number,height:number,
-  colors:{text:string;dim:string;pull:string;maybe:string;skip:string},label:(value:string,x:number,y:number,font:string,color:string,width?:number)=>void){
+  colors:{text:string;dim:string;pull:string;maybe:string;skip:string},label:(value:string,x:number,y:number,font:string,color:string,width?:number)=>void,drawPortrait:DrawPortrait){
   const x=626,width=548;
   const y=top+(height-resultPanelHeight(row))/2;
   label(title,x,y+44,'700 36px Rajdhani',colors.text,width);
@@ -37,8 +38,9 @@ export function drawResultPanel(c:CanvasRenderingContext2D,row:ImageRow,title:st
   if(!row.operators.length)return;
   label('Want a copy',x,y+229,'600 24px Rajdhani',colors.dim);
   row.operators.forEach(({name,value},i)=>{
-    const baseline=y+265+i*38;
-    label(name,x,baseline,'600 28px Rajdhani',colors.text,width-(value==='No answers'?161:88));
+    const baseline=y+278+i*57;
+    drawPortrait(name,x,baseline-34,46);
+    label(name,x+58,baseline,'600 28px Rajdhani',colors.text,width-58-(value==='No answers'?161:88));
     c.save();c.textAlign='right';label(value,x+width,baseline,'24px "JetBrains Mono"',value==='No answers'?colors.dim:colors.pull);c.restore();
   });
 }
@@ -51,7 +53,7 @@ export function socialResultCards(rows:ImageRow[]){
 }
 
 export function drawSocialResult(c:CanvasRenderingContext2D,row:ImageRow,title:string,art:HTMLImageElement|undefined,
-  position:string,colors:{bg:string;text:string;dim:string;pull:string;maybe:string;skip:string;panel:string}){
+  position:string,colors:{bg:string;text:string;dim:string;pull:string;maybe:string;skip:string;panel:string},drawPortrait:DrawPortrait){
   const side=1080,inset=50,usable=side-inset*2;
   function text(value:string,x:number,y:number,size:number,color:string,mono=false,maxWidth=usable){
     c.font=mono?`500 ${size}px "JetBrains Mono"`:`700 ${size}px Rajdhani`;
@@ -60,7 +62,7 @@ export function drawSocialResult(c:CanvasRenderingContext2D,row:ImageRow,title:s
   c.fillStyle=colors.bg;c.fillRect(0,0,side,side);
   text('PULL OR SKIP',inset,82,66,colors.text);
   c.save();c.textAlign='right';text('COMMUNITY RESULTS',side-inset,76,31,colors.pull,true);c.restore();
-  const artTop=111,artHeight=row.operators.length?319:470;
+  const artTop=111,artHeight=row.operators.length?Math.min(319,442-row.operators.length*54):470;
   c.fillStyle=colors.panel;c.fillRect(0,artTop,side,artHeight);
   if(art){
     const scale=Math.min(side/art.naturalWidth,artHeight/art.naturalHeight);
@@ -82,11 +84,12 @@ export function drawSocialResult(c:CanvasRenderingContext2D,row:ImageRow,title:s
   if(row.operators.length){
     text('Want a copy',inset,y+375,38,colors.dim);
     row.operators.forEach(({name,value},i)=>{
-      const baseline=y+427+i*47;
-      text(name,inset,baseline,40,colors.text,false,usable-248);
+      const baseline=y+435+i*68;
+      drawPortrait(name,inset,baseline-45,58);
+      text(name,inset+74,baseline,40,colors.text,false,usable-322);
       c.save();c.textAlign='right';text(value,side-inset,baseline,34,colors.text,true);c.restore();
     });
   }
-  text('arkpedia.net/polls/pull-or-skip',inset,1043,30,colors.dim,true);
+  text(row.banner.artwork?'arkpedia.net/polls/endfield-pull-or-skip':'arkpedia.net/polls/pull-or-skip',inset,1043,30,colors.dim,true);
   c.save();c.textAlign='right';text(position,side-inset,1043,30,colors.dim,true);c.restore();
 }

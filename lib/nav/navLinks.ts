@@ -1,4 +1,4 @@
-import { CHART_STRINGS } from '@/lib/tier-list/chartStrings';
+import { pageCatalogue } from '@/lib/routes/catalogue.cjs';
 import { isGamePath } from '@/lib/minigames/catalogue';
 
 /*
@@ -16,137 +16,64 @@ export interface NavLink {
   icon: string;
 }
 
-export const LINKS: NavLink[] = [
-  { href: '/about', label: 'About Arkpedia', icon: 'about' },
-  { href: '/privacy', label: 'Privacy notice', icon: 'privacy' },
-  { href: '/cookies', label: 'Cookies & privacy choices', icon: 'cookies' },
-  { href: '/techniques', label: 'Techniques', icon: 'techniques' },
-  { href: '/synergies', label: 'Synergies', icon: 'synergies' },
-  { href: '/obtain-method', label: 'Obtain method', icon: 'obtain' },
-  { href: '/community/projects', label: 'Community projects', icon: 'projects' },
-  { href: '/community/statistics', label: 'Community Stats', icon: 'statistics' },
-  { href: '/polls', label: 'Polls', icon: 'polls' },
-  { href: '/community/support-units', label: 'Find support units', icon: 'roster' },
-  { href: '/operators', label: 'Operators', icon: 'roster' },
-  { href: '/artists', label: 'Artists', icon: 'palette' },
-  { href: '/voice-actors', label: 'Voice Actors', icon: 'microphone' },
-  { href: '/skins', label: 'Skins', icon: 'skins' },
-  /* Not in the bar any more: the Events list is a view of the Schedule page. Kept in
-     LINKS because the event detail pages still live under /events/, and isActiveLink
-     reads this row to light the nav on them. */
-  { href: '/events', label: 'Events', icon: 'events' },
-  { href: '/farming', label: 'Farming', icon: 'farming' },
-  { href: '/stages', label: 'Stages', icon: 'stages' },
-  /* The handbook is one page with the selection in the URL. This link used to name the
-     first enemy's page, a slug next.config.js baked in at deploy: that shape is retired,
-     so every click went through a 308 and a full document load that destroyed the music
-     player's iframe mid-song. scripts/tests/test-nav-links.ts holds every href to a real
-     page that no redirect matches. */
-  { href: '/enemies', label: 'Enemies', icon: 'enemies' },
-  { href: '/story', label: 'Story', icon: 'story' },
-  { href: '/manga', label: 'Manga', icon: 'story' },
-  { href: "/game-modes", label: 'Game Modes', icon: 'grid' },
-  { href: '/base', label: 'Base', icon: 'base' },
-  { href: '/account', label: 'My account', icon: 'roster' },
-  { href: "/reward-tracker", label: 'Reward Tracker', icon: 'prime' },
-  { href: '/dps-calculator', label: 'DPS Calculator', icon: 'calculator' },
-  { href: "/operator-planner", label: 'Operator Planner', icon: 'planner' },
-  { href: "/pull-planner", label: 'Pull Planner', icon: 'calculator' },
-  { href: '/skin-planner', label: 'Skin Planner', icon: 'skins' },
-  { href: "/world", label: 'World', icon: 'world' },
-  { href: '/account?panel=following', label: 'Following', icon: 'roster' },
-  { href: "/gacha-simulator", label: 'Gacha Simulator', icon: 'gacha' },
-  { href: '/recruitment', label: 'Recruitment', icon: 'recruitment' },
-  { href: '/selector-tickets', label: 'Selector Tickets', icon: 'selector' },
-  { href: "/polls/power-scale", label: 'Power Scale', icon: 'rate' },
-  { href: '/games', label: 'Games', icon: 'grid' },
-  /* The Schedule menu's two entries: one page, two views (pages/schedule.tsx ?view=). */
-  { href: '/schedule', label: 'Events', icon: 'events' },
-  { href: '/schedule?view=calendar', label: 'Calendar', icon: 'timeline' },
-  { href: '/music', label: 'Music', icon: 'music' },
-  /* The two makers, between Music and Games in Extras (the owner, 2026-11-19). The chart
-     maker's name is not final: its label is CHART_STRINGS.navLabel, changed there. */
-  { href: '/polls/tier-list', label: 'Tier List Maker', icon: 'tiers' },
-  { href: '/polls/chart-maker', label: CHART_STRINGS.navLabel, icon: 'axes' },
-  { href: "/whats-new", label: "What's new", icon: 'changelog' },
-  { href: '/credits', label: 'Credits', icon: 'credits' },
-  { href: '/support', label: 'Support', icon: 'support' },
-];
-
-/**
- * One shared grouping for the desktop menus and mobile drawer. Community's
- * participation links lead its menu; Music, the two makers and Games have their own Extras menu.
- * Personal destinations open tabs of My account through the profile shortcuts.
- */
 export interface NavGroup {
-  /** Stable: the menu's key and its data-menu, whatever its label reads. */
   id: string;
   label: string;
-  /** Drawn before the label: Schedule keeps the calendar it had as a loose link. */
   icon?: string;
   items: NavLink[];
   dividersAfter?: string[];
 }
 
-const at = (href: string): NavLink => {
-  const link = LINKS.find((l) => l.href === href);
-  if (!link) throw new Error(`nav group names a link that is not in LINKS: ${href}`);
-  return link;
-};
-
-export const GROUPS: NavGroup[] = [
-  { id: 'database', label: 'Database', dividersAfter: ['/obtain-method', '/manga'], items: [
-    at('/operators'), at('/skins'), at('/synergies'), at('/techniques'), at('/obtain-method'),
-    at('/enemies'), at('/stages'), at('/story'), at('/manga'), at('/artists'), at('/voice-actors'),
-  ] },
-  { id: 'guides', label: 'Tools', items: [at('/dps-calculator'), at('/farming'), at('/base'), at('/recruitment'), at("/gacha-simulator"), at('/selector-tickets'), at("/game-modes")] },
-  { id: 'own', label: 'Planner', items: [at("/operator-planner"), at("/pull-planner"), at('/skin-planner'), at("/reward-tracker")] },
-  { id: 'community', label: 'Community', dividersAfter: ['/community/support-units'], items: [at('/polls'),at('/community/statistics'),at('/community/support-units'),at('/community/projects'),at('/world')] },
-  { id: 'extras', label: 'Extras', items: [at('/music'),at('/polls/tier-list'),at('/polls/chart-maker'),at('/games')] },
-  /* The owner asked for the two views as a menu instead of tabs on the page (2026-10-29). */
-  { id: 'schedule', label: 'Schedule', icon: 'timeline', items: [at('/schedule'), at('/schedule?view=calendar')] },
-  /* About stays last (the owner, 2026-10-29). */
-  { id: 'about', label: 'About', items: [at('/about'), at("/whats-new"), at('/credits'), at('/support')] },
+const MENUS = [
+  { id: 'database', label: 'Database' },
+  { id: 'guides', label: 'Tools' },
+  { id: 'own', label: 'Planner' },
+  { id: 'community', label: 'Community' },
+  { id: 'extras', label: 'Extras' },
+  { id: 'schedule', label: 'Schedule', icon: 'timeline' },
+  { id: 'about', label: 'About' },
 ];
 
-/* Not in a menu: one destination each, and a menu of one is a click in front of a
-   link. Planner joined them when Base, Recruitment and Gacha moved to Guides and left
-   it alone in Planning. Schedule joined them when the Events list became a view of the
-   Schedule page rather than a page of its own, which left that menu holding one thing
-   too, and left it again for a menu of its two views (Events, Calendar) on 2026-10-29. */
-export const LOOSE: NavLink[] = [];
+const destinations = pageCatalogue.flatMap(page => (page.nav ?? []).map(entry => ({
+  group: entry.group,
+  order: entry.order,
+  dividerAfter: entry.dividerAfter,
+  link: {
+    href: entry.query ? `${page.route}?${entry.query}` : page.route,
+    label: entry.label,
+    icon: entry.icon,
+  },
+})));
 
-/**
- * Every destination the bar shows, in the order it shows them: each menu's contents in
- * menu order, then loose and profile utility links. Search uses this complete list.
- * Both navigation layouts derive their menus from GROUPS rather than LINKS,
- * which is a registry in no particular order -- the drawer used to list Operators,
- * Skins, Events, Farming, Stages... while the bar read Operators, Skins, Enemies,
- * Stages, so the two navs disagreed about where everything was.
- *
- * Derived, not written out again. A second hand-maintained list is a second thing to
- * forget when an entry moves between menus.
- */
-export const PROFILE_LINKS = [at('/account'), at('/account?panel=following')];
-export const NAV_ORDER: NavLink[] = [...GROUPS.flatMap((g) => g.items), ...LOOSE, ...PROFILE_LINKS];
-
-/* Rows that are in LINKS on purpose while appearing in neither nav. Events is the only
-   one: the events LIST is a view of the Schedule page now, and this row survives so
-   isActiveLink can light Schedule on the /events/<slug> detail pages that still exist. */
-// Privacy documents remain reachable from privacy settings and existing bookmarks.
-const NOT_IN_NAV = new Set<string>(['/events', '/privacy', '/cookies', '/polls/power-scale']);
-
-/* A row that is in no menu, no loose slot and not named above renders nowhere at all,
-   in either nav, and nothing else would say so. Same reasoning as at() above: fail the
-   build rather than quietly lose a destination. */
-const orphanLinks = LINKS.filter((l) => !NAV_ORDER.includes(l) && !NOT_IN_NAV.has(l.href));
-if (orphanLinks.length > 0) {
-  throw new Error(
-    `nav links belong to no menu and are not marked as deliberately hidden: ${orphanLinks
-      .map((l) => l.href)
-      .join(', ')}`
-  );
+const validGroups = new Set([...MENUS.map(menu => menu.id), 'profile', 'loose', 'hidden']);
+const hrefs = new Set<string>();
+const positions = new Set<string>();
+for (const entry of destinations) {
+  const position = `${entry.group}:${entry.order}`;
+  if (!validGroups.has(entry.group) || hrefs.has(entry.link.href)
+      || (entry.group !== 'hidden' && positions.has(position))) {
+    throw Error(`Invalid or duplicate navigation entry: ${entry.link.href} (${position})`);
+  }
+  hrefs.add(entry.link.href);
+  positions.add(position);
 }
+
+const entriesIn = (group: string) => destinations.filter(entry => entry.group === group)
+  .sort((a, b) => a.order - b.order);
+
+export const LINKS: NavLink[] = destinations.map(entry => entry.link);
+export const GROUPS: NavGroup[] = MENUS.map(menu => {
+  const entries = entriesIn(menu.id);
+  const dividersAfter = entries.filter(entry => entry.dividerAfter).map(entry => entry.link.href);
+  return {
+    ...menu,
+    items: entries.map(entry => entry.link),
+    ...(dividersAfter.length ? { dividersAfter } : {}),
+  };
+});
+export const LOOSE = entriesIn('loose').map(entry => entry.link);
+export const PROFILE_LINKS = entriesIn('profile').map(entry => entry.link);
+export const NAV_ORDER = [...GROUPS.flatMap(group => group.items), ...LOOSE, ...PROFILE_LINKS];
 
 const MAKER_PATHS = ['/polls/tier-list', '/polls/chart-maker'];
 

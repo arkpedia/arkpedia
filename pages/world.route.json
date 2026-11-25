@@ -1,0 +1,15 @@
+{
+  "release": "/community",
+  "tables": [
+    "youtube-creators"
+  ],
+  "clock": "minute",
+  "nav": [
+    {
+      "group": "community",
+      "order": 50,
+      "label": "World",
+      "icon": "world"
+    }
+  ]
+}

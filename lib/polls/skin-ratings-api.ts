@@ -1,21 +1,32 @@
+import { votingOpenSql } from './settingsStore';
 import type {NextApiRequest,NextApiResponse} from 'next';
 import type {D1Database} from '@cloudflare/workers-types';
 import {allowAccountRequest,accountLimited} from '@/lib/cloud-account/limits';
-import {SKIN_RATING_POLL_ID,validSkinRating,type SavedSkinRating} from './skin-ratings';
+import {SKIN_RATING_POLL_ID,validSkinRating,type SavedSkinRating,type SkinRatingResult} from './skin-ratings';
 import {aggregateRatingBuckets} from './skin-rating-statistics';
+import {pollResultSnapshot} from './resultSnapshot';
+
+async function publicResults(db:D1Database):Promise<Omit<SkinRatingResult,'mine'>>{
+  const [totals,buckets]=await db.batch([
+    db.prepare('SELECT count(DISTINCT userId) raters,count(*) ratings FROM skin_poll_rating WHERE poll=? AND rating IS NOT NULL').bind(SKIN_RATING_POLL_ID),
+    db.prepare('SELECT skin,rating,count(*) ratings FROM skin_poll_rating WHERE poll=? AND rating IS NOT NULL GROUP BY skin,rating').bind(SKIN_RATING_POLL_ID),
+  ]);
+  const coverage=totals.results[0] as {raters:number;ratings:number};
+  return {version:2,...coverage,ranking:aggregateRatingBuckets(buckets.results as {skin:string;rating:number;ratings:number}[])};
+}
 
 /** Fixed anonymous aggregates and the authenticated account's own editable ratings. */
-export async function skinRatings(req:NextApiRequest,res:NextApiResponse,db:D1Database,owner:string|null,loadIds:()=>Promise<ReadonlySet<string>>){
+export async function skinRatings(req:NextApiRequest,res:NextApiResponse,db:D1Database,owner:string|null,loadIds:()=>Promise<ReadonlySet<string>>,now=Date.now){
   if(req.method==='GET'){
-    if(req.query.owner!==undefined&&req.query.owner!==owner)return res.status(409).json({error:'Your signed-in account changed. Reload the poll.'});
-    const result=await db.batch([
-      db.prepare('SELECT count(DISTINCT userId) raters,count(*) ratings FROM skin_poll_rating WHERE poll=? AND rating IS NOT NULL').bind(SKIN_RATING_POLL_ID),
-      db.prepare('SELECT skin,rating,count(*) ratings FROM skin_poll_rating WHERE poll=? AND rating IS NOT NULL GROUP BY skin,rating').bind(SKIN_RATING_POLL_ID),
-      ...(owner?[db.prepare('SELECT skin,rating,revision FROM skin_poll_rating WHERE poll=? AND userId=?').bind(SKIN_RATING_POLL_ID,owner)]:[]),
+    const view=req.query.view;
+    if(view!==undefined&&view!=='results'&&view!=='mine')return res.status(400).json({error:'Choose a valid ratings view.'});
+    if(view!=='results'&&req.query.owner!==undefined&&req.query.owner!==owner)return res.status(409).json({error:'Your signed-in account changed. Reload the poll.'});
+    if(view==='mine'&&!owner)return res.status(401).json({error:'Sign in to see your saved ratings.'});
+    const [result,mine]=await Promise.all([
+      view==='mine'?null:pollResultSnapshot(db,SKIN_RATING_POLL_ID,()=>publicResults(db),now),
+      owner&&view!=='results'?db.prepare('SELECT skin,rating,revision FROM skin_poll_rating WHERE poll=? AND userId=?').bind(SKIN_RATING_POLL_ID,owner).all<SavedSkinRating>():null,
     ]);
-    const coverage=result[0].results[0] as {raters:number;ratings:number};
-    const ranking=aggregateRatingBuckets(result[1].results as {skin:string;rating:number;ratings:number}[]);
-    return res.json({version:2,...coverage,ranking,...(owner?{mine:result[2].results}:{})});
+    return res.json({...result,version:2,...(mine?{mine:mine.results}:{})});
   }
   if(!owner)return res.status(401).json({error:'Sign in to Arkpedia to rate skins.'});
   if(req.body?.owner!==owner)return res.status(409).json({error:'Your signed-in account changed. Reload the poll before rating.'});
@@ -26,7 +37,7 @@ export async function skinRatings(req:NextApiRequest,res:NextApiResponse,db:D1Da
   if(req.method==='DELETE'&&!(await loadIds()).has(skin)&&!await db.prepare('SELECT 1 n FROM skin_poll_rating WHERE poll=? AND userId=? AND skin=?').bind(SKIN_RATING_POLL_ID,owner,skin).first())return res.status(400).json({error:'Choose a skin you have rated or one from the catalogue.'});
   // Null is a tombstone: a stale device cannot resurrect a cleared rating.
   const row=await db.prepare(`INSERT INTO skin_poll_rating(poll,userId,skin,rating,revision) SELECT ?,?,?,?,1
-    WHERE ?=0 OR EXISTS(SELECT 1 FROM skin_poll_rating WHERE poll=? AND userId=? AND skin=? AND revision=?)
+    WHERE ${votingOpenSql('favourite-skins')} AND (?=0 OR EXISTS(SELECT 1 FROM skin_poll_rating WHERE poll=? AND userId=? AND skin=? AND revision=?))
     ON CONFLICT(poll,userId,skin) DO UPDATE SET rating=excluded.rating,revision=revision+1 WHERE skin_poll_rating.revision=?
     RETURNING skin,rating,revision`).bind(SKIN_RATING_POLL_ID,owner,skin,rating,revision,SKIN_RATING_POLL_ID,owner,skin,revision,revision).first<SavedSkinRating>();
   if(row)return res.json(row);

@@ -1,0 +1,13 @@
+{
+  "release": "/gacha",
+  "regional": true,
+  "clock": "minute",
+  "nav": [
+    {
+      "group": "guides",
+      "order": 40,
+      "label": "Gacha Simulator",
+      "icon": "gacha"
+    }
+  ]
+}

@@ -2,9 +2,12 @@ import type { IncomingHttpHeaders } from 'node:http';
 import type { D1Database, R2Bucket } from '@cloudflare/workers-types';
 import { getCloudflareContext } from '@opennextjs/cloudflare';
 import { createRemoteJWKSet, jwtVerify } from 'jose';
-import type { PatreonEnv } from '@/lib/patreon/sync.mjs';
+import type { NextApiRequest, NextApiResponse } from 'next';
 
-interface DashboardEnv extends Partial<PatreonEnv> {
+interface DashboardEnv {
+  ARKPEDIA_ACCOUNTS_DB?: D1Database;
+  ARKPEDIA_DEPLOYMENT_ROLE?: string;
+  ARKPEDIA_AUTH_URL?: string;
   NEXT_INC_CACHE_R2_BUCKET?: R2Bucket;
   ARKPEDIA_DASHBOARD_ORIGIN?: string;
   ARKPEDIA_DASHBOARD_ACCESS_ISSUER?: string;
@@ -32,6 +35,29 @@ export function dashboardOrigin(env: DashboardEnv): URL | null {
 
 export function dashboardDatabase(env: DashboardEnv): D1Database | null {
   return dashboardOrigin(env) && env.ARKPEDIA_ACCOUNTS_DB || null;
+}
+
+export async function dashboardRequest(req: NextApiRequest, res: NextApiResponse) {
+  res.setHeader('Cache-Control', 'private, no-store');
+  const env = dashboardEnv();
+  const actor = await dashboardActor(env, req.headers);
+  if (!actor) {
+    res.status(403).end();
+    return null;
+  }
+  return { env, actor };
+}
+
+export function acceptDashboardWrite(env: DashboardEnv, req: NextApiRequest, res: NextApiResponse): boolean {
+  if (req.headers.origin !== dashboardOrigin(env)?.origin) {
+    res.status(403).end();
+    return false;
+  }
+  if (req.headers['content-type']?.split(';')[0] !== 'application/json') {
+    res.status(415).end();
+    return false;
+  }
+  return true;
 }
 
 const signingKeys = new Map<string, ReturnType<typeof createRemoteJWKSet>>();

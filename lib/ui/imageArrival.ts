@@ -43,10 +43,12 @@ export const ARRIVE_ANIMATION = 'img-arrive';
 /** How long a held image may take, once on screen, before it is shown as it is (ms). */
 export const HOLD_MS = 1500;
 
-type ImageState = Pick<HTMLImageElement, 'complete' | 'naturalWidth'>;
+type ImageState = Pick<HTMLImageElement, 'complete' | 'naturalWidth'> & Partial<Pick<HTMLImageElement, 'fetchPriority'>>;
 /** What to do with an image as it enters the page (or is found there when the watch
  *  starts): `shown` as it is, or `held` until it loads, and fades in then. */
 export function arrivalOf(img: ImageState): 'shown' | 'held' {
+  // A page's explicitly prioritized artwork should paint as soon as the browser can draw it.
+  if (img.fetchPriority === 'high') return 'shown';
   // In already (a picture the browser has), or broken or with no address (complete, with
   // nothing to draw): nothing to wait for.
   if (img.complete) return 'shown';

@@ -9,6 +9,8 @@ import { communityRankings, readCommunityRoster, type CommunityRosterRankings } 
 import { cachedCommunityRankings } from './rankingsCache';
 import {reportRankingFailure,type RankingBucket} from './sharedRankingsCache';
 import { deploymentPreviewStatistics } from './preview-statistics';
+import { publicPoll } from '@/lib/polls/settings';
+import { readPollSetting } from '@/lib/polls/settingsStore';
 import { pullPoll } from '@/lib/polls/pull-poll-api';
 import { skinRatings } from '@/lib/polls/skin-ratings-api';
 import { skinPoll,skinPollIds } from '@/lib/polls/skin-poll-api';
@@ -47,7 +49,7 @@ export async function gameFingerprint(secret:string,server:string,uid:string) {
   return Array.from(new Uint8Array(await crypto.subtle.sign('HMAC',key,new TextEncoder().encode(`community-v1:${server}:${uid}`)))).map(v=>v.toString(16).padStart(2,'0')).join('');
 }
 /** Isolated rows, explicit consent, revision checks and fixed public projections. */
-export function createCommunityHandler(kind:'sharing'|'stats'|'supports'|'availability'|'rankings'|'skin-poll'|'pull-poll'|'friends',{
+export function createCommunityHandler(kind:'sharing'|'stats'|'supports'|'availability'|'rankings'|'skin-poll'|'pull-poll'|'endfield-poll'|'friends',{
   resolveEnv=accountsEnv, authenticate=async(req:NextApiRequest,env:AccountsEnv)=>(await accountAuth(env).api.getSession({headers:fromNodeHeaders(req.headers)}))?.user.id??null, now=()=>Date.now(),
   pollSkinIds=skinPollIds,
 }:{resolveEnv?:()=>Env|null;authenticate?:(req:NextApiRequest,env:AccountsEnv)=>Promise<string|null>;now?:()=>number;pollSkinIds?:()=>Promise<ReadonlySet<string>>}={}) {
@@ -55,7 +57,9 @@ export function createCommunityHandler(kind:'sharing'|'stats'|'supports'|'availa
     res.setHeader('Cache-Control','private, no-store'); res.setHeader('Vary','Cookie'); res.setHeader('X-Robots-Tag','noindex');
     const env=resolveEnv();
     if(!env) return res.status(503).json({error:'Community sharing is not configured on this deployment.'});
-    const methods=kind==='pull-poll'?['GET','PUT']:['sharing','skin-poll','friends'].includes(kind)?['GET','PUT','DELETE']:kind==='availability'?['POST','DELETE']:['GET'];
+    const pullEdition = kind === 'endfield-poll' ? 'endfield-pull-or-skip' : 'pull-or-skip';
+    const isPull = kind === 'pull-poll' || kind === 'endfield-poll';
+    const methods=isPull?['GET','PUT']:['sharing','skin-poll','friends'].includes(kind)?['GET','PUT','DELETE']:kind==='availability'?['POST','DELETE']:['GET'];
     if(!methods.includes(req.method??'')){res.setHeader('Allow',methods.join(', '));return res.status(405).end();}
     if(req.method!=='GET'&&(req.headers.origin!==env.ARKPEDIA_AUTH_URL||!req.headers['content-type']?.startsWith('application/json'))) return res.status(403).json({error:'This request must come from Arkpedia.'});
     try{
@@ -83,10 +87,23 @@ export function createCommunityHandler(kind:'sharing'|'stats'|'supports'|'availa
       if(kind==='stats')return await stats(req,res,db);
       if(kind==='supports')return await supports(req,res,db,time);
       if(kind==='friends'&&req.method==='GET'&&req.query.mine!=='1')return await friendProfiles(req,res,db,null,time);
+      if (isPull || kind === 'skin-poll') {
+        const setting = await readPollSetting(db, isPull ? pullEdition : 'favourite-skins');
+        if (!setting.visible) return res.status(404).json({error:'This poll is unavailable.'});
+        const policy = publicPoll(setting,time);
+        if (req.method !== 'GET' && !policy.open) return res.status(403).json({error:'Voting has closed.'});
+        const readsResults = isPull ? req.query.view === 'results'
+          : !(req.query.mode === 'ratings' && req.query.view === 'mine');
+        if (req.method === 'GET' && readsResults && !policy.results) return res.status(403).json({error:'Poll results are hidden.'});
+      }
+      if(req.method==='GET'&&req.query.view==='results'){
+        if(isPull)return await pullPoll(req,res,db,null,{edition:pullEdition});
+        if(kind==='skin-poll'&&req.query.mode==='ratings')return await skinRatings(req,res,db,null,pollSkinIds,now);
+      }
       const owner=await authenticate(req,env);
       if(kind==='friends')return await friendProfiles(req,res,db,owner,time);
-      if(kind==='pull-poll')return await pullPoll(req,res,db,owner);
-      if(kind==='skin-poll')return await (req.query.mode==='ratings'?skinRatings:skinPoll)(req,res,db,owner,pollSkinIds);
+      if(isPull)return await pullPoll(req,res,db,owner,{edition:pullEdition});
+      if(kind==='skin-poll')return req.query.mode==='ratings'?await skinRatings(req,res,db,owner,pollSkinIds,now):await skinPoll(req,res,db,owner,pollSkinIds);
       if(!owner)return res.status(401).json({error:kind==='availability'?'Sign in to report availability.':'Sign in to choose community sharing.'});
       if(kind==='availability')return await availability(req,res,db,owner,time);
       const row=await readRow(db,owner,time);

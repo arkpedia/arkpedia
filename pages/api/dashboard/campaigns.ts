@@ -1,5 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
-import { dashboardActor, dashboardDatabase, dashboardEnv, dashboardOrigin } from '@/lib/dashboard/access';
+import { acceptDashboardWrite, dashboardDatabase, dashboardRequest } from '@/lib/dashboard/access';
 import maintenance from './maintenance';
 import { samePlacements } from '@/lib/sponsors/campaignSchedule';
 import { editorCatalog, expireReaderCampaigns, rotationCatalog } from '@/lib/dashboard/campaignCatalog';
@@ -9,10 +9,9 @@ export const config = { api: { bodyParser: { sizeLimit: '3mb' } } };
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method === 'POST' && req.body?.action === 'refresh') return maintenance(req, res);
-  res.setHeader('Cache-Control', 'private, no-store');
-  const env = dashboardEnv();
-  const actor = await dashboardActor(env, req.headers);
-  if (!actor) return void res.status(403).end();
+  const session = await dashboardRequest(req, res);
+  if (!session) return;
+  const { env, actor } = session;
   const db = dashboardDatabase(env);
   if (!db) return void res.status(503).json({ error: 'Campaign storage is unavailable.' });
   try {
@@ -27,8 +26,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return void res.json(await campaignHistory(db, history, before === undefined ? undefined : Number(before)));
     }
     if (req.method === 'POST') {
-      if (req.headers.origin !== dashboardOrigin(env)?.origin) return void res.status(403).end();
-      if (req.headers['content-type']?.split(';')[0] !== 'application/json') return void res.status(415).end();
+      if (!acceptDashboardWrite(env, req, res)) return;
       if (req.body?.action === 'rotation') {
         const saved = await saveRotation(db, actor, req.body.slot, req.body.revision, req.body.turns);
         invalidateCampaignEdits();

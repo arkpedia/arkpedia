@@ -11,6 +11,8 @@ export type Ballot = Record<string, Record<string, Want>>;
 export interface PollBanner {
   id: string; name: string; aliases: string[]; start: string; end: string;
   endAt: string | null; estimated: boolean; image: string | null; operators: string[]; category?:string; limited?:boolean;
+  /** Standalone artwork in reveal order, without a banner timetable or operator lineup. */
+  artwork?: { description: string; original: string };
   /** Returning limited operators in the off-banner pool; selectable individually. */
   returningOperators?: string[];
   newOperators?: string[]; sixStars?: string[]; rerun?:boolean;
@@ -36,7 +38,7 @@ export function pollBanners(banners: UpcomingBanner[], lineups: readonly Headhun
   });
 }
 /** -1 is good to have; zero is an explicit skip. Missing means unanswered. */
-export function parseBallot(value: unknown, banners: readonly PollBanner[]): Ballot {
+export function parseBallot(value: unknown, banners: readonly Pick<PollBanner, 'id' | 'operators' | 'artwork'>[]): Ballot {
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw Error('Invalid poll choices.');
   const catalogue = new Map(banners.map(b => [b.id, b]));
   const result: Ballot = {};
@@ -46,8 +48,10 @@ export function parseBallot(value: unknown, banners: readonly PollBanner[]): Bal
     if (!banner || !raw || typeof raw !== 'object' || Array.isArray(raw)) throw Error('This poll’s banners changed. Reload before submitting.');
     const choices: Record<string, Want> = {};
     for (const [name, want] of Object.entries(raw)) {
-      if (!(banner.operators.includes(name) || (!banner.operators.length && name===BANNER_INTENT)) || (name===BANNER_INTENT&&Number(want)>1) || !Number.isInteger(want) || Number(want) < -1 || Number(want) > 6) throw Error('Choose a valid operator potential.');
-      Object.defineProperty(choices, name, { value: want, enumerable: true, writable: true, configurable: true });
+      if (!(banner.operators.includes(name) || (!banner.operators.length && name===BANNER_INTENT)) || (name===BANNER_INTENT && !banner.artwork && Number(want)>1) || !Number.isInteger(want) || Number(want) < -1 || Number(want) > 6) throw Error('Choose a valid operator potential.');
+      // Older Endfield clients recorded the requested number of copies. Any positive choice is Pull.
+      const verdict = banner.artwork && Number(want) > 0 ? 1 : want;
+      Object.defineProperty(choices, name, { value: verdict, enumerable: true, writable: true, configurable: true });
     }
     if (Object.keys(choices).length) Object.defineProperty(result, id, { value: choices, enumerable: true, writable: true, configurable: true });
   }
@@ -59,6 +63,7 @@ export function pullIntent(choices:Record<string,Want>|undefined):'pull'|'maybe'
 }
 export function bannerChoice(choices: Record<string, Want> | undefined, banner: PollBanner,owned:OwnedPotentials={}): string {
   if (!choices) return '';
+  if (banner.artwork) return pullIntent(choices);
   const values = banner.operators.length ? banner.operators.map(name=>choices[name]) : [choices[BANNER_INTENT]];
   if (values.every(w=>w===undefined)) return '';
   return values.every(w=>w===0) ? 'skip' : values.every(w=>w===-1) ? 'maybe'
@@ -70,7 +75,7 @@ export type OwnedPotentials=Record<string,number>;
 export function constrainOwned(ballot:Ballot,owned:OwnedPotentials):Ballot {
   return Object.fromEntries(Object.entries(ballot).map(([id,choices])=>[id,Object.fromEntries(Object.entries(choices).map(([name,want])=>[name,want>0&&want<=(owned[name]??0)?(owned[name]>=6?0:owned[name]+1):want]))])) as Ballot;
 }
-export function activePollBanners(banners:readonly PollBanner[],now=Date.now()):PollBanner[]{return banners.filter(b=>Date.parse(b.endAt??`${b.end}T23:59:59-07:00`)>now);}
+export function activePollBanners(banners:readonly PollBanner[],now=Date.now()):PollBanner[]{return banners.filter(b=>b.artwork || Date.parse(b.endAt??`${b.end}T23:59:59-07:00`)>now);}
 /** Keep historical drafts usable when a banner leaves the current catalogue. */
 export function currentBallot(value:unknown,banners:readonly PollBanner[]):Ballot {
   if(!value||typeof value!=='object'||Array.isArray(value))return parseBallot(value,banners);

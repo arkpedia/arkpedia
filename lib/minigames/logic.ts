@@ -1,7 +1,15 @@
 import { isReleasedAt, type ReleaseMarker } from '@/lib/operators/operatorAvailability';
+import type { Operator } from '@/lib/operators/operatorTypes';
 import { normalizeForSearch } from '@/lib/search/searchNormalize';
 
 export interface GameOperator { name: string; aliases: string[] }
+
+export function toGameOperator(operator: Pick<Operator, 'name' | 'otherLanguages'>): GameOperator {
+  return {
+    name: operator.name,
+    aliases: [...new Set(Object.values(operator.otherLanguages || {}).filter(value => value && value !== 'N/A'))],
+  };
+}
 export type PaletteMode = 'base' | 'elite2';
 export interface PaletteArtwork { image: string; colors: string[] }
 /** `release` decides at render whether the operator is playable yet; releases exported

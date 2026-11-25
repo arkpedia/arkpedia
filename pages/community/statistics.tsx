@@ -15,7 +15,7 @@ import Tabs, { tabPanelProps } from '@/components/ui/Tabs';
 import LocalTime from '@/components/ui/LocalTime';
 import ImportDialog from '@/components/account/ImportDialog';
 import RankingPodium from '@/components/community/RankingPodium';
-import { statisticsMetrics,statisticsRankings,formatRankingValue,displayStatisticsMetric,type StatisticsOperator,type StatisticsMetric,type RankingRow } from '@/components/community/statisticsModel';
+import { statisticsMetrics,statisticsRankingRows,selectStatisticsRankings,formatRankingValue,displayStatisticsMetric,type StatisticsOperator,type StatisticsMetric,type RankingRow } from '@/components/community/statisticsModel';
 import { useSwitchHold } from '@/components/ui/useSwitchHold';
 import { useQueryRecord } from '@/lib/hooks/useQueryState';
 import { COMMUNITY_MIN_SAMPLE } from '@/lib/community/model';
@@ -41,7 +41,8 @@ export default function CommunityStatistics({operators}:Props){
     void fetch(`/api/community/rankings?${query}`,{cache:'no-store',signal:controller.signal}).then(async r=>{const v=await r.json();if(!r.ok)throw Error(v.error);if(!controller.signal.aborted)setData(v);}).catch(e=>{if(!controller.signal.aborted)setError(e.message);});
     return()=>controller.abort();
   },[filters.server,stage,retry]);
-  const rankings=useMemo(()=>statisticsRankings(operators,data,{class:filters.class,rarity:filters.rarity,relative,order:filters.order}),[operators,data,filters.class,filters.rarity,relative,filters.order]);
+  const rankingRows=useMemo(()=>statisticsRankingRows(operators,data,relative),[operators,data,relative]);
+  const rankings=useMemo(()=>selectStatisticsRankings(rankingRows,{class:filters.class,rarity:filters.rarity,order:filters.order}),[rankingRows,filters.class,filters.rarity,filters.order]);
   const section=battle?'battles':'roster',leadMetric=metrics.find(m=>m.battle===battle)!,lead=(rankings.get(leadMetric.value)??[])[0];
   const revealRef=useStaggerReveal<HTMLUListElement>(`${section}:${data?'ready':'waiting'}`);
   const reset=()=>{hold.capture();set({class:'',rarity:'',server:'all',stage:''});};
@@ -111,8 +112,18 @@ function StatisticsLeaderboard({metric,rows,query,onQuery,onClose,controls,sampl
     </>)}
   </ImportDialog>;
 }
+function rankingOperators(operators:StatisticsOperator[]):StatisticsOperator[]{
+  return operators.map(({name,charIds,rarity,className,icon,skills,skillIcons,art})=>({
+    name,charIds,rarity,className,icon,skills,
+    ...(skillIcons!==undefined?{skillIcons}:{}),...(art!==undefined?{art}:{}),
+  }));
+}
+
 export const getStaticProps:GetStaticProps<Props>=withContentPage<Props>('/community/statistics',async()=>{
   const {communityOperators}=await import('@/lib/community/catalogues');
-  const operators=await communityOperators();
-  return {props:{operators}};
-},{bundledWhenUnpublished:true});
+  return {props:{operators:rankingOperators(await communityOperators())}};
+},{
+  bundledWhenUnpublished:true,
+  // Existing content releases still carry the full catalogue records.
+  finalize:async props=>({...props,operators:rankingOperators(props.operators)}),
+});

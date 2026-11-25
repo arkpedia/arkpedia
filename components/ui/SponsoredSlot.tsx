@@ -56,7 +56,7 @@ export function useSponsorCampaign(placement: SponsorSlot): SponsorCampaign | nu
  * Whose turn it is, where a placement has several campaigns: the first on the server and at
  * hydration, then each for its configured duration. It waits while the pointer or the keyboard focus is
  * on the slot and while the tab is hidden, and never turns for a reader who asked for reduced
- * motion. The next campaign's image is fetched ahead of its turn so the change is not a blank.
+ * motion. Preload the next campaign near its turn while the slot is in view.
  */
 function useTurn(ref: React.RefObject<HTMLElement | null>, campaigns: SponsorCampaign[], placement: SponsorSlot): SponsorCampaign | null {
   const [turn, setTurn] = useState(0);
@@ -71,13 +71,19 @@ function useTurn(ref: React.RefObject<HTMLElement | null>, campaigns: SponsorCam
     const slot = ref.current;
     if (count < 2 || !slot || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
     if (!nextUrl) return;
-    // Ahead of its turn; a failure here is not an error, the slot's own image shows its fallback.
-    void loadAssetImage(nextUrl).catch(() => {});
-    const timer = window.setInterval(() => {
-      if (document.hidden || slot.matches(':hover, :focus-within') || getComputedStyle(slot).display === 'none') return;
+    const view=slot.ownerDocument.defaultView;
+    if(!view)return;
+    let visible=false;
+    const observer=new view.IntersectionObserver(([entry])=>{visible=entry.isIntersecting;});
+    observer.observe(slot);
+    const preload=view.setTimeout(()=>{
+      if(visible&&!view.document.hidden)void loadAssetImage(nextUrl).catch(()=>{});
+    },Math.max(0,seconds*1000-2000));
+    const timer = view.setInterval(() => {
+      if (!visible || view.document.hidden || slot.matches(':hover, :focus-within')) return;
       setTurn(value => (value + 1) % count);
     }, seconds * 1000);
-    return () => window.clearInterval(timer);
+    return ()=>{observer.disconnect();view.clearTimeout(preload);view.clearInterval(timer);};
   }, [ref, count, current?.id, seconds, nextUrl, turn]);
   return current ?? null;
 }

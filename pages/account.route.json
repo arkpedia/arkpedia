@@ -1,0 +1,24 @@
+{
+  "release": true,
+  "sitemap": "exclude",
+  "tables": [
+    "game-account-map",
+    "import-aliases",
+    "material-catalogue"
+  ],
+  "nav": [
+    {
+      "group": "profile",
+      "order": 10,
+      "label": "My account",
+      "icon": "roster"
+    },
+    {
+      "group": "profile",
+      "order": 20,
+      "label": "Following",
+      "icon": "roster",
+      "query": "panel=following"
+    }
+  ]
+}

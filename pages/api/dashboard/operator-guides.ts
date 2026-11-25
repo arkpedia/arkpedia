@@ -1,5 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
-import { dashboardActor, dashboardDatabase, dashboardEnv, dashboardOrigin } from '@/lib/dashboard/access';
+import { acceptDashboardWrite, dashboardDatabase, dashboardRequest } from '@/lib/dashboard/access';
 import { readPublishedContentPageProps } from '@/lib/content/release';
 import { operatorHref } from '@/lib/operators/operatorHref';
 import type { Operator } from '@/lib/operators/operatorTypes';
@@ -10,15 +10,11 @@ import { readGuideEdits, saveGuideEdit } from '@/lib/dashboard/operatorGuideStor
 export const config = { api: { bodyParser: { sizeLimit: '192kb' } } };
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  res.setHeader('Cache-Control', 'private, no-store');
-  const env = dashboardEnv();
-  const actor = await dashboardActor(env, req.headers);
-  if (!actor) return res.status(403).end();
+  const session = await dashboardRequest(req, res);
+  if (!session) return;
+  const { env, actor } = session;
   if (req.method !== 'GET' && req.method !== 'POST') { res.setHeader('Allow', 'GET, POST'); return res.status(405).end(); }
-  if (req.method === 'POST') {
-    if (req.headers.origin !== dashboardOrigin(env)?.origin) return res.status(403).end();
-    if (req.headers['content-type']?.split(';')[0] !== 'application/json') return res.status(415).end();
-  }
+  if (req.method === 'POST' && !acceptDashboardWrite(env, req, res)) return;
   const db = dashboardDatabase(env);
   if (!db) return res.status(503).json({ error: 'Guide storage is unavailable.' });
   const name = req.query.operator;

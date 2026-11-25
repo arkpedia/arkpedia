@@ -54,17 +54,18 @@ test('ballots reject injected operators, unknown banners, nonintegers and oversi
   assert.deepEqual(parseBallot({[banner.id]:{}},banners),{});
 });
 function harness(){
+  let scans=0;
   const sqlite=new DatabaseSync(':memory:');sqlite.exec('PRAGMA foreign_keys=ON');
   for(const file of fs.readdirSync('migrations/accounts').filter(f=>f.endsWith('.sql')).sort())sqlite.exec(fs.readFileSync(`migrations/accounts/${file}`,'utf8'));
-  const prepare=(sql:string,args:unknown[]=[])=>({bind:(...values:unknown[])=>prepare(sql,values),first:async()=>sqlite.prepare(sql).get(...args as never[])??null,run:async()=>sqlite.prepare(sql).run(...args as never[]),all:async()=>({results:sqlite.prepare(sql).all(...args as never[])})});
+  const prepare=(sql:string,args:unknown[]=[])=>({bind:(...values:unknown[])=>prepare(sql,values),first:async()=>sqlite.prepare(sql).get(...args as never[])??null,run:async()=>sqlite.prepare(sql).run(...args as never[]),all:async()=>{if(sql.includes('json_each'))scans++;return {results:sqlite.prepare(sql).all(...args as never[])};}});
   const db={prepare,batch:async(statements:ReturnType<typeof prepare>[])=>Promise.all(statements.map(s=>s.all()))} as unknown as D1Database;
   async function call(owner:string|null,method='GET',body?:unknown,cookie='aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa',query:Record<string,string>={}){
     let status=200,result:any;const headers:Record<string,string>={};
     const response={setHeader:(key:string,value:string)=>{headers[key]=value;},status:(n:number)=>{status=n;return response;},json:(v:unknown)=>{result=v;return response;}};
-    await pullPoll({method,cookies:{'__Host-arkpedia-pull-poll':cookie},body,query} as unknown as NextApiRequest,response as unknown as NextApiResponse,db,owner,async()=>({banners}));
+    await pullPoll({method,cookies:{'__Host-arkpedia-pull-poll':cookie},body,query} as unknown as NextApiRequest,response as unknown as NextApiResponse,db,owner,{catalogue:async()=>({banners})});
     return {status,result,headers};
   }
-  return {sqlite,call};
+  return {sqlite,call,scans:()=>scans};
 }
 test('anonymous submissions persist, update atomically and reject stale revisions and account changes',async()=>{
   const h=harness();try{
@@ -121,6 +122,8 @@ test('public results count mixed choices and potentials without exposing ballot 
     await h.call(null,'PUT',{owner:null,revision:0,choices:setBannerChoice({},banner,'skip')},'bbbbbbbb-bbbb-4bbb-bbbb-bbbbbbbbbbbb');
     await h.call(null,'PUT',{owner:null,revision:0,choices:{[banner.id]:{Exusiai:6}}},'cccccccc-cccc-4ccc-cccc-cccccccccccc');
     const {result}=await h.call(null,'GET',undefined,'',{view:'results'});
+    assert.equal(JSON.stringify((await h.call('another-reader','GET',undefined,'',{view:'results'})).result),JSON.stringify(result));
+    assert.equal(h.scans(),2,'both aggregate queries run only on the shared snapshot refresh');
     assert.equal(result.ballots,3);assert.deepEqual(result.banners.map((r:any)=>({...r})),[{id:banner.id,answers:3,pull:2,maybe:0,skip:1}]);
     const op=result.operators.find((r:any)=>r.name==='Exusiai');assert.equal(op.want,2);assert.equal(op.totalPotential,7);assert.equal(op.maxPotential,1);assert.deepEqual(op.potentials,[1,0,0,0,0,1]);
     assert.ok(!JSON.stringify(result).includes('voter'));assert.ok(!JSON.stringify(result).includes('aaaa'));

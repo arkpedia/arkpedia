@@ -42,6 +42,21 @@ const MANIFEST = /\/_next\/static\/([A-Za-z0-9_-]{1,64})\/_buildManifest\.js/;
 // the cache can keep; the reader's own condition is then answered here.
 const CONDITIONS = ['if-none-match', 'if-modified-since', 'if-match', 'if-unmodified-since', 'if-range', 'range'];
 
+// These static HTML pages read the listed UI state from the browser after hydration.
+// Keep the full address if it includes any other parameter.
+const FILTER_PARAMS = new Map([
+  ['/operators', new Set(['q', 'rarity', 'class', 'branch', 'faction', 'gender', 'obtain', 'obtain-type', 'owned', 'dir', 'sort', 'cn'])],
+  ['/community/statistics', new Set(['q', 'metric', 'section', 'mode', 'order', 'class', 'rarity', 'server', 'stage'])],
+  ['/polls/favourite-skins', new Set(['q', 'view', 'rated', 'ratedOrder', 'tierSize', 'skin', 'group', 'display', 'resultsQ', 'sort', 'order', 'weighted', 'detail'])],
+]);
+
+function cacheKey(request) {
+  const url = new URL(request.url);
+  const filters = FILTER_PARAMS.get(url.pathname);
+  if (url.search && filters && [...url.searchParams.keys()].every(key => filters.has(key))) url.search = '';
+  return new Request(url);
+}
+
 /** Whether a request is for a page or its data, which the front cache answers. Everything
  *  else goes straight to the site Worker. */
 export function fromCache(request) {
@@ -148,12 +163,12 @@ function marked(response, state) {
 
 /** The request the site Worker gets on a miss or refresh: a GET without the reader's
  *  conditions, redirects handed back rather than followed. */
-function siteRequest(request, purpose) {
+function siteRequest(request, address, purpose) {
   const headers = new Headers(request.headers);
   for (const name of CONDITIONS) headers.delete(name);
   // Lets wrangler tail tell the front cache's calls apart.
   headers.set(STATE_HEADER, purpose);
-  return new Request(request.url, { method: 'GET', headers, redirect: 'manual' });
+  return new Request(address, { method: 'GET', headers, redirect: 'manual' });
 }
 
 /**
@@ -192,7 +207,7 @@ export function createEdge({ now = Date.now } = {}) {
   /** Asks the site Worker for `key`'s page and keeps the answer if it may be kept. Returns the
    *  response for the reader and the pending put, or null when nothing is kept. */
   async function fetchAndKeep(key, request, purpose, { cache, site }) {
-    const response = await site.fetch(siteRequest(request, purpose));
+    const response = await site.fetch(siteRequest(request, key.url, purpose));
     const plan = response.status === 200 && !response.headers.has('set-cookie') && !/\*/.test(response.headers.get('vary') ?? '') && lifetime(response.headers);
     if (!plan) return { response, put: null };
     const body = await response.arrayBuffer();
@@ -218,8 +233,8 @@ export function createEdge({ now = Date.now } = {}) {
 
   return async function answer(request, { cache, site, waitUntil }) {
     if (!fromCache(request)) return site.fetch(request);
-    // The address alone, query included, whatever the method: a HEAD reads the GET's copy.
-    const key = new Request(request.url);
+    // A HEAD reads the GET's copy. For known filters we also fetch the canonical HTML.
+    const key = cacheKey(request);
     const bindings = { cache, site };
 
     const kept = await cache.match(key).catch(() => undefined);

@@ -4,7 +4,9 @@ const fs = require('node:fs');
 const mediaMaps = fs.existsSync(`${__dirname}/.cache/native-media-delivery.json`) ? JSON.parse(fs.readFileSync(`${__dirname}/.cache/native-media-delivery.json`, 'utf8')) : {};
 const { mediaRedirects } = require('./scripts/build/media-redirects.cjs');
 const assetUrl = (repository, path) => assetCdn.template.replace('{repository}', repository).replace('{revision}', mediaMaps[repository]?.[assetRevisions[repository]]?.baseRevision || assetRevisions[repository]).replace('{path}', path);
-const contentPageRoutes = require('./scripts/content/pages.json');
+const { loadPageCatalogue } = require('./scripts/content/page-catalogue.cjs');
+const pageCatalogue = loadPageCatalogue(__dirname);
+const contentPageRoutes = pageCatalogue.flatMap(page => page.key ? [page.key, page.route] : []);
 const { ClientDataGuard } = require('./scripts/build/client-bundle-guard.cjs');
 const { contentPointer } = require('./scripts/content/content-channel.cjs');
 const { routes: pilotRouteAliases } = require('./config/pilot-route-aliases.json');
@@ -54,6 +56,9 @@ const nextConfig = {
   // The browser bundle may not carry a game record the content release publishes (such as
   // data/albums.json): the build fails, naming the import chain. See the guard's header.
   webpack(config, { isServer, webpack }) {
+    config.plugins.push(new webpack.DefinePlugin({
+      ARKPEDIA_COMPILED_PAGE_CATALOGUE: JSON.stringify(pageCatalogue),
+    }));
     if (!isServer) config.plugins.push(new ClientDataGuard(__dirname));
     // Account-import transport is browser-only; its WASM must not enter the Worker.
     if (isServer) config.plugins.push(new webpack.IgnorePlugin({ resourceRegExp: /^libcurl\.js(\/|$)/ }));

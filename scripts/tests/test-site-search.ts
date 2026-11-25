@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import { releaseRoutes } from '../../lib/routes/catalogue.cjs';
 import { contentUrl } from '../../lib/content/urls';
 import {
   SITE_SEARCH_FEEDS_PATH, SITE_SEARCH_KIND_LABEL, SITE_SEARCH_PATH, loadSiteSearch, loadSiteSearchFeeds, searchSite, siteSearchHref,
@@ -262,8 +263,7 @@ test('site search keeps a numbered operator query on its intended form', () => {
    copy of the index -- 70 rows behind dev's release within the hour. It is where ?s= and a
    browser's search engine land, so it has to be a release page. */
 test('/search is a content page, so its rows come from the release rather than the deployment', () => {
-  const routes = JSON.parse(fs.readFileSync('scripts/content/pages.json', 'utf8')) as string[];
-  assert.ok(routes.includes('/search'), 'scripts/content/pages.json lists /search');
+  assert.ok(releaseRoutes.includes('/search'), 'the route declares release publication');
   assert.match(fs.readFileSync('pages/search.tsx', 'utf8'), /withContentPage\s*(?:<[^>]*>)?\s*\(\s*'\/search'/);
 });
 

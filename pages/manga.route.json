@@ -1,0 +1,12 @@
+{
+  "release": true,
+  "nav": [
+    {
+      "group": "database",
+      "order": 90,
+      "label": "Manga",
+      "icon": "story",
+      "dividerAfter": true
+    }
+  ]
+}

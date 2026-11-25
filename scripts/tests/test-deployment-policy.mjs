@@ -2,7 +2,6 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { spawnSync } from 'node:child_process';
-import yaml from 'js-yaml';
 import { assertBuildPolicy } from '../deploy/check-vercel-build-policy.mjs';
 
 test('Vercel compilation is skipped even for production, manual and preview requests', () => {
@@ -24,10 +23,9 @@ test('a reconnected Git repository or permissive ignore command is refused', () 
   }
 });
 
-test('legacy deployment retains policy verification and prebuilt upload', () => {
-  const { jobs: { deploy } } = yaml.load(fs.readFileSync('.github/workflows/deploy.yml', 'utf8'));
-  assert.equal(deploy['runs-on'], 'ubuntu-latest');
-  const guard = deploy.steps.findIndex(step => step.run === 'node scripts/deploy/check-vercel-build-policy.mjs');
-  assert.ok(guard >= 0 && guard < deploy.steps.findIndex(step => step.name === 'Build'));
-  assert.match(deploy.steps.find(step => step.name === 'Deploy').run, /deploy --prebuilt/);
+test('the retired provider keeps Git deployment disabled', () => {
+  const config = JSON.parse(fs.readFileSync('vercel.json', 'utf8'));
+  assert.equal(config.git.deploymentEnabled, false);
+  assert.equal(config.ignoreCommand, 'bash scripts/deploy/vercel-ignore-build.sh');
+  assert.equal(fs.existsSync('.github/workflows/deploy.yml'), false);
 });

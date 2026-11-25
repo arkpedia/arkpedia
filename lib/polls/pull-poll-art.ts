@@ -1,9 +1,9 @@
 import references from '@/config/pull-poll-art.json';
 import type {ApplicationAsset} from '@/components/content/ContentImage';
 import type {PollBanner} from './pull-poll';
-/** Code-owned illustrations supplied by the design reference, until the live catalogue adopts them. */
+/** Poll-specific artwork takes precedence when marked preferred. Other references fill missing catalogue images. */
 export function applicationBannerArt(banner:PollBanner):ApplicationAsset|null{
-  if(banner.image)return null;
   const name=banner.name.replace(/^\[[^\]]*\]\s*/,'');
-  return (references as Record<string,ApplicationAsset>)[name]??null;
+  const art=(references as Record<string,ApplicationAsset & {preferred?:boolean}>)[name];
+  return art && (!banner.image || art.preferred) ? art : null;
 }

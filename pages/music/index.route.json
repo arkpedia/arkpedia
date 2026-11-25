@@ -1,0 +1,11 @@
+{
+  "release": true,
+  "nav": [
+    {
+      "group": "extras",
+      "order": 10,
+      "label": "Music",
+      "icon": "music"
+    }
+  ]
+}

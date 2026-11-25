@@ -1,0 +1,11 @@
+{
+  "release": true,
+  "nav": [
+    {
+      "group": "database",
+      "order": 40,
+      "label": "Techniques",
+      "icon": "techniques"
+    }
+  ]
+}

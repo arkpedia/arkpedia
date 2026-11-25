@@ -1,73 +1,57 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
-import { pageSource, releaseKey } from '../content/page-source.mjs';
-
-/*
- * Every page that builds props from game data is a page of the content release.
- *
- * A page outside scripts/content/pages.json renders from the deploy's own data/ and resolves
- * its art against the deploy's data/assets/revisions.json pin, so it drifts from the rest of the
- * site until the next redeploy. /results was such a page, with nothing saying so. The pages
- * that stay outside are listed here, each with why, so a new one is a decision rather than a
- * default.
- */
-const OUTSIDE_THE_RELEASE: Record<string, string> = {
-  'pages/dashboard/campaigns.tsx': 'Private editor loads its authorized environment and current D1 revisions per request.',
-  'pages/community/projects.tsx': 'Code-owned project directory; companion metadata has immutable asset pins and ships with the UI.',
-  'pages/world/twitch.tsx': 'Twitch listings fetched at ISR, no game data',
-  'pages/world/videos.tsx': 'YouTube listings fetched at ISR, no game data',
-  'pages/world/youtube-live.tsx': 'YouTube listings fetched at ISR, no game data',
-  'pages/events/index.tsx': 'a permanent redirect to /schedule',
-  'pages/about.tsx': 'no data of its own; only the site tables the live release published (siteTablesStaticProps)',
-  'pages/whats-new.tsx': 'no data of its own; only the site tables the live release published (siteTablesStaticProps)',
-  'pages/cookies.tsx': 'no data of its own; only the site tables the live release published (siteTablesStaticProps)',
-  'pages/credits.tsx': 'no data of its own; only the site tables the live release published (siteTablesStaticProps)',
-  'pages/games/index.tsx': 'no data of its own; only the site tables the live release published (siteTablesStaticProps)',
-  'pages/privacy.tsx': 'no data of its own; only the site tables the live release published (siteTablesStaticProps)',
-  'pages/bases/whole-base-optimizer.tsx': 'development only (devOnlyStaticProps)',
-  'pages/optimizer.tsx': 'development only (devOnlyStaticProps)',
-  'pages/dev/index.tsx': 'development only (devOnlyStaticProps)',
-  'pages/dev/ui.tsx': 'development only (devOnlyStaticProps): the UI primitives gallery',
-  'pages/sitemap.xml.tsx': 'the sitemap, written per request from the live release\'s page list (lib/seo/sitemap.ts)',
-};
+import { pageCatalogue, releaseRoutes } from '../../lib/routes/catalogue.cjs';
+import { loadPageCatalogue } from '../content/page-catalogue.cjs';
+import { pageSource } from '../content/page-source.mjs';
 
 test('former page addresses resolve to canonical sources and keep their release keys', () => {
   assert.equal(pageSource('/gamemodes'), 'pages/game-modes/index.tsx');
   assert.equal(pageSource('/gamemodes/stronghold-protocol'), 'pages/game-modes/stronghold-protocol.tsx');
   assert.equal(pageSource('/gacha'), 'pages/gacha-simulator.tsx');
-  assert.equal(releaseKey('/game-modes', ['/gamemodes']), '/gamemodes');
-  assert.equal(releaseKey('/polls/tier-list', ['/polls/tier-list']), '/polls/tier-list');
+  assert.equal(pageSource('/game-modes'), pageSource('/gamemodes'));
+  assert.ok(releaseRoutes.includes('/results'));
+  assert.ok(releaseRoutes.includes('/community'));
 });
 
-function pageFiles(dir = 'pages'): string[] {
-  return fs.readdirSync(dir, { withFileTypes: true }).flatMap(entry => {
-    const file = path.join(dir, entry.name);
-    if (entry.isDirectory()) return file === path.join('pages', 'api') ? [] : pageFiles(file);
-    return /\.tsx?$/.test(entry.name) ? [file.split(path.sep).join('/')] : [];
-  });
-}
-const routeOf = (file: string) => {
-  const route = file.replace(/^pages/, '').replace(/\.tsx?$/, '').replace(/\/index$/, '');
-  return route || '/';
-};
-
-test('a page with a data function is in the content release, or listed here with why', () => {
-  const released = JSON.parse(fs.readFileSync('scripts/content/pages.json', 'utf8')) as string[];
+test('page declarations match their builders and dynamic paths', () => {
   const problems: string[] = [];
-  for (const file of pageFiles()) {
-    const text = fs.readFileSync(file, 'utf8');
-    if (!/export (?:const|async function) get(?:StaticProps|ServerSideProps)\b/.test(text)) continue;
-    // A renamed page is in the release under its old address (scripts/content/page-source.mjs).
-    const route = releaseKey(routeOf(file), released);
-    const inRelease = released.includes(route);
-    if (inRelease !== /withContentPage\s*(?:<[^>]*>)?\s*\(\s*['"]/.test(text)) problems.push(`${file}: pages.json ${inRelease ? 'lists' : 'omits'} ${route} but the page ${inRelease ? 'does not use' : 'uses'} withContentPage`);
-    if (!inRelease && !OUTSIDE_THE_RELEASE[file]) problems.push(`${file}: builds props outside the content release; add ${route} to scripts/content/pages.json, or list it in OUTSIDE_THE_RELEASE with why`);
+  for (const page of pageCatalogue) {
+    const text = fs.readFileSync(page.file, 'utf8');
+    const hasBuilder = /export (?:const|async function) get(?:StaticProps|ServerSideProps)\b/.test(text);
+    const contentKey = /withContentPage\s*(?:<[^>]*>)?\s*\(\s*['"]([^'"]+)['"]/.exec(text)?.[1];
+    // The legacy Friends export deliberately shares Account's props for older releases.
+    const legacyFriends = page.key === '/friends' && /export \{ default, getStaticProps \} from '\.\/account'/.test(text);
+    if (!legacyFriends && contentKey !== page.key) problems.push(`${page.file}: expected release key ${page.key}, found ${contentKey}`);
+    if (hasBuilder && !page.key && !page.outsideRelease) problems.push(`${page.file}: declare why its data is outside the release`);
+    if (page.outsideRelease && !hasBuilder) problems.push(`${page.file}: stale outsideRelease exception`);
+    if (page.key?.includes('[') && !/export (?:const|async function) getStaticPaths\b/.test(text)) {
+      problems.push(`${page.file}: add getStaticPaths for the content export`);
+    }
   }
-  for (const file of Object.keys(OUTSIDE_THE_RELEASE)) if (!fs.existsSync(file)) problems.push(`${file} is listed as outside the release but no longer exists`);
   assert.deepEqual(problems, []);
-  assert.ok(released.includes('/results'));
-  // Its nav art pinned to the deploy's revisions.json and its event list froze with the build.
-  assert.ok(released.includes('/community'));
+});
+
+test('new static and data-backed routes are discovered from their own files', t => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'arkpedia-page-catalogue-'));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  fs.mkdirSync(path.join(root, 'config'));
+  fs.writeFileSync(path.join(root, 'config/pilot-route-aliases.json'), '{"routes":{}}');
+  fs.mkdirSync(path.join(root, 'pages', 'example'), { recursive: true });
+  fs.writeFileSync(path.join(root, 'pages', 'example.tsx'), 'export default function Example() { return null; }');
+  fs.writeFileSync(path.join(root, 'pages', 'example.route.json'), '{"sitemap":"static"}');
+  fs.writeFileSync(path.join(root, 'pages', 'example', '[id].tsx'), 'export default function Detail() { return null; }');
+  fs.writeFileSync(path.join(root, 'pages', 'example', '[id].route.json'), '{"release":true,"clock":"minute","tables":["example"]}');
+
+  const [index, detail] = loadPageCatalogue(root);
+  assert.equal(index.route, '/example');
+  assert.equal(index.sitemap, 'static');
+  assert.equal(detail.key, '/example/[id]');
+  assert.equal(detail.clock, 'minute');
+  assert.deepEqual(detail.tables, ['example']);
+
+  fs.writeFileSync(path.join(root, 'pages', 'example', '[id].route.json'), '{"release":"/unrelated"}');
+  assert.throws(() => loadPageCatalogue(root), /invalid or duplicate release key/);
 });

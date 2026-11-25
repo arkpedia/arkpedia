@@ -34,8 +34,24 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    at: '2026-11-24T11:45:46Z',
+    added: [{ title: 'Poll deadlines and recent results', detail: 'See when voting closes in your time zone and find recently closed polls at the top of the polls page.', href: '/polls' }],
+  },
+  {
+    at: '2026-11-24T11:17:20Z',
+    changed: [{ title: 'Search and filter on one row', detail: 'On phones, Filters sits beside the Operator Roster search bar.', href: '/operators' }],
+  },
+  {
+    at: '2026-11-24T06:42:42Z',
+    fixed: [{ title: 'Music controls stay visible on mobile', detail: 'Account tabs scroll behind the expanded music player so you can still use its controls.', href: '/account' }],
+  },
+  {
+    at: '2026-11-23T14:14:48Z',
+    added: [{ title: 'Review your skin ratings by tier', detail: 'Compare and update saved scores in Rated with full-size or compact artwork.', href: '/polls/favourite-skins?rated=rated' }],
+  },
+  {
     at: '2026-11-23T05:56:44Z',
-    added: [{ title: 'Share Pull or Skip results', detail: 'Download the community vote as a full sheet or a square card for each banner.', href: '/polls/pull-or-skip?view=results' }],
+    added: [{ title: 'Share Pull or Skip results', detail: 'Export a full sheet or Single Banner card with portraits and vote percentages in Detailed view.', href: '/polls/pull-or-skip?view=results' }],
   },
   {
     at: '2026-11-23T00:45:00Z',

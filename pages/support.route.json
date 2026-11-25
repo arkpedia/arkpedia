@@ -1,0 +1,15 @@
+{
+  "release": true,
+  "sitemap": "static",
+  "tables": [
+    "patreon-supporters"
+  ],
+  "nav": [
+    {
+      "group": "about",
+      "order": 40,
+      "label": "Support",
+      "icon": "support"
+    }
+  ]
+}

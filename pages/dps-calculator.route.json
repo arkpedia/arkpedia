@@ -1,0 +1,11 @@
+{
+  "release": true,
+  "nav": [
+    {
+      "group": "guides",
+      "order": 0,
+      "label": "DPS Calculator",
+      "icon": "calculator"
+    }
+  ]
+}

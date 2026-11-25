@@ -1,0 +1,6 @@
+{
+  "release": "/gamemodes/stronghold-protocol/stronghold-companion",
+  "tables": [
+    "stronghold-opening"
+  ]
+}

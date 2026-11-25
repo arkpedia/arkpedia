@@ -1,12 +1,12 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
-import { dashboardActor, dashboardEnv, dashboardOrigin } from '@/lib/dashboard/access';
+import { acceptDashboardWrite, dashboardRequest } from '@/lib/dashboard/access';
 import { maintenanceStatus, publicPageOrigin, refreshPublicPage } from '@/lib/dashboard/pageMaintenance';
 import { REFRESH_PAGES } from '@/lib/dashboard/refreshPages';
 
 export default async function maintenance(req: NextApiRequest, res: NextApiResponse) {
-  res.setHeader('Cache-Control', 'private, no-store');
-  const env = dashboardEnv();
-  if (!await dashboardActor(env, req.headers)) return void res.status(403).end();
+  const session = await dashboardRequest(req, res);
+  if (!session) return;
+  const { env } = session;
   const origin = publicPageOrigin(env.ARKPEDIA_DEPLOYMENT_ROLE, env.ARKPEDIA_AUTH_URL);
   if (!origin) return void res.status(503).json({ error: 'The public site is unavailable.' });
   if (req.method === 'GET') return void res.json(await maintenanceStatus(origin, env.NEXT_INC_CACHE_R2_BUCKET));
@@ -14,8 +14,7 @@ export default async function maintenance(req: NextApiRequest, res: NextApiRespo
     res.setHeader('Allow', 'GET, POST');
     return void res.status(405).end();
   }
-  if (req.headers.origin !== dashboardOrigin(env)?.origin) return void res.status(403).end();
-  if (req.headers['content-type']?.split(';')[0] !== 'application/json') return void res.status(415).end();
+  if (!acceptDashboardWrite(env, req, res)) return;
   const route = req.body?.route;
   if (req.body?.action !== 'refresh' || !REFRESH_PAGES.includes(route)) {
     return void res.status(400).json({ error: 'Choose a supported page to refresh.' });

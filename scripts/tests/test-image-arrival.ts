@@ -28,6 +28,10 @@ test('an image that has drawn nothing is held until it arrives', () => {
   assert.equal(arrivalOf(img(false, 0)), 'held');
 });
 
+test('prioritized artwork paints independently of the arrival animation', () => {
+  assert.equal(arrivalOf({ ...img(false, 0), fetchPriority: 'high' }), 'shown');
+});
+
 test('a broken image, or one with no address, is shown: there is nothing to wait for', () => {
   assert.equal(arrivalOf(img(true, 0)), 'shown');
 });

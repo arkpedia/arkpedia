@@ -506,12 +506,25 @@ export function declaredStages(root) {
  * checkout. A step listed there is not run again here: its records came with the branch, and the
  * holds of any that failed came in its quarantine file, which recordStageHolds keeps as declared.
  * The upstream checkouts and the completeness gate run in both: the steps that stay read the
- * checkouts, and completeness judges what is published. Read from the importer's own step lists,
- * so the two repositories never keep a list each.
+ * checkouts, and completeness judges what is published. The pinned importer ships its stage
+ * catalogue. Older revisions still expose their stage names through the shell lists below.
  */
 export const KEPT_HERE = new Set(['pin-upstream', 'upstream-cn', 'upstream-en', 'completeness']);
 export function importedStages(dir = process.env.ARKPEDIA_IMPORTED_FROM) {
   if (!dir) return null;
+  const manifestPath = path.join(dir, 'config/import-stages.json');
+  let manifestText;
+  try { manifestText = fs.readFileSync(manifestPath, 'utf8'); }
+  catch (error) { if (error.code !== 'ENOENT') throw error; }
+  if (manifestText !== undefined) {
+    const manifest = JSON.parse(manifestText);
+    if (manifest?.version !== 1 || !Array.isArray(manifest.stages) || !manifest.stages.length
+      || manifest.stages.some(name => typeof name !== 'string' || !/^[a-z0-9][a-z0-9-]*$/.test(name))
+      || new Set(manifest.stages).size !== manifest.stages.length) {
+      throw Error(`Invalid import stage catalogue: ${manifestPath}`);
+    }
+    return new Set(manifest.stages.filter(name => !KEPT_HERE.has(name)));
+  }
   const names = new Set();
   for (const file of ['scripts/content/run-imports.sh', 'scripts/sync/refresh-stage-data.sh']) {
     const at = path.join(dir, file);
