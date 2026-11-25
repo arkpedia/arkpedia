@@ -23,7 +23,7 @@ export function rewardTabsFor(rewardTypes: readonly string[], extras: EventExtra
     ...(rewardTypes.length ? [{ value: ALL_TAB, label: 'All' }] : []),
     ...rewardTypes.map((type) => ({ value: type, label: type })),
     ...(extras.notices.length ? [{ value: EXTRA_TABS.notices, label: 'Announced' }] : []),
-    ...(extras.packs.length ? [{ value: EXTRA_TABS.packs, label: 'Packs' }] : []),
+    ...(extras.packs.length || extras.cosmeticPreview ? [{ value: EXTRA_TABS.packs, label: 'Packs' }] : []),
     ...(extras.furniture.length ? [{ value: EXTRA_TABS.furniture, label: 'Furniture' }] : []),
   ];
 }

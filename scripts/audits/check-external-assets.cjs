@@ -1,9 +1,15 @@
+const { execFileSync } = require('node:child_process');
 const fs = require('fs');
 const path = require('path');
 
 const root = path.resolve(__dirname, '../..');
 const index = JSON.parse(fs.readFileSync(path.join(root, 'data/assets/external-asset-index.json'), 'utf8'));
 const known = new Set(index.files || []);
+// These preview textures are shipped with the checked scene data they depend on.
+// Ignore only version-controlled preview files. Refresh output needs an asset index entry.
+const previewMedia = new Set(execFileSync('git', ['ls-files', '-z', 'public/event-preview/'], {
+  cwd: root, encoding: 'utf8',
+}).split('\0').filter(Boolean).map(file => file.slice('public/'.length)));
 const missing = [];
 
 function walk(directory, relative = '') {
@@ -12,7 +18,7 @@ function walk(directory, relative = '') {
     const file = relative ? `${relative}/${entry.name}` : entry.name;
     const at = path.join(directory, entry.name);
     if (entry.isDirectory()) walk(at, file);
-    else if (/\.(webp|png|jpe?g|gif|svg|avif|ico)$/i.test(entry.name) && !known.has(file)) missing.push(file);
+    else if (/\.(webp|png|jpe?g|gif|svg|avif|ico)$/i.test(entry.name) && !known.has(file) && !previewMedia.has(file)) missing.push(file);
   }
 }
 
@@ -24,4 +30,4 @@ if (missing.length) {
   console.error('Publish these files to the matching asset repository and update data/assets/external-asset-index.json before merging refreshed data.');
   process.exit(1);
 }
-console.log('Every local media file is covered by the external asset manifest.');
+console.log('Every local media file is indexed or belongs to the checked event preview.');

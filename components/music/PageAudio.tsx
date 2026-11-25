@@ -18,15 +18,15 @@ import { fetchAsset } from '@/lib/assets/assetRetry';
 type Status = 'loading' | 'playing' | 'paused' | 'blocked' | 'error';
 /** A separate page-owned engine: never borrows the main player's queue, song or clock. */
 type AudioPreference = 'eventMusic';
-export default function PageAudio({ musicId, pageKey, preference, allowEndfield = false }: { musicId: string | null; pageKey: string; preference: AudioPreference; allowEndfield?: boolean }) {
+export default function PageAudio({ musicId, pageKey, preference, allowEndfield = false, suspended = false }: { musicId: string | null; pageKey: string; preference: AudioPreference; allowEndfield?: boolean; suspended?: boolean }) {
   // Each page owns its engine; the enabled setting persists across navigation.
-  return <PageAudioSession key={`${pageKey}:${musicId}`} musicId={musicId} preference={preference} allowEndfield={allowEndfield} />;
+  return <PageAudioSession key={`${pageKey}:${musicId}`} musicId={musicId} preference={preference} allowEndfield={allowEndfield} suspended={suspended} />;
 }
-function PageAudioSession({ musicId, preference, allowEndfield }: { musicId: string | null; preference: AudioPreference; allowEndfield: boolean }) {
+function PageAudioSession({ musicId, preference, allowEndfield, suspended }: { musicId: string | null; preference: AudioPreference; allowEndfield: boolean; suspended: boolean }) {
   const enabled = useSiteSetting(preference), consent = usePrivacyChoice('externalMedia');
   const { isPlaying, starting, buffering, volume, excludeCopyrighted, includeEndfield, dataSaver } = useMusicPlayer();
   const entranceHold = useEventEntranceAudioHold();
-  const mainBusy = isPlaying || starting || buffering || entranceHold;
+  const mainBusy = isPlaying || starting || buffering || entranceHold || suspended;
   const owner = useRef({});
   const busy = useRef(mainBusy), engine = useRef<PlaybackEngine | null>(null);
   const host = useRef<HTMLDivElement>(null), attempt = useRef<() => void>(() => {});

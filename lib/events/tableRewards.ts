@@ -1,3 +1,4 @@
+import type { CosmeticPreview, GlobalHomeCosmetics } from './cosmeticPreviews';
 import { preferredPackGroups } from './packRegions';
 import type { ResolvedRewardStore } from './rewardTotals';
 import { furnitureArtPath } from './furnitureArt.mjs';
@@ -65,7 +66,8 @@ export interface EventRewardsFile {
   storeNames?: Record<string, string>;
   /** Furniture names a store sells, from the game's furniture data. */
   storeFurniture?: string[];
-  events: Record<string, { region?: string; inheritsFrom?: string; groups: TableRewardGroup[] }>;
+  globalHomeCosmetics?: GlobalHomeCosmetics;
+  events: Record<string, { activity?: string | null; region?: string; inheritsFrom?: string; groups: TableRewardGroup[] }>;
 }
 
 /** The block type an event's own store is listed under (the wiki's store, or the event record's
@@ -94,7 +96,8 @@ export const TABLE_REWARD_LABEL: Record<TableRewardGroup['kind'], string | null>
 
 /** What the page shows beside the reward blocks: packs, furniture sets and announced gifts. */
 export interface EventExtras {
-  packs: { title: string; source: string; region?: string; packs: (Omit<EventPack, 'contents'> & { imagePath?: string | null; artworkLayout?: 'promo' | 'icon'; contents: (PackContents & { iconPath: string | null })[] })[] }[];
+  cosmeticPreview?: CosmeticPreview;
+  packs: { title: string; source: string; region?: string; packs: (Omit<EventPack, 'contents'> & { cosmeticPreview?: CosmeticPreview; imagePath?: string | null; artworkLayout?: 'promo' | 'icon'; contents: (PackContents & { iconPath: string | null })[] })[] }[];
   furniture: { title: string; source: string; imagePath?: string | null; description: string | null; pieces: FurniturePiece[] }[];
   notices: { title: string; source: string; lines: string[] }[];
   /** The rest of the event's official announcement, section by section: the page's News tab. */

@@ -41,6 +41,7 @@ import { operatorReleaseLabel } from '@/lib/operators/operatorAvailability';
 import { publicFileExists } from '@/lib/assets/publicAssets';
 import { fetchVideoOEmbedInfo } from '@/lib/music/youtube';
 import {
+  canonicalOperatorAppearances,
   getOperatorAppearances,
   Appearance,
 } from '@/lib/operators/operatorAppearances';
@@ -1706,6 +1707,23 @@ function buildOperatorRelationIndexes(allOperators: Operator[], skins: ReturnTyp
   return operatorRelationIndexes;
 }
 
+/** Older exported operator pages can still carry both filenames after an outfit rename. */
+function withCanonicalAppearances(props: Props): Props {
+  const appearances = canonicalOperatorAppearances(props.operator.name, props.appearances);
+  if (appearances.length === props.appearances.length) return props;
+  const removed = new Set(props.appearances.filter(appearance => !appearances.includes(appearance)).map(appearance => appearance.label));
+  const keep = <T,>(values: Record<string, T>) =>
+    Object.fromEntries(Object.entries(values).filter(([label]) => !removed.has(label)));
+  return {
+    ...props,
+    appearances,
+    artworkCredits: keep(props.artworkCredits),
+    skinObtainByLabel: keep(props.skinObtainByLabel),
+    ...(props.chibis && { chibis: keep(props.chibis) }),
+    ...(props.dynamicArt && { dynamicArt: keep(props.dynamicArt) }),
+  };
+}
+
 export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/operators/[name]", async ({ params }) => {
   const operator = getOperatorByName(params?.name as string);
   if (!operator) {
@@ -1935,7 +1953,7 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/op
 }, {
   // A release exported before cost rows carried their order: this deployment's catalogue fills it in.
   // And one exported before animated art: this deployment's data/dynamic-art.json fills the pointers in.
-  finalize: (props) => completeOperatorText(props).then(props => withMaterialOrder(props, (page) => plannerCostNames(page.operator))).then(withOperatorDynamicArt).then(page => completeOperatorExtras(page, {
+  finalize: (props) => completeOperatorText(withCanonicalAppearances(props)).then(props => withMaterialOrder(props, (page) => plannerCostNames(page.operator))).then(withOperatorDynamicArt).then(page => completeOperatorExtras(page, {
     chibis: async () => {
       const chibiIndex = process.env.ARKPEDIA_WORKER === '1' ? readDataTable<Record<string, ChibiFacings>>('chibi-art.json') : (await import('@/data/chibi-art.json')).default as unknown as Record<string, ChibiFacings>;
       const skins = (await import('@/data/skins.json')).default as import('@/lib/skins/skinTypes').Skin[];

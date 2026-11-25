@@ -1,0 +1,310 @@
+[
+  {
+    "pack": "幽蓝门扉组合包",
+    "activity": "act54side",
+    "source": "https://ak.hypergryph.com/news/9681",
+    "music": {
+      "title": "Aria of the Soul (P3R Version)",
+      "preview": "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview211/v4/00/39/dc/0039dc47-5900-dab6-851d-57a0038b8c3c/mzaf_17350349967048104523.plus.aac.p.m4a",
+      "source": "https://music.apple.com/us/album/aria-of-the-soul-p3r-version/1733407068?i=1733407093",
+      "provider": "Apple Music"
+    },
+    "scene": {
+      "title": "Velvet Room",
+      "name": "扬升",
+      "image": "/event-preview/velvet-room.webp",
+      "native": "/event-preview/bg_p3r_1/scene.json",
+      "gameData": {
+        "id": "bg_p3r_1",
+        "manifest": "https://raw.githubusercontent.com/ArknightsAssets/ArknightsAssets2/727b9742c9f09db96e5365edfda5188752a8ab5e/bundles/hot_update_list.json",
+        "bundle": "https://ak.hycdn.cn/assetbundle/official/Android/assets/26-11-13-06-37-23-89286612/arts_ui_homebackground_wrapper_bg_p3r_1.dat",
+        "md5": "b1b8d42de24606724c74e4f531a60258",
+        "shaderBundle": "https://ak.hycdn.cn/assetbundle/official/Android/assets/26-11-13-06-37-23-89286612/%5Buc%5Dshaders.dat",
+        "shaderMd5": "3cfbf32a6575fc0c5dd7d53204f2f30d",
+        "clip": "bg_p3r_1_background",
+        "renderedLayers": [
+          "shadow_1",
+          "shadow_2"
+        ]
+      }
+    },
+    "theme": {
+      "name": "月满",
+      "nativeLayout": "persona",
+      "gameData": {
+        "id": "tm_p3r_1",
+        "manifest": "https://raw.githubusercontent.com/ArknightsAssets/ArknightsAssets2/727b9742c9f09db96e5365edfda5188752a8ab5e/bundles/hot_update_list.json",
+        "bundle": "https://ak.hycdn.cn/assetbundle/official/Android/assets/26-11-13-06-37-23-89286612/arts_ui_hometheme_%5Buc%5Dtm_p3r_1.dat",
+        "md5": "a852d668d98012d9ed00fad5d73b49a9"
+      },
+      "terminal": {
+        "label": "Terminal",
+        "art": {
+          "image": "/event-preview/tm_p3r_1/battle_terminal.webp",
+          "width": 653,
+          "height": 124
+        }
+      },
+      "navigation": [
+        {
+          "label": "Squads",
+          "art": {
+            "image": "/event-preview/tm_p3r_1/img_squad.webp",
+            "width": 308,
+            "height": 96
+          },
+          "caption": {
+            "image": "/event-preview/tm_p3r_1/squad_title.webp",
+            "width": 145,
+            "height": 38
+          }
+        },
+        {
+          "label": "Operators",
+          "art": {
+            "image": "/event-preview/tm_p3r_1/operator_bg.webp",
+            "width": 357,
+            "height": 113
+          },
+          "caption": {
+            "image": "/event-preview/tm_p3r_1/operator_title.webp",
+            "width": 145,
+            "height": 38
+          }
+        },
+        {
+          "label": "Missions",
+          "art": {
+            "image": "/event-preview/tm_p3r_1/btn_mission_bg.webp",
+            "width": 334,
+            "height": 78
+          },
+          "caption": {
+            "image": "/event-preview/tm_p3r_1/mission_title.webp",
+            "width": 149,
+            "height": 30
+          }
+        },
+        {
+          "label": "Base",
+          "art": {
+            "image": "/event-preview/tm_p3r_1/building_bg.webp",
+            "width": 221,
+            "height": 77
+          },
+          "caption": {
+            "image": "/event-preview/tm_p3r_1/building_title.webp",
+            "width": 149,
+            "height": 31
+          }
+        },
+        {
+          "label": "Store",
+          "art": {
+            "image": "/event-preview/tm_p3r_1/btn_shop_bg.webp",
+            "width": 237,
+            "height": 64
+          },
+          "caption": {
+            "image": "/event-preview/tm_p3r_1/text_shop.webp",
+            "width": 97,
+            "height": 30
+          }
+        }
+      ],
+      "recruitment": {
+        "heading": {
+          "label": "Recruitment",
+          "art": {
+            "image": "/event-preview/tm_p3r_1/shop_recruit_recruitment.webp",
+            "width": 434,
+            "height": 67
+          }
+        },
+        "choices": [
+          {
+            "label": "Recruit",
+            "art": {
+              "image": "/event-preview/tm_p3r_1/btn_recruit_norma.webp",
+              "width": 189,
+              "height": 61
+            }
+          },
+          {
+            "label": "Headhunt",
+            "art": {
+              "image": "/event-preview/tm_p3r_1/btn_recruit_advance.webp",
+              "width": 189,
+              "height": 61
+            }
+          }
+        ]
+      },
+      "shortcuts": [
+        {
+          "label": "Friends",
+          "art": {
+            "image": "/event-preview/tm_p3r_1/friend_bg.webp",
+            "width": 233,
+            "height": 100
+          },
+          "caption": {
+            "image": "/event-preview/tm_p3r_1/friend_title.webp",
+            "width": 68,
+            "height": 23
+          }
+        },
+        {
+          "label": "Archives",
+          "art": {
+            "image": "/event-preview/tm_p3r_1/handbook_bg.webp",
+            "width": 238,
+            "height": 98
+          },
+          "caption": {
+            "image": "/event-preview/tm_p3r_1/handbook_title.webp",
+            "width": 69,
+            "height": 24
+          }
+        },
+        {
+          "label": "Inventory",
+          "art": {
+            "image": "/event-preview/tm_p3r_1/inventory_bg.webp",
+            "width": 122,
+            "height": 121
+          },
+          "caption": {
+            "image": "/event-preview/tm_p3r_1/inventory_title.webp",
+            "width": 39,
+            "height": 22
+          }
+        }
+      ],
+      "profile": {
+        "name": "Doctor",
+        "level": 120,
+        "sanity": {
+          "current": 210,
+          "capacity": 210,
+          "title": {
+            "image": "/event-preview/tm_p3r_1/btn_battle_ap_title.webp",
+            "width": 195,
+            "height": 41
+          },
+          "plus": {
+            "image": "/event-preview/tm_p3r_1/btn_battle_ap_plus.webp",
+            "width": 48,
+            "height": 54
+          }
+        }
+      },
+      "assistant": {
+        "name": "Makoto Yuki",
+        "art": {
+          "image": "/event-preview/tm_p3r_1/makoto-yuki.webp",
+          "width": 514,
+          "height": 1490
+        },
+        "voice": {
+          "image": "/event-preview/tm_p3r_1/dialogue_title.webp",
+          "width": 116,
+          "height": 54
+        },
+        "source": "six-star-skins/Makoto Yuki - Base.webp"
+      },
+      "decoration": {
+        "image": "/event-preview/tm_p3r_1/tm_p3r_1_headphone.webp",
+        "width": 595,
+        "height": 211
+      }
+    }
+  },
+  {
+    "pack": "剧场序幕组合包",
+    "source": "https://ak.hypergryph.com/news/5101",
+    "music": {
+      "title": "Crimson Solitaire",
+      "preview": "/api/music-audio/779423",
+      "source": "https://monster-siren.hypergryph.com/music/779423"
+    },
+    "scene": {
+      "title": "Theatre Prologue",
+      "name": "序幕",
+      "image": "/event-preview/theatre-prologue.webp",
+      "imageSource": "https://media.prts.wiki/2/23/%E5%9C%BA%E6%99%AF_%E5%BA%8F%E5%B9%95.png?v=7nr9sn73qrklgpi9bnkn424ymz9f3d9"
+    },
+    "theme": {
+      "name": "剧目",
+      "gameData": {
+        "id": "tm_redvelvet_1",
+        "manifest": "https://raw.githubusercontent.com/ArknightsAssets/ArknightsAssets2/727b9742c9f09db96e5365edfda5188752a8ab5e/bundles/hot_update_list.json",
+        "bundle": "https://ak.hycdn.cn/assetbundle/official/Android/assets/26-11-13-06-37-23-89286612/arts_ui_hometheme_%5Buc%5Dtm_redvelvet_1.dat",
+        "md5": "0f9ea626bd1d394e5ab6633626522fd9"
+      },
+      "terminal": {
+        "label": "Terminal",
+        "art": {
+          "image": "/event-preview/tm_redvelvet_1/bg_terminal.webp",
+          "width": 828,
+          "height": 236
+        }
+      },
+      "navigation": [
+        {
+          "label": "Squads",
+          "art": {
+            "image": "/event-preview/tm_redvelvet_1/bg_squad.webp",
+            "width": 342,
+            "height": 156
+          }
+        },
+        {
+          "label": "Operators",
+          "art": {
+            "image": "/event-preview/tm_redvelvet_1/bg_char_repo.webp",
+            "width": 344,
+            "height": 158
+          }
+        },
+        {
+          "label": "Missions",
+          "art": {
+            "image": "/event-preview/tm_redvelvet_1/bg_mission.webp",
+            "width": 300,
+            "height": 146
+          }
+        },
+        {
+          "label": "Base",
+          "art": {
+            "image": "/event-preview/tm_redvelvet_1/bg_building.webp",
+            "width": 280,
+            "height": 144
+          }
+        },
+        {
+          "label": "Store",
+          "art": {
+            "image": "/event-preview/tm_redvelvet_1/btn_shop_title.webp",
+            "width": 100,
+            "height": 24
+          }
+        },
+        {
+          "label": "Recruitment",
+          "art": {
+            "image": "/event-preview/tm_redvelvet_1/bar_recruit.webp",
+            "width": 375,
+            "height": 32
+          }
+        }
+      ],
+      "decoration": {
+        "image": "/event-preview/tm_redvelvet_1/subtitle_whole.webp",
+        "width": 177,
+        "height": 285
+      }
+    }
+  }
+]

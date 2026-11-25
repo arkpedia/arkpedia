@@ -25,7 +25,7 @@ export default function ExternalMediaPrompt() {
     setRequest(null);if(allow)request?.allow();else request?.cancel?.();
   };
   const content=<>
-    <p>Allow YouTube and Monster Siren music and videos? These providers receive connection information, including your IP address, and may use their own cookies or storage.</p>
+    <p>Allow {request?.provider ? `${request.provider}, YouTube and Monster Siren` : 'YouTube and Monster Siren'} music and videos? These providers receive connection information, including your IP address, and may use their own cookies or storage.</p>
     <AutoplayMusicChoice kind="event" checked={events} onChange={setEvents} />
     <div className="statistics-prompt-actions"><button type="button" className="ghost btn-sm" onClick={()=>choose(true)}>{request ? 'Allow external media' : 'Allow music playback'}</button><button type="button" className="ghost btn-sm" onClick={()=>choose(false)}>No thanks</button></div>
     <Link href="/cookies" onClick={()=>{request?.cancel?.();setRequest(null);}}>Privacy choices</Link>

@@ -37,6 +37,7 @@ import { publicFileExists } from '@/lib/assets/publicAssets';
 import { publishedArt } from '@/lib/art/publishedArt';
 import packArt from '@/data/event-pack-art.json';
 import { resolvePackArt } from '@/lib/events/packArt.mjs';
+import { regionalEventCosmeticPreview, regionalPackCosmeticPreview } from '@/lib/events/cosmeticPreviews';
 import { findSkinIconPath } from '@/lib/skins/skinIconLookup';
 import { materialOrderFor } from '@/lib/farming/materialSortOrder';
 import { loadMaterialCatalogue } from '@/lib/farming/materialCatalogueServer';
@@ -262,7 +263,7 @@ export default function EventDetailPage({
   const regionalImages = artAspect === POSTER_ASPECT && server !== 'en' ? [regionalArt(regionalWindow, modeImages[0] ?? null, server)].filter((src): src is string => !!src) : modeImages;
   const shownImages = menuArt ? [menuArt, ...(artAspect === CG_ASPECT ? regionalImages : [])] : regionalImages;
   const shownBannerImage = bannerName ? regionalArt(schedule?.banners?.[bannerName], bannerImage, server) : bannerImage;
-  const hasExtras = extras.packs.length + extras.furniture.length + extras.notices.length > 0;
+  const hasExtras = Boolean(extras.cosmeticPreview) || extras.packs.length + extras.furniture.length + extras.notices.length > 0;
   // A page compiled by a release from before the News tab has no `news` at all.
   const news = extras.news ?? [];
   const board = extras.board ?? [];
@@ -341,6 +342,7 @@ export default function EventDetailPage({
 
   const [activeSkin, setActiveSkin] = useState<Skin | null>(null);
   const [preview, setPreview] = useState<OperatorPreviewItem | null>(null);
+  const [previewSceneOpen, setPreviewSceneOpen] = useState(false);
   const closePreview = useCallback(() => setPreview(null), []);
   /* The banner card's title: its name, its leading tag ("[Celebration]") apart on the right. */
   const bannerTag = bannerName ? /^\[([^\]]+)\]\s*/.exec(bannerName) : null;
@@ -350,8 +352,8 @@ export default function EventDetailPage({
 
 
   return (
-    <RewardDetailsProvider tickets={tickets}>
-      <PageAudio musicId={eventMusicId(name, pageMusic)} pageKey={`event:${name}`} preference="eventMusic" />
+    <RewardDetailsProvider tickets={tickets} onPreviewOpenChange={setPreviewSceneOpen}>
+      <PageAudio musicId={eventMusicId(name, pageMusic)} pageKey={`event:${name}`} preference="eventMusic" suspended={previewSceneOpen} />
       <PageMeta title={name} description={`${name}, an Arknights event${dateRange ? ` (${dateRange})` : ''}: its banner, rewards, outfits and news.`} path={`/events/${encodeURIComponent(name)}`} image={menuArt ?? images[0] ?? poster ?? bannerImage} />
       <div className={activeImage ? 'event-page artwork-page' : 'event-page'}>
       {activeImage && <div className="event-page-art" data-event-entrance-art={menuArt ? entrance?.id : undefined} aria-hidden="true">
@@ -608,7 +610,8 @@ function withLegacyLaunchTiming(props: Props): Props {
 
 export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/events/[slug]", async ({ params }) => {
   const name = params?.slug as string;
-  const listings = [...getEventCalendar(), ...(loadAllEventYears() as ScheduleEvent[]).flatMap(event => { const listing = permanentEventListing(scheduleModeRelease(event, PREDICTED_GAP_DAYS)); return listing ? [listing] : []; })];
+  const records = loadAllEventYears() as (ScheduleEvent & { activityId?: string })[];
+  const listings = [...getEventCalendar(), ...records.flatMap(event => { const listing = permanentEventListing(scheduleModeRelease(event, PREDICTED_GAP_DAYS)); return listing ? [listing] : []; })];
   const event = listings.find((e) => e.name === name);
   if (!event) return { notFound: true };
 
@@ -717,8 +720,21 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/ev
   /* The furniture set as a checklist: each piece with where this event gives it (its missions,
      its sign-in, its store and the price there), else how the game says it is obtained (the
      furniture store). Its pieces are in the other tabs too; this says which of the set they are. */
+  const activity = records.find(record => record.name === event.name)?.activityId ?? originalEntry?.activity ?? undefined;
+  const cosmetics = eventRewards.globalHomeCosmetics;
+  const packs = builtExtras.packs.map(group => ({
+    ...group,
+    packs: group.packs.map(pack => {
+      const preview = regionalPackCosmeticPreview(activity, pack, group.source, cosmetics);
+      return preview ? { ...pack, cosmeticPreview: preview } : pack;
+    }),
+  }));
+  const standalonePreview = packs.some(group => group.packs.some(pack => 'cosmeticPreview' in pack))
+    ? undefined : regionalEventCosmeticPreview(activity, cosmetics);
   const extras = {
     ...builtExtras,
+    packs,
+    ...(standalonePreview && { cosmeticPreview: standalonePreview }),
     furniture: builtExtras.furniture.map((set) => ({ ...set, pieces: set.pieces.map((piece) => ({ ...piece, obtain: furniturePieceSource(piece.name, rewardStores) ?? piece.obtain })) })),
   };
   return {

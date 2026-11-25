@@ -5,8 +5,10 @@ import type { EventExtras } from '@/lib/events/tableRewards';
 import { REGIONAL_MATERIAL } from '@/lib/i18n/regionalMaterial';
 import Image, { ContentImg } from '@/components/content/ContentImage';
 import { PackButton } from './RewardDetails';
+import EventCosmeticPreview from './EventCosmeticPreview';
 import { RewardTile } from './RewardTile';
 import { packDay } from '@/lib/events/packDay';
+import { packCosmeticPreview, type CosmeticPreview } from '@/lib/events/cosmeticPreviews';
 export { packDay } from '@/lib/events/packDay';
 const PackArtViewer = dynamic(() => import('@/components/skins/SkinZoomOverlay'), { ssr: false });
 
@@ -18,19 +20,24 @@ const PackArtViewer = dynamic(() => import('@/components/skins/SkinZoomOverlay')
 
 /** Sale dates follow the offer’s own region; the underlying interval stays exclusive. */
 
-export function EventPacks({ groups }: { groups: EventExtras['packs'] }) {
+export function EventPacks({ groups, preview, onPreviewOpenChange }: {
+  groups: EventExtras['packs'];
+  preview?: CosmeticPreview;
+  onPreviewOpenChange?: (open: boolean) => void;
+}) {
   const [opened, setOpened] = useState<{ image: string; name: string } | null>(null);
-  const copy = (pack: EventExtras['packs'][number]['packs'][number]) => <>
+  const copy = (pack: EventExtras['packs'][number]['packs'][number], source: string) => <>
     {pack.imagePath && pack.artworkLayout !== 'promo' && <Image className="event-pack-card-image" src={pack.imagePath} alt="" width={112} height={84} />}
     <span className="event-pack-card-copy">
       <span className="event-pack-card-name">{pack.name}</span>
       {pack.start && <span className="event-pack-window">{packDay(pack.start, { region: pack.region })}{pack.end ? ` – ${packDay(pack.end, { exclusiveEnd: true, region: pack.region })}` : ''}</span>}
       <span className="event-pack-preview">{pack.contents.slice(0, 2).map(item => `${item.name} ×${item.count.toLocaleString('en-US')}`).join(' · ')}</span>
-      <span className="event-pack-more">View contents ↗</span>
+      <span className="event-pack-more">{(pack.cosmeticPreview ?? packCosmeticPreview(pack.name, source)) ? 'View contents and preview ↗' : 'View contents ↗'}</span>
     </span>
   </>;
   return <>
     <div className="event-extras">
+      {preview && <div><EventCosmeticPreview preview={preview} onOpenChange={onPreviewOpenChange} /></div>}
       {groups.map(group => {
         const offers: { image: string | null; packs: typeof group.packs }[] = [];
         for (const pack of group.packs) {
@@ -51,7 +58,7 @@ export function EventPacks({ groups }: { groups: EventExtras['packs'] }) {
                   <span className="event-pack-art-action" aria-hidden="true">Enlarge ⤢</span>
                 </button>}
                 <div className="event-pack-cards">
-                  {offer.packs.map(pack => <PackButton key={pack.name} pack={pack} source={group.source} framed={!single}>{copy(pack)}</PackButton>)}
+                  {offer.packs.map(pack => <PackButton key={pack.name} pack={pack} source={group.source} framed={!single}>{copy(pack, group.source)}</PackButton>)}
                 </div>
               </div>;
             })}

@@ -10,7 +10,7 @@ type ImageData = {
   fill: number; fillMethod: number; clockwise: boolean; origin: number; arc?: Vec; rotated?: boolean; uvRect?: Vec;
 };
 type Node = { name: string; parent: number | null; active: boolean; alpha: number; position: Vec;
-  z: number; size: Vec; pivot: Vec; anchorMin: Vec; anchorMax: Vec; scale: Vec; rotation: Vec; euler?: Vec; localPosition?: Vec; image?: ImageData; uniforms?: Record<string, number | Vec>; rectMask?: boolean; maskSoftness?: Vec; maskPadding?: Vec; ignoreParentAlpha?: boolean;
+  z: number; size: Vec; pivot: Vec; anchorMin: Vec; anchorMax: Vec; scale: Vec; rotation: Vec; euler?: Vec; localPosition?: Vec; image?: ImageData; mesh?: Vec; uniforms?: Record<string, number | Vec>; rectMask?: boolean; maskSoftness?: Vec; maskPadding?: Vec; ignoreParentAlpha?: boolean;
   stencil?: { compare: number; operation: number; readMask: number; writeMask: number; colorMask: number } };
 type Shader = { name: string; vertex: string; fragment: string; defaults: Record<string, Vec>;
   samplers: Record<string, string>; blend: { val: number; name: string }[] };
@@ -224,10 +224,10 @@ ${output}.a*=coverage; ${output}.rgb*=mix(1.0,coverage,arkPremultiplied); }`;
     }
     return { handle, uniforms, attributes: ['in_POSITION0', 'in_COLOR0', 'in_TEXCOORD0'].map(n => gl.getAttribLocation(handle, n)) };
   }
-  draw(time: number): void {
+  draw(time: number, size?: { width: number; height: number }): void {
     if (this.disposed) return;
     const gl = this.gl, scene = this.scene, nodes = this.nodes;
-    const bounds = this.canvas.getBoundingClientRect(), dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const bounds = size ?? this.canvas.getBoundingClientRect(), dpr = Math.min(window.devicePixelRatio || 1, 2);
     // Match the visible, transformed frame while it docks; CSS can resize the
     // frame's aspect without stretching the artwork rendered inside it.
     const width = Math.max(1, Math.round(bounds.width * dpr)), height = Math.max(1, Math.round(bounds.height * dpr));
@@ -299,9 +299,14 @@ ${output}.a*=coverage; ${output}.rgb*=mix(1.0,coverage,arkPremultiplied); }`;
       }
       const color = [...im.color]; color[3] *= pose.alpha;
       const tex = im.texture === null ? { width: 1, height: 1 } : scene.textures[im.texture];
-      const mesh = imageMesh(im, size, n.pivot, tex), vertices: number[] = [];
+      const mesh = n.mesh ?? imageMesh(im, size, n.pivot, tex);
+      const dimension = n.mesh ? 3 : 2;
+      const vertices: number[] = [];
       const uv = im.uvRect ?? [0, 0, 1, 1];
-      for (let i = 0; i < mesh.length; i += 4) vertices.push(mesh[i], mesh[i + 1], 0, 1, ...color, uv[0] + mesh[i + 2] * uv[2], uv[1] + mesh[i + 3] * uv[3]);
+      for (let i = 0; i < mesh.length; i += dimension + 2) {
+        vertices.push(mesh[i], mesh[i + 1], n.mesh ? mesh[i + 2] : 0, 1, ...color,
+          uv[0] + mesh[i + dimension] * uv[2], uv[1] + mesh[i + dimension + 1] * uv[3]);
+      }
       if (!vertices.length) continue;
       gl.bindBuffer(gl.ARRAY_BUFFER, this.buffer); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.DYNAMIC_DRAW);
       for (const [i, loc] of program.attributes.entries()) if (loc >= 0) { gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, i === 2 ? 2 : 4, gl.FLOAT, false, 40, [0, 16, 32][i]); }
@@ -316,11 +321,15 @@ ${output}.a*=coverage; ${output}.rgb*=mix(1.0,coverage,arkPremultiplied); }`;
   }
 }
 
-export async function loadGameUiPlayer(canvas: HTMLCanvasElement, url: string, signal: AbortSignal): Promise<GameUiPlayer> {
+export async function loadGameUiPlayer(
+  canvas: HTMLCanvasElement, url: string, signal: AbortSignal, baseTextureUrl?: string,
+): Promise<GameUiPlayer> {
   const response = await fetchAsset(url, { signal });
   if (!response.ok) throw new Error('Event entrance unavailable');
   const scene: GameUiScene = await response.json();
   if (scene.schemaVersion !== 1) throw new Error('Unsupported event entrance');
+  // A regional room can replace its full-frame texture while keeping the animation tracks.
+  if (baseTextureUrl && scene.textures[0]) scene.textures[0].file = baseTextureUrl;
   const player = new GameUiPlayer(canvas, scene);
   try { await player.load(new URL('.', url), signal); return player; }
   catch (error) { player.dispose(); throw error; }

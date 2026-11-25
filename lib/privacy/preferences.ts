@@ -46,10 +46,10 @@ export function usePrivacyChoice(key: keyof PrivacyChoices): boolean {
   return useSyncExternalStore(subscribe, () => readPrivacy()[key], () => false);
 }
 export const MEDIA_REQUEST = 'arkpedia:request-external-media';
-export type MediaRequest = { allow: () => void; cancel?: () => void };
-export function requestExternalMedia(allow: () => void, cancel?: () => void): void {
+export type MediaRequest = { allow: () => void; cancel?: () => void; provider?: string };
+export function requestExternalMedia(allow: () => void, cancel?: () => void, provider?: string): void {
   if (readPrivacy().externalMedia) allow();
-  else window.dispatchEvent(new CustomEvent<MediaRequest>(MEDIA_REQUEST, { detail: { allow, cancel } }));
+  else window.dispatchEvent(new CustomEvent<MediaRequest>(MEDIA_REQUEST, { detail: { allow, cancel, provider } }));
 }
 
 /** A withdrawal also retires services already running in other open tabs. */

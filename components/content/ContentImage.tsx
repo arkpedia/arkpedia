@@ -8,12 +8,12 @@ import { assetUrl, encodeAssetPath } from '@/lib/assets/assetUrl';
 /*
  * Every picture on the site is one of these two, and both wait for the reader
  * (docs/development/ui-primitives.md, "Images load as the reader nears them"): an image
- * is fetched only when it comes within the browser's lazy-load distance of the screen,
+ * normally waits until it comes within the browser's lazy-load distance of the screen,
  * and decoded off the main thread. The one way to fetch at once is `priority`, which
  * also asks for the image first (fetchpriority="high"): it is for a page's hero, the
  * largest picture above the fold at load (its LCP), and scripts/tests/test-image-loading.ts
- * names every one. Neither component takes a `loading`, so a caller cannot make an image
- * eager any other way, and a page that forgets to say "lazy" gets lazy.
+ * names every one. ContentImg can also fetch eagerly when a user explicitly opens a
+ * view that mounts its artwork on demand.
  */
 
 /** next/image, pinned to the page's content release. Lazy unless `priority`. */
@@ -58,18 +58,21 @@ export type ContentImgProps = Omit<ImgHTMLAttributes<HTMLImageElement>, 'loading
   /** The live campaign endpoint already resolved this image against its own release. */
   alreadyPinned?: boolean;
   /** The page's hero: the largest picture above the fold at load. Fetched at once and
-   *  first. Every other image is lazy, and a `priority` needs its entry in
+   *  first. A `priority` needs its entry in
    *  scripts/tests/test-image-loading.ts. */
   priority?: boolean;
+  /** Artwork mounted only after the reader explicitly opens its view. */
+  eager?: boolean;
 };
 
 /** A native <img>, pinned to the page's content release. Lazy and decoded off the main
- *  thread unless `priority`; the attributes are set after the caller's, so nothing a
- *  caller spreads in can turn that off, and before `src`, so an image put in after
- *  hydration is lazy from the moment it has an address. */
-export const ContentImg = forwardRef<HTMLImageElement, ContentImgProps>(function ContentImg({ src, alt, priority = false, alreadyPinned = false, ...props }, ref) {
+ *  thread by default. The attributes are set before `src` so images mounted after
+ *  hydration use the requested loading behavior from the moment they have an address. */
+export const ContentImg = forwardRef<HTMLImageElement, ContentImgProps>(function ContentImg({ src, alt, priority = false, eager = false, alreadyPinned = false, ...props }, ref) {
   const url = useContentUrl();
-  const loading = priority ? { loading: 'eager' as const, ...HIGH_PRIORITY } : { loading: 'lazy' as const, decoding: 'async' as const };
+  const loading = priority
+    ? { loading: 'eager' as const, ...HIGH_PRIORITY }
+    : { loading: eager ? 'eager' as const : 'lazy' as const, decoding: 'async' as const };
   const resolved = typeof src === 'string' && !alreadyPinned ? url(src) : src;
   // eslint-disable-next-line @next/next/no-img-element
   return <img referrerPolicy={elsewhere(resolved) ? 'no-referrer' : undefined} {...props} {...loading} alt={alt ?? ''} src={resolved} ref={ref} />;
