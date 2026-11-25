@@ -85,11 +85,19 @@ test('Persona uses the projected home prefab positions and serves every referenc
   }
 });
 
-test('the Velvet Room draws its original light under the grille shadows on the same timeline', () => {
+test('the Velvet Room draws the rotated light through the foreground grille on the shadow timeline', () => {
   const scene: GameUiScene = JSON.parse(readFileSync('public/event-preview/bg_p3r_1/scene.json', 'utf8'));
   const nodes = scene.nodes.map(node => node.name);
-  assert.deepEqual(nodes, ['bg_p3r_1', 'flow_1', 'shadow_1', 'shadow_2']);
-  const lightTexture = scene.textures[scene.nodes[1].image!.texture!];
+  assert.deepEqual(nodes, ['flow_1', 'bg_p3r_1', 'shadow_1', 'shadow_2']);
+  const roomTexture = scene.textures[scene.nodes[1].image!.texture!];
+  const foreground = readFileSync(`public/event-preview/bg_p3r_1/${roomTexture.file}`);
+  assert.equal(foreground.toString('ascii', 12, 16), 'VP8X');
+  assert.equal(foreground[20] & 0x10, 0x10, 'the extended WebP preserves the grille alpha channel');
+  const lightMaterial = scene.materials[scene.nodes[0].image!.material!];
+  assert.equal(lightMaterial.values._HG_UV_ROTATION, 1);
+  assert.deepEqual(lightMaterial.values._Rotation0, [0, 1, -1, 0]);
+  assert.deepEqual(lightMaterial.values._Rotation1, [0, 1, -1, 0]);
+  const lightTexture = scene.textures[scene.nodes[0].image!.texture!];
   assert.equal(lightTexture.file, 'mask_light.webp');
   assert.ok(existsSync(`public/event-preview/bg_p3r_1/${lightTexture.file}`));
   const value = (node: string, property: string, time: number) => {

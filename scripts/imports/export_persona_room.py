@@ -1,9 +1,12 @@
-"""Restore the Velvet Room window light from the original Unity mesh, material and bursts."""
+"""Build the Velvet Room window and lighting from the original Unity assets."""
 import argparse
 from copy import deepcopy
 import hashlib
 import json
+import math
 from pathlib import Path
+
+from PIL import Image
 
 from UnityPy.export.ShaderConverter import ShaderProgram
 from UnityPy.helpers import CompressionHelper
@@ -73,15 +76,22 @@ def export(directory, destination):
                 if o.type.name == 'GameObject' and o.peek_name() == 'flow_1')
     parts = {obj.type.name: obj.read_typetree() for row in root['m_Component']
              if (obj := room[row['component']['m_PathID']]).type.name in
-             ('Transform', 'ParticleSystem', 'ParticleSystemRenderer')}
+             ('Transform', 'ParticleSystem', 'ParticleSystemRenderer', 'MonoBehaviour')}
     transform, particle, renderer = (parts[key] for key in
                                      ('Transform', 'ParticleSystem', 'ParticleSystemRenderer'))
+    texture_rotation = parts['MonoBehaviour']
     material = room[renderer['m_Materials'][0]['m_PathID']].read_typetree()
     shader = web_shader(objects(directory, 'shaders')[material['m_Shader']['m_PathID']],
                         material['m_ValidKeywords'])
     saved = material['m_SavedProperties']
     values = dict(saved['m_Floats'])
     values.update({name: [color[c] for c in 'rgba'] for name, color in saved['m_Colors']})
+    # The prefab sets rotation at runtime. Keep each angle on its own sampler.
+    values['_HG_UV_ROTATION'] = 1
+    for index, (sampler, angle) in enumerate(zip((1, 2, 4, 3), ('angle1', '_angle2', '_angle4', '_angle3'))):
+        radians = math.radians(texture_rotation[angle]) if texture_rotation[f'_rotateTex{sampler}'] else 0
+        cosine, sine = (round(math.cos(radians), 8), round(math.sin(radians), 8))
+        values[f'_Rotation{index}'] = [cosine, sine, -sine, cosine]
     texture = None
     for name, tex in saved['m_TexEnvs']:
         values[name+'_ST'] = [tex['m_Scale']['x'], tex['m_Scale']['y'], tex['m_Offset']['x'], tex['m_Offset']['y']]
@@ -95,15 +105,26 @@ def export(directory, destination):
     vertices = [round(coord, 8) for i in mesh.m_IndexBuffer
                 for coord in (*mesh.m_Vertices[i], *mesh.m_UV0[i][:2])]
     scene = json.loads(destination.read_text())
-    # The light belongs between the room and its grille shadows.
-    if scene['nodes'][1]['name'] == 'flow_1':
-        del scene['nodes'][1]
+    old_light = next((i for i, node in enumerate(scene['nodes']) if node['name'] == 'flow_1'), None)
+    if old_light is not None:
+        del scene['nodes'][old_light]
         scene['shaders'].pop()
         scene['textures'].pop()
         scene['materials'].pop()
-        scene['curves'] = [{**curve, 'node': curve['node']-1}
-                           for curve in scene['curves'] if curve['node'] != 1]
+        scene['curves'] = [{**curve, 'node': curve['node'] - int(curve['node'] > old_light)}
+                           for curve in scene['curves'] if curve['node'] != old_light]
     assert [node['name'] for node in scene['nodes']] == ['bg_p3r_1', 'shadow_1', 'shadow_2']
+
+    # The grille has real holes in the alpha channels of the two room sprites.
+    # Composite the light behind that foreground so it cannot spill onto the furniture.
+    sprites = {o.peek_name(): o for o in room.values() if o.type.name == 'Sprite'}
+    left, right = (sprites[f'bg_p3r_1_{side}'].read().image.convert('RGBA') for side in ('left', 'right'))
+    assert left.height == right.height == scene['height'] and left.width + right.width == scene['width']
+    foreground = Image.new('RGBA', (scene['width'], scene['height']))
+    foreground.paste(left, (0, 0))
+    foreground.paste(right, (left.width, 0))
+    assert foreground.getchannel('A').getextrema() == (0, 255)
+    foreground.save(destination.parent / scene['textures'][0]['file'], 'WEBP', quality=90, method=6)
     size = particle['InitialModule']['startSize']['scalar']
     node = deepcopy(scene['nodes'][0])
     node.update(name='flow_1', mesh=vertices,
@@ -112,7 +133,7 @@ def export(directory, destination):
                 scale=[size * transform['m_LocalScale'][c] for c in 'xyz'],
                 uniforms={'arkMainUVOffset': [0, 0]})
     node['image'].update(texture=len(scene['textures']), material=len(scene['materials']))
-    scene['nodes'].insert(1, node)
+    scene['nodes'].insert(0, node)
     scene['materials'].append({'name': material['m_Name'], 'shader': len(scene['shaders']),
                                'values': values, 'textures': {}})
     scene['shaders'].append(shader)
@@ -140,8 +161,8 @@ def export(directory, destination):
                                key['weightedMode'], key['inWeight'], key['outWeight']])
         alpha.append([start + bursts[-1] + lifetime, 0, None, None, 0, 0, 0])
     scene['curves'].extend([
-        {'node': 1, 'property': 'alpha', 'keys': alpha},
-        {'node': 1, 'property': 'uniforms.arkMainUVOffset.0', 'keys': offset},
+        {'node': 0, 'property': 'alpha', 'keys': alpha},
+        {'node': 0, 'property': 'uniforms.arkMainUVOffset.0', 'keys': offset},
     ])
     scene['windowLightSources'] = BUNDLES
     destination.write_text(json.dumps(scene, separators=(',', ':')) + '\n')
