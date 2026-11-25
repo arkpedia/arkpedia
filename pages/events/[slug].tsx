@@ -399,8 +399,8 @@ export default function EventDetailPage({
                   <div className="event-section-head">
                     <h3 className="entity-title entity-title-name">{bannerTitle.title}</h3>
                     <div className="event-banner-actions">
-                      {bannerTitle.tag && <span className="event-banner-tag">[{bannerTitle.tag}]</span>}
                       <Link className="ghost btn-sm" prefetch={false} href={`/gacha-simulator?banner=${encodeURIComponent(bannerName)}`}>Open in Gacha Simulator</Link>
+                      {bannerTitle.tag && <span className="event-banner-tag">[{bannerTitle.tag}]</span>}
                     </div>
                   </div>
                   <div className="event-banner-body">
