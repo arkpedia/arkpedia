@@ -1,4 +1,4 @@
-import type { EventExtras } from './tableRewards';
+import type { CosmeticEventExtras } from './cosmeticPreviews';
 
 /*
  * The Rewards section's tabs on /events/[slug], and the links that name one (#skins, #rewards,
@@ -18,7 +18,7 @@ export const EXTRA_TABS = { packs: '__packs', furniture: '__furniture', notices:
 export interface RewardTab { value: string; label: string }
 
 /** All (when there are blocks), each block type, then the announced gifts, packs and furniture. */
-export function rewardTabsFor(rewardTypes: readonly string[], extras: EventExtras): RewardTab[] {
+export function rewardTabsFor(rewardTypes: readonly string[], extras: CosmeticEventExtras): RewardTab[] {
   return [
     ...(rewardTypes.length ? [{ value: ALL_TAB, label: 'All' }] : []),
     ...rewardTypes.map((type) => ({ value: type, label: type })),

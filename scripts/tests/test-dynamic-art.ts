@@ -461,6 +461,7 @@ test('compat: today\'s file is drawn as the deployed reader draws it, and a file
 
 /* --- nothing loads with the page ------------------------------------------------------- */
 
+const PERSONA_HEADPHONES = 'components/events/PersonaHeadphones.tsx';
 const RUNTIME = 'lib/vendor/spine-3.8/spine-webgl.js';
 const ARTWORK = 'components/skins/DynamicArtwork.tsx';
 const LAYER_RENDERER = 'components/skins/dynamicLayerRenderer.ts';
@@ -498,7 +499,11 @@ test('no page loads the Spine runtime or the animated artwork with itself: only 
   // Type-only imports (the layer renderer's) are erased from the bundle.
   const naming = ['pages', 'components', 'lib'].flatMap(walk)
     .filter((file) => /vendor\/spine-3\.8/.test(fs.readFileSync(file, 'utf8').replace(/^import type [^\n]*$/gm, '')));
-  assert.deepEqual(naming.sort(), ['components/operators/ChibiCanvas.tsx', ARTWORK, 'lib/credits/spineLicense.ts', 'lib/operators/chibiAnimations.ts']);
+  assert.deepEqual(naming.sort(), [PERSONA_HEADPHONES, 'components/operators/ChibiCanvas.tsx', ARTWORK, 'lib/credits/spineLicense.ts', 'lib/operators/chibiAnimations.ts']);
+  assert.equal(pathToTarget('pages/events/[slug].tsx', [RUNTIME])?.at(-1), RUNTIME);
+  const headphones = fs.readFileSync(PERSONA_HEADPHONES, 'utf8');
+  assert.match(headphones, /import\('@\/lib\/vendor\/spine-3\.8\/spine-webgl'\)/);
+  assert.doesNotMatch(headphones, /^import (?!type )[^\n]*spine-3\.8/m);
   const chibiCatalogue = fs.readFileSync('lib/operators/chibiAnimations.ts', 'utf8');
   assert.match(chibiCatalogue, /import\('@\/lib\/vendor\/spine-3\.8\/spine-webgl'\)/);
   assert.doesNotMatch(chibiCatalogue, /^import (?!type )[^\n]*spine-3\.8/m);

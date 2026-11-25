@@ -8,7 +8,7 @@ import { PackButton } from './RewardDetails';
 import EventCosmeticPreview from './EventCosmeticPreview';
 import { RewardTile } from './RewardTile';
 import { packDay } from '@/lib/events/packDay';
-import { packCosmeticPreview, type CosmeticPreview } from '@/lib/events/cosmeticPreviews';
+import { packCosmeticPreview, type CosmeticEventExtras, type CosmeticPack, type CosmeticPreview } from '@/lib/events/cosmeticPreviews';
 export { packDay } from '@/lib/events/packDay';
 const PackArtViewer = dynamic(() => import('@/components/skins/SkinZoomOverlay'), { ssr: false });
 
@@ -21,12 +21,12 @@ const PackArtViewer = dynamic(() => import('@/components/skins/SkinZoomOverlay')
 /** Sale dates follow the offer’s own region; the underlying interval stays exclusive. */
 
 export function EventPacks({ groups, preview, onPreviewOpenChange }: {
-  groups: EventExtras['packs'];
+  groups: CosmeticEventExtras['packs'];
   preview?: CosmeticPreview;
   onPreviewOpenChange?: (open: boolean) => void;
 }) {
   const [opened, setOpened] = useState<{ image: string; name: string } | null>(null);
-  const copy = (pack: EventExtras['packs'][number]['packs'][number], source: string) => <>
+  const copy = (pack: CosmeticPack, source: string) => <>
     {pack.imagePath && pack.artworkLayout !== 'promo' && <Image className="event-pack-card-image" src={pack.imagePath} alt="" width={112} height={84} />}
     <span className="event-pack-card-copy">
       <span className="event-pack-card-name">{pack.name}</span>

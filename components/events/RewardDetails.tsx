@@ -3,10 +3,9 @@ import Image from '@/components/content/ContentImage';
 import { OperatorPreview, type OperatorPreviewItem } from '@/components/operators/OperatorPreview';
 import XButton from '@/components/ui/XButton';
 import type { TicketDetails } from '@/lib/events/announcements';
-import type { EventExtras } from '@/lib/events/tableRewards';
 import { RewardTile } from './RewardTile';
 import { packDay } from '@/lib/events/packDay';
-import { packCosmeticPreview } from '@/lib/events/cosmeticPreviews';
+import { packCosmeticPreview, type CosmeticPack } from '@/lib/events/cosmeticPreviews';
 import EventCosmeticPreview from './EventCosmeticPreview';
 import { VIDEOS_COMING_SOON } from '@/lib/selectors/videosComingSoon';
 import { combinedRecommendation, pointLabel, rankByRecommendation, type Recommendation } from '@/lib/selectors/scoring';
@@ -16,8 +15,7 @@ export interface ResolvedTicket extends Omit<TicketDetails, 'operators'> {
   operators: { name: string; iconPath: string; href: string; howToUseVideoId?: string | null }[];
   pools?: { name: string; operators: ResolvedTicket['operators'] }[];
 }
-type Pack = EventExtras['packs'][number]['packs'][number];
-type Detail = { name: string; ticket: ResolvedTicket } | { name: string; pack: Pack; source: string };
+type Detail = { name: string; ticket: ResolvedTicket } | { name: string; pack: CosmeticPack; source: string };
 const Details = createContext<{ tickets: Record<string, ResolvedTicket>; open: (detail: Detail, trigger: HTMLElement) => void } | null>(null);
 
 /** One native modal handles packs and their tickets. Browser focus containment, Escape,
@@ -144,7 +142,7 @@ export function RewardClick({ name, className, children }: { name: string; class
   return <button type="button" className={`${className} btn-bare event-ticket-trigger`} title={name} aria-label={`${name}: selectable operators`} aria-haspopup="dialog" onClick={e => details!.open({ name, ticket }, e.currentTarget)}>{children}<span className="event-ticket-open" aria-hidden="true">↗</span></button>;
 }
 
-export function PackButton({ pack, source, children, framed = true }: { pack: Pack; source: string; children: ReactNode; framed?: boolean }) {
+export function PackButton({ pack, source, children, framed = true }: { pack: CosmeticPack; source: string; children: ReactNode; framed?: boolean }) {
   const details = useContext(Details);
   return <button type="button" className={`btn-bare${framed ? ' panel' : ''} event-pack-card`} aria-haspopup="dialog" onClick={(e: MouseEvent<HTMLButtonElement>) => details?.open({ name: pack.name, pack, source }, e.currentTarget)}>{children}</button>;
 }

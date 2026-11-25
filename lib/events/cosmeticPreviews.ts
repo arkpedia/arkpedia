@@ -1,4 +1,5 @@
 import catalogue from '@/config/event-cosmetic-previews.json';
+import type { EventExtras, EventRewardsFile } from './tableRewards';
 
 export type ThemeArt = { image: string; width: number; height: number };
 
@@ -37,6 +38,19 @@ export type CosmeticPreview = {
   scene: { title: string; name: string; image: string; native?: string } & GameAsset;
   theme?: HomeTheme & GameAsset;
   music?: { title: string; preview: string; source: string; provider?: string };
+};
+
+type PackGroup = EventExtras['packs'][number];
+export type CosmeticPack = PackGroup['packs'][number] & { cosmeticPreview?: CosmeticPreview };
+
+export type CosmeticEventExtras = Omit<EventExtras, 'packs'> & {
+  cosmeticPreview?: CosmeticPreview;
+  packs: (Omit<PackGroup, 'packs'> & { packs: CosmeticPack[] })[];
+};
+
+export type CosmeticRewardData = Omit<EventRewardsFile, 'events'> & {
+  globalHomeCosmetics?: GlobalHomeCosmetics;
+  events: Record<string, EventRewardsFile['events'][string] & { activity?: string | null }>;
 };
 
 const previews: readonly CosmeticPreview[] = catalogue;

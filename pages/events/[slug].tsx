@@ -37,7 +37,7 @@ import { publicFileExists } from '@/lib/assets/publicAssets';
 import { publishedArt } from '@/lib/art/publishedArt';
 import packArt from '@/data/event-pack-art.json';
 import { resolvePackArt } from '@/lib/events/packArt.mjs';
-import { regionalEventCosmeticPreview, regionalPackCosmeticPreview } from '@/lib/events/cosmeticPreviews';
+import { regionalEventCosmeticPreview, regionalPackCosmeticPreview, type CosmeticEventExtras, type CosmeticRewardData } from '@/lib/events/cosmeticPreviews';
 import { findSkinIconPath } from '@/lib/skins/skinIconLookup';
 import { materialOrderFor } from '@/lib/farming/materialSortOrder';
 import { loadMaterialCatalogue } from '@/lib/farming/materialCatalogueServer';
@@ -53,7 +53,7 @@ import { LazyOperatorPreview } from '@/components/operators/LazyOperatorPreview'
 import type { OperatorPreviewItem } from '@/components/operators/OperatorPreview';
 import { allFreeRewards, canonicalEventWelfare, eventRewardOperators, eventWelfareOperators, withWelfareEventLinks, type EventWelfareOperator, type FreeReward } from '@/lib/pulls/freeRewards';
 import { computeRewardTotals, stockLimit, type ResolvedRewardItem, type ResolvedRewardStore, type RewardTotal } from '@/lib/events/rewardTotals';
-import { eventExtras, furniturePieceSource, NO_EXTRAS, tableRewardStores, type EventExtras, type EventRewardsFile } from '@/lib/events/tableRewards';
+import { eventExtras, furniturePieceSource, NO_EXTRAS, tableRewardStores } from '@/lib/events/tableRewards';
 import { ALL_TAB, eventLink, EXTRA_TABS, readEventLink, rewardTabsFor, shownRewardTab } from '@/lib/events/rewardTabs';
 import { eventTitle, isRerun } from '@/lib/events/eventName.mjs';
 import { furnitureKey } from '@/lib/events/furnitureName.mjs';
@@ -103,7 +103,7 @@ interface Props {
   skins: Skin[];
   rewardStores: ResolvedRewardStore[];
   /** Packs, furniture sets and announced gifts. Absent from a release compiled before them. */
-  extras?: EventExtras;
+  extras?: CosmeticEventExtras;
   tickets?: Record<string, ResolvedTicket>;
   loginDetails?: Record<string, LoginDetails>;
   /** The free rewards as the shareable card (All). Absent from a release compiled before it. */
@@ -630,7 +630,7 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/ev
 
   const skinImageByName = new Map(allSkins.filter((s) => s.image).map((s) => [s.name, s.image as string]));
   const skinNameById = new Map(allSkins.filter((s) => s.skinId && s.name).map((s) => [s.skinId as string, s.name]));
-  const eventRewards = await readShippedTable<EventRewardsFile>('event-rewards.json');
+  const eventRewards = await readShippedTable<CosmeticRewardData>('event-rewards.json');
   const videos = ((await import('@/data/event-videos.json')).default as EventVideosFile).events[event.name] ?? [];
   // The store's Chinese item names in English, where the Global tables have them.
   const storeNames = eventRewards.storeNames ?? {};
