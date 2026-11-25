@@ -632,6 +632,14 @@ button.event-banner-extra:focus-visible > .event-banner-extra-name { color: var(
 .event-persona-viewport { position: absolute; inset: 0; overflow: hidden; }
 .event-persona-layout { position: absolute; inset: 0 auto auto 0; transform-origin: top left; }
 .event-persona-camera { position: absolute; inset: 0; transform-origin: top left; }
+.event-persona-particles { pointer-events: none; mix-blend-mode: plus-lighter; }
+.event-persona-particles > span {
+  position: absolute;
+  inset: 0 auto auto 0;
+  opacity: 0;
+  mask-size: 200% 200%;
+  mask-repeat: no-repeat;
+}
 .event-persona-layer {
   display: block;
   position: absolute;

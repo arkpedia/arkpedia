@@ -101,6 +101,25 @@ test('the Persona shop uses the original water shaders and looping record curves
   for (const texture of scene.textures) assert.ok(existsSync(`${directory}/${texture.file}`), texture.file);
 });
 
+test('the Persona menus include the prefab particle emitters and their shared shard atlas', () => {
+  const emitters = layout.layers.filter(layer => layer.effect === 'particles');
+  assert.deepEqual(emitters.map(layer => layer.emitter), [
+    'Terminal', 'Squads', 'Operators', 'Store', 'Headhunt', 'Friends', 'Archives',
+  ]);
+  const squads = emitters.find(layer => layer.emitter === 'Squads');
+  assert.equal(squads?.camera, 'right');
+  assert.equal(squads?.particles?.length, 5);
+  for (const emitter of emitters) {
+    assert.ok(existsSync(`public/event-preview/tm_p3r_1/${emitter.particleMask}.webp`));
+    for (const particle of emitter.particles ?? []) {
+      assert.equal(particle.frames[0].at(-1), 0);
+      assert.equal(particle.frames.at(-1)?.at(-1), 0);
+      assert.ok(particle.frames.some(([, , , , , , , r, g, , alpha]) => r > g && alpha > .3)
+        || emitter.camera === 'left');
+    }
+  }
+});
+
 test('the Velvet Room draws the rotated light through the foreground grille on the shadow timeline', () => {
   const scene: GameUiScene = JSON.parse(readFileSync('public/event-preview/bg_p3r_1/scene.json', 'utf8'));
   const nodes = scene.nodes.map(node => node.name);

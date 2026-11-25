@@ -1,6 +1,7 @@
 import { useLayoutEffect, useRef, useState } from 'react';
 import { ContentImg } from '@/components/content/ContentImage';
 import PersonaHeadphones from './PersonaHeadphones';
+import PersonaMenuParticles, { type ParticleTrack } from './PersonaMenuParticles';
 import EventSceneCanvas from './EventSceneCanvas';
 import layout from '@/config/persona-home-layout.json';
 import type { HomeTheme } from '@/lib/events/cosmeticPreviews';
@@ -18,6 +19,9 @@ type ProjectedLayer = {
   label?: string;
   fontSize?: number;
   effect?: string;
+  emitter?: string;
+  particleMask?: string;
+  particles?: ParticleTrack[];
   bounds?: number[];
   shadow?: { matrix: number[]; opacity: number };
   fallbackFor?: string;
@@ -102,6 +106,10 @@ export default function PersonaHomeLayout({ theme, animationStart }: { theme: Ho
       width: layer.width, height: layer.height, fontSize: layer.fontSize,
       opacity: layer.opacity, transform: `matrix3d(${layer.matrix.join(',')})`,
     };
+    if (layer.effect === 'particles' && layer.particles && layer.particleMask && layer.emitter) {
+      return <PersonaMenuParticles key={index} emitter={layer.emitter} tracks={layer.particles}
+        mask={layer.particleMask} style={style} animationStart={animationStart} />;
+    }
     if (layer.effect === 'headphones' && layer.bounds) {
       const shadowStyle = layer.shadow && {
         ...style,

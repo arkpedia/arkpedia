@@ -12,6 +12,7 @@ import hashlib
 import json
 import math
 from pathlib import Path
+from random import Random
 
 from PIL import Image
 
@@ -225,6 +226,81 @@ SHOP_DEPENDENCIES = {
 }
 
 
+def particle_tracks(system, seed, units):
+    initial = system['InitialModule']
+    shape = system['ShapeModule']
+    velocity = system['VelocityModule']
+    rotation = system['RotationModule']
+    noise = system['NoiseModule']
+    atlas = system['UVModule']
+    gradient = system['ColorModule']['gradient']['maxGradient']
+    size = system['SizeModule']['curve']['maxCurve']['m_Curve']
+    simulation_speed = system['simulationSpeed']
+    rng = Random(seed)
+
+    def sample(value):
+        return rng.uniform(value['minScalar'], value['scalar']) if value['minMaxState'] == 3 else value['scalar']
+
+    def ramp(keys, progress):
+        for (start, first), (end, second) in zip(keys, keys[1:]):
+            if progress <= end:
+                weight = max(0, progress-start)/(end-start)
+                return first+(second-first)*weight
+        return keys[-1][1]
+
+    def size_at(progress):
+        for a, b in zip(size, size[1:]):
+            if progress <= b['time']:
+                interval = b['time']-a['time']
+                t = (progress-a['time'])/interval
+                return ((1+2*t)*(1-t)**2*a['value'] + t*(1-t)**2*a['outSlope']*interval
+                        + t*t*(3-2*t)*b['value'] + t*t*(t-1)*b['inSlope']*interval)
+        return size[-1]['value']
+
+    rgb = [[(gradient[f'ctime{i}']/65535, gradient[f'key{i}'][axis])
+            for i in range(gradient['m_NumColorKeys'])] for axis in 'rgb']
+    alpha = [(gradient[f'atime{i}']/65535, gradient[f'key{i}']['a'])
+             for i in range(gradient['m_NumAlphaKeys'])]
+    phases = sorted({*(i/16 for i in range(17)), *(key[0] for key in rgb[0]), *(key[0] for key in alpha)})
+    start_color = initial['startColor']
+    emission = system['EmissionModule']['rateOverTime']
+    rate = (emission['scalar']+emission['minScalar'])/2 if emission['minMaxState'] == 3 else emission['scalar']
+    lifetime = initial['startLifetime']
+    count = min(initial['maxNumParticles'], math.ceil(rate*max(lifetime['minScalar'], lifetime['scalar'])))
+    tracks = []
+    for index in range(count):
+        life = sample(lifetime)
+        period = max(life, count/rate)
+        start = [rng.uniform(-shape['m_Scale'][axis]/2, shape['m_Scale'][axis]/2) for axis in 'xy']
+        drift = [sample(velocity[axis]) for axis in 'xy']
+        turn = [sample(rotation[axis]) for axis in ('x', 'y', 'curve')]
+        tint = [rng.uniform(start_color['minColor'][axis], start_color['maxColor'][axis]) for axis in 'rgba']
+        phase = rng.uniform(0, 2*math.pi)
+        amplitude = noise['strength']['scalar']
+        frames = []
+        # Each particle stays local to its authored emitter plane. The browser uses a
+        # seeded loop and smooth noise under the original lifetime/color/size curves.
+        for progress in phases:
+            time = progress*life
+            wave = phase+2*math.pi*noise['frequency']*time
+            move_x = start[0]+drift[0]*time+amplitude*(math.sin(wave)-math.sin(phase))
+            move_y = start[1]+drift[1]*time+amplitude*(math.cos(wave)-math.cos(phase))
+            color = [min(1, 2*tint[i]*ramp(curve, progress)) for i, curve in enumerate(rgb)]
+            frames.append([round(v, 5) for v in (
+                time/period, units*move_x, -units*move_y, size_at(progress), *(-speed*time for speed in turn),
+                *color, tint[3]*ramp(alpha, progress))])
+        if period > life:
+            frames.append([1, *frames[-1][1:-1], 0])
+        tracks.append(dict(
+            frame=rng.randrange(atlas['tilesX']*atlas['tilesY']),
+            size=round(units*sample(initial['startSize']), 5),
+            duration=round(1000*period/simulation_speed, 2),
+            delay=round(-1000*index/rate/simulation_speed, 2) if system['prewarm'] else 0,
+            frames=frames,
+        ))
+    return tracks
+
+
 def export_shop_effects(directory, theme, root_node, root_rect, output):
     dependencies = {}
     for key, checksum in SHOP_DEPENDENCIES.items():
@@ -381,12 +457,32 @@ def export(directory, config, output):
         'operator_triangle': 'operator_triangle_normal', 'squad_triangle': 'squads_triangle_normal',
     }
 
+    def particles(node, component, rect, project, label):
+        system = component.read_typetree()
+        renderer = next(obj.read_typetree() for obj in theme.components(node)
+                        if obj.type.name == 'ParticleSystemRenderer')
+        material = theme.tree(renderer['m_Materials'][0]['m_PathID'])
+        texture_id = dict(material['m_SavedProperties']['m_TexEnvs'])['_MainTex']['m_Texture']['m_PathID']
+        texture = theme.objects[texture_id]
+        name = texture.peek_name()
+        file = output / (name + '.webp')
+        if not file.exists():
+            texture.read().image.save(file, 'WEBP', lossless=True)
+        # Use pixel-sized sprites so the browser can preserve the atlas's small edges.
+        units = rect.scale[0]
+        plane = replace(rect, size=(1, 1), pivot=(0, 1), scale=tuple(v/units for v in rect.scale))
+        layers.append(dict(effect='particles', emitter=label, camera=camera_names[project],
+                           width=1, height=1, matrix=projection(plane, project),
+                           particleMask=name, particles=particle_tracks(system, component.path_id, units)))
+
     def prefab(node, rect, project, label=None):
         obj = theme.tree(node)
         game_object = theme.tree(obj['m_GameObject']['m_PathID'])
         if not game_object['m_IsActive']:
             return
         for component in theme.components(node):
+            if component.type.name == 'ParticleSystem':
+                particles(node, component, rect, project, label)
             if component.type.name != 'MonoBehaviour':
                 continue
             image = component.read_typetree()
