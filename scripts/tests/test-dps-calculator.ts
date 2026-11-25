@@ -12,11 +12,46 @@ import {
 import { deploymentSequence } from '../../lib/dps/deployment';
 import { firstBurst, fallout } from '../../lib/dps/breakpoints';
 import { elements } from '../../lib/dps/sources';
+import { chartControls, targetControls } from '../../lib/dps/controls';
 const profiles = archive.operators as unknown as Profile[];
 const createBuild = (id: string, number: number) =>
   buildFromProfile(profiles.find((p) => p.id === id)!, number);
 const dummy = { ...initialTarget, def: 0, res: 0 };
 const near = (a: number, b: number) => assert.ok(Math.abs(a - b) < 0.00001, a + ' vs ' + b);
+test('target inputs and chart defaults follow the selected skill and its damage', () => {
+  const skadi = createBuild('skadi', 1);
+  const amiya = createBuild('amiya', 2);
+  const arts = { ...amiya, skill: 1 };
+  const physical = chartControls([skadi], initialTarget, 'seconds');
+  assert.deepEqual(physical.axes, ['def']);
+  assert.deepEqual(physical.metrics, ['dps', 'damage']);
+  assert.equal(physical.metric, 'dps');
+  assert.equal(physical.burstTimeline, false);
+  assert.deepEqual([...targetControls([skadi]).defenses], ['def']);
+  assert.deepEqual(chartControls([arts], initialTarget).axes, ['res']);
+  assert.deepEqual(chartControls([amiya], initialTarget).axes, [], 'True damage has no resistance curve');
+
+  const chen = { ...createBuild('chen', 3), skill: 2 };
+  assert.deepEqual(chartControls([chen], initialTarget).axes, ['def', 'res'], 'equal damage prefers DEF');
+  assert.deepEqual(chartControls([chen, arts], initialTarget).axes, ['res', 'def'], 'Arts leads with Amiya');
+  assert.deepEqual(chartControls([chen, skadi], { ...initialTarget, def: 3000 }).axes, ['def', 'res'],
+    'target edits do not reorder a mixed comparison');
+});
+
+test('elemental buildup and elemental HP damage expose their own controls', () => {
+  const virtuosa = createBuild('cello', 1);
+  const charts = chartControls([virtuosa], initialTarget);
+  assert.deepEqual(charts.axes, ['injuryRes']);
+  assert.equal(charts.defaultMetric, 'seconds');
+  assert.equal(charts.burstTimeline, true);
+  assert.deepEqual(targetControls([virtuosa]).bursts, ['Necrosis']);
+  assert.ok(targetControls([virtuosa]).defenses.has('elementalRes'), 'applies to fallout');
+  const dia = { ...createBuild('kaitou', 2), skill: 1 };
+  assert.deepEqual(chartControls([dia], initialTarget, 'injury').axes, ['injuryRes', 'res']);
+  const nymph = { ...createBuild('nymph', 3), skill: 3 };
+  assert.deepEqual(chartControls([nymph], { ...initialTarget, burst: 'Necrosis' }).axes, ['elementalRes']);
+});
+
 test('DEF, Arts RES, elemental RES and injury resistance mitigate independently', () => {
   const wall = { ...dummy, def: 10000, res: 99, elementalRes: 45, injuryRes: 100 };
   assert.equal(mitigate(200, 'Physical', wall), 10);

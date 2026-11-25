@@ -103,7 +103,7 @@
 }
 .add {
   align-items: end;
-  margin-top: 15px;
+  margin-block: 0 12px;
 }
 .add > div {
   flex: 1;
@@ -125,6 +125,22 @@
 }
 .editor {
   margin-top: 14px;
+}
+.quickSource {
+  margin-top: 8px;
+}
+.quickSource:empty {
+  display: none;
+}
+.chartSettings {
+  margin-block: 10px;
+}
+.chartSettings .controls {
+  align-items: end;
+  margin-block-start: 8px;
+}
+.chartJump:global(.ghost) {
+  display: none;
 }
 .check {
   margin-top: 8px;
@@ -252,6 +268,9 @@
   margin: 0;
 }
 @media (max-width: 780px) {
+  .chartJump:global(.ghost) {
+    display: inline-flex;
+  }
   .workspace {
     grid-template-columns: minmax(0, 1fr);
   }

@@ -21,6 +21,7 @@ test('downloads the zoomed comparison as condensed and detailed PNGs', async ({ 
   await expect(empty).toHaveCount(0);
   await page.getByRole('combobox', { name: 'Measure', exact: true }).click();
   await page.getByRole('option', { name: 'Time to first burst (s)', exact: true }).click();
+  await page.getByText('Chart settings', { exact: true }).click();
   await page.getByRole('combobox', { name: 'Vertical zoom', exact: true }).click();
   await page.getByRole('option', { name: '30 s window', exact: true }).click();
   let height = 0;
@@ -88,10 +89,14 @@ test('inspecting a curve preserves the enemy and alternative charts export', asy
   await page.getByRole('option').first().click();
   const res = page.getByRole('spinbutton', { name: 'RES', exact: true });
   const initial = await res.inputValue();
+  await page.getByRole('combobox', { name: 'Vary', exact: true }).click();
+  await page.getByRole('option', { name: 'RES', exact: true }).click();
   await page.getByRole('slider', { name: 'Inspect RES' }).press('End');
   await expect(res).toHaveValue(initial);
   await expect(page.getByRole('button', { name: 'Customize', exact: true })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Reset probe to target' })).toHaveCount(0);
+  await page.getByText('Chart settings', { exact: true }).click();
+  await page.getByRole('button', { name: 'Reset probe to target' }).click();
+  await expect(page.getByRole('slider', { name: 'Inspect RES' })).toHaveValue(initial);
   for (const name of ['At target', 'Elemental burst']) {
     await page.getByRole('button', { name, exact: true }).click();
     await page.getByRole('button', { name: 'Condensed PNG' }).click();
@@ -120,6 +125,7 @@ test('Chen is searchable without punctuation and zoom follows Virtuosa’s burst
     await page.getByRole('option', { name: new RegExp('^S' + slot) }).click();
     await expect(page.getByRole('cell').filter({ hasText: /First at .* s/ }).first()).toBeVisible();
   }
+  await page.getByText('Chart settings', { exact: true }).click();
   await page.getByRole('combobox', { name: 'Vertical zoom', exact: true }).click();
   await page.getByRole('option', { name: '4×', exact: true }).click();
   const slider = page.getByRole('slider', { name: 'Inspect Injury resistance' });
@@ -137,9 +143,11 @@ test('compares Virtuosa modules at the target independently of the probe', async
   await expect(page.getByRole('combobox', { name: 'Measure', exact: true })).toContainText('Time to first burst');
   const slider = page.getByRole('slider', { name: 'Inspect Injury resistance' });
   const results = page.getByRole('group', { name: 'Selected target results' });
+  const cards = page.getByRole('article').filter({ has: page.getByRole('button', { name: 'Duplicate' }) });
   await expect(results).toContainText(/#1 Virtuosa S3 M3/);
   await page.getByRole('button', { name: 'Duplicate' }).click();
   await expect(results).toContainText('Same as #1');
+  await cards.nth(1).getByRole('button', { name: 'Edit build' }).click();
   await page.getByRole('combobox', { name: 'Module', exact: true }).click();
   await page.getByRole('option').last().click();
   await expect(results).toContainText('#1 Virtuosa S3 M3 · No module');
@@ -151,6 +159,72 @@ test('compares Virtuosa modules at the target independently of the probe', async
   await page.getByRole('combobox', { name: 'Measure', exact: true }).click();
   await page.getByRole('option', { name: 'Injury / s', exact: true }).click();
   await expect(results).toContainText('injury/s vs #1');
+  await cards.nth(1).getByRole('button', { name: 'Baseline', exact: true }).click();
+  await expect(cards.nth(1).getByRole('button', { name: 'Baseline', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  await expect(results).toContainText('injury/s vs #2');
   await page.getByRole('button', { name: 'Duplicate' }).last().click();
   await expect(page.getByRole('combobox', { name: 'Measure', exact: true })).toContainText('Injury / s');
+});
+
+test('defenses and chart choices follow the selected damage source', async ({ page }) => {
+  await page.goto('/dps-calculator');
+  const search = page.getByRole('combobox', { name: 'Add operator', exact: true });
+  const add = async (name: string) => {
+    await search.fill(name);
+    await page.getByRole('option', { name, exact: true }).click();
+  };
+  const selectSkill = async (skill: RegExp) => {
+    await page.getByRole('combobox', { name: 'Damage source', exact: true }).click();
+    await page.getByRole('option', { name: skill }).click();
+  };
+  const axis = page.getByRole('combobox', { name: 'Vary', exact: true });
+  const def = page.getByRole('spinbutton', { name: 'DEF', exact: true });
+  const res = page.getByRole('spinbutton', { name: 'RES', exact: true });
+  const elementalView = page.getByRole('button', { name: 'Elemental burst', exact: true });
+  const remove = page.getByRole('button', { name: 'Remove', exact: true });
+
+  await add('Skadi');
+  await expect(axis).toContainText('Auto · DEF');
+  await expect(def).toBeVisible();
+  await expect(res).toHaveCount(0);
+  await expect(elementalView).toHaveCount(0);
+  const jump = page.getByRole('link', { name: 'View chart', exact: true });
+  if ((page.viewportSize()?.width ?? 0) <= 780) {
+    await jump.click();
+    await expect(page).toHaveURL(/#damage-comparison$/);
+  } else {
+    await expect(jump).toBeHidden();
+  }
+  await page.getByRole('combobox', { name: 'Measure', exact: true }).click();
+  await expect(page.getByRole('option', { name: 'Injury / s', exact: true })).toHaveCount(0);
+  await page.keyboard.press('Escape');
+  await remove.click();
+
+  await add('Amiya');
+  await expect(page.getByRole('img', { name: /at the selected target/ })).toBeVisible();
+  await selectSkill(/^S1/);
+  await expect(axis).toContainText('Auto · RES');
+  await expect(res).toBeVisible();
+  await expect(def).toHaveCount(0);
+  await remove.click();
+
+  await add("Ch'en");
+  await selectSkill(/^S2/);
+  await expect(axis).toContainText('Auto · DEF');
+  await axis.click();
+  await page.getByRole('option', { name: 'RES', exact: true }).click();
+  await expect(page.getByRole('slider', { name: 'Inspect RES' })).toBeVisible();
+  await page.getByText('Chart settings', { exact: true }).click();
+  await page.getByRole('spinbutton', { name: 'RES axis maximum' }).fill('50');
+  await expect(page.getByRole('slider', { name: 'Inspect RES' })).toHaveAttribute('max', '50');
+  await remove.click();
+
+  await add('Virtuosa');
+  await expect(axis).toContainText('Auto · Injury resistance');
+  await expect(elementalView).toBeVisible();
+  await page.getByText('Elemental scenario', { exact: true }).click();
+  await page.getByRole('combobox', { name: 'Active burst', exact: true }).click();
+  await expect(page.getByRole('option', { name: 'Necrosis', exact: true })).toBeVisible();
+  await expect(page.getByRole('option', { name: 'Burn', exact: true })).toHaveCount(0);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
 });

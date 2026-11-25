@@ -1,6 +1,10 @@
 # DPS calculator
 
-The calculator compares independent builds against the same target. The response curve varies one defense while the other settings stay fixed. The probe inspects the curve independently of the selected enemy. At target compares builds at the enemy’s actual defenses. The Elemental burst view plots absolute first and second burst times from first contact and marks recovery between them. Vertical zoom follows the probe. Where several values exceed the zoom window, the first available build anchors it. Both PNG buttons preview the selected chart and save the same rendered file. The table gives HP loss and elemental injury separately. Selecting a row reveals which attack, tick or activation the values represent. Single activations have no sustained DPS. The damage composition chart uses a common absolute scale across builds.
+The calculator compares independent builds against the same target. Select a damage source on each build card and use Edit build to change rank, module, promotion or source-specific conditions. With multiple builds, choose a baseline on any card to compare target results against it.
+
+The response curve varies one relevant defense. Auto chooses DEF for physical damage, RES for Arts, and the largest modeled damage channel for a mixed comparison using unmitigated damage on the selected measure. Injury measures start with injury resistance and also offer defenses that change the buildup. At target gives a direct comparison for defense-independent sources such as True damage. The Elemental burst view appears when a selected source can build injury and plots first and second burst times from first contact.
+
+Chart settings let you set the axis maximum, zoom vertically and reset an independent probe to the target. Vertical zoom follows the probe. When the values span more than the zoom window, the baseline anchors it if it has a value. Both PNG buttons preview the selected chart and save the same rendered file. The table gives HP loss and elemental injury separately. Selecting a row reveals which attack, tick or activation the values represent. Single activations have no sustained DPS. The damage composition chart uses a common absolute scale across builds.
 
 ## Calculation order
 

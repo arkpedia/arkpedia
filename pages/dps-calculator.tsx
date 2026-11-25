@@ -25,6 +25,7 @@ import { firstBurst, fallout } from '@/lib/dps/breakpoints';
 import BuildSearch from '@/components/dps/BuildSearch';
 import type { EnemyPreset, EnemyLevel } from '@/lib/dps/enemyTargets';
 import { deploymentSequence } from '@/lib/dps/deployment';
+import { targetControls } from '@/lib/dps/controls';
 import css from '@/components/dps/Dps.module.css';
 
 const range = (min: number, max: number) => Array.from({ length: max - min + 1 }, (_, i) => min + i);
@@ -62,26 +63,33 @@ const cnSkills: Record<string, string[]> = {
   clemnt: ['', 'Whirlpool', 'Ammunition'],
   oxi: ['', '', 'Fire waves'],
 };
-function Editor({ b, update }: { b: Build; update: (v: Build) => void }) {
+const allowsNormal = (p: Profile) => baseline.has(p.id) || !p.skills.length;
+function updateBuild(b: Build, changes: Partial<Build>) {
   const p = profile(b);
-  const allowsNormal = baseline.has(p.id) || !p.skills.length;
+  const next = { ...b, ...changes };
+  if (!allowsNormal(p) && !p.skills.some((s) => s.slot === next.skill && s.elite <= next.elite))
+    next.skill = p.skills.find((s) => s.elite <= next.elite)!.slot;
+  return normalize(next);
+}
+function DamageSource({ b, update }: { b: Build; update: (v: Build) => void }) {
+  const p = profile(b);
+  if (!p.skills.length) return null;
   const options = p.skills
     .filter((s) => s.elite <= b.elite)
     .map((s) => ({
       label: 'S' + s.slot + ' · ' + (cnSkills[p.id]?.[s.slot - 1] || s.name),
       value: String(s.slot),
     }));
-  if (allowsNormal)
+  if (allowsNormal(p))
     options.unshift({
       value: '0',
       label: ['yu', 'cairn', 'cello'].includes(p.id) ? 'Talent aura' : 'Normal attack',
     });
-  const set = (v: Partial<Build>) => {
-    const next = { ...b, ...v };
-    if (!allowsNormal && !p.skills.some((s) => s.slot === next.skill && s.elite <= next.elite))
-      next.skill = p.skills.find((s) => s.elite <= next.elite)!.slot;
-    update(normalize(next));
-  };
+  return <Pick label="Damage source" value={b.skill} options={options} change={v => update(updateBuild(b, { skill: +v }))} />;
+}
+function Editor({ b, update, hideSource }: { b: Build; update: (v: Build) => void; hideSource?: boolean }) {
+  const p = profile(b);
+  const set = (changes: Partial<Build>) => update(updateBuild(b, changes));
   const toggle = (label: string, checked: boolean, fn: (v: boolean) => void) => (
     <label className="check">
       <input type="checkbox" checked={checked} onChange={(e) => fn(e.target.checked)} />
@@ -95,7 +103,7 @@ function Editor({ b, update }: { b: Build; update: (v: Build) => void }) {
           label="Promotion"
           value={b.elite}
           options={range(
-            allowsNormal ? 0 : Math.min(...p.skills.map((s) => s.elite)),
+            allowsNormal(p) ? 0 : Math.min(...p.skills.map((s) => s.elite)),
             p.phases.length - 1,
           ).map((v) => ({ label: 'Elite ' + v, value: String(v) }))}
           change={(v) => set({ elite: +v })}
@@ -112,9 +120,7 @@ function Editor({ b, update }: { b: Build; update: (v: Build) => void }) {
           options={range(1, 1 + p.potential.length)}
           change={(v) => set({ potential: +v })}
         />
-        {p.skills.length > 0 && (
-          <Pick label="Damage source" value={b.skill} options={options} change={(v) => set({ skill: +v })} />
-        )}
+        {!hideSource && <DamageSource b={b} update={update} />}
         {b.skill > 0 && (
           <Pick
             label="Skill rank"
@@ -577,9 +583,20 @@ export default function DpsCalculator({
   const [level, setLevel] = useState(0);
   const [builds, setBuilds] = useState<Build[]>([]),
     [edit, setEdit] = useState<number | null>(null);
+  const [baselineChoice, setBaseline] = useState<number>();
   const timelineRef = useRef<HTMLTableElement>(null);
   const next = useRef(1),
-    [target, setTarget] = useState<Target>(initialTarget);
+    [targetInput, setTarget] = useState<Target>(initialTarget);
+  const capabilities = useMemo(() => targetControls(builds), [builds]);
+  const target = useMemo(() => targetInput.burst === 'None' || capabilities.bursts.includes(targetInput.burst)
+    ? targetInput : { ...targetInput, burst: 'None' }, [targetInput, capabilities]);
+  const baselineId = builds.some(build => build.id === baselineChoice) ? baselineChoice! : builds[0]?.id;
+  const targetName = enemy ? [enemy.name, enemy.code, 'Lv ' + level].filter(Boolean).join(' · ') : 'Custom target';
+  const targetResults = useMemo(() => builds.map(build => calculate(build, target)), [builds, target]);
+  const openingResults = useMemo(() => target.burst === 'None'
+    ? targetResults : builds.map(build => calculate(build, { ...target, burst: 'None' })), [builds, target, targetResults]);
+  const hasBuildup = (result: (typeof openingResults)[number]) =>
+    result.injury > 0 || (result.summon?.injury ?? 0) > 0;
   function selectEnemy(preset: EnemyPreset, row: EnemyLevel) {
     setEnemy(preset);
     setLevel(row.level);
@@ -595,8 +612,8 @@ export default function DpsCalculator({
   function add(items: Build[]) {
     if (!items.length) return;
     setBuilds((prev) => [...prev, ...items]);
-    setEdit(items[0].id);
   }
+  const update = (value: Build) => setBuilds(previous => previous.map(build => build.id === value.id ? value : build));
   const tiers = ['Grunt', 'Elite', 'Boss'] as const;
   const columns = enemy || target.thresholdOverride ? [target.tier] : tiers;
   return (
@@ -613,7 +630,18 @@ export default function DpsCalculator({
             <section className={css.panel}>
               <div className={css.heading}>
                 <h2 className="section-title">Builds</h2>
-                <small>100% trust</small>
+                <div className={css.controls}>
+                  <small>100% trust</small>
+                  {builds.length > 0 && <a className={'ghost btn-sm ' + css.chartJump} href="#damage-comparison">View chart</a>}
+                </div>
+              </div>
+              <div className={css.add}>
+                <BuildSearch
+                  label="Add operator"
+                  placeholder="Search operators…"
+                  choices={pickOps}
+                  pick={(id) => add([createBuild(id, next.current++)])}
+                />
               </div>
               {builds.map((b, index) => (
                 <article key={b.id} className={css.build} style={{ borderLeftColor: color(index) }}>
@@ -626,40 +654,38 @@ export default function DpsCalculator({
                       </small>
                     </div>
                   </div>
+                  <div className={css.quickSource}><DamageSource b={b} update={update} /></div>
                   <div className={css.actions}>
                     <button
-                      className="btn btn-sm"
+                      className="ghost btn-sm"
                       aria-expanded={edit === b.id}
                       onClick={() => setEdit(edit === b.id ? null : b.id)}
                     >
-                      {edit === b.id ? 'Done' : 'Edit'}
+                      {edit === b.id ? 'Close settings' : 'Edit build'}
                     </button>
-                    <button className="btn btn-sm" onClick={() => add([{ ...b, id: next.current++ }])}>
+                    <button className="ghost btn-sm" onClick={() => add([{ ...b, id: next.current++ }])}>
                       Duplicate
                     </button>
                     <button
-                      className="btn btn-sm"
+                      className="ghost btn-sm"
                       onClick={() => setBuilds((prev) => prev.filter((x) => x.id !== b.id))}
                     >
                       Remove
                     </button>
+                    {builds.length > 1 && (
+                      <button type="button" className="filter-chip" aria-pressed={baselineId === b.id}
+                        onClick={() => setBaseline(b.id)}>Baseline</button>
+                    )}
                   </div>
                   {edit === b.id && (
                     <Editor
                       b={b}
-                      update={(v) => setBuilds((prev) => prev.map((x) => (x.id === v.id ? v : x)))}
+                      update={update}
+                      hideSource
                     />
                   )}
                 </article>
               ))}
-              <div className={css.add}>
-                <BuildSearch
-                  label="Add operator"
-                  placeholder={`Search ${pickOps.length} modeled operators…`}
-                  choices={pickOps}
-                  pick={(id) => add([createBuild(id, next.current++)])}
-                />
-              </div>
             </section>
             <section className={css.panel}>
               <div className={css.heading}>
@@ -671,7 +697,7 @@ export default function DpsCalculator({
               {enemies.length > 0 && (
                 <BuildSearch
                   label="Find enemy"
-                  placeholder="Search enemies by name or code…"
+                  placeholder="Enemy name or code…"
                   choices={pickEnemies}
                   pick={(id) => {
                     const preset = enemies.find((e) => e.id === id)!;
@@ -696,41 +722,7 @@ export default function DpsCalculator({
                 </div>
               )}
               <div className={css.controls}>
-                {!enemy && (
-                  <Pick
-                    label="Class"
-                    value={target.tier}
-                    options={[...tiers]}
-                    change={(v) =>
-                      setTarget({ ...target, tier: v as Target['tier'], thresholdOverride: undefined })
-                    }
-                  />
-                )}
-                <Pick
-                  label="Active burst"
-                  value={target.burst}
-                  options={['None', 'Necrosis', 'Burn', 'Corrosion', 'Nervous Impairment', 'Rampage']}
-                  change={(v) => setTarget({ ...target, burst: v })}
-                />
-                <label className={css.field}>
-                  Burst threshold
-                  <input
-                    type="number"
-                    min={1}
-                    max={10000}
-                    readOnly={!!enemy}
-                    placeholder={String(threshold(target.tier))}
-                    value={enemy ? burstThreshold(target) : (target.thresholdOverride ?? '')}
-                    onChange={(e) => {
-                      const n = e.currentTarget.valueAsNumber;
-                      setTarget({
-                        ...target,
-                        thresholdOverride: Number.isFinite(n) ? Math.min(10000, Math.max(1, n)) : undefined,
-                      });
-                    }}
-                  />
-                </label>
-                {(['def', 'res', 'elementalRes', 'injuryRes'] as const).map((key, i) => (
+                {(['def', 'res', 'elementalRes', 'injuryRes'] as const).map((key, i) => capabilities.defenses.has(key) && (
                   <label key={key} className={css.field}>
                     {['DEF', 'RES', 'Elemental RES', 'Injury resistance'][i]}
                     <input
@@ -740,15 +732,50 @@ export default function DpsCalculator({
                       max={i ? 100 : undefined}
                       value={target[key]}
                       onChange={(e) =>
-                        setTarget({
-                          ...target,
+                        setTarget(previous => ({
+                          ...previous,
                           [key]: Math.min(i ? 100 : Infinity, Math.max(0, Number(e.target.value))),
-                        })
+                        }))
                       }
                     />
                   </label>
                 ))}
               </div>
+              {builds.length > 0 && capabilities.defenses.size === 0 && (
+                <small>The selected sources do not use target defenses.</small>
+              )}
+              {(capabilities.bursts.length > 0 || capabilities.buildup) && (
+                <details className={css.chartSettings}>
+                  <summary>Elemental scenario</summary>
+                  <div className={css.controls}>
+                    {capabilities.buildup && !enemy && (
+                      <Pick label="Enemy tier" value={target.tier} options={[...tiers]}
+                        change={value => setTarget(previous => ({ ...previous, tier: value as Target['tier'], thresholdOverride: undefined }))} />
+                    )}
+                    {capabilities.buildup && (
+                      <label className={css.field}>
+                        Burst threshold
+                        <input type="number" min={1} max={10000} readOnly={!!enemy}
+                          placeholder={String(threshold(target.tier))}
+                          value={enemy ? burstThreshold(target) : (target.thresholdOverride ?? '')}
+                          onChange={event => {
+                            const n = event.currentTarget.valueAsNumber;
+                            setTarget(previous => ({ ...previous, thresholdOverride: Number.isFinite(n) ? Math.min(10000, Math.max(1, n)) : undefined }));
+                          }} />
+                      </label>
+                    )}
+                    {capabilities.bursts.length > 0 && (
+                      <Pick label="Active burst" value={target.burst} options={['None', ...capabilities.bursts]}
+                        change={burst => setTarget(previous => ({ ...previous, burst }))} />
+                    )}
+                  </div>
+                </details>
+              )}
+              {(enemy || targetInput !== initialTarget) && (
+                <button type="button" className="ghost btn-sm" onClick={() => { setEnemy(null); setTarget(initialTarget); }}>
+                  Reset target
+                </button>
+              )}
             </section>
           </div>
           <div className={css.right}>
@@ -761,14 +788,13 @@ export default function DpsCalculator({
               <>
                 <ComparisonPlot
                   timelineRef={timelineRef}
-                  targetName={
-                    enemy ? [enemy.name, enemy.code, 'Lv ' + level].filter(Boolean).join(' · ') : 'Custom target'
-                  }
+                  targetName={targetName}
                   builds={builds}
                   target={target}
+                  baselineId={baselineId}
                 />
                 <section className={css.panel}>
-                  <h2 className="section-title">Build comparison</h2>
+                  <h2 className="section-title">Damage breakdown</h2>
                   <div className={css.scroll}>
                     <table>
                       <thead>
@@ -776,13 +802,12 @@ export default function DpsCalculator({
                           <th>Build / source</th>
                           <th>HP / action</th>
                           <th>HP / s</th>
-                          <th>Injury / action</th>
-                          <th>Injury / s</th>
+                          {capabilities.buildup && <><th>Injury / action</th><th>Injury / s</th></>}
                         </tr>
                       </thead>
                       <tbody>
                         {builds.map((b, index) => {
-                          const r = calculate(b, target);
+                          const r = targetResults[index];
                           return (
                             <tr key={b.id}>
                               <th>
@@ -795,8 +820,7 @@ export default function DpsCalculator({
                               </th>
                               <td>{fmt(r.damage)}</td>
                               <td>{fmt(r.dps)}</td>
-                              <td>{fmt(r.injury)}</td>
-                              <td>{fmt(r.injuryRate)}</td>
+                              {capabilities.buildup && <><td>{fmt(r.injury)}</td><td>{fmt(r.injuryRate)}</td></>}
                             </tr>
                           );
                         })}
@@ -812,7 +836,7 @@ export default function DpsCalculator({
             )}
           </div>
         </div>
-        {builds.some((b) => calculate(b, target).element) && (
+        {openingResults.some(hasBuildup) && (
           <section className={css.panel}>
             <h2 className="section-title">Elemental burst timing</h2>
             {columns.length === 1 && (
@@ -841,8 +865,8 @@ export default function DpsCalculator({
                 </thead>
                 <tbody>
                   {builds.flatMap((b, index) => {
-                    const action = calculate(b, target);
-                    if (!action.element) return [];
+                    const action = openingResults[index];
+                    if (!hasBuildup(action)) return [];
                     const equipped = selectedModule(b);
                     const eliteScale = equipped?.name === 'RIT-X'
                       ? equipped.stages[b.stage - 1]?.trait.ep_damage_scale

@@ -7,7 +7,6 @@ import StyledSelect from '@/components/ui/StyledSelect';
 import {
   buildConditions,
   calculate,
-  initialTarget,
   profile,
   rankLabel,
   selectedModule,
@@ -15,6 +14,7 @@ import {
   type Target,
 } from '@/lib/dps/calculator';
 import { firstBurst } from '@/lib/dps/breakpoints';
+import { chartControls, type ChartMetric as Metric, type DefenseAxis } from '@/lib/dps/controls';
 import { renderComparisonImage, type ImageView } from '@/lib/dps/comparisonImage';
 import css from './Dps.module.css';
 
@@ -46,7 +46,26 @@ export function Pick({
     </div>
   );
 }
-type Metric = 'dps' | 'damage' | 'injuryRate' | 'injury' | 'seconds' | 'repeat';
+const chartViews = [
+  { value: 'curve', label: 'Response curve' },
+  { value: 'bars', label: 'At target' },
+  { value: 'timeline', label: 'Elemental burst' },
+] as const;
+type View = (typeof chartViews)[number]['value'];
+const labels: Record<DefenseAxis, string> = {
+  def: 'DEF',
+  res: 'RES',
+  injuryRes: 'Injury resistance',
+  elementalRes: 'Elemental resistance',
+};
+const metrics: Record<Metric, string> = {
+  seconds: 'Time to first burst (s)',
+  repeat: 'First to second burst (s)',
+  dps: 'HP damage / s',
+  damage: 'HP damage / action',
+  injuryRate: 'Injury / s',
+  injury: 'Injury / action',
+};
 function measure(b: Build, t: Target, metric: Metric) {
   return metric === 'seconds' || metric === 'repeat'
     ? firstBurst(b, t, 'build')[metric]
@@ -81,66 +100,51 @@ const metricUnits: Record<Metric, string> = {
   seconds: 's',
   repeat: 's',
 };
-function targetDelta(value: number, baseline: number, metric: Metric) {
+function targetDelta(value: number, baseline: number, metric: Metric, reference: number) {
   const delta = value - baseline;
   const magnitude = fmt(Math.abs(delta));
-  if (magnitude === '0') return 'Same as #1';
+  if (magnitude === '0') return 'Same as #' + reference;
   if (metric === 'seconds' || metric === 'repeat')
-    return magnitude + ' s ' + (delta < 0 ? 'faster' : 'slower') + ' than #1';
-  return (delta > 0 ? '+' : '−') + magnitude + ' ' + metricUnits[metric] + ' vs #1';
+    return magnitude + ' s ' + (delta < 0 ? 'faster' : 'slower') + ' than #' + reference;
+  return (delta > 0 ? '+' : '−') + magnitude + ' ' + metricUnits[metric] + ' vs #' + reference;
 }
 export default function ComparisonPlot({
   builds,
   target,
   targetName,
   timelineRef,
+  baselineId,
 }: {
   builds: Build[];
   target: Target;
   targetName: string;
   timelineRef: RefObject<HTMLTableElement | null>;
+  baselineId?: number;
 }) {
-  const [view, setView] = useState<'curve' | 'bars' | 'timeline'>('curve');
-  const [chosenAxis, setAxis] = useState<'def' | 'res' | 'injuryRes' | 'elementalRes'>();
+  const [chosenView, setView] = useState<View>('curve');
+  const [chosenAxis, setAxis] = useState<DefenseAxis>();
   const [chosenMetric, setMetric] = useState<Metric>();
   const results = useMemo(() => builds.map((b) => calculate(b, target)), [builds, target]);
-  // Choose from source capabilities so changing the target or moving the probe keeps the chart stable.
-  const sources = useMemo(() => builds.map((b) => calculate(b, initialTarget)), [builds]);
-  const buildupOnly = sources.every((r) => r.damage === 0 && r.injury > 0);
-  const perAction = sources.some((r) => r.interval === null);
-  const defaultMetric = buildupOnly ? (perAction ? 'injury' : 'seconds') : perAction ? 'damage' : 'dps';
-  const metric = chosenMetric ?? defaultMetric;
+  const setup = useMemo(() => chartControls(builds, target, chosenMetric), [builds, target, chosenMetric]);
+  const { metric, defaultMetric, axes } = setup;
+  const views = chartViews.filter(option => option.value === 'bars'
+    || (option.value === 'curve' ? axes.length > 0 : setup.burstTimeline));
+  const view = views.some(option => option.value === chosenView) ? chosenView : 'bars';
   const names = useMemo(() => seriesLabels(builds), [builds]);
-  const defaultAxis = ['seconds', 'repeat', 'injury', 'injuryRate'].includes(metric)
-    ? 'injuryRes'
-    : sources.every((r) => r.components.Physical > 0 && r.components.Arts === 0)
-      ? 'def'
-      : 'res';
-  const axis = chosenAxis ?? defaultAxis;
-  const [inspection, setInspection] = useState<{ target: Target; axis: string; value: number } | null>(null);
+  const defaultAxis = axes[0] ?? 'def';
+  const manualAxis = chosenAxis && axes.includes(chosenAxis) ? chosenAxis : undefined;
+  const axis = manualAxis ?? defaultAxis;
+  const [inspection, setInspection] = useState<{ target: Target; axis: DefenseAxis; value: number } | null>(null);
   const inspect = (value: number) => setInspection({ target, axis, value });
-  const probe =
-    view === 'curve' && inspection?.target === target && inspection.axis === axis
-      ? inspection.value
-      : target[axis];
-  const [zoom, setZoom] = useState('full');
+  const [limits, setLimits] = useState<Partial<Record<DefenseAxis, number>>>({});
+  const defaultRange = axis === 'def' ? Math.max(3000, Math.ceil(target.def / 500) * 500) : 100;
+  const range = limits[axis] ?? defaultRange;
+  const inspected = inspection?.target === target && inspection.axis === axis;
+  const probe = view === 'curve' ? Math.min(range, inspected ? inspection.value : target[axis]) : target[axis];
+  const [chosenZoom, setZoom] = useState('full');
   const clipId = useId();
-  const range = axis === 'def' ? Math.max(3000, Math.ceil(target.def / 500) * 500) : 100;
-  const labels = {
-    def: 'DEF',
-    res: 'RES',
-    injuryRes: 'Injury resistance',
-    elementalRes: 'Elemental resistance',
-  };
-  const metrics = {
-    seconds: 'Time to first burst (s)',
-    repeat: 'First to second burst (s)',
-    dps: 'HP damage / s',
-    damage: 'HP damage / action',
-    injuryRate: 'Injury / s',
-    injury: 'Injury / action',
-  };
   const timing = metric === 'seconds' || metric === 'repeat';
+  const zoom = !timing && chosenZoom.startsWith('s') ? 'full' : chosenZoom;
   const points = useMemo(() => Array.from({ length: 61 }, (_, i) => (i * range) / 60), [range]);
   const curves = useMemo(
     () =>
@@ -157,6 +161,7 @@ export default function ComparisonPlot({
   const targetValues = results.map((r, i) =>
     targetMetric === 'seconds' || targetMetric === 'repeat' ? targetBursts[i][targetMetric] : r[targetMetric],
   );
+  const baseline = Math.max(0, builds.findIndex(build => build.id === baselineId));
   const series = builds.map((b, i) => ({
     b,
     selected: probe === target[axis] ? targetValues[i] : measure(b, { ...target, [axis]: probe }, metric),
@@ -195,7 +200,7 @@ export default function ComparisonPlot({
   const values = series.flatMap((row) => (row.selected === null ? [] : [row.selected]));
   const low = Math.min(...values),
     high = Math.max(...values);
-  const focus = high - low <= span ? (low + high) / 2 : values[0];
+  const focus = high - low <= span ? (low + high) / 2 : (series[baseline]?.selected ?? values[0]);
   const min = values.length ? Math.max(0, Math.min(fullMax - span, focus - span / 2)) : 0;
   const max = min + span;
   const panel = useRef<HTMLElement>(null);
@@ -249,50 +254,38 @@ export default function ComparisonPlot({
     }
   }
   return (
-    <section ref={panel} className={css.panel}>
+    <section id="damage-comparison" tabIndex={-1} ref={panel} className={css.panel}>
       <div className={css.heading}>
-        <h2>Damage comparison</h2>
-        <SegmentedControl
+        <h2 className="section-title">Damage comparison</h2>
+        {views.length > 1 && <SegmentedControl
           label="Chart view"
-          options={
-            [
-              { value: 'curve', label: 'Response curve' },
-              { value: 'bars', label: 'At target' },
-              { value: 'timeline', label: 'Elemental burst' },
-            ] as const
-          }
+          options={views}
           value={view}
           onChange={setView}
-        />
+        />}
       </div>
-      {view !== 'timeline' && (
+      {view !== 'timeline' && (setup.metrics.length > 1 || view === 'curve') && (
         <div className={css.heading}>
           <div className={css.controls}>
-            <Pick
+            {setup.metrics.length > 1 && <Pick
               label="Measure"
-              value={chosenMetric ?? 'auto'}
+              value={chosenMetric && setup.metrics.includes(chosenMetric) ? chosenMetric : 'auto'}
               options={[
                 { value: 'auto', label: 'Auto · ' + metrics[defaultMetric] },
-                ...Object.entries(metrics).map(([value, label]) => ({ value, label })),
+                ...setup.metrics.map(value => ({ value, label: metrics[value] })),
               ]}
-              change={(v) => {
-                if (zoom.startsWith('s') && v !== 'seconds' && v !== 'repeat') setZoom('full');
-                setMetric(v === 'auto' ? undefined : (v as typeof metric));
-              }}
-            />
+              change={v => setMetric(v === 'auto' ? undefined : v as Metric)}
+            />}
             {view === 'curve' && (
               <Pick
                 label="Vary"
-                value={chosenAxis ?? 'auto'}
+                value={manualAxis ?? 'auto'}
                 options={[
                   { value: 'auto', label: 'Auto · ' + labels[defaultAxis] },
-                  ...Object.entries(labels).map(([value, label]) => ({ value, label })),
+                  ...axes.map(value => ({ value, label: labels[value] })),
                 ]}
-                change={(v) => setAxis(v === 'auto' ? undefined : (v as typeof axis))}
+                change={v => setAxis(v === 'auto' ? undefined : v as DefenseAxis)}
               />
-            )}
-            {view === 'curve' && (
-              <Pick label="Vertical zoom" value={zoom} options={zoomOptions} change={setZoom} />
             )}
           </div>
         </div>
@@ -311,8 +304,9 @@ export default function ComparisonPlot({
                 ? 'Unavailable'
                 : fmt(targetValues[i]) + ' ' + metricUnits[targetMetric]}
             </strong>
-            {i > 0 && targetValues[i] !== null && targetValues[0] !== null && (
-              <small>{targetDelta(targetValues[i], targetValues[0], targetMetric)}</small>
+            {series.length > 1 && i === baseline && <small>Baseline</small>}
+            {i !== baseline && targetValues[i] !== null && targetValues[baseline] !== null && (
+              <small>{targetDelta(targetValues[i], targetValues[baseline], targetMetric, baseline + 1)}</small>
             )}
           </div>
         ))}
@@ -506,6 +500,28 @@ export default function ComparisonPlot({
           Dots mark bursts. The dotted interval shows recovery before injury can build again. Each source
           starts with an empty gauge.
         </small>
+      )}
+      {view === 'curve' && (
+        <details className={css.chartSettings}>
+          <summary>Chart settings</summary>
+          <div className={css.controls}>
+            <Pick label="Vertical zoom" value={zoom} options={zoomOptions} change={setZoom} />
+            <label className={css.field}>
+              {labels[axis]} axis maximum
+              <input type="number" min={1} max={axis === 'def' ? undefined : 100}
+                placeholder={String(defaultRange)} value={limits[axis] ?? ''}
+                onChange={event => {
+                  const next = event.currentTarget.valueAsNumber;
+                  const max = axis === 'def' ? Infinity : 100;
+                  setLimits(previous => ({ ...previous, [axis]: Number.isFinite(next) ? Math.min(max, Math.max(1, next)) : undefined }));
+                }} />
+            </label>
+            {inspected && <button type="button" className="ghost btn-sm" onClick={() => {
+              setInspection(null);
+              if (target[axis] > range) setLimits(previous => ({ ...previous, [axis]: undefined }));
+            }}>Reset probe to target</button>}
+          </div>
+        </details>
       )}
       {view !== 'timeline' && timing && (
         <small>
