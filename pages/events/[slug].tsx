@@ -398,7 +398,10 @@ export default function EventDetailPage({
                 {bannerName && <>
                   <div className="event-section-head">
                     <h3 className="entity-title entity-title-name">{bannerTitle.title}</h3>
-                    {bannerTitle.tag && <span className="event-banner-tag">[{bannerTitle.tag}]</span>}
+                    <div className="event-banner-actions">
+                      {bannerTitle.tag && <span className="event-banner-tag">[{bannerTitle.tag}]</span>}
+                      <Link className="ghost btn-sm" prefetch={false} href={`/gacha-simulator?banner=${encodeURIComponent(bannerName)}`}>Open in Gacha Simulator</Link>
+                    </div>
                   </div>
                   <div className="event-banner-body">
                     {/* The frame stays when the art is not published yet, empty at the
