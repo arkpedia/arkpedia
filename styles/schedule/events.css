@@ -147,6 +147,7 @@ button.event-banner-extra:focus-visible > .event-banner-extra-name { color: var(
 .event-section-card { padding: 20px 24px; }
 .event-section-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 16px; margin-bottom: 18px; padding-bottom: 14px; border-bottom: 1px solid var(--line); }
 .event-section-head > h3 { margin: 0; }
+.event-banner-card > .event-section-head { align-items: center; }
 .event-banner-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; }
 .event-banner-tag { color: var(--text-dim); font: 13px var(--font-mono); }
 .event-banner-body { display: grid; grid-template-columns: minmax(0, 1fr); gap: 20px 32px; align-items: start; }
