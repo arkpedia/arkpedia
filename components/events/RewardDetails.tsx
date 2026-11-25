@@ -35,6 +35,11 @@ export function RewardDetailsProvider({ tickets, children, recommendations, reco
   const ticket = active && 'ticket' in active ? active.ticket : undefined;
   const operators = useMemo(() => rankByRecommendation(ticket?.operators ?? [], recommendations), [ticket, recommendations]);
   const cosmetic = active && 'pack' in active ? (active.pack.cosmeticPreview ?? packCosmeticPreview(active.pack.name, active.source)) : undefined;
+  const pack = active && 'pack' in active ? active.pack : undefined;
+  const promo = pack?.artworkLayout === 'promo';
+  const packArtwork = pack?.imagePath ? <Image
+    className={`event-pack-detail-image${promo ? ' event-pack-detail-promo' : ''}`}
+    src={pack.imagePath} alt={`${pack.name} artwork`} width={promo ? 650 : 200} height={promo ? 208 : 150} /> : undefined;
   const isOpen = !!active;
   useEffect(() => {
     if (!isOpen) return;
@@ -120,8 +125,9 @@ export function RewardDetailsProvider({ tickets, children, recommendations, reco
           }) : renderOperators(operators, VIDEOS_COMING_SOON.has(active.name))}
           <p className="hint"><a href={active.ticket.source} target="_blank" rel="noopener noreferrer">Source announcement</a></p>
         </>}</div> : <>
-          {cosmetic && <EventCosmeticPreview key={cosmetic.pack} preview={cosmetic} onOpenChange={onPreviewOpenChange} />}
-          {active.pack.imagePath && <Image className={`event-pack-detail-image${active.pack.artworkLayout === 'promo' ? ' event-pack-detail-promo' : ''}`} src={active.pack.imagePath} alt={`${active.pack.name} artwork`} width={active.pack.artworkLayout === 'promo' ? 650 : 200} height={active.pack.artworkLayout === 'promo' ? 208 : 150} />}
+          {cosmetic
+            ? <EventCosmeticPreview key={cosmetic.pack} preview={cosmetic} artwork={packArtwork} onOpenChange={onPreviewOpenChange} />
+            : packArtwork}
           {active.pack.region === 'CN' && <p className="hint">CN pack preview. Global availability, contents and prices may differ. Sale dates are for CN.</p>}
           {active.pack.start && <p className="hint">Sale window: {packDay(active.pack.start, { region: active.pack.region })} – {active.pack.end ? packDay(active.pack.end, { exclusiveEnd: true, region: active.pack.region }) : 'Not announced'}</p>}
           {active.pack.limit && <p className="hint">Purchase limit: {active.pack.limit}</p>}

@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState, type CSSProperties, type KeyboardEvent, type PointerEvent } from 'react';
+import { useEffect, useId, useRef, useState, type CSSProperties, type KeyboardEvent, type PointerEvent, type ReactElement } from 'react';
 import { createPortal } from 'react-dom';
 import { ContentImg } from '@/components/content/ContentImage';
 import SegmentedControl from '@/components/ui/SegmentedControl';
@@ -32,8 +32,9 @@ function positionAfterZoom(position: number, anchor: number, frame: number, art:
   return clampPosition(((anchor - previousOffset) * after / before - anchor) * 100 / overflow);
 }
 
-export default function EventCosmeticPreview({ preview, onOpenChange }: {
+export default function EventCosmeticPreview({ preview, artwork, onOpenChange }: {
   preview: CosmeticPreview;
+  artwork?: ReactElement;
   onOpenChange?: (open: boolean) => void;
 }) {
   const [open, setOpen] = useState(false);
@@ -208,8 +209,13 @@ export default function EventCosmeticPreview({ preview, onOpenChange }: {
   const audioControl = track && <button type="button" className="ghost btn-sm" onClick={toggleBgm}>
     {playing ? 'Pause BGM' : 'Play BGM'}
   </button>;
+  const previewLabel = theme ? 'Preview UI' : 'Preview background';
   return <>
-    <button ref={launch} type="button" className="primary" aria-haspopup="dialog" onClick={enter}>Enter {scene.title}</button>
+    {artwork ? <button ref={launch} type="button" className="btn-bare event-pack-preview-trigger"
+      aria-haspopup="dialog" aria-label={previewLabel} onClick={enter}>
+      {artwork}
+      <span className="btn btn-sm scrim-control event-pack-preview-label">{previewLabel}</span>
+    </button> : <button ref={launch} type="button" className="primary" aria-haspopup="dialog" onClick={enter}>{previewLabel}</button>}
     {track && <audio ref={audio} preload="none" loop onPlay={() => setPlaying(true)} onPause={() => setPlaying(false)}
       onError={() => { setPlaying(false); setAudioError(true); }} />}
     {open && createPortal(
