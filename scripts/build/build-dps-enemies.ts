@@ -22,16 +22,21 @@ function patriotStances(level: EnemyLevel, atk: number, period: number, speed: n
   const marching = level.talents.find(talent => talent.key === 'shield')?.parameters.atk;
   const command = level.talents.find(talent => talent.key === 'strength')?.parameters.atk;
   const ruination = level.talents.find(talent => talent.key === 'immo_trigger[rage]')?.parameters;
+  const revival = level.skills.find(skill => skill.key === 'immo_trigger[reborning]')?.parameters;
+  const revivesIn = level.talents.find(talent => talent.key === 'reborn')?.parameters.duration;
   const aura = level.skills.find(skill => skill.key === 'Immo[Rage]')?.parameters.atk_scale;
   const spear = level.skills.find(skill => skill.key === 'throwspear[Rage]');
   const scale = spear?.parameters.atk_scale;
   if (typeof marching !== 'number' || typeof command !== 'number' || typeof ruination?.atk !== 'number'
     || typeof ruination.base_attack_time !== 'number' || typeof ruination.interval !== 'number' || ruination.interval <= 0
     || typeof aura !== 'number' || typeof scale !== 'number' || !spear || spear.initial_cooldown == null || !spear.cooldown) return undefined;
+  if (typeof revival?.atk !== 'number' || typeof revivesIn !== 'number' || revivesIn <= 0
+    || typeof revival.interval !== 'number' || revival.interval <= 0) return undefined;
   return {
     marchingAtk: atk * (1 + command + marching),
     ruinationAtk: atk * (1 + ruination.atk),
     ruinationInterval: Math.max(1, Math.round((period + ruination.base_attack_time) * 3000 / speed)) / 30,
+    revival: { atk: atk * (1 + revival.atk), duration: revivesIn, interval: revival.interval },
     aura: { name: 'True damage aura', type: 'True', mode: 'aura', scale: aura,
       firstReady: ruination.interval, cooldown: ruination.interval, delay: 0 },
     spear: { name: 'Spear throw', type: 'Physical', mode: 'separate', scale,

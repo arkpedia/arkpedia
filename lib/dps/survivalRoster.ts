@@ -17,6 +17,7 @@ export interface PatriotStances {
   marchingAtk: number;
   ruinationAtk: number;
   ruinationInterval: number;
+  revival: { atk: number; duration: number; interval: number };
   aura: EnemyAbility;
   spear: EnemyAbility;
 }

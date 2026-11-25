@@ -15,7 +15,7 @@ import { elements } from '../../lib/dps/sources';
 import { chartControls, targetControls } from '../../lib/dps/controls';
 import { damageBasis, dpsLabel } from '../../lib/dps/damageLabels';
 import { damageAtTime, damageTimeline } from '../../lib/dps/damageTimeline';
-import { hpAt, patriotAttack, simulateSurvival, type Defense } from '../../lib/dps/survival';
+import { hpAt, patriotAttack, patriotFight, simulateSurvival, type Defense } from '../../lib/dps/survival';
 import type { PatriotStances } from '../../lib/dps/survivalRoster';
 const profiles = archive.operators as unknown as Profile[];
 const createBuild = (id: string, number: number) =>
@@ -128,12 +128,14 @@ test('defender skills change mitigation, HP cap and self-healing within their ac
   near(hpAt(shell.alone.points, 8), 900);
 });
 
+const patriot: PatriotStances = {
+  marchingAtk: 2720, ruinationAtk: 1920, ruinationInterval: 3.6,
+  revival: { atk: 1920, duration: 60, interval: 0.8 },
+  aura: { name: 'True damage aura', type: 'True', mode: 'aura', scale: 0.0521, firstReady: 0.8, cooldown: 0.8, delay: 0 },
+  spear: { name: 'Spear throw', type: 'Physical', mode: 'separate', scale: 1.35, firstReady: 15, cooldown: 20, delay: 3 },
+};
+
 test('Patriot mitigates each Marching hit and uses the Ruination attack pattern selected by position', () => {
-  const patriot: PatriotStances = {
-    marchingAtk: 2720, ruinationAtk: 1920, ruinationInterval: 3.6,
-    aura: { name: 'True damage aura', type: 'True', mode: 'aura', scale: 0.0521, firstReady: 0.8, cooldown: 0.8, delay: 0 },
-    spear: { name: 'Spear throw', type: 'Physical', mode: 'separate', scale: 1.35, firstReady: 15, cooldown: 20, delay: 3 },
-  };
   const defense: Defense = { hp: 12000, def: 500, res: 60, dp: 20, blocksDirectHealing: false };
   const marching = simulateSurvival(patriotAttack(patriot, 4, 'marching', 'melee'), defense, [], 30);
   assert.equal(marching.basicHits, 4);
@@ -146,6 +148,27 @@ test('Patriot mitigates each Marching hit and uses the Ruination attack pattern 
   near(hpAt(spear.alone.points, 18), 12000 - (1920 * 1.35 - 500));
   const combined = simulateSurvival(patriotAttack(patriot, 4, 'ruination', 'spear-aura'), defense, [], 30);
   near(hpAt(combined.alone.points, 18), hpAt(spear.alone.points, 18) - 22 * 1920 * 0.0521);
+});
+
+test('Patriot’s full fight preserves HP and casts across phases and carries the aura clock through revival', () => {
+  const defender: Defense = { hp: 25000, def: 500, res: 60, dp: 20, blocksDirectHealing: false };
+  const haruka = { build: createBuild('haruka', 1), delay: 0, cycle: true };
+  const result = simulateSurvival(patriotFight(patriot, 4, 'spear-aura', 8), defender, [haruka], 100);
+  assert.deepEqual(result.enemyPhases, [{ name: 'Marching', start: 0 }, { name: 'Revival', start: 8 }, { name: 'Ruination', start: 68 }]);
+  const hp = (time: number) => hpAt(result.alone.points, time);
+  near(hp(8), 25000 - 4 * (2720 - 500));
+  const aura = 1920 * 0.0521;
+  near(hp(8) - hp(8.8), aura);
+  near(hp(67.9) - hp(68), aura);
+  near(hp(68) - hp(68.8), aura);
+  near(hp(85.9) - hp(86), 1920 * 1.35 - 500);
+  assert.deepEqual(result.abilityHits.map(hit => hit.time), [86]);
+  assert.deepEqual(result.healerCycles[0].casts, [{ start: 17, end: 43 }, { start: 60, end: null }]);
+  assert.ok(hpAt(result.healed.points, 68) > hp(68));
+
+  const distant = simulateSurvival(patriotFight(patriot, 4, 'spear', 8), defender, [], 100);
+  near(hpAt(distant.alone.points, 85.9), hp(8));
+  assert.equal(distant.aura, null);
 });
 
 test('Haruka deployment timing charges twice and uses the weaker heal on her finite first cast', () => {

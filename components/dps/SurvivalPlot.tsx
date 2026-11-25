@@ -4,6 +4,8 @@ import { hpAt, type HealthPoint, type simulateSurvival } from '@/lib/dps/surviva
 import { fmt, Pick } from './ComparisonPlot';
 import css from './Dps.module.css';
 
+export const survivalTimeWindows = [15, 30, 60, 90, 120, 180, 240];
+
 export default function SurvivalPlot({ result, duration, setDuration, hasHealers, missing }: {
   result: ReturnType<typeof simulateSurvival> | null;
   duration: number;
@@ -23,6 +25,8 @@ export default function SurvivalPlot({ result, duration, setDuration, hasHealers
   const inspected = Math.min(probe ?? duration, duration);
   const inspectedHp = result ? hpAt(result.healed.points, inspected) : 0;
   const windows = result?.defenderWindows ?? [];
+  const phases = result?.enemyPhases ?? [];
+  const phaseAtProbe = phases.filter(phase => phase.start <= inspected).at(-1);
   const skillHits = result?.abilityHits.filter(hit => hit.time <= (result.healed.defeatedAt ?? duration)) ?? [];
   const latestHit = skillHits.filter(hit => hit.time <= inspected).at(-1);
 
@@ -31,7 +35,7 @@ export default function SurvivalPlot({ result, duration, setDuration, hasHealers
       <div className={css.heading}>
         <h2 className="section-title">HP over time</h2>
         <Pick label="Time window" value={duration}
-          options={[15, 30, 60, 90, 120].map(value => ({ value: String(value), label: value + ' s' }))}
+          options={survivalTimeWindows.map(value => ({ value: String(value), label: value + ' s' }))}
           change={value => setDuration(Number(value))} />
       </div>
       {result ? (
@@ -41,9 +45,13 @@ export default function SurvivalPlot({ result, duration, setDuration, hasHealers
               <strong>{result.healed.defeatedAt === null ? `Survives ${duration} s` : `Defeated at ${fmt(result.healed.defeatedAt)} s`}</strong>
               <small>{fmt(result.healed.finalHp)} / {fmt(result.finalMaxHp)} HP at {duration} s · Lowest HP {fmt(result.healed.lowest)}</small>
             </div>
-            {result.basicHits > 0 && <small>Basic attacks{windows.length > 0 ? ' off-skill' : ''} · {fmt(result.dps)} DPS after defenses · {fmt(result.hitDamage)} damage per hit
+            {result.basicHits > 0 && <small>{phases.length ? 'Marching basic attacks' : 'Basic attacks'}{windows.length > 0 ? ' off-skill' : ''} · {fmt(result.dps)} DPS after defenses · {fmt(result.hitDamage)} damage per hit
               {result.basicHits > 1 && ` · ${result.basicHits} hits per attack`}</small>}
             {result.aura && <small>True damage aura · {fmt(result.aura.damage)} damage every {fmt(result.aura.interval)} s</small>}
+            {phases.length > 0 && <small aria-label="Patriot phase times">{phases.map((phase, i) => {
+              const next = phases[i + 1];
+              return `${phase.name} ${next ? `${fmt(phase.start)}–${fmt(next.start)} s` : `from ${fmt(phase.start)} s`}`;
+            }).join(' · ')}</small>}
           </div>
           <div className={css.curveFrame} style={{
             maxWidth: 295 * width / 265,
@@ -61,6 +69,15 @@ export default function SurvivalPlot({ result, duration, setDuration, hasHealers
                   <text x={x(fraction * duration)} y={bottom + 19} textAnchor="middle">{fmt(fraction * duration)} s</text>
                 </g>
               ))}
+              {phases.map((phase, i) => {
+                if (phase.start >= duration) return null;
+                const finish = Math.min(duration, phases[i + 1]?.start ?? duration);
+                const phaseWidth = x(finish) - x(phase.start);
+                return <g key={phase.name}>
+                  {i > 0 && <line x1={x(phase.start)} x2={x(phase.start)} y1={top} y2={bottom} style={{ stroke: 'var(--text-faint)' }} />}
+                  {phaseWidth >= 68 && <text x={x(phase.start) + phaseWidth / 2} y="17" textAnchor="middle">{phase.name}</text>}
+                </g>;
+              })}
               {hasHealers && <path fill="none" stroke="var(--text-dim)" strokeWidth="1.6" strokeDasharray="5 4" d={path(result.alone.points)} />}
               <path fill="none" stroke="var(--teal)" strokeWidth="2" d={path(result.healed.points)} />
               {skillHits.map(hit => <circle key={hit.time} cx={x(hit.time)} cy={top - 9} r="3" fill="var(--amber)">
@@ -70,12 +87,13 @@ export default function SurvivalPlot({ result, duration, setDuration, hasHealers
               <circle cx={x(inspected)} cy={y(inspectedHp)} r="3" fill="var(--teal)" />
             </svg>
             <div className={css.probe}>
-              <input type="range" aria-label="Inspect time" aria-valuetext={`${fmt(inspected)} seconds, ${fmt(inspectedHp)} HP`}
+              <input type="range" aria-label="Inspect time" aria-valuetext={`${fmt(inspected)} seconds, ${fmt(inspectedHp)} HP${phaseAtProbe ? ', ' + phaseAtProbe.name : ''}`}
                 min={0} max={duration} step={0.1} value={inspected} onChange={event => setProbe(event.currentTarget.valueAsNumber)} />
               <output>{fmt(inspected)} s</output>
             </div>
           </div>
           <div className={css.targetResults} role="group" aria-label="HP at inspected time">
+            {phaseAtProbe && <small>Patriot phase · {phaseAtProbe.name}</small>}
             <div><span style={{ borderColor: 'var(--teal)' }}>{hasHealers ? 'With healing' : 'Operator HP'}</span>
               <strong>{fmt(inspectedHp)} HP</strong></div>
             {hasHealers && <div><span style={{ borderColor: 'var(--text-dim)', borderInlineStartStyle: 'dashed' }}>Without healing</span>

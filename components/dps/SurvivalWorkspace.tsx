@@ -2,12 +2,12 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { fetchAsset } from '@/lib/assets/assetRetry';
 import { buildLabel, createBuild, profile, rankLabel, type Build, type Profile } from '@/lib/dps/calculator';
 import { isHealingProfile } from '@/lib/dps/healing';
-import { defenderStats, healerSkillCycle, patriotAttack, simulateSurvival, type ActiveDefense, type Defense, type PatriotPosition, type SurvivalHealer } from '@/lib/dps/survival';
+import { defenderStats, healerSkillCycle, patriotAttack, patriotFight, simulateSurvival, type ActiveDefense, type Defense, type PatriotPosition, type SurvivalHealer } from '@/lib/dps/survival';
 import type { AttackType, Attacker, Defender, SurvivalRoster } from '@/lib/dps/survivalRoster';
 import BuildEditor, { DamageSource } from './BuildEditor';
 import BuildSearch from './BuildSearch';
 import { fmt, Pick } from './ComparisonPlot';
-import SurvivalPlot from './SurvivalPlot';
+import SurvivalPlot, { survivalTimeWindows } from './SurvivalPlot';
 import css from './Dps.module.css';
 
 interface DefenderBuild {
@@ -137,7 +137,8 @@ export default function SurvivalWorkspace({ profiles }: { profiles: Profile[] })
   const [enemyLevel, setEnemyLevel] = useState(0);
   const [attackType, setAttackType] = useState<AttackType>();
   const [enemySkillEnabled, setEnemySkillEnabled] = useState(true);
-  const [stance, setStance] = useState<'marching' | 'ruination'>('marching');
+  const [stance, setStance] = useState<'marching' | 'ruination' | 'full'>('marching');
+  const [marchingEnds, setMarchingEnds] = useState(20);
   const [patriotTarget, setPatriotTarget] = useState<PatriotPosition>();
   const [defender, setDefender] = useState<DefenderBuild>();
   const [healers, setHealers] = useState<SurvivalHealer[]>([]);
@@ -162,13 +163,16 @@ export default function SurvivalWorkspace({ profiles }: { profiles: Profile[] })
   const baseAttack = enemy?.levels.find(level => level.level === enemyLevel);
   const ability = baseAttack?.ability;
   const patriot = baseAttack?.patriot;
+  const revival = patriot?.revival;
   const position = patriotTarget ?? (defender?.operator.ranged ? 'spear' : 'melee');
   const attack = useMemo(() => {
     if (!baseAttack || !attackType) return null;
-    if (patriot) return patriotAttack(patriot, baseAttack.interval, stance, position);
+    if (patriot) return stance === 'full' && patriot.revival ? patriotFight(patriot, baseAttack.interval, position, marchingEnds)
+      : patriotAttack(patriot, baseAttack.interval, stance === 'ruination' ? 'ruination' : 'marching', position);
     return { atk: baseAttack.atk, interval: baseAttack.interval, type: attackType,
       abilities: ability && enemySkillEnabled ? [ability] : [] };
-  }, [baseAttack, attackType, patriot, stance, position, ability, enemySkillEnabled]);
+  }, [baseAttack, attackType, patriot, stance, position, marchingEnds, ability, enemySkillEnabled]);
+  const startingAttack = attack && ('atk' in attack ? attack : attack[0].attack);
   const skill = useMemo<ActiveDefense | undefined>(() => defender ? defenderSkill(defender).effects : undefined, [defender]);
   const defense = useMemo(() => {
     if (!defender) return null;
@@ -198,6 +202,13 @@ export default function SurvivalWorkspace({ profiles }: { profiles: Profile[] })
     setHealers(previous => previous.map(entry => entry.build.id === id ? { ...entry, ...changes } : entry));
   }
 
+  function fitFullFight(end: number) {
+    if (!revival) return;
+    const minimum = end + revival.duration + 30;
+    const window = survivalTimeWindows.find(value => value >= minimum) ?? survivalTimeWindows.at(-1)!;
+    setDuration(current => Math.max(current, window));
+  }
+
   return (
     <div className={css.workspace}>
       <div className={css.left}>
@@ -221,8 +232,8 @@ export default function SurvivalWorkspace({ profiles }: { profiles: Profile[] })
                 }} />
               {enemy && baseAttack && <div className={css.editor}>
                 <strong>{enemy.name}{enemy.code ? ' · ' + enemy.code : ''}</strong>
-                <small>Lv {enemyLevel} · {fmt(attack?.atk ?? baseAttack.atk)} ATK
-                  {(attack?.basicHits ?? 1) > 0 && ` · ${attack?.basicHits === 4 ? '4 hits every ' : '1 hit every '}${fmt(attack?.interval ?? baseAttack.interval)} s`}
+                <small>Lv {enemyLevel} · {fmt(startingAttack?.atk ?? baseAttack.atk)} ATK
+                  {(startingAttack?.basicHits ?? 1) > 0 && ` · ${startingAttack?.basicHits === 4 ? '4 hits every ' : '1 hit every '}${fmt(startingAttack?.interval ?? baseAttack.interval)} s`}
                   {attackType ? ' · ' + attackType : ''}</small>
                 <div className={css.fields}>
                   {enemy.levels.length > 1 && <Pick label="Attacker level" value={enemyLevel}
@@ -235,9 +246,26 @@ export default function SurvivalWorkspace({ profiles }: { profiles: Profile[] })
                 {patriot ? <div className={css.quickSource}>
                   <Pick label="Patriot stance" value={stance} options={[
                     { value: 'marching', label: 'Marching Stance' }, { value: 'ruination', label: 'Ruination Stance' },
-                  ]} change={value => setStance(value as 'marching' | 'ruination')} />
+                    ...(revival ? [{ value: 'full', label: 'Full fight' }] : []),
+                  ]} change={value => {
+                    if (value === 'full') fitFullFight(marchingEnds);
+                    setStance(value as typeof stance);
+                  }} />
+                  {stance === 'full' && revival && <>
+                    <div className={css.fields}>
+                      <label className={css.field}>
+                        Marching ends (s)
+                        <input type="number" min={0} max={120} step={0.1} value={marchingEnds} onChange={event => {
+                          const time = Math.min(120, Math.max(0, Math.round((event.currentTarget.valueAsNumber || 0) * 10) / 10));
+                          setMarchingEnds(time);
+                          fitFullFight(time);
+                        }} />
+                      </label>
+                    </div>
+                    <small>Revival lasts {fmt(revival.duration)} s. Ruination starts at {fmt(marchingEnds + revival.duration)} s.</small>
+                  </>}
                   {stance === 'marching' ? <small>Models a defender blocking Patriot. DEF applies to each hit.</small> : <>
-                    <Pick label="Defender position" value={position} options={patriotTargets}
+                    <Pick label={stance === 'full' ? 'Position after Marching' : 'Defender position'} value={position} options={patriotTargets}
                       change={value => setPatriotTarget(value as PatriotPosition)} />
                     {position.startsWith('spear') && <small>The defender is the farthest eligible high-ground target.</small>}
                   </>}
@@ -305,7 +333,7 @@ export default function SurvivalWorkspace({ profiles }: { profiles: Profile[] })
         <details className={css.panel}>
           <summary>Simulation assumptions</summary>
           <p>The defender starts at full HP and healers stay in range. From deployment uses initial SP, then charges 1 SP per second and activates the skill as soon as it is ready. SP does not recover during the active window. One activation assumes the skill is ready at its chosen time.</p>
-          <p>The model uses game-data cooldowns and simplified attack timing. Stage modifiers, transitions between enemy phases, SP bonuses, shields, healer buffs and triggered heals are excluded. A lethal hit resolves before healing at the same time.</p>
+          <p>The model uses game-data cooldowns and simplified attack timing. In Patriot’s Full fight, the defender blocks during Marching, then uses the selected position through revival and Ruination. Stage modifiers, SP bonuses, shields, healer buffs and triggered heals are excluded. A lethal hit resolves before healing at the same time.</p>
         </details>
       </div>
     </div>

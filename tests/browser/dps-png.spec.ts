@@ -459,3 +459,35 @@ test('models Patriot’s stances and Haruka’s full activation sequence', async
   await expect(page.getByRole('slider', { name: 'Inspect time' })).toHaveAttribute('max', '90');
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
 });
+
+test('plots Patriot’s Marching, revival and Ruination on one HP timeline', async ({ page }) => {
+  await page.goto('/dps-calculator');
+  await page.getByRole('tab', { name: 'Survival' }).click();
+  const pick = async (label: string, option: RegExp, query?: string) => {
+    const input = page.getByRole('combobox', { name: label, exact: true });
+    if (query) await input.fill(query); else await input.click();
+    await page.getByRole('option', { name: option }).click();
+  };
+  await pick('Choose enemy', /^Patriot PT$/, 'Patriot');
+  await pick('Choose defender', /^Cuora$/, 'Cuora');
+  await page.getByText('Defender settings', { exact: true }).click();
+  await page.getByRole('spinbutton', { name: 'Max HP', exact: true }).fill('40000');
+  await pick('Patriot stance', /^Full fight$/);
+  const marching = page.getByRole('spinbutton', { name: 'Marching ends (s)' });
+  await marching.fill('8');
+  await expect(page.getByRole('combobox', { name: 'Time window' })).toContainText('120 s');
+  await expect(page.getByText('Marching 0–8 s · Revival 8–68 s · Ruination from 68 s')).toBeVisible();
+  await pick('Position after Marching', /^High ground in aura$/);
+  const probe = page.getByRole('slider', { name: 'Inspect time' });
+  const readout = page.getByRole('group', { name: 'HP at inspected time' });
+  await probe.fill('15');
+  await expect(readout).toContainText('Patriot phase · Revival');
+  await probe.fill('86');
+  await expect(readout).toContainText('Patriot phase · Ruination');
+  await expect(readout).toContainText('Spear throw at 86 s');
+  await marching.fill('12');
+  await expect(page.getByText('Marching 0–12 s · Revival 12–72 s · Ruination from 72 s')).toBeVisible();
+  await probe.fill('90');
+  await expect(readout).toContainText('Spear throw at 90 s');
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+});

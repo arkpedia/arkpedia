@@ -18,6 +18,12 @@ interface Attack {
   basicHits?: number;
 }
 
+interface EnemyPhase {
+  name: 'Marching' | 'Revival' | 'Ruination';
+  start: number;
+  attack: Attack;
+}
+
 export type PatriotPosition = 'melee' | 'aura' | 'spear' | 'spear-aura';
 
 export function patriotAttack(data: PatriotStances, basicInterval: number, stance: 'marching' | 'ruination', position: PatriotPosition): Attack {
@@ -26,6 +32,26 @@ export function patriotAttack(data: PatriotStances, basicInterval: number, stanc
   if (position !== 'spear') abilities.push(data.aura);
   if (position === 'spear' || position === 'spear-aura') abilities.push(data.spear);
   return { atk: data.ruinationAtk, interval: data.ruinationInterval, type: 'Physical', basicHits: position === 'melee' ? 1 : 0, abilities };
+}
+
+export function patriotFight(data: PatriotStances, basicInterval: number, position: PatriotPosition, marchingEnds: number): EnemyPhase[] {
+  const { revival } = data;
+  const marching = patriotAttack(data, basicInterval, 'marching', position);
+  const ruination = patriotAttack(data, basicInterval, 'ruination', position);
+  const auraInterval = Math.max(1, frame(revival.interval));
+  // Carry the aura clock through revival so a pulse on the boundary happens once.
+  const nextPulse = (auraInterval - frame(revival.duration) % auraInterval) % auraInterval;
+  return [
+    { name: 'Marching', start: 0, attack: marching },
+    { name: 'Revival', start: marchingEnds, attack: {
+      atk: revival.atk, interval: basicInterval, type: 'Physical', basicHits: 0,
+      abilities: position === 'spear' ? [] : [{ ...data.aura, firstReady: revival.interval, cooldown: revival.interval }],
+    } },
+    { name: 'Ruination', start: marchingEnds + revival.duration, attack: {
+      ...ruination, abilities: ruination.abilities?.map(ability => ability.mode === 'aura'
+        ? { ...ability, firstReady: nextPulse / framesPerSecond } : ability),
+    } },
+  ];
 }
 
 export interface ActiveDefense extends DefenderSkillRank {
@@ -154,10 +180,12 @@ function trace(events: Map<number, Event>, defender: Defense, windows: SkillWind
   return { points, lowest, finalHp: hp, defeatedAt };
 }
 
-export function simulateSurvival(enemy: Attack, defender: Defense, healers: SurvivalHealer[], seconds: number, skill?: ActiveDefense) {
-  const interval = Math.max(1, frame(enemy.interval));
-  const basicHits = enemy.basicHits ?? 1;
-  const hitDamage = mitigate(enemy.atk, enemy.type, damageTarget(defender));
+export function simulateSurvival(enemy: Attack | EnemyPhase[], defender: Defense, healers: SurvivalHealer[], seconds: number, skill?: ActiveDefense) {
+  const phases = 'atk' in enemy ? [] : enemy;
+  const timeline = 'atk' in enemy ? [{ start: 0, attack: enemy }] : enemy;
+  const reference = timeline.find((phase, i) => timeline[i + 1]?.start !== phase.start)!.attack;
+  const basicHits = reference.basicHits ?? 1;
+  const hitDamage = mitigate(reference.atk, reference.type, damageTarget(defender));
   const end = frame(seconds);
   const windows = skill ? planCasts(skill.duration === null ? 0 : skill.start, skill.duration, end, skill.cycle ? skill.sp : undefined)
     .map(cast => ({ ...cast, rank: skill })) : [];
@@ -171,36 +199,44 @@ export function simulateSurvival(enemy: Attack, defender: Defense, healers: Surv
   }
 
   const attacks = new Map<number, Event>();
-  const abilities = enemy.abilities ?? [];
-  const nextHit = abilities.find(ability => ability.mode === 'next-hit');
   const abilityHits: { name: string; time: number; damage: number }[] = [];
-  const chargeWindows: { start: number; end: number }[] = [];
-  let nextHitReady = nextHit ? frame(nextHit.firstReady) : Infinity;
-  function abilityHit(tick: number, source: EnemyAbility) {
-    const atk = enemy.atk * source.scale;
-    eventAt(attacks, tick).hits.push({ atk, type: source.type });
-    if (source.mode !== 'aura') {
-      abilityHits.push({ time: tick / framesPerSecond, name: source.name,
-        damage: mitigate(atk, source.type, damageTarget(defender, activeAt(windows, tick))) });
+  for (const [i, phase] of timeline.entries()) {
+    const start = frame(phase.start);
+    const next = timeline[i + 1];
+    const stop = next ? Math.min(end, frame(next.start) - 1) : end;
+    const { attack } = phase;
+    const interval = Math.max(1, frame(attack.interval));
+    const abilities = attack.abilities ?? [];
+    const nextHit = abilities.find(ability => ability.mode === 'next-hit');
+    const chargeWindows: { start: number; end: number }[] = [];
+    let nextHitReady = nextHit ? start + frame(nextHit.firstReady) : Infinity;
+    function abilityHit(tick: number, source: EnemyAbility) {
+      const atk = attack.atk * source.scale;
+      eventAt(attacks, tick).hits.push({ atk, type: source.type });
+      if (source.mode !== 'aura') {
+        abilityHits.push({ time: tick / framesPerSecond, name: source.name,
+          damage: mitigate(atk, source.type, damageTarget(defender, activeAt(windows, tick))) });
+      }
     }
-  }
-  for (const ability of abilities) {
-    if (ability.mode === 'next-hit') continue;
-    const delay = frame(ability.delay);
-    const cooldown = Math.max(1, frame(ability.cooldown));
-    for (let cast = frame(ability.firstReady); cast <= end; cast += cooldown) {
-      const impact = cast + delay;
-      if (ability.mode === 'charge') chargeWindows.push({ start: cast, end: impact });
-      if (impact <= end) abilityHit(impact, ability);
+    for (const ability of abilities) {
+      if (ability.mode === 'next-hit') continue;
+      const delay = frame(ability.delay);
+      const cooldown = Math.max(1, frame(ability.cooldown));
+      for (let cast = start + frame(ability.firstReady); cast <= stop; cast += cooldown) {
+        const impact = cast + delay;
+        if (ability.mode === 'charge') chargeWindows.push({ start: cast, end: impact });
+        if (impact <= stop) abilityHit(impact, ability);
+      }
     }
-  }
-  for (let tick = interval; basicHits > 0 && tick <= end; tick += interval) {
-    if (chargeWindows.some(charge => tick >= charge.start && tick <= charge.end)) continue;
-    if (nextHit && tick >= nextHitReady) {
-      abilityHit(tick, nextHit);
-      nextHitReady = tick + Math.max(1, frame(nextHit.cooldown));
-    } else {
-      eventAt(attacks, tick).hits.push({ atk: enemy.atk, type: enemy.type, count: basicHits });
+    const hits = attack.basicHits ?? 1;
+    for (let tick = start + interval; hits > 0 && tick <= stop; tick += interval) {
+      if (chargeWindows.some(charge => tick >= charge.start && tick <= charge.end)) continue;
+      if (nextHit && tick >= nextHitReady) {
+        abilityHit(tick, nextHit);
+        nextHitReady = tick + Math.max(1, frame(nextHit.cooldown));
+      } else {
+        eventAt(attacks, tick).hits.push({ atk: attack.atk, type: attack.type, count: hits });
+      }
     }
   }
   for (const window of windows) {
@@ -254,11 +290,13 @@ export function simulateSurvival(enemy: Attack, defender: Defense, healers: Surv
   const finalMaxHp = defender.hp * (1 + (activeAt(windows, end)?.hp ?? 0));
   const defenderWindows = windows.map(window => ({ start: window.start / framesPerSecond,
     end: window.end === Infinity ? null : window.end / framesPerSecond }));
-  const aura = abilities.find(ability => ability.mode === 'aura');
+  const auraAttack = timeline.find(phase => phase.attack.abilities?.some(ability => ability.mode === 'aura'))?.attack;
+  const aura = auraAttack?.abilities?.find(ability => ability.mode === 'aura');
   return {
     alone, healed: healers.length ? trace(attacks, defender, windows) : alone,
-    basicHits, hitDamage, dps: basicHits * hitDamage * framesPerSecond / interval,
-    aura: aura ? { damage: enemy.atk * aura.scale, interval: aura.cooldown } : null,
+    basicHits, hitDamage, dps: basicHits * hitDamage * framesPerSecond / Math.max(1, frame(reference.interval)),
+    aura: aura && auraAttack ? { damage: auraAttack.atk * aura.scale, interval: aura.cooldown } : null,
+    enemyPhases: phases.map(({ name, start }) => ({ name, start })),
     abilityHits: abilityHits.sort((a, b) => a.time - b.time), defenderWindows, defenderSkill: skill?.name, healerCycles, peakHp, finalMaxHp,
   };
 }
