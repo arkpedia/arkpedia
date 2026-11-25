@@ -37,6 +37,7 @@ export default function EventCosmeticPreview({ preview, onOpenChange }: {
   onOpenChange?: (open: boolean) => void;
 }) {
   const [open, setOpen] = useState(false);
+  const [animationStart, setAnimationStart] = useState(0);
   const [view, setView] = useState<SceneView>(preview.theme ? 'theme' : 'room');
   const [camera, setCamera] = useState(WIDE);
   const [sceneRatio, setSceneRatio] = useState(16 / 9);
@@ -127,6 +128,7 @@ export default function EventCosmeticPreview({ preview, onOpenChange }: {
 
   function enter() {
     setSceneArt('loading');
+    setAnimationStart(performance.now());
     setOpen(true);
     onOpenChange?.(true);
     if (getSetting('eventMusic') && readPrivacy().externalMedia) playAudio();
@@ -176,6 +178,22 @@ export default function EventCosmeticPreview({ preview, onOpenChange }: {
     if (event.key === '0') setCamera(WIDE);
   }
 
+  function resetTilt() {
+    stage.current?.style.removeProperty('--scene-tilt-x');
+    stage.current?.style.removeProperty('--scene-tilt-y');
+  }
+
+  function trackPointer(event: PointerEvent<HTMLDivElement>) {
+    if (!nativeHome || event.pointerType !== 'mouse') return;
+    const element = event.currentTarget;
+    const { left, top, width, height } = element.getBoundingClientRect();
+    if (!width || !height) return;
+    const x = clampPosition(100 * (event.clientX - left) / width) / 50 - 1;
+    const y = clampPosition(100 * (event.clientY - top) / height) / 50 - 1;
+    element.style.setProperty('--scene-tilt-x', `${-y * 2.5}deg`);
+    element.style.setProperty('--scene-tilt-y', `${x * 4}deg`);
+  }
+
   function beginDrag(event: PointerEvent<HTMLDivElement>) {
     if (event.button !== 0 || drag.current) return;
     event.currentTarget.setPointerCapture(event.pointerId);
@@ -185,7 +203,11 @@ export default function EventCosmeticPreview({ preview, onOpenChange }: {
 
   function moveDrag(event: PointerEvent<HTMLDivElement>) {
     const start = drag.current;
-    if (!start || start.id !== event.pointerId) return;
+    if (!start) {
+      trackPointer(event);
+      return;
+    }
+    if (start.id !== event.pointerId) return;
     const element = event.currentTarget;
     const art = frameSize(element, sceneRatio, nativeHome);
     const overflowX = art.width * start.camera.zoom - element.clientWidth;
@@ -216,7 +238,7 @@ export default function EventCosmeticPreview({ preview, onOpenChange }: {
         onKeyDown={event => event.stopPropagation()}>
         <div ref={stage} className="event-scene-stage" role="region" tabIndex={0} aria-label="Scene camera" aria-describedby={helpId}
           data-dragging={dragging ? 'true' : undefined}
-          onKeyDown={moveWithKeys} onPointerDown={beginDrag} onPointerMove={moveDrag} onLostPointerCapture={endDrag}>
+          onKeyDown={moveWithKeys} onPointerDown={beginDrag} onPointerMove={moveDrag} onPointerLeave={resetTilt} onLostPointerCapture={endDrag}>
           {sceneArt !== 'error' && <div className="event-scene-image" style={{
             '--scene-ratio': sceneRatio,
             '--scene-x': camera.x / 100,
@@ -229,8 +251,8 @@ export default function EventCosmeticPreview({ preview, onOpenChange }: {
                 setSceneArt('ready');
               }}
               onError={() => setSceneArt('error')} />
-            {scene.native && sceneArt === 'ready' && <EventSceneCanvas source={scene.native} background={scene.image} />}
-            {view === 'theme' && theme && <EventHomeTheme theme={theme} />}
+            {scene.native && sceneArt === 'ready' && <EventSceneCanvas source={scene.native} background={scene.image} animationStart={animationStart} />}
+            {view === 'theme' && theme && <EventHomeTheme theme={theme} animationStart={animationStart} />}
           </div>}
           {sceneArt !== 'ready' && <p className="event-scene-message" role="status">
             {sceneArt === 'loading' ? 'Loading scene artwork…' : 'Scene artwork unavailable.'}
@@ -247,7 +269,7 @@ export default function EventCosmeticPreview({ preview, onOpenChange }: {
           <div className="event-scene-controls">
             {theme && <SegmentedControl<SceneView> label="Preview mode" value={view}
               options={[{ value: 'room', label: 'Room' }, { value: 'theme', label: 'Home screen' }]}
-              onChange={next => { setView(next); setCamera(WIDE); }} />}
+              onChange={next => { setView(next); setCamera(WIDE); resetTilt(); }} />}
             {audioControl}
           </div>
           <div className="event-scene-caption">

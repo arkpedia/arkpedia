@@ -33,6 +33,10 @@
   /* A click-triggered original game entrance. Only the modal media frame moves;
      the event page and its banner keep their normal document layout. */
   .event-scene-dialog[open] { animation: event-scene-reveal var(--dur-2) var(--ease); }
+  .event-persona-interface {
+    transform: perspective(1400px) rotateX(var(--scene-tilt-x, 0deg)) rotateY(var(--scene-tilt-y, 0deg));
+    transition: transform var(--dur-1) var(--ease);
+  }
   @keyframes event-scene-reveal { from { opacity: 0; } to { opacity: 1; } }
   .event-entrance[open]::backdrop { animation: event-entrance-black 160ms linear; transition: background-color 180ms linear; }
   .event-entrance-stage { transition: transform 560ms var(--ease), opacity 180ms linear; }

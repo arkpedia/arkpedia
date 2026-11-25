@@ -296,11 +296,17 @@ def export(directory, config, output):
             bounds = (-200, 600, 10, 350)
             x0, x1, y0, y1 = bounds
             rig = Rect(bone_origin, (x0, y0, 0), (x1-x0, y1-y0), (0, 0))
+            shadow_node = theme.node('spine_shadow', 'headphone_spine')
+            shadow = replace(rig, parent=theme.rect(shadow_node, spine))
+            shadow_color = next(data['m_Color'] for component in theme.components(shadow_node)
+                                if component.type.name == 'MonoBehaviour'
+                                and 'skeletonDataAsset' in (data := component.read_typetree()))
             fallback = Rect(spine, (0, 56, 0), (595, 211))
             put(fallback, projector, sprite=theme.sprites['tm_p3r_1_headphone'])
             layers[-1]['fallbackFor'] = 'headphones'
             layers.append(dict(effect='headphones', matrix=projection(rig, projector),
-                               width=x1-x0, height=y1-y0, bounds=list(bounds)))
+                               width=x1-x0, height=y1-y0, bounds=list(bounds),
+                               shadow={'matrix': projection(shadow, projector), 'opacity': shadow_color['a']}))
             for obj in theme.objects.values():
                 if obj.type.name == 'TextAsset' and obj.peek_name() in ('tm_p3r_1_headphone', 'tm_p3r_1_headphone.atlas'):
                     data = obj.read()

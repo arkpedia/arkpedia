@@ -14,8 +14,8 @@ function MenuArt({ item }: { item: HomeMenuItem }) {
   </span>;
 }
 
-export default function EventHomeTheme({ theme }: { theme: HomeTheme }) {
-  if (theme.nativeLayout === 'persona') return <PersonaHomeLayout theme={theme} />;
+export default function EventHomeTheme({ theme, animationStart }: { theme: HomeTheme; animationStart: number }) {
+  if (theme.nativeLayout === 'persona') return <PersonaHomeLayout theme={theme} animationStart={animationStart} />;
   const { assistant, decoration, profile, recruitment, shortcuts } = theme;
   return <section className="event-home" aria-label={`${theme.name} home screen`}>
     <div className="event-home-status">

@@ -4,7 +4,7 @@ import type { GameUiPlayer } from '@/lib/events/gameUiPlayer';
 
 /** A data-only room loop. The underlying sprite remains the fallback for
  * reduced motion, WebGL failure, and slow texture downloads. */
-export default function EventSceneCanvas({ source, background }: { source: string; background: string }) {
+export default function EventSceneCanvas({ source, background, animationStart }: { source: string; background: string; animationStart: number }) {
   const canvas = useRef<HTMLCanvasElement>(null);
   const [ready, setReady] = useState(false);
   const backgroundUrl = useContentUrl()(background);
@@ -22,15 +22,14 @@ export default function EventSceneCanvas({ source, background }: { source: strin
     function play(scene: GameUiPlayer) {
       if (!element || motion.matches || abort.signal.aborted) return;
       const surface = element;
-      const started = performance.now();
       const render = (time: number) => {
         const width = Math.min(surface.clientWidth, scene.scene.width);
-        if (width) scene.draw(((time - started) / 1000) % scene.scene.duration, {
+        if (width) scene.draw((Math.max(0, time - animationStart) / 1000) % scene.scene.duration, {
           width, height: width * scene.scene.height / scene.scene.width,
         });
         raf = requestAnimationFrame(render);
       };
-      render(started);
+      render(performance.now());
       setReady(true);
     }
     function preferenceChanged() {
@@ -63,6 +62,6 @@ export default function EventSceneCanvas({ source, background }: { source: strin
       cancelAnimationFrame(raf);
       player?.dispose();
     };
-  }, [source, backgroundUrl]);
+  }, [source, backgroundUrl, animationStart]);
   return <canvas ref={canvas} className="event-scene-native" hidden={!ready} aria-hidden="true" />;
 }

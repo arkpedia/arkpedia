@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import layout from '../../config/persona-home-layout.json';
+import { curveValue, type GameUiScene } from '../../lib/events/gameUiPlayer';
 import { test } from 'node:test';
 import { regionalEventCosmeticPreview, regionalPackCosmeticPreview, type GlobalHomeCosmetics } from '../../lib/events/cosmeticPreviews';
 import { preferredPackGroups } from '../../lib/events/packRegions';
@@ -82,4 +83,29 @@ test('Persona uses the projected home prefab positions and serves every referenc
   for (const layer of layout.layers) {
     if (layer.sprite) assert.ok(existsSync(`public/event-preview/tm_p3r_1/${layer.sprite}.webp`), layer.sprite);
   }
+});
+
+test('the Velvet Room draws its original light under the grille shadows on the same timeline', () => {
+  const scene: GameUiScene = JSON.parse(readFileSync('public/event-preview/bg_p3r_1/scene.json', 'utf8'));
+  const nodes = scene.nodes.map(node => node.name);
+  assert.deepEqual(nodes, ['bg_p3r_1', 'flow_1', 'shadow_1', 'shadow_2']);
+  const lightTexture = scene.textures[scene.nodes[1].image!.texture!];
+  assert.equal(lightTexture.file, 'mask_light.webp');
+  assert.ok(existsSync(`public/event-preview/bg_p3r_1/${lightTexture.file}`));
+  const value = (node: string, property: string, time: number) => {
+    const curve = scene.curves.find(curve => curve.node === nodes.indexOf(node) && curve.property === property);
+    assert.ok(curve, `${node} ${property}`);
+    return curveValue(curve.keys, time);
+  };
+  for (const [shadow, time] of [['shadow_1', .83], ['shadow_2', 1.83]] as const) {
+    assert.equal(value('flow_1', 'alpha', time), 1);
+    assert.ok(value(shadow, 'uniforms._TintColor.3', time) > .25);
+    assert.ok(value('flow_1', 'uniforms.arkMainUVOffset.0', time) < 0);
+  }
+  assert.equal(value('flow_1', 'alpha', 2), 0);
+  assert.equal(value('flow_1', 'alpha', 5), 1);
+
+  const headphones = layout.layers.find(layer => layer.effect === 'headphones');
+  assert.equal(headphones?.shadow?.matrix.length, 16);
+  assert.notDeepEqual(headphones?.shadow?.matrix, headphones?.matrix);
 });

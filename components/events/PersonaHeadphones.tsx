@@ -6,15 +6,20 @@ import { acquireChibiGL } from '@/lib/spine/sharedChibiGL';
 
 const DIRECTORY = '/event-preview/tm_p3r_1';
 
-export default function PersonaHeadphones({ style, bounds, onReady }: {
+export default function PersonaHeadphones({ style, shadowStyle, bounds, animationStart, onReady }: {
   style: CSSProperties;
+  shadowStyle?: CSSProperties;
   bounds: number[];
+  animationStart: number;
   onReady: (ready: boolean) => void;
 }) {
   const canvas = useRef<HTMLCanvasElement>(null);
+  const shadowCanvas = useRef<HTMLCanvasElement>(null);
   useEffect(() => {
     const target = canvas.current;
     if (!target) return;
+    const shadow = shadowCanvas.current;
+    const shadowContext = shadow?.getContext('2d');
     const signal = new AbortController();
     const motion = window.matchMedia('(prefers-reduced-motion: reduce)');
     let frame = 0;
@@ -34,15 +39,12 @@ export default function PersonaHeadphones({ style, bounds, onReady }: {
       const data = new spine.SkeletonJson(new spine.AtlasAttachmentLoader(atlas)).readSkeletonData(skeleton);
       const pose = new spine.Skeleton(data);
       const state = new spine.AnimationState(new spine.AnimationStateData(data));
-      state.setAnimation(0, 'loop', true);
+      const loop = state.setAnimation(0, 'loop', true);
       const [x0, x1, y0, y1] = bounds;
       const width = x1 - x0, height = y1 - y0;
-      let last = performance.now();
       function draw(time: number) {
         if (!target || signal.signal.aborted) return;
-        const delta = motion.matches ? 0 : Math.max(0, Math.min(.05, (time - last) / 1000));
-        last = time;
-        state.update(delta);
+        loop.trackTime = motion.matches ? 0 : Math.max(0, time - animationStart) / 1000;
         state.apply(pose);
         pose.updateWorldTransform();
         shared.frame(target, width, height, renderer => {
@@ -55,6 +57,15 @@ export default function PersonaHeadphones({ style, bounds, onReady }: {
           renderer.drawSkeleton(pose, true);
           renderer.end();
         });
+        if (shadow && shadowContext) {
+          if (shadow.width !== target.width || shadow.height !== target.height) {
+            shadow.width = target.width;
+            shadow.height = target.height;
+          }
+          // Both passes use the same pose even when the preview is opened mid-cycle.
+          shadowContext.clearRect(0, 0, shadow.width, shadow.height);
+          shadowContext.drawImage(target, 0, 0);
+        }
         if (!motion.matches) frame = requestAnimationFrame(draw);
       }
       const change = () => { cancelAnimationFrame(frame); draw(performance.now()); };
@@ -65,6 +76,10 @@ export default function PersonaHeadphones({ style, bounds, onReady }: {
     }
     void prepare().catch(() => { release?.(); release = undefined; });
     return () => { signal.abort(); cancelAnimationFrame(frame); release?.(); };
-  }, [bounds, onReady]);
-  return <canvas ref={canvas} className="event-persona-layer" style={style} aria-hidden="true" />;
+  }, [bounds, onReady, animationStart]);
+  return <>
+    {shadowStyle && <canvas ref={shadowCanvas} className="event-persona-layer" data-shadow
+      style={{ ...shadowStyle, filter: 'brightness(0)' }} aria-hidden="true" />}
+    <canvas ref={canvas} className="event-persona-layer" style={style} aria-hidden="true" />
+  </>;
 }

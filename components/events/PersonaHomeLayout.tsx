@@ -17,12 +17,13 @@ type ProjectedLayer = {
   fontSize?: number;
   effect?: string;
   bounds?: number[];
+  shadow?: { matrix: number[]; opacity: number };
   fallbackFor?: string;
 };
 
-const layers: ProjectedLayer[] = layout.layers;
+const [assistant, ...layers]: ProjectedLayer[] = layout.layers;
 
-export default function PersonaHomeLayout({ theme }: { theme: HomeTheme }) {
+export default function PersonaHomeLayout({ theme, animationStart }: { theme: HomeTheme; animationStart: number }) {
   const viewport = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(0);
   const [headphones, setHeadphones] = useState(false);
@@ -47,26 +48,35 @@ export default function PersonaHomeLayout({ theme }: { theme: HomeTheme }) {
     orundum: '12000',
     originite: '1',
   };
+  function renderLayer(layer: ProjectedLayer, index: number) {
+    const style = {
+      width: layer.width, height: layer.height, fontSize: layer.fontSize,
+      opacity: layer.opacity, transform: `matrix3d(${layer.matrix.join(',')})`,
+    };
+    if (layer.effect === 'headphones' && layer.bounds) {
+      const shadowStyle = layer.shadow && {
+        ...style,
+        opacity: layer.shadow.opacity,
+        transform: `matrix3d(${layer.shadow.matrix.join(',')})`,
+      };
+      return <PersonaHeadphones key={index} style={style} shadowStyle={shadowStyle}
+        bounds={layer.bounds} animationStart={animationStart} onReady={setHeadphones} />;
+    }
+    if (layer.fallbackFor === 'headphones' && headphones) return null;
+    if (!layer.sprite) return <span key={index} className="event-persona-layer event-persona-text"
+      data-value={layer.text} style={style} aria-label={layer.label ? `${layer.label} ${values[layer.text ?? '']}` : undefined}>
+      {values[layer.text ?? '']}
+    </span>;
+    const regional = layer.themed && theme.nativeArt?.[layer.sprite]?.image;
+    if (theme.localized && layer.fixedCN && !regional) return null;
+    return <ContentImg key={index} eager className="event-persona-layer" style={style}
+      src={regional || `/event-preview/tm_p3r_1/${layer.sprite}.webp`} alt={layer.label ?? ''} draggable={false} />;
+  }
+
   return <div ref={viewport} className="event-persona-viewport" role="region" aria-label={`${theme.name} home screen`}>
     <div className="event-persona-layout" style={{ width: layout.width, height: layout.height, transform: `scale(${scale})` }}>
-      {layers.map((layer, index) => {
-        const style = {
-          width: layer.width, height: layer.height, fontSize: layer.fontSize,
-          opacity: layer.opacity, transform: `matrix3d(${layer.matrix.join(',')})`,
-        };
-        if (layer.effect === 'headphones' && layer.bounds) {
-          return <PersonaHeadphones key={index} style={style} bounds={layer.bounds} onReady={setHeadphones} />;
-        }
-        if (layer.fallbackFor === 'headphones' && headphones) return null;
-        if (!layer.sprite) return <span key={index} className="event-persona-layer event-persona-text"
-          data-value={layer.text} style={style} aria-label={layer.label ? `${layer.label} ${values[layer.text ?? '']}` : undefined}>
-          {values[layer.text ?? '']}
-        </span>;
-        const regional = layer.themed && theme.nativeArt?.[layer.sprite]?.image;
-        if (theme.localized && layer.fixedCN && !regional) return null;
-        return <ContentImg key={index} eager className="event-persona-layer" style={style}
-          src={regional || `/event-preview/tm_p3r_1/${layer.sprite}.webp`} alt={layer.label ?? ''} draggable={false} />;
-      })}
+      {renderLayer(assistant, -1)}
+      <div className="event-persona-interface">{layers.map(renderLayer)}</div>
     </div>
   </div>;
 }
