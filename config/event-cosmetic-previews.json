@@ -5,9 +5,17 @@
     "source": "https://ak.hypergryph.com/news/9681",
     "music": {
       "title": "Aria of the Soul (P3R Version)",
-      "preview": "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview211/v4/00/39/dc/0039dc47-5900-dab6-851d-57a0038b8c3c/mzaf_17350349967048104523.plus.aac.p.m4a",
+      "preview": "/event-preview/bg_p3r_1/aria-of-the-soul-opening.m4a",
       "source": "https://music.apple.com/us/album/aria-of-the-soul-p3r-version/1733407068?i=1733407093",
-      "provider": "Apple Music"
+      "gameData": {
+        "bundle": "https://ak.hycdn.cn/assetbundle/official/Android/assets/26-11-13-06-37-23-89286612/audio_sound_beta_2_music_act54side_m_sys_act54side_mainpage.dat",
+        "md5": "10c08dfeb6b132c4372ad3e6d14b0e48",
+        "clip": "m_sys_act54side_mainpage_loop",
+        "seconds": [
+          0,
+          30
+        ]
+      }
     },
     "scene": {
       "title": "Velvet Room",

@@ -68,6 +68,8 @@ test('an early Global pack list can keep the standalone CN preview until its cos
 test('Persona uses the projected home prefab positions and serves every referenced sprite', () => {
   const preview = regionalPackCosmeticPreview(activity, cnPack, cnSource, undefined);
   assert.equal(preview?.theme?.layout?.manifest, '/event-preview/tm_p3r_1/layout.json');
+  assert.equal(preview?.music?.preview, '/event-preview/bg_p3r_1/aria-of-the-soul-opening.m4a');
+  assert.ok(existsSync(`public${preview?.music?.preview}`));
   assert.equal(layout.width / layout.height, 16 / 9);
   const position = (label: string) => {
     const matrix = layout.layers.find(layer => layer.label === label)?.matrix;
@@ -100,6 +102,9 @@ test('Theatre uses its own prefab sprites and authored menu motion through the s
   assert.equal(theatreLayout.layers.find(layer => layer.label === 'Terminal')?.camera, 'right');
   assert.equal(theatreLayout.layers.find(layer => layer.label === 'Friends')?.camera, 'left');
   assert.ok(theatreLayout.layers.some(layer => layer.sprite === 'squad_s1' && layer.motion && layer.motion.frames.length > 8));
+  assert.equal(theatreLayout.layers.find(layer => layer.label === 'Tragodia')?.camera, 'front');
+  assert.equal(theatreLayout.layers.find(layer => layer.label === 'Breaking News')?.camera, 'left');
+  assert.equal(theatreLayout.layers.find(layer => layer.label === 'Monthly Card')?.camera, 'left');
   const profile = theatreLayout.layers.find(layer => layer.text === 'doctor')?.matrix;
   assert.ok(profile && profile[0] > 0 && profile[12] < theatreLayout.width / 2);
   for (const layer of theatreLayout.layers) {

@@ -58,6 +58,7 @@ export default function EventCosmeticPreview({ preview, artwork, onOpenChange }:
   const helpId = useId();
   const music = useMusicPlayer();
   const { scene, theme, music: track } = preview;
+  const externalBgm = track && !track.preview.startsWith('/event-preview/');
   const nativeHome = view === 'theme' && !!theme?.layout;
   const contentUrl = useContentUrl();
   const cursor = useAssetUrl(open && nativeHome ? contentUrl('/cursors/prts.png') : '', stage);
@@ -137,7 +138,7 @@ export default function EventCosmeticPreview({ preview, artwork, onOpenChange }:
     setAnimationStart(performance.now());
     setOpen(true);
     onOpenChange?.(true);
-    if (getSetting('eventMusic') && readPrivacy().externalMedia) playAudio();
+    if (getSetting('eventMusic') && (!externalBgm || readPrivacy().externalMedia)) playAudio();
   }
 
   function leave() {
@@ -158,9 +159,13 @@ export default function EventCosmeticPreview({ preview, artwork, onOpenChange }:
       audio.current.pause();
       return;
     }
-    requestExternalMedia(() => {
-      if (dialog.current?.open) playAudio();
-    }, undefined, track.provider);
+    if (externalBgm) {
+      requestExternalMedia(() => {
+        if (dialog.current?.open) playAudio();
+      }, undefined, track.provider);
+    } else {
+      playAudio();
+    }
   }
 
   function moveWithKeys(event: KeyboardEvent<HTMLDivElement>) {

@@ -94,7 +94,7 @@ PREVIEW_TEXT = {
 IDLE_ALTERNATES = {'group_trans', 'group_anim', 'root_trans'}
 
 
-def export_theme(base, common, theme, theme_id, sources, output):
+def export_theme(base, common, theme, theme_id, sources, output, *, news=None, assistant=None, assistant_frame=None):
     elements = {row['name']: row for row in common.asset_json(theme_id)['elements']}
     layers = []
     left, left_motion = camera_motion(base, 'left')
@@ -103,6 +103,17 @@ def export_theme(base, common, theme, theme_id, sources, output):
     screen = lambda point: (point[0] + WIDTH/2, HEIGHT/2 - point[1], 1)
     output.mkdir(parents=True, exist_ok=True)
     written = set()
+
+    if assistant:
+        name, image_path = assistant
+        x, y, height = assistant_frame
+        image = Image.open(image_path).convert('RGBA')
+        width = round(height * image.width / image.height)
+        image.resize((width, height), Image.Resampling.LANCZOS).save(output / 'assistant.webp', 'WEBP', quality=92, method=6)
+        rect = Rect(center=(x, -y, 0), size=(width, height), pivot=(0, 1))
+        canvas = lambda point: (point[0], -point[1], 1)
+        layers.append(dict(width=width, height=height, matrix=projection(rect, canvas),
+                           camera='front', sprite='assistant', label=name))
 
     def put(rect, side, *, sprite=None, label=None, color=(1, 1, 1, 1), text=None, font=None, motion=None):
         width, height = rect.size
@@ -202,6 +213,15 @@ def export_theme(base, common, theme, theme_id, sources, output):
         if element := elements.get(slot):
             place(element, base.canvas_rect(base_name, 'right_canvas', element), 'right')
 
+    if news:
+        put(base.canvas_rect('panel_activity', 'left_canvas'), 'left',
+            sprite=news.sprites['Shop_mCard_1'], label='Monthly Card')
+        put(base.canvas_rect('image_breaking_news', 'left_canvas'), 'left',
+            sprite=base.sprites['icon_breaking_news'], label='Breaking News')
+    if assistant:
+        for node, sprite in (('btn_home_illust', 'change_illust'), ('btn_home_illust_preview', 'hide_ui')):
+            put(base.canvas_rect(node, 'left_canvas'), 'left', sprite=base.sprites[sprite])
+
     def top_rect(name, override=None, parent=None):
         # The screen-space canvas is serialized with zero scale in the prefab.
         return base.canvas_rect(name, 'panel_top_ui', override, parent, Rect())
@@ -250,10 +270,16 @@ def main():
     parser.add_argument('manifest', type=Path)
     parser.add_argument('--theme')
     parser.add_argument('--background')
+    parser.add_argument('--breaking-news', action='store_true', help='Include the game’s default news panel.')
+    parser.add_argument('--assistant', nargs=2, metavar=('NAME', 'ART'))
+    parser.add_argument('--assistant-frame', nargs=3, type=int, metavar=('X', 'Y', 'HEIGHT'))
     parser.add_argument('--art', type=Path, default=Path('public/event-preview'))
     args = parser.parse_args()
     if not (args.theme or args.background):
         parser.error('Specify --theme or --background')
+
+    if bool(args.assistant) != bool(args.assistant_frame) or (args.assistant_frame and args.assistant_frame[2] <= 0):
+        parser.error('--assistant requires --assistant-frame with a positive height')
 
     checksums = {row['name']: row['md5'] for row in json.loads(args.manifest.read_text())['abInfos']}
 
@@ -263,8 +289,16 @@ def main():
     if theme := args.theme:
         theme_path = f'arts/ui/hometheme/[uc]{theme}.ab'
         base_path, common_path = (BUNDLES[key][0] for key in ('home_page', 'common'))
+        paths = [base_path, common_path, theme_path]
+        news = None
+        if args.breaking_news:
+            news_key = 'ui_home_act_banner_shop_h2_0'
+            news_path = BUNDLES[news_key][0]
+            news = bundle(news_key, news_path)
+            paths.append(news_path)
         export_theme(bundle('home_page', base_path), bundle('common', common_path), bundle(theme, theme_path), theme,
-                     {path: checksums[path] for path in (base_path, common_path, theme_path)}, args.art / theme)
+                     {path: checksums[path] for path in paths}, args.art / theme,
+                     news=news, assistant=args.assistant, assistant_frame=args.assistant_frame)
     if background := args.background:
         output = args.art / background
         output.mkdir(parents=True, exist_ok=True)

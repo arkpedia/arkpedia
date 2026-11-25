@@ -143,7 +143,7 @@ export default function ProjectedHomeLayout({ layout, artRoot, theme, animationS
     sanityTitle: 'SANITY',
     maxSanity: '/' + (theme.profile?.sanity.capacity ?? 210),
     level: String(theme.profile?.level ?? 120),
-    doctor: theme.localized ? 'Doctor' : '博士',
+    doctor: theme.profile?.name ?? 'Doctor',
     progress: theme.localized ? 'All complete' : '全部完成',
     dialogue: theme.localized ? 'The spring sunlight in Laterano makes this room feel so warm.' : '……拉特兰春天的阳光，把屋子照得暖洋洋的了啊。真舒服呢。',
     lmd: '12000',
