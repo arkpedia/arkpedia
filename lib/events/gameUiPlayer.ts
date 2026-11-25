@@ -16,8 +16,9 @@ type Shader = { name: string; vertex: string; fragment: string; defaults: Record
   samplers: Record<string, string>; blend: { val: number; name: string }[] };
 type Material = { name: string; shader: number; values: Record<string, number | Vec>; textures: Record<string, number | null> };
 export type GameUiScene = { schemaVersion: 1; width: number; height: number; duration: number; clip: string;
+  transparent?: boolean;
   nodes: Node[]; textures: { file: string; width: number; height: number; wrapU: number; wrapV: number }[]; shaders: Shader[]; materials: Material[];
-  curves: { node: number; property: string; keys: Key[] }[];
+  curves: { node: number; property: string; keys: Key[]; duration?: number }[];
   sound?: { file: string; offset: number; duration: number } };
 
 /** Unity's weighted cubic curves, including infinite-slope step keys. */
@@ -137,10 +138,10 @@ export class GameUiPlayer {
   private defaults = new Map<string, WebGLTexture>();
   private buffer: WebGLBuffer;
   private nodes: Node[];
-  private assignments: { target: Record<string, unknown>; key: string; keys: Key[] }[];
+  private assignments: { target: Record<string, unknown>; key: string; keys: Key[]; duration?: number }[];
   private disposed = false;
   constructor(private canvas: HTMLCanvasElement, readonly scene: GameUiScene) {
-    const gl = canvas.getContext('webgl2', { alpha: false, antialias: true, stencil: true, preserveDrawingBuffer: true });
+    const gl = canvas.getContext('webgl2', { alpha: !!scene.transparent, antialias: true, stencil: true, preserveDrawingBuffer: true });
     if (!gl) throw new Error('WebGL2 unavailable');
     this.gl = gl;
     this.white = this.solid('white');
@@ -159,7 +160,7 @@ export class GameUiPlayer {
       let target: unknown = this.nodes[c.node];
       for (const part of path) target = (target as Record<string, unknown>)[part];
       if (!target) throw new Error(`Missing animated property ${c.property}`);
-      return { target: target as Record<string, unknown>, key, keys: c.keys };
+      return { target: target as Record<string, unknown>, key, keys: c.keys, duration: c.duration };
     });
     gl.disable(gl.DEPTH_TEST); gl.disable(gl.CULL_FACE); gl.enable(gl.BLEND);
   }
@@ -233,8 +234,8 @@ ${output}.a*=coverage; ${output}.rgb*=mix(1.0,coverage,arkPremultiplied); }`;
     const width = Math.max(1, Math.round(bounds.width * dpr)), height = Math.max(1, Math.round(bounds.height * dpr));
     if (this.canvas.width !== width || this.canvas.height !== height) { this.canvas.width = width; this.canvas.height = height; }
     gl.viewport(0, 0, width, height); gl.disable(gl.SCISSOR_TEST); gl.colorMask(true, true, true, true); gl.stencilMask(255);
-    gl.clearColor(0, 0, 0, 1); gl.clearStencil(0); gl.clear(gl.COLOR_BUFFER_BIT | gl.STENCIL_BUFFER_BIT);
-    for (const c of this.assignments) c.target[c.key] = curveValue(c.keys, Math.min(scene.duration, time));
+    gl.clearColor(0, 0, 0, scene.transparent ? 0 : 1); gl.clearStencil(0); gl.clear(gl.COLOR_BUFFER_BIT | gl.STENCIL_BUFFER_BIT);
+    for (const c of this.assignments) c.target[c.key] = curveValue(c.keys, c.duration ? time % c.duration : Math.min(scene.duration, time));
     // Full-bleed artwork: crop the native scene at unusual viewport aspects,
     // never stretch the character art. Docking naturally reveals the full 16:9 frame.
     const fit = Math.max(width / scene.width, height / scene.height);
@@ -274,7 +275,9 @@ ${output}.a*=coverage; ${output}.rgb*=mix(1.0,coverage,arkPremultiplied); }`;
       const program = this.programs[mat ? mat.shader + 1 : 0]; gl.useProgram(program.handle);
       const state = (s: { name: string; val: number }) => s.name && s.name !== '<noninit>' ? Number(mat?.values[s.name] ?? shader?.defaults[s.name]?.[0] ?? s.val) : s.val;
       const factors = [gl.ZERO, gl.ONE, gl.DST_COLOR, gl.SRC_COLOR, gl.ONE_MINUS_DST_COLOR, gl.SRC_ALPHA, gl.ONE_MINUS_SRC_COLOR, gl.DST_ALPHA, gl.ONE_MINUS_DST_ALPHA, gl.SRC_ALPHA_SATURATE, gl.ONE_MINUS_SRC_ALPHA];
-      gl.blendFunc(factors[shader ? state(shader.blend[0]) : 5], factors[shader ? state(shader.blend[1]) : 10]);
+      const source = factors[shader ? state(shader.blend[0]) : 5], destination = factors[shader ? state(shader.blend[1]) : 10];
+      if (scene.transparent) gl.blendFuncSeparate(source, destination, gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+      else gl.blendFunc(source, destination);
       let unit = 0;
       for (const u of program.uniforms) {
         if (u.type === gl.SAMPLER_2D) {

@@ -2,8 +2,8 @@
 
 The prefab geometry is in ui/pages/home_page; the theme JSON in hometheme/common replaces
 its named slots with prefabs from tm_p3r_1. Project each visible layer through its native
-camera at the game's 1280×720 reference resolution. Only account-driven content needs
-preview values. Run with the four unpacked bundles in the input directory.
+camera at the game's 1280×720 reference resolution. The shop effect also uses the original
+shader and effects texture bundles. See BUNDLES and SHOP_DEPENDENCIES for the inputs.
 """
 import argparse
 from dataclasses import dataclass, replace
@@ -16,6 +16,7 @@ from pathlib import Path
 from PIL import Image
 
 from client_bundles import load
+from export_persona_room import web_shader
 
 WIDTH, HEIGHT = 1280, 720
 ORIGIN = (0, 0, 0)
@@ -128,19 +129,59 @@ class Bundle:
         return json.loads(obj.read().m_Script)
 
 
-def screen_projector(camera_node, base):
-    c = base.tree(camera_node)
-    rotation = vec(c['m_LocalRotation'], 'xyzw')
+def camera_motion(base, side):
+    camera = base.node(side + '_camera')
+    node = base.tree(camera)
+    position = vec(node['m_LocalPosition'])
+    rotation = vec(node['m_LocalRotation'], 'xyzw')
     inverse = tuple(-x for x in rotation[:3]) + rotation[3:]
-    offset = tuple(-x for x in vec(c['m_LocalPosition']))
-    camera = next(obj.read_typetree() for obj in base.components(camera_node) if obj.type.name == 'Camera')
-    focal = HEIGHT / (2*math.tan(math.radians(camera['field of view'])/2))
+    offset = tuple(-v for v in position)
+    camera_data = next(obj.read_typetree() for obj in base.components(camera) if obj.type.name == 'Camera')
+    focal = HEIGHT / (2*math.tan(math.radians(camera_data['field of view'])/2))
 
     def project(point):
         x, y, depth = rotate(inverse, add(point, offset))
         return WIDTH/2*depth + focal*x, HEIGHT/2*depth - focal*y, depth
 
-    return project
+    controls = next(data for component in base.components(base.node(side + '_ctrl'))
+                    if component.type.name == 'MonoBehaviour'
+                    and 'cameraOffset' in (data := component.read_typetree()))
+    aim = vec(base.tree(controls['cameraAim']['m_PathID'])['m_LocalPosition'])
+
+    def aim_angles(vector):
+        x, y, z = rotate(inverse, vector)
+        return math.atan2(x, z), math.atan2(y, math.hypot(x, z))
+
+    original = add(aim, tuple(-v for v in position))
+    yaw, pitch = aim_angles(original)
+
+    def plane(project_point):
+        u, v, w = project_point(ORIGIN)
+        x, y = (tuple(a-b for a, b in zip(project_point(axis), (u, v, w)))
+                for axis in ((1, 0, 0), (0, 1, 0)))
+        return [*x[:2], 0, x[2], *y[:2], 0, y[2], 0, 0, 1, 0, u, v, 0, w]
+
+    def moved(axis, direction):
+        channel = 'xy'[axis]
+        amount = direction * controls['standalone']['offset'] * controls['maxAttitude'][channel]
+        shift = tuple(amount * controls['cameraOffset'][channel] if i == axis else 0 for i in range(3))
+        target = add(add(original, tuple(-v for v in shift)),
+                     tuple(amount * controls['aimOffset'][channel] if i == axis else 0 for i in range(3)))
+        new_yaw, new_pitch = aim_angles(target)
+        sin_y, cos_y = math.sin(new_yaw - yaw), math.cos(new_yaw - yaw)
+        sin_p, cos_p = math.sin(new_pitch - pitch), math.cos(new_pitch - pitch)
+        offset = tuple(-v for v in add(position, shift))
+
+        def project_moved(point):
+            x, y, z = rotate(inverse, add(point, offset))
+            x, z = cos_y*x - sin_y*z, sin_y*x + cos_y*z
+            y, z = cos_p*y - sin_p*z, sin_p*y + cos_p*z
+            return WIDTH/2*z + focal*x, HEIGHT/2*z - focal*y, z
+
+        return plane(project_moved)
+
+    return project, dict(rest=plane(project), left=moved(0, -1), right=moved(0, 1),
+                         up=moved(1, 1), down=moved(1, -1), ease=controls['standalone']['speedEase'])
 
 
 def projection(rect, project):
@@ -176,6 +217,128 @@ LABEL_SPRITES = {
     'building_bg', 'inventory_bg', 'friend_bg', 'handbook_bg', 'btn_recruit_norma', 'btn_recruit_advance',
 }
 
+SHOP_SIZE = (1050, 350)
+SHOP_CENTER = (0, -75, 0)
+SHOP_DEPENDENCIES = {
+    'shaders': '3cfbf32a6575fc0c5dd7d53204f2f30d',
+    'fxcommon': '0ee9e1952c4af270d55c7c18b4321577',
+}
+
+
+def export_shop_effects(directory, theme, root_node, root_rect, output):
+    dependencies = {}
+    for key, checksum in SHOP_DEPENDENCIES.items():
+        raw = (directory / f'{key}.ab').read_bytes()
+        if hashlib.md5(raw).hexdigest() != checksum:
+            raise ValueError(f'Bundle checksum mismatch for {key}')
+        assets = {obj.path_id: obj for obj in load(raw).objects}
+        dependencies[next(iter(assets.values())).assets_file.name.lower()] = assets
+
+    def resolve(ref):
+        if not ref['m_PathID']:
+            return None
+        if not ref['m_FileID']:
+            return theme.objects[ref['m_PathID']]
+        files = next(iter(theme.objects.values())).assets_file.externals
+        cab = files[ref['m_FileID'] - 1].path.rsplit('/', 1)[-1].lower()
+        return dependencies[cab][ref['m_PathID']]
+
+    nodes, textures, materials, shaders, curves = [], [], [], [], []
+
+    @lru_cache
+    def texture(file_id, path_id):
+        reader = resolve(dict(m_FileID=file_id, m_PathID=path_id))
+        name = reader.peek_name()
+        asset = reader.read()
+        image = asset.image.convert('RGBA')
+        prefix = '' if reader.type.name == 'Sprite' else 'shop-'
+        filename = f'{prefix}{name.lower()}.webp'
+        if not (output / filename).exists():
+            image.save(output / filename, 'WEBP', lossless=True)
+        settings = getattr(asset, 'm_TextureSettings', None)
+        textures.append(dict(file=filename, width=image.width, height=image.height,
+                             wrapU=settings.m_WrapU if settings else 1, wrapV=settings.m_WrapV if settings else 1))
+        return len(textures) - 1
+
+    @lru_cache
+    def shader(file_id, path_id, keywords):
+        reader = resolve(dict(m_FileID=file_id, m_PathID=path_id))
+        shaders.append(web_shader(reader, list(keywords)))
+        return len(shaders) - 1
+
+    @lru_cache
+    def material(path_id):
+        reader = theme.objects[path_id]
+        d = reader.read_typetree()
+        props = d['m_SavedProperties']
+        values = dict(props['m_Floats'])
+        values.update({key: list(vec(color, 'rgba')) for key, color in props['m_Colors']})
+        maps = {}
+        for key, item in props['m_TexEnvs']:
+            values[key+'_ST'] = [*vec(item['m_Scale'], 'xy'), *vec(item['m_Offset'], 'xy')]
+            ref = item['m_Texture']
+            if ref['m_PathID']:
+                maps[key] = texture(ref['m_FileID'], ref['m_PathID'])
+        ref = d['m_Shader']
+        shader_id = shader(ref['m_FileID'], ref['m_PathID'], tuple(d['m_ValidKeywords']))
+        materials.append(dict(name=d['m_Name'], shader=shader_id, values=values, textures=maps))
+        return len(materials) - 1
+
+    def add_node(node, rect, parent=None):
+        d = theme.tree(node)
+        if not theme.tree(d['m_GameObject']['m_PathID'])['m_IsActive']:
+            return
+        name = theme.path(node).rsplit('/', 1)[-1]
+        index = len(nodes)
+        pose = dict(name=name, parent=parent, active=True, alpha=1, position=rect.center[:2],
+                    z=rect.center[2], size=rect.size, pivot=rect.pivot, anchorMin=[.5, .5], anchorMax=[.5, .5],
+                    scale=rect.scale, rotation=rect.rotation)
+        if rect.parent:
+            # Rect.center is already relative to the parent's pivot.
+            pose['anchorMin'] = pose['anchorMax'] = rect.parent.pivot
+        nodes.append(pose)
+        for component in theme.components(node):
+            if component.type.name != 'MonoBehaviour':
+                continue
+            data = component.read_typetree()
+            if 'm_Softness' in data:
+                pose.update(rectMask=True, maskSoftness=vec(data['m_Softness'], 'xy'))
+            if 'm_Sprite' not in data or not data['m_Enabled']:
+                continue
+            ref = data['m_Sprite']
+            tex_id = texture(ref['m_FileID'], ref['m_PathID']) if ref['m_PathID'] else None
+            width, height = (textures[tex_id][key] for key in ('width', 'height')) if tex_id is not None else (1, 1)
+            mat_id = data['m_Material']['m_PathID']
+            pose['image'] = dict(texture=tex_id, rect=dict(x=0, y=0, width=width, height=height),
+                                 offset=dict(x=0, y=0), spriteSize=[width, height], border=[0, 0, 0, 0],
+                                 color=vec(data['m_Color'], 'rgba'), material=material(mat_id) if mat_id else None,
+                                 type=data['m_Type'], preserveAspect=bool(data['m_PreserveAspect']),
+                                 fill=data['m_FillAmount'], fillMethod=data['m_FillMethod'],
+                                 clockwise=bool(data['m_FillClockwise']), origin=data['m_FillOrigin'])
+        for child in d['m_Children']:
+            path = child['m_PathID']
+            add_node(path, theme.rect(path, rect), index)
+
+    add_node(root_node, replace(root_rect, parent=None, center=tuple(-v for v in SHOP_CENTER),
+                                rotation=IDENTITY, scale=(1, 1, 1)))
+    source = next(obj for obj in theme.objects.values() if obj.type.name == 'AnimationClip'
+                  and obj.peek_name() == 'prefab_shop_recruit_bkg_disk_loop').read_typetree()
+    for binding in source['m_RotationCurves']:
+        name = binding['path'].rsplit('/', 1)[-1]
+        disk = next(i for i, node in enumerate(nodes) if node['name'] == name)
+        for index, channel in enumerate('zw', start=2):
+            keys = [[k['time'], k['value'][channel], k['inSlope'][channel], k['outSlope'][channel],
+                     k['weightedMode'], k['inWeight'][channel], k['outWeight'][channel]]
+                    for k in binding['curve']['m_Curve'][::30]]
+            curves.append(dict(node=disk, property=f'rotation.{index}', keys=keys, duration=keys[-1][0]))
+
+    width, height = SHOP_SIZE
+    (output / 'shop-scene.json').write_text(json.dumps(dict(
+        schemaVersion=1, clip=source['m_Name'], width=width, height=height, duration=curves[0]['duration'], transparent=True,
+        nodes=nodes, textures=textures, shaders=shaders, materials=materials, curves=curves,
+        sources={**SHOP_DEPENDENCIES, 'tm_p3r_1': BUNDLES['tm_p3r_1'][1]},
+    ), separators=(',', ':')) + '\n')
+
 
 def export(directory, config, output):
     base, common, theme, banner = (Bundle(directory, key) for key in BUNDLES)
@@ -188,6 +351,8 @@ def export(directory, config, output):
         if width <= 0 or height <= 0 or opacity <= 0:
             return
         layer = dict(width=round(width, 3), height=round(height, 3), matrix=projection(rect, project))
+        if side := camera_names.get(project):
+            layer['camera'] = side
         if sprite:
             sprite_name = sprite.peek_name()
             filename = sprite_name.lower() + ('_tint' if tint else '')
@@ -230,8 +395,8 @@ def export(directory, config, output):
                 continue
             sprite = theme.objects[ref['m_PathID']]
             name = sprite.peek_name()
-            # The original water materials need Unity shader state. The visible menu backings
-            # can use the triangle textures and the original normal-pass tint in this preview.
+            # The shop scene renders the waves with their materials. Keep the static
+            # menu layers as the fallback for reduced motion and WebGL failures.
             if name in ('wave_top', 'wave_down'):
                 continue
             tint = None
@@ -268,9 +433,10 @@ def export(directory, config, output):
         prefab(node, root, project, label)
         return root
 
-    left = screen_projector(base.node('left_camera'), base)
-    right = screen_projector(base.node('right_camera'), base)
+    left, left_motion = camera_motion(base, 'left')
+    right, right_motion = camera_motion(base, 'right')
     canvas_projectors = {'left': left, 'right': right}
+    camera_names = {project: name for name, project in canvas_projectors.items()}
 
     # The displayed operator is a sample assistant. The reference camera crops the leg area.
     pose = Rect(center=(458, -540, 0), size=(306, 886), pivot=(.5, .5))
@@ -288,7 +454,15 @@ def export(directory, config, output):
         else:
             rect = base_rect(base_name, side + '_canvas', element)
         path = (element.get('imgPrefab') or element['prefabPath']).rsplit('/', 1)[-1]
+        first_layer = len(layers)
         root = place_prefab(path, rect, projector, label)
+        if slot == 'bkg_shop_recruit':
+            for layer in layers[first_layer:]:
+                layer['fallbackFor'] = 'shop'
+            shop = Rect(root, SHOP_CENTER, SHOP_SIZE)
+            layers.append(dict(effect='shop', camera=side, width=SHOP_SIZE[0], height=SHOP_SIZE[1],
+                               matrix=projection(shop, projector)))
+            export_shop_effects(directory, theme, theme.node(path), root, output)
         if slot == 'btn_battle':
             spine = theme.rect(theme.node('headphone_spine'), root)
             # Project the original live Spine rig and keep an atlas fallback for WebGL failures.
@@ -304,7 +478,7 @@ def export(directory, config, output):
             fallback = Rect(spine, (0, 56, 0), (595, 211))
             put(fallback, projector, sprite=theme.sprites['tm_p3r_1_headphone'])
             layers[-1]['fallbackFor'] = 'headphones'
-            layers.append(dict(effect='headphones', matrix=projection(rig, projector),
+            layers.append(dict(effect='headphones', camera=side, matrix=projection(rig, projector),
                                width=x1-x0, height=y1-y0, bounds=list(bounds),
                                shadow={'matrix': projection(shadow, projector), 'opacity': shadow_color['a']}))
             for obj in theme.objects.values():
@@ -378,6 +552,7 @@ def export(directory, config, output):
 
     config.write_text(json.dumps({
         'width': WIDTH, 'height': HEIGHT, 'sources': dict(BUNDLES.values()), 'layers': layers,
+        'motion': {'left': left_motion, 'right': right_motion},
     }, ensure_ascii=False, separators=(',', ':')) + '\n')
 
 

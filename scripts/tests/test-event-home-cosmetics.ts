@@ -80,9 +80,25 @@ test('Persona uses the projected home prefab positions and serves every referenc
   assert.ok(terminalX > layout.width / 2 && terminalY < squadsY);
   assert.ok(operatorX > squadsX && Math.abs(operatorY - squadsY) < 50);
   assert.ok(friendsX < layout.width / 2 && friendsY > squadsY);
+  assert.equal(layout.layers.find(layer => layer.label === 'Terminal')?.camera, 'right');
+  assert.equal(layout.layers.find(layer => layer.label === 'Friends')?.camera, 'left');
+  assert.equal(layout.layers.find(layer => layer.label === 'Makoto Yuki')?.fallbackFor, undefined);
+  assert.notDeepEqual(layout.motion.left.right, layout.motion.right.right);
   for (const layer of layout.layers) {
     if (layer.sprite) assert.ok(existsSync(`public/event-preview/tm_p3r_1/${layer.sprite}.webp`), layer.sprite);
   }
+});
+
+test('the Persona shop uses the original water shaders and looping record curves', () => {
+  const directory = 'public/event-preview/tm_p3r_1';
+  const scene: GameUiScene = JSON.parse(readFileSync(`${directory}/shop-scene.json`, 'utf8'));
+  assert.equal(scene.transparent, true);
+  assert.equal(scene.nodes.filter(node => /^wave_0[1-6]$/.test(node.name)).length, 6);
+  assert.equal(scene.nodes.filter(node => node.rectMask).length, 2);
+  assert.ok(scene.shaders.some(shader => shader.fragment.includes('_Time.y') && shader.name.endsWith('/Flowline-EndsFlat')));
+  assert.equal(scene.curves.length, 4);
+  assert.ok(scene.curves.every(curve => curve.duration === 40 && curve.keys.length > 2));
+  for (const texture of scene.textures) assert.ok(existsSync(`${directory}/${texture.file}`), texture.file);
 });
 
 test('the Velvet Room draws the rotated light through the foreground grille on the shadow timeline', () => {
