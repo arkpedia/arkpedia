@@ -1,6 +1,9 @@
 import { useEffect, useId, useRef, useState, type CSSProperties, type KeyboardEvent, type PointerEvent, type ReactElement } from 'react';
 import { createPortal } from 'react-dom';
 import { ContentImg } from '@/components/content/ContentImage';
+import { useAssetUrl } from '@/lib/assets/assetRetry';
+import { useContentUrl } from '@/lib/content/context';
+import { cssUrl } from '@/lib/content/urls';
 import SegmentedControl from '@/components/ui/SegmentedControl';
 import XButton from '@/components/ui/XButton';
 import EventHomeTheme from './EventHomeTheme';
@@ -56,6 +59,8 @@ export default function EventCosmeticPreview({ preview, artwork, onOpenChange }:
   const music = useMusicPlayer();
   const { scene, theme, music: track } = preview;
   const nativeHome = view === 'theme' && theme?.nativeLayout === 'persona';
+  const contentUrl = useContentUrl();
+  const cursor = useAssetUrl(open && nativeHome ? contentUrl('/cursors/prts.png') : '', stage);
 
   useEffect(() => {
     const element = audio.current;
@@ -224,6 +229,7 @@ export default function EventCosmeticPreview({ preview, artwork, onOpenChange }:
         onKeyDown={event => event.stopPropagation()}>
         <div ref={stage} className="event-scene-stage" role="region" tabIndex={0} aria-label="Scene camera" aria-describedby={helpId}
           data-dragging={dragging ? 'true' : undefined}
+          style={cursor ? { cursor: `${cssUrl(cursor)} 6 5, ${dragging ? 'grabbing' : 'grab'}` } : undefined}
           onKeyDown={moveWithKeys} onPointerDown={beginDrag} onPointerMove={moveDrag} onLostPointerCapture={endDrag}>
           {sceneArt !== 'error' && <div className="event-scene-image" style={{
             '--scene-ratio': sceneRatio,

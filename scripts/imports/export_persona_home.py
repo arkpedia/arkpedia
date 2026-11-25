@@ -164,7 +164,8 @@ def camera_motion(base, side):
 
     def moved(axis, direction):
         channel = 'xy'[axis]
-        amount = direction * controls['standalone']['offset'] * controls['maxAttitude'][channel]
+        # The preview's normalized mouse range already reaches the camera's full attitude.
+        amount = direction * controls['maxAttitude'][channel]
         shift = tuple(amount * controls['cameraOffset'][channel] if i == axis else 0 for i in range(3))
         target = add(add(original, tuple(-v for v in shift)),
                      tuple(amount * controls['aimOffset'][channel] if i == axis else 0 for i in range(3)))

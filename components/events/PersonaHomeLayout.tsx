@@ -33,6 +33,8 @@ const leftLayers = cameraLayers('left');
 const rightLayers = cameraLayers('right');
 const overlayLayers = layers.filter(layer => !layer.camera);
 const clamp = (value: number) => Math.min(1, Math.max(-1, value));
+// Screen-relative travel measured in the PC client against its fixed profile overlay.
+const frontTravel = { x: .65, y: 1.25 };
 
 export default function PersonaHomeLayout({ theme, animationStart }: { theme: HomeTheme; animationStart: number }) {
   const viewport = useRef<HTMLDivElement>(null);
@@ -62,15 +64,18 @@ export default function PersonaHomeLayout({ theme, animationStart }: { theme: Ho
       element.style.setProperty('--persona-camera-ease', `${3 / camera.ease}s`);
       return { element, camera, inverse };
     });
-    function center() {
+    stage.style.setProperty('--persona-front-ease', `${3 / layout.motion.left.ease}s`);
+    const center = () => {
+      stage.style.removeProperty('--persona-front-transform');
       for (const { element } of views) element.style.removeProperty('--persona-camera-transform');
-    }
+    };
     const move = (event: PointerEvent) => {
       if (event.pointerType !== 'mouse' || event.buttons || motion.matches) return;
       const { left, top, width, height } = stage.getBoundingClientRect();
       if (!width || !height) return;
       const x = clamp(2 * (event.clientX - left) / width - 1);
       const y = clamp(2 * (event.clientY - top) / height - 1);
+      stage.style.setProperty('--persona-front-transform', `translate(${-x * frontTravel.x}%, ${-y * frontTravel.y}%)`);
       for (const { element, camera, inverse } of views) {
         const horizontal = x < 0 ? camera.left : camera.right;
         const vertical = y < 0 ? camera.up : camera.down;
@@ -87,7 +92,11 @@ export default function PersonaHomeLayout({ theme, animationStart }: { theme: Ho
     stage.addEventListener('pointerleave', center, options);
     stage.addEventListener('pointerdown', center, options);
     motion.addEventListener('change', center, options);
-    return () => listeners.abort();
+    return () => {
+      listeners.abort();
+      center();
+      stage.style.removeProperty('--persona-front-ease');
+    };
   }, []);
 
   const values: Record<string, string> = {
@@ -136,7 +145,7 @@ export default function PersonaHomeLayout({ theme, animationStart }: { theme: Ho
 
   return <div ref={viewport} className="event-persona-viewport" role="region" aria-label={`${theme.name} home screen`}>
     <div className="event-persona-layout" style={{ width: layout.width, height: layout.height, transform: `scale(${scale})` }}>
-      {renderLayer(assistant, -1)}
+      <div className="event-persona-camera" data-camera="front">{renderLayer(assistant, -1)}</div>
       <div ref={leftCamera} className="event-persona-camera" data-camera="left">{leftLayers.map(renderLayer)}</div>
       <div ref={rightCamera} className="event-persona-camera" data-camera="right">{rightLayers.map(renderLayer)}</div>
       {overlayLayers.map(renderLayer)}
