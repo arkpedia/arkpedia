@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { fetchAsset } from '@/lib/assets/assetRetry';
 import ProjectedHomeLayout, { type ProjectedLayout } from './ProjectedHomeLayout';
 import { ContentImg } from '@/components/content/ContentImage';
 import type { HomeMenuItem, HomeTheme, ThemeArt } from '@/lib/events/cosmeticPreviews';
@@ -22,7 +23,7 @@ export default function EventHomeTheme({ theme, animationStart }: { theme: HomeT
     if (!layout) return;
     const source = layout.manifest;
     const controller = new AbortController();
-    void fetch(source, { signal: controller.signal }).then(async response => {
+    void fetchAsset(source, { signal: controller.signal }).then(async response => {
       if (!response.ok) throw new Error('Home layout unavailable');
       const data: ProjectedLayout = await response.json();
       if (!data.width || !data.height || !Array.isArray(data.layers) || !data.motion?.left || !data.motion?.right) {

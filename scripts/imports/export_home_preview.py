@@ -68,6 +68,20 @@ def position_track(rect, projector, initial, duration, tracks):
     return dict(duration=round(1000*duration, 3), frames=frames)
 
 
+def sprite_canvas(sprite):
+    data = sprite.read()
+    image = data.image.convert('RGBA')
+    size = (round(data.m_Rect.width), round(data.m_Rect.height))
+    if image.size == size:
+        return image
+    # Unity's Image samples the trimmed texture inside its original sprite rect.
+    # UnityPy returns only the packed texture, with the Y axis already flipped.
+    offset = data.m_RD.textureRectOffset
+    canvas = Image.new('RGBA', size)
+    canvas.paste(image, (round(offset.x), size[1] - round(offset.y) - image.height))
+    return canvas
+
+
 PREVIEW_TEXT = {
     'text_ap': ('sanity', 'Sanity', 85),
     'text_ap_title': ('sanityTitle', None, 22),
@@ -105,7 +119,7 @@ def export_theme(base, common, theme, theme_id, sources, output):
             if rgb != (255, 255, 255):
                 name += '_' + ''.join(f'{value:02x}' for value in rgb)
             if name not in written:
-                image = sprite.read().image.convert('RGBA')
+                image = sprite_canvas(sprite)
                 if rgb != (255, 255, 255):
                     tinted = ImageChops.multiply(image, Image.new('RGBA', image.size, (*rgb, 255)))
                     image = tinted

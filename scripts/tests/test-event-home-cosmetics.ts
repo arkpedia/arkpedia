@@ -107,6 +107,17 @@ test('Theatre uses its own prefab sprites and authored menu motion through the s
   }
 });
 
+test('Theatre recruitment captions keep their original transparent button margins', () => {
+  for (const [sprite, width] of [['recruit_normal', 186], ['recruit_advance', 195]] as const) {
+    const webp = readFileSync(`public/event-preview/tm_redvelvet_1/${sprite}.webp`);
+    assert.equal(webp.toString('ascii', 12, 16), 'VP8L');
+    const header = webp.readUInt32LE(21);
+    assert.equal((header & 0x3fff) + 1, width);
+    assert.equal(((header >>> 14) & 0x3fff) + 1, 129);
+    assert.equal((header >>> 28) & 1, 1, 'the padding must be transparent');
+  }
+});
+
 test('Celebration is a standalone background with BGM and no purchase offer', () => {
   const preview = regionalEventCosmeticPreview('act55side', undefined);
   assert.equal(preview?.scene.gameData?.id, 'bg_anniversary_1');
