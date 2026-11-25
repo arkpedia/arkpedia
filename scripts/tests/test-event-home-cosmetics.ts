@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
-import layout from '../../config/persona-home-layout.json';
+import layout from '../../public/event-preview/tm_p3r_1/layout.json';
+import theatreLayout from '../../public/event-preview/tm_redvelvet_1/layout.json';
 import { curveValue, type GameUiScene } from '../../lib/events/gameUiPlayer';
 import { test } from 'node:test';
 import { regionalEventCosmeticPreview, regionalPackCosmeticPreview, type GlobalHomeCosmetics } from '../../lib/events/cosmeticPreviews';
@@ -66,7 +67,7 @@ test('an early Global pack list can keep the standalone CN preview until its cos
 
 test('Persona uses the projected home prefab positions and serves every referenced sprite', () => {
   const preview = regionalPackCosmeticPreview(activity, cnPack, cnSource, undefined);
-  assert.equal(preview?.theme?.nativeLayout, 'persona');
+  assert.equal(preview?.theme?.layout?.manifest, '/event-preview/tm_p3r_1/layout.json');
   assert.equal(layout.width / layout.height, 16 / 9);
   const position = (label: string) => {
     const matrix = layout.layers.find(layer => layer.label === label)?.matrix;
@@ -87,6 +88,33 @@ test('Persona uses the projected home prefab positions and serves every referenc
   for (const layer of layout.layers) {
     if (layer.sprite) assert.ok(existsSync(`public/event-preview/tm_p3r_1/${layer.sprite}.webp`), layer.sprite);
   }
+});
+
+test('Theatre uses its own prefab sprites and authored menu motion through the shared preview', () => {
+  const pack = { name: '剧场序幕组合包', region: 'CN', contents: [] };
+  const preview = regionalPackCosmeticPreview('act52side', pack, 'https://ak.hypergryph.com/news/5101', undefined);
+  const art = preview?.theme?.layout?.artRoot;
+  assert.equal(art, '/event-preview/tm_redvelvet_1');
+  assert.equal(preview?.scene.gameData?.id, 'bg_redvelvet_1');
+  assert.ok(existsSync(`public${preview?.scene.image}`));
+  assert.equal(theatreLayout.layers.find(layer => layer.label === 'Terminal')?.camera, 'right');
+  assert.equal(theatreLayout.layers.find(layer => layer.label === 'Friends')?.camera, 'left');
+  assert.ok(theatreLayout.layers.some(layer => layer.sprite === 'squad_s1' && layer.motion && layer.motion.frames.length > 8));
+  const profile = theatreLayout.layers.find(layer => layer.text === 'doctor')?.matrix;
+  assert.ok(profile && profile[0] > 0 && profile[12] < theatreLayout.width / 2);
+  for (const layer of theatreLayout.layers) {
+    if (layer.sprite) assert.ok(existsSync(`public${art}/${layer.sprite}.webp`), layer.sprite);
+  }
+});
+
+test('Celebration is a standalone background with BGM and no purchase offer', () => {
+  const preview = regionalEventCosmeticPreview('act55side', undefined);
+  assert.equal(preview?.scene.gameData?.id, 'bg_anniversary_1');
+  assert.ok(existsSync(`public${preview?.scene.image}`));
+  assert.equal(preview?.music?.preview, '/api/music-audio/697667');
+  assert.ok(preview && !Object.hasOwn(preview, 'theme'));
+  assert.equal(preview?.pack, undefined);
+  assert.equal(regionalPackCosmeticPreview('act55side', globalPack, globalSource, data), undefined);
 });
 
 test('the Persona shop uses the original water shaders and looping record curves', () => {

@@ -37,7 +37,12 @@ export function EventPacks({ groups, preview, onPreviewOpenChange }: {
   </>;
   return <>
     <div className="event-extras">
-      {preview && <div><EventCosmeticPreview preview={preview} onOpenChange={onPreviewOpenChange} /></div>}
+      {preview && <div className={preview.pack ? undefined : 'event-standalone-background-preview'}>
+        <EventCosmeticPreview preview={preview} onOpenChange={onPreviewOpenChange}
+          artwork={preview.pack ? undefined : <ContentImg className="event-pack-detail-image event-pack-detail-promo"
+            src={preview.scene.image} alt={preview.scene.title} width={1820} height={1024} />} />
+        {!preview.pack && <p className="hint">{preview.scene.title}</p>}
+      </div>}
       {groups.map(group => {
         const offers: { image: string | null; packs: typeof group.packs }[] = [];
         for (const pack of group.packs) {

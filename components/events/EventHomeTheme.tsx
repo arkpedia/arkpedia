@@ -1,4 +1,5 @@
-import PersonaHomeLayout from './PersonaHomeLayout';
+import { useEffect, useState } from 'react';
+import ProjectedHomeLayout, { type ProjectedLayout } from './ProjectedHomeLayout';
 import { ContentImg } from '@/components/content/ContentImage';
 import type { HomeMenuItem, HomeTheme, ThemeArt } from '@/lib/events/cosmeticPreviews';
 
@@ -15,7 +16,29 @@ function MenuArt({ item }: { item: HomeMenuItem }) {
 }
 
 export default function EventHomeTheme({ theme, animationStart }: { theme: HomeTheme; animationStart: number }) {
-  if (theme.nativeLayout === 'persona') return <PersonaHomeLayout theme={theme} animationStart={animationStart} />;
+  const { layout } = theme;
+  const [loaded, setLoaded] = useState<{ source: string; data?: ProjectedLayout }>();
+  useEffect(() => {
+    if (!layout) return;
+    const source = layout.manifest;
+    const controller = new AbortController();
+    void fetch(source, { signal: controller.signal }).then(async response => {
+      if (!response.ok) throw new Error('Home layout unavailable');
+      const data: ProjectedLayout = await response.json();
+      if (!data.width || !data.height || !Array.isArray(data.layers) || !data.motion?.left || !data.motion?.right) {
+        throw new Error('Home layout is incomplete');
+      }
+      if (!controller.signal.aborted) setLoaded({ source, data });
+    }).catch(() => {
+      if (!controller.signal.aborted) setLoaded({ source });
+    });
+    return () => controller.abort();
+  }, [layout]);
+  if (layout) {
+    if (loaded?.source !== layout.manifest) return null;
+    if (loaded.data) return <ProjectedHomeLayout layout={loaded.data} artRoot={layout.artRoot}
+      theme={theme} animationStart={animationStart} />;
+  }
   const { assistant, decoration, profile, recruitment, shortcuts } = theme;
   return <section className="event-home" aria-label={`${theme.name} home screen`}>
     <div className="event-home-status">

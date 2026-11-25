@@ -7,7 +7,7 @@ export type HomeMenuItem = { label: string; art?: ThemeArt; caption?: ThemeArt }
 
 export type HomeTheme = {
   name: string;
-  nativeLayout?: string;
+  layout?: { manifest: string; artRoot: string };
   localized?: boolean;
   nativeArt?: Record<string, ThemeArt>;
   terminal: HomeMenuItem;
@@ -32,7 +32,7 @@ export type GlobalHomeCosmetics = Record<string, {
 type GameAsset = { gameData?: { id: string } };
 
 export type CosmeticPreview = {
-  pack: string;
+  pack?: string;
   activity?: string;
   source: string;
   scene: { title: string; name: string; image: string; native?: string } & GameAsset;
@@ -117,7 +117,7 @@ function withRegionalParts(preview: CosmeticPreview, { background, theme }: Retu
       name: background.name,
       image: background.art?.background?.image ?? preview.scene.image,
     } : preview.scene,
-    theme: theme && preview.theme ? localizedTheme(preview.theme, theme) : preview.theme,
+    ...(theme && preview.theme && { theme: localizedTheme(preview.theme, theme) }),
   };
 }
 

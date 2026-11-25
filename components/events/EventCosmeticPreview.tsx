@@ -58,7 +58,7 @@ export default function EventCosmeticPreview({ preview, artwork, onOpenChange }:
   const helpId = useId();
   const music = useMusicPlayer();
   const { scene, theme, music: track } = preview;
-  const nativeHome = view === 'theme' && theme?.nativeLayout === 'persona';
+  const nativeHome = view === 'theme' && !!theme?.layout;
   const contentUrl = useContentUrl();
   const cursor = useAssetUrl(open && nativeHome ? contentUrl('/cursors/prts.png') : '', stage);
 

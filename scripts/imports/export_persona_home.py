@@ -74,9 +74,9 @@ class Rect:
 
 
 class Bundle:
-    def __init__(self, directory, key):
+    def __init__(self, directory, key, checksum=None):
         raw = (directory / f'{key}.ab').read_bytes()
-        if hashlib.md5(raw).hexdigest() != BUNDLES[key][1]:
+        if hashlib.md5(raw).hexdigest() != (checksum or BUNDLES[key][1]):
             raise ValueError(f'Bundle checksum mismatch for {key}')
         self.objects = {obj.path_id: obj for obj in load(raw).objects}
         self.sprites = {obj.peek_name(): obj for obj in self.objects.values() if obj.type.name == 'Sprite'}
@@ -124,6 +124,14 @@ class Bundle:
                 xy = tuple(value + (anchor*parent.size[i] if k == i else 0) for k, value in enumerate(xy))
             size = tuple(delta + (high-low)*p for delta, low, high, p in zip(size, lo, hi, parent.size))
         return Rect(parent, (*xy, pos[2]), size, pivot, scl, rot)
+
+    def canvas_rect(self, name, canvas, override=None, parent=None, reference=None):
+        def from_canvas(node, node_override=None):
+            if self.path(node).endswith('/' + canvas):
+                return reference if reference is not None else self.rect(node, None)
+            parent_id = self.tree(node)['m_Father']['m_PathID']
+            return self.rect(node, from_canvas(parent_id), node_override)
+        return from_canvas(self.node(name, parent or canvas), override)
 
     def asset_json(self, name):
         obj = next(o for o in self.objects.values() if o.type.name == 'TextAsset' and o.peek_name() == name)
@@ -514,15 +522,6 @@ def export(directory, config, output):
             if 'm_SizeDelta' in theme.tree(path):
                 prefab(path, theme.rect(path, rect), project, label)
 
-    def from_canvas(node, canvas, override=None):
-        if base.path(node).endswith('/' + canvas):
-            return base.rect(node, None)
-        parent = base.tree(node)['m_Father']['m_PathID']
-        return base.rect(node, from_canvas(parent, canvas), override)
-
-    def base_rect(name, canvas, override=None, parent=None):
-        return from_canvas(base.node(name, parent or canvas), canvas, override)
-
     def place_prefab(source, rect, project, label=None):
         node = theme.node(source)
         # The prefab is mounted in its slot. The prefab's own local offset remains authored.
@@ -539,17 +538,17 @@ def export(directory, config, output):
     pose = Rect(center=(458, -540, 0), size=(306, 886), pivot=(.5, .5))
     flat = lambda p: (p[0], -p[1], 1)
     layers.append(dict(width=pose.size[0], height=pose.size[1], matrix=projection(pose, flat),
-                       sprite='makoto-yuki', label='Makoto Yuki'))
+                       sprite='makoto-yuki', label='Makoto Yuki', camera='front'))
 
     for slot, base_name, side, label in PRESETS:
         element = elements[slot]
         projector = canvas_projectors[side]
         if slot.startswith('btn_recruit_'):
             # These overrides specify coordinates in the combined recruiting group's native plane.
-            group = base_rect('btn_recruit', 'right_canvas')
+            group = base.canvas_rect('btn_recruit', 'right_canvas')
             rect = Rect(group, (*vec(element['pos'], 'xy'), 0), vec(element['size'], 'xy'))
         else:
-            rect = base_rect(base_name, side + '_canvas', element)
+            rect = base.canvas_rect(base_name, side + '_canvas', element)
         path = (element.get('imgPrefab') or element['prefabPath']).rsplit('/', 1)[-1]
         first_layer = len(layers)
         root = place_prefab(path, rect, projector, label)
@@ -586,19 +585,19 @@ def export(directory, config, output):
                 if obj.type.name == 'Texture2D' and obj.peek_name() == 'tm_p3r_1_headphone':
                     obj.read().image.save(output / 'headphone-spine.webp', 'WEBP', lossless=True)
 
-    ap = base_rect('panel_ap_container', 'right_canvas', elements['panel_ap'])
+    ap = base.canvas_rect('panel_ap_container', 'right_canvas', elements['panel_ap'])
     panel = theme.rect(theme.node('prefab_panel_ap'), ap)
     prefab(theme.node('prefab_panel_ap'), panel, right)
     curr = theme.rect(theme.node('num_ap'), panel)
     put(curr, right, text='sanity', size=135, label='Sanity')
     maximum = theme.rect(theme.node('text_ap_max'), panel)
     put(maximum, right, text='maxSanity', size=28)
-    progress = base_rect('panel_progress_holder', 'right_canvas', elements['battle_prg_widget'])
+    progress = base.canvas_rect('panel_progress_holder', 'right_canvas', elements['battle_prg_widget'])
     widget = place_prefab('prefab_progress_info', progress, right)
     prog = theme.rect(theme.node('panel_progress_info'), widget)
     put(theme.rect(theme.node('text_operation'), prog), right, text='progress', size=20)
 
-    dialogue = base_rect('dialogue', 'left_canvas', elements['img_dialogue_bg'], 'panel_dialogue')
+    dialogue = base.canvas_rect('dialogue', 'left_canvas', elements['img_dialogue_bg'], 'panel_dialogue')
     put(dialogue, left, sprite=theme.sprites['dialogue_bg'])
     title = theme.sprites['dialogue_title']
     title_rect = Rect(dialogue, (102.5, dialogue.size[1]-18, 0), (140, 62))
@@ -608,33 +607,28 @@ def export(directory, config, output):
     text = base.rect(base.node('dialogue', 'dialogue_mask'), mask)
     put(replace(text, size=(text.size[0], 100)), left, text='dialogue', size=25)
 
-    promo = base_rect('panel_activity', 'left_canvas')
+    promo = base.canvas_rect('panel_activity', 'left_canvas')
     put(promo, left, sprite=banner.sprites['Shop_mCard_1'], label='Monthly Card', fixed_cn=True)
-    put(base_rect('image_breaking_news', 'left_canvas'), left, sprite=base.sprites['icon_breaking_news'])
+    put(base.canvas_rect('image_breaking_news', 'left_canvas'), left, sprite=base.sprites['icon_breaking_news'])
     for node, sprite in (('btn_home_illust', 'change_illust'), ('btn_home_illust_preview', 'hide_ui')):
         if sprite in base.sprites:
-            put(base_rect(node, 'left_canvas'), left, sprite=base.sprites[sprite])
+            put(base.canvas_rect(node, 'left_canvas'), left, sprite=base.sprites[sprite])
 
     # The screen-space canvas overlays both perspective cameras.
-    top = Rect(size=(WIDTH, HEIGHT))
-    def top_rect(node):
-        name = base.path(node).split('/')[-1]
-        if name == 'panel_top_ui':
-            return top
-        parent = base.tree(node)['m_Father']['m_PathID']
-        return base.rect(node, top_rect(parent))
+    def top_rect(name, override=None, parent=None):
+        return base.canvas_rect(name, 'panel_top_ui', override, parent, Rect())
 
     screen = lambda p: (p[0]+WIDTH/2, HEIGHT/2-p[1], 1)
-    profile_back = top_rect(base.node('panel_back', 'panel_player_profile'))
+    profile_back = top_rect('panel_back', parent='panel_player_profile')
     profile_icon = elements['img_name_icon']
     put(replace(profile_back, size=vec(profile_icon['size'], 'xy')), screen, sprite=theme.sprites['p3r_icon'])
     for node, sprite in (
         ('image_menu', 'image_profile_bkg'), ('image_exp_empty', 'image_exp_circle_empty'),
         ('btn_setting', 'icon_setting'), ('btn_announcement', 'icon_annoucement'), ('btn_mailbox', 'icon_mailbox'),
     ):
-        put(top_rect(base.node(node, 'panel_top_ui')), screen, sprite=base.sprites[sprite])
+        put(top_rect(node), screen, sprite=base.sprites[sprite])
     for node, label, font_size in (('text_playerlevel', 'level', 62), ('text_playername', 'doctor', 33)):
-        put(top_rect(base.node(node, 'panel_top_ui')), screen, text=label, size=font_size)
+        put(top_rect(node), screen, text=label, size=font_size)
 
     status = base.node('panel_status', 'right_canvas')
     for node, text, sprite in (
@@ -642,7 +636,7 @@ def export(directory, config, output):
         ('text_diamondShard', 'orundum', 'diamond_shard_icon'),
         ('text_crystal', 'originite', 'diamond_icon'),
     ):
-        number = base_rect(node, 'right_canvas', parent=base.path(status) + '/group_info/')
+        number = base.canvas_rect(node, 'right_canvas', parent=base.path(status) + '/group_info/')
         icon = replace(number, center=add(number.center, (-number.size[0]/2-25, 0, 0)), size=(54, 44))
         put(icon, right, sprite=base.sprites[sprite])
         put(number, right, text=text, size=40)
@@ -656,7 +650,7 @@ def export(directory, config, output):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('bundles', type=Path)
-    parser.add_argument('--config', type=Path, default=Path('config/persona-home-layout.json'))
+    parser.add_argument('--config', type=Path, default=Path('public/event-preview/tm_p3r_1/layout.json'))
     parser.add_argument('--art', type=Path, default=Path('public/event-preview/tm_p3r_1'))
     args = parser.parse_args()
     export(args.bundles, args.config, args.art)
