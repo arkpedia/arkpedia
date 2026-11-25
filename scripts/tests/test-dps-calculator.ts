@@ -13,11 +13,26 @@ import { deploymentSequence } from '../../lib/dps/deployment';
 import { firstBurst, fallout } from '../../lib/dps/breakpoints';
 import { elements } from '../../lib/dps/sources';
 import { chartControls, targetControls } from '../../lib/dps/controls';
+import { damageBasis, dpsLabel } from '../../lib/dps/damageLabels';
 const profiles = archive.operators as unknown as Profile[];
 const createBuild = (id: string, number: number) =>
   buildFromProfile(profiles.find((p) => p.id === id)!, number);
 const dummy = { ...initialTarget, def: 0, res: 0 };
 const near = (a: number, b: number) => assert.ok(Math.abs(a - b) < 0.00001, a + ' vs ' + b);
+test('damage labels identify the modeled unit, including multi-hit and one-off sources', () => {
+  const hit = (operator: string, skill: number, extra: { plotSummon?: boolean } = {}) =>
+    calculate({ ...createBuild(operator, 1), skill, ...extra }, initialTarget);
+  assert.equal(damageBasis(hit('angel', 3)), 'per volley');
+  assert.equal(damageBasis(hit('chen', 2)), 'per cast');
+  assert.equal(damageBasis(hit('doroth', 1)), 'per trigger');
+  assert.equal(damageBasis(hit('phatm2', 2, { plotSummon: true })), 'per tick');
+  assert.equal(damageBasis(hit('phatm2', 1)), 'per attack (cycle average)');
+  assert.equal(damageBasis(hit('chen', 0)), 'per attack', 'both hits belong to one normal attack');
+  assert.equal(dpsLabel([{ skill: 3 }]), 'Skill DPS');
+  assert.equal(dpsLabel([{ skill: 0 }]), 'Attack DPS');
+  assert.equal(dpsLabel([{ skill: 3 }, { skill: 0 }]), 'DPS');
+});
+
 test('target inputs and chart defaults follow the selected skill and its damage', () => {
   const skadi = createBuild('skadi', 1);
   const amiya = createBuild('amiya', 2);
@@ -61,6 +76,66 @@ test('DEF, Arts RES, elemental RES and injury resistance mitigate independently'
   const b = createBuild('phatm2', 1);
   near(calculate(b, wall).injury, calculate(b, dummy).injury * 0.05);
   assert.equal(calculate(b, { ...wall, burst: 'Burn' }).injury, 0);
+});
+
+test('Haruka S2 compares first and later healing activations per ally', () => {
+  const b = createBuild('haruka', 1);
+  const first = calculate({ ...b, firstHealingCast: true }, dummy);
+  const later = calculate(b, dummy);
+  assert.equal(b.skill, 2);
+  near(first.healing!.direct!.amount, 401.25);
+  near(first.hps!, 250.78125);
+  near(later.healing!.direct!.amount, 561.75);
+  near(later.healing!.conditional!.amount, 187.25);
+  near(later.hps!, 351.09375);
+  assert.equal(later.healing!.direct!.targets, 2);
+  assert.equal(calculate({ ...b, stage: 3 }, dummy).healing!.direct!.targets, 3);
+  assert.equal(later.dps, null);
+  assert.equal(later.damage, 0);
+  const normal = calculate({ ...b, skill: 0 }, dummy);
+  assert.ok(normal.components.Arts > 0);
+  assert.equal(normal.hps, null);
+  near(normal.healing!.conditional!.amount, 133.75);
+  const setup = chartControls([b], dummy);
+  assert.equal(setup.defaultMetric, 'hps');
+  assert.deepEqual(setup.metrics, ['hps']);
+  assert.deepEqual(setup.axes, []);
+  assert.equal(targetControls([b]).defenses.size, 0);
+  const mixed = chartControls([b, createBuild('skadi', 2)], dummy, 'hps');
+  assert.equal(mixed.metric, 'hps');
+  assert.ok(mixed.metrics.includes('dps'));
+  assert.deepEqual(mixed.axes, []);
+});
+
+test('Skadi uses her own ATK for regeneration and switches to True damage on S3', () => {
+  const b = createBuild('skadi2', 1);
+  near(calculate({ ...b, skill: 0 }, dummy).hps!, 44.308);
+  near(calculate({ ...b, skill: 1 }, dummy).hps!, 354.464);
+  near(calculate(b, dummy).hps!, 88.616);
+  near(calculate({ ...b, abyssalAlly: true }, dummy).hps!, 96.14);
+  near(calculate({ ...b, stage: 3, alternateModule: true }, dummy).hps!, 97.664);
+  const damage = calculate({ ...b, skill: 3 }, dummy);
+  assert.equal(damage.hps, null);
+  near(damage.dps!, 310.156);
+  near(damage.components.True, damage.dps!);
+});
+
+test('direct-healing Medics account for cadence, target count and regeneration', () => {
+  const sussurro = createBuild('susuro', 1);
+  const s = calculate(sussurro, dummy);
+  near(s.healing!.direct!.amount, 1096);
+  assert.equal(s.healing!.direct!.targets, 1);
+  near(s.hps!, 1096 / (43 / 30));
+  const lowCostAlly = calculate({ ...sussurro, lowCostHealingTarget: true }, dummy);
+  near(lowCostAlly.hps!, s.hps! * 1.2);
+  const ptilopsis = createBuild('plosis', 2);
+  const p = calculate(ptilopsis, dummy);
+  near(p.healing!.direct!.amount, 390);
+  assert.equal(p.healing!.direct!.targets, 3);
+  assert.ok(p.hps! > calculate({ ...ptilopsis, skill: 0 }, dummy).hps!);
+  const perfumer = calculate(createBuild('flower', 3), dummy);
+  assert.ok(perfumer.healing!.regeneration > 0);
+  near(perfumer.hps!, perfumer.healing!.direct!.amount / perfumer.attackInterval + perfumer.healing!.regeneration);
 });
 test('Tragodia S2 matches P1 level and module breakpoints from both reference builds', () => {
   const before = { ...createBuild('phatm2', 1), level: 60 },
@@ -147,7 +222,7 @@ test('supported ranks, operators, modules and target states return finite number
           for (const burst of ['None', elements[p.id] ?? 'Burn']) {
             const b = normalize({ ...createBuild(p.id, 1), skill: skill.slot, rank, stage });
             const r = calculate(b, { ...dummy, burst });
-            for (const n of [r.damage, r.injury, r.dps, r.injuryRate, r.summon?.damage, r.summon?.injury])
+            for (const n of [r.damage, r.injury, r.dps, r.hps, r.injuryRate, r.summon?.damage, r.summon?.injury])
               assert.ok(
                 n == null || (Number.isFinite(n) && n >= 0),
                 p.id + ' S' + skill.slot + ' Lv' + rank + ' module ' + stage,

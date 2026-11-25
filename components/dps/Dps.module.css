@@ -249,6 +249,12 @@
   color: var(--text-dim);
   font-weight: 500;
 }
+.panel .healingWithNotes > :is(th, td) {
+  border-bottom: 0;
+}
+.panel .healingWithNotes + tr > td {
+  padding-top: 0;
+}
 .panel summary {
   cursor: pointer;
   font-weight: 600;

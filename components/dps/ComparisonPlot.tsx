@@ -7,6 +7,7 @@ import StyledSelect from '@/components/ui/StyledSelect';
 import {
   buildConditions,
   calculate,
+  defaultSource,
   profile,
   rankLabel,
   selectedModule,
@@ -15,6 +16,7 @@ import {
 } from '@/lib/dps/calculator';
 import { firstBurst } from '@/lib/dps/breakpoints';
 import { chartControls, type ChartMetric as Metric, type DefenseAxis } from '@/lib/dps/controls';
+import { damageBasis, dpsLabel, sharedDamageBasis } from '@/lib/dps/damageLabels';
 import { renderComparisonImage, type ImageView } from '@/lib/dps/comparisonImage';
 import css from './Dps.module.css';
 
@@ -58,18 +60,13 @@ const labels: Record<DefenseAxis, string> = {
   injuryRes: 'Injury resistance',
   elementalRes: 'Elemental resistance',
 };
-const metrics: Record<Metric, string> = {
-  seconds: 'Time to first burst (s)',
-  repeat: 'First to second burst (s)',
-  dps: 'HP damage / s',
-  damage: 'HP damage / action',
-  injuryRate: 'Injury / s',
-  injury: 'Injury / action',
-};
+function resultValue(result: ReturnType<typeof calculate>, metric: Exclude<Metric, 'seconds' | 'repeat'>) {
+  return metric === 'damage' && result.hps !== null ? null : result[metric];
+}
 function measure(b: Build, t: Target, metric: Metric) {
   return metric === 'seconds' || metric === 'repeat'
     ? firstBurst(b, t, 'build')[metric]
-    : calculate(b, t)[metric];
+    : resultValue(calculate(b, t), metric);
 }
 function seriesLabels(builds: Build[]) {
   const descriptions = builds.map((b) => [
@@ -85,7 +82,7 @@ function seriesLabels(builds: Build[]) {
     );
     const differences = descriptions[i].filter((value, k) => peers.some((peer) => peer[k] !== value));
     return [
-      profile(b).name + (b.skill ? ' S' + b.skill + ' ' + rankLabel(b.rank) : ' · Normal'),
+      profile(b).name + (b.skill ? ' S' + b.skill + ' ' + rankLabel(b.rank) : ' · ' + defaultSource(b)),
       ...differences,
     ]
       .filter(Boolean)
@@ -93,13 +90,19 @@ function seriesLabels(builds: Build[]) {
   });
 }
 const metricUnits: Record<Metric, string> = {
-  dps: 'HP/s',
-  damage: 'HP/action',
+  dps: 'DPS',
+  damage: 'damage',
+  hps: 'HPS',
   injuryRate: 'injury/s',
-  injury: 'injury/action',
+  injury: 'injury',
   seconds: 's',
   repeat: 's',
 };
+const isPerSource = (metric: Metric) => metric === 'damage' || metric === 'injury';
+function metricValue(value: number | null, metric: Metric, result: ReturnType<typeof calculate>) {
+  if (value === null) return '—';
+  return fmt(value) + ' ' + metricUnits[metric] + (isPerSource(metric) ? ' ' + damageBasis(result) : '');
+}
 function targetDelta(value: number, baseline: number, metric: Metric, reference: number) {
   const delta = value - baseline;
   const magnitude = fmt(Math.abs(delta));
@@ -125,10 +128,20 @@ export default function ComparisonPlot({
   const [chosenAxis, setAxis] = useState<DefenseAxis>();
   const [chosenMetric, setMetric] = useState<Metric>();
   const results = useMemo(() => builds.map((b) => calculate(b, target)), [builds, target]);
+  const basis = sharedDamageBasis(results.filter(result => result.hps === null || result.damage > 0));
+  const metrics: Record<Metric, string> = {
+    seconds: 'Time to first burst (s)',
+    repeat: 'First to second burst (s)',
+    dps: dpsLabel(builds),
+    damage: 'Damage ' + basis,
+    hps: 'HPS',
+    injuryRate: 'Injury per second',
+    injury: 'Injury ' + basis,
+  };
   const setup = useMemo(() => chartControls(builds, target, chosenMetric), [builds, target, chosenMetric]);
   const { metric, defaultMetric, axes } = setup;
   const views = chartViews.filter(option => option.value === 'bars'
-    || (option.value === 'curve' ? axes.length > 0 : setup.burstTimeline));
+    || (option.value === 'curve' ? axes.length > 0 : metric !== 'hps' && setup.burstTimeline));
   const view = views.some(option => option.value === chosenView) ? chosenView : 'bars';
   const names = useMemo(() => seriesLabels(builds), [builds]);
   const defaultAxis = axes[0] ?? 'def';
@@ -154,16 +167,19 @@ export default function ComparisonPlot({
     [view, builds, points, target, axis, metric],
   );
   const targetMetric = view === 'timeline' ? 'seconds' : metric;
+  const showingHealing = targetMetric === 'hps';
+  const scenarioName = showingHealing ? 'One injured ally' : targetName;
   const targetBursts = useMemo(
     () => (view === 'timeline' || timing ? builds.map((b) => firstBurst(b, target, 'build')) : []),
     [view, timing, builds, target],
   );
   const targetValues = results.map((r, i) =>
-    targetMetric === 'seconds' || targetMetric === 'repeat' ? targetBursts[i][targetMetric] : r[targetMetric],
+    targetMetric === 'seconds' || targetMetric === 'repeat' ? targetBursts[i][targetMetric] : resultValue(r, targetMetric),
   );
   const baseline = Math.max(0, builds.findIndex(build => build.id === baselineId));
   const series = builds.map((b, i) => ({
     b,
+    result: results[i],
     selected: probe === target[axis] ? targetValues[i] : measure(b, { ...target, [axis]: probe }, metric),
     burst: view === 'timeline' ? targetBursts[i] : null,
     ys: curves[i] ?? [],
@@ -173,11 +189,11 @@ export default function ComparisonPlot({
     ...series.map(({ burst }) => (burst?.seconds == null ? 0 : burst.seconds + (burst.repeat ?? 0))),
   );
   const legendValue = (row: (typeof series)[number]) => {
-    if (view !== 'timeline') return fmt(row.selected) + (timing && row.selected !== null ? ' s' : '');
+    if (view !== 'timeline') return metricValue(row.selected, metric, row.result);
     const r = row.burst;
     if (!r?.amount) return 'No elemental buildup';
     if (r.seconds == null)
-      return r?.count ? fmt(r.count) + ' actions · timing unknown' : 'No modeled burst in this window';
+      return r.count ? fmt(r.count) + ' ' + r.unit + ' · timing unknown' : 'No modeled burst in this window';
     return (
       fmt(r.seconds) +
       ' s first' +
@@ -236,10 +252,11 @@ export default function ComparisonPlot({
         view: imageView,
         svg: chart.current,
         target,
-        targetName,
+        targetName: scenarioName,
+        healingView: showingHealing,
         metric: view === 'timeline' ? 'Elemental burst' : metrics[metric],
         probe: view === 'curve' ? labels[axis] + ' ' + fmt(probe) : 'Selected target',
-        timeline: timelineRef.current,
+        timeline: showingHealing ? null : timelineRef.current,
         series: series.map((row, index) => ({
           build: row.b,
           colorToken: colorToken(index),
@@ -256,7 +273,7 @@ export default function ComparisonPlot({
   return (
     <section id="damage-comparison" tabIndex={-1} ref={panel} className={css.panel}>
       <div className={css.heading}>
-        <h2 className="section-title">Damage comparison</h2>
+        <h2 className="section-title">{showingHealing ? 'Healing comparison' : 'Damage comparison'}</h2>
         {views.length > 1 && <SegmentedControl
           label="Chart view"
           options={views}
@@ -264,7 +281,7 @@ export default function ComparisonPlot({
           onChange={setView}
         />}
       </div>
-      {view !== 'timeline' && (setup.metrics.length > 1 || view === 'curve') && (
+      {(view === 'curve' || (setup.metrics.length > 1 && (view !== 'timeline' || setup.metrics.includes('hps')))) && (
         <div className={css.heading}>
           <div className={css.controls}>
             {setup.metrics.length > 1 && <Pick
@@ -274,7 +291,10 @@ export default function ComparisonPlot({
                 { value: 'auto', label: 'Auto · ' + metrics[defaultMetric] },
                 ...setup.metrics.map(value => ({ value, label: metrics[value] })),
               ]}
-              change={v => setMetric(v === 'auto' ? undefined : v as Metric)}
+              change={v => {
+                setMetric(v === 'auto' ? undefined : v as Metric);
+                if (view === 'timeline') setView('curve');
+              }}
             />}
             {view === 'curve' && (
               <Pick
@@ -292,9 +312,9 @@ export default function ComparisonPlot({
       )}
       <div className={css.targetResults} role="group" aria-label="Selected target results">
         <small>
-          {targetName} · {metrics[targetMetric]}
+          {scenarioName} · {metrics[targetMetric]}
         </small>
-        {series.map(({ b }, i) => (
+        {series.map(({ b, result }, i) => (
           <div key={b.id}>
             <span style={{ borderColor: color(i) }}>
               #{i + 1} {names[i]}
@@ -302,10 +322,11 @@ export default function ComparisonPlot({
             <strong>
               {targetValues[i] === null
                 ? 'Unavailable'
-                : fmt(targetValues[i]) + ' ' + metricUnits[targetMetric]}
+                : metricValue(targetValues[i], targetMetric, result)}
             </strong>
             {series.length > 1 && i === baseline && <small>Baseline</small>}
-            {i !== baseline && targetValues[i] !== null && targetValues[baseline] !== null && (
+            {i !== baseline && targetValues[i] !== null && targetValues[baseline] !== null
+              && (!isPerSource(targetMetric) || damageBasis(result) === damageBasis(results[baseline])) && (
               <small>{targetDelta(targetValues[i], targetValues[baseline], targetMetric, baseline + 1)}</small>
             )}
           </div>
@@ -353,7 +374,7 @@ export default function ComparisonPlot({
               </clipPath>
             </defs>
             {span < fullMax && (
-              <text x={right} y="19" textAnchor="end">
+              <text x={right} y="35" textAnchor="end">
                 Showing {fmt(min)}–{fmt(max)}
                 {timing ? ' s' : ''}
               </text>
@@ -424,7 +445,7 @@ export default function ComparisonPlot({
           role="img"
           aria-label={
             view === 'bars'
-              ? metrics[metric] + ' at the selected target'
+              ? showingHealing ? 'Healing per second for one ally' : metrics[metric] + ' at the selected target'
               : 'First and second elemental bursts from first contact'
           }
         >
@@ -530,8 +551,16 @@ export default function ComparisonPlot({
           unknown.
         </small>
       )}
-      {view !== 'timeline' && !timing && series.some((s) => s.selected === null) && (
-        <small>Choose a per-action measure to compare single activations.</small>
+      {view !== 'timeline' && (metric === 'dps' || metric === 'injuryRate') && (
+        <small>{metric === 'dps' ? 'DPS' : 'Injury per second'} averages the source while it is active.
+          {series.some(row => row.selected === null && row.result.hps === null) && ' For a single cast or trigger, choose its damage or injury total.'}
+        </small>
+      )}
+      {showingHealing && (
+        <small>HPS is healing per second for one ally in range with HP to restore. It uses the selected source while active.</small>
+      )}
+      {view !== 'timeline' && isPerSource(metric) && (
+        <small>Each value covers all modeled hits from the listed attack, tick or use against one target.</small>
       )}
       {(view === 'timeline' || timing) && builds.some((b) => b.operator === 'cello' && b.skill === 1) && (
         <small>

@@ -1,5 +1,6 @@
 import { buildConditions, buildLabel, burstThreshold, calculate, profile, type Build, type Target } from './calculator';
 import { fallout, firstBurst } from './breakpoints';
+import { damageBasis, dpsLabel } from './damageLabels';
 
 export type ImageView = 'condensed' | 'detailed';
 interface ExportOptions {
@@ -9,6 +10,7 @@ interface ExportOptions {
   probe: string;
   target: Target;
   targetName: string;
+  healingView: boolean;
   series: { build: Build; value: string; colorToken: string }[];
   timeline: HTMLTableElement | null;
 }
@@ -42,28 +44,40 @@ function plotImage(svg: SVGSVGElement, chartHeight: number) {
 
 function breakdown(b: Build, target: Target) {
   const r = calculate(b, target);
+  const basis = damageBasis(r);
   const lines = [
     [
       number(r.sourceAtk) + ' source ATK',
-      r.interval ? seconds(r.interval) + ' between actions' : 'Single activation',
+      r.interval ? 'Repeats every ' + seconds(r.interval) : '',
     ]
       .filter(Boolean)
       .join(' · '),
-    number(r.damage) +
-      ' HP/action   ·   ' +
-      number(r.dps) +
-      ' HP/s   ·   ' +
-      number(r.injury) +
-      ' injury/action   ·   ' +
-      number(r.injuryRate) +
-      ' injury/s',
-    Object.entries(r.components)
-      .filter(([, v]) => v > 0)
-      .map(([k, v]) => number(v) + ' ' + k + ' HP')
-      .join('   ·   '),
   ];
-  if (r.splash) lines.push(number(r.splash) + ' adjacent-target injury/action');
-  if (r.periodic) lines.push(number(r.periodic) + ' additional injury/s');
+  if (r.hps === null) {
+    lines.push(
+      [
+        number(r.damage) + ' damage ' + basis,
+        r.dps !== null && number(r.dps) + ' ' + dpsLabel([b]),
+        r.element && number(r.injury) + ' injury ' + basis,
+        (r.injuryRate ?? 0) > 0 && number(r.injuryRate) + ' injury per second',
+      ].filter(Boolean).join(' · '),
+      Object.entries(r.components)
+        .filter(([, v]) => v > 0)
+        .map(([k, v]) => number(v) + ' ' + k + ' HP')
+        .join('   ·   '),
+    );
+  }
+  if (r.healing) {
+    const { direct, regeneration, conditional, hps, note } = r.healing;
+    if (direct) lines.push(number(direct.amount) + ' per heal · every ' + seconds(direct.interval)
+      + ' · up to ' + direct.targets + (direct.targets === 1 ? ' ally' : ' allies'));
+    if (regeneration) lines.push(number(regeneration) + ' regeneration per second');
+    if (conditional) lines.push(conditional.label + ' · ' + number(conditional.amount) + ' per pop');
+    if (hps !== null) lines.push(number(hps) + ' HPS per ally');
+    if (note) lines.push(note);
+  }
+  if (r.splash) lines.push(number(r.splash) + ' adjacent-target injury ' + basis);
+  if (r.periodic) lines.push(number(r.periodic) + ' additional injury per second');
   if (r.empowered)
     lines.push(
       'Empowered attack · ' +
@@ -76,7 +90,7 @@ function breakdown(b: Build, target: Target) {
     );
   if (r.summon)
     lines.push(
-      'Blood’s Whisper · ' +
+      'Blood’s Whisper · full summon · ' +
         r.summon.ticks +
         ' ticks · ' +
         number(r.summon.damage) +
@@ -105,7 +119,7 @@ function breakdown(b: Build, target: Target) {
     const effect = fallout(r.element, target);
     if (effect) lines.push('Fallout · ' + effect.count + ' × ' + number(effect.perHit) + ' elemental HP');
     if (r.element === 'Rampage')
-      lines.push('Rampage fallout · ramps to 2,110 elemental HP/s before resistance over 15 s');
+      lines.push('Rampage fallout · ramps to 2,110 elemental damage per second before resistance over 15 s');
   }
   for (const e of r.effects)
     lines.push(e.label + ' · ' + number(e.amount) + ' ' + e.type + ' · ' + e.condition);
@@ -120,6 +134,7 @@ export async function renderComparisonImage({
   probe,
   target,
   targetName,
+  healingView,
   series,
   timeline,
 }: ExportOptions) {
@@ -194,25 +209,29 @@ export async function renderComparisonImage({
     }
     textLine('ARKPEDIA  /  DPS CALCULATOR', 16, colors.teal, 700);
     textLine(metric, 35, colors.text, 700);
-    textLine(
-      [
-        targetName,
-        target.tier,
-        number(target.def) + ' DEF',
-        number(target.res) + ' RES',
-        number(target.injuryRes) + ' injury RES',
-        number(target.elementalRes) + ' elemental RES',
-      ].join('   ·   '),
-      19,
-    );
-    textLine(
-      [
-        'Probe · ' + probe,
-        number(burstThreshold(target)) + ' injury threshold',
-        'Active burst · ' + target.burst,
-      ].join('    /    '),
-      17,
-    );
+    if (healingView) {
+      textLine(targetName + ' · Healing per second per ally', 19);
+    } else {
+      textLine(
+        [
+          targetName,
+          target.tier,
+          number(target.def) + ' DEF',
+          number(target.res) + ' RES',
+          number(target.injuryRes) + ' injury RES',
+          number(target.elementalRes) + ' elemental RES',
+        ].join('   ·   '),
+        19,
+      );
+      textLine(
+        [
+          'Probe · ' + probe,
+          number(burstThreshold(target)) + ' injury threshold',
+          'Active burst · ' + target.burst,
+        ].join('    /    '),
+        17,
+      );
+    }
     y += 14;
     if (draw) {
       c.fillStyle = colors.well;
@@ -255,7 +274,7 @@ export async function renderComparisonImage({
     if (view === 'detailed') {
       y += 10;
       textLine(
-        'Builds use 100% trust. Rates apply during the selected action. Burst timing starts at first contact with an empty gauge on one surviving target.',
+        'Builds use 100% trust. DPS averages the source while active. Burst timing starts at first contact with an empty gauge on one surviving target.',
         16,
       );
     }

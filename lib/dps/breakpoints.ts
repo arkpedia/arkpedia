@@ -30,7 +30,7 @@ export function firstBurst(b: Build, target: Target, source: 'build' | 'summon' 
     seconds: null as number | null,
     repeat: null as number | null,
     recovery: null as number | null,
-    unit: summon ? 'ticks' : 'actions',
+    unit: (summon ? 'tick' : r.damageUnit) + 's',
     amount: summon?.injury ?? injury,
     limited: false,
     summon: !!summon,

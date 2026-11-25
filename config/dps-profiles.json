@@ -17406,6 +17406,2026 @@
    ],
    "module": null,
    "alternateModule": null
+  },
+  {
+   "id": "skadi2",
+   "name": "Skadi the Corrupting Heart",
+   "region": "EN",
+   "branch": "bard",
+   "rarity": 6,
+   "trust": 50,
+   "healingTrait": {
+    "attack@atk_to_hp_recovery_ratio": 0.1
+   },
+   "phases": [
+    {
+     "maxLevel": 50,
+     "start": 145,
+     "end": 228,
+     "interval": 1.3
+    },
+    {
+     "maxLevel": 80,
+     "start": 228,
+     "end": 305,
+     "interval": 1.3
+    },
+    {
+     "maxLevel": 90,
+     "start": 305,
+     "end": 368,
+     "interval": 1.3
+    }
+   ],
+   "potential": [
+    {
+     "COST": -1
+    },
+    {
+     "RESPAWN_TIME": -6
+    },
+    {
+     "ATK": 27
+    },
+    {},
+    {
+     "COST": -1
+    }
+   ],
+   "talents": [
+    [
+     {
+      "elite": 1,
+      "level": 1,
+      "potential": 1,
+      "values": {
+       "cnt": 1
+      }
+     },
+     {
+      "elite": 2,
+      "level": 1,
+      "potential": 1,
+      "values": {
+       "cnt": 1
+      }
+     }
+    ],
+    [
+     {
+      "elite": 2,
+      "level": 1,
+      "potential": 1,
+      "values": {
+       "skadi2_t_2[atk][1].atk": 0.06,
+       "skadi2_t_2[atk][2].atk": 0.15
+      }
+     },
+     {
+      "elite": 2,
+      "level": 1,
+      "potential": 5,
+      "values": {
+       "skadi2_t_2[atk][1].atk": 0.09,
+       "skadi2_t_2[atk][2].atk": 0.18
+      }
+     }
+    ]
+   ],
+   "skills": [
+    {
+     "slot": 1,
+     "manual": true,
+     "token": null,
+     "name": "Chant of Returning by Varied Paths",
+     "elite": 0,
+     "ranks": [
+      {
+       "max_hp": 0.8,
+       "attack@atk_to_hp_recovery_ratio": 0.4,
+       "damage_resistance": 0.5,
+       "sp": 60,
+       "initialSp": 30,
+       "duration": 30
+      },
+      {
+       "max_hp": 0.9,
+       "attack@atk_to_hp_recovery_ratio": 0.4,
+       "damage_resistance": 0.5,
+       "sp": 59,
+       "initialSp": 30,
+       "duration": 30
+      },
+      {
+       "max_hp": 1,
+       "attack@atk_to_hp_recovery_ratio": 0.4,
+       "damage_resistance": 0.5,
+       "sp": 58,
+       "initialSp": 30,
+       "duration": 30
+      },
+      {
+       "max_hp": 1.1,
+       "attack@atk_to_hp_recovery_ratio": 0.5,
+       "damage_resistance": 0.5,
+       "sp": 57,
+       "initialSp": 30,
+       "duration": 30
+      },
+      {
+       "max_hp": 1.2,
+       "attack@atk_to_hp_recovery_ratio": 0.5,
+       "damage_resistance": 0.5,
+       "sp": 56,
+       "initialSp": 30,
+       "duration": 30
+      },
+      {
+       "max_hp": 1.3,
+       "attack@atk_to_hp_recovery_ratio": 0.5,
+       "damage_resistance": 0.5,
+       "sp": 55,
+       "initialSp": 30,
+       "duration": 30
+      },
+      {
+       "max_hp": 1.4,
+       "attack@atk_to_hp_recovery_ratio": 0.6,
+       "damage_resistance": 0.5,
+       "sp": 54,
+       "initialSp": 30,
+       "duration": 30
+      },
+      {
+       "max_hp": 1.5,
+       "attack@atk_to_hp_recovery_ratio": 0.7,
+       "damage_resistance": 0.5,
+       "sp": 53,
+       "initialSp": 30,
+       "duration": 30
+      },
+      {
+       "max_hp": 1.6,
+       "attack@atk_to_hp_recovery_ratio": 0.7,
+       "damage_resistance": 0.5,
+       "sp": 52,
+       "initialSp": 30,
+       "duration": 30
+      },
+      {
+       "max_hp": 1.7,
+       "attack@atk_to_hp_recovery_ratio": 0.8,
+       "damage_resistance": 0.5,
+       "sp": 50,
+       "initialSp": 30,
+       "duration": 30
+      }
+     ]
+    },
+    {
+     "slot": 2,
+     "manual": false,
+     "token": null,
+     "name": "Wish of Burial Beyond the Light",
+     "elite": 1,
+     "ranks": [
+      {
+       "atk": 0.15,
+       "def": 0.15,
+       "attack@atk_to_hp_recovery_ratio": 0.15,
+       "sp": 68,
+       "initialSp": 0,
+       "duration": -1
+      },
+      {
+       "atk": 0.2,
+       "def": 0.2,
+       "attack@atk_to_hp_recovery_ratio": 0.15,
+       "sp": 68,
+       "initialSp": 0,
+       "duration": -1
+      },
+      {
+       "atk": 0.25,
+       "def": 0.25,
+       "attack@atk_to_hp_recovery_ratio": 0.15,
+       "sp": 68,
+       "initialSp": 0,
+       "duration": -1
+      },
+      {
+       "atk": 0.3,
+       "def": 0.3,
+       "attack@atk_to_hp_recovery_ratio": 0.16,
+       "sp": 66,
+       "initialSp": 0,
+       "duration": -1
+      },
+      {
+       "atk": 0.35,
+       "def": 0.35,
+       "attack@atk_to_hp_recovery_ratio": 0.16,
+       "sp": 66,
+       "initialSp": 0,
+       "duration": -1
+      },
+      {
+       "atk": 0.4,
+       "def": 0.4,
+       "attack@atk_to_hp_recovery_ratio": 0.16,
+       "sp": 66,
+       "initialSp": 0,
+       "duration": -1
+      },
+      {
+       "atk": 0.45,
+       "def": 0.45,
+       "attack@atk_to_hp_recovery_ratio": 0.17,
+       "sp": 64,
+       "initialSp": 0,
+       "duration": -1
+      },
+      {
+       "atk": 0.5,
+       "def": 0.5,
+       "attack@atk_to_hp_recovery_ratio": 0.18,
+       "sp": 61,
+       "initialSp": 0,
+       "duration": -1
+      },
+      {
+       "atk": 0.55,
+       "def": 0.55,
+       "attack@atk_to_hp_recovery_ratio": 0.19,
+       "sp": 59,
+       "initialSp": 0,
+       "duration": -1
+      },
+      {
+       "atk": 0.6,
+       "def": 0.6,
+       "attack@atk_to_hp_recovery_ratio": 0.2,
+       "sp": 56,
+       "initialSp": 0,
+       "duration": -1
+      }
+     ]
+    },
+    {
+     "slot": 3,
+     "manual": true,
+     "token": null,
+     "name": "'The Tide Surges, The Tide Recedes'",
+     "elite": 2,
+     "ranks": [
+      {
+       "atk_scale": 0.25,
+       "atk": 0.5,
+       "hp_ratio": 0.05,
+       "sp": 40,
+       "initialSp": 15,
+       "duration": 20
+      },
+      {
+       "atk_scale": 0.3,
+       "atk": 0.55,
+       "hp_ratio": 0.05,
+       "sp": 40,
+       "initialSp": 15,
+       "duration": 20
+      },
+      {
+       "atk_scale": 0.35,
+       "atk": 0.6,
+       "hp_ratio": 0.05,
+       "sp": 40,
+       "initialSp": 15,
+       "duration": 20
+      },
+      {
+       "atk_scale": 0.4,
+       "atk": 0.65,
+       "hp_ratio": 0.05,
+       "sp": 39,
+       "initialSp": 15,
+       "duration": 20
+      },
+      {
+       "atk_scale": 0.45,
+       "atk": 0.7,
+       "hp_ratio": 0.05,
+       "sp": 39,
+       "initialSp": 15,
+       "duration": 20
+      },
+      {
+       "atk_scale": 0.5,
+       "atk": 0.75,
+       "hp_ratio": 0.05,
+       "sp": 39,
+       "initialSp": 15,
+       "duration": 20
+      },
+      {
+       "atk_scale": 0.55,
+       "atk": 0.8,
+       "hp_ratio": 0.05,
+       "sp": 38,
+       "initialSp": 15,
+       "duration": 20
+      },
+      {
+       "atk_scale": 0.6,
+       "atk": 0.9,
+       "hp_ratio": 0.05,
+       "sp": 37,
+       "initialSp": 15,
+       "duration": 20
+      },
+      {
+       "atk_scale": 0.65,
+       "atk": 1,
+       "hp_ratio": 0.05,
+       "sp": 36,
+       "initialSp": 15,
+       "duration": 20
+      },
+      {
+       "atk_scale": 0.7,
+       "atk": 1.1,
+       "hp_ratio": 0.05,
+       "sp": 35,
+       "initialSp": 15,
+       "duration": 20
+      }
+     ]
+    }
+   ],
+   "module": {
+    "name": "BAR-X",
+    "level": 60,
+    "stages": [
+     {
+      "stats": {
+       "max_hp": 84,
+       "atk": 26,
+       "def": 12
+      },
+      "tokenStats": {},
+      "trait": {
+       "cnt": 2,
+       "atk": 0.08
+      },
+      "talents": {
+       "-1": []
+      }
+     },
+     {
+      "stats": {
+       "max_hp": 110,
+       "atk": 32,
+       "def": 15
+      },
+      "tokenStats": {
+       "token_10017_skadi2_dedant": {
+        "respawn_time": -3
+       }
+      },
+      "trait": {
+       "cnt": 2,
+       "atk": 0.08
+      },
+      "talents": {
+       "0": [
+        {
+         "elite": 2,
+         "level": 60,
+         "potential": 1,
+         "values": {
+          "duration": 28
+         }
+        }
+       ],
+       "-1": []
+      }
+     },
+     {
+      "stats": {
+       "max_hp": 130,
+       "atk": 35,
+       "def": 17
+      },
+      "tokenStats": {
+       "token_10017_skadi2_dedant": {
+        "respawn_time": -5
+       }
+      },
+      "trait": {
+       "cnt": 2,
+       "atk": 0.08
+      },
+      "talents": {
+       "0": [
+        {
+         "elite": 2,
+         "level": 60,
+         "potential": 1,
+         "values": {
+          "duration": 30
+         }
+        }
+       ],
+       "-1": []
+      }
+     }
+    ]
+   },
+   "alternateModule": {
+    "name": "BAR-Y",
+    "level": 60,
+    "stages": [
+     {
+      "stats": {
+       "atk": 22,
+       "def": 22
+      },
+      "tokenStats": {},
+      "trait": {
+       "damage_resistance": -30
+      },
+      "talents": {
+       "-1": [
+        {
+         "elite": 2,
+         "level": 60,
+         "potential": 1,
+         "values": {
+          "damage_resistance": -30
+         }
+        }
+       ]
+      }
+     },
+     {
+      "stats": {
+       "atk": 27,
+       "def": 29
+      },
+      "tokenStats": {},
+      "trait": {
+       "damage_resistance": -30
+      },
+      "talents": {
+       "1": [
+        {
+         "elite": 2,
+         "level": 60,
+         "potential": 1,
+         "values": {
+          "skadi2_e_003_t_2[atk][1].atk": 0.08,
+          "skadi2_e_003_t_2[atk][2].atk": 0.15,
+          "skadi2_e_003_t_2[def].def": 0.06,
+          "sp": 2
+         }
+        },
+        {
+         "elite": 2,
+         "level": 60,
+         "potential": 5,
+         "values": {
+          "skadi2_e_003_t_2[atk][1].atk": 0.11,
+          "skadi2_e_003_t_2[atk][2].atk": 0.18,
+          "skadi2_e_003_t_2[def].def": 0.06,
+          "sp": 2
+         }
+        }
+       ],
+       "-1": [
+        {
+         "elite": 2,
+         "level": 60,
+         "potential": 1,
+         "values": {
+          "damage_resistance": -30
+         }
+        }
+       ],
+       "-2": []
+      }
+     },
+     {
+      "stats": {
+       "atk": 30,
+       "def": 33
+      },
+      "tokenStats": {},
+      "trait": {
+       "damage_resistance": -30
+      },
+      "talents": {
+       "1": [
+        {
+         "elite": 2,
+         "level": 60,
+         "potential": 1,
+         "values": {
+          "skadi2_e_003_t_2[atk][1].atk": 0.09,
+          "skadi2_e_003_t_2[atk][2].atk": 0.2,
+          "skadi2_e_003_t_2[def].def": 0.08,
+          "sp": 3
+         }
+        },
+        {
+         "elite": 2,
+         "level": 60,
+         "potential": 5,
+         "values": {
+          "skadi2_e_003_t_2[atk][1].atk": 0.12,
+          "skadi2_e_003_t_2[atk][2].atk": 0.23,
+          "skadi2_e_003_t_2[def].def": 0.08,
+          "sp": 3
+         }
+        }
+       ],
+       "-1": [
+        {
+         "elite": 2,
+         "level": 60,
+         "potential": 1,
+         "values": {
+          "damage_resistance": -30
+         }
+        }
+       ],
+       "-2": []
+      }
+     }
+    ]
+   }
+  },
+  {
+   "id": "haruka",
+   "name": "Haruka",
+   "region": "EN",
+   "branch": "blessing",
+   "rarity": 6,
+   "trust": 55,
+   "healingTrait": {
+    "heal_scale": 0.75,
+    "attack@max_target": 1,
+    "attack@max_target_heal": 1
+   },
+   "phases": [
+    {
+     "maxLevel": 50,
+     "start": 190,
+     "end": 298,
+     "interval": 1.6
+    },
+    {
+     "maxLevel": 80,
+     "start": 298,
+     "end": 398,
+     "interval": 1.6
+    },
+    {
+     "maxLevel": 90,
+     "start": 398,
+     "end": 480,
+     "interval": 1.6
+    }
+   ],
+   "potential": [
+    {
+     "COST": -1
+    },
+    {
+     "RESPAWN_TIME": -6
+    },
+    {
+     "ATK": 25
+    },
+    {},
+    {
+     "COST": -1
+    }
+   ],
+   "talents": [
+    [
+     {
+      "elite": 0,
+      "level": 1,
+      "potential": 1,
+      "values": {
+       "interval": 0.5,
+       "damage_resistance": 0.1,
+       "max_target_shield": 1
+      }
+     },
+     {
+      "elite": 1,
+      "level": 1,
+      "potential": 1,
+      "values": {
+       "interval": 0.5,
+       "damage_resistance": 0.2,
+       "max_target_shield": 1
+      }
+     },
+     {
+      "elite": 2,
+      "level": 1,
+      "potential": 1,
+      "values": {
+       "interval": 0.5,
+       "damage_resistance": 0.3,
+       "max_target_shield": 1
+      }
+     }
+    ],
+    [
+     {
+      "elite": 2,
+      "level": 1,
+      "potential": 1,
+      "values": {
+       "heal_scale": 0.25
+      }
+     },
+     {
+      "elite": 2,
+      "level": 1,
+      "potential": 5,
+      "values": {
+       "heal_scale": 0.28
+      }
+     }
+    ]
+   ],
+   "skills": [
+    {
+     "slot": 1,
+     "manual": true,
+     "token": null,
+     "name": "Feathers in the Night",
+     "elite": 0,
+     "ranks": [
+      {
+       "attack_speed": 15,
+       "sp": 25,
+       "initialSp": 4,
+       "duration": 18
+      },
+      {
+       "attack_speed": 20,
+       "sp": 25,
+       "initialSp": 5,
+       "duration": 18
+      },
+      {
+       "attack_speed": 25,
+       "sp": 25,
+       "initialSp": 6,
+       "duration": 18
+      },
+      {
+       "attack_speed": 30,
+       "sp": 25,
+       "initialSp": 7,
+       "duration": 19
+      },
+      {
+       "attack_speed": 35,
+       "sp": 25,
+       "initialSp": 8,
+       "duration": 19
+      },
+      {
+       "attack_speed": 40,
+       "sp": 25,
+       "initialSp": 9,
+       "duration": 19
+      },
+      {
+       "attack_speed": 45,
+       "sp": 25,
+       "initialSp": 10,
+       "duration": 20
+      },
+      {
+       "attack_speed": 50,
+       "sp": 25,
+       "initialSp": 11,
+       "duration": 20
+      },
+      {
+       "attack_speed": 55,
+       "sp": 25,
+       "initialSp": 13,
+       "duration": 20
+      },
+      {
+       "attack_speed": 60,
+       "sp": 25,
+       "initialSp": 15,
+       "duration": 20
+      }
+     ]
+    },
+    {
+     "slot": 2,
+     "manual": true,
+     "token": null,
+     "name": "Glade of the Fireflies",
+     "elite": 1,
+     "ranks": [
+      {
+       "atk": 0.15,
+       "haruka_s_2[first].atk": 0,
+       "attack@max_target_heal_add": 0,
+       "max_target_shield_add": 0,
+       "ability_range_radius": 1.7,
+       "max_target_extra": 1,
+       "atk_scale_extra": 1,
+       "sp": 22,
+       "initialSp": 0,
+       "duration": 21
+      },
+      {
+       "atk": 0.15,
+       "haruka_s_2[first].atk": 0,
+       "attack@max_target_heal_add": 0,
+       "max_target_shield_add": 0,
+       "ability_range_radius": 1.7,
+       "max_target_extra": 1,
+       "atk_scale_extra": 1.1,
+       "sp": 22,
+       "initialSp": 0,
+       "duration": 21
+      },
+      {
+       "atk": 0.15,
+       "haruka_s_2[first].atk": 0,
+       "attack@max_target_heal_add": 0,
+       "max_target_shield_add": 0,
+       "ability_range_radius": 1.7,
+       "max_target_extra": 1,
+       "atk_scale_extra": 1.2,
+       "sp": 22,
+       "initialSp": 0,
+       "duration": 21
+      },
+      {
+       "atk": 0.2,
+       "haruka_s_2[first].atk": 0,
+       "attack@max_target_heal_add": 0,
+       "max_target_shield_add": 0,
+       "ability_range_radius": 1.7,
+       "max_target_extra": 2,
+       "atk_scale_extra": 1.4,
+       "sp": 21,
+       "initialSp": 0,
+       "duration": 22
+      },
+      {
+       "atk": 0.2,
+       "haruka_s_2[first].atk": 0,
+       "attack@max_target_heal_add": 0,
+       "max_target_shield_add": 0,
+       "ability_range_radius": 1.7,
+       "max_target_extra": 2,
+       "atk_scale_extra": 1.6,
+       "sp": 21,
+       "initialSp": 0,
+       "duration": 22
+      },
+      {
+       "atk": 0.2,
+       "haruka_s_2[first].atk": 0,
+       "attack@max_target_heal_add": 0,
+       "max_target_shield_add": 0,
+       "ability_range_radius": 1.7,
+       "max_target_extra": 2,
+       "atk_scale_extra": 1.8,
+       "sp": 21,
+       "initialSp": 0,
+       "duration": 22
+      },
+      {
+       "atk": 0.25,
+       "haruka_s_2[first].atk": 0,
+       "attack@max_target_heal_add": 1,
+       "max_target_shield_add": 1,
+       "ability_range_radius": 1.7,
+       "max_target_extra": 3,
+       "atk_scale_extra": 2,
+       "sp": 20,
+       "initialSp": 0,
+       "duration": 23
+      },
+      {
+       "atk": 0.3,
+       "haruka_s_2[first].atk": 0,
+       "attack@max_target_heal_add": 1,
+       "max_target_shield_add": 1,
+       "ability_range_radius": 1.7,
+       "max_target_extra": 3,
+       "atk_scale_extra": 2,
+       "sp": 19,
+       "initialSp": 0,
+       "duration": 24
+      },
+      {
+       "atk": 0.35,
+       "haruka_s_2[first].atk": 0,
+       "attack@max_target_heal_add": 1,
+       "max_target_shield_add": 1,
+       "ability_range_radius": 1.7,
+       "max_target_extra": 3,
+       "atk_scale_extra": 2,
+       "sp": 18,
+       "initialSp": 0,
+       "duration": 25
+      },
+      {
+       "atk": 0.4,
+       "haruka_s_2[first].atk": 0,
+       "attack@max_target_heal_add": 1,
+       "max_target_shield_add": 1,
+       "ability_range_radius": 1.7,
+       "max_target_extra": 3,
+       "atk_scale_extra": 2,
+       "sp": 17,
+       "initialSp": 0,
+       "duration": 26
+      }
+     ]
+    },
+    {
+     "slot": 3,
+     "manual": true,
+     "token": null,
+     "name": "The Fins of Summer",
+     "elite": 2,
+     "ranks": [
+      {
+       "base_attack_time": -0.2,
+       "damage_resistance_scale": 1.1,
+       "atk": 0.1,
+       "levitate_duration": 2,
+       "interval": 1,
+       "atk_scale": 0.5,
+       "sp": 60,
+       "initialSp": 40,
+       "duration": 40
+      },
+      {
+       "base_attack_time": -0.2,
+       "damage_resistance_scale": 1.2,
+       "atk": 0.15,
+       "levitate_duration": 2,
+       "interval": 1,
+       "atk_scale": 0.5,
+       "sp": 60,
+       "initialSp": 41,
+       "duration": 40
+      },
+      {
+       "base_attack_time": -0.2,
+       "damage_resistance_scale": 1.3,
+       "atk": 0.2,
+       "levitate_duration": 2,
+       "interval": 1,
+       "atk_scale": 0.5,
+       "sp": 60,
+       "initialSp": 42,
+       "duration": 40
+      },
+      {
+       "base_attack_time": -0.4,
+       "damage_resistance_scale": 1.4,
+       "atk": 0.25,
+       "levitate_duration": 3,
+       "interval": 1,
+       "atk_scale": 0.6,
+       "sp": 60,
+       "initialSp": 43,
+       "duration": 40
+      },
+      {
+       "base_attack_time": -0.4,
+       "damage_resistance_scale": 1.5,
+       "atk": 0.3,
+       "levitate_duration": 3,
+       "interval": 1,
+       "atk_scale": 0.6,
+       "sp": 60,
+       "initialSp": 44,
+       "duration": 40
+      },
+      {
+       "base_attack_time": -0.4,
+       "damage_resistance_scale": 1.6,
+       "atk": 0.35,
+       "levitate_duration": 3,
+       "interval": 1,
+       "atk_scale": 0.6,
+       "sp": 60,
+       "initialSp": 45,
+       "duration": 40
+      },
+      {
+       "base_attack_time": -0.6,
+       "damage_resistance_scale": 1.7,
+       "atk": 0.4,
+       "levitate_duration": 4,
+       "interval": 1,
+       "atk_scale": 0.7,
+       "sp": 60,
+       "initialSp": 46,
+       "duration": 40
+      },
+      {
+       "base_attack_time": -0.6,
+       "damage_resistance_scale": 1.8,
+       "atk": 0.45,
+       "levitate_duration": 4,
+       "interval": 1,
+       "atk_scale": 0.7,
+       "sp": 60,
+       "initialSp": 48,
+       "duration": 40
+      },
+      {
+       "base_attack_time": -0.6,
+       "damage_resistance_scale": 1.9,
+       "atk": 0.5,
+       "levitate_duration": 4,
+       "interval": 1,
+       "atk_scale": 0.7,
+       "sp": 60,
+       "initialSp": 50,
+       "duration": 40
+      },
+      {
+       "base_attack_time": -0.6,
+       "damage_resistance_scale": 2,
+       "atk": 0.55,
+       "levitate_duration": 4,
+       "interval": 1,
+       "atk_scale": 0.8,
+       "sp": 60,
+       "initialSp": 53,
+       "duration": 40
+      }
+     ]
+    }
+   ],
+   "module": {
+    "name": "BLS-Y",
+    "level": 60,
+    "stages": [
+     {
+      "stats": {
+       "max_hp": 130,
+       "atk": 30
+      },
+      "tokenStats": {},
+      "trait": {
+       "attack@max_target": 2,
+       "attack@max_target_heal": 2,
+       "heal_scale": 0.75
+      },
+      "talents": {}
+     },
+     {
+      "stats": {
+       "max_hp": 175,
+       "atk": 40
+      },
+      "tokenStats": {},
+      "trait": {
+       "attack@max_target": 2,
+       "attack@max_target_heal": 2,
+       "heal_scale": 0.75
+      },
+      "talents": {
+       "1": [
+        {
+         "elite": 2,
+         "level": 60,
+         "potential": 1,
+         "values": {
+          "heal_scale": 0.25,
+          "prob": 0.1,
+          "sp": 1
+         }
+        },
+        {
+         "elite": 2,
+         "level": 60,
+         "potential": 5,
+         "values": {
+          "heal_scale": 0.28,
+          "prob": 0.1,
+          "sp": 1
+         }
+        }
+       ]
+      }
+     },
+     {
+      "stats": {
+       "max_hp": 210,
+       "atk": 52
+      },
+      "tokenStats": {},
+      "trait": {
+       "attack@max_target": 2,
+       "attack@max_target_heal": 2,
+       "heal_scale": 0.75
+      },
+      "talents": {
+       "1": [
+        {
+         "elite": 2,
+         "level": 60,
+         "potential": 1,
+         "values": {
+          "heal_scale": 0.25,
+          "prob": 0.2,
+          "sp": 1
+         }
+        },
+        {
+         "elite": 2,
+         "level": 60,
+         "potential": 5,
+         "values": {
+          "heal_scale": 0.28,
+          "prob": 0.2,
+          "sp": 1
+         }
+        }
+       ]
+      }
+     }
+    ]
+   },
+   "alternateModule": null
+  },
+  {
+   "id": "susuro",
+   "name": "Sussurro",
+   "region": "EN",
+   "branch": "physician",
+   "rarity": 4,
+   "trust": 60,
+   "phases": [
+    {
+     "maxLevel": 45,
+     "start": 173,
+     "end": 284,
+     "interval": 2.85
+    },
+    {
+     "maxLevel": 60,
+     "start": 284,
+     "end": 395,
+     "interval": 2.85
+    },
+    {
+     "maxLevel": 70,
+     "start": 395,
+     "end": 488,
+     "interval": 2.85
+    }
+   ],
+   "potential": [
+    {
+     "COST": -1
+    },
+    {
+     "RESPAWN_TIME": -4
+    },
+    {
+     "ATK": 23
+    },
+    {},
+    {
+     "COST": -1
+    }
+   ],
+   "talents": [
+    [
+     {
+      "elite": 1,
+      "level": 1,
+      "potential": 1,
+      "values": {
+       "cost": 10,
+       "heal_scale": 1.1
+      }
+     },
+     {
+      "elite": 1,
+      "level": 1,
+      "potential": 5,
+      "values": {
+       "cost": 10,
+       "heal_scale": 1.13
+      }
+     },
+     {
+      "elite": 2,
+      "level": 1,
+      "potential": 1,
+      "values": {
+       "cost": 10,
+       "heal_scale": 1.2
+      }
+     },
+     {
+      "elite": 2,
+      "level": 1,
+      "potential": 5,
+      "values": {
+       "cost": 10,
+       "heal_scale": 1.23
+      }
+     }
+    ]
+   ],
+   "skills": [
+    {
+     "slot": 1,
+     "manual": true,
+     "token": null,
+     "name": "Healing Up β",
+     "elite": 0,
+     "ranks": [
+      {
+       "atk": 0.15,
+       "sp": 40,
+       "initialSp": 10,
+       "duration": 25
+      },
+      {
+       "atk": 0.2,
+       "sp": 40,
+       "initialSp": 10,
+       "duration": 25
+      },
+      {
+       "atk": 0.25,
+       "sp": 40,
+       "initialSp": 10,
+       "duration": 25
+      },
+      {
+       "atk": 0.3,
+       "sp": 35,
+       "initialSp": 10,
+       "duration": 25
+      },
+      {
+       "atk": 0.35,
+       "sp": 35,
+       "initialSp": 10,
+       "duration": 25
+      },
+      {
+       "atk": 0.4,
+       "sp": 35,
+       "initialSp": 10,
+       "duration": 25
+      },
+      {
+       "atk": 0.5,
+       "sp": 32,
+       "initialSp": 10,
+       "duration": 25
+      },
+      {
+       "atk": 0.55,
+       "sp": 32,
+       "initialSp": 10,
+       "duration": 25
+      },
+      {
+       "atk": 0.6,
+       "sp": 32,
+       "initialSp": 10,
+       "duration": 25
+      },
+      {
+       "atk": 0.7,
+       "sp": 30,
+       "initialSp": 10,
+       "duration": 25
+      }
+     ]
+    },
+    {
+     "slot": 2,
+     "manual": true,
+     "token": null,
+     "name": "Deep Healing",
+     "elite": 1,
+     "ranks": [
+      {
+       "atk": 0.4,
+       "attack_speed": 40,
+       "skill_max_trigger_time": 2,
+       "sp": 25,
+       "initialSp": 0,
+       "duration": 20
+      },
+      {
+       "atk": 0.45,
+       "attack_speed": 45,
+       "skill_max_trigger_time": 2,
+       "sp": 25,
+       "initialSp": 0,
+       "duration": 21
+      },
+      {
+       "atk": 0.5,
+       "attack_speed": 50,
+       "skill_max_trigger_time": 2,
+       "sp": 25,
+       "initialSp": 0,
+       "duration": 22
+      },
+      {
+       "atk": 0.55,
+       "attack_speed": 55,
+       "skill_max_trigger_time": 2,
+       "sp": 22,
+       "initialSp": 0,
+       "duration": 25
+      },
+      {
+       "atk": 0.6,
+       "attack_speed": 60,
+       "skill_max_trigger_time": 2,
+       "sp": 22,
+       "initialSp": 0,
+       "duration": 26
+      },
+      {
+       "atk": 0.65,
+       "attack_speed": 65,
+       "skill_max_trigger_time": 2,
+       "sp": 22,
+       "initialSp": 0,
+       "duration": 27
+      },
+      {
+       "atk": 0.7,
+       "attack_speed": 70,
+       "skill_max_trigger_time": 2,
+       "sp": 19,
+       "initialSp": 0,
+       "duration": 30
+      },
+      {
+       "atk": 0.8,
+       "attack_speed": 80,
+       "skill_max_trigger_time": 2,
+       "sp": 18,
+       "initialSp": 0,
+       "duration": 30
+      },
+      {
+       "atk": 0.9,
+       "attack_speed": 90,
+       "skill_max_trigger_time": 2,
+       "sp": 17,
+       "initialSp": 0,
+       "duration": 30
+      },
+      {
+       "atk": 1,
+       "attack_speed": 100,
+       "skill_max_trigger_time": 2,
+       "sp": 15,
+       "initialSp": 0,
+       "duration": 30
+      }
+     ]
+    }
+   ],
+   "module": {
+    "name": "PHY-X",
+    "level": 40,
+    "stages": [
+     {
+      "stats": {
+       "max_hp": 50,
+       "attack_speed": 3
+      },
+      "tokenStats": {},
+      "trait": {
+       "heal_scale": 1.15,
+       "hp_ratio": 0.5
+      },
+      "talents": {}
+     },
+     {
+      "stats": {
+       "max_hp": 80,
+       "attack_speed": 4
+      },
+      "tokenStats": {},
+      "trait": {
+       "heal_scale": 1.15,
+       "hp_ratio": 0.5
+      },
+      "talents": {
+       "0": [
+        {
+         "elite": 2,
+         "level": 40,
+         "potential": 1,
+         "values": {
+          "cost": 10,
+          "heal_scale": 1.23
+         }
+        },
+        {
+         "elite": 2,
+         "level": 40,
+         "potential": 5,
+         "values": {
+          "cost": 10,
+          "heal_scale": 1.26
+         }
+        }
+       ]
+      }
+     },
+     {
+      "stats": {
+       "max_hp": 100,
+       "attack_speed": 5
+      },
+      "tokenStats": {},
+      "trait": {
+       "heal_scale": 1.15,
+       "hp_ratio": 0.5
+      },
+      "talents": {
+       "0": [
+        {
+         "elite": 2,
+         "level": 40,
+         "potential": 1,
+         "values": {
+          "cost": 10,
+          "heal_scale": 1.25
+         }
+        },
+        {
+         "elite": 2,
+         "level": 40,
+         "potential": 5,
+         "values": {
+          "cost": 10,
+          "heal_scale": 1.28
+         }
+        }
+       ]
+      }
+     }
+    ]
+   },
+   "alternateModule": null
+  },
+  {
+   "id": "plosis",
+   "name": "Ptilopsis",
+   "region": "EN",
+   "branch": "ringhealer",
+   "rarity": 5,
+   "trust": 55,
+   "phases": [
+    {
+     "maxLevel": 50,
+     "start": 122,
+     "end": 198,
+     "interval": 2.85
+    },
+    {
+     "maxLevel": 70,
+     "start": 198,
+     "end": 268,
+     "interval": 2.85
+    },
+    {
+     "maxLevel": 80,
+     "start": 268,
+     "end": 335,
+     "interval": 2.85
+    }
+   ],
+   "potential": [
+    {
+     "COST": -1
+    },
+    {
+     "RESPAWN_TIME": -4
+    },
+    {
+     "ATK": 21
+    },
+    {
+     "RESPAWN_TIME": -6
+    },
+    {
+     "COST": -1
+    }
+   ],
+   "talents": [
+    [
+     {
+      "elite": 1,
+      "level": 1,
+      "potential": 1,
+      "values": {
+       "sp_recovery_per_sec": 0.15
+      }
+     },
+     {
+      "elite": 2,
+      "level": 1,
+      "potential": 1,
+      "values": {
+       "sp_recovery_per_sec": 0.3
+      }
+     }
+    ]
+   ],
+   "skills": [
+    {
+     "slot": 1,
+     "manual": true,
+     "token": null,
+     "name": "Healing Up γ",
+     "elite": 0,
+     "ranks": [
+      {
+       "atk": 0.4,
+       "sp": 40,
+       "initialSp": 20,
+       "duration": 30
+      },
+      {
+       "atk": 0.45,
+       "sp": 40,
+       "initialSp": 20,
+       "duration": 30
+      },
+      {
+       "atk": 0.5,
+       "sp": 40,
+       "initialSp": 20,
+       "duration": 30
+      },
+      {
+       "atk": 0.55,
+       "sp": 35,
+       "initialSp": 20,
+       "duration": 30
+      },
+      {
+       "atk": 0.6,
+       "sp": 35,
+       "initialSp": 20,
+       "duration": 30
+      },
+      {
+       "atk": 0.65,
+       "sp": 35,
+       "initialSp": 20,
+       "duration": 30
+      },
+      {
+       "atk": 0.7,
+       "sp": 32,
+       "initialSp": 20,
+       "duration": 30
+      },
+      {
+       "atk": 0.75,
+       "sp": 32,
+       "initialSp": 20,
+       "duration": 30
+      },
+      {
+       "atk": 0.8,
+       "sp": 32,
+       "initialSp": 20,
+       "duration": 30
+      },
+      {
+       "atk": 0.9,
+       "sp": 30,
+       "initialSp": 20,
+       "duration": 30
+      }
+     ]
+    },
+    {
+     "slot": 2,
+     "manual": true,
+     "token": null,
+     "name": "Enkephalin",
+     "elite": 1,
+     "ranks": [
+      {
+       "base_attack_time": -1.65,
+       "sp": 100,
+       "initialSp": 65,
+       "duration": 30
+      },
+      {
+       "base_attack_time": -1.65,
+       "sp": 100,
+       "initialSp": 65,
+       "duration": 31
+      },
+      {
+       "base_attack_time": -1.65,
+       "sp": 100,
+       "initialSp": 65,
+       "duration": 32
+      },
+      {
+       "base_attack_time": -1.8,
+       "sp": 100,
+       "initialSp": 70,
+       "duration": 33
+      },
+      {
+       "base_attack_time": -1.8,
+       "sp": 100,
+       "initialSp": 70,
+       "duration": 34
+      },
+      {
+       "base_attack_time": -1.8,
+       "sp": 100,
+       "initialSp": 70,
+       "duration": 35
+      },
+      {
+       "base_attack_time": -1.9,
+       "sp": 100,
+       "initialSp": 75,
+       "duration": 36
+      },
+      {
+       "base_attack_time": -1.9,
+       "sp": 100,
+       "initialSp": 78,
+       "duration": 37
+      },
+      {
+       "base_attack_time": -1.9,
+       "sp": 100,
+       "initialSp": 82,
+       "duration": 38
+      },
+      {
+       "base_attack_time": -2.1,
+       "sp": 100,
+       "initialSp": 85,
+       "duration": 40
+      }
+     ]
+    }
+   ],
+   "module": {
+    "name": "RIN-X",
+    "level": 50,
+    "stages": [
+     {
+      "stats": {
+       "max_hp": 60,
+       "atk": 30
+      },
+      "tokenStats": {},
+      "trait": {},
+      "talents": {
+       "-1": []
+      }
+     },
+     {
+      "stats": {
+       "max_hp": 80,
+       "atk": 40
+      },
+      "tokenStats": {},
+      "trait": {
+       "sp_recovery_per_sec": 0.3
+      },
+      "talents": {
+       "0": [
+        {
+         "elite": 2,
+         "level": 50,
+         "potential": 1,
+         "values": {
+          "sp_recovery_per_sec": 0.33
+         }
+        }
+       ],
+       "-1": [
+        {
+         "elite": 2,
+         "level": 50,
+         "potential": 1,
+         "values": {
+          "sp_recovery_per_sec": 0.3
+         }
+        }
+       ]
+      }
+     },
+     {
+      "stats": {
+       "max_hp": 100,
+       "atk": 47
+      },
+      "tokenStats": {},
+      "trait": {
+       "sp_recovery_per_sec": 0.3
+      },
+      "talents": {
+       "0": [
+        {
+         "elite": 2,
+         "level": 50,
+         "potential": 1,
+         "values": {
+          "sp_recovery_per_sec": 0.35
+         }
+        }
+       ],
+       "-1": [
+        {
+         "elite": 2,
+         "level": 50,
+         "potential": 1,
+         "values": {
+          "sp_recovery_per_sec": 0.3
+         }
+        }
+       ]
+      }
+     }
+    ]
+   },
+   "alternateModule": null
+  },
+  {
+   "id": "flower",
+   "name": "Perfumer",
+   "region": "EN",
+   "branch": "ringhealer",
+   "rarity": 4,
+   "trust": 25,
+   "phases": [
+    {
+     "maxLevel": 45,
+     "start": 117,
+     "end": 189,
+     "interval": 2.85
+    },
+    {
+     "maxLevel": 60,
+     "start": 189,
+     "end": 256,
+     "interval": 2.85
+    },
+    {
+     "maxLevel": 70,
+     "start": 256,
+     "end": 320,
+     "interval": 2.85
+    }
+   ],
+   "potential": [
+    {
+     "COST": -1
+    },
+    {
+     "RESPAWN_TIME": -4
+    },
+    {
+     "ATK": 19
+    },
+    {},
+    {
+     "COST": -1
+    }
+   ],
+   "talents": [
+    [
+     {
+      "elite": 1,
+      "level": 1,
+      "potential": 1,
+      "values": {
+       "atk_to_hp_recovery_ratio": 0.03
+      }
+     },
+     {
+      "elite": 1,
+      "level": 1,
+      "potential": 5,
+      "values": {
+       "atk_to_hp_recovery_ratio": 0.035
+      }
+     },
+     {
+      "elite": 2,
+      "level": 1,
+      "potential": 1,
+      "values": {
+       "atk_to_hp_recovery_ratio": 0.05
+      }
+     },
+     {
+      "elite": 2,
+      "level": 1,
+      "potential": 5,
+      "values": {
+       "atk_to_hp_recovery_ratio": 0.055
+      }
+     }
+    ]
+   ],
+   "skills": [
+    {
+     "slot": 1,
+     "manual": true,
+     "token": null,
+     "name": "Healing Up β",
+     "elite": 0,
+     "ranks": [
+      {
+       "atk": 0.15,
+       "sp": 40,
+       "initialSp": 10,
+       "duration": 25
+      },
+      {
+       "atk": 0.2,
+       "sp": 40,
+       "initialSp": 10,
+       "duration": 25
+      },
+      {
+       "atk": 0.25,
+       "sp": 40,
+       "initialSp": 10,
+       "duration": 25
+      },
+      {
+       "atk": 0.3,
+       "sp": 35,
+       "initialSp": 10,
+       "duration": 25
+      },
+      {
+       "atk": 0.35,
+       "sp": 35,
+       "initialSp": 10,
+       "duration": 25
+      },
+      {
+       "atk": 0.4,
+       "sp": 35,
+       "initialSp": 10,
+       "duration": 25
+      },
+      {
+       "atk": 0.5,
+       "sp": 32,
+       "initialSp": 10,
+       "duration": 25
+      },
+      {
+       "atk": 0.55,
+       "sp": 32,
+       "initialSp": 10,
+       "duration": 25
+      },
+      {
+       "atk": 0.6,
+       "sp": 32,
+       "initialSp": 10,
+       "duration": 25
+      },
+      {
+       "atk": 0.7,
+       "sp": 30,
+       "initialSp": 10,
+       "duration": 25
+      }
+     ]
+    },
+    {
+     "slot": 2,
+     "manual": true,
+     "token": null,
+     "name": "Fine Blending",
+     "elite": 1,
+     "ranks": [
+      {
+       "atk": 1.5,
+       "attack_speed": -50,
+       "sp": 60,
+       "initialSp": 20,
+       "duration": 30
+      },
+      {
+       "atk": 1.6,
+       "attack_speed": -50,
+       "sp": 60,
+       "initialSp": 20,
+       "duration": 30
+      },
+      {
+       "atk": 1.7,
+       "attack_speed": -50,
+       "sp": 60,
+       "initialSp": 20,
+       "duration": 30
+      },
+      {
+       "atk": 1.8,
+       "attack_speed": -50,
+       "sp": 60,
+       "initialSp": 20,
+       "duration": 30
+      },
+      {
+       "atk": 1.9,
+       "attack_speed": -50,
+       "sp": 60,
+       "initialSp": 20,
+       "duration": 30
+      },
+      {
+       "atk": 2,
+       "attack_speed": -50,
+       "sp": 60,
+       "initialSp": 20,
+       "duration": 30
+      },
+      {
+       "atk": 2.1,
+       "attack_speed": -50,
+       "sp": 60,
+       "initialSp": 20,
+       "duration": 30
+      },
+      {
+       "atk": 2.2,
+       "attack_speed": -50,
+       "sp": 60,
+       "initialSp": 20,
+       "duration": 30
+      },
+      {
+       "atk": 2.3,
+       "attack_speed": -50,
+       "sp": 60,
+       "initialSp": 20,
+       "duration": 30
+      },
+      {
+       "atk": 2.5,
+       "attack_speed": -50,
+       "sp": 60,
+       "initialSp": 20,
+       "duration": 30
+      }
+     ]
+    }
+   ],
+   "module": {
+    "name": "RIN-Y",
+    "level": 40,
+    "stages": [
+     {
+      "stats": {
+       "max_hp": 55,
+       "atk": 25
+      },
+      "tokenStats": {},
+      "trait": {
+       "attack@max_target": 4
+      },
+      "talents": {
+       "-1": [
+        {
+         "elite": 2,
+         "level": 40,
+         "potential": 1,
+         "values": {
+          "attack@max_target": 4
+         }
+        }
+       ]
+      }
+     },
+     {
+      "stats": {
+       "max_hp": 75,
+       "atk": 35
+      },
+      "tokenStats": {},
+      "trait": {
+       "attack@max_target": 4
+      },
+      "talents": {
+       "0": [
+        {
+         "elite": 2,
+         "level": 40,
+         "potential": 1,
+         "values": {
+          "atk_to_hp_recovery_ratio": 0.06
+         }
+        },
+        {
+         "elite": 2,
+         "level": 40,
+         "potential": 5,
+         "values": {
+          "atk_to_hp_recovery_ratio": 0.065
+         }
+        }
+       ],
+       "-1": [
+        {
+         "elite": 2,
+         "level": 40,
+         "potential": 1,
+         "values": {
+          "attack@max_target": 4
+         }
+        }
+       ]
+      }
+     },
+     {
+      "stats": {
+       "max_hp": 90,
+       "atk": 40
+      },
+      "tokenStats": {},
+      "trait": {
+       "attack@max_target": 4
+      },
+      "talents": {
+       "0": [
+        {
+         "elite": 2,
+         "level": 40,
+         "potential": 1,
+         "values": {
+          "atk_to_hp_recovery_ratio": 0.065
+         }
+        },
+        {
+         "elite": 2,
+         "level": 40,
+         "potential": 5,
+         "values": {
+          "atk_to_hp_recovery_ratio": 0.07
+         }
+        }
+       ],
+       "-1": [
+        {
+         "elite": 2,
+         "level": 40,
+         "potential": 1,
+         "values": {
+          "attack@max_target": 4
+         }
+        }
+       ]
+      }
+     }
+    ]
+   },
+   "alternateModule": null
   }
  ]
 }

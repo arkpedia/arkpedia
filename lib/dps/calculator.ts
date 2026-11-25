@@ -1,5 +1,6 @@
 import { elements, sourceAction } from './sources';
 import { additionalEffects } from './effects';
+import { healingAtkBonus, healingOutput } from './healing';
 
 type Values = Record<string, number>;
 interface Candidate {
@@ -15,6 +16,7 @@ export interface Profile {
   branch: string;
   rarity: number;
   trust: number;
+  healingTrait?: Values;
   phases: { maxLevel: number; start: number; end: number; interval: number }[];
   potential: Values[];
   talents: Candidate[][];
@@ -58,6 +60,11 @@ export interface Build {
   control: 'none' | 'one' | 'both';
   stacked: boolean;
   penetrationStacks?: number;
+  firstHealingCast?: boolean;
+  abyssalAlly?: boolean;
+  twoAlliesInRange?: boolean;
+  lowCostHealingTarget?: boolean;
+  healingTargetBelowHalf?: boolean;
 }
 export interface Target {
   def: number;
@@ -88,7 +95,7 @@ export function createBuild(p: Profile, id: number): Build {
     elite: p.phases.length - 1,
     level: p.phases.at(-1)!.maxLevel,
     potential: 1,
-    skill: ['phatm2', 'phatom'].includes(operator) ? 2 : (p.skills.at(-1)?.slot ?? 0),
+    skill: ['phatm2', 'phatom', 'skadi2', 'haruka'].includes(operator) ? 2 : (p.skills.at(-1)?.slot ?? 0),
     rank: [4, 7, 10][p.phases.length - 1],
     stage: ['mlyss', 'ifrit', 'logos', 'ebnhlz', 'thorns', 'vvana'].includes(operator) ? 3 : 0,
     tenacity: false,
@@ -121,12 +128,26 @@ export function buildLabel(b: Build) {
   return [
     'E' + b.elite + ' Lv ' + b.level,
     'P' + b.potential,
-    b.skill ? 'S' + b.skill + ' ' + rankLabel(b.rank) : 'Normal attack',
+    b.skill ? 'S' + b.skill + ' ' + rankLabel(b.rank) : defaultSource(b),
     b.stage ? selectedModule(b)!.name + b.stage : 'No module',
   ].join(' · ');
 }
+export function defaultSource(b: Build) {
+  if (b.operator === 'skadi2') return 'Regeneration aura';
+  if (['physician', 'ringhealer'].includes(profile(b).branch)) return 'Normal heal';
+  if (['yu', 'cairn', 'cello'].includes(b.operator)) return 'Talent aura';
+  return 'Normal attack';
+}
 export function buildConditions(b: Build) {
   switch (b.operator) {
+    case 'skadi2':
+      return [b.abyssalAlly && 'Abyssal Hunter in range', b.twoAlliesInRange && b.stage && !b.alternateModule && 'Two allies in range']
+        .filter(Boolean).join(' · ');
+    case 'haruka':
+      return b.skill === 2 ? (b.firstHealingCast ? 'First activation' : 'Second activation onward') : '';
+    case 'susuro':
+      return [b.lowCostHealingTarget && 'Ally costs 10 DP or less', b.healingTargetBelowHalf && b.stage && 'Ally below 50% HP']
+        .filter(Boolean).join(' · ');
     case 'hsgma2':
       return [
         b.tenacity ? 'Maximum Tenacity' : 'Minimum Tenacity',
@@ -218,7 +239,7 @@ export function calculate(build: Build, t: Target, priorBursts = 0) {
   const first = talent(0),
     second = talent(1);
   const skill = p.skills.find((s) => s.slot === b.skill)?.ranks[b.rank - 1] ?? {};
-  let buff = ['philae', 'deepcl', 'folivo', 'lasher'].includes(p.id) ? 0 : (skill.atk ?? 0);
+  let buff = ['philae', 'deepcl', 'folivo', 'lasher'].includes(p.id) ? 0 : healingAtkBonus(b, skill, second, mod?.trait ?? {});
   if (['skadi', 'graceb'].includes(p.id)) buff += first.atk ?? 0;
   if (p.id === 'phatom' && b.skill === 2) buff += (skill.times - 1) * skill.atk;
   if (p.id === 'phatom' && b.traitActive) buff += mod?.trait.atk ?? 0;
@@ -258,6 +279,7 @@ export function calculate(build: Build, t: Target, priorBursts = 0) {
     'mystic',
     'summoner',
     'artsfghter',
+    'blessing',
   ].includes(p.branch)
     ? 'Arts'
     : 'Physical';
@@ -342,6 +364,7 @@ export function calculate(build: Build, t: Target, priorBursts = 0) {
       injury: summon.injury / summon.ticks,
       name: 'Blood’s Whisper tick',
       cadence: skill.interval_damage,
+      unit: 'tick',
       note: 'Tick rate only during the summon’s active damage window. Redeployment and lure travel are excluded.',
     };
     splash = 0;
@@ -375,6 +398,7 @@ export function calculate(build: Build, t: Target, priorBursts = 0) {
       name: token.name + (oneUse ? ' activation' : usesOwner ? ' aura' : ' attack'),
       injury: 0,
       cadence: oneUse ? null : usesOwner ? skill.interval : tokenInterval,
+      unit: oneUse ? (p.id === 'otter' ? 'detonation' : 'activation') : usesOwner ? 'tick' : 'attack',
       note:
         'One summon. ' +
         (usesOwner ? 'Scales from the owner’s ATK.' : 'Uses the summon’s own level-scaled ATK.') +
@@ -395,7 +419,15 @@ export function calculate(build: Build, t: Target, priorBursts = 0) {
           Math.max(0.05, 1 - t.injuryRes / 100)
         : 0;
   }
-  const cadence = source ? source.cadence : interval;
+  const healing = healingOutput(b, atk, interval, skill, first, second, mod?.trait ?? {});
+  const healingOnly = healing?.hps != null;
+  if (healingOnly) {
+    components.Physical = 0;
+    components.Arts = 0;
+    components.True = 0;
+    components.Elemental = 0;
+  }
+  const cadence = healingOnly ? null : source ? source.cadence : interval;
   const damage = Object.values(components).reduce((sum, amount) => sum + amount, 0);
   return {
     base,
@@ -405,12 +437,15 @@ export function calculate(build: Build, t: Target, priorBursts = 0) {
     effects: additionalEffects(p.id, b.skill, atk, skill, first, mod?.trait ?? {}, t),
     interval: cadence,
     attackInterval: interval,
-    source: source?.name ?? (b.skill ? 'Skill attacks' : 'Normal attack'),
+    source: healingOnly ? (healing.direct ? 'Direct healing' : 'Regeneration aura') : source?.name ?? (b.skill ? 'Skill attacks' : 'Normal attack'),
+    damageUnit: source?.unit ?? 'attack',
     note: source?.note ?? '',
     element: elements[p.id],
     components,
     damage,
     dps: cadence ? damage / cadence : null,
+    healing,
+    hps: healing?.hps ?? null,
     injury,
     splash,
     injuryRate: cadence ? injury / cadence + periodic : null,

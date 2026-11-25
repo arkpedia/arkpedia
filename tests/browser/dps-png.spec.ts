@@ -4,7 +4,7 @@ import { readFile } from 'node:fs/promises';
 
 test('downloads the zoomed comparison as condensed and detailed PNGs', async ({ page }, info) => {
   await page.goto('/dps-calculator');
-  const empty = page.getByText('Add an operator to plot damage and compare builds.');
+  const empty = page.getByText('Add an operator to compare damage or healing.');
   await expect(empty).toBeVisible();
   await expect(page.getByRole('button', { name: 'Remove', exact: true })).toHaveCount(0);
   const search = page.getByRole('combobox', { name: 'Add operator' });
@@ -157,13 +157,13 @@ test('compares Virtuosa modules at the target independently of the probe', async
   await slider.press('End');
   expect(await results.innerText()).toBe(atTarget);
   await page.getByRole('combobox', { name: 'Measure', exact: true }).click();
-  await page.getByRole('option', { name: 'Injury / s', exact: true }).click();
+  await page.getByRole('option', { name: 'Injury per second', exact: true }).click();
   await expect(results).toContainText('injury/s vs #1');
   await cards.nth(1).getByRole('button', { name: 'Baseline', exact: true }).click();
   await expect(cards.nth(1).getByRole('button', { name: 'Baseline', exact: true })).toHaveAttribute('aria-pressed', 'true');
   await expect(results).toContainText('injury/s vs #2');
   await page.getByRole('button', { name: 'Duplicate' }).last().click();
-  await expect(page.getByRole('combobox', { name: 'Measure', exact: true })).toContainText('Injury / s');
+  await expect(page.getByRole('combobox', { name: 'Measure', exact: true })).toContainText('Injury per second');
 });
 
 test('defenses and chart choices follow the selected damage source', async ({ page }) => {
@@ -196,7 +196,7 @@ test('defenses and chart choices follow the selected damage source', async ({ pa
     await expect(jump).toBeHidden();
   }
   await page.getByRole('combobox', { name: 'Measure', exact: true }).click();
-  await expect(page.getByRole('option', { name: 'Injury / s', exact: true })).toHaveCount(0);
+  await expect(page.getByRole('option', { name: 'Injury per second', exact: true })).toHaveCount(0);
   await page.keyboard.press('Escape');
   await remove.click();
 
@@ -226,5 +226,69 @@ test('defenses and chart choices follow the selected damage source', async ({ pa
   await page.getByRole('combobox', { name: 'Active burst', exact: true }).click();
   await expect(page.getByRole('option', { name: 'Necrosis', exact: true })).toBeVisible();
   await expect(page.getByRole('option', { name: 'Burn', exact: true })).toHaveCount(0);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+});
+
+test('reports Skill DPS and distinguishes a volley from a skill cast', async ({ page }) => {
+  await page.goto('/dps-calculator');
+  const search = page.getByRole('combobox', { name: 'Add operator', exact: true });
+  const add = async (name: string) => {
+    await search.fill(name);
+    await page.getByRole('option', { name, exact: true }).click();
+  };
+  await add('Exusiai');
+  const measure = page.getByRole('combobox', { name: 'Measure', exact: true });
+  const results = page.getByRole('group', { name: 'Selected target results' });
+  await expect(measure).toContainText('Skill DPS');
+  await expect(results).toContainText(/\d DPS/);
+  await add('Skadi');
+  await expect(results).toContainText('DPS vs #1');
+  await page.getByRole('button', { name: 'Remove', exact: true }).last().click();
+  await measure.click();
+  await page.getByRole('option', { name: 'Damage per volley', exact: true }).click();
+  await expect(results).toContainText('damage per volley');
+  await add("Ch'en");
+  await expect(results).toContainText('damage per cast');
+  await expect(results.getByText(/vs #1/)).toHaveCount(0);
+  await page.getByText('Damage by type', { exact: true }).click();
+  await expect(page.getByText(/total damage per volley/)).toBeVisible();
+  await expect(page.getByText(/total damage per cast/)).toBeVisible();
+});
+
+test('compares direct healing and regeneration per ally', async ({ page }) => {
+  await page.goto('/dps-calculator');
+  const search = page.getByRole('combobox', { name: 'Add operator' });
+  const add = async (name: string) => {
+    await search.fill(name);
+    await page.getByRole('option', { name, exact: true }).click();
+  };
+  await add('Haruka');
+  const comparison = page.getByRole('group', { name: 'Selected target results' });
+  await expect(page.getByRole('heading', { name: 'Healing comparison' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Target', exact: true })).toHaveCount(0);
+  await expect(comparison).toContainText('One injured ally');
+  await expect(comparison).toContainText('351.09 HPS');
+  await page.getByRole('button', { name: 'Edit build', exact: true }).click();
+  await page.getByRole('combobox', { name: 'Skill activation', exact: true }).click();
+  await page.getByRole('option', { name: 'First activation', exact: true }).click();
+  await expect(comparison).toContainText('250.78 HPS');
+  await add('Skadi the Corrupting Heart');
+  await expect(comparison).toContainText('88.62 HPS');
+  const breakdown = page.getByRole('table').filter({ has: page.getByRole('columnheader', { name: 'HPS per ally' }) });
+  await expect(breakdown).toContainText('401.25 per heal');
+  await expect(breakdown.getByRole('row', { name: /Skadi the Corrupting Heart/ }).getByRole('cell').nth(1)).toHaveText('88.62');
+  await expect(breakdown).toContainText('133.75 per pop');
+  await page.getByRole('button', { name: 'Detailed PNG', exact: true }).click();
+  const png = page.getByRole('dialog', { name: 'Detailed PNG preview' });
+  await expect(png.getByRole('img')).toBeVisible();
+  await png.getByRole('button', { name: 'Close' }).click();
+
+  await add('Virtuosa');
+  await page.getByRole('button', { name: 'Elemental burst', exact: true }).click();
+  const measure = page.getByRole('combobox', { name: 'Measure', exact: true });
+  await measure.click();
+  await page.getByRole('option', { name: 'HPS', exact: true }).click();
+  await expect(comparison).toContainText('250.78 HPS');
+  await expect(page.getByRole('heading', { name: 'Healing comparison' })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
 });

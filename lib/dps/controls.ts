@@ -7,7 +7,7 @@ const hpAxes = [
 ] as const satisfies readonly [keyof Target, DamageType][];
 
 export type DefenseAxis = (typeof hpAxes)[number][0] | 'injuryRes';
-export type ChartMetric = 'dps' | 'damage' | 'injuryRate' | 'injury' | 'seconds' | 'repeat';
+export type ChartMetric = 'dps' | 'damage' | 'hps' | 'injuryRate' | 'injury' | 'seconds' | 'repeat';
 
 const unmitigated = { def: 0, res: 0, elementalRes: 0, injuryRes: 0 } as const;
 const opening = 'None';
@@ -43,11 +43,13 @@ export function chartControls(builds: Build[], target: Target, preferred?: Chart
   const burstTimeline = firstContact.some(result => result.injury > 0);
   const damage = current.some(result => result.damage > 0);
   const rate = current.some(result => (result.dps ?? 0) > 0);
+  const healing = current.some(result => result.hps !== null);
   const injury = current.some(result => result.injury > 0);
   const injuryRate = current.some(result => (result.injuryRate ?? 0) > 0);
   const metrics: ChartMetric[] = [];
   if (rate) metrics.push('dps');
   if (damage) metrics.push('damage');
+  if (healing) metrics.push('hps');
   if (injuryRate) metrics.push('injuryRate');
   if (injury) metrics.push('injury');
   if (burstTimeline) metrics.push('seconds', 'repeat');
@@ -56,11 +58,13 @@ export function chartControls(builds: Build[], target: Target, preferred?: Chart
   const singleAction = current.some(result => result.damage > 0 && result.interval === null);
   const defaultMetric = damage
     ? singleAction || !rate ? 'damage' : 'dps'
-    : burstTimeline && (injuryRate || !injury) ? 'seconds' : injury ? 'injury' : metrics[0];
+    : burstTimeline && (injuryRate || !injury) ? 'seconds' : injury ? 'injury' : healing ? 'hps' : metrics[0];
   const metric = preferred && metrics.includes(preferred) ? preferred : defaultMetric;
 
   let axes: DefenseAxis[];
-  if (metric === 'damage' || metric === 'dps') {
+  if (metric === 'hps') {
+    axes = [];
+  } else if (metric === 'damage' || metric === 'dps') {
     axes = hpAxes.map(([axis, component]) => ({
       axis,
       amount: current.reduce((sum, result) => sum + (metric === 'damage'

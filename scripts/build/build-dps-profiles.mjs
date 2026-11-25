@@ -71,6 +71,11 @@ async function generateProfiles() {
     char_499_kaitou: [1, 2],
     char_002_amiya: [1, 3],
     char_208_melan: [1],
+    char_1012_skadi2: [1, 2, 3],
+    char_4202_haruka: [1, 2, 3],
+    char_298_susuro: [1, 2],
+    char_128_plosis: [1, 2],
+    char_181_flower: [1, 2],
   };
   const rows = (value) => (Array.isArray(value) ? value : []);
   const board = (entries) => Object.fromEntries(entries.map(({ key, value }) => [key, value]));
@@ -179,6 +184,9 @@ async function generateProfiles() {
       branch: c.subProfessionId,
       rarity: Number(c.rarity.slice(-1)),
       trust: c.favorKeyFrames.at(-1).data.atk,
+      ...(['skadi2', 'haruka'].includes(short) && {
+        healingTrait: board(c.trait.candidates[0].blackboard),
+      }),
       phases: c.phases.map(({ maxLevel, attributesKeyFrames: frames }) => ({
         maxLevel,
         start: frames[0].data.atk,
@@ -212,7 +220,7 @@ async function generateProfiles() {
         };
       }),
       module: readModule(moduleId),
-      alternateModule: ['angel', 'skadi', 'phatom'].includes(short) ? readModule('uniequip_003_' + short) : null,
+      alternateModule: ['angel', 'skadi', 'phatom', 'skadi2'].includes(short) ? readModule('uniequip_003_' + short) : null,
     };
   });
   await writeFile('config/dps-profiles.json', JSON.stringify({ source, operators }, null, 1) + '\n');

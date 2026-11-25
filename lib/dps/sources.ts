@@ -1,5 +1,7 @@
 import { mitigate, type DamageType, type Target } from './calculator';
 type Values = Record<string, number>;
+export type DamageUnit = 'attack' | 'volley' | 'tick' | 'pulse' | 'wave' | 'cast'
+  | 'activation' | 'detonation' | 'retaliation' | 'stack' | 'trigger' | 'deployment';
 export interface SourceInputs {
   id: string;
   slot: number;
@@ -45,6 +47,7 @@ export function sourceAction({
   parts: Record<DamageType, number>;
   injury: number;
   cadence: number | null;
+  unit: DamageUnit;
   name: string;
   note: string;
 } | null {
@@ -56,18 +59,21 @@ export function sourceAction({
     name = 'Normal attack';
   let note = '',
     focus = false;
+  let unit: DamageUnit = 'attack';
   let injuryAmp = 1;
   const amount = (type: DamageType, scale: number) => mitigate(atk * scale, type, t);
   const hit = (type: DamageType, scale = 1, count = 1) => {
     parts[type] += amount(type, scale) * count;
   };
   const art = () => hit('Arts');
-  const trigger = (label: string) => {
+  const trigger = (label: string, damageUnit: DamageUnit) => {
     name = label;
+    unit = damageUnit;
     cadence = null;
   };
-  const field = (label: string, period: number) => {
+  const field = (label: string, period: number, damageUnit: 'tick' | 'pulse' | 'wave' = 'tick') => {
     name = label;
+    unit = damageUnit;
     cadence = period;
   };
   if (['threye', 'bobb', 'botany', 'cello'].includes(id) && t.tier !== 'Grunt')
@@ -97,7 +103,7 @@ export function sourceAction({
       hit('Physical', scale, slot === 0 ? 2 : (s.times ?? 1));
       if (slot === 2) hit('Arts', scale);
       if (slot) {
-        trigger(['', 'Sheathed Strike', 'Chi Xiao · Unsheath', 'Chi Xiao · Shadowless'][slot]);
+        trigger(['', 'Sheathed Strike', 'Chi Xiao · Unsheath', 'Chi Xiao · Shadowless'][slot], 'cast');
         parts.Physical *= m.damage_scale ?? 1;
         parts.Arts *= m.damage_scale ?? 1;
       }
@@ -109,8 +115,11 @@ export function sourceAction({
       const scale = (s['attack@atk_scale'] ?? s.atk_scale ?? 1) * (traitActive ? (m.atk_scale ?? 1) : 1);
       const ignore = (a.def_penetrate_fixed ?? 0) * Math.min(penetrationStacks, a.max_stack_cnt ?? 0);
       parts.Physical = shots * mitigate(atk * scale, 'Physical', { ...t, def: Math.max(0, t.def - ignore) });
-      if (slot) name = shots + '-shot volley';
-      if (slot === 1) trigger('Charged three-shot volley');
+      if (slot) {
+        name = shots + '-shot volley';
+        unit = 'volley';
+      }
+      if (slot === 1) trigger('Charged three-shot volley', 'volley');
       note = 'Each shot is mitigated separately.' + (slot === 1 ? ' One charged attack.' : '');
       break;
     }
@@ -122,7 +131,7 @@ export function sourceAction({
         'During the deployment talent window. Outside it the robot loses the fixed injury and fragility.';
       break;
     case 'caledo':
-      if (slot === 1) trigger('Charged strike');
+      if (slot === 1) trigger('Charged strike', 'attack');
       hit('Physical', s.atk_scale ?? 1);
       rawInjury = atk * (s.ep_damage_ratio && slot === 1 ? s.ep_damage_ratio : s['attack@ep_damage_ratio']);
       injuryAmp *= m.ep_damage_scale ?? 1;
@@ -130,7 +139,7 @@ export function sourceAction({
       break;
     case 'graceb':
       if (slot === 2) {
-        trigger('Charged triple strike');
+        trigger('Charged triple strike', 'attack');
         hit(bursting ? 'Elemental' : 'Physical', s.atk_scale, 3);
         break;
       }
@@ -146,7 +155,7 @@ export function sourceAction({
       if (id === 'nymph' && slot === 3) {
         hit(bursting ? 'Elemental' : 'Arts');
       } else if (id === 'nymph' && slot === 2) {
-        trigger('Primary and splash hits');
+        trigger('Primary and splash hits', 'cast');
         hit('Arts', s.atk_scale, 2);
         rawInjury = parts.Arts * s.ep_damage_ratio;
       } else if (id === 'christ' && slot === 2) {
@@ -165,7 +174,7 @@ export function sourceAction({
       note = 'Direct attack or spirit only. Burst-entry talents and ongoing fallout are separate events.';
       break;
     case 'philae':
-      trigger('Retaliation');
+      trigger('Retaliation', 'retaliation');
       hit('Arts', s.atk_scale);
       rawInjury = atk * s.ep_damage_ratio;
       note =
@@ -175,7 +184,7 @@ export function sourceAction({
       injuryAmp *= m.ep_damage_scale ?? 1;
       break;
     case 'tanya':
-      trigger('Cracking Dam stack');
+      trigger('Cracking Dam stack', 'stack');
       rawInjury = atk * s.ep_damage_ratio;
       injuryAmp *= m.ep_damage_scale ?? 1;
       note = 'Consumes one stored stack when struck while blocking.';
@@ -184,7 +193,7 @@ export function sourceAction({
     case 'bobb':
     case 'botany':
       if (slot === 1) {
-        trigger('Empowered attack');
+        trigger('Empowered attack', 'attack');
         hit('Arts', s.atk_scale);
         rawInjury = atk * s.ep_damage_ratio;
         if (id === 'botany' && !bursting) {
@@ -215,6 +224,12 @@ export function sourceAction({
       rawInjury = parts.Physical * (m.ep_damage_ratio ?? 0);
       note = 'Muelsyse herself. The copied operator determines Flowing Shape’s damage.';
       break;
+    case 'skadi2':
+      if (slot !== 3) return null;
+      field('True damage aura', 1);
+      hit('True', s.atk_scale);
+      note = 'One aura on one enemy. The Seaborn can add a second overlapping damage aura.';
+      break;
     case 'ifrit': {
       const arts = mitigate(atk, 'Arts', { ...t, res: Math.max(0, t.res * (1 + (a.magic_resistance ?? 0))) });
       parts.Arts = arts;
@@ -230,7 +245,7 @@ export function sourceAction({
       break;
     }
     case 'ebnhlz':
-      trigger('Old Day Remnant');
+      trigger('Old Day Remnant', 'detonation');
       hit('Arts', s.atk_scale);
       rawInjury = parts.Arts * (m.ep_damage_ratio ?? 0);
       note = 'One remnant detonation. Placement and stored charges determine how many connect.';
@@ -249,14 +264,14 @@ export function sourceAction({
         note = 'One field on one target, excluding direct attacks.';
         break;
       }
-      field('Ally-centred pulse', s.interval);
+      field('Ally-centred pulse', s.interval, 'pulse');
       hit('Arts', s.atk_scale);
       rawInjury = parts.Arts * s.element_multiplier;
       note = 'One target beside the chosen ally. Excludes the separate talent hit on burst entry.';
       break;
     case 'mantra':
       if (slot === 3) {
-        trigger('Paralysis overflow');
+        trigger('Paralysis overflow', 'trigger');
         hit('Elemental', s.atk_scale);
         note = 'One excess stack on the target. Requires gaining Paralysis above the skill limit.';
         break;
@@ -273,7 +288,7 @@ export function sourceAction({
         note = 'One target, before jumps.';
         break;
       }
-      trigger('Resonance Collapse');
+      trigger('Resonance Collapse', 'cast');
       hit('Arts', s.atk_scale);
       rawInjury = parts.Arts * s.ep_damage_ratio;
       if (bursting) {
@@ -285,7 +300,7 @@ export function sourceAction({
     case 'cello':
       injuryAmp *= 1 + ((b.ep_damage_scale ?? 1) - 1) * (s.scale_delta_to_one ?? 1);
       if (slot === 1) {
-        trigger('Golden Ecstasy');
+        trigger('Golden Ecstasy', 'cast');
         if (locked) {
           note = 'The charge is held while the target is in fallout.';
           break;
@@ -311,7 +326,7 @@ export function sourceAction({
     case 'yu':
       injuryAmp *= m.ep_damage_scale ?? 1;
       if (slot) {
-        trigger('Retaliation');
+        trigger('Retaliation', 'retaliation');
         rawInjury = atk * s.ep_damage_ratio;
       } else {
         field('Blocked enemy aura', a['yu_t_1[enemy].interval'] ?? 1);
@@ -340,12 +355,12 @@ export function sourceAction({
       parts.Arts *= 1 + (a.damage_scale_m ?? 0) * factor;
       rawInjury = parts.Arts * (a.ep_damage_ratio_m ?? 0) * factor;
       if (bursting) hit('Elemental', m.ep_damage_ratio ?? 0, slot ? 2 : 1);
-      note = 'First skill activation.';
+      if (slot) note = 'One attack during the first skill activation.';
       break;
     }
     case 'oxi':
       if (slot) {
-        field('Fire wave', s.normal_interval);
+        field('Fire wave', s.normal_interval, 'wave');
         hit(bursting ? 'Elemental' : 'Arts', s.heatwave_atk_scale);
       } else art();
       rawInjury = parts.Arts * (a.ep_damage_ratio ?? 0);
@@ -363,21 +378,21 @@ export function sourceAction({
       note = 'Unenhanced hit. Burst-triggered ammunition is a separate event.';
       break;
     case 'cairn':
-      field(slot ? 'S2 pulse' : 'Blocked enemy aura', 1);
+      field(slot ? 'S2 pulse' : 'Blocked enemy aura', 1, slot ? 'pulse' : 'tick');
       injuryAmp *= m.ep_damage_scale ?? 1;
       if (slot) hit('Arts', s.atk_scale);
       rawInjury = atk * (slot ? s.ep_damage_ratio : (a.ep_damage_ratio ?? 0));
       note = 'Target is blocked. S2 pulse and talent aura shown individually.';
       break;
     case 'ela':
-      trigger('Grzmot Mine');
+      trigger('Grzmot Mine', 'trigger');
       note = 'Applies crowd control or Fragile. The mine itself deals zero HP damage.';
       break;
     case 'rfrost':
     case 'wulfen':
     case 'doroth':
     case 'robin':
-      trigger('Trap detonation');
+      trigger('Trap detonation', 'trigger');
       {
         const target =
           (id === 'doroth' && slot === 1) || (id === 'wulfen' && slot === 2)
@@ -401,16 +416,16 @@ export function sourceAction({
       }
       break;
     case 'svash2':
-      trigger('Countergambit cast');
+      trigger('Countergambit cast', 'cast');
       hit('Physical', s.atk_scale);
       break;
     case 'phatom':
       if (slot === 2) {
-        trigger('Bloody Opus opening attack');
+        trigger('Bloody Opus opening attack', 'attack');
         hit('Physical');
         note = 'Full charges on deployment. Each of Phantom’s own attacks spends one charge.';
       } else {
-        trigger('Night Raid on deploy');
+        trigger('Night Raid on deploy', 'deployment');
         hit('Physical', s.atk_scale);
       }
       break;
@@ -423,6 +438,7 @@ export function sourceAction({
         parts,
         injury: locked ? 0 : rawInjury * injuryAmp * Math.max(0.05, 1 - t.injuryRes / 100),
         cadence,
+        unit,
         name,
         note,
       };

@@ -6,6 +6,14 @@ The response curve varies one relevant defense. Auto chooses DEF for physical da
 
 Chart settings let you set the axis maximum, zoom vertically and reset an independent probe to the target. Vertical zoom follows the probe. When the values span more than the zoom window, the baseline anchors it if it has a value. Both PNG buttons preview the selected chart and save the same rendered file. The table gives HP loss and elemental injury separately. Selecting a row reveals which attack, tick or activation the values represent. Single activations have no sustained DPS. The damage composition chart uses a common absolute scale across builds.
 
+Damage labels describe the actual unit each build uses. Exusiai’s volley includes all its shots, Ch’en’s S2 reports one cast, and Blood’s Whisper can report one tick or the full summon where labeled. Skill DPS averages the selected repeating damage during the active window. The damage table uses the same units as the chart and PNG.
+
+## Healing comparison
+
+HPS measures healing per second for one ally with missing HP while the selected source is active. It adds direct healing per heal divided by its interval to passive regeneration per second. The breakdown shows how many allies a direct heal can reach and lists triggered heals separately. A comparison with only healing sources opens on HPS automatically. In a mixed comparison, choose HPS in Measure.
+
+Reviewed healing builds include Skadi the Corrupting Heart, Haruka, Sussurro, Ptilopsis and Perfumer. Skadi’s regeneration assumes the ally is in her or her Seaborn’s range and counts their shared aura once. Haruka S2 defaults to its second activation, when its ATK bonus and unlimited duration apply. Select First activation to compare its initial cast. Bubble pops depend on incoming hits and are shown per pop. Haruka S2’s follow-up damage depends on the actual HP restored and is outside this comparison. Coefficients come from the [pinned game skill table](https://github.com/ArknightsAssets/ArknightsGamedata/blob/e0cd8f274ffbcf57ed0b0684cb681620478ffe0e/en/gamedata/excel/skill_table.json).
+
 ## Calculation order
 
 1. Read the operator and deployable stat curves, promotion gates, potentials, skill ranks, module stages and talent upgrades from the pinned EN and CN game tables. Interpolate within the selected promotion, then add trust, potential and module stats. Builds use full trust.

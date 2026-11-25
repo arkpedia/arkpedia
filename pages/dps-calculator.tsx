@@ -10,6 +10,7 @@ import {
   buildLabel,
   calculate,
   createBuild as buildFromProfile,
+  defaultSource,
   type Profile,
   normalize,
   profile,
@@ -26,6 +27,7 @@ import BuildSearch from '@/components/dps/BuildSearch';
 import type { EnemyPreset, EnemyLevel } from '@/lib/dps/enemyTargets';
 import { deploymentSequence } from '@/lib/dps/deployment';
 import { targetControls } from '@/lib/dps/controls';
+import { damageBasis, dpsLabel } from '@/lib/dps/damageLabels';
 import css from '@/components/dps/Dps.module.css';
 
 const range = (min: number, max: number) => Array.from({ length: max - min + 1 }, (_, i) => min + i);
@@ -63,7 +65,8 @@ const cnSkills: Record<string, string[]> = {
   clemnt: ['', 'Whirlpool', 'Ammunition'],
   oxi: ['', '', 'Fire waves'],
 };
-const allowsNormal = (p: Profile) => baseline.has(p.id) || !p.skills.length;
+const healingProfile = (p: Profile) => !!p.healingTrait || ['physician', 'ringhealer'].includes(p.branch);
+const allowsNormal = (p: Profile) => baseline.has(p.id) || !p.skills.length || healingProfile(p);
 function updateBuild(b: Build, changes: Partial<Build>) {
   const p = profile(b);
   const next = { ...b, ...changes };
@@ -83,9 +86,10 @@ function DamageSource({ b, update }: { b: Build; update: (v: Build) => void }) {
   if (allowsNormal(p))
     options.unshift({
       value: '0',
-      label: ['yu', 'cairn', 'cello'].includes(p.id) ? 'Talent aura' : 'Normal attack',
+      label: defaultSource(b),
     });
-  return <Pick label="Damage source" value={b.skill} options={options} change={v => update(updateBuild(b, { skill: +v }))} />;
+  return <Pick label={healingProfile(p) ? 'Source' : 'Damage source'} value={b.skill} options={options}
+    change={v => update(updateBuild(b, { skill: +v }))} />;
 }
 function Editor({ b, update, hideSource }: { b: Build; update: (v: Build) => void; hideSource?: boolean }) {
   const p = profile(b);
@@ -168,7 +172,25 @@ function Editor({ b, update, hideSource }: { b: Build; update: (v: Build) => voi
             change={(v) => set({ control: v as Build['control'] })}
           />
         )}
+        {p.id === 'haruka' && b.skill === 2 && (
+          <Pick label="Skill activation" value={b.firstHealingCast ? 'first' : 'later'}
+            options={[{ label: 'First activation', value: 'first' }, { label: 'Second activation onward', value: 'later' }]}
+            change={value => set({ firstHealingCast: value === 'first' })} />
+        )}
       </div>
+      {p.id === 'skadi2' && (
+        <>
+          {toggle('Abyssal Hunter in range', !!b.abyssalAlly, value => set({ abyssalAlly: value }))}
+          {b.stage > 0 && !b.alternateModule && toggle('Two or more other allies in range', !!b.twoAlliesInRange,
+            value => set({ twoAlliesInRange: value }))}
+        </>
+      )}
+      {p.id === 'susuro' && (
+        <>
+          {b.elite > 0 && toggle('Ally costs 10 DP or less', !!b.lowCostHealingTarget, value => set({ lowCostHealingTarget: value }))}
+          {b.stage > 0 && toggle('Ally below 50% HP', !!b.healingTargetBelowHalf, value => set({ healingTargetBelowHalf: value }))}
+        </>
+      )}
       {p.id === 'phatm2' &&
         b.skill === 2 &&
         toggle('Plot Blood’s Whisper ticks', b.plotSummon, (v) => set({ plotSummon: v }))}
@@ -212,27 +234,27 @@ function BuildDetails({ b, target }: { b: Build; target: Target }) {
   return (
     <div className={css.breakdown}>
       <p>
-        {r.source} · {r.interval ? fmt(r.interval) + ' s between actions' : 'Single activation'} ·{' '}
-        {fmt(r.sourceAtk)} source ATK
+        {r.source} · {fmt(r.sourceAtk)} source ATK
+        {r.interval !== null && <> · repeats every {fmt(r.interval)} s</>}
       </p>
       <dl>
         {Object.entries(r.components)
           .filter(([, v]) => v > 0)
           .map(([key, v]) => (
             <div key={key}>
-              <dt>{key} HP damage</dt>
+              <dt>{key} damage {damageBasis(r)}</dt>
               <dd>{fmt(v)}</dd>
             </div>
           ))}
         {r.element && (
           <div>
-            <dt>{r.element} / action</dt>
+            <dt>{r.element} buildup {damageBasis(r)}</dt>
             <dd>{fmt(r.injury)}</dd>
           </div>
         )}
         {r.splash > 0 && (
           <div>
-            <dt>Adjacent target injury / action</dt>
+            <dt>Adjacent target injury {damageBasis(r)}</dt>
             <dd>{fmt(r.splash)}</dd>
           </div>
         )}
@@ -253,9 +275,9 @@ function BuildDetails({ b, target }: { b: Build; target: Target }) {
         )}
         {r.summon && (
           <div>
-            <dt>Blood’s Whisper · {r.summon.ticks} ticks</dt>
+            <dt>Blood’s Whisper · full summon ({r.summon.ticks} ticks)</dt>
             <dd>
-              {fmt(r.summon.damage)} Arts · {fmt(r.summon.injury)} potential injury
+              {fmt(r.summon.damage)} Arts damage · {fmt(r.summon.injury)} potential injury
             </dd>
           </div>
         )}
@@ -271,7 +293,7 @@ function BuildDetails({ b, target }: { b: Build; target: Target }) {
           <div>
             <dt>Enemy fallout · 15 s</dt>
             <dd>
-              Ramps to 2,110 elemental HP/s before resistance. Ramp damage is outside the action totals.
+              Ramps to 2,110 elemental damage per second before resistance.
             </dd>
           </div>
         )}
@@ -298,16 +320,18 @@ function DamageComposition({ builds, target }: { builds: Build[]; target: Target
     True: 'var(--text-bright)',
     Elemental: 'var(--teal)',
   };
-  const rows = builds.map((b) => ({ b, result: calculate(b, target) }));
+  const rows = builds.map((b, index) => ({ b, index, result: calculate(b, target) }))
+    .filter(({ result }) => result.hps === null || result.damage > 0);
   const max = Math.max(1, ...rows.map((row) => row.result.damage));
   return (
     <details className={css.panel}>
-      <summary>Damage by type · HP per action</summary>
-      {rows.map(({ b, result }, index) => (
+      <summary>Damage by type</summary>
+      {rows.map(({ b, result, index }) => (
         <div key={b.id} className={css.composition}>
           <strong>
             #{index + 1} {profile(b).name}
           </strong>
+          <small>{fmt(result.damage)} total damage {damageBasis(result)} · {result.source}</small>
           <div className={css.bar} aria-hidden="true">
             {Object.entries(palette).map(([type, background]) => (
               <i
@@ -319,17 +343,65 @@ function DamageComposition({ builds, target }: { builds: Build[]; target: Target
               />
             ))}
           </div>
-          <small>
+          {result.damage > 0 && <small>
             {Object.entries(result.components)
               .filter(([, v]) => v > 0)
-              .map(([type, v]) => type + ' ' + fmt(v))
-              .join(' · ') || '0 HP damage'}
-          </small>
+              .map(([type, v]) => fmt(v) + ' ' + type.toLowerCase())
+              .join(' · ')}
+          </small>}
         </div>
       ))}
     </details>
   );
 }
+
+function HealingBreakdown({ builds, results }: { builds: Build[]; results: ReturnType<typeof calculate>[] }) {
+  const rows = results.flatMap((result, index) => result.healing ? [{ healing: result.healing, index }] : []);
+  if (!rows.length) return null;
+  return (
+    <section className={css.panel}>
+      <h2 className="section-title">Healing breakdown</h2>
+      <div className={`${css.scroll} sidescroll`}>
+        <table>
+          <thead>
+            <tr><th>Build</th><th>Direct heal</th><th>Regen per second</th><th>HPS per ally</th></tr>
+          </thead>
+          <tbody>
+            {rows.map(({ healing, index }) => {
+              const b = builds[index];
+              return (
+                <Fragment key={b.id}>
+                  <tr className={healing.note || healing.conditional ? css.healingWithNotes : undefined}>
+                    <th scope="row">#{index + 1} {profile(b).name} {b.skill ? 'S' + b.skill : ''}</th>
+                    <td>
+                      {healing.direct ? <>
+                        {fmt(healing.direct.amount)} per heal
+                        <small>Every {fmt(healing.direct.interval)} s · up to {healing.direct.targets} {healing.direct.targets === 1 ? 'ally' : 'allies'}</small>
+                      </> : '—'}
+                    </td>
+                    <td>{healing.regeneration ? fmt(healing.regeneration) : '—'}</td>
+                    <td>{healing.hps === null ? '—' : fmt(healing.hps)}</td>
+                  </tr>
+                  {(healing.note || healing.conditional) && (
+                    <tr>
+                      <td colSpan={4}>
+                        {healing.note && <small>{healing.note}</small>}
+                        {healing.conditional && (
+                          <small>{healing.conditional.label} · {fmt(healing.conditional.amount)} per pop</small>
+                        )}
+                      </td>
+                    </tr>
+                  )}
+                </Fragment>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  );
+}
+
 function Deployment({
   builds,
   target,
@@ -593,6 +665,7 @@ export default function DpsCalculator({
   const baselineId = builds.some(build => build.id === baselineChoice) ? baselineChoice! : builds[0]?.id;
   const targetName = enemy ? [enemy.name, enemy.code, 'Lv ' + level].filter(Boolean).join(' · ') : 'Custom target';
   const targetResults = useMemo(() => builds.map(build => calculate(build, target)), [builds, target]);
+  const hasDamageSource = targetResults.some(result => result.hps === null || result.damage > 0);
   const openingResults = useMemo(() => target.burst === 'None'
     ? targetResults : builds.map(build => calculate(build, { ...target, burst: 'None' })), [builds, target, targetResults]);
   const hasBuildup = (result: (typeof openingResults)[number]) =>
@@ -621,7 +694,7 @@ export default function DpsCalculator({
       <PageMeta
         title="DPS Calculator"
         path="/dps-calculator"
-        description="Compare operator builds, damage curves and elemental burst breakpoints."
+        description="Compare operator damage, healing per second and elemental burst timing."
       />
       <PageHeader title="DPS Calculator" eyebrow="Tools // Combat analysis" slim />
       <main className={css.page}>
@@ -687,7 +760,7 @@ export default function DpsCalculator({
                 </article>
               ))}
             </section>
-            <section className={css.panel}>
+            {(!builds.length || hasDamageSource) && <section className={css.panel}>
               <div className={css.heading}>
                 <h2 className="section-title">Target</h2>
                 <strong>
@@ -776,13 +849,13 @@ export default function DpsCalculator({
                   Reset target
                 </button>
               )}
-            </section>
+            </section>}
           </div>
           <div className={css.right}>
             {!builds.length ? (
               <section className={css.panel}>
                 <h2 className="section-title">Build comparison</h2>
-                <p>Add an operator to plot damage and compare builds.</p>
+                <p>Add an operator to compare damage or healing.</p>
               </section>
             ) : (
               <>
@@ -793,21 +866,22 @@ export default function DpsCalculator({
                   target={target}
                   baselineId={baselineId}
                 />
-                <section className={css.panel}>
+                {hasDamageSource && <section className={css.panel}>
                   <h2 className="section-title">Damage breakdown</h2>
                   <div className={css.scroll}>
                     <table>
                       <thead>
                         <tr>
-                          <th>Build / source</th>
-                          <th>HP / action</th>
-                          <th>HP / s</th>
-                          {capabilities.buildup && <><th>Injury / action</th><th>Injury / s</th></>}
+                          <th>Build and damage source</th>
+                          <th>Damage</th>
+                          <th>{dpsLabel(builds)}</th>
+                          {capabilities.buildup && <><th>Injury buildup</th><th>Injury per second</th></>}
                         </tr>
                       </thead>
                       <tbody>
                         {builds.map((b, index) => {
                           const r = targetResults[index];
+                          if (r.hps !== null && r.damage === 0) return null;
                           return (
                             <tr key={b.id}>
                               <th>
@@ -818,9 +892,11 @@ export default function DpsCalculator({
                                   <BuildDetails b={b} target={target} />
                                 </details>
                               </th>
-                              <td>{fmt(r.damage)}</td>
+                              <td>{fmt(r.damage)}<small>{damageBasis(r)}</small></td>
                               <td>{fmt(r.dps)}</td>
-                              {capabilities.buildup && <><td>{fmt(r.injury)}</td><td>{fmt(r.injuryRate)}</td></>}
+                              {capabilities.buildup && <>
+                                <td>{fmt(r.injury)}<small>{damageBasis(r)}</small></td><td>{fmt(r.injuryRate)}</td>
+                              </>}
                             </tr>
                           );
                         })}
@@ -828,10 +904,11 @@ export default function DpsCalculator({
                     </table>
                   </div>
                   <small>
-                    Single target. Rates describe the selected action while active. One-off triggers show damage
-                    per use.
+                    Damage sums all modeled hits in the listed attack, tick or use against one enemy.
+                    DPS averages repeating damage while the source is active. A single cast or trigger shows its damage total.
                   </small>
-                </section>
+                </section>}
+                <HealingBreakdown builds={builds} results={targetResults} />
               </>
             )}
           </div>
@@ -871,7 +948,7 @@ export default function DpsCalculator({
                     const eliteScale = equipped?.name === 'RIT-X'
                       ? equipped.stages[b.stage - 1]?.trait.ep_damage_scale
                       : undefined;
-                    const amountLabel = action.empowered ? 'cycle average / action' : 'per action';
+                    const amountLabel = damageBasis(action);
                     const sources: ('build' | 'summon')[] =
                       action.summon && !b.plotSummon ? ['build', 'summon'] : ['build'];
                     return sources.map((source) => (
@@ -910,7 +987,7 @@ export default function DpsCalculator({
                             <td key={tier}>
                               {r.count ? r.count + ' ' + r.unit : r.limited ? 'Below threshold' : '—'}
                               <small>
-                                {fmt(r.amount)} injury{r.summon ? ' / summon' : action.empowered ? ' / action (cycle average)' : ' / action'}
+                                {fmt(r.amount)} injury {r.summon ? 'per summon' : amountLabel}
                               </small>
                               {r.seconds !== null && (
                                 <small>
@@ -935,12 +1012,12 @@ export default function DpsCalculator({
             </div>
             <small>
               Time starts at the first hit or tick with an empty gauge. Each source acts alone on a surviving
-              target. The interval to the next burst includes recovery and rebuilding the gauge. Externally
-              triggered actions show the required count when their timing depends on another actor.
+              target. The interval to the next burst includes recovery and rebuilding the gauge.
+              Retaliations and other external triggers show the required count when their timing depends on another actor.
             </small>
           </section>
         )}
-        {builds.length > 0 && <DamageComposition builds={builds} target={target} />}
+        {hasDamageSource && <DamageComposition builds={builds} target={target} />}
         <Deployment timelineRef={timelineRef} builds={builds} target={target} roster={profiles} />
         <details className={css.panel}>
           <summary>Formulas and coverage</summary>
