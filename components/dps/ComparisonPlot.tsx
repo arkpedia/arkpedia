@@ -17,7 +17,9 @@ import {
 import { firstBurst } from '@/lib/dps/breakpoints';
 import { chartControls, type ChartMetric as Metric, type DefenseAxis } from '@/lib/dps/controls';
 import { damageBasis, dpsLabel, sharedDamageBasis } from '@/lib/dps/damageLabels';
+import { damageAtTime, damageTimeline } from '@/lib/dps/damageTimeline';
 import { renderComparisonImage, type ImageView } from '@/lib/dps/comparisonImage';
+import DamageTimelinePlot from './DamageTimelinePlot';
 import css from './Dps.module.css';
 
 const colorTokens = ['--teal', '--amber', '--cat-blue', '--rarity-4', '--cat-orange', '--status-positive'];
@@ -51,6 +53,7 @@ export function Pick({
 const chartViews = [
   { value: 'curve', label: 'Response curve' },
   { value: 'bars', label: 'At target' },
+  { value: 'damage-time', label: 'Timeline' },
   { value: 'timeline', label: 'Elemental burst' },
 ] as const;
 type View = (typeof chartViews)[number]['value'];
@@ -115,12 +118,14 @@ export default function ComparisonPlot({
   builds,
   target,
   targetName,
+  targetNote,
   timelineRef,
   baselineId,
 }: {
   builds: Build[];
   target: Target;
   targetName: string;
+  targetNote?: string;
   timelineRef: RefObject<HTMLTableElement | null>;
   baselineId?: number;
 }) {
@@ -141,8 +146,11 @@ export default function ComparisonPlot({
   const setup = useMemo(() => chartControls(builds, target, chosenMetric), [builds, target, chosenMetric]);
   const { metric, defaultMetric, axes } = setup;
   const views = chartViews.filter(option => option.value === 'bars'
-    || (option.value === 'curve' ? axes.length > 0 : metric !== 'hps' && setup.burstTimeline));
+    || (option.value === 'curve' && axes.length > 0)
+    || (option.value === 'damage-time' && results.some(r => r.damage > 0))
+    || (option.value === 'timeline' && metric !== 'hps' && setup.burstTimeline));
   const view = views.some(option => option.value === chosenView) ? chosenView : 'bars';
+  const showingDamageTime = view === 'damage-time';
   const names = useMemo(() => seriesLabels(builds), [builds]);
   const defaultAxis = axes[0] ?? 'def';
   const manualAxis = chosenAxis && axes.includes(chosenAxis) ? chosenAxis : undefined;
@@ -150,7 +158,7 @@ export default function ComparisonPlot({
   const [inspection, setInspection] = useState<{ target: Target; axis: DefenseAxis; value: number } | null>(null);
   const inspect = (value: number) => setInspection({ target, axis, value });
   const [limits, setLimits] = useState<Partial<Record<DefenseAxis, number>>>({});
-  const defaultRange = axis === 'def' ? Math.max(3000, Math.ceil(target.def / 500) * 500) : 100;
+  const defaultRange = axis === 'def' ? Math.max(3000, Math.ceil(target.def / 500) * 500) : Math.max(100, target[axis]);
   const range = limits[axis] ?? defaultRange;
   const inspected = inspection?.target === target && inspection.axis === axis;
   const probe = view === 'curve' ? Math.min(range, inspected ? inspection.value : target[axis]) : target[axis];
@@ -167,7 +175,7 @@ export default function ComparisonPlot({
     [view, builds, points, target, axis, metric],
   );
   const targetMetric = view === 'timeline' ? 'seconds' : metric;
-  const showingHealing = targetMetric === 'hps';
+  const showingHealing = !showingDamageTime && targetMetric === 'hps';
   const scenarioName = showingHealing ? 'One injured ally' : targetName;
   const targetBursts = useMemo(
     () => (view === 'timeline' || timing ? builds.map((b) => firstBurst(b, target, 'build')) : []),
@@ -233,6 +241,38 @@ export default function ComparisonPlot({
   const X = (x: number) => 62 + (x / range) * plotWidth,
     Y = (y: number) => 218 - ((y - min) / span) * 180;
   const chart = useRef<SVGSVGElement>(null);
+  const [duration, setDuration] = useState(45);
+  const [activationTime, setActivationTime] = useState(5);
+  const [inspectedTime, setInspectedTime] = useState(5);
+  const activation = Math.min(duration - 1, activationTime);
+  const time = Math.min(duration, inspectedTime);
+  const damageModels = useMemo(() => showingDamageTime
+    ? builds.map((b, i) => damageTimeline(b, target, results[i]))
+    : [], [showingDamageTime, builds, target, results]);
+  const damageRows = damageModels.map((timeline, i) => {
+    const sample = timeline && damageAtTime(timeline, time, activation);
+    let value = 'Timeline unavailable';
+    if (timeline && sample) {
+      const phase = (sample.openingDamage && timeline.opening?.label) || (
+        sample.skillActive ? 'Skill active' : sample.retreated ? 'Retreated'
+          : timeline.attackDps > 0 ? 'Normal attacks' : 'Skill inactive'
+      );
+      value = fmt(sample.dps) + ' DPS · ' + phase;
+    }
+    const details = [];
+    if (timeline?.skill) {
+      const { duration: length, dps } = timeline.skill;
+      details.push(`Skill DPS ${fmt(dps)} · ${fmt(activation)}–${fmt(activation + length)} s (${fmt(length)} s)`);
+    }
+    if (timeline?.opening) {
+      details.push(`${timeline.opening.label} at ${fmt(activation)} s · ${fmt(timeline.opening.damage)} damage`);
+    }
+    if (timeline?.attackDps && (timeline.skill || timeline.opening)) {
+      details.push(`Attack DPS ${fmt(timeline.attackDps)}`);
+    }
+    return { id: builds[i].id, color: color(i), timeline, value, details };
+  });
+  const hasDamageTimeline = damageRows.some(row => row.timeline);
   const [saving, setSaving] = useState<ImageView | null>(null);
   const [preview, setPreview] = useState<{ view: ImageView; blob: Blob } | null>(null);
   const [previewUrl, setPreviewUrl] = useState('');
@@ -253,14 +293,16 @@ export default function ComparisonPlot({
         svg: chart.current,
         target,
         targetName: scenarioName,
+        targetNote: showingHealing ? undefined : targetNote,
         healingView: showingHealing,
-        metric: view === 'timeline' ? 'Elemental burst' : metrics[metric],
-        probe: view === 'curve' ? labels[axis] + ' ' + fmt(probe) : 'Selected target',
-        timeline: showingHealing ? null : timelineRef.current,
+        metric: showingDamageTime ? 'Damage timeline' : view === 'timeline' ? 'Elemental burst' : metrics[metric],
+        probe: showingDamageTime ? fmt(time) + ' s' : view === 'curve' ? labels[axis] + ' ' + fmt(probe) : 'Selected target',
+        timeline: showingHealing || showingDamageTime ? null : timelineRef.current,
         series: series.map((row, index) => ({
           build: row.b,
           colorToken: colorToken(index),
-          value: legendValue(row),
+          value: damageRows[index]?.value ?? legendValue(row),
+          details: damageRows[index]?.details,
         })),
       });
       setPreview({ view: imageView, blob });
@@ -281,6 +323,54 @@ export default function ComparisonPlot({
           onChange={setView}
         />}
       </div>
+      {showingDamageTime ? (
+        <>
+          {hasDamageTimeline && (
+            <>
+              <div className={css.heading}>
+                <div className={css.controls}>
+                  <Pick label="Chart length" value={duration} options={[15, 30, 45, 60, 90, 120].map(s => ({
+                    value: String(s), label: s + ' s',
+                  }))} change={value => setDuration(Number(value))} />
+                  {damageRows.some(row => row.timeline?.skill || row.timeline?.opening) && (
+                    <label className={css.field}>
+                      Activate skill at (s)
+                      <input type="number" min={0} max={duration - 1} value={activation}
+                        onChange={event => {
+                          const value = event.currentTarget.valueAsNumber;
+                          const next = Number.isFinite(value) ? Math.max(0, Math.min(duration - 1, Math.round(value))) : 0;
+                          setActivationTime(next);
+                          setInspectedTime(next);
+                        }} />
+                    </label>
+                  )}
+                </div>
+              </div>
+              <DamageTimelinePlot rows={damageRows} activation={activation} duration={duration}
+                time={time} inspect={setInspectedTime} width={chartWidth} chart={chart} />
+            </>
+          )}
+          <div className={css.targetResults} role="group" aria-label="Damage timeline results">
+            <small>{targetName}{hasDamageTimeline && ' · ' + fmt(time) + ' s'}</small>
+            {damageRows.map((row, i) => (
+              <div key={row.id}>
+                <span style={{ borderColor: row.color }}>#{i + 1} {names[i]}</span>
+                <strong>{row.value}</strong>
+                {row.details.map(detail => <small key={detail}>{detail}</small>)}
+              </div>
+            ))}
+          </div>
+          {hasDamageTimeline && (
+            <small>
+              Shows one activation using average DPS for each phase.
+              {damageRows.some(row => row.timeline?.opening) && ' Opening damage appears as a one-second spike at activation.'}
+            </small>
+          )}
+          {damageRows.some(row => !row.timeline) && (
+            <small>Timeline supports normal attacks, timed skills, and single casts with known damage. Select At target for other sources.</small>
+          )}
+        </>
+      ) : <>
       {(view === 'curve' || (setup.metrics.length > 1 && (view !== 'timeline' || setup.metrics.includes('hps')))) && (
         <div className={css.heading}>
           <div className={css.controls}>
@@ -529,11 +619,11 @@ export default function ComparisonPlot({
             <Pick label="Vertical zoom" value={zoom} options={zoomOptions} change={setZoom} />
             <label className={css.field}>
               {labels[axis]} axis maximum
-              <input type="number" min={1} max={axis === 'def' ? undefined : 100}
+              <input type="number" min={1} max={axis === 'def' ? undefined : defaultRange}
                 placeholder={String(defaultRange)} value={limits[axis] ?? ''}
                 onChange={event => {
                   const next = event.currentTarget.valueAsNumber;
-                  const max = axis === 'def' ? Infinity : 100;
+                  const max = axis === 'def' ? Infinity : defaultRange;
                   setLimits(previous => ({ ...previous, [axis]: Number.isFinite(next) ? Math.min(max, Math.max(1, next)) : undefined }));
                 }} />
             </label>
@@ -583,7 +673,8 @@ export default function ComparisonPlot({
           ))}
         </div>
       )}
-      <div className={css.actions} aria-label="Export comparison" role="group">
+      </>}
+      {(!showingDamageTime || hasDamageTimeline) && <div className={css.actions} aria-label="Export comparison" role="group">
         {(['condensed', 'detailed'] as const).map((view) => (
           <button
             type="button"
@@ -595,7 +686,7 @@ export default function ComparisonPlot({
             {view === 'condensed' ? 'Condensed PNG' : 'Detailed PNG'}
           </button>
         ))}
-      </div>
+      </div>}
       {preview && (
         <ImportDialog
           title={(preview.view === 'condensed' ? 'Condensed' : 'Detailed') + ' PNG preview'}

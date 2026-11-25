@@ -491,6 +491,7 @@ function DamageComparison({ profiles, dataSource, enemies = [] }: CalculatorProp
   }, [enemies]);
   const [enemy, setEnemy] = useState<EnemyPreset | null>(null);
   const [level, setLevel] = useState(0);
+  const [formId, setFormId] = useState<string>();
   const [builds, setBuilds] = useState<Build[]>([]),
     [edit, setEdit] = useState<number | null>(null);
   const [baselineChoice, setBaseline] = useState<number>();
@@ -501,21 +502,27 @@ function DamageComparison({ profiles, dataSource, enemies = [] }: CalculatorProp
   const target = useMemo(() => targetInput.burst === 'None' || capabilities.bursts.includes(targetInput.burst)
     ? targetInput : { ...targetInput, burst: 'None' }, [targetInput, capabilities]);
   const baselineId = builds.some(build => build.id === baselineChoice) ? baselineChoice! : builds[0]?.id;
-  const targetName = enemy ? [enemy.name, enemy.code, 'Lv ' + level].filter(Boolean).join(' · ') : 'Custom target';
+  const enemyLevel = enemy?.levels.find(row => row.level === level);
+  const enemyForm = enemyLevel?.forms?.find(form => form.id === formId);
+  const targetName = enemy
+    ? [enemy.name, enemy.code, 'Lv ' + level, enemyForm?.name].filter(Boolean).join(' · ')
+    : 'Custom target';
   const targetResults = useMemo(() => builds.map(build => calculate(build, target)), [builds, target]);
   const hasDamageSource = targetResults.some(result => result.hps === null || result.damage > 0);
   const openingResults = useMemo(() => target.burst === 'None'
     ? targetResults : builds.map(build => calculate(build, { ...target, burst: 'None' })), [builds, target, targetResults]);
   const hasBuildup = (result: (typeof openingResults)[number]) =>
     result.injury > 0 || (result.summon?.injury ?? 0) > 0;
-  function selectEnemy(preset: EnemyPreset, row: EnemyLevel) {
+  function selectEnemy(preset: EnemyPreset, row: EnemyLevel, preferredForm?: string) {
+    const form = row.forms?.find(entry => entry.id === preferredForm) ?? row.forms?.[0];
     setEnemy(preset);
     setLevel(row.level);
+    setFormId(form?.id);
     setTarget({
       ...initialTarget,
       tier: row.tier,
-      def: row.def,
-      res: row.res,
+      def: form?.def ?? row.def,
+      res: form?.res ?? row.res,
       injuryRes: row.injuryRes,
       elementalRes: row.elementalRes,
     });
@@ -609,21 +616,36 @@ function DamageComparison({ profiles, dataSource, enemies = [] }: CalculatorProp
                   }}
                 />
               )}
-              {enemy && (
-                <div className={css.preset}>
-                  <small>Base combat stats · {enemy.levels.find((l) => l.level === level)?.tier}</small>
-                  {enemy.levels.length > 1 && (
-                    <Pick
-                      label="Enemy level"
-                      value={level}
-                      options={enemy.levels.map((l) => l.level)}
-                      change={(v) => selectEnemy(enemy, enemy.levels.find((l) => l.level === +v)!)}
-                    />
-                  )}
-                  <button className="btn btn-sm" onClick={() => setEnemy(null)}>
-                    Customize
-                  </button>
-                </div>
+              {enemy && enemyLevel && (
+                <>
+                  <small>{enemyForm ? 'Form defenses' : 'Base combat stats'} · {enemyLevel.tier}</small>
+                  <div className={css.preset}>
+                    {enemy.levels.length > 1 && (
+                      <Pick
+                        label="Enemy level"
+                        value={level}
+                        options={enemy.levels.map((l) => l.level)}
+                        change={(v) => selectEnemy(enemy, enemy.levels.find((l) => l.level === +v)!, formId)}
+                      />
+                    )}
+                    {enemyForm && enemyLevel.forms && (
+                      <Pick
+                        label="Enemy form"
+                        value={enemyForm.id}
+                        options={enemyLevel.forms.map(form => ({ value: form.id, label: form.name }))}
+                        change={id => {
+                          const form = enemyLevel.forms?.find(entry => entry.id === id);
+                          if (!form) return;
+                          setFormId(id);
+                          setTarget(previous => ({ ...previous, def: form.def, res: form.res }));
+                        }}
+                      />
+                    )}
+                    <button className="btn btn-sm" onClick={() => setEnemy(null)}>
+                      Customize
+                    </button>
+                  </div>
+                </>
               )}
               <div className={css.controls}>
                 {(['def', 'res', 'elementalRes', 'injuryRes'] as const).map((key, i) => capabilities.defenses.has(key) && (
@@ -633,7 +655,7 @@ function DamageComparison({ profiles, dataSource, enemies = [] }: CalculatorProp
                       type="number"
                       min="0"
                       readOnly={!!enemy}
-                      max={i ? 100 : undefined}
+                      max={i && !enemy ? 100 : undefined}
                       value={target[key]}
                       onChange={(e) =>
                         setTarget(previous => ({
@@ -645,6 +667,7 @@ function DamageComparison({ profiles, dataSource, enemies = [] }: CalculatorProp
                   </label>
                 ))}
               </div>
+              {enemyLevel?.defenseNote && <small>{enemyLevel.defenseNote}</small>}
               {builds.length > 0 && capabilities.defenses.size === 0 && (
                 <small>The selected sources do not use target defenses.</small>
               )}
@@ -693,6 +716,7 @@ function DamageComparison({ profiles, dataSource, enemies = [] }: CalculatorProp
                 <ComparisonPlot
                   timelineRef={timelineRef}
                   targetName={targetName}
+                  targetNote={enemyLevel?.defenseNote}
                   builds={builds}
                   target={target}
                   baselineId={baselineId}

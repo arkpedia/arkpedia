@@ -14,6 +14,7 @@ import { firstBurst, fallout } from '../../lib/dps/breakpoints';
 import { elements } from '../../lib/dps/sources';
 import { chartControls, targetControls } from '../../lib/dps/controls';
 import { damageBasis, dpsLabel } from '../../lib/dps/damageLabels';
+import { damageAtTime, damageTimeline } from '../../lib/dps/damageTimeline';
 import { hpAt, patriotAttack, simulateSurvival, type Defense } from '../../lib/dps/survival';
 import type { PatriotStances } from '../../lib/dps/survivalRoster';
 const profiles = archive.operators as unknown as Profile[];
@@ -21,6 +22,35 @@ const createBuild = (id: string, number: number) =>
   buildFromProfile(profiles.find((p) => p.id === id)!, number);
 const dummy = { ...initialTarget, def: 0, res: 0 };
 const near = (a: number, b: number) => assert.ok(Math.abs(a - b) < 0.00001, a + ' vs ' + b);
+
+test('Ulpianus S3 plots a mitigated opening hit separately from skill and normal attack DPS', () => {
+  const build = createBuild('ulpia', 1);
+  const timeline = damageTimeline(build, initialTarget)!;
+  assert.equal(timeline.skill?.duration, 25);
+  near(timeline.opening!.damage, 9098.24);
+  near(damageAtTime(timeline, 4.9, 5).dps, 499.6);
+  near(damageAtTime(timeline, 5, 5).dps, 11312.8);
+  near(damageAtTime(timeline, 6, 5).dps, 2214.56);
+  near(damageAtTime(timeline, 29.9, 5).dps, 2214.56);
+  near(damageAtTime(timeline, 30, 5).dps, 499.6);
+
+  const armored = damageTimeline(build, { ...initialTarget, def: 517 })!;
+  near(armored.opening!.damage, 8981.24);
+  near(damageAtTime(armored, 6, 5).dps, 2167.76);
+  near(damageAtTime(armored, 30, 5).dps, 452.8);
+});
+
+test('damage timelines use RES for Arts, handle retreat and omit healing or unknown skill windows', () => {
+  const amiya = createBuild('amiya', 1);
+  const chant = damageTimeline({ ...amiya, skill: 1 }, initialTarget)!;
+  const noRes = damageTimeline({ ...amiya, skill: 1 }, { ...initialTarget, res: 0 })!;
+  near(chant.skill!.dps, noRes.skill!.dps * 0.8);
+  const chimera = damageTimeline({ ...amiya, skill: 3 }, initialTarget)!;
+  assert.equal(damageAtTime(chimera, 35, 5).retreated, true);
+  assert.equal(damageAtTime(chimera, 35, 5).dps, 0);
+  assert.equal(damageTimeline(createBuild('susuro', 2), initialTarget), null);
+  assert.equal(damageTimeline(createBuild('blaze2', 3), initialTarget), null);
+});
 
 test('survival uses the damage type and resolves a lethal hit before a simultaneous heal', () => {
   const defender: Defense = { hp: 350, def: 240, res: 25, dp: 10, blocksDirectHealing: false };
@@ -430,6 +460,31 @@ test('archived enemy targets use the combat rank and inherit per-level defenses'
   const colossus = levels('enemy_10078_mprein_2')[0];
   assert.deepEqual([colossus.tier, colossus.injuryRes, colossus.elementalRes], ['Elite', 10, 0]);
   assert.equal(new Set(enemies.map((e) => e.id)).size, enemies.length);
+
+  const defenses = (level: number, id: string) => levels(id).find(row => row.level === level)!.forms
+    ?.map(form => [form.name, form.def, form.res]);
+  for (const level of [0, 1]) {
+    assert.deepEqual(defenses(level, 'enemy_1506_patrt'), [['Marching', 2100, 90], ['Ruination', 700, 45]]);
+  }
+  assert.deepEqual(defenses(0, 'enemy_1533_stmkgt'), [['First form', 2000, 40], ['Second form', 500, 0]]);
+  assert.deepEqual(defenses(1, 'enemy_1533_stmkgt'), [['First form', 2400, 40], ['Second form', 400, 0]]);
+  assert.deepEqual(defenses(0, 'enemy_1165_duhond'), [['Refraction active', 0, 70], ['Silenced', 0, 0]]);
+  assert.deepEqual(defenses(0, 'enemy_1172_dugago')?.slice(0, 3), [
+    ['Ground', 550, 70], ['Statue', 1350, 100], ['Flying', 550, 70],
+  ]);
+  assert.deepEqual(defenses(0, 'enemy_1353_esabr'), [['Normal', 100, 0], ['Overload', 300, 30]]);
+  assert.deepEqual(defenses(0, 'enemy_1372_ltntpt'), [['Melancholic variation', 200, 15], ['Passionate variation', 100, 15]]);
+  assert.deepEqual(defenses(0, 'enemy_1509_mousek'), [['Barrier active', 3350, 30], ['Barrier broken', 350, 30]]);
+  assert.deepEqual(defenses(0, 'enemy_1530_white'), [['First form', 1200, 70], ['Second form', 400, 20]]);
+  assert.deepEqual(defenses(1, 'enemy_1554_lrtsia'), [['First form', 500, 80], ['Second form', 2500, 40]]);
+  assert.equal(levels('enemy_1528_manfri')[0].forms, undefined);
+  assert.match(levels('enemy_1528_manfri')[0].defenseNote ?? '', /Only base defenses/);
+  for (const row of enemies.flatMap(enemy => enemy.levels)) {
+    assert.ok([row.def, row.res, row.elementalRes, row.injuryRes].every(Number.isFinite));
+    if (!row.forms) continue;
+    assert.equal(new Set(row.forms.map(form => form.id)).size, row.forms.length);
+    assert.ok(row.forms.every(form => Number.isFinite(form.def) && Number.isFinite(form.res)));
+  }
 });
 
 test('a periodic source restarts on the first eligible contact after fallout', () => {

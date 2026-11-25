@@ -10,8 +10,9 @@ interface ExportOptions {
   probe: string;
   target: Target;
   targetName: string;
+  targetNote?: string;
   healingView: boolean;
-  series: { build: Build; value: string; colorToken: string }[];
+  series: { build: Build; value: string; colorToken: string; details?: string[] }[];
   timeline: HTMLTableElement | null;
 }
 
@@ -134,6 +135,7 @@ export async function renderComparisonImage({
   probe,
   target,
   targetName,
+  targetNote,
   healingView,
   series,
   timeline,
@@ -152,7 +154,7 @@ export async function renderComparisonImage({
     teal: token('--teal'),
   };
   const body = token('--font-body') || 'sans-serif';
-  const rows = series.map(({ build, value, colorToken }, index) => ({
+  const rows = series.map(({ build, value, colorToken, details }, index) => ({
     name: '#' + (index + 1) + ' ' + profile(build).name,
     value,
     color: token(colorToken),
@@ -160,7 +162,7 @@ export async function renderComparisonImage({
     label: [buildLabel(build), calculate(build, target).source, buildConditions(build)]
       .filter(Boolean)
       .join(' · '),
-    details: view === 'detailed' ? breakdown(build, target) : [],
+    details: view === 'detailed' ? details ?? breakdown(build, target) : [],
   }));
   // Capture the actual selected pair, activation delay and event rows on click.
   const deployment =
@@ -231,6 +233,7 @@ export async function renderComparisonImage({
         ].join('    /    '),
         17,
       );
+      if (targetNote) textLine(targetNote, 17);
     }
     y += 14;
     if (draw) {

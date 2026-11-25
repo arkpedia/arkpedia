@@ -2,6 +2,80 @@ import { expect, test } from '@playwright/test';
 import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 
+test('inspects the opening hit and skill window against custom stats and an enemy preset', async ({ page }) => {
+  await page.goto('/dps-calculator');
+  await page.getByRole('combobox', { name: 'Add operator' }).fill('Ulpianus');
+  await page.getByRole('option', { name: 'Ulpianus', exact: true }).click();
+  await page.getByRole('button', { name: 'Timeline', exact: true }).click();
+
+  const results = page.getByRole('group', { name: 'Damage timeline results' });
+  await expect(results).toContainText('Custom target · 5 s');
+  await expect(results).toContainText('11,312.8 DPS · Anchor throw');
+  await expect(results).toContainText('Anchor throw at 5 s · 9,098.24 damage');
+  await expect(results).toContainText('Skill DPS 2,214.56 · 5–30 s (25 s)');
+
+  const time = page.getByRole('slider', { name: 'Inspect time' });
+  await time.press('Home');
+  await expect(results).toContainText('499.6 DPS · Normal attacks');
+  await time.press('End');
+  await expect(results).toContainText('499.6 DPS · Normal attacks');
+  await page.getByRole('spinbutton', { name: 'Activate skill at (s)' }).fill('10');
+  await expect(results).toContainText('Skill DPS 2,214.56 · 10–35 s (25 s)');
+
+  await page.getByRole('combobox', { name: 'Find enemy' }).fill('Patriot');
+  await page.getByRole('option', { name: /^Patriot/ }).first().click();
+  const form = page.getByRole('combobox', { name: 'Enemy form', exact: true });
+  const def = page.getByRole('spinbutton', { name: 'DEF', exact: true });
+  await expect(form).toContainText('Marching');
+  await expect(def).toHaveValue('2100');
+  await expect(results).toContainText(/Patriot .*Marching · 10 s/);
+  await expect(results).toContainText('7,398.24 damage');
+  await form.press('Enter');
+  await form.press('End');
+  await form.press('Enter');
+  await expect(form).toContainText('Ruination');
+  await expect(def).toHaveValue('700');
+  await expect(results).toContainText(/Patriot .*Ruination · 10 s/);
+  await expect(results).toContainText('8,798.24 damage');
+  await page.getByRole('combobox', { name: 'Enemy level', exact: true }).click();
+  await page.getByRole('option', { name: '1', exact: true }).click();
+  await expect(results).toContainText('Lv 1 · Ruination · 10 s');
+  await page.getByRole('button', { name: 'Customize', exact: true }).click();
+  await expect(form).toHaveCount(0);
+  await expect(def).toHaveValue('700');
+  await def.fill('517');
+  await expect(results).toContainText('Custom target · 10 s');
+  await expect(results).toContainText('Anchor throw at 10 s · 8,981.24 damage');
+  await page.getByRole('button', { name: 'Detailed PNG', exact: true }).click();
+  await expect(page.getByRole('dialog', { name: 'Detailed PNG preview' }).getByRole('img')).toBeVisible();
+});
+
+test('applies selectable RES states for other enemies and identifies base-only records', async ({ page }) => {
+  await page.goto('/dps-calculator');
+  await page.getByRole('combobox', { name: 'Add operator' }).fill('Amiya');
+  await page.getByRole('option', { name: 'Amiya', exact: true }).click();
+  await page.getByRole('combobox', { name: 'Damage source', exact: true }).click();
+  await page.getByRole('option', { name: /^S1/ }).click();
+  await page.getByRole('button', { name: 'Timeline', exact: true }).click();
+  const enemy = page.getByRole('combobox', { name: 'Find enemy', exact: true });
+  const form = page.getByRole('combobox', { name: 'Enemy form', exact: true });
+  const res = page.getByRole('spinbutton', { name: 'RES', exact: true });
+  const result = page.getByRole('group', { name: 'Damage timeline results' });
+  await enemy.fill('Dublinn Sniffer Hound');
+  await page.getByRole('option', { name: /^Dublinn Sniffer Hound (?!Pro)/ }).first().click();
+  await expect(res).toHaveValue('70');
+  await expect(result).toContainText('Refraction active');
+  const active = await result.locator('strong').innerText();
+  await form.click();
+  await page.getByRole('option', { name: 'Silenced', exact: true }).click();
+  await expect(res).toHaveValue('0');
+  await expect(result.locator('strong')).not.toHaveText(active);
+  await enemy.fill('Manfred');
+  await page.getByRole('option', { name: /^Manfred/ }).first().click();
+  await expect(form).toHaveCount(0);
+  await expect(page.getByText('Only base defenses are available.', { exact: false })).toBeVisible();
+});
+
 test('downloads the zoomed comparison as condensed and detailed PNGs', async ({ page }, info) => {
   await page.goto('/dps-calculator');
   const empty = page.getByText('Add an operator to compare damage or healing.');

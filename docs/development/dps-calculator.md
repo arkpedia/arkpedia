@@ -8,6 +8,12 @@ Chart settings let you set the axis maximum, zoom vertically and reset an indepe
 
 Damage labels describe the actual unit each build uses. Exusiai’s volley includes all its shots, Ch’en’s S2 reports one cast, and Blood’s Whisper can report one tick or the full summon where labeled. Skill DPS averages the selected repeating damage during the active window. The damage table uses the same units as the chart and PNG.
 
+## Damage timeline
+
+Choose **Timeline** in Damage Comparison to plot each supported build against the selected enemy or custom defenses. Set the chart length and the time of one skill activation. The stepped line shows average normal attack DPS before and after a timed skill and average Skill DPS while it is active. Amiya S3 drops to zero on retreat. The time slider shows each build’s DPS and phase at the selected moment.
+
+Ulpianus S3 applies its ATK buff to the opening anchor throw and uses the skill rank’s damage multiplier. The chart assumes the anchor connects at activation. It adds the mitigated hit as a one-second spike and lists its exact damage beside the skill window. Single casts are also shown as one-second spikes. The model holds target defenses and elemental state fixed and leaves SP recharge, projectile travel, animation timing, manual recalls, ammo and independent summon or trap timing outside the chart.
+
 ## Healing comparison
 
 HPS measures healing per second for one ally with missing HP while the selected source is active. It adds direct healing per heal divided by its interval to passive regeneration per second. The breakdown shows how many allies a direct heal can reach and lists triggered heals separately. A comparison with only healing sources opens on HPS automatically. In a mixed comparison, choose HPS in Measure.
@@ -37,7 +43,11 @@ After a healer skill ends, the healer returns to normal healing. Each activation
 
 ## Enemy presets and repeat bursts
 
-The enemy selector joins the handbook to the simulator combat archive by enemy ID. Each level inherits its unspecified fields from level zero. The combat record supplies rank, DEF, Arts RES, injury resistance and elemental damage resistance. Named presets use the rank’s gauge. Custom targets can override it. Stage-specific stat overrides and phase changes are outside this preset.
+The enemy selector joins the handbook to the simulator combat archive by enemy ID. Each level inherits its unspecified fields from level zero. The combat record supplies rank, DEF, Arts RES, injury resistance and elemental damage resistance. Named presets use the rank’s gauge. Custom targets can override it.
+
+**Enemy form** appears where a reviewed rule can apply the level’s archived DEF or RES modifiers. Patriot defaults to Marching (2,100 DEF, 90 RES). Ruination uses 700 DEF and 45 RES after the opening invulnerability. Other presets include Refraction and Silence, Overload, orchestra variations, and named forms such as the Last Steam Knight’s second form. For example, Steam Knight Lv 1 inherits the RES reduction from Lv 0 and uses its own DEF reduction. These rules read the numeric coefficients by name from the game’s talent blackboard and specify how each modifier is applied. [Pinned enemy database](https://raw.githubusercontent.com/ArknightsAssets/ArknightsGamedata/e0cd8f274ffbcf57ed0b0684cb681620478ffe0e/en/gamedata/levels/enemydata/enemy_database.json)
+
+The selected form supplies fixed defenses throughout the damage timeline and the other comparison views. For records with insufficient data to compute a different form, the calculator labels the base defenses and offers Customize. Stage modifiers, form transitions inside a damage run, incoming-damage reduction, barriers, dodge, invulnerability and recovery are outside the target defense model. Check the active form and any encounter modifiers before comparing it with an in-game result.
 
 Both timing measures start at first contact with an empty gauge. The second measures the elapsed time from the first burst to the second on the same surviving target. The model follows the attack clock through recovery, discards injury during lockout, and resets periodic sources that end on burst. The base recovery windows come from the enemy entries in the [game glossary](https://github.com/ArknightsAssets/ArknightsGamedata/blob/e0cd8f274ffbcf57ed0b0684cb681620478ffe0e/cn/gamedata/excel/gamedata_const.json). Tragodia S3 and Botani S2 increase the recovery rate. Thumpy’s physical hits subtract time from the running Corrosion cooldown. The next Corrosion buildup uses the reduced DEF. A bounded source can expire before either burst. A manually triggered source can have a known action count with unknown timing.
 

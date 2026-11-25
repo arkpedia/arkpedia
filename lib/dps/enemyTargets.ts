@@ -1,4 +1,5 @@
 import type { Target } from './calculator';
+import { enemyDefenseForms, type EnemyDefenseForm } from './enemyDefenseForms';
 import { readDataTable } from '../content/dataTable';
 import { getEnemyBundles } from '../enemies/enemies';
 
@@ -10,6 +11,8 @@ interface EnemyRecord {
   enemyData: {
     levelType?: Defined<Rank>;
     attributes?: Partial<Record<Attribute, Defined<number>>>;
+    talentBlackboard?: { key: string; value: number }[] | null;
+    skills?: { blackboard?: { key: string; value: number }[] | null }[] | null;
   };
 }
 export interface EnemyPreset {
@@ -20,6 +23,8 @@ export interface EnemyPreset {
 }
 export type EnemyLevel = Pick<Target, 'tier' | 'def' | 'res' | 'elementalRes' | 'injuryRes'> & {
   level: number;
+  forms?: EnemyDefenseForm[];
+  defenseNote?: string;
 };
 const ranks = { NORMAL: 'Grunt', ELITE: 'Elite', BOSS: 'Boss' } as const;
 function defined<T>(field: Defined<T> | undefined) {
@@ -42,13 +47,32 @@ export function enemyTargets(): EnemyPreset[] {
               defined(enemyData.attributes?.[key]) ?? defined(base.attributes?.[key]) ?? 0;
             const rank = defined(enemyData.levelType) ?? defined(base.levelType) ?? 'NORMAL';
             if (!(rank in ranks)) throw new Error('Unknown combat rank for ' + enemy.id);
+            const def = attr('def');
+            const res = attr('magicResistance');
+            const talents = new Map<string, number>();
+            for (const { key, value } of [...base.talentBlackboard ?? [], ...enemyData.talentBlackboard ?? []]) {
+              if (typeof key === 'string' && Number.isFinite(value)) talents.set(key, value);
+            }
+            const reviewed = enemyDefenseForms(enemy.id, { def, res }, talents);
+            // Blackboard keys can also describe buffs or debuffs applied to
+            // other units. Use them to flag a record for review, not to infer a form.
+            const defenseParameter = /(?:^|[.@])(def|magic_resistance|ep_damage_resistance|ep_resistance|damage_resistance|invincible)$/i;
+            const hasCombatModifiers = [...talents.keys()].some(key => defenseParameter.test(key))
+              || [base, enemyData].some(record => record.skills?.some(skill =>
+                Array.isArray(skill.blackboard) && skill.blackboard.some(entry => defenseParameter.test(entry.key))))
+              || enemy.abilities.some(ability => ability.format === 'title');
+            const defenseNote = reviewed?.note ?? (!reviewed && hasCombatModifiers
+              ? 'Only base defenses are available. Use Customize for form or encounter values.'
+              : undefined);
             return {
               level,
               tier: ranks[rank],
-              def: attr('def'),
-              res: attr('magicResistance'),
+              def,
+              res,
               elementalRes: attr('epDamageResistance'),
               injuryRes: attr('epResistance'),
+              ...(reviewed && { forms: reviewed.forms }),
+              ...(defenseNote && { defenseNote }),
             };
           })
           .sort((a, b) => a.level - b.level);
