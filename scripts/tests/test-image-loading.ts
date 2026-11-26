@@ -16,8 +16,8 @@ import ResponsiveSkinArtwork from '../../components/skins/ResponsiveSkinArtwork'
  * a native <img> that stayed eager unless its caller said "lazy", and seven callers had
  * not: /operators/Amiya fetched eight icons from one to five screens down at load. Now:
  *   - ContentImg and ContentImage (next/image) are lazy, and ContentImg decodes off the
- *     main thread, with no `loading` prop to turn that off; `priority` is the one way to
- *     fetch at once, and it asks for the image first (fetchpriority="high");
+ *     main thread, with no `loading` prop to override the default; `priority` fetches
+ *     page heroes first, and `eager` supports artwork mounted by an explicit action;
  *   - every `priority` in the source is a page's hero, named in PRIORITY with its reason,
  *     so a new one is a decision someone wrote down, and a gone one leaves a stale entry;
  *   - a native <img> anywhere but components/content says how it loads.
@@ -41,7 +41,7 @@ test('ContentImg is lazy and decodes off the main thread, and nothing a caller s
   assert.equal(attr(forced, 'decoding'), 'async');
 });
 
-test('priority is the one way to fetch at once, and it asks for the image first', () => {
+test('priority fetches the hero at once and asks for the image first', () => {
   const hero = render(ContentImg, { src: '/five-star-skins/Amiya - Base.webp', alt: 'Amiya', priority: true });
   assert.equal(attr(hero, 'loading'), 'eager');
   assert.equal(attr(hero, 'fetchpriority'), 'high');
@@ -50,6 +50,13 @@ test('priority is the one way to fetch at once, and it asks for the image first'
   assert.equal(attr(render(ResponsiveSkinArtwork, art), 'loading'), 'lazy', 'the skin artwork is lazy');
   assert.equal(attr(render(ResponsiveSkinArtwork, { ...art, priority: true }), 'loading'), 'eager', 'and passes priority through');
   assert.equal(attr(render(ResponsiveSkinArtwork, { ...art, priority: true }), 'fetchpriority'), 'high');
+});
+
+test('artwork mounted on demand can load eagerly with normal priority', () => {
+  const opened = render(ContentImg, { src: '/event-poster/Scene.webp', alt: 'Scene', eager: true });
+  assert.equal(attr(opened, 'loading'), 'eager');
+  assert.equal(attr(opened, 'decoding'), 'async');
+  assert.equal(attr(opened, 'fetchpriority'), undefined);
 });
 
 test('ContentImage (next/image) is lazy unless priority', () => {

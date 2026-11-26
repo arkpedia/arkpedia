@@ -9,7 +9,7 @@ import { getOperatorIconPath, OPERATOR_PORTRAIT_PLACEHOLDER } from '../../lib/op
 import { isPortraitPending } from '../../lib/operators/operatorPortrait';
 import { getOperatorSearchResults, loadOperatorSearch, operatorSearchMatcher } from '../../lib/operators/operatorSearch';
 import { buildOperatorNameAliases } from '../lib/operator-name-aliases';
-import { getOperatorAppearances } from '../../lib/operators/operatorAppearances';
+import { canonicalOperatorAppearances, getOperatorAppearances } from '../../lib/operators/operatorAppearances';
 import { getOperatorArtworkCredits } from '../../lib/operators/operatorArtworkCredits';
 import { getAllSkins } from '../../lib/skins/skins';
 import { getOperatorAttackRanges } from '../../lib/operators/operatorAttackRanges';
@@ -675,4 +675,16 @@ test('indefinite skills do not become instant when the scraped duration is empty
     assert(skill, name);
     assert.deepEqual(getSkillTiming(skill.levels[0], skill, { kind: 'instant' }), { label: 'Duration', value: '∞' });
   }
+});
+
+test('Wulfenite shows the credited Global outfit once when old artwork names are still published', () => {
+  const operator = op('Wulfenite');
+  const appearances = getOperatorAppearances(operator);
+  assert.deepEqual(appearances.map(appearance => appearance.label), ['Base', 'Elite 2', 'Bouncing Rhythms']);
+  assert.equal(getOperatorArtworkCredits(operator, appearances, getAllSkins())['Bouncing Rhythms'].illustrator, '臼');
+
+  const former = { label: 'Bouncing Rhythm', fullPath: '/former.webp', iconPath: null };
+  const current = { label: 'Bouncing Rhythms', fullPath: '/current.webp', iconPath: null };
+  assert.deepEqual(canonicalOperatorAppearances(operator.name, [former, current]), [current]);
+  assert.deepEqual(canonicalOperatorAppearances(operator.name, [former]), [former]);
 });

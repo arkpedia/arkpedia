@@ -34,6 +34,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    at: '2026-11-26T09:58:50Z',
+    title: 'Event pages',
+    added: [{ title: 'Interactive home previews', detail: 'Explore selected event themes and animated backgrounds with their in-game music.', href: '/schedule' }],
+    changed: [{ title: 'Packs and Furniture have their own tabs', detail: 'Open supported home previews directly from pack artwork.', href: '/schedule' }],
+    fixed: [{ title: 'Removed Wulfenite’s duplicate outfit', detail: 'Bouncing Rhythms appears once with its artist credit.', href: '/operators' }],
+  },
+  {
     at: '2026-11-24T11:45:46Z',
     added: [{ title: 'Poll deadlines and recent results', detail: 'See when voting closes in your time zone and find recently closed polls at the top of the polls page.', href: '/polls' }],
   },

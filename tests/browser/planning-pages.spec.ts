@@ -208,10 +208,11 @@ test.describe('/events/[slug]', () => {
     expect(texts.filter((text) => /×0$/.test(text.trim())), 'a listing without a limit is not a zero').toEqual([]);
   });
 
-  test('placeholder tabs are hidden', async ({ page }) => {
+  test('real packs have a top-level tab and placeholders are hidden', async ({ page }) => {
     await page.goto(PEOPLE);
     const tabs = page.getByRole('tablist', { name: 'Event sections' });
-    await expect(tabs.getByRole('tab', { name: 'Packs' })).toHaveCount(0);
+    await tabs.getByRole('tab', { name: 'Packs', exact: true }).click();
+    await expect(page.locator('#event-section-panel-packs .event-pack-card').first()).toBeVisible();
     await expect(tabs.getByRole('tab', { name: 'Miscellaneous' })).toHaveCount(0);
     await expect(page.getByText('Coming soon')).toHaveCount(0);
   });
