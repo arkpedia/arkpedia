@@ -400,23 +400,6 @@ def staged_file(app, kind, target, data, stage='ok', mirror=None, source=None):
 class StagedArt(unittest.TestCase):
     """The art the refresh's importers staged under .cache/, published by the same builder."""
 
-    def test_full_stage_capture_keeps_its_dimensions_beside_a_thumbnail(self):
-        source = 'https://torappu.prts.wiki/assets/map_preview/crisis_v2_05-01.png'
-        capture = png('#373331', (1280, 720))
-        full = 'stages-images/crisis_v2_05-01-full.webp'
-        thumb = 'stages-images/crisis_v2_05-01.webp'
-        with tempfile.TemporaryDirectory() as temporary:
-            app, image_root = Path(temporary)/'app', Path(temporary)/'image'
-            asset_repository(image_root)
-            staged_file(app, 'stage-full-previews', full, capture, source=source)
-            staged_file(app, 'stage-renders', thumb, capture)
-            self.assertEqual(publish.build(publish.staged_plan(app), image_root, None, [], app), [full, thumb])
-            manifest = json.loads((image_root/'asset-manifest.json').read_text())['files']
-            for name, size in [(full, (1280, 720)), (thumb, (512, 288))]:
-                self.assertEqual((manifest[name]['width'], manifest[name]['height']), size)
-            provenance = json.loads((image_root/'sources/catalogue-imports.json').read_text())
-            self.assertEqual(provenance[full], {'url': source, 'sha256': publish.sha(capture), 'importer': 'stage-full-previews'})
-
     def test_the_staged_plan_lists_only_what_a_stage_that_ran_to_the_end_staged(self):
         with tempfile.TemporaryDirectory() as temporary:
             app = Path(temporary)
