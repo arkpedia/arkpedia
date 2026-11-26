@@ -170,7 +170,7 @@
 .riskBoard .row > button:only-child { margin-inline-start: auto; }
 .riskChecklist { display: grid; gap: 4px; list-style: none; padding: 0; margin: 0; }
 .category { display: grid; grid-template-columns: 32px minmax(0, 1fr); align-items: center; gap: 4px; }
-.categoryCheck { justify-content: center; min-height: var(--control-h); }
+.categoryCheck { min-height: var(--control-h); }
 .categoryDetails {
   display: grid;
   grid-template-columns: 20px minmax(0, 1fr) 7ch auto;
