@@ -111,6 +111,9 @@ PREVIEW_TEXT = {
     'text_ap_title': ('sanityTitle', None, 22),
     'text_ap_max': ('maxSanity', None, 22),
     'text_operation': ('progress', None, 22),
+    'text_normal': ('recruit', None, 30),
+    'text_advance': ('headhunt', None, 30),
+    'text_recruit': ('recruitment', None, 31),
 }
 CURRENCY_SLOTS = (
     ('text_gold (1)', 'lmd', 'LMD', 'money_icon'),
@@ -297,12 +300,23 @@ def export_theme(base, common, theme, theme_id, sources, output, *, news=None, a
                 continue
             image = component.read_typetree()
             ref = image.get('m_Sprite')
-            if 'm_Text' in image and name in PREVIEW_TEXT:
-                value, text_label, font = PREVIEW_TEXT[name]
-                layer = put(rect, side, label=text_label, text=value, font=font, scope=scope)
-                if layer and value == 'progress' and locale == 'en':
-                    layer['content'] = 'All Stages Cleared'
-                    layer['fontFace'] = next((data['_fontName'] for data in behaviours if '_fontName' in data), None)
+            text_node = 'text_ap_title' if name == 'text_title' and '/panel_ap' in theme.path(node) else name
+            if 'm_FontData' in image and text_node in PREVIEW_TEXT:
+                value, text_label, _ = PREVIEW_TEXT[text_node]
+                font = image['m_FontData']
+                color = vec(image['m_Color'], 'rgba')
+                layer = put(rect, side, label=text_label, text=value, font=font['m_FontSize'], color=color, scope=scope)
+                if layer:
+                    layer['color'] = '#' + ''.join(f'{round(channel*255):02x}' for channel in color[:3])
+                    layer['alignment'] = font['m_Alignment']
+                    if locale == 'en':
+                        face = next((data['_fontName'] for data in behaviours if '_fontName' in data), None)
+                        if not face and value in ('recruitment', 'recruit', 'headhunt'):
+                            face = 'NotoSansHans-Medium'
+                        if face:
+                            layer['fontFace'] = face
+                        if value == 'progress':
+                            layer['content'] = 'All Stages Cleared'
             if not ref or ref['m_FileID'] or not ref['m_PathID'] or not image['m_Enabled']:
                 continue
             color = list(vec(image['m_Color'], 'rgba'))
@@ -333,9 +347,9 @@ def export_theme(base, common, theme, theme_id, sources, output, *, news=None, a
             put(inner, side, sprite=theme_sprite(image['spritePath']), label=label)
         elif prefab_path := element.get('imgPrefab') or element.get('prefabPath'):
             root = theme.node(leaf(prefab_path))
-            # The sanity replacement uses anchors inside the top-left-pivoted
-            # slot. Other replacement art keeps its authored offset from the slot.
-            mounted = (theme.rect(root, rect) if element['name'] == 'panel_ap'
+            # The Terminal's AP and progress panels mount in anchored slots.
+            # The button artwork keeps its position relative to the slot origin.
+            mounted = (theme.rect(root, rect) if element['name'] in ('panel_ap', 'battle_prg_widget')
                        else replace(theme.rect(root, None), parent=rect))
             prefab(root, mounted, side, theme.path(root), label)
         elif sprite_path := element.get('spritePath'):
@@ -356,21 +370,23 @@ def export_theme(base, common, theme, theme_id, sources, output, *, news=None, a
         if element := elements.get(slot):
             place(element, base.canvas_rect(base_name, 'right_canvas', element), 'right')
 
-    if elements.get('panel_ap'):
-        # Some themed prefabs let the home controller place the value in the
-        # shared slots instead of serializing a text child in the replacement.
-        for node in ('text_ap', 'text_ap_max'):
-            if node not in elements:
-                continue
-            value, label, font = PREVIEW_TEXT[node]
-            if not any(layer.get('text') == value for layer in layers):
-                element = elements[node]
-                rect = (replace(sanity_anchor, size=vec(element['size'], 'xy'))
-                        if node == 'text_ap' and sanity_anchor is not None
-                        else base.canvas_rect(node, 'right_canvas', element))
-                layer = put(rect, 'right', label=label, text=value, font=element.get('fontSize', font))
-                if layer and value == 'sanity' and sanity_bitmap:
-                    layer['bitmap'] = sanity_bitmap
+    # A theme may leave Sanity to the shared home controller instead of
+    # serializing a replacement. Keep the controller's counters in either case.
+    for node in ('text_ap', 'text_ap_max'):
+        value, label, font = PREVIEW_TEXT[node]
+        if any(layer.get('text') == value for layer in layers):
+            continue
+        element = elements.get(node, {})
+        rect = (replace(sanity_anchor, size=vec(element['size'], 'xy'))
+                if node == 'text_ap' and sanity_anchor is not None and 'size' in element
+                else base.canvas_rect(node, 'right_canvas', element))
+        layer = put(rect, 'right', label=label, text=value, font=element.get('fontSize', font))
+        if layer and value == 'sanity' and sanity_bitmap:
+            layer['bitmap'] = sanity_bitmap
+    if not elements.get('panel_ap'):
+        node = 'test_ap_title'
+        put(base.canvas_rect(node, 'right_canvas', elements.get('text_ap_title')),
+            'right', text='sanityTitle', font=PREVIEW_TEXT['text_ap_title'][2])
 
     if news:
         sprite, label = news

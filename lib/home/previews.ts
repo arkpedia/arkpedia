@@ -41,6 +41,8 @@ export type ImportedCosmetic = {
   names: string[];
   packs: Record<string, string>;
   animated?: boolean;
+  globalName?: string;
+  source?: { region: string };
   music?: { name: string };
 };
 
@@ -54,7 +56,7 @@ const curatedPreviews: readonly HomePreview[] = curated;
 
 for (const [id, background] of Object.entries<ImportedCosmetic>(discovered.backgrounds)) {
   const path = `/event-preview/${id}`;
-  const name = background.names.at(-1) ?? id;
+  const name = background.globalName ?? background.names.at(-1) ?? id;
   const audio = `${path}/music.m4a`;
   backgrounds.set(id, {
     scene: { name, title: name, image: `${path}/background.webp`,
@@ -65,7 +67,8 @@ for (const [id, background] of Object.entries<ImportedCosmetic>(discovered.backg
 
 for (const [id, data] of Object.entries<ImportedCosmetic>(discovered.themes)) {
   const artRoot = `/event-preview/${id}`;
-  themes.set(id, { name: data.names.at(-1) ?? id, gameData: { id },
+  themes.set(id, { name: data.globalName ?? data.names.at(-1) ?? id, gameData: { id },
+    ...(data.source?.region === 'en' && { localized: true }),
     layout: { manifest: `${artRoot}/layout.json`, artRoot }, terminal: { label: 'Terminal' }, navigation: [] });
   const packNames = Object.keys(data.packs);
   const matchingRooms = Object.entries<ImportedCosmetic>(discovered.backgrounds)

@@ -286,3 +286,19 @@ test('Hunt exports its complete Global HUD with the native digits and Terminal m
     assert.ok(matches[0].width > 0, key);
   }
 });
+
+test('an imported offer uses its Global room and theme even when matched by its CN contents', () => {
+  const expected = packCosmeticPreview('Dahuang Sprout Pack', 'https://www.arknights.global/fixture');
+  assert.equal(expected?.scene.gameData?.id, 'bg_sui_1');
+  assert.equal(expected?.scene.name, 'Green Buds');
+  assert.equal(expected?.theme?.gameData?.id, 'tm_sui_1');
+  assert.equal(expected?.theme?.name, 'Dahuang');
+  assert.equal(expected?.theme?.localized, true);
+  assert.equal(expected?.music?.title, 'Journey to Dahuang');
+
+  const cn = packCosmeticPreview('大荒青禾组合包', 'https://ak.hypergryph.com/fixture', [
+    { name: '主题场景 青穰' }, { name: '界面主题 大荒' },
+  ]);
+  assert.equal(cn?.scene.name, expected?.scene.name);
+  assert.equal(cn?.theme?.layout?.manifest, expected?.theme?.layout?.manifest);
+});

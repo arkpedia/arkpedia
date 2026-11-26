@@ -1,0 +1,113 @@
+name: Import and review home previews
+on:
+  schedule:
+    # The lightweight revision check watches arkpedia-data's game-version importer.
+    - cron: '43 */6 * * *'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: home-preview-import-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          repository: arkpedia/arkpedia-data
+          ref: imports
+          path: .cache/home-preview-input
+          sparse-checkout: source/data/client-versions.json
+          sparse-checkout-cone-mode: false
+          persist-credentials: false
+      - name: Check the imported game versions
+        id: inputs
+        run: |
+          set -euo pipefail
+          mkdir -p .cache/home-previews
+          git -C .cache/home-preview-input rev-parse HEAD > .cache/home-previews/data-revision.txt
+          jq -S '[.regions.cn.resVersion, .regions.cn.mirror, .regions.en.resVersion, .regions.en.mirror]' \
+            .cache/home-preview-input/source/data/client-versions.json > .cache/home-previews/versions.json
+          echo "key=$(sha256sum .cache/home-previews/versions.json | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        id: watched
+        with:
+          path: .cache/home-previews/checked-versions.json
+          key: home-preview-checked-${{ steps.inputs.outputs.key }}-${{ hashFiles('.github/workflows/home-preview-import.yml', 'scripts/imports/*home*.py', 'tests/browser/home-preview.spec.ts', 'config/discovered-home-cosmetics.json') }}
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7
+        if: steps.watched.outputs.cache-hit != 'true' || github.event_name == 'workflow_dispatch'
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        if: steps.watched.outputs.cache-hit != 'true' || github.event_name == 'workflow_dispatch'
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Generate previews from the recorded client bundles
+        id: import
+        if: steps.watched.outputs.cache-hit != 'true' || github.event_name == 'workflow_dispatch'
+        run: |
+          set -euo pipefail
+          python -m pip install -r scripts/requirements.txt UnityPy==1.25.3
+          test -x "$(command -v ffmpeg)"
+          # Use the app's pinned assistant art and the importer's version receipt.
+          node scripts/content/pull-data.mjs --pinned
+          python scripts/imports/sync_home_previews.py \
+            --versions .cache/home-preview-input/source/data/client-versions.json \
+            --report .cache/home-previews/report.json
+          git add -N -- public/event-preview config/discovered-home-cosmetics.json
+          if ! git diff --quiet HEAD -- public/event-preview config/discovered-home-cosmetics.json; then
+            echo 'changed=true' >> "$GITHUB_OUTPUT"
+          fi
+      - name: Prepare the generated browser site
+        if: steps.import.outputs.changed == 'true'
+        env:
+          ARKPEDIA_CONTENT_DISABLED: '1'
+          ARKPEDIA_YOUTUBE_FEED_FIXTURE: tests/fixtures/youtube-feeds.xml
+          ARKPEDIA_BUILD_CHECKS_PASSED: '1'
+          NEXT_TELEMETRY_DISABLED: '1'
+        run: |
+          npm ci
+          npm run prebuild
+          npm run --ignore-scripts build
+          npm run postbuild
+          npx playwright install --with-deps chromium
+      - name: Verify generated previews alongside Hunt, Persona, Theatre and Celebration
+        if: steps.import.outputs.changed == 'true'
+        run: npm run test:browser -- tests/browser/home-preview.spec.ts --project desktop --project mobile
+      - name: Package the checked import for Preview review
+        if: steps.import.outputs.changed == 'true'
+        run: |
+          git diff --binary HEAD -- public/event-preview config/discovered-home-cosmetics.json > .cache/home-previews/preview-import.patch
+          git rev-parse HEAD > .cache/home-previews/app-revision.txt
+      - name: Save the game-version checkpoint
+        if: success() && steps.import.outcome == 'success'
+        id: checkpoint
+        run: |
+          if jq -e '.inputs | has("cn") and has("en")' .cache/home-previews/report.json >/dev/null; then
+            cp .cache/home-previews/versions.json .cache/home-previews/checked-versions.json
+            echo 'ready=true' >> "$GITHUB_OUTPUT"
+          fi
+          jq -r '"Generated: \(.generated | length). Needs review: \(.review | length)."' .cache/home-previews/report.json >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        if: steps.checkpoint.outputs.ready == 'true' && steps.watched.outputs.cache-hit != 'true'
+        with:
+          path: .cache/home-previews/checked-versions.json
+          key: home-preview-checked-${{ steps.inputs.outputs.key }}-${{ hashFiles('.github/workflows/home-preview-import.yml', 'scripts/imports/*home*.py', 'tests/browser/home-preview.spec.ts', 'config/discovered-home-cosmetics.json') }}
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        if: always() && steps.import.outcome != 'skipped'
+        with:
+          name: home-preview-review-${{ github.run_id }}
+          path: |
+            .cache/home-previews/report.json
+            .cache/home-previews/*-revision.txt
+            .cache/home-previews/preview-import.patch
+            test-results/
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 30

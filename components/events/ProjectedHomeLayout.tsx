@@ -21,6 +21,8 @@ type ProjectedLayer = {
   label?: string;
   fontSize?: number;
   fontFace?: string;
+  color?: string;
+  alignment?: number;
   effect?: string;
   emitter?: string;
   particleMask?: string;
@@ -147,7 +149,10 @@ export default function ProjectedHomeLayout({ layout, artRoot, theme, animationS
 
   const values: Record<string, string> = {
     sanity: String(theme.profile?.sanity.current ?? 210),
-    sanityTitle: 'SANITY',
+    sanityTitle: theme.localized ? 'Sanity' : '理智',
+    recruitment: theme.localized ? 'Recruitment' : '招募',
+    recruit: theme.localized ? 'Recruit' : '公开招募',
+    headhunt: theme.localized ? 'Headhunt' : '干员寻访',
     maxSanity: '/' + (theme.profile?.sanity.capacity ?? 210),
     level: String(theme.profile?.level ?? 120),
     doctor: theme.profile?.name ?? 'Doctor',
@@ -163,8 +168,12 @@ export default function ProjectedHomeLayout({ layout, artRoot, theme, animationS
     const fontSize = layer.fontFace === 'AEwide' && value && layer.fontSize
       ? Math.min(layer.fontSize, layer.width / (value.length * .61))
       : layer.fontSize;
+    const alignment = layer.alignment;
+    const horizontal = ['start', 'center', 'end'] as const;
     const style = {
-      width: layer.width, height: layer.height, fontSize,
+      width: layer.width, height: layer.height, fontSize, color: layer.color,
+      justifyItems: alignment === undefined ? undefined : horizontal[alignment % 3],
+      alignItems: alignment === undefined ? undefined : horizontal[Math.floor(alignment / 3)],
       opacity: layer.opacity, transform: matrix(layer.matrix),
     };
     if (layer.effect === 'particles' && layer.particles && layer.particleMask && layer.emitter) {

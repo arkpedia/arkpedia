@@ -725,7 +725,10 @@ button.event-banner-extra:focus-visible > .event-banner-extra-name { color: var(
   font-weight: 500;
 }
 .event-persona-text[data-font-face="AEwide"] > span { transform: scaleX(1.15); }
-.event-persona-text[data-font-face][data-value="doctor"] { align-items: end; }
+.event-persona-text[data-font-face][data-value="doctor"] {
+  align-items: end;
+  text-shadow: .04em .06em var(--scrim-ground);
+}
 @media (max-width: 680px) {
   .event-scene-dialog[data-native-home] .event-scene-stage { inset-block-end: 130px; }
 }
