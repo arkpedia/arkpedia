@@ -301,7 +301,11 @@ def export_theme(base, common, theme, theme_id, sources, output, *, news=None, a
             put(inner, side, sprite=theme_sprite(image['spritePath']), label=label)
         elif prefab_path := element.get('imgPrefab') or element.get('prefabPath'):
             root = theme.node(leaf(prefab_path))
-            prefab(root, replace(theme.rect(root, None), parent=rect), side, theme.path(root), label)
+            # The sanity replacement uses anchors inside the top-left-pivoted
+            # slot. Other replacement art keeps its authored offset from the slot.
+            mounted = (theme.rect(root, rect) if element['name'] == 'panel_ap'
+                       else replace(theme.rect(root, None), parent=rect))
+            prefab(root, mounted, side, theme.path(root), label)
         elif sprite_path := element.get('spritePath'):
             put(rect, side, sprite=theme_sprite(sprite_path), label=label)
 

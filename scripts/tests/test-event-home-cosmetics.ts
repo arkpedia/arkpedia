@@ -244,7 +244,7 @@ test('Hunt exports its complete Global HUD with the native digits and Terminal m
   const layout = JSON.parse(readFileSync(`${root}/layout.json`, 'utf8')) as {
     sources: Record<string, string>;
     layers: {
-      label?: string; text?: string; width: number; sprite?: string; content?: string;
+      label?: string; text?: string; width: number; height: number; matrix: number[]; sprite?: string; content?: string;
       bitmap?: { atlas: string; glyphs: Record<string, number[]> };
       children?: { sprite: string }[];
     }[];
@@ -254,14 +254,25 @@ test('Hunt exports its complete Global HUD with the native digits and Terminal m
     assert.ok(sprite && existsSync(`${root}/${sprite}.webp`), label);
   }
   assert.ok(layout.sources['spritepack/ui_home_act_banner_gacha_en_0.ab']);
-  const digits = layout.layers.find(layer => layer.text === 'sanity')?.bitmap;
+  const meter = layout.layers.find(layer => layer.text === 'sanity');
+  assert.ok(meter);
+  const digits = meter.bitmap;
   assert.deepEqual(Object.keys(digits?.glyphs ?? {}), [...'0123456789']);
   assert.ok(digits && existsSync(`${root}/${digits.atlas}.webp`));
   const terminalMask = layout.layers.find(layer => layer.sprite === 'btn_battle_softmask');
   assert.ok(terminalMask?.children?.some(child => child.sprite === 'btn_battle_circle_1'));
   assert.equal(layout.layers.some(layer => layer.sprite === 'btn_battle_circle_1'), false);
   assert.equal(layout.layers.find(layer => layer.text === 'progress')?.content, 'All complete');
-  assert.ok(layout.layers.find(layer => layer.text === 'dialogue')?.content?.includes('Doctor'));
+  // The projected center of the prefab belongs inside Terminal. Skipping the
+  // slot's anchor puts it at about (685, 142), above and left of the panel.
+  const { matrix, width, height } = meter;
+  const halfWidth = width / 2;
+  const halfHeight = height / 2;
+  const depth = matrix[3] * halfWidth + matrix[7] * halfHeight + matrix[15];
+  const x = (matrix[0] * halfWidth + matrix[4] * halfHeight + matrix[12]) / depth;
+  const y = (matrix[1] * halfWidth + matrix[5] * halfHeight + matrix[13]) / depth;
+  assert.ok(Math.abs(x - 774) < 5 && Math.abs(y - 203) < 5, `Sanity center: ${x}, ${y}`);
+  assert.match(layout.layers.find(layer => layer.text === 'dialogue')?.content ?? '', /^I see you're as laid back as they are, Doctor\./);
   for (const key of ['sanity', 'maxSanity', 'lmd', 'orundum', 'originite']) {
     const matches = layout.layers.filter(layer => layer.text === key);
     assert.equal(matches.length, 1, key);
