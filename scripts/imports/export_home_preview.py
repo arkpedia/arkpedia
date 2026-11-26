@@ -364,6 +364,12 @@ def export_theme(base, common, theme, theme_id, sources, output, *, news=None, a
         else:
             rect = base.canvas_rect(base_name, side + '_canvas', element)
         place(element, rect, side, label)
+    # Some themes put the shared heading inside the first recruitment button.
+    # Draw it across the group after both button backgrounds.
+    def is_recruitment_heading(layer):
+        return layer.get('sprite') == 'bg_recruit' or layer.get('text') == 'recruitment'
+
+    layers.sort(key=is_recruitment_heading)
     if (title := elements.get('img_grp_recruit')) and title.get('spritePath'):
         place(title, base.canvas_rect('panel_recruit', 'right_canvas', title), 'right', 'Recruitment')
     for slot, base_name in (('panel_ap', 'panel_ap_container'), ('battle_prg_widget', 'panel_progress_holder')):

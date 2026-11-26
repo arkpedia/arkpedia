@@ -148,6 +148,14 @@ test('Dahuang Sprout Pack opens the generated Global preview from the event page
     await expect(label).toHaveCSS('font-weight', '500');
     expect(await label.evaluate(element => element.scrollWidth <= element.clientWidth + 1)).toBe(true);
   }
+  const headingArt = screen.locator('img[src$="/bg_recruit.webp"]');
+  await artwork(headingArt);
+  expect(await headingArt.evaluate(element => {
+    const headhuntArt = element.parentElement?.querySelector('img[src$="/bg_advance_recruit.webp"]');
+    const label = element.parentElement?.querySelector('[data-value="recruitment"]');
+    return !!(headhuntArt && label && (headhuntArt.compareDocumentPosition(element) & Node.DOCUMENT_POSITION_FOLLOWING)
+      && (element.compareDocumentPosition(label) & Node.DOCUMENT_POSITION_FOLLOWING));
+  })).toBe(true);
   await expect(screen.getByText('All Stages Cleared')).toHaveCSS('color', 'rgb(40, 40, 40)');
   await screenshot(dialog, info, 'dahuang-pack');
 });
