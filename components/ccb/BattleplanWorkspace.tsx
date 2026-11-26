@@ -28,7 +28,7 @@ export default function BattleplanWorkspace({ seasons, operators, operatorIcons,
   const [selections, setSelections] = useState<Record<string, string[]>>({});
   const [enemyId, setEnemy] = useState<string | null>(null);
   const [dialog, setDialog] = useState<'map' | 'risks' | 'modifiers' | 'enemy' | null>(null);
-  const [riskStart, setRiskStart] = useState<string | null>(null);
+  const [activeRiskGroup, setActiveRiskGroup] = useState<string | null>(null);
   const [handbook, setHandbook] = useState<BattleplanEnemy | null>(null);
   const squad = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -56,8 +56,12 @@ export default function BattleplanWorkspace({ seasons, operators, operatorIcons,
   const score = totalRisk(map.groups, selected);
   const max = maximumRisk(map.groups);
   const close = () => setDialog(null);
-  const openRisks = (section: string | null) => {
-    setRiskStart(section);
+  const openRisks = (groupId: string | null) => {
+    if (dialog === 'risks' && groupId !== null && groupId === activeRiskGroup) {
+      jumpToDialogSection(riskSection(groupId));
+      return;
+    }
+    setActiveRiskGroup(groupId);
     setDialog('risks');
   };
   const updateSelection = (update: (current: string[]) => string[]) => {
@@ -70,9 +74,9 @@ export default function BattleplanWorkspace({ seasons, operators, operatorIcons,
       {inline && <h2 className="section-title">Risks</h2>}
       <button className="ghost btn-sm" type="button" disabled={!selected.length} onClick={() => updateSelection(() => [])}>{T.clear}</button>
     </div>
-    <ContractBoard map={map} selected={selected} inDialog={!inline}
+    <ContractBoard map={map} selected={selected} inDialog={!inline} currentGroupId={inline ? null : activeRiskGroup}
       onGroup={value => updateSelection(current => toggleContractGroup(current, value, all))}
-      onInspect={value => inline ? openRisks(riskSection(value.id)) : jumpToDialogSection(riskSection(value.id))} />
+      onInspect={value => openRisks(value.id)} />
     {inline && <button type="button" className="ghost btn-sm" aria-haspopup="dialog"
       onClick={() => setDialog('modifiers')}>Active modifiers</button>}
   </section>;
@@ -170,7 +174,8 @@ export default function BattleplanWorkspace({ seasons, operators, operatorIcons,
     {dialog === 'map' && details && <BattleplanDialog wide label={`${map.name}: ${T.map}`} onClose={close}>
       <BattleplanStageDetails map={map} contracts={active} />
     </BattleplanDialog>}
-    {dialog === 'risks' && <BattleplanDialog label="Risks" className={styles.risksDialog} onClose={close} initialSection={riskStart}
+    {dialog === 'risks' && <BattleplanDialog label="Risks" className={styles.risksDialog} onClose={close}
+      focusSection={activeRiskGroup === null ? null : riskSection(activeRiskGroup)}
       headerAction={<>
         <output aria-label="Risks sheet score" aria-live="polite" className={styles.groupScore}>▲ {score} / {max}</output>
         <button type="button" className="ghost btn-sm" onClick={() => jumpToDialogSection(RISK_CATEGORIES)}>Categories</button>
@@ -178,7 +183,7 @@ export default function BattleplanWorkspace({ seasons, operators, operatorIcons,
       {renderRiskBoard(false)}
       <details className={styles.source}><summary>Active modifiers</summary>{renderModifiers()}</details>
       <div className={styles.groups}>
-        {map.groups.map(group => <ContractTree key={group.id} group={group} names={names} selected={selected}
+        {map.groups.map(group => <ContractTree key={group.id} group={group} names={names} selected={selected} current={group.id === activeRiskGroup}
           sectionId={riskSection(group.id)} onSelect={contract => updateSelection(current => toggleContract(current, contract, all))} />)}
       </div>
     </BattleplanDialog>}

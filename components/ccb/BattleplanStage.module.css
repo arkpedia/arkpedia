@@ -68,29 +68,15 @@
   stroke-linecap: round;
   fill: none;
 }
-.blockedLegend {
-  display: grid;
-  gap: 2px;
-  align-content: start;
-  margin-top: 5px;
-  min-block-size: 2.8em;
-  color: var(--text-dim);
-  font-size: 11px;
-}
-.legendTitle {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-}
 .legendSwatch {
   display: grid;
   place-items: center;
-  flex: none;
-  width: 14px;
-  height: 14px;
+  background: var(--well);
+  border-radius: var(--radius);
+}
+.legendSwatch[data-active] {
   color: var(--scrim-ink-bright);
   background: color-mix(in srgb, var(--cat-red) 72%, var(--scrim-ground));
-  border-radius: var(--radius);
 }
 
 .facts {
@@ -100,6 +86,7 @@
   margin: 0;
 }
 .facts > div { display: grid; gap: 2px; min-width: 0; }
+.stageGrid .facts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .facts dt {
   display: flex;
   align-items: center;
@@ -119,9 +106,19 @@
 }
 .facts dd strong { font-size: 15px; }
 .facts dd small { font-size: 11px; }
+.blockedFact small { color: var(--text-dim); }
 .details { display: grid; gap: var(--heading-gap); min-width: 0; }
 .details .facts { grid-template-columns: repeat(auto-fit, minmax(min(100%, 110px), 1fr)); }
 
 @media (max-width: 720px) {
   .stageGrid { gap: 8px; }
+}
+
+@media (max-width: 420px) {
+  .stageGrid { grid-template-columns: minmax(0, 1fr) minmax(0, 1.5fr); }
+  .stageGrid .facts dt { align-items: start; line-height: 1.3; }
+}
+
+@media (max-width: 365px) {
+  .stageGrid .facts dt { flex-wrap: wrap; gap: 2px 4px; overflow-wrap: anywhere; }
 }

@@ -47,14 +47,18 @@ for (const theme of ['dark', 'light'] as const) {
     const hostile = risks.getByRole('region', { name: 'Hostile Forces', exact: true });
     await inspect.click();
     await expect(hostile).toBeFocused();
+    await expect(hostile).toHaveAttribute('aria-current', 'true');
     await expect(hostile.getByRole('heading', { name: 'Hostile Forces', exact: true })).toBeInViewport();
     await expect(risks.getByRole('button', { name: 'Close Risks', exact: true })).toBeInViewport({ ratio: 1 });
     await expect(hostile.getByRole('button', { name: /, \d+$/ })).toHaveCount(6);
     await expect(risks.getByRole('region', { name: 'Restrictions', exact: true })).toHaveCount(1);
     await hostile.getByRole('button', { name: /ATK.*, 30$/ }).click();
+    await expect(hostile).toHaveAttribute('aria-current', 'true');
     expect(await hostile.locator('.mode-mark').first().evaluate(el => getComputedStyle(el).maskImage)).toMatch(/contingency-contract\/runeicon\//);
-    if (phone) await risks.getByRole('button', { name: 'Categories', exact: true }).click();
-    else {
+    if (phone) {
+      await risks.getByRole('button', { name: 'Categories', exact: true }).click();
+      await expect(inspect).toHaveAttribute('aria-current', 'true');
+    } else {
       await closeRisks(page);
       await expect(inspect).toBeFocused();
     }
@@ -152,6 +156,8 @@ test('a team shares contracts while build and tile choices reload independently 
     } else await page.getByRole('button', { name: view, exact: true }).click();
     const group = risks.getByRole('region', { name: category, exact: true });
     await expect(group).toBeFocused();
+    await expect(risks.locator('section[aria-current="true"]')).toHaveCount(1);
+    await expect(group).toHaveAttribute('aria-current', 'true');
     await group.getByRole('button', { name: label, exact: true }).click();
   }
   await closeRisks(page);
@@ -222,12 +228,15 @@ test('stage limits and blocked tiles update with the selected contracts', async 
   await page.goto('/game-modes/ccb');
   await selectArclight(page);
   const stage = page.getByRole('region', { name: 'Suspended Focus: Stage', exact: true });
-  const deploy = stage.getByText('Deployment limit', { exact: true }).locator('..').locator('dd strong');
-  const dpRecovery = stage.getByText('DP per second', { exact: true }).locator('..').locator('dd strong');
+  const deploy = stage.locator('dt').filter({ hasText: 'Deployment limit' }).locator('..').locator('dd strong');
+  const dpRecovery = stage.locator('dt').filter({ hasText: 'DP per second' }).locator('..').locator('dd strong');
+  const lifePoints = stage.locator('dt').filter({ hasText: 'Life points' }).locator('..');
+  const blockedTiles = stage.locator('dt').filter({ hasText: 'Blocked tiles' }).locator('..');
   const blocked = stage.locator('svg [data-blocked="true"]');
 
   await expect(deploy).toHaveText('9');
   await expect(dpRecovery).toHaveText('1');
+  await expect(blockedTiles.locator('dd strong')).toHaveText('0');
   await expect(blocked).toHaveCount(0);
   await openRisks(page);
   const board = await riskDialog(page).isVisible() ? riskDialog(page) : page.getByRole('region', { name: 'Contract board' });
@@ -240,7 +249,12 @@ test('stage limits and blocked tiles update with the selected contracts', async 
 
   await expect(deploy).toHaveText('5');
   await expect(dpRecovery).toHaveText('0.5');
+  await expect(blockedTiles.locator('dd strong')).toHaveText('4');
   await expect(blocked).toHaveCount(4);
+  const lifeBox = (await lifePoints.boundingBox())!;
+  const blockedBox = (await blockedTiles.boundingBox())!;
+  expect(Math.abs(blockedBox.x - lifeBox.x)).toBeLessThanOrEqual(1);
+  expect(blockedBox.y).toBeGreaterThanOrEqual(lifeBox.y + lifeBox.height);
 
   await page.getByRole('button', { name: 'Enlarge the map of Suspended Focus', exact: true }).click();
   const map = page.getByRole('dialog', { name: 'Suspended Focus: Map', exact: true });

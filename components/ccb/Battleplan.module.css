@@ -84,6 +84,8 @@
 .groups { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 12px; }
 .group { flex: 1 1 auto; min-width: min(100%, 280px); max-width: 100%; border: 1px solid var(--line); border-radius: var(--radius); }
 .groupHead { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 10px; padding: 8px 12px; background: var(--well); border-left: 4px solid var(--cc); }
+.group[aria-current="true"] { border-color: var(--teal); }
+.group[aria-current="true"] .groupHead { background: var(--teal-dim); border-left-color: var(--teal); }
 .groupHead h3 { margin: 0 auto 0 0; }
 .groupScore { font-family: var(--font-mono); font-size: 12px; color: var(--text-bright); white-space: nowrap; }
 .groupScore > span { color: var(--text-dim); }
@@ -183,6 +185,7 @@
   font-size: 12px;
 }
 .categoryDetails:hover { color: var(--teal); }
+.categoryDetails[aria-current="true"] { background: var(--teal-dim); color: var(--teal); }
 .categoryDetails .groupScore { justify-self: end; }
 .categoryGlyph { display: block; width: 20px; height: 20px; flex: none; }
 .contractHint {

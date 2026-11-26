@@ -8,12 +8,13 @@ import styles from './Battleplan.module.css';
 
 type SelectionProps = { selected: string[]; names: Record<string, string>; onSelect: (contract: Contract) => void };
 
-export default function ContractBoard({ map, selected, onGroup, onInspect, inDialog = false }: {
+export default function ContractBoard({ map, selected, onGroup, onInspect, inDialog = false, currentGroupId }: {
   map: BattleplanMap;
   selected: string[];
   onGroup: (group: ContractGroup) => void;
   onInspect: (group: ContractGroup) => void;
   inDialog?: boolean;
+  currentGroupId?: string | null;
 }) {
   return <ul className={styles.riskChecklist}>{map.groups.map(group => {
     const score = group.contracts.filter(row => selected.includes(row.id)).reduce((sum, row) => sum + row.score, 0);
@@ -28,7 +29,7 @@ export default function ContractBoard({ map, selected, onGroup, onInspect, inDia
           onChange={() => onGroup(group)} />
       </label>
       <button type="button" className={`btn-bare ${styles.categoryDetails}`} aria-haspopup={inDialog ? undefined : 'dialog'}
-        aria-label={`View ${group.name} contracts`} onClick={() => onInspect(group)}>
+        aria-current={group.id === currentGroupId || undefined} aria-label={`View ${group.name} contracts`} onClick={() => onInspect(group)}>
         {icon ? <CcbGlyph kind="runeicon" id={icon} className={styles.categoryGlyph} /> : <span aria-hidden="true" />}
         <span>{group.name}</span>
         <span className={styles.groupScore}>{score}/{max}</span>
@@ -41,7 +42,7 @@ export default function ContractBoard({ map, selected, onGroup, onInspect, inDia
 const TILE = 52;
 const PAD = 40;
 
-export function ContractTree({ group, selected, names, onSelect, sectionId }: SelectionProps & { group: ContractGroup; sectionId: string }) {
+export function ContractTree({ group, selected, names, onSelect, sectionId, current }: SelectionProps & { group: ContractGroup; sectionId: string; current: boolean }) {
   const [focused, onFocus] = useState<Contract | null>(null);
   const score = group.contracts.filter(row => selected.includes(row.id)).reduce((sum, row) => sum + row.score, 0);
   const max = maximumContractScore(group.contracts);
@@ -54,7 +55,7 @@ export function ContractTree({ group, selected, names, onSelect, sectionId }: Se
     const other = group.contracts.find(item => item.id === id);
     return other && id > row.id ? [{ from: row, to: other }] : [];
   }));
-  return <section id={sectionId} tabIndex={-1} className={styles.group} style={{ flexBasis: width }} aria-label={group.name}>
+  return <section id={sectionId} tabIndex={-1} className={styles.group} style={{ flexBasis: width }} aria-label={group.name} aria-current={current || undefined}>
     <div className={styles.groupHead}>
       <h3 className="entity-title entity-title-sm">{group.name}</h3>
       <span className={styles.groupScore}>▲ {score}<span> / {max}</span></span>

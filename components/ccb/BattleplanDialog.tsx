@@ -11,13 +11,13 @@ export function jumpToDialogSection(id: string) {
   target.focus({ preventScroll: true });
 }
 
-export default function BattleplanDialog({ label, onClose, children, wide = false, className = '', initialSection, headerAction }: {
+export default function BattleplanDialog({ label, onClose, children, wide = false, className = '', focusSection, headerAction }: {
   label: string;
   onClose: () => void;
   children: ReactNode;
   wide?: boolean;
   className?: string;
-  initialSection?: string | null;
+  focusSection?: string | null;
   headerAction?: ReactNode;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
@@ -34,8 +34,8 @@ export default function BattleplanDialog({ label, onClose, children, wide = fals
   }, []);
 
   useLayoutEffect(() => {
-    if (initialSection) jumpToDialogSection(initialSection);
-  }, [initialSection]);
+    if (focusSection) jumpToDialogSection(focusSection);
+  }, [focusSection]);
 
   return <dialog ref={ref} className={`account-dialog ${styles.dialog} ${wide ? styles.wideDialog : ''} ${className}`} aria-label={label}
     onCancel={event => { event.preventDefault(); onClose(); }}
