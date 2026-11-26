@@ -63,7 +63,7 @@ function importedPackPreview(pack: string, source: string, contents: readonly { 
     THEME_LABELS.some(label => words(item.name).startsWith(label)));
   if (backgrounds.length !== 1 || themes.length > 1 || unknownTheme) return;
 
-  const regionalName = ({ names, packs }: ImportedCosmetic): string => names.find(name => contents.some(item =>
+  const regionalName = ({ names, packs, globalName }: ImportedCosmetic): string => globalName ?? names.find(name => contents.some(item =>
     ` ${words(item.name)} `.includes(` ${words(name)} `)))
     ?? Object.entries(packs).find(([name]) => packKey(name) === packKey(pack))?.[1]
     ?? names[0];

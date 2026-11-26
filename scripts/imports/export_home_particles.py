@@ -257,7 +257,11 @@ class Room:
             art = sprite(texture, tex['width'], tex['height'], material)
             node = default_node(name, [1, 1], art)
             if renderer['m_RenderMode'] == 4:
-                mesh = MeshHandler(self.resolve(renderer_obj, renderer['m_Mesh']).read())
+                mesh_obj = self.resolve(renderer_obj, renderer['m_Mesh'])
+                if not mesh_obj:
+                    self.report[f'{name}: missing particle mesh bundle'] += 1
+                    continue
+                mesh = MeshHandler(mesh_obj.read())
                 mesh.process()
                 node['mesh'] = [round(value, 6) for i in mesh.m_IndexBuffer
                                 for value in (*mesh.m_Vertices[i], *mesh.m_UV0[i][:2])]

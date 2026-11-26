@@ -238,3 +238,67 @@ test('lists home cosmetics independently of events and mixes any two imported as
   assert.equal(getHomePreview('bg_anniversary_1')?.theme, undefined);
   assert.equal(getHomePreview('bg_anniversary_1', 'tm_missing'), undefined);
 });
+
+test('Hunt exports its complete Global HUD with the native digits and Terminal mask', () => {
+  const root = 'public/event-preview/tm_hunter_1';
+  const layout = JSON.parse(readFileSync(`${root}/layout.json`, 'utf8')) as {
+    sources: Record<string, string>;
+    layers: {
+      label?: string; text?: string; width: number; height: number; matrix: number[]; sprite?: string; content?: string; fontFace?: string;
+      bitmap?: { atlas: string; glyphs: Record<string, number[]> };
+      children?: { sprite: string }[];
+    }[];
+  };
+  for (const label of ['Violet Mizutsune Orchid', 'Breaking News', 'Hunters of the Umbral Wilds', 'Recruitment']) {
+    const sprite = layout.layers.find(layer => layer.label === label)?.sprite;
+    assert.ok(sprite && existsSync(`${root}/${sprite}.webp`), label);
+  }
+  assert.ok(layout.sources['spritepack/ui_home_act_banner_gacha_en_0.ab']);
+  const meter = layout.layers.find(layer => layer.text === 'sanity');
+  assert.ok(meter);
+  const digits = meter.bitmap;
+  assert.deepEqual(Object.keys(digits?.glyphs ?? {}), [...'0123456789']);
+  assert.ok(digits && existsSync(`${root}/${digits.atlas}.webp`));
+  const terminalMask = layout.layers.find(layer => layer.sprite === 'btn_battle_softmask');
+  assert.ok(terminalMask?.children?.some(child => child.sprite === 'btn_battle_circle_1'));
+  assert.equal(layout.layers.some(layer => layer.sprite === 'btn_battle_circle_1'), false);
+  assert.equal(layout.layers.find(layer => layer.text === 'progress')?.content, 'All Stages Cleared');
+  // The projected center of the prefab belongs inside Terminal. Skipping the
+  // slot's anchor puts it at about (685, 142), above and left of the panel.
+  const { matrix, width, height } = meter;
+  const halfWidth = width / 2;
+  const halfHeight = height / 2;
+  const depth = matrix[3] * halfWidth + matrix[7] * halfHeight + matrix[15];
+  const x = (matrix[0] * halfWidth + matrix[4] * halfHeight + matrix[12]) / depth;
+  const y = (matrix[1] * halfWidth + matrix[5] * halfHeight + matrix[13]) / depth;
+  assert.ok(Math.abs(x - 774) < 5 && Math.abs(y - 203) < 5, `Sanity center: ${x}, ${y}`);
+  const dialogue = layout.layers.find(layer => layer.text === 'dialogue');
+  assert.equal(dialogue?.content, "I see your workload hasn't changed, Doctor. Don't worry, I'll help you sort it out.");
+  assert.equal(dialogue.height, 81);
+  assert.equal(dialogue.fontFace, 'NotoSansHans-Medium');
+  assert.equal(layout.layers.find(layer => layer.text === 'doctor')?.fontFace, dialogue.fontFace);
+  assert.equal(layout.layers.find(layer => layer.text === 'level')?.fontFace, 'AEwide');
+  assert.ok(layout.layers.some(layer => layer.sprite === 'tri'));
+  assert.ok(existsSync(`${root}/tri.webp`));
+  for (const key of ['sanity', 'maxSanity', 'lmd', 'orundum', 'originite']) {
+    const matches = layout.layers.filter(layer => layer.text === key);
+    assert.equal(matches.length, 1, key);
+    assert.ok(matches[0].width > 0, key);
+  }
+});
+
+test('an imported offer uses its Global room and theme even when matched by its CN contents', () => {
+  const expected = packCosmeticPreview('Dahuang Sprout Pack', 'https://www.arknights.global/fixture');
+  assert.equal(expected?.scene.gameData?.id, 'bg_sui_1');
+  assert.equal(expected?.scene.name, 'Green Buds');
+  assert.equal(expected?.theme?.gameData?.id, 'tm_sui_1');
+  assert.equal(expected?.theme?.name, 'Dahuang');
+  assert.equal(expected?.theme?.localized, true);
+  assert.equal(expected?.music?.title, 'Journey to Dahuang');
+
+  const cn = packCosmeticPreview('大荒青禾组合包', 'https://ak.hypergryph.com/fixture', [
+    { name: '主题场景 青穰' }, { name: '界面主题 大荒' },
+  ]);
+  assert.equal(cn?.scene.name, expected?.scene.name);
+  assert.equal(cn?.theme?.layout?.manifest, expected?.theme?.layout?.manifest);
+});
