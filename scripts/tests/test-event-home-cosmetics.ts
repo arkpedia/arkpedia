@@ -238,3 +238,33 @@ test('lists home cosmetics independently of events and mixes any two imported as
   assert.equal(getHomePreview('bg_anniversary_1')?.theme, undefined);
   assert.equal(getHomePreview('bg_anniversary_1', 'tm_missing'), undefined);
 });
+
+test('Hunt exports its complete Global HUD with the native digits and Terminal mask', () => {
+  const root = 'public/event-preview/tm_hunter_1';
+  const layout = JSON.parse(readFileSync(`${root}/layout.json`, 'utf8')) as {
+    sources: Record<string, string>;
+    layers: {
+      label?: string; text?: string; width: number; sprite?: string; content?: string;
+      bitmap?: { atlas: string; glyphs: Record<string, number[]> };
+      children?: { sprite: string }[];
+    }[];
+  };
+  for (const label of ['Violet Mizutsune Orchid', 'Breaking News', 'Hunters of the Umbral Wilds']) {
+    const sprite = layout.layers.find(layer => layer.label === label)?.sprite;
+    assert.ok(sprite && existsSync(`${root}/${sprite}.webp`), label);
+  }
+  assert.ok(layout.sources['spritepack/ui_home_act_banner_gacha_en_0.ab']);
+  const digits = layout.layers.find(layer => layer.text === 'sanity')?.bitmap;
+  assert.deepEqual(Object.keys(digits?.glyphs ?? {}), [...'0123456789']);
+  assert.ok(digits && existsSync(`${root}/${digits.atlas}.webp`));
+  const terminalMask = layout.layers.find(layer => layer.sprite === 'btn_battle_softmask');
+  assert.ok(terminalMask?.children?.some(child => child.sprite === 'btn_battle_circle_1'));
+  assert.equal(layout.layers.some(layer => layer.sprite === 'btn_battle_circle_1'), false);
+  assert.equal(layout.layers.find(layer => layer.text === 'progress')?.content, 'All complete');
+  assert.ok(layout.layers.find(layer => layer.text === 'dialogue')?.content?.includes('Doctor'));
+  for (const key of ['sanity', 'maxSanity', 'lmd', 'orundum', 'originite']) {
+    const matches = layout.layers.filter(layer => layer.text === key);
+    assert.equal(matches.length, 1, key);
+    assert.ok(matches[0].width > 0, key);
+  }
+});
