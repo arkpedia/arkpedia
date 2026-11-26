@@ -292,9 +292,11 @@ for (const theme of ['dark', 'light']) test(`the entire reward overview fits wit
 for (const theme of ['dark', 'light']) {
   test(`purchasable pack contents stay accessible in ${theme}`, async ({ page }) => {
     await page.addInitScript(theme => localStorage.setItem('theme', theme), theme);
-    await page.goto('/events/' + encodeURIComponent('[Crossover] Languid Sentiment') + '#rewards');
-    await page.getByRole('tab', { name: 'Rewards', exact: true }).click();
-    await page.getByRole('tab', { name: 'Packs', exact: true }).click();
+    await page.goto('/events/' + encodeURIComponent('[Crossover] Languid Sentiment'));
+    const packsTab = page.getByRole('tab', { name: 'Packs', exact: true });
+    await packsTab.click();
+    await expect(packsTab).toHaveAttribute('aria-selected', 'true');
+    await expect(page).toHaveURL(/#packs$/);
     const pack = page.locator('.event-pack-card').filter({ has: page.locator('.event-pack-card-name', { hasText: /^Fluffy and Warm Pack$/ }) });
     await expect(pack).toBeVisible();
     await pack.click();

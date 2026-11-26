@@ -9,6 +9,7 @@ from collections import defaultdict
 from dataclasses import replace
 import json
 import math
+import re
 from pathlib import Path
 
 from PIL import Image, ImageChops
@@ -96,6 +97,11 @@ IDLE_ALTERNATES = {'group_trans', 'group_anim', 'root_trans'}
 
 def export_theme(base, common, theme, theme_id, sources, output, *, news=None, assistant=None, assistant_frame=None):
     elements = {row['name']: row for row in common.asset_json(theme_id)['elements']}
+    sprite_names = {name.casefold(): sprite for name, sprite in theme.sprites.items()}
+
+    def theme_sprite(path):
+        name = leaf(path)
+        return theme.sprites.get(name) or sprite_names[name.casefold()]
     layers = []
     left, left_motion = camera_motion(base, 'left')
     right, right_motion = camera_motion(base, 'right')
@@ -193,12 +199,12 @@ def export_theme(base, common, theme, theme_id, sources, output, *, news=None, a
     def place(element, rect, side, label=None):
         if image := element.get('imgData'):
             inner = Rect(rect, (*vec(image['pos'], 'xy'), 0), vec(image['size'], 'xy'))
-            put(inner, side, sprite=theme.sprites[leaf(image['spritePath'])], label=label)
+            put(inner, side, sprite=theme_sprite(image['spritePath']), label=label)
         elif prefab_path := element.get('imgPrefab') or element.get('prefabPath'):
             root = theme.node(leaf(prefab_path))
             prefab(root, replace(theme.rect(root, None), parent=rect), side, theme.path(root), label)
         elif sprite_path := element.get('spritePath'):
-            put(rect, side, sprite=theme.sprites[leaf(sprite_path)], label=label)
+            put(rect, side, sprite=theme_sprite(sprite_path), label=label)
 
     for slot, base_name, side, label in PRESETS:
         if not (element := elements.get(slot)):
@@ -229,7 +235,7 @@ def export_theme(base, common, theme, theme_id, sources, output, *, news=None, a
     skin = elements.get('img_name_icon')
     if skin and skin.get('spritePath'):
         rect = top_rect('panel_back', skin, 'panel_player_profile')
-        put(rect, None, sprite=theme.sprites[leaf(skin['spritePath'])])
+        put(rect, None, sprite=theme_sprite(skin['spritePath']))
     for node, sprite in (
         ('image_menu', 'image_profile_bkg'), ('image_exp_empty', 'image_exp_circle_empty'),
         ('btn_setting', 'icon_setting'), ('btn_announcement', 'icon_annoucement'), ('btn_mailbox', 'icon_mailbox'),
@@ -270,13 +276,17 @@ def main():
     parser.add_argument('manifest', type=Path)
     parser.add_argument('--theme')
     parser.add_argument('--background')
+    parser.add_argument('--discover', action='store_true',
+                        help='Import any new home themes and backgrounds in the unpacked client bundles.')
     parser.add_argument('--breaking-news', action='store_true', help='Include the game’s default news panel.')
     parser.add_argument('--assistant', nargs=2, metavar=('NAME', 'ART'))
     parser.add_argument('--assistant-frame', nargs=3, type=int, metavar=('X', 'Y', 'HEIGHT'))
     parser.add_argument('--art', type=Path, default=Path('public/event-preview'))
     args = parser.parse_args()
-    if not (args.theme or args.background):
-        parser.error('Specify --theme or --background')
+    if not (args.theme or args.background or args.discover):
+        parser.error('Specify --theme, --background or --discover')
+    if args.discover and (args.theme or args.background or args.assistant):
+        parser.error('--discover imports multiple cosmetics and cannot be combined with a specific asset or assistant')
 
     if bool(args.assistant) != bool(args.assistant_frame) or (args.assistant_frame and args.assistant_frame[2] <= 0):
         parser.error('--assistant requires --assistant-frame with a positive height')
@@ -286,23 +296,52 @@ def main():
     def bundle(key, path):
         return Bundle(args.bundles, key, checksums[path])
 
-    if theme := args.theme:
-        theme_path = f'arts/ui/hometheme/[uc]{theme}.ab'
+    def new_assets(pattern, output_name):
+        for path in sorted(checksums):
+            match = re.fullmatch(pattern, path)
+            if match:
+                id_ = match[1]
+                if (args.bundles / f'{id_}.ab').is_file() and not (args.art / id_ / output_name).is_file():
+                    yield id_, path
+
+    themes = [(args.theme, f'arts/ui/hometheme/[uc]{args.theme}.ab')] if args.theme else []
+    backgrounds = [(args.background, f'arts/ui/homebackground/wrapper/{args.background}.ab')] if args.background else []
+    if args.discover:
+        themes = list(new_assets(r'arts/ui/hometheme/\[uc\](tm_[a-z0-9_]+)\.ab', 'layout.json'))
+        backgrounds = list(new_assets(r'arts/ui/homebackground/wrapper/(bg_[a-z0-9_]+)\.ab', 'background.webp'))
+    errors = []
+    if themes:
         base_path, common_path = (BUNDLES[key][0] for key in ('home_page', 'common'))
-        paths = [base_path, common_path, theme_path]
+        base, common = bundle('home_page', base_path), bundle('common', common_path)
+        paths = [base_path, common_path]
         news = None
         if args.breaking_news:
             news_key = 'ui_home_act_banner_shop_h2_0'
             news_path = BUNDLES[news_key][0]
             news = bundle(news_key, news_path)
             paths.append(news_path)
-        export_theme(bundle('home_page', base_path), bundle('common', common_path), bundle(theme, theme_path), theme,
-                     {path: checksums[path] for path in paths}, args.art / theme,
-                     news=news, assistant=args.assistant, assistant_frame=args.assistant_frame)
-    if background := args.background:
+        for theme, path in themes:
+            try:
+                export_theme(base, common, bundle(theme, path), theme,
+                             {key: checksums[key] for key in (*paths, path)}, args.art / theme,
+                             news=news, assistant=args.assistant, assistant_frame=args.assistant_frame)
+            except (KeyError, ValueError, AttributeError, StopIteration) as error:
+                if not args.discover:
+                    raise
+                errors.append(f'{theme}: {error}')
+    for background, path in backgrounds:
         output = args.art / background
         output.mkdir(parents=True, exist_ok=True)
-        export_background(bundle(background, f'arts/ui/homebackground/wrapper/{background}.ab'), background, output)
+        try:
+            export_background(bundle(background, path), background, output)
+        except (KeyError, ValueError, AttributeError) as error:
+            if not args.discover:
+                raise
+            errors.append(f'{background}: {error}')
+    if args.discover:
+        print(f'Imported {len(themes) + len(backgrounds) - len(errors)} new home cosmetics.')
+    if errors:
+        parser.exit(1, '\n'.join(errors) + '\n')
 
 
 if __name__ == '__main__':

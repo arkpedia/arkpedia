@@ -1,5 +1,13 @@
 {
   "backgrounds": {
+    "bg_rhodes_day": {
+      "names": [
+        "视野",
+        "Vision"
+      ],
+      "packs": {},
+      "animated": false
+    },
     "bg_hunter_1": {
       "names": [
         "结营",
@@ -28,5 +36,7 @@
         "Strike Camp Hunt Pack": "Hunt"
       }
     }
-  }
+  },
+  "defaultBackgroundId": "bg_rhodes_day",
+  "defaultThemeId": null
 }

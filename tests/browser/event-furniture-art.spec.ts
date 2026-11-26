@@ -12,6 +12,7 @@ test('rerun furniture shows official shop artwork without losing the checklist o
   const box = await art.boundingBox();
   expect(box!.width).toBeLessThanOrEqual(226);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await page.getByRole('tab', { name: 'Rewards', exact: true }).click();
   await page.getByRole('tab', { name: 'Missions', exact: true }).click();
   await expect(art).toHaveCount(0);
   await page.getByRole('tab', { name: 'Furniture', exact: true }).click();

@@ -4,7 +4,8 @@ import layout from '../../public/event-preview/tm_p3r_1/layout.json';
 import theatreLayout from '../../public/event-preview/tm_redvelvet_1/layout.json';
 import { curveValue, type GameUiScene } from '../../lib/events/gameUiPlayer';
 import { test } from 'node:test';
-import { packCosmeticPreview, regionalEventCosmeticPreview, regionalPackCosmeticPreview, type GlobalHomeCosmetics } from '../../lib/events/cosmeticPreviews';
+import { packCosmeticPreview, regionalEventCosmeticPreview, regionalPackCosmeticPreview } from '../../lib/events/cosmeticPreviews';
+import { getHomePreview, homePreviewCatalogue, type GlobalHomeCosmetics } from '../../lib/home/previews';
 import { preferredPackGroups } from '../../lib/events/packRegions';
 import { rewardTabsFor } from '../../lib/events/rewardTabs';
 
@@ -220,4 +221,20 @@ test('loads imported particle tracks and every referenced game texture', () => {
     assert.ok(scene.nodes.some(node => node.name.includes(emitter) && node.particleTracks?.length), id);
     for (const texture of scene.textures) assert.ok(existsSync(`${root}/${texture.file}`), texture.file);
   }
+});
+
+test('lists home cosmetics independently of events and mixes any two imported assets', () => {
+  const catalogue = homePreviewCatalogue(data);
+  assert.equal(catalogue.defaultBackgroundId, 'bg_rhodes_day');
+  assert.ok(catalogue.backgrounds.some(room => room.id === 'bg_anniversary_1' && room.animated));
+  assert.ok(catalogue.themes.some(theme => theme.id === 'tm_p3r_1' && theme.name === 'Fixture Theme'));
+  assert.equal(catalogue.themes.find(theme => theme.id === 'tm_hunter_1')?.backgroundId, 'bg_hunter_1');
+
+  const combination = getHomePreview('bg_p3r_1', 'tm_hunter_1', data);
+  assert.equal(combination?.theme?.layout?.manifest, '/event-preview/tm_hunter_1/layout.json');
+  assert.equal(combination?.scene.image, '/content-art/room.webp');
+  assert.equal(combination?.music?.title, 'Aria of the Soul (P3R Version)');
+  assert.equal(getHomePreview(undefined, 'tm_hunter_1')?.scene.gameData?.id, 'bg_rhodes_day');
+  assert.equal(getHomePreview('bg_anniversary_1')?.theme, undefined);
+  assert.equal(getHomePreview('bg_anniversary_1', 'tm_missing'), undefined);
 });

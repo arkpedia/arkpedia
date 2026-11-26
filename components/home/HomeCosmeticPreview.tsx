@@ -6,9 +6,9 @@ import { useContentUrl } from '@/lib/content/context';
 import { cssUrl } from '@/lib/content/urls';
 import SegmentedControl from '@/components/ui/SegmentedControl';
 import XButton from '@/components/ui/XButton';
-import EventHomeTheme from './EventHomeTheme';
-import EventSceneCanvas from './EventSceneCanvas';
-import type { CosmeticPreview } from '@/lib/events/cosmeticPreviews';
+import EventHomeTheme from '@/components/events/EventHomeTheme';
+import EventSceneCanvas from '@/components/events/EventSceneCanvas';
+import type { HomePreview } from '@/lib/home/previews';
 import { useMusicPlayer } from '@/lib/music/musicPlayerContext';
 import { MAIN_AUDIO_START } from '@/lib/music/pageMusic';
 import { readPrivacy, requestExternalMedia } from '@/lib/privacy/preferences';
@@ -35,8 +35,8 @@ function positionAfterZoom(position: number, anchor: number, frame: number, art:
   return clampPosition(((anchor - previousOffset) * after / before - anchor) * 100 / overflow);
 }
 
-export default function EventCosmeticPreview({ preview, artwork, card = false, children, onOpenChange }: {
-  preview: CosmeticPreview;
+export default function HomeCosmeticPreview({ preview, artwork, card = false, children, onOpenChange }: {
+  preview: HomePreview;
   artwork?: ReactElement;
   card?: boolean;
   children?: (action: ReactElement) => ReactNode;

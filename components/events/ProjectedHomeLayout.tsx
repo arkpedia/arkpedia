@@ -3,7 +3,7 @@ import { ContentImg } from '@/components/content/ContentImage';
 import PersonaHeadphones from './PersonaHeadphones';
 import PersonaMenuParticles, { type ParticleTrack } from './PersonaMenuParticles';
 import EventSceneCanvas from './EventSceneCanvas';
-import type { HomeTheme } from '@/lib/events/cosmeticPreviews';
+import type { HomeTheme } from '@/lib/home/previews';
 
 type ProjectedLayer = {
   camera?: string;

@@ -9,6 +9,8 @@ python scripts/imports/export_home_preview.py /path/to/unpacked /path/to/hot_upd
   --theme tm_redvelvet_1 --background bg_redvelvet_1
 ```
 
+Use `--discover` to batch-export the new home themes and backgrounds in the supplied bundle directory. The client manifest supplies the IDs and checksums. Existing exports are left in place, including any manually composed ones. Use the individual flags to refresh a specific export.
+
 Use `--breaking-news` to include the default promo and caption from the matching `ui_home_act_banner_shop_h2_0.ab` bundle. Use `--assistant "Tragodia" /path/to/base.webp --assistant-frame 144 47 1040` to place the reference assistant at that position in the 1280 × 720 canvas.
 
 The command writes the projected layout and WebP sprites to `public/event-preview/<theme-id>/` and the assembled artwork to `public/event-preview/<background-id>/background.webp`. Use the theme directory as `theme.layout.artRoot` and its `layout.json` as `theme.layout.manifest`. Point `scene.image` at the exported background. Supply the soundtrack only when its in-game ID is confirmed. The shared WebGL player uses a background's `scene.json` when its particle export is available. Persona's specialized rig still has its own exporter.
@@ -32,5 +34,7 @@ python scripts/imports/build_home_cosmetic_catalogue.py public/event-preview con
 Strike Camp uses the opening 30 seconds of the Global `m_avg_victorianormal_loop` clip. The audio table names it Cloudy Day and assigns it to `sys.ON_MUSIC.bg_hunter_1`. The unpacked bundle is `audio/sound_beta_2/music/avg/m_avg_victorianormal.ab` (MD5 `d022a5af98c12f544cdc3781de16f0f2`, Global client `26-11-19-09-03-43_d30fff`).
 
 Persona uses the opening 30 seconds of the audio clip identified under `music.gameData`. The identical waveform in the Apple Music excerpt starts about 45 seconds into the game clip. The page loads the game excerpt as a first-party preview and links to the published soundtrack.
+
+A future gallery can read `homePreviewCatalogue()` from `lib/home/previews.ts` to list available backgrounds and themes by their stable game IDs. Themes with one known companion background expose its ID. Call `getHomePreview(backgroundId, themeId)` for a particular combination or `getHomePreview(undefined, themeId)` to use the game’s default room. Pass the result to `HomeCosmeticPreview` from `components/home/HomeCosmeticPreview.tsx`. The viewer uses the selected background’s effects and music. The catalogue only exposes imported cosmetics with a renderable layout or room image.
 
 Check the preview from the event page at desktop and mobile widths. Verify art loading, mouse movement, drag and Ctrl/Cmd-scroll, reduced motion, and BGM with the event music setting enabled. Run `npx tsx --test scripts/tests/test-event-home-cosmetics.ts` to check catalogue matching and committed artwork.

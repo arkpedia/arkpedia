@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { fetchAsset } from '@/lib/assets/assetRetry';
 import ProjectedHomeLayout, { type ProjectedLayout } from './ProjectedHomeLayout';
 import { ContentImg } from '@/components/content/ContentImage';
-import type { HomeMenuItem, HomeTheme, ThemeArt } from '@/lib/events/cosmeticPreviews';
+import type { HomeMenuItem, HomeTheme, ThemeArt } from '@/lib/home/previews';
 
 function ThemeImage({ art, label = '', className }: { art: ThemeArt; label?: string; className?: string }) {
   return <ContentImg eager src={art.image} width={art.width} height={art.height}

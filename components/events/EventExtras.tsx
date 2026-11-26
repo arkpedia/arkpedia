@@ -5,7 +5,7 @@ import type { EventExtras } from '@/lib/events/tableRewards';
 import { REGIONAL_MATERIAL } from '@/lib/i18n/regionalMaterial';
 import Image, { ContentImg } from '@/components/content/ContentImage';
 import { PackButton } from './RewardDetails';
-import EventCosmeticPreview from './EventCosmeticPreview';
+import HomeCosmeticPreview from '@/components/home/HomeCosmeticPreview';
 import { RewardTile } from './RewardTile';
 import { packDay } from '@/lib/events/packDay';
 import { packCosmeticPreview, type CosmeticEventExtras, type CosmeticPack, type CosmeticPreview } from '@/lib/events/cosmeticPreviews';
@@ -38,7 +38,7 @@ export function EventPacks({ groups, preview, onPreviewOpenChange }: {
   return <>
     <div className="event-extras">
       {preview && <div className={preview.pack ? undefined : 'event-standalone-background-preview'}>
-        <EventCosmeticPreview preview={preview} onOpenChange={onPreviewOpenChange}
+        <HomeCosmeticPreview preview={preview} onOpenChange={onPreviewOpenChange}
           artwork={preview.pack ? undefined : <ContentImg className="event-pack-detail-image event-pack-detail-promo"
             src={preview.scene.image} alt={preview.scene.title} width={1820} height={1024} />} />
         {!preview.pack && <p className="hint">{preview.scene.title}</p>}
@@ -65,7 +65,7 @@ export function EventPacks({ groups, preview, onPreviewOpenChange }: {
                 alt={`Official promotional artwork for ${name}`} width={1560} height={500} />;
               return <div key={index} className={single ? 'panel event-pack-offer' : 'event-pack-offer-wide'}>
                 {art && (cosmetics.length === 1
-                  ? <EventCosmeticPreview preview={cosmetics[0]} artwork={art} card onOpenChange={onPreviewOpenChange} />
+                  ? <HomeCosmeticPreview preview={cosmetics[0]} artwork={art} card onOpenChange={onPreviewOpenChange} />
                   : <button type="button" className="btn-bare event-pack-promo-view" aria-haspopup="dialog"
                     aria-label={`Enlarge official artwork: ${name}`} onClick={() => setOpened({ image: offer.image!, name })}>
                     {art}

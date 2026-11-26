@@ -6,7 +6,7 @@ import type { TicketDetails } from '@/lib/events/announcements';
 import { RewardTile } from './RewardTile';
 import { packDay } from '@/lib/events/packDay';
 import { packCosmeticPreview, type CosmeticPack } from '@/lib/events/cosmeticPreviews';
-import EventCosmeticPreview from './EventCosmeticPreview';
+import HomeCosmeticPreview from '@/components/home/HomeCosmeticPreview';
 import { VIDEOS_COMING_SOON } from '@/lib/selectors/videosComingSoon';
 import { combinedRecommendation, pointLabel, rankByRecommendation, type Recommendation } from '@/lib/selectors/scoring';
 
@@ -139,9 +139,9 @@ export function RewardDetailsProvider({ tickets, children, recommendations, reco
           <p className="hint"><a href={active.ticket.source} target="_blank" rel="noopener noreferrer">Source announcement</a></p>
         </>}</div> : <>
           {cosmetic
-            ? <EventCosmeticPreview key={cosmetic.pack} preview={cosmetic} artwork={packArtwork} onOpenChange={onPreviewOpenChange}>
+            ? <HomeCosmeticPreview key={cosmetic.pack} preview={cosmetic} artwork={packArtwork} onOpenChange={onPreviewOpenChange}>
               {action => packDetails(active.pack, active.source, action)}
-            </EventCosmeticPreview>
+            </HomeCosmeticPreview>
             : <>{packArtwork}{packDetails(active.pack, active.source)}</>}
         </>}
       </>}

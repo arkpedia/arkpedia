@@ -49,6 +49,9 @@ def build(art, tables, audio, omit):
     for group in catalogue.values():
         for record in group.values():
             record['names'] = list(dict.fromkeys(record['names']))
+    for key, kind in [('defaultBackgroundId', 'backgrounds'), ('defaultThemeId', 'themes')]:
+        catalogue[key] = next((default for table in reversed(tables)
+                               if (default := table['homeBackgroundData'].get(key)) in catalogue[kind]), None)
     return catalogue
 
 
