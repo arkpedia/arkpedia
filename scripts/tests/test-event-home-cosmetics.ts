@@ -244,7 +244,7 @@ test('Hunt exports its complete Global HUD with the native digits and Terminal m
   const layout = JSON.parse(readFileSync(`${root}/layout.json`, 'utf8')) as {
     sources: Record<string, string>;
     layers: {
-      label?: string; text?: string; width: number; height: number; matrix: number[]; sprite?: string; content?: string;
+      label?: string; text?: string; width: number; height: number; matrix: number[]; sprite?: string; content?: string; fontFace?: string;
       bitmap?: { atlas: string; glyphs: Record<string, number[]> };
       children?: { sprite: string }[];
     }[];
@@ -275,6 +275,9 @@ test('Hunt exports its complete Global HUD with the native digits and Terminal m
   const dialogue = layout.layers.find(layer => layer.text === 'dialogue');
   assert.equal(dialogue?.content, "I see your workload hasn't changed, Doctor. Don't worry, I'll help you sort it out.");
   assert.equal(dialogue.height, 81);
+  assert.equal(dialogue.fontFace, 'NotoSansHans-Medium');
+  assert.equal(layout.layers.find(layer => layer.text === 'doctor')?.fontFace, dialogue.fontFace);
+  assert.equal(layout.layers.find(layer => layer.text === 'level')?.fontFace, 'AEwide');
   assert.ok(layout.layers.some(layer => layer.sprite === 'tri'));
   assert.ok(existsSync(`${root}/tri.webp`));
   for (const key of ['sanity', 'maxSanity', 'lmd', 'orundum', 'originite']) {

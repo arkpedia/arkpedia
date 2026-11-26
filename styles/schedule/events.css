@@ -671,10 +671,19 @@ button.event-banner-extra:focus-visible > .event-banner-extra-name { color: var(
   transform-origin: top left;
 }
 @font-face {
-  font-family: Oswald;
-  src: url('/event-preview/fonts/oswald-regular-latin.woff2') format('woff2');
+  font-family: 'Home Screen Body';
+  src: local('Nuber Next Regular Condensed'), local('NuberNext-RegularCondensed'),
+    url('/event-preview/fonts/roboto-condensed-regular-latin.woff2') format('woff2');
   font-style: normal;
   font-weight: 400;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Home Screen Level';
+  src: local('AEwide'), local('Novecento Sans Wide Medium'),
+    url('/event-preview/fonts/manrope-medium-latin.woff2') format('woff2');
+  font-style: normal;
+  font-weight: 500;
   font-display: swap;
 }
 .event-home-soft-mask { mask-size: 100% 100%; }
@@ -696,7 +705,7 @@ button.event-banner-extra:focus-visible > .event-banner-extra-name { color: var(
   text-shadow: .055em .06em var(--scrim-ground);
 }
 .event-persona-camera:has(.event-home-bitmap-digits) .event-persona-text[data-value="maxSanity"] {
-  font-family: Oswald, var(--font-body);
+  font-family: "Home Screen Body", var(--font-body);
   font-weight: 400;
 }
 .event-persona-text:is([data-value="dialogue"], [data-value="progress"]) {
@@ -705,12 +714,18 @@ button.event-banner-extra:focus-visible > .event-banner-extra-name { color: var(
   line-height: 1.25;
 }
 .event-persona-text[data-value="progress"] { align-content: center; }
-.event-persona-text[data-home-text] {
-  font-family: Oswald, var(--font-body);
+.event-persona-text[data-font-face="NotoSansHans-Medium"] {
+  font-family: "Home Screen Body", var(--font-body);
   font-weight: 400;
   line-height: 1.13;
 }
-.event-persona-text[data-home-text="dialogue"] { letter-spacing: .015em; }
+.event-persona-text[data-font-face][data-value="dialogue"] { letter-spacing: -.005em; }
+.event-persona-text[data-font-face="AEwide"] {
+  font-family: "Home Screen Level", var(--font-body);
+  font-weight: 500;
+}
+.event-persona-text[data-font-face="AEwide"] > span { transform: scaleX(1.15); }
+.event-persona-text[data-font-face][data-value="doctor"] { align-items: end; }
 @media (max-width: 680px) {
   .event-scene-dialog[data-native-home] .event-scene-stage { inset-block-end: 130px; }
 }

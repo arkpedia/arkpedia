@@ -20,6 +20,7 @@ type ProjectedLayer = {
   text?: string;
   label?: string;
   fontSize?: number;
+  fontFace?: string;
   effect?: string;
   emitter?: string;
   particleMask?: string;
@@ -157,8 +158,13 @@ export default function ProjectedHomeLayout({ layout, artRoot, theme, animationS
     originite: '1',
   };
   function renderLayer(layer: ProjectedLayer, index: string | number) {
+    const value = layer.content ?? values[layer.text ?? ''];
+    // The client's level text reduces its size to fit the fixed profile circle.
+    const fontSize = layer.fontFace === 'AEwide' && value && layer.fontSize
+      ? Math.min(layer.fontSize, layer.width / (value.length * .61))
+      : layer.fontSize;
     const style = {
-      width: layer.width, height: layer.height, fontSize: layer.fontSize,
+      width: layer.width, height: layer.height, fontSize,
       opacity: layer.opacity, transform: matrix(layer.matrix),
     };
     if (layer.effect === 'particles' && layer.particles && layer.particleMask && layer.emitter) {
@@ -179,7 +185,6 @@ export default function ProjectedHomeLayout({ layout, artRoot, theme, animationS
     </div>;
     if (layer.fallbackFor === 'headphones' && headphones) return null;
     if (layer.fallbackFor === 'shop' && shopReady && !regionalShopArt) return null;
-    const value = layer.content ?? values[layer.text ?? ''];
     const bitmap = layer.bitmap;
     if (bitmap && value && [...value].every(character => character in bitmap.glyphs)) {
       const { atlas, spacing, glyphs } = bitmap;
@@ -195,9 +200,9 @@ export default function ProjectedHomeLayout({ layout, artRoot, theme, animationS
       </span>;
     }
     if (!layer.sprite) return <span key={index} className="event-persona-layer event-persona-text"
-      data-value={layer.text} data-home-text={layer.content ? layer.text : undefined}
+      data-value={layer.text} data-font-face={layer.fontFace}
       style={style} aria-label={layer.label ? `${layer.label} ${value}` : undefined}>
-      {value}
+      {layer.fontFace === 'AEwide' ? <span>{value}</span> : value}
     </span>;
     const regional = layer.themed && theme.nativeArt?.[layer.sprite]?.image;
     if (theme.localized && layer.fixedCN && !regional) return null;

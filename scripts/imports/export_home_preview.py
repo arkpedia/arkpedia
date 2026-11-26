@@ -124,6 +124,14 @@ AUTO_TEXT_WIDTH = {'maxSanity': 2.5, 'lmd': 3, 'orundum': 3, 'originite': 2}
 IDLE_ALTERNATES = {'group_trans', 'group_anim', 'root_trans'}
 
 
+def text_style(bundle, node):
+    behaviours = [component.read_typetree() for component in bundle.components(node)
+                  if component.type.name == 'MonoBehaviour']
+    font = next(data['m_FontData'] for data in behaviours if 'm_FontData' in data)
+    face = next((data['_fontName'] for data in behaviours if '_fontName' in data), None)
+    return font['m_FontSize'], face
+
+
 def bitmap_digits(bundle, view):
     """Read the digit atlas linked by a runtime character-view prefab."""
     if not view or view['m_FileID'] or not view['m_PathID']:
@@ -294,6 +302,7 @@ def export_theme(base, common, theme, theme_id, sources, output, *, news=None, a
                 layer = put(rect, side, label=text_label, text=value, font=font, scope=scope)
                 if layer and value == 'progress' and locale == 'en':
                     layer['content'] = 'All Stages Cleared'
+                    layer['fontFace'] = next((data['_fontName'] for data in behaviours if '_fontName' in data), None)
             if not ref or ref['m_FileID'] or not ref['m_PathID'] or not image['m_Enabled']:
                 continue
             color = list(vec(image['m_Color'], 'rgba'))
@@ -379,11 +388,11 @@ def export_theme(base, common, theme, theme_id, sources, output, *, news=None, a
         mask = base.rect(base.node('dialogue_mask', 'left_canvas'), panel)
         text_node = base.node('dialogue', 'dialogue_mask')
         text = base.rect(text_node, mask)
-        text_component = next(data for component in base.components(text_node) if component.type.name == 'MonoBehaviour'
-                              and 'm_FontData' in (data := component.read_typetree()))
-        font = text_component['m_FontData']['m_FontSize']
+        font, face = text_style(base, text_node)
         layer = put(replace(text, size=(text.size[0], mask.size[1])), 'left', text='dialogue', font=font)
         layer['content'] = assistant_dialogue
+        if locale == 'en':
+            layer['fontFace'] = face
         arrow = base.node('tri', '/panel_dialogue/dialogue/')
         put(base.rect(arrow, panel), 'left', sprite=base.sprites['tri'])
 
@@ -404,14 +413,21 @@ def export_theme(base, common, theme, theme_id, sources, output, *, news=None, a
         ('btn_setting', 'icon_setting'), ('btn_announcement', 'icon_annoucement'), ('btn_mailbox', 'icon_mailbox'),
     ):
         put(top_rect(node), None, sprite=base.sprites[sprite])
-    for node, value, font in (('text_playerlevel', 'level', 62), ('text_playername', 'doctor', 33)):
-        put(top_rect(node), None, text=value, font=font)
+    for node, value, default_size in (('text_playerlevel', 'level', 62), ('text_playername', 'doctor', 33)):
+        size, face = text_style(base, base.node(node, 'panel_top_ui')) if locale == 'en' else (default_size, None)
+        layer = put(top_rect(node), None, text=value, font=size)
+        if layer and face:
+            layer['fontFace'] = face
 
     for node, value, label, sprite in CURRENCY_SLOTS:
         rect = base.canvas_rect(node, 'right_canvas', parent='/panel_status/group_info/')
         icon = replace(rect, center=add(rect.center, (-rect.size[0]/2 - 25, 0, 0)), size=(54, 44))
         put(icon, 'right', sprite=base.sprites[sprite])
-        put(rect, 'right', label=label, text=value, font=40)
+        size, face = (text_style(base, base.node(node, '/panel_status/group_info/'))
+                      if locale == 'en' else (40, None))
+        layer = put(rect, 'right', label=label, text=value, font=size)
+        if layer and face:
+            layer['fontFace'] = face
 
     (output / 'layout.json').write_text(json.dumps(dict(
         width=WIDTH, height=HEIGHT, sources=sources, layers=layers,
