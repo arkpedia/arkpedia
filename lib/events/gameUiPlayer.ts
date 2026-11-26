@@ -9,17 +9,56 @@ type ImageData = {
   material: number | null; type: number; preserveAspect: boolean;
   fill: number; fillMethod: number; clockwise: boolean; origin: number; arc?: Vec; rotated?: boolean; uvRect?: Vec;
 };
+// A track stores birth, lifetime, repeat period and evenly sampled
+// x, y, size, angle, RGBA and atlas-frame values from the game emitter.
+type ParticleTrack = [birth: number, lifetime: number, period: number, samples: number[]];
 type Node = { name: string; parent: number | null; active: boolean; alpha: number; position: Vec;
   z: number; size: Vec; pivot: Vec; anchorMin: Vec; anchorMax: Vec; scale: Vec; rotation: Vec; euler?: Vec; localPosition?: Vec; image?: ImageData; mesh?: Vec; uniforms?: Record<string, number | Vec>; rectMask?: boolean; maskSoftness?: Vec; maskPadding?: Vec; ignoreParentAlpha?: boolean;
+  particleTracks?: ParticleTrack[]; particleTiles?: [number, number];
   stencil?: { compare: number; operation: number; readMask: number; writeMask: number; colorMask: number } };
 type Shader = { name: string; vertex: string; fragment: string; defaults: Record<string, Vec>;
   samplers: Record<string, string>; blend: { val: number; name: string }[] };
 type Material = { name: string; shader: number; values: Record<string, number | Vec>; textures: Record<string, number | null> };
 export type GameUiScene = { schemaVersion: 1; width: number; height: number; duration: number; clip: string;
-  transparent?: boolean;
+  transparent?: boolean; continuous?: boolean;
   nodes: Node[]; textures: { file: string; width: number; height: number; wrapU: number; wrapV: number }[]; shaders: Shader[]; materials: Material[];
   curves: { node: number; property: string; keys: Key[]; duration?: number }[];
   sound?: { file: string; offset: number; duration: number } };
+
+function* particleInstances(node: Node, time: number): Generator<Node> {
+  if (!node.particleTracks || !node.image) {
+    yield node;
+    return;
+  }
+  const stride = 9;
+  for (const [birth, lifetime, period, samples] of node.particleTracks) {
+    const age = time - birth;
+    if (age < 0) continue;
+    const progress = (period ? age % period : age) / lifetime;
+    if (progress >= 1) continue;
+    const frame = progress * (samples.length / stride - 1);
+    const first = Math.floor(frame) * stride;
+    const second = Math.min(first + stride, samples.length - stride);
+    const fraction = frame % 1;
+    const value = (key: number) => samples[first + key] * (1 - fraction) + samples[second + key] * fraction;
+    const size = value(2);
+    const alpha = value(7);
+    if (size <= 0 || alpha <= 0) continue;
+    const angle = value(3) / 2;
+    const image = { ...node.image, color: [value(4), value(5), value(6), alpha] };
+    if (node.particleTiles) {
+      const [columns, rows] = node.particleTiles;
+      const count = columns * rows;
+      const tile = ((Math.floor(value(8) * count) % count) + count) % count;
+      image.uvRect = [tile % columns / columns, (rows - 1 - Math.floor(tile / columns)) / rows, 1 / columns, 1 / rows];
+    }
+    yield { ...node, localPosition: [value(0), value(1), 0],
+      size: node.mesh ? node.size : [size, size],
+      scale: node.mesh ? [size, size, size] : node.scale,
+      rotation: node.mesh ? node.rotation : [0, 0, Math.sin(angle), Math.cos(angle)],
+      image };
+  }
+}
 
 /** Unity's weighted cubic curves, including infinite-slope step keys. */
 export function curveValue(keys: Key[], time: number): number {
@@ -241,79 +280,81 @@ ${output}.a*=coverage; ${output}.rgb*=mix(1.0,coverage,arkPremultiplied); }`;
     const fit = Math.max(width / scene.width, height / scene.height);
     const vp = [2 * fit / width, 0, 0, 0, 0, 2 * fit / height, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1];
     const poses: { world: Vec; size: Vec; pivot: Vec; alpha: number; active: boolean; clip: Vec | null; masks: { rect: Vec; widths: Vec }[] }[] = [];
-    for (const n of nodes) {
-      const parent = n.parent === null ? { world: IDENTITY, size: [scene.width, scene.height], pivot: [.5, .5], alpha: 1, active: true, clip: null, masks: [] } : poses[n.parent];
-      const size = n.size.map((v, i) => v + parent.size[i] * (n.anchorMax[i] - n.anchorMin[i]));
-      const position = n.position.map((v, i) => v + parent.size[i] * (n.anchorMin[i] + (n.anchorMax[i] - n.anchorMin[i]) * n.pivot[i] - parent.pivot[i]));
-      const pose = { world: multiply(parent.world, matrix(n.localPosition ?? [...position, n.z], n.euler ? eulerQuaternion(n.euler) : n.rotation, n.scale)), size, pivot: n.pivot, alpha: (n.ignoreParentAlpha ? 1 : parent.alpha) * n.alpha, active: parent.active && !!n.active, clip: parent.clip, masks: parent.masks };
-      if (n.rectMask) {
-        const padding = n.maskPadding ?? [0, 0, 0, 0];
-        const corners = [[-n.pivot[0] * size[0] + padding[0], -n.pivot[1] * size[1] + padding[1]], [(1 - n.pivot[0]) * size[0] - padding[2], (1 - n.pivot[1]) * size[1] - padding[3]]];
-        const points = corners.map(([x, y]) => [(pose.world[0] * x + pose.world[4] * y + pose.world[12]) * fit + width / 2, (pose.world[1] * x + pose.world[5] * y + pose.world[13]) * fit + height / 2]);
-        const box = [Math.min(points[0][0], points[1][0]), Math.min(points[0][1], points[1][1]), Math.max(points[0][0], points[1][0]), Math.max(points[0][1], points[1][1])];
-        pose.clip = parent.clip ? [Math.max(box[0], parent.clip[0]), Math.max(box[1], parent.clip[1]), Math.min(box[2], parent.clip[2]), Math.min(box[3], parent.clip[3])] : box;
-        if (n.maskSoftness?.some(value => value > 0)) {
-          pose.masks = [...parent.masks, { rect: box, widths: [n.maskSoftness[0] * Math.hypot(pose.world[0], pose.world[1]) * fit / 2 + 1, n.maskSoftness[1] * Math.hypot(pose.world[4], pose.world[5]) * fit / 2 + 1, 0, 0] }];
-          if (pose.masks.length > 8) throw new Error('Too many nested native soft masks');
+    for (const [index, node] of nodes.entries()) {
+      for (const n of particleInstances(node, time)) {
+        const parent = n.parent === null ? { world: IDENTITY, size: [scene.width, scene.height], pivot: [.5, .5], alpha: 1, active: true, clip: null, masks: [] } : poses[n.parent];
+        const size = n.size.map((v, i) => v + parent.size[i] * (n.anchorMax[i] - n.anchorMin[i]));
+        const position = n.position.map((v, i) => v + parent.size[i] * (n.anchorMin[i] + (n.anchorMax[i] - n.anchorMin[i]) * n.pivot[i] - parent.pivot[i]));
+        const pose = { world: multiply(parent.world, matrix(n.localPosition ?? [...position, n.z], n.euler ? eulerQuaternion(n.euler) : n.rotation, n.scale)), size, pivot: n.pivot, alpha: (n.ignoreParentAlpha ? 1 : parent.alpha) * n.alpha, active: parent.active && !!n.active, clip: parent.clip, masks: parent.masks };
+        if (n.rectMask) {
+          const padding = n.maskPadding ?? [0, 0, 0, 0];
+          const corners = [[-n.pivot[0] * size[0] + padding[0], -n.pivot[1] * size[1] + padding[1]], [(1 - n.pivot[0]) * size[0] - padding[2], (1 - n.pivot[1]) * size[1] - padding[3]]];
+          const points = corners.map(([x, y]) => [(pose.world[0] * x + pose.world[4] * y + pose.world[12]) * fit + width / 2, (pose.world[1] * x + pose.world[5] * y + pose.world[13]) * fit + height / 2]);
+          const box = [Math.min(points[0][0], points[1][0]), Math.min(points[0][1], points[1][1]), Math.max(points[0][0], points[1][0]), Math.max(points[0][1], points[1][1])];
+          pose.clip = parent.clip ? [Math.max(box[0], parent.clip[0]), Math.max(box[1], parent.clip[1]), Math.min(box[2], parent.clip[2]), Math.min(box[3], parent.clip[3])] : box;
+          if (n.maskSoftness?.some(value => value > 0)) {
+            pose.masks = [...parent.masks, { rect: box, widths: [n.maskSoftness[0] * Math.hypot(pose.world[0], pose.world[1]) * fit / 2 + 1, n.maskSoftness[1] * Math.hypot(pose.world[4], pose.world[5]) * fit / 2 + 1, 0, 0] }];
+            if (pose.masks.length > 8) throw new Error('Too many nested native soft masks');
+          }
         }
-      }
-      poses.push(pose);
-      if (!pose.active || !n.image || pose.alpha < .0001 || n.image.color[3] < .0001 || size[0] <= 0 || size[1] <= 0) continue;
-      if (pose.clip) {
-        gl.enable(gl.SCISSOR_TEST);
-        gl.scissor(Math.floor(pose.clip[0]), Math.floor(pose.clip[1]), Math.max(0, Math.ceil(pose.clip[2] - pose.clip[0])), Math.max(0, Math.ceil(pose.clip[3] - pose.clip[1])));
-      } else gl.disable(gl.SCISSOR_TEST);
-      const stencil = n.stencil;
-      if (stencil) {
-        gl.enable(gl.STENCIL_TEST);
-        gl.stencilMask(stencil.writeMask);
-        gl.stencilFunc([gl.ALWAYS, gl.EQUAL, gl.NOTEQUAL][stencil.compare], stencil.readMask | stencil.writeMask, stencil.readMask || 255);
-        gl.stencilOp(gl.KEEP, gl.KEEP, [gl.KEEP, gl.ZERO, gl.REPLACE][stencil.operation]);
-        gl.colorMask(!!(stencil.colorMask & 8), !!(stencil.colorMask & 4), !!(stencil.colorMask & 2), !!(stencil.colorMask & 1));
-      } else { gl.disable(gl.STENCIL_TEST); gl.colorMask(true, true, true, true); }
-      const im = n.image, mat = im.material === null ? null : scene.materials[im.material], shader = mat ? scene.shaders[mat.shader] : null;
-      const program = this.programs[mat ? mat.shader + 1 : 0]; gl.useProgram(program.handle);
-      const state = (s: { name: string; val: number }) => s.name && s.name !== '<noninit>' ? Number(mat?.values[s.name] ?? shader?.defaults[s.name]?.[0] ?? s.val) : s.val;
-      const factors = [gl.ZERO, gl.ONE, gl.DST_COLOR, gl.SRC_COLOR, gl.ONE_MINUS_DST_COLOR, gl.SRC_ALPHA, gl.ONE_MINUS_SRC_COLOR, gl.DST_ALPHA, gl.ONE_MINUS_DST_ALPHA, gl.SRC_ALPHA_SATURATE, gl.ONE_MINUS_SRC_ALPHA];
-      const source = factors[shader ? state(shader.blend[0]) : 5], destination = factors[shader ? state(shader.blend[1]) : 10];
-      if (scene.transparent) gl.blendFuncSeparate(source, destination, gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
-      else gl.blendFunc(source, destination);
-      let unit = 0;
-      for (const u of program.uniforms) {
-        if (u.type === gl.SAMPLER_2D) {
-          const index = u.name === '_MainTex' ? im.texture : mat?.textures[u.name];
-          const texture = index == null ? this.solid(shader?.samplers[u.name] ?? 'white') : this.textures[index];
-          gl.activeTexture(gl.TEXTURE0 + unit); gl.bindTexture(gl.TEXTURE_2D, texture ?? this.white); gl.uniform1i(u.location, unit++); continue;
+        poses[index] = pose;
+        if (!pose.active || !n.image || pose.alpha < .0001 || n.image.color[3] < .0001 || size[0] <= 0 || size[1] <= 0) continue;
+        if (pose.clip) {
+          gl.enable(gl.SCISSOR_TEST);
+          gl.scissor(Math.floor(pose.clip[0]), Math.floor(pose.clip[1]), Math.max(0, Math.ceil(pose.clip[2] - pose.clip[0])), Math.max(0, Math.ceil(pose.clip[3] - pose.clip[1])));
+        } else gl.disable(gl.SCISSOR_TEST);
+        const stencil = n.stencil;
+        if (stencil) {
+          gl.enable(gl.STENCIL_TEST);
+          gl.stencilMask(stencil.writeMask);
+          gl.stencilFunc([gl.ALWAYS, gl.EQUAL, gl.NOTEQUAL][stencil.compare], stencil.readMask | stencil.writeMask, stencil.readMask || 255);
+          gl.stencilOp(gl.KEEP, gl.KEEP, [gl.KEEP, gl.ZERO, gl.REPLACE][stencil.operation]);
+          gl.colorMask(!!(stencil.colorMask & 8), !!(stencil.colorMask & 4), !!(stencil.colorMask & 2), !!(stencil.colorMask & 1));
+        } else { gl.disable(gl.STENCIL_TEST); gl.colorMask(true, true, true, true); }
+        const im = n.image, mat = im.material === null ? null : scene.materials[im.material], shader = mat ? scene.shaders[mat.shader] : null;
+        const program = this.programs[mat ? mat.shader + 1 : 0]; gl.useProgram(program.handle);
+        const state = (s: { name: string; val: number }) => s.name && s.name !== '<noninit>' ? Number(mat?.values[s.name] ?? shader?.defaults[s.name]?.[0] ?? s.val) : s.val;
+        const factors = [gl.ZERO, gl.ONE, gl.DST_COLOR, gl.SRC_COLOR, gl.ONE_MINUS_DST_COLOR, gl.SRC_ALPHA, gl.ONE_MINUS_SRC_COLOR, gl.DST_ALPHA, gl.ONE_MINUS_DST_ALPHA, gl.SRC_ALPHA_SATURATE, gl.ONE_MINUS_SRC_ALPHA];
+        const source = factors[shader ? state(shader.blend[0]) : 5], destination = factors[shader ? state(shader.blend[1]) : 10];
+        if (scene.transparent) gl.blendFuncSeparate(source, destination, gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+        else gl.blendFunc(source, destination);
+        let unit = 0;
+        for (const u of program.uniforms) {
+          if (u.type === gl.SAMPLER_2D) {
+            const index = u.name === '_MainTex' ? im.texture : mat?.textures[u.name];
+            const texture = index == null ? this.solid(shader?.samplers[u.name] ?? 'white') : this.textures[index];
+            gl.activeTexture(gl.TEXTURE0 + unit); gl.bindTexture(gl.TEXTURE_2D, texture ?? this.white); gl.uniform1i(u.location, unit++); continue;
+          }
+          const value = u.name === 'hlslcc_mtx4x4unity_ObjectToWorld' ? pose.world : u.name === 'hlslcc_mtx4x4unity_MatrixVP' ? vp
+            : u.name === 'arkMaskRects' ? [...pose.masks.flatMap(mask => mask.rect), ...Array((8 - pose.masks.length) * 4).fill(0)]
+            : u.name === 'arkMaskWidths' ? [...pose.masks.flatMap(mask => mask.widths), ...Array((8 - pose.masks.length) * 4).fill(0)]
+            : u.name === 'arkMaskCount' ? pose.masks.length : u.name === 'arkPremultiplied' ? Number((shader ? state(shader.blend[0]) : 5) === 1)
+            : u.name === '_ScreenParams' ? [width, height, 1 + 1 / width, 1 + 1 / height]
+            : u.name === '_SinTime' ? [Math.sin(time / 8), Math.sin(time / 4), Math.sin(time / 2), Math.sin(time)]
+            : u.name === '_CosTime' ? [Math.cos(time / 8), Math.cos(time / 4), Math.cos(time / 2), Math.cos(time)]
+            : u.name === '_Time' ? [time / 20, time, time * 2, time * 3] : n.uniforms?.[u.name] ?? mat?.values[u.name] ?? shader?.defaults[u.name] ?? (u.name.endsWith('_ST') ? [1, 1, 0, 0] : [1, 1, 1, 1]);
+          if (u.type === gl.FLOAT) gl.uniform1f(u.location, Array.isArray(value) ? value[0] : value);
+          else if (u.type === gl.FLOAT_VEC4) gl.uniform4fv(u.location, Array.isArray(value) ? value.slice(0, u.size * 4) : [value, value, value, value]);
+          else if (u.type === gl.FLOAT_VEC3) gl.uniform3fv(u.location, Array.isArray(value) ? value.slice(0, u.size * 3) : [value, value, value]);
+          else if (u.type === gl.FLOAT_VEC2) gl.uniform2fv(u.location, Array.isArray(value) ? value.slice(0, u.size * 2) : [value, value]);
+          else if (u.type === gl.FLOAT_MAT4 && Array.isArray(value)) gl.uniformMatrix4fv(u.location, false, value);
+          else if (u.type === gl.INT || u.type === gl.BOOL) gl.uniform1i(u.location, Array.isArray(value) ? value[0] : value);
         }
-        const value = u.name === 'hlslcc_mtx4x4unity_ObjectToWorld' ? pose.world : u.name === 'hlslcc_mtx4x4unity_MatrixVP' ? vp
-          : u.name === 'arkMaskRects' ? [...pose.masks.flatMap(mask => mask.rect), ...Array((8 - pose.masks.length) * 4).fill(0)]
-          : u.name === 'arkMaskWidths' ? [...pose.masks.flatMap(mask => mask.widths), ...Array((8 - pose.masks.length) * 4).fill(0)]
-          : u.name === 'arkMaskCount' ? pose.masks.length : u.name === 'arkPremultiplied' ? Number((shader ? state(shader.blend[0]) : 5) === 1)
-          : u.name === '_ScreenParams' ? [width, height, 1 + 1 / width, 1 + 1 / height]
-          : u.name === '_SinTime' ? [Math.sin(time / 8), Math.sin(time / 4), Math.sin(time / 2), Math.sin(time)]
-          : u.name === '_CosTime' ? [Math.cos(time / 8), Math.cos(time / 4), Math.cos(time / 2), Math.cos(time)]
-          : u.name === '_Time' ? [time / 20, time, time * 2, time * 3] : n.uniforms?.[u.name] ?? mat?.values[u.name] ?? shader?.defaults[u.name] ?? (u.name.endsWith('_ST') ? [1, 1, 0, 0] : [1, 1, 1, 1]);
-        if (u.type === gl.FLOAT) gl.uniform1f(u.location, Array.isArray(value) ? value[0] : value);
-        else if (u.type === gl.FLOAT_VEC4) gl.uniform4fv(u.location, Array.isArray(value) ? value.slice(0, u.size * 4) : [value, value, value, value]);
-        else if (u.type === gl.FLOAT_VEC3) gl.uniform3fv(u.location, Array.isArray(value) ? value.slice(0, u.size * 3) : [value, value, value]);
-        else if (u.type === gl.FLOAT_VEC2) gl.uniform2fv(u.location, Array.isArray(value) ? value.slice(0, u.size * 2) : [value, value]);
-        else if (u.type === gl.FLOAT_MAT4 && Array.isArray(value)) gl.uniformMatrix4fv(u.location, false, value);
-        else if (u.type === gl.INT || u.type === gl.BOOL) gl.uniform1i(u.location, Array.isArray(value) ? value[0] : value);
+        const color = [...im.color]; color[3] *= pose.alpha;
+        const tex = im.texture === null ? { width: 1, height: 1 } : scene.textures[im.texture];
+        const mesh = n.mesh ?? imageMesh(im, size, n.pivot, tex);
+        const dimension = n.mesh ? 3 : 2;
+        const vertices: number[] = [];
+        const uv = im.uvRect ?? [0, 0, 1, 1];
+        for (let i = 0; i < mesh.length; i += dimension + 2) {
+          vertices.push(mesh[i], mesh[i + 1], n.mesh ? mesh[i + 2] : 0, 1, ...color,
+            uv[0] + mesh[i + dimension] * uv[2], uv[1] + mesh[i + dimension + 1] * uv[3]);
+        }
+        if (!vertices.length) continue;
+        gl.bindBuffer(gl.ARRAY_BUFFER, this.buffer); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.DYNAMIC_DRAW);
+        for (const [i, loc] of program.attributes.entries()) if (loc >= 0) { gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, i === 2 ? 2 : 4, gl.FLOAT, false, 40, [0, 16, 32][i]); }
+        gl.drawArrays(gl.TRIANGLES, 0, vertices.length / 10);
       }
-      const color = [...im.color]; color[3] *= pose.alpha;
-      const tex = im.texture === null ? { width: 1, height: 1 } : scene.textures[im.texture];
-      const mesh = n.mesh ?? imageMesh(im, size, n.pivot, tex);
-      const dimension = n.mesh ? 3 : 2;
-      const vertices: number[] = [];
-      const uv = im.uvRect ?? [0, 0, 1, 1];
-      for (let i = 0; i < mesh.length; i += dimension + 2) {
-        vertices.push(mesh[i], mesh[i + 1], n.mesh ? mesh[i + 2] : 0, 1, ...color,
-          uv[0] + mesh[i + dimension] * uv[2], uv[1] + mesh[i + dimension + 1] * uv[3]);
-      }
-      if (!vertices.length) continue;
-      gl.bindBuffer(gl.ARRAY_BUFFER, this.buffer); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.DYNAMIC_DRAW);
-      for (const [i, loc] of program.attributes.entries()) if (loc >= 0) { gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, i === 2 ? 2 : 4, gl.FLOAT, false, 40, [0, 16, 32][i]); }
-      gl.drawArrays(gl.TRIANGLES, 0, vertices.length / 10);
     }
   }
   dispose(): void {

@@ -32,7 +32,7 @@ export function EventPacks({ groups, preview, onPreviewOpenChange }: {
       <span className="event-pack-card-name">{pack.name}</span>
       {pack.start && <span className="event-pack-window">{packDay(pack.start, { region: pack.region })}{pack.end ? ` – ${packDay(pack.end, { exclusiveEnd: true, region: pack.region })}` : ''}</span>}
       <span className="event-pack-preview">{pack.contents.slice(0, 2).map(item => `${item.name} ×${item.count.toLocaleString('en-US')}`).join(' · ')}</span>
-      <span className="event-pack-more">{(pack.cosmeticPreview ?? packCosmeticPreview(pack.name, source)) ? 'View contents and preview ↗' : 'View contents ↗'}</span>
+      <span className="event-pack-more">{(pack.cosmeticPreview ?? packCosmeticPreview(pack.name, source, pack.contents)) ? 'View contents and preview ↗' : 'View contents ↗'}</span>
     </span>
   </>;
   return <>
@@ -57,11 +57,20 @@ export function EventPacks({ groups, preview, onPreviewOpenChange }: {
             {offers.map((offer, index) => {
               const single = !!offer.image && offer.packs.length === 1;
               const name = offer.packs.map(pack => pack.name).join(', ');
+              const cosmetics = offer.packs.flatMap(pack => {
+                const cosmetic = pack.cosmeticPreview ?? packCosmeticPreview(pack.name, group.source, pack.contents);
+                return cosmetic ? [cosmetic] : [];
+              });
+              const art = offer.image && <ContentImg className="event-pack-promo-image" src={offer.image}
+                alt={`Official promotional artwork for ${name}`} width={1560} height={500} />;
               return <div key={index} className={single ? 'panel event-pack-offer' : 'event-pack-offer-wide'}>
-                {offer.image && <button type="button" className="btn-bare event-pack-promo-view" aria-haspopup="dialog" aria-label={`Enlarge official artwork: ${name}`} onClick={() => setOpened({ image: offer.image!, name })}>
-                  <ContentImg className="event-pack-promo-image" src={offer.image} alt={`Official promotional artwork for ${name}`} width={1560} height={500} />
-                  <span className="event-pack-art-action" aria-hidden="true">Enlarge ⤢</span>
-                </button>}
+                {art && (cosmetics.length === 1
+                  ? <EventCosmeticPreview preview={cosmetics[0]} artwork={art} card onOpenChange={onPreviewOpenChange} />
+                  : <button type="button" className="btn-bare event-pack-promo-view" aria-haspopup="dialog"
+                    aria-label={`Enlarge official artwork: ${name}`} onClick={() => setOpened({ image: offer.image!, name })}>
+                    {art}
+                    <span className="event-pack-art-action" aria-hidden="true">Enlarge ⤢</span>
+                  </button>)}
                 <div className="event-pack-cards">
                   {offer.packs.map(pack => <PackButton key={pack.name} pack={pack} source={group.source} framed={!single}>{copy(pack, group.source)}</PackButton>)}
                 </div>

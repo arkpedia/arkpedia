@@ -1,0 +1,25 @@
+{
+  "backgrounds": {
+    "bg_hunter_1": {
+      "names": [
+        "结营",
+        "Strike Camp"
+      ],
+      "packs": [
+        "结营出猎组合包"
+      ],
+      "animated": true
+    }
+  },
+  "themes": {
+    "tm_hunter_1": {
+      "names": [
+        "出猎",
+        "Hunt"
+      ],
+      "packs": [
+        "结营出猎组合包"
+      ]
+    }
+  }
+}

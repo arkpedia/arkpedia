@@ -32,7 +32,7 @@ export default function EventSceneCanvas({ source, background, animationStart, o
       const render = (time: number) => {
         const width = Math.min(surface.clientWidth, scene.scene.width);
         const elapsed = Math.max(0, time - animationStart) / 1000;
-        if (width) scene.draw(scene.scene.transparent ? elapsed : elapsed % scene.scene.duration,
+        if (width) scene.draw((scene.scene.transparent || scene.scene.continuous) ? elapsed : elapsed % scene.scene.duration,
           { width, height: width * scene.scene.height / scene.scene.width });
         raf = requestAnimationFrame(render);
       };

@@ -243,6 +243,7 @@
       "title": "Theatre Prologue",
       "name": "序幕",
       "image": "/event-preview/bg_redvelvet_1/background.webp",
+      "native": "/event-preview/bg_redvelvet_1/scene.json",
       "gameData": {
         "id": "bg_redvelvet_1"
       }
@@ -333,6 +334,7 @@
       "title": "Celebration",
       "name": "庆典",
       "image": "/event-preview/bg_anniversary_1/background.webp",
+      "native": "/event-preview/bg_anniversary_1/scene.json",
       "gameData": {
         "id": "bg_anniversary_1"
       }

@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState, type CSSProperties, type KeyboardEvent, type PointerEvent, type ReactElement } from 'react';
+import { useEffect, useId, useRef, useState, type CSSProperties, type MouseEvent, type KeyboardEvent, type PointerEvent, type ReactElement, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { ContentImg } from '@/components/content/ContentImage';
 import { useAssetUrl } from '@/lib/assets/assetRetry';
@@ -35,9 +35,11 @@ function positionAfterZoom(position: number, anchor: number, frame: number, art:
   return clampPosition(((anchor - previousOffset) * after / before - anchor) * 100 / overflow);
 }
 
-export default function EventCosmeticPreview({ preview, artwork, onOpenChange }: {
+export default function EventCosmeticPreview({ preview, artwork, card = false, children, onOpenChange }: {
   preview: CosmeticPreview;
   artwork?: ReactElement;
+  card?: boolean;
+  children?: (action: ReactElement) => ReactNode;
   onOpenChange?: (open: boolean) => void;
 }) {
   const [open, setOpen] = useState(false);
@@ -133,7 +135,8 @@ export default function EventCosmeticPreview({ preview, artwork, onOpenChange }:
     });
   }
 
-  function enter() {
+  function enter(event: MouseEvent<HTMLButtonElement>) {
+    launch.current = event.currentTarget;
     setSceneArt('loading');
     setAnimationStart(performance.now());
     setOpen(true);
@@ -220,12 +223,15 @@ export default function EventCosmeticPreview({ preview, artwork, onOpenChange }:
     {playing ? 'Pause BGM' : 'Play BGM'}
   </button>;
   const previewLabel = theme ? 'Preview UI' : 'Preview background';
+  const action = <button type="button" className={children ? 'primary btn-sm' : 'primary'} aria-haspopup="dialog" onClick={enter}>{previewLabel}</button>;
   return <>
-    {artwork ? <button ref={launch} type="button" className="btn-bare event-pack-preview-trigger"
+    {artwork && <button type="button" className={card ? 'btn-bare event-pack-promo-view' : 'btn-bare event-pack-preview-trigger'}
       aria-haspopup="dialog" aria-label={previewLabel} onClick={enter}>
       {artwork}
-      <span className="btn btn-sm scrim-control event-pack-preview-label">{previewLabel}</span>
-    </button> : <button ref={launch} type="button" className="primary" aria-haspopup="dialog" onClick={enter}>{previewLabel}</button>}
+      {card ? <span className="event-pack-art-action" aria-hidden="true">{previewLabel} ↗</span>
+        : !children && <span className="btn btn-sm scrim-control event-pack-preview-label">{previewLabel}</span>}
+    </button>}
+    {children ? children(action) : !artwork && action}
     {track && <audio ref={audio} preload="none" loop onPlay={() => setPlaying(true)} onPause={() => setPlaying(false)}
       onError={() => { setPlaying(false); setAudioError(true); }} />}
     {open && createPortal(

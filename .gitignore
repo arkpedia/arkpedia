@@ -85,8 +85,10 @@ public/**/*.ico
 
 # Full-screen samples need to load from the app in embedded browsers.
 !/public/event-preview/velvet-room.webp
-!/public/event-preview/bg_anniversary_1/background.webp
-!/public/event-preview/bg_redvelvet_1/background.webp
+!/public/event-preview/bg_anniversary_1/*.webp
+!/public/event-preview/bg_redvelvet_1/*.webp
+!/public/event-preview/bg_hunter_1/*.webp
+!/public/event-preview/tm_hunter_1/*.webp
 !/public/event-preview/tm_p3r_1/*.webp
 !/public/event-preview/tm_p3r_1/headphone-spine.atlas.txt
 !/public/event-preview/tm_redvelvet_1/*.webp

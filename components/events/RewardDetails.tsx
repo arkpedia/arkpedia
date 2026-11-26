@@ -34,7 +34,7 @@ export function RewardDetailsProvider({ tickets, children, recommendations, reco
   const active = stack[stack.length - 1];
   const ticket = active && 'ticket' in active ? active.ticket : undefined;
   const operators = useMemo(() => rankByRecommendation(ticket?.operators ?? [], recommendations), [ticket, recommendations]);
-  const cosmetic = active && 'pack' in active ? (active.pack.cosmeticPreview ?? packCosmeticPreview(active.pack.name, active.source)) : undefined;
+  const cosmetic = active && 'pack' in active ? (active.pack.cosmeticPreview ?? packCosmeticPreview(active.pack.name, active.source, active.pack.contents)) : undefined;
   const pack = active && 'pack' in active ? active.pack : undefined;
   const promo = pack?.artworkLayout === 'promo';
   const packArtwork = pack?.imagePath ? <Image
@@ -90,6 +90,19 @@ export function RewardDetailsProvider({ tickets, children, recommendations, reco
             </div>; })}
           </div>;
   };
+  function packDetails(offer: CosmeticPack, source: string, action?: ReactNode) {
+    return <>
+      {offer.region === 'CN' && <p className="hint">CN pack preview. Global availability, contents and prices may differ. Sale dates are for CN.</p>}
+      {offer.start && <p className="hint">Sale window: {packDay(offer.start, { region: offer.region })} – {offer.end ? packDay(offer.end, { exclusiveEnd: true, region: offer.region }) : 'Not announced'}</p>}
+      {offer.limit && <p className="hint">Purchase limit: {offer.limit}</p>}
+      <div className="event-reward-totals">{offer.contents.map(item => <RewardTile key={item.name} {...item} />)}</div>
+      {(offer.notes ?? []).map(line => <p className="hint" key={line}>{line}</p>)}
+      <div className="event-pack-detail-actions">
+        {action}
+        <a href={source} target="_blank" rel="noopener noreferrer">Source announcement ↗</a>
+      </div>
+    </>;
+  }
   return <Details.Provider value={{ tickets, open }}>
     {children}
     <dialog ref={dialog} className="event-details-dialog" style={showSettings ? { height: settingsHeight } : undefined} aria-labelledby="event-details-title" onCancel={e => { e.preventDefault(); if (showSettings) { setShowSettings(false); settingsTrigger.current?.focus(); } else close(); }} onKeyDown={e => {
@@ -126,14 +139,10 @@ export function RewardDetailsProvider({ tickets, children, recommendations, reco
           <p className="hint"><a href={active.ticket.source} target="_blank" rel="noopener noreferrer">Source announcement</a></p>
         </>}</div> : <>
           {cosmetic
-            ? <EventCosmeticPreview key={cosmetic.pack} preview={cosmetic} artwork={packArtwork} onOpenChange={onPreviewOpenChange} />
-            : packArtwork}
-          {active.pack.region === 'CN' && <p className="hint">CN pack preview. Global availability, contents and prices may differ. Sale dates are for CN.</p>}
-          {active.pack.start && <p className="hint">Sale window: {packDay(active.pack.start, { region: active.pack.region })} – {active.pack.end ? packDay(active.pack.end, { exclusiveEnd: true, region: active.pack.region }) : 'Not announced'}</p>}
-          {active.pack.limit && <p className="hint">Purchase limit: {active.pack.limit}</p>}
-          <div className="event-reward-totals">{active.pack.contents.map(item => <RewardTile key={item.name} {...item} />)}</div>
-          {(active.pack.notes ?? []).map(line => <p className="hint" key={line}>{line}</p>)}
-          <p className="hint"><a href={active.source} target="_blank" rel="noopener noreferrer">Source announcement</a></p>
+            ? <EventCosmeticPreview key={cosmetic.pack} preview={cosmetic} artwork={packArtwork} onOpenChange={onPreviewOpenChange}>
+              {action => packDetails(active.pack, active.source, action)}
+            </EventCosmeticPreview>
+            : <>{packArtwork}{packDetails(active.pack, active.source)}</>}
         </>}
       </>}
     </dialog>

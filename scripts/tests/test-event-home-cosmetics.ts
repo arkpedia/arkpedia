@@ -4,7 +4,7 @@ import layout from '../../public/event-preview/tm_p3r_1/layout.json';
 import theatreLayout from '../../public/event-preview/tm_redvelvet_1/layout.json';
 import { curveValue, type GameUiScene } from '../../lib/events/gameUiPlayer';
 import { test } from 'node:test';
-import { regionalEventCosmeticPreview, regionalPackCosmeticPreview, type GlobalHomeCosmetics } from '../../lib/events/cosmeticPreviews';
+import { packCosmeticPreview, regionalEventCosmeticPreview, regionalPackCosmeticPreview, type GlobalHomeCosmetics } from '../../lib/events/cosmeticPreviews';
 import { preferredPackGroups } from '../../lib/events/packRegions';
 import { rewardTabsFor } from '../../lib/events/rewardTabs';
 
@@ -60,7 +60,7 @@ test('the Global sale catalogue supersedes the CN offers without importing their
 test('an early Global pack list can keep the standalone CN preview until its cosmetic data arrives', () => {
   const cosmeticPreview = regionalEventCosmeticPreview(activity, undefined);
   assert.equal(cosmeticPreview?.theme?.name, '月满');
-  assert.equal(rewardTabsFor([], { packs: [], news: [], board: [], furniture: [], notices: [], cosmeticPreview })[0]?.label, 'Packs');
+  assert.equal(rewardTabsFor([], { packs: [], news: [], board: [], furniture: [], notices: [], cosmeticPreview }).length, 0);
   assert.equal(regionalEventCosmeticPreview(activity, data)?.theme?.name, 'Fixture Theme');
   assert.equal(regionalEventCosmeticPreview('act_other', data), undefined);
 });
@@ -195,4 +195,27 @@ test('the Velvet Room draws the rotated light through the foreground grille on t
   const headphones = layout.layers.find(layer => layer.effect === 'headphones');
   assert.equal(headphones?.shadow?.matrix.length, 16);
   assert.notDeepEqual(headphones?.shadow?.matrix, headphones?.matrix);
+});
+
+test('matches imported backgrounds and themes by offer contents and game unlock descriptions', () => {
+  const source = 'https://www.arknights.global/news/5092';
+  const items = [{ name: 'Background - Strike Camp' }, { name: 'Home Screen UI - Hunt' }];
+  const preview = packCosmeticPreview('Strike Camp Hunt Pack', source, items);
+  assert.equal(preview?.scene.gameData?.id, 'bg_hunter_1');
+  assert.equal(preview?.scene.title, 'Strike Camp');
+  assert.equal(preview?.theme?.gameData?.id, 'tm_hunter_1');
+  assert.equal(preview?.theme?.name, 'Hunt');
+  assert.ok(packCosmeticPreview('结营出猎组合包', cnSource)?.theme);
+  assert.equal(packCosmeticPreview('Strike Camp Hunt Pack', source), undefined);
+  assert.equal(packCosmeticPreview('Unknown theme pack', source, [items[0], { name: 'Home Screen UI - Unknown' }]), undefined);
+});
+
+test('loads imported particle tracks and every referenced game texture', () => {
+  for (const [id, emitter] of [['bg_redvelvet_1', 'xian_01'], ['bg_anniversary_1', 'yanhua'], ['bg_hunter_1', 'spark']]) {
+    const root = `public/event-preview/${id}`;
+    const scene: GameUiScene = JSON.parse(readFileSync(`${root}/scene.json`, 'utf8'));
+    assert.equal(scene.continuous, true);
+    assert.ok(scene.nodes.some(node => node.name.includes(emitter) && node.particleTracks?.length), id);
+    for (const texture of scene.textures) assert.ok(existsSync(`${root}/${texture.file}`), texture.file);
+  }
 });

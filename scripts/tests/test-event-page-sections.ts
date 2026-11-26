@@ -64,7 +64,7 @@ test('an event with a banner opens on the banner', () => {
 
 const extras = (over: Partial<NonNullable<PageProps['extras']>>) => ({ packs: [], furniture: [], notices: [], news: [], board: [], ...over });
 
-test('an event whose rewards are only an announcement and packs has Rewards, opened on the first of them', () => {
+test('announcements stay in Rewards when the event also sells packs', () => {
   // Rhodes Island Icebreaker Games, Wishes from Stars and eleven more: no store and no table
   // blocks, so there is nothing to total and no All tab to open on "Nothing here.".
   const right = column(page({
@@ -77,12 +77,13 @@ test('an event whose rewards are only an announcement and packs has Rewards, ope
   assert.match(right, /REWARDS: 10 Headhunting Permits/, 'it opens on Announced');
   assert.doesNotMatch(right, /Nothing here\./);
   assert.doesNotMatch(right, />All</, 'no All tab with nothing to total');
-  assert.match(right, />Announced<[\s\S]*>Packs</);
+  assert.match(right, /id="event-section-tab-packs"/);
+  assert.doesNotMatch(right, /Announced<[\s\S]*>Packs</);
 });
 
 test('a published event can show a standalone background when its props predate the preview', () => {
   const right = column(page({ name: "[Side Story – Celebration] Vremya, v Put'!", extras: extras({}) }));
-  assert.match(right, /id="event-section-panel-rewards"/);
+  assert.match(right, /id="event-section-panel-packs"/);
   assert.match(right, /aria-label="Preview background"/);
   assert.match(right, /src="\/event-preview\/bg_anniversary_1\/background\.webp"/);
 });

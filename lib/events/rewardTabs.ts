@@ -1,30 +1,18 @@
 import type { CosmeticEventExtras } from './cosmeticPreviews';
 
-/*
- * The Rewards section's tabs on /events/[slug], and the links that name one (#skins, #rewards,
- * #rewards/packs), as plain functions the page and scripts/tests/test-event-links.ts share.
- *
- * The list is built once, here: the page used to build it twice, once with labels for the Tabs
- * and once without for reading a link, so a tab added to one list and not the other would show
- * without a link opening it, or a link would open a tab that is not drawn. All is the first tab
- * only when the event has reward blocks to total: an event whose rewards are only packs, an
- * announcement or a furniture set opened on an All that said "Nothing here." beside the tabs that
- * held them (13 events, Rhodes Island Icebreaker Games and Wishes from Stars among them).
- */
+/** The Rewards sub-tabs and the event deep links that select them. */
 export const ALL_TAB = 'all';
 /** The tabs beside the reward blocks: values no store type can take. */
-export const EXTRA_TABS = { packs: '__packs', furniture: '__furniture', notices: '__notices' } as const;
+export const EXTRA_TABS = { notices: '__notices' } as const;
 
 export interface RewardTab { value: string; label: string }
 
-/** All (when there are blocks), each block type, then the announced gifts, packs and furniture. */
+/** All (when there are blocks), each block type, then the announced gifts. */
 export function rewardTabsFor(rewardTypes: readonly string[], extras: CosmeticEventExtras): RewardTab[] {
   return [
     ...(rewardTypes.length ? [{ value: ALL_TAB, label: 'All' }] : []),
     ...rewardTypes.map((type) => ({ value: type, label: type })),
     ...(extras.notices.length ? [{ value: EXTRA_TABS.notices, label: 'Announced' }] : []),
-    ...(extras.packs.length || extras.cosmeticPreview ? [{ value: EXTRA_TABS.packs, label: 'Packs' }] : []),
-    ...(extras.furniture.length ? [{ value: EXTRA_TABS.furniture, label: 'Furniture' }] : []),
   ];
 }
 
@@ -57,7 +45,9 @@ export function eventLink(section: string, rewardTab: string | undefined, tabs: 
  */
 export function readEventLink<S extends string>(hash: string, sections: readonly S[], tabs: readonly RewardTab[]): { section: S; rewardTab: string | undefined } | null {
   const [name, slug] = hash.replace(/^#/, '').split('/');
-  const section = sections.find((key) => key === name);
+  // Older shared links placed these sections under Rewards.
+  const promoted = name === 'rewards' && (slug === 'packs' || slug === 'furniture') ? slug : name;
+  const section = sections.find(key => key === promoted) ?? sections.find(key => key === name);
   if (section === undefined) return null;
   if (section !== 'rewards') return { section, rewardTab: undefined };
   return { section, rewardTab: (slug ? tabs.find((tab) => tabSlug(tab.value) === slug) : undefined)?.value ?? tabs[0]?.value };

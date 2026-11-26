@@ -117,17 +117,16 @@ interface Props {
   videos?: EventVideo[];
 }
 
-type SectionKey = 'overview' | 'banner' | 'rewards' | 'skins' | 'news' | 'pvs';
+type SectionKey = 'overview' | 'banner' | 'rewards' | 'skins' | 'furniture' | 'packs' | 'news' | 'pvs';
 
-/* A section with nothing linked is left out. Packs and Miscellaneous were sections
-   once, two tabs that only ever said "Coming soon", which pushed the row onto a second
-   line at 390; an event's packs are a tab inside Rewards now (rewardTabsFor), beside
-   its announced gifts and furniture. */
+// Events only expose sections with content.
 const SECTIONS: { key: SectionKey; label: string }[] = [
   { key: 'overview', label: 'Overview' },
   { key: 'banner', label: 'Operators' },
   { key: 'rewards', label: 'Rewards' },
   { key: 'skins', label: 'Skins' },
+  { key: 'furniture', label: 'Furniture' },
+  { key: 'packs', label: 'Packs' },
   /* The rest of the event's official announcement: a Sanity limit raised, a recruitment pool, a
      store's redeemables, a Kernel Locating banner (build-event-rewards.mjs `news`). */
   { key: 'news', label: 'News' },
@@ -264,13 +263,21 @@ export default function EventDetailPage({
   const shownImages = menuArt ? [menuArt, ...(artAspect === CG_ASPECT ? regionalImages : [])] : regionalImages;
   const shownBannerImage = bannerName ? regionalArt(schedule?.banners?.[bannerName], bannerImage, server) : bannerImage;
   const cosmeticPreview = extras.cosmeticPreview ?? standaloneBackgroundPreview(name);
-  const hasExtras = Boolean(cosmeticPreview) || extras.packs.length + extras.furniture.length + extras.notices.length > 0;
+  const hasPacks = extras.packs.length > 0 || !!cosmeticPreview;
   // A page compiled by a release from before the News tab has no `news` at all.
   const news = extras.news ?? [];
   const board = extras.board ?? [];
-  const sections = SECTIONS.filter((section) => (
-    section.key === 'overview' ? !!mode : section.key === 'banner' ? !!bannerName || welfareOperators.length + rewardOperators.length > 0 : section.key === 'rewards' ? rewardStores.length > 0 || hasExtras : section.key === 'news' ? news.length + board.length > 0 : section.key === 'pvs' ? videos.length > 0 : skins.length > 0
-  ));
+  const availableSections: Record<SectionKey, boolean> = {
+    overview: !!mode,
+    banner: !!bannerName || welfareOperators.length + rewardOperators.length > 0,
+    rewards: rewardStores.length > 0 || extras.notices.length > 0,
+    skins: skins.length > 0,
+    furniture: extras.furniture.length > 0,
+    packs: hasPacks,
+    news: news.length + board.length > 0,
+    pvs: videos.length > 0,
+  };
+  const sections = SECTIONS.filter(({ key }) => availableSections[key]);
   const [chosenSection, setActiveSection] = useState<SectionKey | null>(sections[0]?.key ?? null);
   /* The section on screen: the one chosen if this event has it, else the event's
      first. Null only when nothing is linked at all -- that event shows its one hint
@@ -302,10 +309,10 @@ export default function EventDetailPage({
 
   const rewardTypes = Array.from(new Set(rewardStores.map((s) => s.type)));
   // One list for the Tabs and for reading a link: All only when there are blocks to total.
-  const rewardTabs = rewardTabsFor(rewardTypes, { ...extras, cosmeticPreview });
+  const rewardTabs = rewardTabsFor(rewardTypes, extras);
   const [chosenRewardTab, setRewardTab] = useState<string>(ALL_TAB);
-  /* The reward tab on screen, derived like the section: an event whose rewards are only packs,
-     an announcement or furniture has no All and opens on its first tab. */
+  /* The reward tab on screen, derived like the section: an event whose rewards are only
+     an announcement has no All and opens on its first tab. */
   const activeRewardTab = shownRewardTab(chosenRewardTab, rewardTabs) ?? ALL_TAB;
   /* A store is a long grid and the All card a short one: the same hold as a section
      change, taken in the handler, so the switch cannot shorten the page under the
@@ -463,10 +470,6 @@ export default function EventDetailPage({
                 <div {...tabPanelProps('event-store', activeRewardTab)}>
                   {activeRewardTab === ALL_TAB ? (
                     summary && summary.rows.length ? <RewardSummaryCard welfare={welfareOperators} skins={skins} eventName={name} summary={summary} artwork={shownImages[0] ?? regionalArt(regionalWindow, poster, server) ?? shownBannerImage} rewardNote={rewardNote?.replace('Global dates and rewards await confirmation', 'Global rewards await confirmation')} /> : <RewardTotalsRow totals={rewardTotals} />
-                  ) : activeRewardTab === EXTRA_TABS.packs ? (
-                    <EventPacks groups={extras.packs} preview={cosmeticPreview} onPreviewOpenChange={setPreviewSceneOpen} />
-                  ) : activeRewardTab === EXTRA_TABS.furniture ? (
-                    <EventFurniture sets={extras.furniture} />
                   ) : activeRewardTab === EXTRA_TABS.notices ? (
                     <EventNotices notices={extras.notices} />
                   ) : (
@@ -516,6 +519,24 @@ export default function EventDetailPage({
                     );
                   })}
                 </div>
+              </div>
+            </section>
+          )}
+
+          {activeSection === 'furniture' && (
+            <section className="op-section" {...tabPanelProps('event-section', 'furniture')}>
+              <div className="panel event-section-card artwork-glass">
+                <div className="event-section-head"><h3 className="entity-title entity-title-name">Furniture</h3></div>
+                <EventFurniture sets={extras.furniture} />
+              </div>
+            </section>
+          )}
+
+          {activeSection === 'packs' && (
+            <section className="op-section" {...tabPanelProps('event-section', 'packs')}>
+              <div className="panel event-section-card artwork-glass">
+                <div className="event-section-head"><h3 className="entity-title entity-title-name">Packs</h3></div>
+                <EventPacks groups={extras.packs} preview={cosmeticPreview} onPreviewOpenChange={setPreviewSceneOpen} />
               </div>
             </section>
           )}

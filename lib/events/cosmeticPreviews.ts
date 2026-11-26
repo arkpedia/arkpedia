@@ -1,3 +1,4 @@
+import discovered from '@/config/discovered-home-cosmetics.json';
 import catalogue from '@/config/event-cosmetic-previews.json';
 import type { EventExtras, EventRewardsFile } from './tableRewards';
 
@@ -56,8 +57,9 @@ export type CosmeticRewardData = Omit<EventRewardsFile, 'events'> & {
 
 const previews: readonly CosmeticPreview[] = catalogue;
 
-export function packCosmeticPreview(pack: string, source: string): CosmeticPreview | undefined {
-  return previews.find(preview => preview.pack === pack && preview.source === source);
+export function packCosmeticPreview(pack: string, source: string, contents: readonly { name: string }[] = []): CosmeticPreview | undefined {
+  return previews.find(preview => preview.pack === pack && preview.source === source)
+    ?? importedPackPreview(pack, source, contents);
 }
 
 // Published event page payloads can predate a code-owned background preview.
@@ -71,6 +73,46 @@ const packKey = (value: string) => words(value).replace(/^an? /, '');
 
 function mentionsCosmetic(value: string, kind: string, name: string): boolean {
   return ` ${words(value)} `.includes(` ${kind} ${words(name)} `);
+}
+
+const BACKGROUND_LABELS = ['background', 'main menu background', 'home screen background', 'home background', '主题场景'];
+const THEME_LABELS = ['home screen ui', 'home screen theme', 'main menu theme', 'main menu ui', '界面主题'];
+type ImportedCosmetic = { names: string[]; packs: string[]; animated?: boolean };
+
+function importedPackPreview(pack: string, source: string, contents: readonly { name: string }[]): CosmeticPreview | undefined {
+  function match(group: Record<string, ImportedCosmetic>, labels: string[]) {
+    const named = Object.entries(group).filter(([, item]) => item.names.some(name =>
+      contents.some(content => labels.some(label => mentionsCosmetic(content.name, label, name)))));
+    return named.length ? named : Object.entries(group).filter(([, item]) =>
+      item.packs.some(name => packKey(name) === packKey(pack)));
+  }
+
+  const backgrounds = match(discovered.backgrounds, BACKGROUND_LABELS);
+  const themes = match(discovered.themes, THEME_LABELS);
+  const unknownTheme = themes.length === 0 && contents.some(item =>
+    THEME_LABELS.some(label => words(item.name).startsWith(label)));
+  if (backgrounds.length !== 1 || themes.length > 1 || unknownTheme) return;
+
+  const regionalName = ({ names }: ImportedCosmetic): string => names.find(name => contents.some(item =>
+    ` ${words(item.name)} `.includes(` ${words(name)} `))) ?? names[0];
+  const [backgroundId, background] = backgrounds[0];
+  const backgroundPath = `/event-preview/${backgroundId}`;
+  const name = regionalName(background);
+  const preview: CosmeticPreview = {
+    pack, source, scene: { title: name, name, image: `${backgroundPath}/background.webp`,
+      ...(background.animated && { native: `${backgroundPath}/scene.json` }),
+      gameData: { id: backgroundId } },
+  };
+  const theme = themes[0];
+  if (theme) {
+    const [id, data] = theme;
+    const artRoot = `/event-preview/${id}`;
+    preview.theme = {
+      name: regionalName(data), gameData: { id }, terminal: { label: 'Terminal' }, navigation: [],
+      layout: { manifest: `${artRoot}/layout.json`, artRoot },
+    };
+  }
+  return preview;
 }
 
 function localizedTheme(theme: HomeTheme, global: GlobalHomeCosmetics[string]): HomeTheme {
@@ -137,7 +179,7 @@ type Pack = { name: string; region?: string; contents: { name: string }[]; notes
 export function regionalPackCosmeticPreview(
   activity: string | undefined, pack: Pack, source: string, cosmetics: GlobalHomeCosmetics | undefined,
 ): CosmeticPreview | undefined {
-  const original = packCosmeticPreview(pack.name, source);
+  const original = packCosmeticPreview(pack.name, source, [...pack.contents, ...(pack.notes ?? []).map(name => ({ name }))]);
   const preview = original ?? (activity && previews.find(item => item.activity === activity));
   if (!preview || !cosmetics || !preview.theme) return original;
   const parts = regionalParts(preview, cosmetics);
@@ -152,8 +194,8 @@ export function regionalPackCosmeticPreview(
     const includes = (data: GlobalHomeCosmetics[string], kinds: string[]) =>
       data.purchasePacks.some(candidate => packKey(candidate) === name) ||
       text.some(line => kinds.some(kind => mentionsCosmetic(line, kind, data.name)));
-    if (!includes(background, ['main menu background', 'home screen background', 'home background']) ||
-        !includes(theme, ['home screen ui', 'home screen theme', 'main menu theme', 'main menu ui'])) return;
+    if (!includes(background, BACKGROUND_LABELS) ||
+        !includes(theme, THEME_LABELS)) return;
   }
 
   return withRegionalParts({ ...preview, pack: pack.name, source }, parts);
