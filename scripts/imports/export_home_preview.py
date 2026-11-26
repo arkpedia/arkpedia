@@ -83,6 +83,29 @@ def sprite_canvas(sprite):
     return canvas
 
 
+def tiled_sprite(sprite, size):
+    image = sprite_canvas(sprite)
+    border = sprite.read().m_Border
+    left, bottom, right, top = (round(getattr(border, axis)) for axis in 'xyzw')
+    width, height = map(round, size)
+    canvas = Image.new('RGBA', (width, height))
+    xs = (0, left, image.width - right, image.width)
+    ys = (0, top, image.height - bottom, image.height)
+    target_xs = (0, left, width - right, width)
+    target_ys = (0, top, height - bottom, height)
+    for row in range(3):
+        for column in range(3):
+            tile = image.crop((xs[column], ys[row], xs[column+1], ys[row+1]))
+            if min(tile.size) <= 0:
+                continue
+            for y in range(target_ys[row], target_ys[row+1], tile.height):
+                for x in range(target_xs[column], target_xs[column+1], tile.width):
+                    visible = tile.crop((0, 0, min(tile.width, target_xs[column+1] - x),
+                                         min(tile.height, target_ys[row+1] - y)))
+                    canvas.paste(visible, (x, y))
+    return canvas
+
+
 PREVIEW_TEXT = {
     'text_ap': ('sanity', 'Sanity', 85),
     'text_ap_title': ('sanityTitle', None, 22),
@@ -171,7 +194,7 @@ def export_theme(base, common, theme, theme_id, sources, output, *, news=None, a
         layers.append(dict(width=width, height=height, matrix=projection(rect, canvas),
                            camera='front', sprite='assistant', label=name))
 
-    def put(rect, side, *, sprite=None, label=None, color=(1, 1, 1, 1), text=None, font=None, motion=None, scope=None):
+    def put(rect, side, *, sprite=None, label=None, color=(1, 1, 1, 1), text=None, font=None, motion=None, scope=None, tiled=False):
         width, height = rect.size
         if width <= 0 and text in AUTO_TEXT_WIDTH:
             # Unity sizes these counters from the actual text. Empty serialized
@@ -192,7 +215,7 @@ def export_theme(base, common, theme, theme_id, sources, output, *, news=None, a
             if rgb != (255, 255, 255):
                 name += '_' + ''.join(f'{value:02x}' for value in rgb)
             if name not in written:
-                image = sprite_canvas(sprite)
+                image = tiled_sprite(sprite, rect.size) if tiled else sprite_canvas(sprite)
                 if rgb != (255, 255, 255):
                     tinted = ImageChops.multiply(image, Image.new('RGBA', image.size, (*rgb, 255)))
                     image = tinted
@@ -250,7 +273,7 @@ def export_theme(base, common, theme, theme_id, sources, output, *, news=None, a
             if name == 'max_layout' and {'bg_sanity', 'text_ap_max'} <= child_names:
                 flow = {'text_ap_max': 55}
             elif name == 'layout' and 'prefab_progress_info' in theme.path(node):
-                flow = {'panel_progress_info': 58, 'text_operation': 136}
+                flow = {'panel_progress_info': 58, 'text_operation': 220 if locale == 'en' else 136}
         if flow:
             padding = group['m_Padding']
             spacing = group['m_Spacing']
@@ -270,7 +293,7 @@ def export_theme(base, common, theme, theme_id, sources, output, *, news=None, a
                 value, text_label, font = PREVIEW_TEXT[name]
                 layer = put(rect, side, label=text_label, text=value, font=font, scope=scope)
                 if layer and value == 'progress' and locale == 'en':
-                    layer['content'] = 'All complete'
+                    layer['content'] = 'All Stages Cleared'
             if not ref or ref['m_FileID'] or not ref['m_PathID'] or not image['m_Enabled']:
                 continue
             color = list(vec(image['m_Color'], 'rgba'))
@@ -318,6 +341,8 @@ def export_theme(base, common, theme, theme_id, sources, output, *, news=None, a
         else:
             rect = base.canvas_rect(base_name, side + '_canvas', element)
         place(element, rect, side, label)
+    if (title := elements.get('img_grp_recruit')) and title.get('spritePath'):
+        place(title, base.canvas_rect('panel_recruit', 'right_canvas', title), 'right', 'Recruitment')
     for slot, base_name in (('panel_ap', 'panel_ap_container'), ('battle_prg_widget', 'panel_progress_holder')):
         if element := elements.get(slot):
             place(element, base.canvas_rect(base_name, 'right_canvas', element), 'right')
@@ -345,16 +370,22 @@ def export_theme(base, common, theme, theme_id, sources, output, *, news=None, a
             sprite=base.sprites['icon_breaking_news'], label='Breaking News')
     if assistant_dialogue and (back := elements.get('img_dialogue_bg')):
         panel = base.canvas_rect('dialogue', 'left_canvas', back, 'panel_dialogue')
-        put(panel, 'left', sprite=theme_sprite(back['spritePath']))
+        put(panel, 'left', sprite=theme_sprite(back['spritePath']), tiled=True)
         if title := elements.get('img_dialogue_title'):
             title_node = next(node for node in base.transforms['back']
                               if base.path(node).endswith('/panel_dialogue/dialogue/back'))
             title_rect = base.rect(title_node, panel, title)
             put(title_rect, 'left', sprite=theme_sprite(title['spritePath']))
         mask = base.rect(base.node('dialogue_mask', 'left_canvas'), panel)
-        text = base.rect(base.node('dialogue', 'dialogue_mask'), mask)
-        layer = put(replace(text, size=(text.size[0], 100)), 'left', text='dialogue', font=25)
+        text_node = base.node('dialogue', 'dialogue_mask')
+        text = base.rect(text_node, mask)
+        text_component = next(data for component in base.components(text_node) if component.type.name == 'MonoBehaviour'
+                              and 'm_FontData' in (data := component.read_typetree()))
+        font = text_component['m_FontData']['m_FontSize']
+        layer = put(replace(text, size=(text.size[0], mask.size[1])), 'left', text='dialogue', font=font)
         layer['content'] = assistant_dialogue
+        arrow = base.node('tri', '/panel_dialogue/dialogue/')
+        put(base.rect(arrow, panel), 'left', sprite=base.sprites['tri'])
 
     if assistant:
         for node, sprite in (('btn_home_illust', 'change_illust'), ('btn_home_illust_preview', 'hide_ui')):

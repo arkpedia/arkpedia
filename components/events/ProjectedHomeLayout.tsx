@@ -195,7 +195,8 @@ export default function ProjectedHomeLayout({ layout, artRoot, theme, animationS
       </span>;
     }
     if (!layer.sprite) return <span key={index} className="event-persona-layer event-persona-text"
-      data-value={layer.text} style={style} aria-label={layer.label ? `${layer.label} ${value}` : undefined}>
+      data-value={layer.text} data-home-text={layer.content ? layer.text : undefined}
+      style={style} aria-label={layer.label ? `${layer.label} ${value}` : undefined}>
       {value}
     </span>;
     const regional = layer.themed && theme.nativeArt?.[layer.sprite]?.image;

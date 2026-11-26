@@ -249,7 +249,7 @@ test('Hunt exports its complete Global HUD with the native digits and Terminal m
       children?: { sprite: string }[];
     }[];
   };
-  for (const label of ['Violet Mizutsune Orchid', 'Breaking News', 'Hunters of the Umbral Wilds']) {
+  for (const label of ['Violet Mizutsune Orchid', 'Breaking News', 'Hunters of the Umbral Wilds', 'Recruitment']) {
     const sprite = layout.layers.find(layer => layer.label === label)?.sprite;
     assert.ok(sprite && existsSync(`${root}/${sprite}.webp`), label);
   }
@@ -262,7 +262,7 @@ test('Hunt exports its complete Global HUD with the native digits and Terminal m
   const terminalMask = layout.layers.find(layer => layer.sprite === 'btn_battle_softmask');
   assert.ok(terminalMask?.children?.some(child => child.sprite === 'btn_battle_circle_1'));
   assert.equal(layout.layers.some(layer => layer.sprite === 'btn_battle_circle_1'), false);
-  assert.equal(layout.layers.find(layer => layer.text === 'progress')?.content, 'All complete');
+  assert.equal(layout.layers.find(layer => layer.text === 'progress')?.content, 'All Stages Cleared');
   // The projected center of the prefab belongs inside Terminal. Skipping the
   // slot's anchor puts it at about (685, 142), above and left of the panel.
   const { matrix, width, height } = meter;
@@ -272,7 +272,11 @@ test('Hunt exports its complete Global HUD with the native digits and Terminal m
   const x = (matrix[0] * halfWidth + matrix[4] * halfHeight + matrix[12]) / depth;
   const y = (matrix[1] * halfWidth + matrix[5] * halfHeight + matrix[13]) / depth;
   assert.ok(Math.abs(x - 774) < 5 && Math.abs(y - 203) < 5, `Sanity center: ${x}, ${y}`);
-  assert.match(layout.layers.find(layer => layer.text === 'dialogue')?.content ?? '', /^I see you're as laid back as they are, Doctor\./);
+  const dialogue = layout.layers.find(layer => layer.text === 'dialogue');
+  assert.equal(dialogue?.content, "I see your workload hasn't changed, Doctor. Don't worry, I'll help you sort it out.");
+  assert.equal(dialogue.height, 81);
+  assert.ok(layout.layers.some(layer => layer.sprite === 'tri'));
+  assert.ok(existsSync(`${root}/tri.webp`));
   for (const key of ['sanity', 'maxSanity', 'lmd', 'orundum', 'originite']) {
     const matches = layout.layers.filter(layer => layer.text === key);
     assert.equal(matches.length, 1, key);
