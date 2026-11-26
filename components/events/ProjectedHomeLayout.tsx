@@ -1,5 +1,5 @@
 import { useLayoutEffect, useRef, useState } from 'react';
-import { ContentImg } from '@/components/content/ContentImage';
+import { ContentArt, ContentImg } from '@/components/content/ContentImage';
 import PersonaHeadphones from './PersonaHeadphones';
 import PersonaMenuParticles, { type ParticleTrack } from './PersonaMenuParticles';
 import EventSceneCanvas from './EventSceneCanvas';
@@ -11,12 +11,18 @@ type ProjectedLayer = {
   height: number;
   matrix: number[];
   opacity?: number;
+  children?: ProjectedLayer[];
+  bitmap?: { atlas: string; spacing: number; glyphs: Record<string, [number, number, number, number, number]> };
+  content?: string;
   sprite?: string;
   themed?: boolean;
   fixedCN?: boolean;
   text?: string;
   label?: string;
   fontSize?: number;
+  fontFace?: string;
+  color?: string;
+  alignment?: number;
   effect?: string;
   emitter?: string;
   particleMask?: string;
@@ -120,7 +126,10 @@ export default function ProjectedHomeLayout({ layout, artRoot, theme, animationS
       running = [];
       if (reduced.matches) return;
       for (const sprite of element.querySelectorAll<HTMLElement>('[data-motion-layer]')) {
-        const track = layers[Number(sprite.dataset.motionLayer)].motion;
+        const track = sprite.dataset.motionLayer
+          ?.split('.')
+          .reduce<ProjectedLayer | undefined>((parent, index, depth) =>
+            (depth === 0 ? layers : parent?.children)?.[Number(index)], undefined)?.motion;
         if (!track) continue;
         const animation = sprite.animate(track.frames.map(([offset, ...values]) => ({
           offset,
@@ -140,7 +149,10 @@ export default function ProjectedHomeLayout({ layout, artRoot, theme, animationS
 
   const values: Record<string, string> = {
     sanity: String(theme.profile?.sanity.current ?? 210),
-    sanityTitle: 'SANITY',
+    sanityTitle: theme.localized ? 'Sanity' : '理智',
+    recruitment: theme.localized ? 'Recruitment' : '招募',
+    recruit: theme.localized ? 'Recruit' : '公开招募',
+    headhunt: theme.localized ? 'Headhunt' : '干员寻访',
     maxSanity: '/' + (theme.profile?.sanity.capacity ?? 210),
     level: String(theme.profile?.level ?? 120),
     doctor: theme.profile?.name ?? 'Doctor',
@@ -150,9 +162,24 @@ export default function ProjectedHomeLayout({ layout, artRoot, theme, animationS
     orundum: '12000',
     originite: '1',
   };
-  function renderLayer(layer: ProjectedLayer, index: number) {
+  function renderLayer(layer: ProjectedLayer, index: string | number) {
+    const value = layer.content ?? values[layer.text ?? ''];
+    const nativeMenuLabel = theme.localized && layer.fontFace === 'Novecentowide-Medium'
+      && layer.content === undefined
+      && (layer.text === 'recruitment' || layer.text === 'recruit' || layer.text === 'headhunt');
+    // The fixed profile and menu slots can be narrower than their localized text.
+    const characterWidth = layer.fontFace === 'AEwide' ? .61
+      : !nativeMenuLabel && layer.fontFace === 'Novecentowide-Medium' ? .73
+      : undefined;
+    const fontSize = characterWidth && value && layer.fontSize
+      ? Math.min(layer.fontSize, layer.width / (value.length * characterWidth))
+      : layer.fontSize;
+    const alignment = layer.alignment;
+    const horizontal = ['start', 'center', 'end'] as const;
     const style = {
-      width: layer.width, height: layer.height, fontSize: layer.fontSize,
+      width: layer.width, height: layer.height, fontSize, color: layer.color,
+      justifyItems: alignment === undefined ? undefined : horizontal[alignment % 3],
+      alignItems: alignment === undefined ? undefined : horizontal[Math.floor(alignment / 3)],
       opacity: layer.opacity, transform: matrix(layer.matrix),
     };
     if (layer.effect === 'particles' && layer.particles && layer.particleMask && layer.emitter) {
@@ -173,14 +200,35 @@ export default function ProjectedHomeLayout({ layout, artRoot, theme, animationS
     </div>;
     if (layer.fallbackFor === 'headphones' && headphones) return null;
     if (layer.fallbackFor === 'shop' && shopReady && !regionalShopArt) return null;
+    const bitmap = layer.bitmap;
+    if (bitmap && value && [...value].every(character => character in bitmap.glyphs)) {
+      const { atlas, spacing, glyphs } = bitmap;
+      return <span key={index} className="event-persona-layer event-home-bitmap-digits" data-value={layer.text}
+        style={style} role="img" aria-label={`${layer.label} ${value}`}>
+        {[...value].map((character, position) => {
+          const [x, y, width, height, advance] = glyphs[character];
+          return <ContentArt key={position} aria-hidden="true" ownColors src={`${artRoot}/${atlas}.webp`} style={{
+            width, height, marginRight: advance - width + (position === value.length - 1 ? 0 : spacing),
+            backgroundPosition: `-${x}px -${y}px`,
+          }} />;
+        })}
+      </span>;
+    }
     if (!layer.sprite) return <span key={index} className="event-persona-layer event-persona-text"
-      data-value={layer.text} style={style} aria-label={layer.label ? `${layer.label} ${values[layer.text ?? '']}` : undefined}>
-      {values[layer.text ?? '']}
+      data-value={layer.text} data-font-face={layer.fontFace}
+      style={style} aria-label={layer.label ? `${layer.label} ${value}` : undefined}>
+      {nativeMenuLabel ? <ContentImg src={`/event-preview/fonts/novecento-${layer.text}.webp`}
+        alt={value ?? ''} eager draggable={false} />
+        : layer.fontFace === 'AEwide' ? <span>{value}</span> : value}
     </span>;
     const regional = layer.themed && theme.nativeArt?.[layer.sprite]?.image;
     if (theme.localized && layer.fixedCN && !regional) return null;
+    const source = regional || `${artRoot}/${layer.sprite}.webp`;
+    if (layer.children) return <ContentArt key={index} className="event-persona-layer event-home-soft-mask" src={source} style={style}>
+      {layer.children.map((child, childIndex) => renderLayer(child, `${index}.${childIndex}`))}
+    </ContentArt>;
     return <ContentImg key={index} eager className="event-persona-layer" style={style}
-      data-motion-layer={layer.motion ? index : undefined} src={regional || `${artRoot}/${layer.sprite}.webp`} alt={layer.label ?? ''} draggable={false} />;
+      data-motion-layer={layer.motion ? index : undefined} src={source} alt={layer.label ?? ''} draggable={false} />;
   }
 
   return <div ref={viewport} className="event-persona-viewport" role="region" aria-label={`${theme.name} home screen`}>

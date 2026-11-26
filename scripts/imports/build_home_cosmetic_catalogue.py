@@ -17,7 +17,7 @@ def purchase_packs(entries):
         if not match:
             match = re.search(
                 r'\b(?:purchas(?:e|ing)|buy(?:ing)?)\s+(?:the\s+)?(.+?)'
-                r'(?:\s+(?:from|in|at)\s+the\s+\[?Store\]?|\.|$)', text, re.I)
+                r'(?:\s+(?:from|in|at)\s+(?:the\s+)?\[?Store\]?|\.|$)', text, re.I)
         if match:
             names.append(match[1])
     return names

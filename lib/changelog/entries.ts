@@ -34,6 +34,20 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    at: '2026-11-26T15:45:15Z',
+    title: 'More event home previews',
+    added: [{ title: 'Dahuang and more home themes', detail: 'Explore more in-game themes, room effects, and music from event pack previews.', href: '/schedule' }],
+    fixed: [{ title: 'Dahuang recruitment lettering', detail: 'Recruitment, Recruit, and Headhunt use their original Global client lettering.', href: '/schedule' }],
+  },
+  {
+    at: '2026-11-26T12:00:00Z',
+    fixed: [{
+      title: 'Hunt home screen preview',
+      detail: 'Strike Camp now shows Orchid, Breaking News, currency, and the themed Sanity counter.',
+      href: '/schedule',
+    }],
+  },
+  {
     at: '2026-11-26T10:00:00Z',
     added: [{ title: 'Contingency Contract Battleplan', detail: 'Explore five seasons, compare up to 13 operators under selected contracts, and save a squad preset on your device.', href: '/game-modes/ccb' }],
   },

@@ -23,6 +23,92 @@
         "name": "Cloudy Day",
         "bank": "sys.ON_MUSIC.bg_hunter_1"
       }
+    },
+    "bg_lonetrail_1": {
+      "names": [
+        "星迹",
+        "Startrail"
+      ],
+      "packs": {
+        "天想星迹组合包": "星迹",
+        "Wish Upon A Star Pack": "Startrail"
+      },
+      "globalName": "Startrail",
+      "source": {
+        "region": "en",
+        "version": "26-11-19-09-03-43_d30fff",
+        "bundles": {
+          "arts/ui/homebackground/wrapper/bg_lonetrail_1.ab": "810c709112dbf89720f0c35a5a31f63f",
+          "[uc]shaders.ab": "1b57de587474563a0a7c3e8cab7f682c",
+          "refs/fx/material.ab": "b730d64b72464b45586b58dd1bf9fcfc",
+          "refs/fx/texture/blood.ab": "32e34d771281e16c0be664ee783a3241",
+          "refs/fx/texture/color.ab": "9c06bd26101da434649f509b14fd991f",
+          "refs/fx/texture/fire.ab": "d58a888487ec7351697601739ca1dd76",
+          "refs/fx/texture/flipbook.ab": "65efe2f6ec69c914b1a415c7b138fda0",
+          "refs/fx/texture/flow.ab": "f6fcc077cb1366c3b25f1c2733c2f7e3",
+          "refs/fx/texture/lighting.ab": "379ef6545a9bab705c296aeae2904f5e",
+          "refs/fx/texture/mask.ab": "c699918684a5d07ec577568c7b1b8e31",
+          "refs/fx/texture/object.ab": "aa8ba0a17ad0bf78a697c36ac991cf0e",
+          "refs/fx/texture/pattern.ab": "c51d264fae65844a21c65e06b58a3847",
+          "refs/fx/texture/ray.ab": "367ca6e21164c715b4c6b97fa0cea197",
+          "refs/fx/texture/smoke.ab": "8e062f5ac5732f1edcfda94c823b3020",
+          "refs/fx/texture/star.ab": "d9da139e0cf49a46c866d4f4442bb9b9",
+          "refs/fx/texture/trail.ab": "e4e6ce3d878fb4224296aa8e86c47945",
+          "refs/fx/texture/ui.ab": "de2edc6db924006fb54e69e5c4edf6c4",
+          "refs/fx/texture/vein.ab": "5200a9337d833e5ab9ecf191bf7c3f18",
+          "refs/fx/texture/water.ab": "d75935a1b559363a1b488f966d698ca9",
+          "audio/sound_beta_2/music/act25side/m_sys_act25side.ab": "3e9637dbac8eb305449ecf36e59bb17f"
+        }
+      },
+      "animated": true,
+      "music": {
+        "id": "music_bg_adastra",
+        "name": "Ad astra",
+        "bank": "sys.ON_ACTIVITY_LOADED.act25side"
+      }
+    },
+    "bg_sui_1": {
+      "names": [
+        "青穰",
+        "Green Buds"
+      ],
+      "packs": {
+        "大荒青禾组合包": "青穰",
+        "Dahuang Sprout Pack": "Green Buds"
+      },
+      "globalName": "Green Buds",
+      "source": {
+        "region": "en",
+        "version": "26-11-19-09-03-43_d30fff",
+        "bundles": {
+          "arts/ui/homebackground/wrapper/bg_sui_1.ab": "850c3a6112bc3dbe659da0610964fc17",
+          "[uc]shaders.ab": "1b57de587474563a0a7c3e8cab7f682c",
+          "refs/fx/material.ab": "b730d64b72464b45586b58dd1bf9fcfc",
+          "refs/fx/texture/blood.ab": "32e34d771281e16c0be664ee783a3241",
+          "refs/fx/texture/color.ab": "9c06bd26101da434649f509b14fd991f",
+          "refs/fx/texture/fire.ab": "d58a888487ec7351697601739ca1dd76",
+          "refs/fx/texture/flipbook.ab": "65efe2f6ec69c914b1a415c7b138fda0",
+          "refs/fx/texture/flow.ab": "f6fcc077cb1366c3b25f1c2733c2f7e3",
+          "refs/fx/texture/lighting.ab": "379ef6545a9bab705c296aeae2904f5e",
+          "refs/fx/texture/mask.ab": "c699918684a5d07ec577568c7b1b8e31",
+          "refs/fx/texture/object.ab": "aa8ba0a17ad0bf78a697c36ac991cf0e",
+          "refs/fx/texture/pattern.ab": "c51d264fae65844a21c65e06b58a3847",
+          "refs/fx/texture/ray.ab": "367ca6e21164c715b4c6b97fa0cea197",
+          "refs/fx/texture/smoke.ab": "8e062f5ac5732f1edcfda94c823b3020",
+          "refs/fx/texture/star.ab": "d9da139e0cf49a46c866d4f4442bb9b9",
+          "refs/fx/texture/trail.ab": "e4e6ce3d878fb4224296aa8e86c47945",
+          "refs/fx/texture/ui.ab": "de2edc6db924006fb54e69e5c4edf6c4",
+          "refs/fx/texture/vein.ab": "5200a9337d833e5ab9ecf191bf7c3f18",
+          "refs/fx/texture/water.ab": "d75935a1b559363a1b488f966d698ca9",
+          "audio/sound_beta_2/music/act31side/m_act31side_sys.ab": "87425cdfb4ec0c0742ffb382483b744f"
+        }
+      },
+      "animated": true,
+      "music": {
+        "id": "music_bg_sui",
+        "name": "Journey to Dahuang",
+        "bank": "sys.ON_ACTIVITY_LOADED.act31side"
+      }
     }
   },
   "themes": {
@@ -34,6 +120,66 @@
       "packs": {
         "结营出猎组合包": "出猎",
         "Strike Camp Hunt Pack": "Hunt"
+      }
+    },
+    "tm_lonetrail_1": {
+      "names": [
+        "天想",
+        "Envisioning"
+      ],
+      "packs": {
+        "天想星迹组合包": "天想",
+        "Wish Upon A Star Pack": "Envisioning"
+      },
+      "globalName": "Envisioning",
+      "source": {
+        "region": "en",
+        "version": "26-11-19-09-03-43_d30fff",
+        "bundles": {
+          "arts/ui/hometheme/[uc]tm_lonetrail_1.ab": "f82adee9ed95d465e4221c7702eb7955",
+          "ui/pages/home_page.ab": "3ada8ce4bfbc18dc54875f0ac3a8a879",
+          "arts/ui/hometheme/common.ab": "41597cc435091d3ee98f7731e7d66a54",
+          "spritepack/ui_home_act_banner_shop_h2_0.ab": "5af49c8c245fc2019b4634829575409e"
+        }
+      }
+    },
+    "tm_rhodes_night": {
+      "names": [
+        "夜间",
+        "Night"
+      ],
+      "packs": {},
+      "globalName": "Night",
+      "source": {
+        "region": "en",
+        "version": "26-11-19-09-03-43_d30fff",
+        "bundles": {
+          "arts/ui/hometheme/[uc]tm_rhodes_night.ab": "25604d11b681a208e76008e63052b80d",
+          "ui/pages/home_page.ab": "3ada8ce4bfbc18dc54875f0ac3a8a879",
+          "arts/ui/hometheme/common.ab": "41597cc435091d3ee98f7731e7d66a54",
+          "spritepack/ui_home_act_banner_shop_h2_0.ab": "5af49c8c245fc2019b4634829575409e"
+        }
+      }
+    },
+    "tm_sui_1": {
+      "names": [
+        "大荒",
+        "Dahuang"
+      ],
+      "packs": {
+        "大荒青禾组合包": "大荒",
+        "Dahuang Sprout Pack": "Dahuang"
+      },
+      "globalName": "Dahuang",
+      "source": {
+        "region": "en",
+        "version": "26-11-19-09-03-43_d30fff",
+        "bundles": {
+          "arts/ui/hometheme/[uc]tm_sui_1.ab": "0608658829a1fedbd64c54aedcdf5b98",
+          "ui/pages/home_page.ab": "3ada8ce4bfbc18dc54875f0ac3a8a879",
+          "arts/ui/hometheme/common.ab": "41597cc435091d3ee98f7731e7d66a54",
+          "spritepack/ui_home_act_banner_shop_h2_0.ab": "5af49c8c245fc2019b4634829575409e"
+        }
       }
     }
   },
