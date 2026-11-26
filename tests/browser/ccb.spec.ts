@@ -198,9 +198,9 @@ test('the old bookmark redirects and a failed catalogue download can be retried'
   await page.goto('/ccb');
   await expect(page).toHaveURL(/\/game-modes\/ccb$/);
   await expect(page.getByRole('main').getByRole('alert')).toHaveText('The battleplan could not load.');
-  await page.getByRole('button', { name: 'Try again', exact: true }).click();
-  await expect(page.getByRole('group', { name: 'Seasons' }).getByRole('button')).toHaveCount(5);
   await page.getByRole('link', { name: 'Squad stats', exact: true }).click();
   await expect(page).toHaveURL(/#ccb-squad$/);
+  await page.getByRole('button', { name: 'Try again', exact: true }).click();
+  await expect(page.getByRole('group', { name: 'Seasons' }).getByRole('button')).toHaveCount(5);
   await expect(page.getByRole('combobox', { name: 'Search operators' })).toBeInViewport();
 });

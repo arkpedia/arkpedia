@@ -26,6 +26,12 @@ export default function BattleplanWorkspace({ seasons, operators, operatorIcons,
   const [handbook, setHandbook] = useState<BattleplanEnemy | null>(null);
   const identity = `${seasonId}/${mapId}`;
   const floor = useHeightFloor('ccb');
+  const squad = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (window.location.hash !== '#ccb-squad') return;
+    squad.current?.scrollIntoView();
+    squad.current?.focus({ preventScroll: true });
+  }, []);
   const map = season.maps.find(row => row.id === mapId) ?? season.maps[0];
   const details = map.details;
   const all = map.groups.flatMap(group => group.contracts);
@@ -119,7 +125,7 @@ export default function BattleplanWorkspace({ seasons, operators, operatorIcons,
             </> : <p className={styles.empty}>{details ? 'No enemy records are available for this map.' : T.noStage}</p>}
           </section>
         </div>
-        <div id="ccb-squad" className={styles.squadAnchor} tabIndex={-1}>
+        <div id="ccb-squad" ref={squad} className={styles.squadAnchor} tabIndex={-1}>
           <OperatorComparison operators={operators} icons={operatorIcons ?? {}} contracts={active} />
         </div>
       {floor.spacer}
