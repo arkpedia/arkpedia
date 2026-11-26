@@ -158,7 +158,7 @@
 .riskReadout output { min-width: 5ch; font: 700 15px var(--font-display); color: var(--text-bright); }
 .resultsGrid { display: grid; grid-template-columns: 280px minmax(0, 1fr); align-items: start; gap: 12px; }
 .results { display: grid; gap: 12px; min-width: 0; }
-.overview { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; gap: 12px; }
+.overview { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
 .riskRail {
   position: sticky;
   top: calc(var(--nav-h, 60px) + var(--control-h) + 24px);
@@ -195,12 +195,19 @@
   font-size: 12px;
   color: var(--text-dim);
 }
-.enemySection { padding: var(--card-inset); display: grid; gap: 6px; }
-.enemyGrid { display: flex; flex-wrap: wrap; gap: 4px; }
+.enemySection { padding: var(--card-inset); display: grid; align-content: start; gap: 6px; }
+.enemyGrid {
+  --enemy-gap: 4px;
+  --enemy-min: 38px;
+  --enemy-max: 48px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--enemy-gap);
+}
 .enemyTile {
   display: grid;
   place-items: center;
-  width: 38px;
+  width: clamp(var(--enemy-min), calc((100% + var(--enemy-gap)) / var(--enemy-columns) - var(--enemy-gap)), var(--enemy-max));
   aspect-ratio: 1;
   padding: 0;
   background: var(--well);
@@ -250,8 +257,7 @@
   .riskReadout { margin-inline-start: auto; gap: 3px; }
   .riskReadout .kicker { display: none; }
   .enemySummary dl { gap: 4px; }
-  .enemyGrid { gap: 3px; }
-  .enemyTile { width: clamp(28px, calc((100% - 24px) / 9), 34px); }
+  .enemyGrid { --enemy-gap: 3px; --enemy-min: 28px; --enemy-max: 42px; }
 }
 @media (max-width: 390px) {
   .workspaceActions > :is(button, a) { padding-inline: 8px; }

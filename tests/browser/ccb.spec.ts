@@ -262,6 +262,35 @@ test('stage limits and blocked tiles update with the selected contracts', async 
   await page.keyboard.press('Escape');
 });
 
+test('mixed blocked tiles keep the overview steady beside larger enemy portraits', async ({ page }, info) => {
+  await page.goto('/game-modes/ccb');
+  const stage = page.getByRole('region', { name: 'Ink-Stained Archive: Stage', exact: true });
+  const enemies = page.getByRole('region', { name: 'Enemies on this map', exact: true });
+  const portrait = enemies.getByRole('button', { name: "Serious 'Bitey'", exact: true });
+  const team = page.locator('#ccb-squad');
+  await expect(portrait).toBeVisible();
+  await page.evaluate(() => document.fonts.ready);
+  const stageBefore = (await stage.boundingBox())!;
+  const teamBefore = (await team.boundingBox())!;
+  expect((await portrait.boundingBox())!.width).toBeGreaterThanOrEqual(40);
+
+  await openRisks(page);
+  const board = await riskDialog(page).isVisible() ? riskDialog(page) : page.getByRole('region', { name: 'Contract board' });
+  await board.getByRole('button', { name: 'View Restrictions contracts', exact: true }).click();
+  await riskDialog(page).getByRole('button', { name: '6 map tiles become unavailable for deployment, 20', exact: true }).click();
+  await closeRisks(page);
+  await expect(stage.getByText('3 ground, 3 high', { exact: true })).toBeVisible();
+  const stageAfter = (await stage.boundingBox())!;
+  const teamAfter = (await team.boundingBox())!;
+  expect(stageAfter.height).toBeCloseTo(stageBefore.height, 0);
+  expect(teamAfter.y - stageAfter.y).toBeCloseTo(teamBefore.y - stageBefore.y, 0);
+  if (info.project.name === 'desktop') {
+    const enemyBox = (await enemies.boundingBox())!;
+    expect(enemyBox.y).toBeCloseTo(stageAfter.y, 0);
+    expect(enemyBox.height).toBeCloseTo(stageAfter.height, 0);
+  }
+});
+
 test('all 13 squad members remain available together and removal frees a slot', async ({ page }, info) => {
   test.setTimeout(60000);
   await page.goto('/game-modes/ccb');

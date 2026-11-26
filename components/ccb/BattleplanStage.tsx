@@ -30,8 +30,8 @@ function StageFacts({ details, modified, blocked }: { details: MapDetails | null
       if (tile) counts[tile.height === 'high' ? 'high' : 'ground']++;
     }
   }
-  const byHeight = [counts.ground ? `${counts.ground} ground` : '', counts.high ? `${counts.high} high` : ''].filter(Boolean);
-  const blockedDetail = counts.ground + counts.high === blocked.size ? byHeight.join(', ') : 'Terrain unavailable for some tiles';
+  const byHeight = [counts.ground ? `${counts.ground}\u00a0ground` : '', counts.high ? `${counts.high}\u00a0high` : ''].filter(Boolean);
+  const blockedDetail = counts.ground + counts.high === blocked.size ? byHeight.join(', ') : 'Terrain unknown';
 
   return <dl className={styles.facts} aria-label="Stage modifiers">
     {STAGE_STATS.map(({ stat, label, icon }) => {
@@ -56,7 +56,7 @@ function StageFacts({ details, modified, blocked }: { details: MapDetails | null
       </dt>
       <dd aria-live="polite">
         <strong>{blocked.size}</strong>
-        {blockedDetail && <small>({blockedDetail})</small>}
+        <small>{blockedDetail}</small>
       </dd>
     </div>
   </dl>;

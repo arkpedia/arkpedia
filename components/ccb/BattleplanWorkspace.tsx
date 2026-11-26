@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { ContentImg } from '@/components/content/ContentImage';
 import EnemyRecord from '@/components/enemies/EnemyRecord';
 import BattleplanDialog, { jumpToDialogSection } from './BattleplanDialog';
@@ -146,11 +146,12 @@ export default function BattleplanWorkspace({ seasons, operators, operatorIcons,
             <div className={styles.row}><h2 className="section-title">Enemies</h2>
               {enemy && <button className="ghost btn-sm" type="button" aria-haspopup="dialog" onClick={() => setDialog('enemy')}>Enemy stats</button>}
             </div>
-            {!!enemies.length && <div className={styles.enemyGrid} role="group" aria-label={T.enemies}>
+            {!!enemies.length && <div className={styles.enemyGrid} role="group" aria-label={T.enemies}
+              style={{ '--enemy-columns': Math.min(enemies.length, 9) } as CSSProperties}>
               {enemies.map(row => <button type="button" key={row.id} className={`btn-bare ${styles.enemyTile}`}
                 aria-label={row.name} aria-pressed={row.id === enemy?.id}
                 data-off={!fielded(row) || undefined} title={fielded(row) ? row.name : `${row.name} · ${T.conditional}`} onClick={() => setEnemy(row.id)}>
-                {row.icon ? <ContentImg src={row.icon} alt="" width={40} height={40} /> : <span className={styles.enemyBlank}>{row.name[0]}</span>}
+                {row.icon ? <ContentImg src={row.icon} alt="" width={48} height={48} /> : <span className={styles.enemyBlank}>{row.name[0]}</span>}
               </button>)}
             </div>}
             {enemy && enemyStats ? <div className={styles.enemySummary}>
