@@ -204,3 +204,17 @@ test('the old bookmark redirects and a failed catalogue download can be retried'
   await expect(page.getByRole('group', { name: 'Seasons' }).getByRole('button')).toHaveCount(5);
   await expect(page.getByRole('combobox', { name: 'Search operators' })).toBeInViewport();
 });
+
+test('operator suggestions stay visible when the search is at the bottom of the viewport', async ({ page }) => {
+  await page.goto('/game-modes/ccb');
+  const search = page.getByRole('combobox', { name: 'Search operators' });
+  await search.evaluate(input => {
+    const { bottom } = input.getBoundingClientRect();
+    window.scrollBy(0, bottom - window.innerHeight + 8);
+  });
+  await search.fill('Thorns');
+  const option = page.getByRole('option', { name: 'Thorns', exact: true });
+  await expect(option).toBeInViewport();
+  await option.click();
+  await expect(page.getByRole('table', { name: 'Thorns stat comparison' })).toBeVisible();
+});

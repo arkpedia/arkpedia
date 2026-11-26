@@ -48,6 +48,7 @@ function readPreset(operators: readonly string[]) {
 export default function OperatorComparison({ operators, icons, contracts }: { operators: string[]; icons: Record<string, string>; contracts: Contract[] }) {
   const account = useAccount();
   const [query, setQuery] = useState('');
+  const [suggestUp, setSuggestUp] = useState(false);
   const [team, setTeam] = useState<Member[]>([]);
   const [active, setActive] = useState('');
   const [records, setRecords] = useState(new Map<string, OperatorRecord>());
@@ -199,6 +200,17 @@ export default function OperatorComparison({ operators, icons, contracts }: { op
     }
   }
 
+  function searchOperators(value: string) {
+    setQuery(value);
+    const field = search.current?.getBoundingClientRect();
+    if (!field) return;
+    const viewport = window.visualViewport;
+    const top = viewport?.offsetTop ?? 0;
+    const below = top + (viewport?.height ?? window.innerHeight) - field.bottom;
+    // Leave enough room for a few result rows when the keyboard or viewport crowds the field.
+    setSuggestUp(below < 160 && field.top - top > below);
+  }
+
   return <section className={`panel op-section ${styles.team}`} aria-labelledby={titleId}>
     <div className={styles.title}>
       <h2 id={titleId}>Operator team</h2>
@@ -214,7 +226,8 @@ export default function OperatorComparison({ operators, icons, contracts }: { op
         label="Search operators"
         placeholder="Add an operator…"
         value={query}
-        onChange={setQuery}
+        onChange={searchOperators}
+        upward={suggestUp}
         suggestions={matches}
         getKey={name => name}
         renderSuggestion={name => <span className={shared.suggestion}>
