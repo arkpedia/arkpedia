@@ -25,6 +25,8 @@ CURATED = ROOT / 'config/event-cosmetic-previews.json'
 NEWS = BUNDLES['ui_home_act_banner_shop_h2_0'][0]
 HUD = {'Terminal', 'Squads', 'Operators', 'Store', 'Missions', 'Base', 'Amiya', 'Breaking News'}
 COUNTERS = {'sanity', 'maxSanity', 'level', 'doctor', 'lmd', 'orundum', 'originite'}
+# Cloudflare Workers limit for each first-party static asset.
+STATIC_ASSET_LIMIT = 25 * 1024 * 1024
 
 
 def read_json(path):
@@ -230,6 +232,10 @@ def stage_catalogue(regions, catalogue, art, protected, requested, assistant, re
                         if clips:
                             opening_music(region, output, clips)
                             candidate['music'] = track
+                    for asset in output.iterdir():
+                        size = asset.stat().st_size
+                        if size > STATIC_ASSET_LIMIT:
+                            raise ValueError(f'{asset.name} is {size / 1024**2:.1f} MiB and exceeds the 25 MiB static asset limit')
                     shutil.copytree(output, art / id_, dirs_exist_ok=True)
                 catalogue[kind][id_] = candidate
                 report['generated'].append({'id': id_, **candidate['source']})
