@@ -164,9 +164,12 @@ export default function ProjectedHomeLayout({ layout, artRoot, theme, animationS
   };
   function renderLayer(layer: ProjectedLayer, index: string | number) {
     const value = layer.content ?? values[layer.text ?? ''];
+    const nativeMenuLabel = theme.localized && layer.fontFace === 'Novecentowide-Medium'
+      && layer.content === undefined
+      && (layer.text === 'recruitment' || layer.text === 'recruit' || layer.text === 'headhunt');
     // The fixed profile and menu slots can be narrower than their localized text.
     const characterWidth = layer.fontFace === 'AEwide' ? .61
-      : layer.fontFace === 'Novecentowide-Medium' ? .73
+      : !nativeMenuLabel && layer.fontFace === 'Novecentowide-Medium' ? .73
       : undefined;
     const fontSize = characterWidth && value && layer.fontSize
       ? Math.min(layer.fontSize, layer.width / (value.length * characterWidth))
@@ -214,7 +217,9 @@ export default function ProjectedHomeLayout({ layout, artRoot, theme, animationS
     if (!layer.sprite) return <span key={index} className="event-persona-layer event-persona-text"
       data-value={layer.text} data-font-face={layer.fontFace}
       style={style} aria-label={layer.label ? `${layer.label} ${value}` : undefined}>
-      {layer.fontFace === 'AEwide' ? <span>{value}</span> : value}
+      {nativeMenuLabel ? <ContentImg src={`/event-preview/fonts/novecento-${layer.text}.webp`}
+        alt={value ?? ''} eager draggable={false} />
+        : layer.fontFace === 'AEwide' ? <span>{value}</span> : value}
     </span>;
     const regional = layer.themed && theme.nativeArt?.[layer.sprite]?.image;
     if (theme.localized && layer.fixedCN && !regional) return null;

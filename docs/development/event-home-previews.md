@@ -39,6 +39,8 @@ A future gallery can read `homePreviewCatalogue()` from `lib/home/previews.ts` t
 
 Check the preview from the event page at desktop and mobile widths. Verify art loading, mouse movement, drag and Ctrl/Cmd-scroll, reduced motion, and BGM with the event music setting enabled. Run `npx tsx --test scripts/tests/test-event-home-cosmetics.ts` to check catalogue matching and committed artwork.
 
+For the English recruitment labels that reference `Novecentowide-Medium`, the viewer uses three rendered words from the official Global PC client. Their source is the Unity Font in `Arknights_Data/sharedassets0.assets` from client 042.0.0 (font SHA-256 `edbc0c59aa533f53a4d277820f2be1ed4452d607e1d4692d57ec99efac839ae6`). The WebP images preserve the prefab's text size and alignment and have accessible English names. The source font stays local under the [foundry's desktop terms](https://typography.synthview.com/pdf/eula-free-font-dafont.pdf).
+
 ## Automatic import
 
 The **Import and review home previews** workflow checks the CN and Global client versions from the `arkpedia-data` imports branch every six hours. It runs the exporter when those version records change. The importer pins each display and audio table to a mirror commit, verifies that its game version matches the recorded client, and checks every downloaded Unity bundle against the game's manifest.

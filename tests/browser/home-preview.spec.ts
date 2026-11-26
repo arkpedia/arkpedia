@@ -141,11 +141,10 @@ test('Dahuang Sprout Pack opens the generated Global preview from the event page
   await expect(screen).toHaveAccessibleName('Dahuang home screen');
   for (const [field, text] of [['recruitment', 'Recruitment'], ['recruit', 'Recruit'], ['headhunt', 'Headhunt']]) {
     const label = screen.locator(`[data-value="${field}"]`);
-    await expect(label).toBeVisible();
-    await expect(label).toHaveText(text);
     await expect(label).toHaveAttribute('data-font-face', 'Novecentowide-Medium');
-    await expect(label).toHaveCSS('text-transform', 'uppercase');
-    await expect(label).toHaveCSS('font-weight', '500');
+    const glyphs = label.getByRole('img', { name: text, exact: true });
+    await expect(glyphs).toHaveAttribute('src', `/event-preview/fonts/novecento-${field}.webp`);
+    await artwork(glyphs);
     expect(await label.evaluate(element => element.scrollWidth <= element.clientWidth + 1)).toBe(true);
   }
   const headingArt = screen.locator('img[src$="/bg_recruit.webp"]');

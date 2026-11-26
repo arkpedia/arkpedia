@@ -740,6 +740,13 @@ button.event-banner-extra:focus-visible > .event-banner-extra-name { color: var(
   text-transform: uppercase;
   white-space: nowrap;
 }
+.event-persona-text[data-font-face="Novecentowide-Medium"] > img {
+  display: block;
+  height: 1em;
+  width: auto;
+  max-width: 100%;
+  object-fit: contain;
+}
 .event-persona-text[data-font-face][data-value="doctor"] {
   align-items: end;
   text-shadow: .04em .06em var(--scrim-ground);
