@@ -83,17 +83,11 @@ public/**/*.svg
 public/**/*.avif
 public/**/*.ico
 
-# Full-screen samples need to load from the app in embedded browsers.
+# Home previews use the app's own public assets in embedded browsers and QA.
 !/public/event-preview/velvet-room.webp
-!/public/event-preview/bg_anniversary_1/*.webp
-!/public/event-preview/bg_redvelvet_1/*.webp
-!/public/event-preview/bg_hunter_1/*.webp
-!/public/event-preview/bg_rhodes_day/background.webp
-!/public/event-preview/tm_hunter_1/*.webp
-!/public/event-preview/tm_p3r_1/*.webp
+!/public/event-preview/bg_*/*.webp
+!/public/event-preview/tm_*/*.webp
 !/public/event-preview/tm_p3r_1/headphone-spine.atlas.txt
-!/public/event-preview/tm_redvelvet_1/*.webp
-!/public/event-preview/bg_p3r_1/*.webp
 
 # Python importer caches
 __pycache__/

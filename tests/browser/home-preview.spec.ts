@@ -139,8 +139,15 @@ test('Dahuang Sprout Pack opens the generated Global preview from the event page
   await artwork(dialog.locator('.event-scene-background'));
   const screen = await hud(dialog, 'Amiya');
   await expect(screen).toHaveAccessibleName('Dahuang home screen');
-  await expect(screen.getByText('Recruit', { exact: true })).toBeVisible();
-  await expect(screen.getByText('Headhunt', { exact: true })).toBeVisible();
+  for (const [field, text] of [['recruitment', 'Recruitment'], ['recruit', 'Recruit'], ['headhunt', 'Headhunt']]) {
+    const label = screen.locator(`[data-value="${field}"]`);
+    await expect(label).toBeVisible();
+    await expect(label).toHaveText(text);
+    await expect(label).toHaveAttribute('data-font-face', 'Novecentowide-Medium');
+    await expect(label).toHaveCSS('text-transform', 'uppercase');
+    await expect(label).toHaveCSS('font-weight', '500');
+    expect(await label.evaluate(element => element.scrollWidth <= element.clientWidth + 1)).toBe(true);
+  }
   await expect(screen.getByText('All Stages Cleared')).toHaveCSS('color', 'rgb(40, 40, 40)');
   await screenshot(dialog, info, 'dahuang-pack');
 });

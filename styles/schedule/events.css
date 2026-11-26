@@ -686,6 +686,15 @@ button.event-banner-extra:focus-visible > .event-banner-extra-name { color: var(
   font-weight: 500;
   font-display: swap;
 }
+@font-face {
+  font-family: 'Home Screen Menu';
+  src: local('Novecentowide-Medium'), local('Novecento Sans Wide Medium'),
+    local('NovecentoSansWide-Medium'),
+    url('/event-preview/fonts/manrope-medium-latin.woff2') format('woff2');
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+}
 .event-home-soft-mask { mask-size: 100% 100%; }
 .event-home-bitmap-digits { display: flex; align-items: center; justify-content: center; }
 .event-home-bitmap-digits > span { flex: none; background-repeat: no-repeat; }
@@ -725,6 +734,12 @@ button.event-banner-extra:focus-visible > .event-banner-extra-name { color: var(
   font-weight: 500;
 }
 .event-persona-text[data-font-face="AEwide"] > span { transform: scaleX(1.15); }
+.event-persona-text[data-font-face="Novecentowide-Medium"] {
+  font-family: "Home Screen Menu", var(--font-body);
+  font-weight: 500;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
 .event-persona-text[data-font-face][data-value="doctor"] {
   align-items: end;
   text-shadow: .04em .06em var(--scrim-ground);

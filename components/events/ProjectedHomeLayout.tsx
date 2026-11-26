@@ -164,9 +164,12 @@ export default function ProjectedHomeLayout({ layout, artRoot, theme, animationS
   };
   function renderLayer(layer: ProjectedLayer, index: string | number) {
     const value = layer.content ?? values[layer.text ?? ''];
-    // The client's level text reduces its size to fit the fixed profile circle.
-    const fontSize = layer.fontFace === 'AEwide' && value && layer.fontSize
-      ? Math.min(layer.fontSize, layer.width / (value.length * .61))
+    // The fixed profile and menu slots can be narrower than their localized text.
+    const characterWidth = layer.fontFace === 'AEwide' ? .61
+      : layer.fontFace === 'Novecentowide-Medium' ? .73
+      : undefined;
+    const fontSize = characterWidth && value && layer.fontSize
+      ? Math.min(layer.fontSize, layer.width / (value.length * characterWidth))
       : layer.fontSize;
     const alignment = layer.alignment;
     const horizontal = ['start', 'center', 'end'] as const;
