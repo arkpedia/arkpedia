@@ -176,6 +176,7 @@
   .siteLogo { width: 26px; height: 26px; }
   .siteRisk { display: none; }
   .hubPlace strong { font-size: 22px; }
+  .hubRisk { justify-content: flex-start; }
   .hex { width: 72px; height: 78px; margin-top: -44px; }
   .hexLogo { width: 46px; height: 46px; }
   .group { flex: 1 1 100%; }
