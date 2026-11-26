@@ -17,7 +17,7 @@ const file = (path, text = path) => {
   return { path, body, bytes: body.length, sha: hash('sha1', Buffer.concat([Buffer.from(`blob ${body.length}\0`), body])) };
 };
 
-test('build loads reuse maps for independently pinned event menus', async t => {
+test('build loads reuse maps for independently pinned event and CCB art', async t => {
   const root = await mkdtemp(join(tmpdir(), 'event-media-map-'));
   t.after(() => rm(root, { recursive: true, force: true }));
   await mkdir(join(root, 'data/assets'), { recursive: true });
@@ -26,6 +26,8 @@ test('build loads reuse maps for independently pinned event menus', async t => {
   for (const name of ['dynamic-art', 'chibi-art', 'medal-set-layouts']) await writeFile(join(root, `data/${name}.json`), '{}');
   await writeFile(join(root, 'config/community-project-art.json'), JSON.stringify({ repository: image, revision: a }));
   await writeFile(join(root, 'config/pull-poll-art.json'), JSON.stringify({ banner: { repository: image, revision: c, path: 'headhunting-banner-images/banner.webp' } }));
+  const ccbRevision = 'd'.repeat(40);
+  await writeFile(join(root, 'config/ccb-art.json'), JSON.stringify({ repository: image, revision: ccbRevision }));
   await writeFile(join(root, 'config/event-entrances.json'), JSON.stringify({ baseUrl: `https://assets.arkpedia.net/arkpedia/${art}/${b}/` }));
   const mock = join(root, 'readiness.mjs');
   await writeFile(mock, `globalThis.fetch = async input => {
@@ -33,7 +35,9 @@ test('build loads reuse maps for independently pinned event menus', async t => {
     if (!match) throw Error('Unexpected network request');
     const [, repository, revision] = match;
     return new Response(JSON.stringify({version:1,repository,revision,files:1,
-      ...(repository===${JSON.stringify(art)} ? {native:{version:1,baseRevision:${JSON.stringify(a)},overrides:{'event-transitions/players/cn/new/pack':${JSON.stringify(b)}}}} : {})
+      ...(repository===${JSON.stringify(art)} ? {native:{version:1,baseRevision:${JSON.stringify(a)},overrides:{'event-transitions/players/cn/new/pack':${JSON.stringify(b)}}}} : {}),
+      ...(repository===${JSON.stringify(image)} && revision===${JSON.stringify(ccbRevision)}
+        ? {native:{version:1,baseRevision:${JSON.stringify(a)},overrides:{'content-art/contingency-contract/runeicon':${JSON.stringify(c)}}}} : {})
     }), {headers:{'content-type':'application/json'}});
   };`);
   execFileSync(process.execPath, ['--import', pathToFileURL(mock).href, fileURLToPath(new URL('../build/load-media-delivery.mjs', import.meta.url))], {
@@ -42,6 +46,7 @@ test('build loads reuse maps for independently pinned event menus', async t => {
   const maps = JSON.parse(await readFile(join(root, '.cache/native-media-delivery.json'), 'utf8'));
   assert.equal(mediaRevision(maps, art, b, 'event-transitions/players/en/old/pack/entrance.mp3'), a);
   assert.equal(mediaRevision(maps, art, b, 'event-transitions/players/cn/new/pack/scene.json'), b);
+  assert.equal(mediaRevision(maps, image, ccbRevision, 'content-art/contingency-contract/runeicon/g_char_hp.webp'), c);
 });
 function fixture() {
   const objects = new Map(), heads = new Map(), writes = [], reads = [], gets = [];

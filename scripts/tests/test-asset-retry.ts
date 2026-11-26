@@ -367,6 +367,7 @@ test('the retry script is in <head>, ahead of every image', () => {
  * file fails here until it uses fetchAsset.
  */
 const NOT_PUBLISHED_FILES: Record<string, string> = {
+  'components/ccb/BattleplanLoader.tsx: catalogueUrl': "the running application's static catalogue, with an explicit Retry on failure",
   'lib/patreon/sync.mjs: url': 'fixed-origin Patreon API v2 and OAuth requests, never published assets',
   'lib/dashboard/pageMaintenance.ts: href': 'one of four canonical public HTML pages to inspect its served version',
   'lib/music/youtube.ts: url': 'the YouTube Data API',

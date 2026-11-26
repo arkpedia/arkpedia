@@ -56,6 +56,7 @@ test('the real build loader scopes an independent entrance revision but never dr
   await writeFile(join(root,'config/event-entrances.json'),JSON.stringify(entrances));
   await writeFile(join(root,'config/community-project-art.json'),JSON.stringify({repository:'arkpedia-image-assets',revision:old}));
   await writeFile(join(root,'config/pull-poll-art.json'),'{}');
+  await writeFile(join(root,'config/ccb-art.json'),JSON.stringify({repository:'arkpedia-image-assets',revision:old}));
   const large={...native,overrides:{...native.overrides,...Object.fromEntries(Array.from({length:470},(_,i)=>[`models/char_${i}/abcdef123456`,physical]))}};
   const mock=join(root,'readiness.mjs');
   await writeFile(mock,`globalThis.fetch=async input=>{const [,repository,revision]=String(input).match(/\\/__ready\\/([^/]+)\\/([a-f0-9]{40})$/);return new Response(JSON.stringify({version:1,repository,revision,...(repository===${JSON.stringify(repo)}?{native:${JSON.stringify(large)}}:{})}));};`);
