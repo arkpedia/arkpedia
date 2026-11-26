@@ -97,7 +97,7 @@ export function RewardDetailsProvider({ tickets, children, recommendations, reco
       {offer.limit && <p className="hint">Purchase limit: {offer.limit}</p>}
       <div className="event-reward-totals">{offer.contents.map(item => <RewardTile key={item.name} {...item} />)}</div>
       {(offer.notes ?? []).map(line => <p className="hint" key={line}>{line}</p>)}
-      <div className="event-pack-detail-actions">
+      <div className="hint event-pack-detail-actions">
         {action}
         <a href={source} target="_blank" rel="noopener noreferrer">Source announcement ↗</a>
       </div>
