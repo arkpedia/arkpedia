@@ -29,6 +29,9 @@ export const ROSTER_EVENT = 'plannerRosterChanged';
 export interface Owned {
   /** Game imports keep the potential for shared collection views; older rosters omit it. */
   potential?: number;
+  /** Displayed trust and equipped upgrade-module index, when a game import recorded them. */
+  trust?: number;
+  equippedModule?: number | null;
   elite: number;
   level: number;
   skillLevel: number;
@@ -95,6 +98,8 @@ function clean(value: unknown): Owned | null {
     level,
     skillLevel: rank,
     ...(typeof v.potential === 'number' && Number.isInteger(v.potential) && v.potential >= 1 && v.potential <= 6 ? { potential: v.potential } : {}),
+    ...(typeof v.trust === 'number' && Number.isInteger(v.trust) && v.trust >= 0 && v.trust <= 200 ? { trust: v.trust } : {}),
+    ...(v.equippedModule === null ? { equippedModule: null } : typeof v.equippedModule === 'number' && Number.isInteger(v.equippedModule) && v.equippedModule in reachableModules ? { equippedModule: v.equippedModule } : {}),
     masteries: reachableMasteries,
     ...(Object.keys(reachableModules).length ? { modules: reachableModules } : {}),
   };

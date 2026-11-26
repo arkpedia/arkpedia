@@ -17,6 +17,14 @@ interface Mode {
   holds: string;
 }
 
+const BATTLEPLAN: Mode = {
+  href: '/game-modes/ccb',
+  name: 'Contingency Contract Battleplan',
+  mark: 'contingency-contract.svg',
+  blurb: 'Browse maps and contracts, then compare how they affect your squad.',
+  holds: 'Battleplan archive',
+};
+
 /**
  * The seasonal modes, listed whether or not they have a page yet.
  *
@@ -39,7 +47,7 @@ export default function GamemodesPage({ modes }: { modes: Mode[] }) {
       <main className="terminal-scene">
         <section className="panel terminal-panel wide" data-tab="Modes">
           <ul className="terminal-list">
-            {modes.map((m) => {
+            {[...modes, BATTLEPLAN].map((m) => {
               const inside = (
                 <>
                   <ModeMark name={m.mark} className="gm-modemark" />

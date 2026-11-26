@@ -631,6 +631,7 @@ export async function settled(page: Page): Promise<Measurement> {
 export const LAZY_FOLD = 1.25;
 export interface EagerAllowed { selector: string; why: string; optional?: boolean }
 export const EAGER_ALLOWED: Record<string, EagerAllowed[]> = {
+  '/game-modes/ccb': [{ selector: 'img[src*="/contingency-contract/mapareabg/"]', why: 'the permanent site area artwork is the Battleplan hub hero', optional: true }],
   '/operators/Amiya': [{ selector: '.op-carousel-img-enter img', why: 'the outfit on screen: the page\'s hero, its LCP at 1440 and 390' }],
   '/': [
     { selector: '.front-events-poster-wrap img', why: 'the first event\'s poster: the home page\'s LCP at 1440', optional: true },

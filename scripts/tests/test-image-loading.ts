@@ -85,6 +85,7 @@ test('application artwork keeps its immutable code pin when page artwork uses an
 
 /** Every `priority` on an image in the source, by file: each a page's hero, and why. */
 const PRIORITY: Record<string, { count: number; why: string }> = {
+  'components/ccb/art.tsx': { count: 1, why: 'the permanent site area artwork is the Battleplan hub hero' },
   'pages/operators/[name].tsx': { count: 1, why: 'the outfit on screen: the operator page\'s LCP' },
   'components/skins/ResponsiveSkinArtwork.tsx': { count: 2, why: 'forwards its own `priority` prop to the <img>, in both of its branches' },
   'components/schedule/EventsPanel.tsx': { count: 1, why: 'the first event slide: the home page\'s LCP at 1440 (only while it is the slide shown)' },

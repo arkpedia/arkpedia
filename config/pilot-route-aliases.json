@@ -6,6 +6,7 @@
     "/free-op": "/reward-tracker",
     "/results": "/polls/power-scale",
     "/gamemodes": "/game-modes",
+    "/ccb": "/game-modes/ccb",
     "/gamemodes/stronghold-protocol": "/game-modes/stronghold-protocol",
     "/gamemodes/stronghold-protocol/stronghold-companion": "/game-modes/stronghold-protocol/stronghold-companion",
     "/gacha": "/gacha-simulator",

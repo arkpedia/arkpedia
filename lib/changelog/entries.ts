@@ -34,6 +34,10 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    at: '2026-11-26T10:00:00Z',
+    added: [{ title: 'Contingency Contract Battleplan', detail: 'Explore five seasons, compare up to 13 operators under selected contracts, and save a squad preset on your device.', href: '/game-modes/ccb' }],
+  },
+  {
     at: '2026-11-24T11:45:46Z',
     added: [{ title: 'Poll deadlines and recent results', detail: 'See when voting closes in your time zone and find recently closed polls at the top of the polls page.', href: '/polls' }],
   },
