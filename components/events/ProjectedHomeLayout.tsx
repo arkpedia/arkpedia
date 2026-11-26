@@ -1,5 +1,5 @@
 import { useLayoutEffect, useRef, useState } from 'react';
-import { ContentImg } from '@/components/content/ContentImage';
+import { ContentArt, ContentImg } from '@/components/content/ContentImage';
 import PersonaHeadphones from './PersonaHeadphones';
 import PersonaMenuParticles, { type ParticleTrack } from './PersonaMenuParticles';
 import EventSceneCanvas from './EventSceneCanvas';
@@ -187,9 +187,9 @@ export default function ProjectedHomeLayout({ layout, artRoot, theme, animationS
         style={style} role="img" aria-label={`${layer.label} ${value}`}>
         {[...value].map((character, position) => {
           const [x, y, width, height, advance] = glyphs[character];
-          return <span key={position} aria-hidden="true" style={{
+          return <ContentArt key={position} aria-hidden="true" ownColors src={`${artRoot}/${atlas}.webp`} style={{
             width, height, marginRight: advance - width + (position === value.length - 1 ? 0 : spacing),
-            backgroundImage: `url("${artRoot}/${atlas}.webp")`, backgroundPosition: `-${x}px -${y}px`,
+            backgroundPosition: `-${x}px -${y}px`,
           }} />;
         })}
       </span>;
@@ -201,10 +201,9 @@ export default function ProjectedHomeLayout({ layout, artRoot, theme, animationS
     const regional = layer.themed && theme.nativeArt?.[layer.sprite]?.image;
     if (theme.localized && layer.fixedCN && !regional) return null;
     const source = regional || `${artRoot}/${layer.sprite}.webp`;
-    if (layer.children) return <div key={index} className="event-persona-layer event-home-soft-mask"
-      style={{ ...style, maskImage: `url("${source}")` }}>
+    if (layer.children) return <ContentArt key={index} className="event-persona-layer event-home-soft-mask" src={source} style={style}>
       {layer.children.map((child, childIndex) => renderLayer(child, `${index}.${childIndex}`))}
-    </div>;
+    </ContentArt>;
     return <ContentImg key={index} eager className="event-persona-layer" style={style}
       data-motion-layer={layer.motion ? index : undefined} src={source} alt={layer.label ?? ''} draggable={false} />;
   }
