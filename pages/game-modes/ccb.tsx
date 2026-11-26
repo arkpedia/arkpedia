@@ -25,8 +25,6 @@ export default function BattleplanPage(props: BattleplanPageProps) {
       back={{ href: '/game-modes', label: 'Game Modes' }}
       eyebrow={<><ModeMark name="contingency-contract.svg" className="head-mark" />{T.eyebrow}</>}
       title={T.title}
-      sub={T.sub}
-      actions={<a href="#ccb-squad" className="ghost btn-sm">Squad stats</a>}
     />
     <BattleplanLoader {...props} />
   </>;

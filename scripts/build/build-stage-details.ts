@@ -28,6 +28,7 @@ import {
   getStageGeometryFor,
   getStageEnemyDetails,
   getStagePreviewFile,
+  getStageFullPreviewFile,
   getStageEmergency,
   getStageDevices,
 } from '@/lib/stages/stages';
@@ -152,6 +153,7 @@ for (const slug of getStageSlugs()) {
     };
   }
 
+  const fullPreviewFile = getStageFullPreviewFile(stage);
   const body = JSON.stringify({
     stage,
     geometry,
@@ -159,6 +161,7 @@ for (const slug of getStageSlugs()) {
     enemyDetails: details,
     dropIcons: getDropIcons(stage.drops || []),
     previewFile: getStagePreviewFile(stage),
+    ...(fullPreviewFile ? { fullPreviewFile } : {}),
     emergency: getStageEmergency(stage),
     devices: getStageDevices(geometryKey),
     playbackPaths: buildPlaybackPaths(geometry),

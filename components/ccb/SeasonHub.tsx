@@ -16,7 +16,7 @@ const maxRisk = (map: Map) => maximumRisk(map.groups);
 export default function SeasonHub({ seasons, season, map, onSeason, onMap }: { seasons: Season[]; season: Season; map: Map; onSeason: (id: string) => void; onMap: (id: string) => void }) {
   const main = season.maps.find(row => row.main) ?? season.maps[0];
   const mainArt = stageArt(main);
-  return <section className={styles.hub} aria-label={T.title}>
+  return <section id="ccb-battlefields" tabIndex={-1} className={styles.hub} aria-label="Battlefields">
     <div className={styles.hubSeasons} role="group" aria-label={T.seasons}>
       {seasons.map(row => <button type="button" key={row.id} className={`btn-bare ${styles.seasonTile}`} aria-pressed={row.id === season.id} onClick={() => onSeason(row.id)}>
         {row.number <= PUBLISHED_SEASON_ART ? <ContentImg src={`/content-art/${row.id}.webp`} alt="" width={160} height={90} /> : <CcbSeasonBanner id={row.id} />}

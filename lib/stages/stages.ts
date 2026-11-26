@@ -375,6 +375,30 @@ export function getStagePreviewFile(stage: Stage): string | null {
   return base && base.slug !== stage.slug ? getStagePreviewFile(base) : null;
 }
 
+/** The stage ID used by the client map preview archive, distinct from the reader-facing slug. */
+export function getStagePreviewStem(stage: Stage): string | null {
+  const isRender = isNode(stage.slug)?.render?.replace(/\.[a-z]+$/i, '');
+  const stem = isRender || stage.id.split('/').at(-1)?.replace(/^level_/i, '');
+  return stem && /^[a-z0-9_-]+$/i.test(stem) ? stem.toLowerCase() : null;
+}
+
+let publishedFullPreviews: Set<string> | undefined;
+
+/** Full-size map art is optional. Only return files in the availability index for this build's asset pin. */
+export function getStageFullPreviewFile(stage: Stage): string | null {
+  if (!publishedFullPreviews) {
+    const file = path.join(process.cwd(), 'data/assets/external-asset-index.json');
+    if (!fs.existsSync(file)) return null;
+    const index = JSON.parse(fs.readFileSync(file, 'utf8')) as { files: string[] };
+    publishedFullPreviews = new Set(index.files.filter(name => /^stages-images\/[a-z0-9_-]+-full\.webp$/.test(name)));
+  }
+  const stem = getStagePreviewStem(stage);
+  if (stem && publishedFullPreviews.has(`stages-images/${stem}-full.webp`)) return `${stem}-full.webp`;
+  const baseSlug = variantBaseOf(stage.slug);
+  const base = baseSlug ? getStageBySlug(baseSlug) : null;
+  return base && base.slug !== stage.slug ? getStageFullPreviewFile(base) : null;
+}
+
 let variantBases: Map<string, string> | null = null;
 
 /** The slug this one is a variant of, from the index. */

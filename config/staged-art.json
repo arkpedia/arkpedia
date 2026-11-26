@@ -11,6 +11,11 @@
       "folders": ["stages-images"],
       "adopt": ["node", "scripts/imports/import-stage-renders.mjs"]
     },
+    "stage-full-previews": {
+      "stage": "stage-full-previews",
+      "folders": ["stages-images"],
+      "adopt": ["node", "scripts/imports/import-stage-full-previews.mjs"]
+    },
     "is-nodes": {
       "stage": "is-nodes",
       "folders": ["stages-images"],

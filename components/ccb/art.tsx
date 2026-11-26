@@ -1,5 +1,6 @@
 import type { HTMLAttributes } from 'react';
-import { ApplicationArt, ApplicationImage, type ApplicationAsset } from '@/components/content/ContentImage';
+import { ApplicationArt, ApplicationImage, ContentImg, type ApplicationAsset } from '@/components/content/ContentImage';
+import { encodeAssetPath } from '@/lib/assets/assetUrl';
 import gameArt from '@/config/ccb-art.json';
 
 /*
@@ -17,6 +18,12 @@ export function CcbGlyph({ kind, id, className, ...props }: HTMLAttributes<HTMLS
 /** The soft-edged area picture the game shows behind a battlefield (256x183 in the game files). */
 export function CcbArea({ id, className }: { id: string; className?: string }) {
   return <ApplicationImage asset={asset('mapareabg', id)} alt="" width={512} height={366} className={className} priority />;
+}
+
+/** An archived battlefield capture carried by the CCB feature's immutable media pin. */
+export function CcbMapImage({ path, alt, className, onError }: { path: string; alt: string; className?: string; onError: () => void }) {
+  const src = `https://raw.githubusercontent.com/arkpedia/${gameArt.repository}/${gameArt.fullStagePreviewRevision}/${encodeAssetPath(path)}`;
+  return <ContentImg src={src} alreadyPinned alt={alt} width={1280} height={720} className={className} onError={onError} />;
 }
 
 /** A season's shop banner, for seasons the content release has no wide banner for. */

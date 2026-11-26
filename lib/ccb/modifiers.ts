@@ -1,4 +1,4 @@
-import type { CombatStats, Contract, ContractGroup, RuneEffect } from './types';
+import type { CcbStageStats, CombatStats, Contract, ContractGroup, RuneEffect } from './types';
 
 const ATTRS: Record<string, string> = { max_hp: 'hp', atk: 'atk', def: 'def', magic_resistance: 'res', move_speed: 'moveSpeed', attack_speed: 'aspd', base_attack_time: 'interval', respawn_time: 'redeploy', cost: 'dp' };
 export const STAT_LABELS: Record<string, string> = { hp: 'HP', atk: 'ATK', def: 'DEF', res: 'RES', dp: 'DP cost', block: 'Block count', interval: 'Attack interval (s)', redeploy: 'Redeploy time (s)', moveSpeed: 'Movement speed', weight: 'Weight', aspd: 'Attack speed', physicalTaken: 'Physical damage taken (%)', artsTaken: 'Arts damage taken (%)' };
@@ -7,6 +7,69 @@ export interface Subject { side: 'operator' | 'enemy'; id?: string; className?: 
 export const board = (effect: RuneEffect) => Object.fromEntries(effect.blackboard.map(row => [row.key, row.valueStr ?? row.value]));
 const number = (value: unknown) => typeof value === 'number' && Number.isFinite(value) ? value : undefined;
 const signed = (value: number, percent = false) => `${value > 0 ? '+' : ''}${Math.round(value * (percent ? 100 : 1) * 1000) / 1000}${percent ? '%' : ''}`;
+
+const STAGE_EFFECTS = new Set([
+  'global_lifepoint', 'global_placable_char_num_add', 'global_initial_cost_add',
+  'global_cost_recovery_mul', 'global_squad_num_limit', 'global_forbid_location',
+]);
+
+function blockedLocations(raw: unknown): string[] {
+  if (typeof raw !== 'string') return [];
+  // The game's location tuples are zero-based (row, column), with row 0 at the bottom.
+  return raw.split('|').flatMap(pair => {
+    const match = pair.trim().match(/^\((\d+),\s*(\d+)\)$/);
+    return match ? [`${Number(match[1])},${Number(match[2])}`] : [];
+  });
+}
+
+function recoveryMultiplier(scale: unknown): number | undefined {
+  const intervalFactor = number(scale);
+  if (!intervalFactor || intervalFactor < 0) return undefined;
+  // The archive labels this sentinel as no natural DP recovery.
+  return intervalFactor === 9999 ? 0 : 1 / intervalFactor;
+}
+
+export function stageModifiers(base: CcbStageStats | null | undefined, contracts: readonly Contract[]) {
+  let life = base?.life ?? null;
+  let squadSize = base?.squadSize ?? null;
+  let deploymentDelta = 0;
+  let initialDpDelta = 0;
+  let dpRecoveryFactor = 1;
+  const blocked = new Set<string>();
+  for (const contract of contracts) for (const effect of contract.effects) {
+    if (!STAGE_EFFECTS.has(effect.key)) continue;
+    const { value, scale, location } = board(effect);
+    const amount = number(value);
+    switch (effect.key) {
+      case 'global_lifepoint':
+        if (amount !== undefined) life = amount;
+        break;
+      case 'global_placable_char_num_add':
+        deploymentDelta += amount ?? 0;
+        break;
+      case 'global_initial_cost_add':
+        initialDpDelta += amount ?? 0;
+        break;
+      case 'global_cost_recovery_mul':
+        dpRecoveryFactor *= recoveryMultiplier(scale) ?? 1;
+        break;
+      case 'global_squad_num_limit':
+        if (amount !== undefined) squadSize = Math.min(squadSize ?? amount, amount);
+        break;
+      case 'global_forbid_location':
+        for (const tile of blockedLocations(location)) blocked.add(tile);
+        break;
+    }
+  }
+  const battle: CcbStageStats = {
+    life,
+    deployment: base?.deployment == null ? null : Math.max(0, base.deployment + deploymentDelta),
+    initialDp: base?.initialDp == null ? null : Math.max(0, base.initialDp + initialDpDelta),
+    dpRecovery: dpRecoveryFactor === 0 ? 0 : base?.dpRecovery == null ? null : base.dpRecovery * dpRecoveryFactor,
+    squadSize,
+  };
+  return { battle, blocked };
+}
 
 export function toggleContract(selected: string[], contract: Contract, all: Contract[]): string[] {
   if (selected.includes(contract.id)) return selected.filter(id => id !== contract.id);
@@ -43,6 +106,31 @@ export function maximumContractScore(contracts: Contract[]): number {
   return maximumWithUniqueRunes(contracts, maximumByExclusion);
 }
 
+/** Select all compatible nodes, preferring the highest group score and keeping
+ * already-selected alternatives when they tie. Other groups only lose conflicts. */
+export function toggleContractGroup(selected: string[], group: ContractGroup, all: Contract[]): string[] {
+  const members = new Set(group.contracts.map(contract => contract.id));
+  const outside = selected.filter(id => !members.has(id));
+  if (groupComplete(group, selected)) return outside;
+
+  const selectedIds = new Set(selected);
+  let best: Contract[] = [];
+  let bestScore = -Infinity;
+  let bestKept = -1;
+  maximumWithUniqueRunes(group.contracts, available => {
+    const compatible = highestByExclusion(available, selectedIds);
+    const score = compatible.reduce((sum, contract) => sum + contract.score, 0);
+    const kept = compatible.filter(contract => selectedIds.has(contract.id)).length;
+    if (score > bestScore || (score === bestScore && kept > bestKept)) {
+      best = compatible;
+      bestScore = score;
+      bestKept = kept;
+    }
+    return score;
+  });
+  return best.reduce((next, contract) => toggleContract(next, contract, all), outside);
+}
+
 function maximumWithUniqueRunes(contracts: Contract[], score: (contracts: Contract[]) => number): number {
   const seen = new Set<string>();
   for (const { runeId } of contracts) {
@@ -56,14 +144,25 @@ function maximumWithUniqueRunes(contracts: Contract[], score: (contracts: Contra
   return score(contracts);
 }
 
-function maximumByExclusion(contracts: Contract[]): number {
-  const exclusive = new Map<string, number>();
-  let total = 0;
+function highestByExclusion(contracts: Contract[], selected?: Set<string>): Contract[] {
+  const exclusive = new Map<string, Contract>();
+  const chosen: Contract[] = [];
   for (const contract of contracts) {
-    if (contract.exclusion) exclusive.set(contract.exclusion, Math.max(exclusive.get(contract.exclusion) ?? 0, contract.score));
-    else total += contract.score;
+    if (!contract.exclusion) {
+      chosen.push(contract);
+      continue;
+    }
+    const current = exclusive.get(contract.exclusion);
+    if (!current || contract.score > current.score
+      || (contract.score === current.score && selected?.has(contract.id) && !selected.has(current.id))) {
+      exclusive.set(contract.exclusion, contract);
+    }
   }
-  return total + [...exclusive.values()].reduce((sum, score) => sum + score, 0);
+  return [...chosen, ...exclusive.values()];
+}
+
+function maximumByExclusion(contracts: Contract[]): number {
+  return highestByExclusion(contracts).reduce((sum, contract) => sum + contract.score, 0);
 }
 
 export function replacementId(id: string, contracts: Contract[]): string {
@@ -183,12 +282,18 @@ export function effectSummary(effect: RuneEffect, names: Record<string, string> 
   if (key === 'global_squad_num_limit') return `Squad size: at most ${bb.value}`;
   if (key === 'global_placable_char_num_add') return `Deployment limit ${signed(Number(bb.value))}`;
   if (key === 'global_initial_cost_add') return `Initial DP ${signed(Number(bb.value))}`;
-  if (key === 'global_cost_recovery_mul') return `Natural DP recovery ×${Math.round(1000 / Number(bb.scale)) / 1000}`;
+  if (key === 'global_cost_recovery_mul') {
+    const multiplier = recoveryMultiplier(bb.scale);
+    return multiplier === 0 ? 'No natural DP recovery' : multiplier !== undefined ? `Natural DP recovery ×${Math.round(1000 * multiplier) / 1000}` : null;
+  }
   if (bb.key === 'character_extra_cost') return `On deployment: lose up to ${bb.cost} additional DP`;
   if (key === 'level_enemy_replace') return `Replace ${names[String(bb.key)] ?? bb.key} with ${names[String(bb.value)] ?? bb.value}`;
   if (key === 'enemy_dynamic_ability_new') return `${target}: ${String(bb.key).replace('stunimmue', 'stun immunity').replace('silenceimmue', 'silence immunity').replace('frozenimmue', 'Freeze immunity').replace('invisible', 'Invisible')}`;
   if (key === 'enemy_abnormal_immune') return `${target}: ${['sleeping', 'frozen', 'stun'].filter(attr => bb[attr]).map(attr => attr === 'sleeping' ? 'Sleep' : attr === 'frozen' ? 'Freeze' : 'Stun').join(' / ') || 'status'} immunity`;
-  if (key === 'global_forbid_location' && typeof bb.location === 'string') return `${bb.location.split('|').length} map tiles become unavailable for deployment`;
+  if (key === 'global_forbid_location') {
+    const count = new Set(blockedLocations(bb.location)).size;
+    return count ? `${count} map ${count === 1 ? 'tile becomes' : 'tiles become'} unavailable for deployment` : null;
+  }
   return null;
 }
 
@@ -223,6 +328,7 @@ export function activeModifierSummaries(contracts: Contract[], names: Record<str
 
 export function hasUnmodeledEffects(contract: Contract): boolean {
   return contract.effects.some(effect => !/^(enemy|char)_attribute_(additive_mul|mul|add)$/.test(effect.key)
+    && !STAGE_EFFECTS.has(effect.key)
     && !['char_respawntime_mul', 'char_cost_mul', 'char_cost_add', 'char_blockcnt_add', 'char_blockcnt_max', 'enemy_weight_add'].includes(effect.key)
     && !(effect.key.startsWith('env_gbuff') && /^(attr_common_global_buff\[all_ally\]|enemy_damage_scale)/.test(String(board(effect).key))));
 }

@@ -1,7 +1,7 @@
 .team {
   position: relative;
   display: grid;
-  gap: var(--heading-gap);
+  gap: 8px;
   min-width: 0;
   padding: var(--card-inset);
 }
@@ -17,6 +17,7 @@
   margin-left: auto;
   color: var(--text-dim);
   font: 11px var(--font-mono);
+  white-space: nowrap;
 }
 .toolbar > :first-child { flex: 1; min-width: 0; }
 .presetActions { flex-wrap: wrap; }
@@ -25,11 +26,12 @@
   color: var(--text-dim);
   font-size: 12px;
 }
-.status:empty { position: absolute; }
+.status { min-height: 1lh; }
 
 .teamTable {
   width: 100%;
   border-collapse: collapse;
+  table-layout: fixed;
 }
 .teamHeading { color: var(--text-dim); font-size: 11px; }
 .teamHeading th {
@@ -59,10 +61,10 @@
   flex: 1;
   text-align: left;
   gap: 8px;
-  padding: 4px;
+  padding: 2px 4px;
   color: var(--text-bright);
 }
-.memberButton:hover, .memberButton[aria-pressed="true"] { color: var(--teal); }
+.memberButton:hover, .teamRow[data-active] .memberButton { color: var(--teal); }
 .memberIdentity { display: grid; gap: 2px; min-width: 0; }
 .memberName {
   overflow-wrap: anywhere;
@@ -96,7 +98,7 @@
   font-variant-numeric: tabular-nums;
 }
 .metric > span, .metric > small { display: block; }
-.metric > small { font-size: 11px; }
+.metric > small { font-size: 11px; min-height: 1lh; }
 .metric .mobileLabel { display: none; }
 .rowStatus {
   padding: 4px 8px;
@@ -104,13 +106,6 @@
   font-size: 12px;
 }
 
-.editor {
-  display: grid;
-  gap: var(--heading-gap);
-  border-top: 1px solid var(--line);
-  padding-top: var(--heading-gap);
-  min-width: 0;
-}
 .editorGrid {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);

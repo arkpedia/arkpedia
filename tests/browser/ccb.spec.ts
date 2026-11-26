@@ -14,54 +14,82 @@ async function addOperator(page: Page, name: string) {
   await page.getByRole('option', { name, exact: true }).click();
 }
 
+async function selectArclight(page: Page) {
+  const battlefields = page.getByRole('region', { name: 'Battlefields', exact: true });
+  await battlefields.getByRole('group', { name: 'Seasons' }).getByRole('button', { name: /Arclight/ }).click();
+  await battlefields.getByRole('button', { name: /Suspended Focus/ }).click();
+}
+
+const riskDialog = (page: Page) => page.getByRole('dialog', { name: 'Risks', exact: true });
+
+async function openRisks(page: Page) {
+  const button = page.getByRole('button', { name: 'Risks', exact: true });
+  if (await button.isVisible()) await button.click();
+}
+
+async function closeRisks(page: Page) {
+  if (await riskDialog(page).isVisible()) await page.keyboard.press('Escape');
+}
+
 for (const theme of ['dark', 'light'] as const) {
   test(`CC contracts change enemy stats, add the whole-group bonus, and keep each battlefield's selection (${theme})`, async ({ page }, info) => {
+    if (info.project.name === 'mobile' && theme === 'dark') await page.setViewportSize({ width: 320, height: 680 });
     await page.goto('/game-modes/ccb');
     await setTheme(page, theme);
-    // Every season is one press away; CCB #4's maps are in every data snapshot.
-    const seasons = page.getByRole('group', { name: 'Seasons' });
-    await seasons.getByRole('button', { name: /Arclight/ }).click();
-    await expect(seasons.getByRole('button', { name: /Arclight/ })).toHaveAttribute('aria-pressed', 'true');
+    await selectArclight(page);
     const score = page.getByLabel('Contract score', { exact: true });
+    await openRisks(page);
+    const risks = riskDialog(page);
+    const phone = await risks.isVisible();
+    const categoryList = phone ? risks : page.getByRole('region', { name: 'Contract board' });
+    const checkbox = categoryList.getByRole('checkbox', { name: 'Select Hostile Forces contracts' });
+    const inspect = categoryList.getByRole('button', { name: 'View Hostile Forces contracts' });
+    const hostile = risks.getByRole('region', { name: 'Hostile Forces', exact: true });
+    await inspect.click();
+    await expect(hostile).toBeFocused();
+    await expect(hostile.getByRole('heading', { name: 'Hostile Forces', exact: true })).toBeInViewport();
+    await expect(risks.getByRole('button', { name: 'Close Risks', exact: true })).toBeInViewport({ ratio: 1 });
+    await expect(hostile.getByRole('button', { name: /, \d+$/ })).toHaveCount(6);
+    await expect(risks.getByRole('region', { name: 'Restrictions', exact: true })).toHaveCount(1);
+    await hostile.getByRole('button', { name: /ATK.*, 30$/ }).click();
+    expect(await hostile.locator('.mode-mark').first().evaluate(el => getComputedStyle(el).maskImage)).toMatch(/contingency-contract\/runeicon\//);
+    if (phone) await risks.getByRole('button', { name: 'Categories', exact: true }).click();
+    else {
+      await closeRisks(page);
+      await expect(inspect).toBeFocused();
+    }
+    await expect(checkbox).toHaveJSProperty('indeterminate', true);
+    await closeRisks(page);
+    await expect(score).toHaveText('▲ 30');
+    await page.getByRole('button', { name: 'Enemy stats', exact: true }).click();
     const enemy = page.getByRole('table', { name: 'Military Hound stat comparison' });
     const atk = enemy.getByRole('row').filter({ has: page.getByRole('rowheader', { name: 'ATK', exact: true }) });
-    await expect(atk.getByRole('cell')).toHaveText(['290', '290', '—']);
-    // Every group is on the page at once: no drill-in before a contract can be picked.
-    const hostile = page.getByRole('region', { name: 'Hostile Forces', exact: true });
-    const tiles = hostile.getByRole('button');
-    await expect(tiles).toHaveCount(6);
-    await hostile.getByRole('button', { name: /ATK.*, 30$/ }).click();
-    await expect(score).toHaveText('▲ 30');
     await expect(atk.getByRole('cell')).toHaveText(['290', '464', '+174']);
-    // The glyph is the game's own, painted as a mask from the published art.
-    const glyph = hostile.locator('.mode-mark').first();
-    expect(await glyph.evaluate(el => getComputedStyle(el).maskImage)).toMatch(/contingency-contract\/runeicon\//);
-    // A rotating site has its own selection; the permanent site keeps its own.
-    const rotating = page.getByRole('group', { name: 'Rotating sites' });
-    await rotating.getByRole('button').first().click();
+    await page.keyboard.press('Escape');
+
+    await page.getByRole('group', { name: 'Rotating sites' }).getByRole('button').first().click();
     await expect(score).toHaveText('▲ 0');
-    await page.getByRole('button', { name: /Suspended Focus/ }).first().click();
+    await selectArclight(page);
     await expect(score).toHaveText('▲ 30');
-    // Selecting the whole group adds its bonus risk.
-    for (const tile of await tiles.all()) if (await tile.getAttribute('aria-pressed') !== 'true') await tile.click();
-    await expect(hostile.getByText('Completed', { exact: true })).toBeVisible();
+
+    await openRisks(page);
+    await checkbox.click();
+    await expect(checkbox).toBeChecked();
+    await closeRisks(page);
     await expect(score).toHaveText('▲ 110');
-    await expect(page.getByText('Hostile Forces: whole group selected', { exact: true })).toBeVisible();
-    await page.getByRole('button', { name: 'Clear contracts', exact: true }).click();
+    await openRisks(page);
+    await checkbox.click();
+    await expect(checkbox).not.toBeChecked();
+    await closeRisks(page);
     await expect(score).toHaveText('▲ 0');
-    await expect(atk.getByRole('cell')).toHaveText(['290', '290', '—']);
-    // The map opens large and closes again.
+
     await page.getByRole('button', { name: 'Enlarge the map of Suspended Focus', exact: true }).click();
-    await expect(page.getByRole('dialog', { name: 'Suspended Focus: Map' }).getByRole('img')).toBeVisible();
+    const map = page.getByRole('dialog', { name: 'Suspended Focus: Map' });
+    await expect(map.getByRole('img', { name: 'Tile map of Suspended Focus' })).toBeVisible();
+    await map.getByRole('button', { name: 'In-game screenshot' }).click();
+    await expect(map.getByRole('img', { name: 'In-game screenshot of Suspended Focus' })).toBeVisible();
     await page.keyboard.press('Escape');
     await expect(page.getByRole('dialog')).toHaveCount(0);
-    // The map's enemies are tiles; picking one drives the comparison.
-    const roster = page.getByRole('group', { name: 'Enemies on this map' });
-    await roster.getByRole('button').nth(1).click();
-    await expect(roster.getByRole('button').nth(1)).toHaveAttribute('aria-pressed', 'true');
-    await expect(page.getByRole('table', { name: 'Military Hound stat comparison' })).toHaveCount(0);
-    await seasons.getByRole('button', { name: /Pyrolysis/ }).click();
-    await expect(seasons.getByRole('button', { name: /Pyrolysis/ })).toHaveAttribute('aria-pressed', 'true');
     expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(1);
     await page.screenshot({ path: info.outputPath(`ccb-${theme}.png`) });
   });
@@ -75,6 +103,7 @@ for (const theme of ['dark', 'light'] as const) {
     const option = page.getByRole('option', { name: 'Thorns', exact: true });
     await expect(option.locator('img')).toBeVisible();
     await option.click();
+    await editBuild(page, 'Thorns');
     const table = page.getByRole('table', { name: 'Thorns stat comparison' });
     await expect(table).toBeVisible();
     // Thorns stands on ground only, so there is no tile choice to make.
@@ -93,9 +122,12 @@ for (const theme of ['dark', 'light'] as const) {
     await page.screenshot({ path: info.outputPath(`ccb-build-${theme}.png`) });
     await page.getByRole('button', { name: 'Reset to E0 Lv 1', exact: true }).click();
     await expect(hp).toHaveText(original);
+    await page.keyboard.press('Escape');
+    await expect(page.getByRole('button', { name: 'Edit Thorns build' })).toBeFocused();
     // A Push Stroker can stand on either tile type, so the choice appears.
     await search.fill('Weedy');
     await page.getByRole('option', { name: 'Weedy', exact: true }).click();
+    await editBuild(page, 'Weedy');
     await expect(page.getByRole('table', { name: 'Weedy stat comparison' })).toBeVisible();
     await expect(page.getByRole('group', { name: 'Deployment tile' })).toBeVisible();
   });
@@ -106,12 +138,25 @@ test('a team shares contracts while build and tile choices reload independently 
   await page.goto('/game-modes/ccb');
   await setTheme(page, info.project.name === 'mobile' ? 'light' : 'dark');
   const account = await page.evaluate(() => localStorage.getItem('arkpediaAccount'));
-  await page.getByRole('group', { name: 'Seasons' }).getByRole('button', { name: /Arclight/ }).click();
-  const groundPenalty = page.getByRole('region', { name: 'Deterioration' }).getByRole('button', { name: 'All operators on ground tiles: HP -20%, 10', exact: true });
-  const classPenalty = page.getByRole('region', { name: 'Restrictions' }).getByRole('button', { name: 'Sniper / Caster: DP cost ×2, 20', exact: true });
-  await groundPenalty.click();
-  await classPenalty.click();
+  await selectArclight(page);
+  await openRisks(page);
+  for (const [category, label] of [
+    ['Deterioration', 'All operators on ground tiles: HP -20%, 10'],
+    ['Restrictions', 'Sniper / Caster: DP cost ×2, 20'],
+  ]) {
+    const risks = riskDialog(page);
+    const view = `View ${category} contracts`;
+    if (await risks.isVisible()) {
+      await risks.getByRole('button', { name: 'Categories', exact: true }).click();
+      await risks.getByRole('button', { name: view, exact: true }).click();
+    } else await page.getByRole('button', { name: view, exact: true }).click();
+    const group = risks.getByRole('region', { name: category, exact: true });
+    await expect(group).toBeFocused();
+    await group.getByRole('button', { name: label, exact: true }).click();
+  }
+  await closeRisks(page);
   await addOperator(page, 'Thorns');
+  await editBuild(page, 'Thorns');
   const thornsHp = statCells(page, 'Thorns', 'HP');
   await expect(thornsHp.nth(2)).toHaveText(/^-/);
   await expect(statCells(page, 'Thorns', 'DP cost').nth(2)).toHaveText('—');
@@ -123,10 +168,14 @@ test('a team shares contracts while build and tile choices reload independently 
   await expect(thornsHp.first()).not.toHaveText(defaultHp);
   const builtHp = await thornsHp.first().innerText();
 
+  await page.keyboard.press('Escape');
   await addOperator(page, 'Exusiai');
+  await editBuild(page, 'Exusiai');
   await expect(statCells(page, 'Exusiai', 'HP').nth(2)).toHaveText('—');
   await expect(statCells(page, 'Exusiai', 'DP cost').nth(2)).toHaveText(/^\+/);
+  await page.keyboard.press('Escape');
   await addOperator(page, 'Weedy');
+  await editBuild(page, 'Weedy');
   const weedyHp = statCells(page, 'Weedy', 'HP');
   await expect(weedyHp.nth(2)).toHaveText(/^-/);
   const highTile = page.getByRole('group', { name: 'Deployment tile' }).getByRole('button', { name: 'High tile', exact: true });
@@ -134,6 +183,7 @@ test('a team shares contracts while build and tile choices reload independently 
   await highTile.click();
   await elapsed.fill('12');
   await expect(weedyHp.nth(2)).toHaveText('—');
+  await page.keyboard.press('Escape');
   for (const name of ['Thorns', 'Exusiai', 'Weedy']) {
     await expect(teamRow(page, name).getByRole('cell')).toHaveCount(8);
   }
@@ -148,6 +198,7 @@ test('a team shares contracts while build and tile choices reload independently 
   await editBuild(page, 'Thorns');
   await page.getByRole('button', { name: 'Reset to E0 Lv 1', exact: true }).click();
   await expect(thornsHp.first()).toHaveText(defaultHp);
+  await page.keyboard.press('Escape');
   await editBuild(page, 'Weedy');
   await expect(highTile).toHaveAttribute('aria-pressed', 'true');
   await expect(elapsed).toHaveValue('12');
@@ -159,11 +210,42 @@ test('a team shares contracts while build and tile choices reload independently 
   await expect(thornsHp.first()).toHaveText(builtHp);
   await expect(page.getByRole('spinbutton', { name: 'Operator level', exact: true })).toHaveValue('90');
   await expect(page.getByRole('spinbutton', { name: 'Operator trust', exact: true })).toHaveValue('200');
+  await page.keyboard.press('Escape');
   await editBuild(page, 'Weedy');
   await expect(highTile).toHaveAttribute('aria-pressed', 'true');
   await expect(elapsed).toHaveValue('12');
   expect(await page.evaluate(() => localStorage.getItem('arkpediaAccount'))).toBe(account);
   expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(1);
+});
+
+test('stage limits and blocked tiles update with the selected contracts', async ({ page }) => {
+  await page.goto('/game-modes/ccb');
+  await selectArclight(page);
+  const stage = page.getByRole('region', { name: 'Suspended Focus: Stage', exact: true });
+  const deploy = stage.getByText('Deployment limit', { exact: true }).locator('..').locator('dd strong');
+  const dpRecovery = stage.getByText('DP per second', { exact: true }).locator('..').locator('dd strong');
+  const blocked = stage.locator('svg [data-blocked="true"]');
+
+  await expect(deploy).toHaveText('9');
+  await expect(dpRecovery).toHaveText('1');
+  await expect(blocked).toHaveCount(0);
+  await openRisks(page);
+  const board = await riskDialog(page).isVisible() ? riskDialog(page) : page.getByRole('region', { name: 'Contract board' });
+  for (const category of ['Deprivation', 'Restrictions']) {
+    await board.getByRole('checkbox', { name: `Select ${category} contracts`, exact: true }).check();
+  }
+  await board.getByRole('button', { name: 'View Deprivation contracts', exact: true }).click();
+  await riskDialog(page).getByRole('button', { name: 'Deployment limit -4, 30', exact: true }).click();
+  await closeRisks(page);
+
+  await expect(deploy).toHaveText('5');
+  await expect(dpRecovery).toHaveText('0.5');
+  await expect(blocked).toHaveCount(4);
+
+  await page.getByRole('button', { name: 'Enlarge the map of Suspended Focus', exact: true }).click();
+  const map = page.getByRole('dialog', { name: 'Suspended Focus: Map', exact: true });
+  await expect(map.locator('svg [data-blocked="true"]')).toHaveCount(4);
+  await page.keyboard.press('Escape');
 });
 
 test('all 13 squad members remain available together and removal frees a slot', async ({ page }, info) => {
@@ -185,6 +267,13 @@ test('all 13 squad members remain available together and removal frees a slot', 
   await expect(team.getByRole('button', { name: 'Edit Weedy build', exact: true })).toHaveCount(0);
   await addOperator(page, 'Texas');
   await expect(team.getByRole('button', { name: /^Edit .+ build$/ })).toHaveCount(13);
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await page.getByRole('button', { name: 'Save preset', exact: true }).click();
+  await page.reload();
+  await page.getByRole('button', { name: 'Load preset', exact: true }).click();
+  await expect(team.getByRole('button', { name: /^Edit .+ build$/ })).toHaveCount(13);
+  await expect(team.getByRole('cell')).toHaveCount(13 * 8);
+  await editBuild(page, 'Texas');
   await expect(operatorTable(page, 'Texas')).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(1);
 });
@@ -195,13 +284,11 @@ test('the old bookmark redirects and a failed catalogue download can be retried'
     if (++attempts === 1) return route.fulfill({ status: 503 });
     return route.continue();
   });
-  await page.goto('/ccb');
-  await expect(page).toHaveURL(/\/game-modes\/ccb$/);
+  await page.goto('/ccb#ccb-squad');
+  await expect(page).toHaveURL(/\/game-modes\/ccb#ccb-squad$/);
   await expect(page.getByRole('main').getByRole('alert')).toHaveText('The battleplan could not load.');
-  await page.getByRole('link', { name: 'Squad stats', exact: true }).click();
-  await expect(page).toHaveURL(/#ccb-squad$/);
   await page.getByRole('button', { name: 'Try again', exact: true }).click();
-  await expect(page.getByRole('group', { name: 'Seasons' }).getByRole('button')).toHaveCount(5);
+  await expect(page.getByRole('region', { name: 'Battlefields' })).toBeVisible();
   await expect(page.getByRole('combobox', { name: 'Search operators' })).toBeInViewport();
 });
 
@@ -216,5 +303,5 @@ test('operator suggestions stay visible when the search is at the bottom of the 
   const option = page.getByRole('option', { name: 'Thorns', exact: true });
   await expect(option).toBeInViewport();
   await option.click();
-  await expect(page.getByRole('table', { name: 'Thorns stat comparison' })).toBeVisible();
+  await expect(teamTable(page).getByRole('button', { name: 'Edit Thorns build' })).toBeVisible();
 });

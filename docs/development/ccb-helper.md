@@ -11,14 +11,21 @@ and new map names are unofficial translations and the page says so.
 
 ## Page
 
-One page, in the game's look, without its menu depth: every season, the permanent
-site and the rotating sites are one press away in the hub, and every indicator group
-is drawn at once as its tree of contract tiles. A tile is a toggle button carrying the
-contract's own glyph. A side panel shows the pointed-at contract, the selection and
-total risk, and stays at the bottom of the screen at phone width. Selecting a whole
-group adds its bonus risk (`bonus`, the game's `rewardScore`); the snapshots record no
-extra effect for a completed group. Under the hub: the map picture (opens large), the
-battle parameters and the map's enemies as tiles, which drive the stat comparison.
+The illustrated battlefield picker is above the workspace. The pinned toolbar keeps
+the active battlefield and total risk visible. On wider screens the category
+controls stay alongside the stage, enemy and squad results. On phones the pinned
+Risks action opens the contract board. A category check selects its compatible
+contracts at the highest group score and removes conflicting selections. A second
+press on a completed category clears it.
+
+All contract trees share one dialog. Opening a category moves focus and scrolls
+the dialog to its tree. Categories returns to the checklist. The stage summary
+recomputes its battle limits, DP regeneration and blocked tiles as contracts change.
+Map views, enemy comparisons and per-operator builds open in dialogs.
+The map distinguishes the scalable schematic from the game capture. The CCB
+archive loads its 1280×720 client previews from the image repository commit in
+`config/ccb-art.json`. The older stage preview is available as a fallback.
+Regular stage pages adopt the same full-size assets through their content release.
 
 Interface art (contract glyphs, region logos, area pictures, season banners) is
 published in `arkpedia-image-assets` under `content-art/contingency-contract/` by that

@@ -19,6 +19,7 @@ import type { Contract, OperatorBuildData } from '@/lib/ccb/types';
 import { getClassIconPath } from '@/lib/operators/classBranchIcons';
 import { getOperatorSearchResults } from '@/lib/operators/operatorSearch';
 import { clampInteger } from '@/lib/operators/operatorStats';
+import BattleplanDialog from './BattleplanDialog';
 import StatComparison, { StatGlyph, formatStatValue, statChange } from './StatComparison';
 import shared from './Battleplan.module.css';
 import styles from './OperatorComparison.module.css';
@@ -51,6 +52,7 @@ export default function OperatorComparison({ operators, icons, contracts }: { op
   const [suggestUp, setSuggestUp] = useState(false);
   const [team, setTeam] = useState<Member[]>([]);
   const [active, setActive] = useState('');
+  const [editing, setEditing] = useState(false);
   const [records, setRecords] = useState(new Map<string, OperatorRecord>());
   const [presetAvailable, setPresetAvailable] = useState(() => {
     try { return readPreset(operators).length > 0; } catch { return false; }
@@ -58,10 +60,8 @@ export default function OperatorComparison({ operators, icons, contracts }: { op
   const [presetMessage, setPresetMessage] = useState('');
   const requests = useRef(new Map<string, AbortController>());
   const search = useRef<HTMLInputElement>(null);
-  const editor = useRef<HTMLElement>(null);
   const editButtons = useRef(new Map<string, HTMLButtonElement>());
   const titleId = useId();
-  const editorId = useId();
 
   useEffect(() => {
     const pending = requests.current;
@@ -131,7 +131,7 @@ export default function OperatorComparison({ operators, icons, contracts }: { op
 
   function editOperator(name: string) {
     setActive(name);
-    editor.current?.focus();
+    setEditing(true);
   }
 
   function changeBuild(build: TeamBuild | null) {
@@ -214,7 +214,7 @@ export default function OperatorComparison({ operators, icons, contracts }: { op
   return <section className={`panel op-section ${styles.team}`} aria-labelledby={titleId}>
     <div className={styles.title}>
       <h2 id={titleId}>Operator team</h2>
-      <span className={styles.count} role="status">{team.length} / {TEAM_LIMIT} operators</span>
+      <span className={styles.count} role="status">{team.length} / {TEAM_LIMIT}<span className="visually-hidden"> operators</span></span>
       <InfoPopover label="About team stats and presets">
         <p>Stats apply the selected contracts to each operator’s build, tile and deployment time. Skills, talents and module combat effects are excluded.</p>
         <p>A preset saves one team and its builds in this browser. Load preset replaces the current team. The active battlefield and contracts come from the board above.</p>
@@ -245,7 +245,6 @@ export default function OperatorComparison({ operators, icons, contracts }: { op
     </div>
     <p className={styles.status} role="status">{presetMessage || (full ? 'Team is full. Remove an operator to add another.' : '')}</p>
     {members.length ? <>
-      <p className={shared.note}>Modified stats and changes from each operator’s build.</p>
       <table className={styles.teamTable} aria-label="Team stat comparison" role="table">
         <thead className={styles.teamHeading} role="rowgroup"><tr role="row">
           <th scope="col" role="columnheader">Operator</th>
@@ -262,12 +261,11 @@ export default function OperatorComparison({ operators, icons, contracts }: { op
                   type="button"
                   className={`btn-bare ${styles.memberButton}`}
                   aria-label={`Edit ${name} build`}
-                  aria-controls={editorId}
-                  aria-pressed={name === active}
+                  aria-haspopup="dialog"
                   ref={button => { if (button) editButtons.current.set(name, button); else editButtons.current.delete(name); }}
                   onClick={() => editOperator(name)}
                 >
-                  {icons[name] && <ContentImg className={styles.portrait} src={icons[name]} alt="" width={36} height={36} />}
+                  {icons[name] && <ContentImg className={styles.portrait} src={icons[name]} alt="" width={32} height={32} />}
                   <span className={styles.memberIdentity}>
                     <span className={styles.memberName}>{name}</span>
                     {operator?.className && <span className={styles.memberMeta}>
@@ -284,7 +282,7 @@ export default function OperatorComparison({ operators, icons, contracts }: { op
               return <td role="cell" className={styles.metric} key={key}>
                 <span className={styles.mobileLabel} aria-hidden="true">{label}</span>
                 <span>{formatStatValue(stats.modified[key])}</span>
-                {change && <small className={change.direction}>{change.text}</small>}
+                <small className={change?.direction} aria-hidden={!change}>{change?.text}</small>
               </td>;
             }) : <td role="cell" className={styles.rowStatus} colSpan={TEAM_COLUMNS.length}>
               {record === 'error' ? <button className="ghost btn-sm" type="button" aria-label={`Retry ${name}`} onClick={() => void fetchOperator(name)}>Retry stats</button>
@@ -293,16 +291,16 @@ export default function OperatorComparison({ operators, icons, contracts }: { op
           </tr>;
         })}</tbody>
       </table>
-      <section className={styles.editor} id={editorId} ref={editor} tabIndex={-1} aria-label={selected ? `${selected.name} build` : 'Operator build'}>
-        {selected?.operator && selected.build && selected.stats ? <BuildEditor
+      {editing && selected && <BattleplanDialog wide label={`${selected.name} build`} onClose={() => setEditing(false)}>
+        {selected.operator && selected.build && selected.stats ? <BuildEditor
           operator={selected.operator}
           icon={icons[selected.name]}
           account={account}
           build={selected.build}
           stats={selected.stats}
           onChange={changeBuild}
-        /> : selected && <h3 className="entity-title entity-title-sm">{selected.name} build</h3>}
-      </section>
+        /> : <p className={shared.note}>{selected.record === 'error' ? 'Stats unavailable' : 'Loading stats…'}</p>}
+      </BattleplanDialog>}
     </> : <p className={shared.empty}>Add operators to compare their stats under the selected contracts.</p>}
   </section>;
 }
@@ -320,7 +318,7 @@ function BuildEditor({ operator, icon, account, build, stats, onChange }: {
   function update(patch: Partial<TeamBuild>) { onChange({ ...build, ...patch }); }
   return <>
     <div className={shared.row}>
-      <h3 className={`entity-title entity-title-sm ${shared.suggestion}`}>{icon && <ContentImg src={icon} alt="" width={40} height={40} />}{operator.name} build</h3>
+      {icon && <ContentImg src={icon} alt="" width={40} height={40} />}
       <button className="ghost btn-sm" type="button" onClick={() => onChange(null)}>Reset to {owned ? 'account' : 'E0 Lv 1'}</button>
     </div>
     <div className={styles.editorGrid}>

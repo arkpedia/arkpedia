@@ -23,7 +23,8 @@ what that stage listed in .cache/<kind>/staged.json.
 
 Every destination folder has one way it is sized and encoded (FOLDERS below), whichever plan
 names it: the game's circled material and item icons keep their native 183px, never squeezed
-to a portrait's 180; stage renders keep their size up to 512px wide. A file from a mirror at a
+to a portrait's 180. Stage thumbnails keep their size up to 512px wide, and full-size stage
+captures keep up to 1280×720. A file from a mirror at a
 pinned commit gets a row in the image repository's asset-source-map.json with the git blob of
 the exact bytes and the width its daily sync keeps; every file gets a provenance row in
 sources/catalogue-imports.json (its URL, and the sha256 of the bytes fetched).
@@ -202,6 +203,7 @@ FOLDERS = {
     'story-map': Folder((640, 640), quality=85, method=6),
 }
 SKIN_FOLDER = re.compile(r'[a-z]+-star-skins')
+FULL_STAGE_PREVIEW = Folder((1280, 720), mode='RGB', quality=85, method=6)
 
 
 def fetch(url):
@@ -229,6 +231,8 @@ def destination(target):
     folder = parts[0]
     if SKIN_FOLDER.fullmatch(folder) and target.endswith('.webp'):
         return 'skin', None
+    if folder == 'stages-images' and re.fullmatch(r'[a-z0-9_-]+-full\.webp', parts[1]):
+        return 'image', FULL_STAGE_PREVIEW
     policy = FOLDERS.get(folder)
     if not policy or not target.endswith(policy.extension):
         raise ValueError(f'Unexpected asset destination: {target}')

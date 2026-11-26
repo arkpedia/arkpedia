@@ -1,13 +1,36 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import archive from '../../config/ccb-archive.json';
-import { activeModifierSummaries, contractSummary, groupComplete, maximumContractScore, maximumRisk, modifiedStats, replacementId, resolvedDescription, toggleContract, totalRisk } from '../../lib/ccb/modifiers';
+import { activeModifierSummaries, contractSummary, groupComplete, maximumContractScore, maximumRisk, modifiedStats, replacementId, resolvedDescription, stageModifiers, toggleContract, toggleContractGroup, totalRisk } from '../../lib/ccb/modifiers';
 import type { BattleplanSeason, Contract } from '../../lib/ccb/types';
 
 const seasons = archive.seasons as unknown as BattleplanSeason[];
 const arclight = seasons[3].maps.find(map => map.main)!;
 const contracts = arclight.groups.flatMap(group => group.contracts);
 const risk = (id: string): Contract => { const result = contracts.find(row => row.runeId === id || row.id === id); assert.ok(result, id); return result; };
+
+test('stage contracts change battlefield parameters and retain raw row and column positions', () => {
+  const base = { life: 3, deployment: 9, initialDp: 10, dpRecovery: 1 };
+  const result = stageModifiers(base, [
+    risk('global_lifepoint_1'), risk('global_pcharnum_2'), risk('global_costrecovery_2'), risk('melee_forbid_5'),
+  ]);
+  assert.deepEqual(result.battle, { life: 1, deployment: 5, initialDp: 10, dpRecovery: 0.5, squadSize: null });
+  assert.deepEqual([...result.blocked], ['3,8', '4,8', '5,8', '6,8']);
+  assert.equal(stageModifiers(base, [risk('global_squadnum_2')]).battle.squadSize, 7);
+});
+
+test('starting DP contracts add together and the no-recovery rune sets natural DP exactly to zero', () => {
+  const area13 = seasons[0].maps.find(map => map.stage === 'level_crisis_v2_01-07')!;
+  const candidates = area13.groups.flatMap(group => group.contracts);
+  const selected = ['cost_battlebegin_1', 'cost_battlebegin_5', 'global_nocostrecovery_1'].map(id => {
+    const match = candidates.find(row => row.runeId === id);
+    assert.ok(match, id);
+    return match;
+  });
+  const base = { life: 3, deployment: 8, initialDp: 0, dpRecovery: 1 };
+  assert.deepEqual(stageModifiers(base, selected).battle, { ...base, initialDp: 150, dpRecovery: 0, squadSize: null });
+  assert.equal(contractSummary(selected[2]), 'No natural DP recovery');
+});
 
 test('archive preserves every season/map and valid contract graph references', () => {
   assert.equal(seasons.length, 5);
@@ -131,6 +154,25 @@ test('rotating maps count each duplicated rune once toward group completion and 
     assert.equal(groupComplete(group, selected), true, name);
     assert.equal(maximumRisk(map.groups), max, name);
     assert.equal(totalRisk(map.groups, selected), max, name);
+  }
+});
+
+test('category toggles reach the best compatible score and clear only that category', () => {
+  for (const map of seasons.flatMap(season => season.maps)) {
+    const all = map.groups.flatMap(group => group.contracts);
+    for (const group of map.groups) {
+      const members = new Set(group.contracts.map(row => row.id));
+      const outside = all.find(row => !members.has(row.id)
+        && group.contracts.every(member => member.runeId !== row.runeId && (!row.exclusion || member.exclusion !== row.exclusion)));
+      const before = outside ? [outside.id] : [];
+      const next = toggleContractGroup(before, group, all);
+      const included = group.contracts.filter(row => next.includes(row.id));
+      assert.equal(included.reduce((sum, row) => sum + row.score, 0), maximumContractScore(group.contracts), group.name);
+      assert.equal(included.length, new Set(included.map(row => row.runeId)).size);
+      const exclusions = included.flatMap(row => row.exclusion ? [row.exclusion] : []);
+      assert.equal(exclusions.length, new Set(exclusions).size);
+      if (groupComplete(group, next)) assert.deepEqual(toggleContractGroup(next, group, all), before);
+    }
   }
 });
 
