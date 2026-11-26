@@ -12,20 +12,18 @@ import { NO_EXTRAS, type EventExtras } from '../../lib/events/tableRewards';
  * catches, and Next swapped the page for "Application error". And an event whose rewards were
  * only packs, an announcement or a furniture set opened on an All tab that said "Nothing here."
  */
-const sections = ['banner', 'rewards', 'skins'] as const;
+const sections = ['banner', 'rewards', 'skins', 'furniture', 'packs'] as const;
 const extras = (over: Partial<EventExtras>): EventExtras => ({ ...NO_EXTRAS, ...over });
 const notice = { title: 'Login gifts', source: 'https://example.invalid/post', lines: ['10 Headhunting Permits'] };
 const pack = { title: 'Packs', source: 'https://example.invalid/post', packs: [{ name: 'Starter Pack', start: '2026-09-16T15:00:00.000Z', end: null, contents: [] }] };
 const furniture = { title: 'Set', source: 'building_data', description: null, pieces: [{ name: 'Chair', id: 'furni_chair', obtain: null, comfort: 10 }] };
 const full = rewardTabsFor(['Events Store', 'Login event'], extras({ notices: [notice], packs: [pack], furniture: [furniture] }));
 
-test('All leads only when there are blocks to total; extras-only rewards open on their first tab', () => {
-  assert.deepEqual(full.map((tab) => tab.value), [ALL_TAB, 'Events Store', 'Login event', EXTRA_TABS.notices, EXTRA_TABS.packs, EXTRA_TABS.furniture]);
-  assert.deepEqual(full.map((tab) => tab.label), ['All', 'Events Store', 'Login event', 'Announced', 'Packs', 'Furniture']);
+test('All leads only when there are blocks to total and packs and furniture live outside Rewards', () => {
+  assert.deepEqual(full.map((tab) => tab.value), [ALL_TAB, 'Events Store', 'Login event', EXTRA_TABS.notices]);
+  assert.deepEqual(full.map((tab) => tab.label), ['All', 'Events Store', 'Login event', 'Announced']);
   const extrasOnly = rewardTabsFor([], extras({ packs: [pack], furniture: [furniture] }));
-  assert.deepEqual(extrasOnly.map((tab) => tab.value), [EXTRA_TABS.packs, EXTRA_TABS.furniture], 'no All with nothing to total');
-  assert.equal(shownRewardTab(ALL_TAB, extrasOnly), EXTRA_TABS.packs, 'the page opens on Packs, not on "Nothing here."');
-  assert.equal(shownRewardTab(EXTRA_TABS.furniture, extrasOnly), EXTRA_TABS.furniture);
+  assert.deepEqual(extrasOnly, []);
   assert.equal(shownRewardTab(ALL_TAB, full), ALL_TAB);
   assert.equal(shownRewardTab('Events Store', []), undefined);
 });
@@ -42,7 +40,10 @@ test('a hash the page did not write never throws, and names nothing it does not 
 
 test('#rewards opens the first tab, #rewards/<tab> that tab, and an unknown tab the first', () => {
   assert.deepEqual(readEventLink('#rewards', sections, full), { section: 'rewards', rewardTab: ALL_TAB });
-  assert.deepEqual(readEventLink('#rewards/packs', sections, full), { section: 'rewards', rewardTab: EXTRA_TABS.packs });
+  assert.deepEqual(readEventLink('#rewards/packs', sections, full), { section: 'packs', rewardTab: undefined });
+  assert.deepEqual(readEventLink('#rewards/furniture', sections, full), { section: 'furniture', rewardTab: undefined });
+  assert.deepEqual(readEventLink('#packs', sections, full), { section: 'packs', rewardTab: undefined });
+  assert.deepEqual(readEventLink('#rewards/packs', ['rewards'], full), { section: 'rewards', rewardTab: ALL_TAB });
   assert.deepEqual(readEventLink('#rewards/login-event', sections, full), { section: 'rewards', rewardTab: 'Login event' });
   assert.deepEqual(readEventLink('#rewards/%E0', sections, full), { section: 'rewards', rewardTab: ALL_TAB });
   const extrasOnly = rewardTabsFor([], extras({ notices: [notice], packs: [pack] }));
@@ -50,7 +51,6 @@ test('#rewards opens the first tab, #rewards/<tab> that tab, and an unknown tab 
 });
 
 test('every link the page writes reads back as the tab it was written for', () => {
-  assert.equal(tabSlug(EXTRA_TABS.packs), 'packs');
   assert.equal(tabSlug('Login event'), 'login-event');
   for (const tabs of [full, rewardTabsFor([], extras({ packs: [pack], furniture: [furniture] }))]) {
     for (const tab of tabs) {
@@ -60,7 +60,7 @@ test('every link the page writes reads back as the tab it was written for', () =
     }
   }
   assert.equal(eventLink('rewards', ALL_TAB, full), 'rewards', 'the first tab is the bare section, as Copy link writes it');
-  assert.equal(eventLink('skins', EXTRA_TABS.packs, full), 'skins');
+  assert.equal(eventLink('skins', EXTRA_TABS.notices, full), 'skins');
 });
 
 test('the event page reads its hash through readEventLink, never decoding it', () => {

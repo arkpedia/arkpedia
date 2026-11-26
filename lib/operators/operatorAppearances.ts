@@ -1,4 +1,6 @@
-import { Operator } from './operatorTypes';
+import skins from '@/data/skins.json';
+import type { Skin } from '@/lib/skins/skinTypes';
+import type { Operator } from './operatorTypes';
 import { publicFiles } from '@/lib/assets/publicAssets';
 
 const RARITY_WORDS: Record<number, string> = {
@@ -9,6 +11,21 @@ export interface Appearance {
   label: string;
   iconPath: string | null;
   fullPath: string | null;
+}
+
+/**
+ * The catalogue records renamed outfits as "Operator / Former name" search aliases.
+ * Their archived artwork filenames can remain in the asset index after a rename.
+ */
+export function canonicalOperatorAppearances(operator: string, appearances: Appearance[]): Appearance[] {
+  const catalogue = (skins as Skin[]).filter(skin => skin.model === operator);
+  const names = new Set(catalogue.map(skin => skin.name));
+  const published = new Set(appearances.filter(appearance => appearance.fullPath).map(appearance => appearance.label));
+  const prefix = `${operator} / `;
+  const formerNames = new Set(catalogue.flatMap(skin => published.has(skin.name)
+    ? (skin.searchAliases ?? []).filter(alias => alias.startsWith(prefix)).map(alias => alias.slice(prefix.length))
+    : []));
+  return appearances.filter(({ label }) => names.has(label) || !formerNames.has(label));
 }
 
 function readFolder(dir: string): string[] {
@@ -54,7 +71,7 @@ export function getOperatorAppearances(operator: Pick<Operator, 'name' | 'rarity
   const iconFileSet = new Set(iconFiles);
   const skinFileSet = new Set(skinFiles);
 
-  return Array.from(labels)
+  const appearances = Array.from(labels)
     .sort((a, b) => {
       const ka = sortKey(a);
       const kb = sortKey(b);
@@ -79,4 +96,5 @@ export function getOperatorAppearances(operator: Pick<Operator, 'name' | 'rarity
       }
       return { label, iconPath, fullPath };
     });
+  return canonicalOperatorAppearances(operator.name, appearances);
 }

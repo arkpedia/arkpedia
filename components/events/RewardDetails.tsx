@@ -3,9 +3,10 @@ import Image from '@/components/content/ContentImage';
 import { OperatorPreview, type OperatorPreviewItem } from '@/components/operators/OperatorPreview';
 import XButton from '@/components/ui/XButton';
 import type { TicketDetails } from '@/lib/events/announcements';
-import type { EventExtras } from '@/lib/events/tableRewards';
 import { RewardTile } from './RewardTile';
 import { packDay } from '@/lib/events/packDay';
+import { packCosmeticPreview, type CosmeticPack } from '@/lib/events/cosmeticPreviews';
+import HomeCosmeticPreview from '@/components/home/HomeCosmeticPreview';
 import { VIDEOS_COMING_SOON } from '@/lib/selectors/videosComingSoon';
 import { combinedRecommendation, pointLabel, rankByRecommendation, type Recommendation } from '@/lib/selectors/scoring';
 
@@ -14,13 +15,12 @@ export interface ResolvedTicket extends Omit<TicketDetails, 'operators'> {
   operators: { name: string; iconPath: string; href: string; howToUseVideoId?: string | null }[];
   pools?: { name: string; operators: ResolvedTicket['operators'] }[];
 }
-type Pack = EventExtras['packs'][number]['packs'][number];
-type Detail = { name: string; ticket: ResolvedTicket } | { name: string; pack: Pack; source: string };
+type Detail = { name: string; ticket: ResolvedTicket } | { name: string; pack: CosmeticPack; source: string };
 const Details = createContext<{ tickets: Record<string, ResolvedTicket>; open: (detail: Detail, trigger: HTMLElement) => void } | null>(null);
 
 /** One native modal handles packs and their tickets. Browser focus containment, Escape,
  * scroll locking and restoring the original card keep both desktop and phone usable. */
-export function RewardDetailsProvider({ tickets, children, recommendations, recommendationNote, recommendationSettings }: { tickets: Record<string, ResolvedTicket>; children: ReactNode; recommendations?: Record<string, Recommendation>; recommendationNote?: string; recommendationSettings?: ReactNode }) {
+export function RewardDetailsProvider({ tickets, children, recommendations, recommendationNote, recommendationSettings, onPreviewOpenChange }: { tickets: Record<string, ResolvedTicket>; children: ReactNode; recommendations?: Record<string, Recommendation>; recommendationNote?: string; recommendationSettings?: ReactNode; onPreviewOpenChange?: (open: boolean) => void }) {
   const [stack, setStack] = useState<Detail[]>([]);
   const [showSettings, setShowSettings] = useState(false);
   const [settingsHeight, setSettingsHeight] = useState<number | undefined>();
@@ -34,6 +34,12 @@ export function RewardDetailsProvider({ tickets, children, recommendations, reco
   const active = stack[stack.length - 1];
   const ticket = active && 'ticket' in active ? active.ticket : undefined;
   const operators = useMemo(() => rankByRecommendation(ticket?.operators ?? [], recommendations), [ticket, recommendations]);
+  const cosmetic = active && 'pack' in active ? (active.pack.cosmeticPreview ?? packCosmeticPreview(active.pack.name, active.source, active.pack.contents)) : undefined;
+  const pack = active && 'pack' in active ? active.pack : undefined;
+  const promo = pack?.artworkLayout === 'promo';
+  const packArtwork = pack?.imagePath ? <Image
+    className={`event-pack-detail-image${promo ? ' event-pack-detail-promo' : ''}`}
+    src={pack.imagePath} alt={`${pack.name} artwork`} width={promo ? 650 : 200} height={promo ? 208 : 150} /> : undefined;
   const isOpen = !!active;
   useEffect(() => {
     if (!isOpen) return;
@@ -84,6 +90,19 @@ export function RewardDetailsProvider({ tickets, children, recommendations, reco
             </div>; })}
           </div>;
   };
+  function packDetails(offer: CosmeticPack, source: string, action?: ReactNode) {
+    return <>
+      {offer.region === 'CN' && <p className="hint">CN pack preview. Global availability, contents and prices may differ. Sale dates are for CN.</p>}
+      {offer.start && <p className="hint">Sale window: {packDay(offer.start, { region: offer.region })} – {offer.end ? packDay(offer.end, { exclusiveEnd: true, region: offer.region }) : 'Not announced'}</p>}
+      {offer.limit && <p className="hint">Purchase limit: {offer.limit}</p>}
+      <div className="event-reward-totals">{offer.contents.map(item => <RewardTile key={item.name} {...item} />)}</div>
+      {(offer.notes ?? []).map(line => <p className="hint" key={line}>{line}</p>)}
+      <div className="hint event-pack-detail-actions">
+        {action}
+        <a href={source} target="_blank" rel="noopener noreferrer">Source announcement ↗</a>
+      </div>
+    </>;
+  }
   return <Details.Provider value={{ tickets, open }}>
     {children}
     <dialog ref={dialog} className="event-details-dialog" style={showSettings ? { height: settingsHeight } : undefined} aria-labelledby="event-details-title" onCancel={e => { e.preventDefault(); if (showSettings) { setShowSettings(false); settingsTrigger.current?.focus(); } else close(); }} onKeyDown={e => {
@@ -119,13 +138,11 @@ export function RewardDetailsProvider({ tickets, children, recommendations, reco
           }) : renderOperators(operators, VIDEOS_COMING_SOON.has(active.name))}
           <p className="hint"><a href={active.ticket.source} target="_blank" rel="noopener noreferrer">Source announcement</a></p>
         </>}</div> : <>
-          {active.pack.imagePath && <Image className={`event-pack-detail-image${active.pack.artworkLayout === 'promo' ? ' event-pack-detail-promo' : ''}`} src={active.pack.imagePath} alt={`${active.pack.name} artwork`} width={active.pack.artworkLayout === 'promo' ? 650 : 200} height={active.pack.artworkLayout === 'promo' ? 208 : 150} />}
-          {active.pack.region === 'CN' && <p className="hint">CN pack preview. Global availability, contents and prices may differ. Sale dates are for CN.</p>}
-          {active.pack.start && <p className="hint">Sale window: {packDay(active.pack.start, { region: active.pack.region })} – {active.pack.end ? packDay(active.pack.end, { exclusiveEnd: true, region: active.pack.region }) : 'Not announced'}</p>}
-          {active.pack.limit && <p className="hint">Purchase limit: {active.pack.limit}</p>}
-          <div className="event-reward-totals">{active.pack.contents.map(item => <RewardTile key={item.name} {...item} />)}</div>
-          {(active.pack.notes ?? []).map(line => <p className="hint" key={line}>{line}</p>)}
-          <p className="hint"><a href={active.source} target="_blank" rel="noopener noreferrer">Source announcement</a></p>
+          {cosmetic
+            ? <HomeCosmeticPreview key={cosmetic.pack} preview={cosmetic} artwork={packArtwork} onOpenChange={onPreviewOpenChange}>
+              {action => packDetails(active.pack, active.source, action)}
+            </HomeCosmeticPreview>
+            : <>{packArtwork}{packDetails(active.pack, active.source)}</>}
         </>}
       </>}
     </dialog>
@@ -140,7 +157,7 @@ export function RewardClick({ name, className, children }: { name: string; class
   return <button type="button" className={`${className} btn-bare event-ticket-trigger`} title={name} aria-label={`${name}: selectable operators`} aria-haspopup="dialog" onClick={e => details!.open({ name, ticket }, e.currentTarget)}>{children}<span className="event-ticket-open" aria-hidden="true">↗</span></button>;
 }
 
-export function PackButton({ pack, source, children, framed = true }: { pack: Pack; source: string; children: ReactNode; framed?: boolean }) {
+export function PackButton({ pack, source, children, framed = true }: { pack: CosmeticPack; source: string; children: ReactNode; framed?: boolean }) {
   const details = useContext(Details);
   return <button type="button" className={`btn-bare${framed ? ' panel' : ''} event-pack-card`} aria-haspopup="dialog" onClick={(e: MouseEvent<HTMLButtonElement>) => details?.open({ name: pack.name, pack, source }, e.currentTarget)}>{children}</button>;
 }

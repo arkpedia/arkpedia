@@ -1,0 +1,42 @@
+{
+  "backgrounds": {
+    "bg_rhodes_day": {
+      "names": [
+        "视野",
+        "Vision"
+      ],
+      "packs": {},
+      "animated": false
+    },
+    "bg_hunter_1": {
+      "names": [
+        "结营",
+        "Strike Camp"
+      ],
+      "packs": {
+        "结营出猎组合包": "结营",
+        "Strike Camp Hunt Pack": "Strike Camp"
+      },
+      "animated": true,
+      "music": {
+        "id": "music_bg_hunter",
+        "name": "Cloudy Day",
+        "bank": "sys.ON_MUSIC.bg_hunter_1"
+      }
+    }
+  },
+  "themes": {
+    "tm_hunter_1": {
+      "names": [
+        "出猎",
+        "Hunt"
+      ],
+      "packs": {
+        "结营出猎组合包": "出猎",
+        "Strike Camp Hunt Pack": "Hunt"
+      }
+    }
+  },
+  "defaultBackgroundId": "bg_rhodes_day",
+  "defaultThemeId": null
+}

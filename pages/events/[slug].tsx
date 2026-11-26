@@ -37,6 +37,7 @@ import { publicFileExists } from '@/lib/assets/publicAssets';
 import { publishedArt } from '@/lib/art/publishedArt';
 import packArt from '@/data/event-pack-art.json';
 import { resolvePackArt } from '@/lib/events/packArt.mjs';
+import { regionalEventCosmeticPreview, regionalPackCosmeticPreview, standaloneBackgroundPreview, type CosmeticEventExtras, type CosmeticRewardData } from '@/lib/events/cosmeticPreviews';
 import { findSkinIconPath } from '@/lib/skins/skinIconLookup';
 import { materialOrderFor } from '@/lib/farming/materialSortOrder';
 import { loadMaterialCatalogue } from '@/lib/farming/materialCatalogueServer';
@@ -52,7 +53,7 @@ import { LazyOperatorPreview } from '@/components/operators/LazyOperatorPreview'
 import type { OperatorPreviewItem } from '@/components/operators/OperatorPreview';
 import { allFreeRewards, canonicalEventWelfare, eventRewardOperators, eventWelfareOperators, withWelfareEventLinks, type EventWelfareOperator, type FreeReward } from '@/lib/pulls/freeRewards';
 import { computeRewardTotals, stockLimit, type ResolvedRewardItem, type ResolvedRewardStore, type RewardTotal } from '@/lib/events/rewardTotals';
-import { eventExtras, furniturePieceSource, NO_EXTRAS, tableRewardStores, type EventExtras, type EventRewardsFile } from '@/lib/events/tableRewards';
+import { eventExtras, furniturePieceSource, NO_EXTRAS, tableRewardStores } from '@/lib/events/tableRewards';
 import { ALL_TAB, eventLink, EXTRA_TABS, readEventLink, rewardTabsFor, shownRewardTab } from '@/lib/events/rewardTabs';
 import { eventTitle, isRerun } from '@/lib/events/eventName.mjs';
 import { furnitureKey } from '@/lib/events/furnitureName.mjs';
@@ -102,7 +103,7 @@ interface Props {
   skins: Skin[];
   rewardStores: ResolvedRewardStore[];
   /** Packs, furniture sets and announced gifts. Absent from a release compiled before them. */
-  extras?: EventExtras;
+  extras?: CosmeticEventExtras;
   tickets?: Record<string, ResolvedTicket>;
   loginDetails?: Record<string, LoginDetails>;
   /** The free rewards as the shareable card (All). Absent from a release compiled before it. */
@@ -116,17 +117,16 @@ interface Props {
   videos?: EventVideo[];
 }
 
-type SectionKey = 'overview' | 'banner' | 'rewards' | 'skins' | 'news' | 'pvs';
+type SectionKey = 'overview' | 'banner' | 'rewards' | 'skins' | 'furniture' | 'packs' | 'news' | 'pvs';
 
-/* A section with nothing linked is left out. Packs and Miscellaneous were sections
-   once, two tabs that only ever said "Coming soon", which pushed the row onto a second
-   line at 390; an event's packs are a tab inside Rewards now (rewardTabsFor), beside
-   its announced gifts and furniture. */
+// Events only expose sections with content.
 const SECTIONS: { key: SectionKey; label: string }[] = [
   { key: 'overview', label: 'Overview' },
   { key: 'banner', label: 'Operators' },
   { key: 'rewards', label: 'Rewards' },
   { key: 'skins', label: 'Skins' },
+  { key: 'furniture', label: 'Furniture' },
+  { key: 'packs', label: 'Packs' },
   /* The rest of the event's official announcement: a Sanity limit raised, a recruitment pool, a
      store's redeemables, a Kernel Locating banner (build-event-rewards.mjs `news`). */
   { key: 'news', label: 'News' },
@@ -262,13 +262,22 @@ export default function EventDetailPage({
   const regionalImages = artAspect === POSTER_ASPECT && server !== 'en' ? [regionalArt(regionalWindow, modeImages[0] ?? null, server)].filter((src): src is string => !!src) : modeImages;
   const shownImages = menuArt ? [menuArt, ...(artAspect === CG_ASPECT ? regionalImages : [])] : regionalImages;
   const shownBannerImage = bannerName ? regionalArt(schedule?.banners?.[bannerName], bannerImage, server) : bannerImage;
-  const hasExtras = extras.packs.length + extras.furniture.length + extras.notices.length > 0;
+  const cosmeticPreview = extras.cosmeticPreview ?? standaloneBackgroundPreview(name);
+  const hasPacks = extras.packs.length > 0 || !!cosmeticPreview;
   // A page compiled by a release from before the News tab has no `news` at all.
   const news = extras.news ?? [];
   const board = extras.board ?? [];
-  const sections = SECTIONS.filter((section) => (
-    section.key === 'overview' ? !!mode : section.key === 'banner' ? !!bannerName || welfareOperators.length + rewardOperators.length > 0 : section.key === 'rewards' ? rewardStores.length > 0 || hasExtras : section.key === 'news' ? news.length + board.length > 0 : section.key === 'pvs' ? videos.length > 0 : skins.length > 0
-  ));
+  const availableSections: Record<SectionKey, boolean> = {
+    overview: !!mode,
+    banner: !!bannerName || welfareOperators.length + rewardOperators.length > 0,
+    rewards: rewardStores.length > 0 || extras.notices.length > 0,
+    skins: skins.length > 0,
+    furniture: extras.furniture.length > 0,
+    packs: hasPacks,
+    news: news.length + board.length > 0,
+    pvs: videos.length > 0,
+  };
+  const sections = SECTIONS.filter(({ key }) => availableSections[key]);
   const [chosenSection, setActiveSection] = useState<SectionKey | null>(sections[0]?.key ?? null);
   /* The section on screen: the one chosen if this event has it, else the event's
      first. Null only when nothing is linked at all -- that event shows its one hint
@@ -302,8 +311,8 @@ export default function EventDetailPage({
   // One list for the Tabs and for reading a link: All only when there are blocks to total.
   const rewardTabs = rewardTabsFor(rewardTypes, extras);
   const [chosenRewardTab, setRewardTab] = useState<string>(ALL_TAB);
-  /* The reward tab on screen, derived like the section: an event whose rewards are only packs,
-     an announcement or furniture has no All and opens on its first tab. */
+  /* The reward tab on screen, derived like the section: an event whose rewards are only
+     an announcement has no All and opens on its first tab. */
   const activeRewardTab = shownRewardTab(chosenRewardTab, rewardTabs) ?? ALL_TAB;
   /* A store is a long grid and the All card a short one: the same hold as a section
      change, taken in the handler, so the switch cannot shorten the page under the
@@ -341,6 +350,7 @@ export default function EventDetailPage({
 
   const [activeSkin, setActiveSkin] = useState<Skin | null>(null);
   const [preview, setPreview] = useState<OperatorPreviewItem | null>(null);
+  const [previewSceneOpen, setPreviewSceneOpen] = useState(false);
   const closePreview = useCallback(() => setPreview(null), []);
   /* The banner card's title: its name, its leading tag ("[Celebration]") apart on the right. */
   const bannerTag = bannerName ? /^\[([^\]]+)\]\s*/.exec(bannerName) : null;
@@ -350,8 +360,8 @@ export default function EventDetailPage({
 
 
   return (
-    <RewardDetailsProvider tickets={tickets}>
-      <PageAudio musicId={eventMusicId(name, pageMusic)} pageKey={`event:${name}`} preference="eventMusic" />
+    <RewardDetailsProvider tickets={tickets} onPreviewOpenChange={setPreviewSceneOpen}>
+      <PageAudio musicId={eventMusicId(name, pageMusic)} pageKey={`event:${name}`} preference="eventMusic" suspended={previewSceneOpen} />
       <PageMeta title={name} description={`${name}, an Arknights event${dateRange ? ` (${dateRange})` : ''}: its banner, rewards, outfits and news.`} path={`/events/${encodeURIComponent(name)}`} image={menuArt ?? images[0] ?? poster ?? bannerImage} />
       <div className={activeImage ? 'event-page artwork-page' : 'event-page'}>
       {activeImage && <div className="event-page-art" data-event-entrance-art={menuArt ? entrance?.id : undefined} aria-hidden="true">
@@ -396,7 +406,10 @@ export default function EventDetailPage({
                 {bannerName && <>
                   <div className="event-section-head">
                     <h3 className="entity-title entity-title-name">{bannerTitle.title}</h3>
-                    {bannerTitle.tag && <span className="event-banner-tag">[{bannerTitle.tag}]</span>}
+                    <div className="event-banner-actions">
+                      <Link className="ghost btn-sm" prefetch={false} href={`/gacha-simulator?banner=${encodeURIComponent(bannerName)}`}>Open in Gacha Simulator</Link>
+                      {bannerTitle.tag && <span className="event-banner-tag">[{bannerTitle.tag}]</span>}
+                    </div>
                   </div>
                   <div className="event-banner-body">
                     {/* The frame stays when the art is not published yet, empty at the
@@ -457,10 +470,6 @@ export default function EventDetailPage({
                 <div {...tabPanelProps('event-store', activeRewardTab)}>
                   {activeRewardTab === ALL_TAB ? (
                     summary && summary.rows.length ? <RewardSummaryCard welfare={welfareOperators} skins={skins} eventName={name} summary={summary} artwork={shownImages[0] ?? regionalArt(regionalWindow, poster, server) ?? shownBannerImage} rewardNote={rewardNote?.replace('Global dates and rewards await confirmation', 'Global rewards await confirmation')} /> : <RewardTotalsRow totals={rewardTotals} />
-                  ) : activeRewardTab === EXTRA_TABS.packs ? (
-                    <EventPacks groups={extras.packs} />
-                  ) : activeRewardTab === EXTRA_TABS.furniture ? (
-                    <EventFurniture sets={extras.furniture} />
                   ) : activeRewardTab === EXTRA_TABS.notices ? (
                     <EventNotices notices={extras.notices} />
                   ) : (
@@ -510,6 +519,24 @@ export default function EventDetailPage({
                     );
                   })}
                 </div>
+              </div>
+            </section>
+          )}
+
+          {activeSection === 'furniture' && (
+            <section className="op-section" {...tabPanelProps('event-section', 'furniture')}>
+              <div className="panel event-section-card artwork-glass">
+                <div className="event-section-head"><h3 className="entity-title entity-title-name">Furniture</h3></div>
+                <EventFurniture sets={extras.furniture} />
+              </div>
+            </section>
+          )}
+
+          {activeSection === 'packs' && (
+            <section className="op-section" {...tabPanelProps('event-section', 'packs')}>
+              <div className="panel event-section-card artwork-glass">
+                <div className="event-section-head"><h3 className="entity-title entity-title-name">Packs</h3></div>
+                <EventPacks groups={extras.packs} preview={cosmeticPreview} onPreviewOpenChange={setPreviewSceneOpen} />
               </div>
             </section>
           )}
@@ -608,7 +635,8 @@ function withLegacyLaunchTiming(props: Props): Props {
 
 export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/events/[slug]", async ({ params }) => {
   const name = params?.slug as string;
-  const listings = [...getEventCalendar(), ...(loadAllEventYears() as ScheduleEvent[]).flatMap(event => { const listing = permanentEventListing(scheduleModeRelease(event, PREDICTED_GAP_DAYS)); return listing ? [listing] : []; })];
+  const records = loadAllEventYears() as (ScheduleEvent & { activityId?: string })[];
+  const listings = [...getEventCalendar(), ...records.flatMap(event => { const listing = permanentEventListing(scheduleModeRelease(event, PREDICTED_GAP_DAYS)); return listing ? [listing] : []; })];
   const event = listings.find((e) => e.name === name);
   if (!event) return { notFound: true };
 
@@ -627,7 +655,7 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/ev
 
   const skinImageByName = new Map(allSkins.filter((s) => s.image).map((s) => [s.name, s.image as string]));
   const skinNameById = new Map(allSkins.filter((s) => s.skinId && s.name).map((s) => [s.skinId as string, s.name]));
-  const eventRewards = await readShippedTable<EventRewardsFile>('event-rewards.json');
+  const eventRewards = await readShippedTable<CosmeticRewardData>('event-rewards.json');
   const videos = ((await import('@/data/event-videos.json')).default as EventVideosFile).events[event.name] ?? [];
   // The store's Chinese item names in English, where the Global tables have them.
   const storeNames = eventRewards.storeNames ?? {};
@@ -717,8 +745,21 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/ev
   /* The furniture set as a checklist: each piece with where this event gives it (its missions,
      its sign-in, its store and the price there), else how the game says it is obtained (the
      furniture store). Its pieces are in the other tabs too; this says which of the set they are. */
+  const activity = records.find(record => record.name === event.name)?.activityId ?? originalEntry?.activity ?? undefined;
+  const cosmetics = eventRewards.globalHomeCosmetics;
+  const packs = builtExtras.packs.map(group => ({
+    ...group,
+    packs: group.packs.map(pack => {
+      const preview = regionalPackCosmeticPreview(activity, pack, group.source, cosmetics);
+      return preview ? { ...pack, cosmeticPreview: preview } : pack;
+    }),
+  }));
+  const standalonePreview = packs.some(group => group.packs.some(pack => 'cosmeticPreview' in pack))
+    ? undefined : regionalEventCosmeticPreview(activity, cosmetics);
   const extras = {
     ...builtExtras,
+    packs,
+    ...(standalonePreview && { cosmeticPreview: standalonePreview }),
     furniture: builtExtras.furniture.map((set) => ({ ...set, pieces: set.pieces.map((piece) => ({ ...piece, obtain: furniturePieceSource(piece.name, rewardStores) ?? piece.obtain })) })),
   };
   return {

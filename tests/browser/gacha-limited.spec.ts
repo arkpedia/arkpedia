@@ -1,5 +1,20 @@
 import { expect, test } from '@playwright/test';
 
+for (const [event, banner, title] of [
+  ['[Side Story ‐ Crossover] Sur le lac lune vivante', '[Crossover · Persona 3 Reload] Some Evening of White and Mystic Blue', 'Some Evening of White and Mystic Blue'],
+  ['[Celebration] Critical Phase Transition', '[Celebration] Sealed With Time', 'Sealed With Time'],
+]) test(`the Operators tab opens the simulator for ${title}`, async ({ page }) => {
+  await page.goto(`/events/${encodeURIComponent(event)}`);
+  await page.getByRole('tab', { name: 'Operators', exact: true }).click();
+  const operators = page.getByRole('tabpanel', { name: 'Operators', exact: true });
+  const link = operators.getByRole('link', { name: 'Open in Gacha Simulator', exact: true });
+  const destination = `/gacha-simulator?banner=${encodeURIComponent(banner)}`;
+  await expect(link).toHaveAttribute('href', destination);
+  await link.click();
+  await expect(page).toHaveURL(url => url.pathname === '/gacha-simulator' && url.searchParams.get('banner') === banner);
+  await expect(page.locator('.gacha-main-col').getByRole('heading', { name: new RegExp(title) })).toBeVisible();
+});
+
 test('Limited navigation groups crossover banners while historical links retain crossover rules', async ({ page }, info) => {
   await page.goto("/gacha-simulator?banner=" + encodeURIComponent('[Crossover] Attack, Defence, Tactical Collide'));
   await expect(page.getByText('Crossover guarantee (120)', { exact: true })).toBeVisible();
