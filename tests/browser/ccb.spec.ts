@@ -264,9 +264,11 @@ test('stage limits and blocked tiles update with the selected contracts', async 
 
 test('mixed blocked tiles keep the overview steady beside larger enemy portraits', async ({ page }, info) => {
   await page.goto('/game-modes/ccb');
-  const stage = page.getByRole('region', { name: 'Ink-Stained Archive: Stage', exact: true });
+  await selectArclight(page);
+  await page.getByRole('region', { name: 'Battlefields', exact: true }).getByRole('button', { name: /Cursed Bonefield/ }).click();
+  const stage = page.getByRole('region', { name: 'Cursed Bonefield: Stage', exact: true });
   const enemies = page.getByRole('region', { name: 'Enemies on this map', exact: true });
-  const portrait = enemies.getByRole('button', { name: "Serious 'Bitey'", exact: true });
+  const portrait = enemies.getByRole('button', { name: 'Bloodborn Spawn', exact: true });
   const team = page.locator('#ccb-squad');
   await expect(portrait).toBeVisible();
   await page.evaluate(() => document.fonts.ready);
@@ -276,10 +278,10 @@ test('mixed blocked tiles keep the overview steady beside larger enemy portraits
 
   await openRisks(page);
   const board = await riskDialog(page).isVisible() ? riskDialog(page) : page.getByRole('region', { name: 'Contract board' });
-  await board.getByRole('button', { name: 'View Restrictions contracts', exact: true }).click();
-  await riskDialog(page).getByRole('button', { name: '6 map tiles become unavailable for deployment, 20', exact: true }).click();
+  await board.getByRole('button', { name: 'View Test criteria contracts', exact: true }).click();
+  await riskDialog(page).getByRole('button', { name: '3 map tiles become unavailable for deployment, 20', exact: true }).first().click();
   await closeRisks(page);
-  await expect(stage.getByText('3 ground, 3 high', { exact: true })).toBeVisible();
+  await expect(stage.getByText('1 ground, 2 high', { exact: true })).toBeVisible();
   const stageAfter = (await stage.boundingBox())!;
   const teamAfter = (await team.boundingBox())!;
   expect(stageAfter.height).toBeCloseTo(stageBefore.height, 0);
