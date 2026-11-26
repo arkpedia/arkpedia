@@ -5,10 +5,16 @@
         "结营",
         "Strike Camp"
       ],
-      "packs": [
-        "结营出猎组合包"
-      ],
-      "animated": true
+      "packs": {
+        "结营出猎组合包": "结营",
+        "Strike Camp Hunt Pack": "Strike Camp"
+      },
+      "animated": true,
+      "music": {
+        "id": "music_bg_hunter",
+        "name": "Cloudy Day",
+        "bank": "sys.ON_MUSIC.bg_hunter_1"
+      }
     }
   },
   "themes": {
@@ -17,9 +23,10 @@
         "出猎",
         "Hunt"
       ],
-      "packs": [
-        "结营出猎组合包"
-      ]
+      "packs": {
+        "结营出猎组合包": "出猎",
+        "Strike Camp Hunt Pack": "Hunt"
+      }
     }
   }
 }

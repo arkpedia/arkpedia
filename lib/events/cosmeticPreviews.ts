@@ -77,14 +77,14 @@ function mentionsCosmetic(value: string, kind: string, name: string): boolean {
 
 const BACKGROUND_LABELS = ['background', 'main menu background', 'home screen background', 'home background', '主题场景'];
 const THEME_LABELS = ['home screen ui', 'home screen theme', 'main menu theme', 'main menu ui', '界面主题'];
-type ImportedCosmetic = { names: string[]; packs: string[]; animated?: boolean };
+type ImportedCosmetic = { names: string[]; packs: Record<string, string>; animated?: boolean; music?: { name: string } };
 
 function importedPackPreview(pack: string, source: string, contents: readonly { name: string }[]): CosmeticPreview | undefined {
   function match(group: Record<string, ImportedCosmetic>, labels: string[]) {
     const named = Object.entries(group).filter(([, item]) => item.names.some(name =>
       contents.some(content => labels.some(label => mentionsCosmetic(content.name, label, name)))));
     return named.length ? named : Object.entries(group).filter(([, item]) =>
-      item.packs.some(name => packKey(name) === packKey(pack)));
+      Object.keys(item.packs).some(name => packKey(name) === packKey(pack)));
   }
 
   const backgrounds = match(discovered.backgrounds, BACKGROUND_LABELS);
@@ -93,8 +93,10 @@ function importedPackPreview(pack: string, source: string, contents: readonly { 
     THEME_LABELS.some(label => words(item.name).startsWith(label)));
   if (backgrounds.length !== 1 || themes.length > 1 || unknownTheme) return;
 
-  const regionalName = ({ names }: ImportedCosmetic): string => names.find(name => contents.some(item =>
-    ` ${words(item.name)} `.includes(` ${words(name)} `))) ?? names[0];
+  const regionalName = ({ names, packs }: ImportedCosmetic): string => names.find(name => contents.some(item =>
+    ` ${words(item.name)} `.includes(` ${words(name)} `)))
+    ?? Object.entries(packs).find(([name]) => packKey(name) === packKey(pack))?.[1]
+    ?? names[0];
   const [backgroundId, background] = backgrounds[0];
   const backgroundPath = `/event-preview/${backgroundId}`;
   const name = regionalName(background);
@@ -103,6 +105,10 @@ function importedPackPreview(pack: string, source: string, contents: readonly { 
       ...(background.animated && { native: `${backgroundPath}/scene.json` }),
       gameData: { id: backgroundId } },
   };
+  if (background.music) {
+    const audio = `${backgroundPath}/music.m4a`;
+    preview.music = { title: background.music.name, preview: audio, source: audio };
+  }
   const theme = themes[0];
   if (theme) {
     const [id, data] = theme;

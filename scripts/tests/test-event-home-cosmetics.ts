@@ -206,7 +206,9 @@ test('matches imported backgrounds and themes by offer contents and game unlock 
   assert.equal(preview?.theme?.gameData?.id, 'tm_hunter_1');
   assert.equal(preview?.theme?.name, 'Hunt');
   assert.ok(packCosmeticPreview('结营出猎组合包', cnSource)?.theme);
-  assert.equal(packCosmeticPreview('Strike Camp Hunt Pack', source), undefined);
+  assert.equal(packCosmeticPreview('Strike Camp Hunt Pack', source)?.theme?.name, 'Hunt');
+  assert.equal(preview?.music?.title, 'Cloudy Day');
+  assert.ok(existsSync(`public${preview?.music?.preview}`));
   assert.equal(packCosmeticPreview('Unknown theme pack', source, [items[0], { name: 'Home Screen UI - Unknown' }]), undefined);
 });
 

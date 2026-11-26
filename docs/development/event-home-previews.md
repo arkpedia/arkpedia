@@ -20,13 +20,16 @@ python scripts/imports/export_home_particles.py /path/to/bg_anniversary_1.ab pub
   --room-scale-emitter 'bd (1)' --room-scale-emitter 'bd (2)' --dependencies /path/to/dependencies/*.ab
 ```
 
-Refresh the exported-cosmetic index from the game display tables after importing art. A pack picks up a preview automatically when the index has its background and theme and its announced contents or game unlock descriptions identify them. The optional names file holds the official English names for Strike Camp and Hunt pending the corresponding Global display table. Use the curated catalogue for standalone event rewards and previews with additional configuration.
+Refresh the exported-cosmetic index from the game display tables after importing art. A pack picks up a preview automatically when the index has its background and theme and its announced contents or game unlock descriptions identify them. Pass both regional tables to match the official names and unlock descriptions in each region. The optional audio table matches an exported `music.m4a` to the room's music ID and bank. Use the curated catalogue for standalone event rewards and previews with additional configuration.
 
 ```sh
 python scripts/imports/build_home_cosmetic_catalogue.py public/event-preview config/discovered-home-cosmetics.json \
-  /path/to/display_meta_table.json --names config/home-cosmetic-names.json \
+  /path/to/cn/display_meta_table.json /path/to/en/display_meta_table.json \
+  --audio-table /path/to/en/audio_data.json \
   --omit bg_p3r_1 tm_p3r_1 bg_anniversary_1 bg_redvelvet_1 tm_redvelvet_1
 ```
+
+Strike Camp uses the opening 30 seconds of the Global `m_avg_victorianormal_loop` clip. The audio table names it Cloudy Day and assigns it to `sys.ON_MUSIC.bg_hunter_1`. The unpacked bundle is `audio/sound_beta_2/music/avg/m_avg_victorianormal.ab` (MD5 `d022a5af98c12f544cdc3781de16f0f2`, Global client `26-11-19-09-03-43_d30fff`).
 
 Persona uses the opening 30 seconds of the audio clip identified under `music.gameData`. The identical waveform in the Apple Music excerpt starts about 45 seconds into the game clip. The page loads the game excerpt as a first-party preview and links to the published soundtrack.
 
