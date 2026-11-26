@@ -21,8 +21,8 @@ const BATTLEPLAN: Mode = {
   href: '/game-modes/ccb',
   name: 'Contingency Contract Battleplan',
   mark: 'contingency-contract.svg',
-  blurb: 'Browse maps and contracts, then compare how they affect your squad.',
-  holds: 'Battleplan archive',
+  blurb: 'Compare squads under archived contracts.',
+  holds: 'Archive',
 };
 
 /**
