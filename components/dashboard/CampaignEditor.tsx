@@ -200,6 +200,12 @@ function CampaignForm({ source, edit, selected, draft, events, records, historyO
       </>}
       {timing === 'fixed' && (['startAt','endAt'] as const).map(key => <label key={key}>{key === 'startAt' ? 'Starts' : 'Ends'} (optional, with timezone)
         <input type="text" placeholder="2026-12-01T15:00:00Z" value={c[key] ?? ''} onChange={e => patch({ [key]: e.target.value || null })} /></label>)}
+      <fieldset className={styles.placements}><legend>Placements</legend>{SPONSOR_PLACEMENTS.map(placement => <label key={placement} className="check"><input type="checkbox"
+        checked={c.placements.includes(placement)} onChange={event => patch({
+          placements: event.target.checked ? [...c.placements, placement] : c.placements.filter(value => value !== placement),
+          ...(placement === 'home' && event.target.checked && c.mainArtwork === undefined && { mainArtwork: null }),
+        })} />
+        {{ header: 'Page and mobile menu', home: 'Homepage', support: 'Support page (Page artwork)' }[placement]}</label>)}</fieldset>
     </div>
     <div className={styles.artworkGrid}>
       {separateMain && <ArtworkField title="Main artwork" art={mainArt}
@@ -211,17 +217,13 @@ function CampaignForm({ source, edit, selected, draft, events, records, historyO
         clear={() => { patch({ mobileArtwork: undefined }); setMobile(undefined); }} />}
     </div>
     <details className={'panel ' + styles.details} open={!selected && !draft.sponsor}>
-      <summary>Campaign details and placements</summary>
+      <summary>Campaign details</summary>
       <div className={styles.detailsGrid}>
       <label>Campaign ID<input type="text" required pattern="[a-z0-9][a-z0-9\-]*" maxLength={100} readOnly={!!selected} value={c.id} onChange={e => patch({ id: e.target.value })} /></label>
       <label>Sponsor or site name<input type="text" required value={c.sponsor} onChange={e => patch({ sponsor: e.target.value })} /></label>
       <label>Destination (HTTPS or Arkpedia path)<input type="text" required value={c.url ?? ''} placeholder="/music/discover" onChange={e => patch({ url: e.target.value })} /></label>
       <label>Status<StyledSelect label="Status" value={c.status} onChange={status => patch({ status: status as SponsorCampaign['status'] })}
         options={[{ value: 'active', label: 'Active' }, { value: 'ended', label: 'Paused' }, { value: 'draft', label: 'Draft' }]} /></label>
-      <fieldset className={styles.placements}><legend>Placements</legend>{SPONSOR_PLACEMENTS.map(p => <label key={p} className="check"><input type="checkbox"
-        checked={c.placements.includes(p)} onChange={e => patch({ placements: e.target.checked ? [...c.placements, p] : c.placements.filter(x => x !== p),
-          ...(p === 'home' && e.target.checked && c.mainArtwork === undefined && { mainArtwork: null }) })} />
-        {{ header: 'Page and mobile menu', home: 'Homepage', support: 'Support' }[p]}</label>)}</fieldset>
       </div>
     </details>
     <div className={styles.actions}><button ref={saveButton} className="primary btn-sm" disabled={incomplete}>

@@ -57,7 +57,9 @@ for (const theme of ['dark', 'light']) {
 
     await campaigns.click();
     const description = page.getByLabel('Image description');
+    const support = page.getByRole('checkbox', { name: 'Support page (Page artwork)' });
     await description.fill('Unsaved description');
+    await support.check();
     await campaigns.focus();
     await campaigns.press('ArrowRight');
     await expect(rotation).toBeFocused();
@@ -70,6 +72,7 @@ for (const theme of ['dark', 'light']) {
     await expect(views).toBeHidden();
     await ads.click();
     await expect(description).toHaveValue('Unsaved description');
+    await expect(support).toBeChecked();
     await page.evaluate(() => scrollTo(0, 0));
     expect(await views.evaluate(element => element.scrollWidth - element.clientWidth)).toBeLessThanOrEqual(1);
   });
