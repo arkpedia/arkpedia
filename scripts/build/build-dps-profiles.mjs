@@ -227,15 +227,13 @@ async function generateProfiles() {
 }
 
 const profilesPath = 'config/dps-profiles.json';
-if (process.argv[2] === '--if-stale') {
-  const checked = await read(profilesPath);
-  if (checked.source !== source) {
-    const refreshed = await generateProfiles();
-    if (JSON.stringify(checked.operators) !== JSON.stringify(refreshed.operators)) {
+const checked = process.argv[2] === '--if-stale' ? await read(profilesPath) : null;
+if (checked?.source !== source) {
+  const profiles = await generateProfiles();
+  if (!checked || JSON.stringify(checked.operators) !== JSON.stringify(profiles.operators)) {
+    if (checked && process.env.ARKPEDIA_WORKER === '1') {
       throw Error('Game data changed the checked-in DPS profiles. Run node scripts/build/build-dps-profiles.mjs and commit the reviewed profile changes.');
     }
+    await writeFile(profilesPath, JSON.stringify(profiles, null, 1) + '\n');
   }
-} else {
-  const profiles = await generateProfiles();
-  await writeFile(profilesPath, JSON.stringify(profiles, null, 1) + '\n');
 }
