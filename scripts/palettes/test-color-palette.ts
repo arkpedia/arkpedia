@@ -19,7 +19,7 @@ type PaletteReview = { sourceSha256: string } & (
 );
 
 const asOf = Date.parse('2026-09-07T12:00:00Z');
-const catalogue = getPaletteCatalogue();
+const catalogue = getPaletteCatalogue(manifest);
 const palettes = playablePalettes(catalogue, asOf);
 
 test('community palette corrections replace only the matching artwork colors', () => {

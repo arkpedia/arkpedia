@@ -38,6 +38,7 @@ import { getAllSkins } from '../../lib/skins/skins';
 import { toGuesserOperator } from '../../lib/guesser/guesserPageData';
 import { buildStageGuesserCatalogue } from '../../lib/minigames/stageGuesserData';
 import { getPaletteCatalogue } from '../../lib/minigames/data';
+import paletteManifest from '../../data/color-palettes.json';
 import { siteSearchPeople } from '../lib/credit-romanization';
 
 export type Unit = 'gzip' | 'raw';
@@ -103,7 +104,7 @@ export function measurePayloads(): Measured[] {
     [STAGE_ANSWERS, { entries, answers }],
     [STAGE_ENTRIES, entries],
     [STAGE_SETUP, { groups }],
-    [PALETTES, getPaletteCatalogue()],
+    [PALETTES, getPaletteCatalogue(paletteManifest)],
     [SITE_SEARCH_PEOPLE, siteSearchPeople()],
   ];
   return rows.map(([budget, value]) => ({ ...budget, bytes: payloadBytes(value, budget.unit) }));
