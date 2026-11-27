@@ -1,4 +1,25 @@
 import type { OperatorStats } from '../operators/operatorStats';
+import type { Profile } from './calculator';
+import { fetchAsset } from '../assets/githubRetry.mjs';
+
+export async function loadDpsCatalogue<T>(url: string, path: string, signal: AbortSignal): Promise<T> {
+  async function read(address: string): Promise<T> {
+    const response = await fetchAsset(address, { signal });
+    if (!response.ok) throw new Error('Calculator catalogue unavailable');
+    return response.json() as Promise<T>;
+  }
+  try {
+    return await read(url);
+  } catch (error) {
+    if (signal.aborted || url === path) throw error;
+    return read(path);
+  }
+}
+
+export interface CalculatorRoster {
+  operators: Profile[];
+  enemyIcons: Record<string, string>;
+}
 
 export type AttackType = 'Physical' | 'Arts';
 type DefenseStats = { hp: number; def: number; res: number; dp: number };

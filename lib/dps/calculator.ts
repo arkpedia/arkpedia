@@ -15,6 +15,11 @@ export interface Profile {
   region: string;
   branch: string;
   rarity: number;
+  subclass?: string;
+  icon?: string;
+  aliases?: string[];
+  basicAttack?: 'Physical' | 'Arts' | 'Healing' | 'None';
+  skillTiming?: Record<number, 'manual' | 'auto'>;
   trust: number;
   healingTrait?: Values;
   phases: { maxLevel: number; start: number; end: number; interval: number }[];
@@ -134,7 +139,8 @@ export function buildLabel(b: Build) {
 }
 export function defaultSource(b: Build) {
   if (b.operator === 'skadi2') return 'Regeneration aura';
-  if (['physician', 'ringhealer'].includes(profile(b).branch)) return 'Normal heal';
+  if (profile(b).basicAttack === 'Healing' || ['physician', 'ringhealer'].includes(profile(b).branch)) return 'Normal heal';
+  if (profile(b).basicAttack === 'None') return 'No normal attack';
   if (['yu', 'cairn', 'cello'].includes(b.operator)) return 'Talent aura';
   return 'Normal attack';
 }
@@ -285,10 +291,13 @@ export function calculate(build: Build, t: Target, priorBursts = 0) {
     : 'Physical';
   if ((p.id === 'hsgma2' && b.skill) || (p.id === 'qiubai' && b.skill === 3)) primary = 'Arts';
   if (p.id === 'amiya' && b.skill === 3) primary = 'True';
-  const hits = p.id === 'hsgma2' && b.skill === 3 ? (b.lastStand ? 4 : 2) : 1;
+  if (p.basicAttack === 'Arts') primary = 'Arts';
+  const hits = p.id === 'hsgma2' && b.skill === 3 ? (b.lastStand ? 4 : 2)
+    : p.basicAttack && p.branch === 'Swordmaster' ? 2 : 1;
   const components: Record<DamageType, number> = { Physical: 0, Arts: 0, True: 0, Elemental: 0 };
-  components[primary] =
-    hits * packet(p.id === 'skadi' && b.traitActive ? (mod?.trait.atk_scale ?? 1) : 1, primary);
+  if (p.basicAttack !== 'None') {
+    components[primary] = hits * packet(p.id === 'skadi' && b.traitActive ? (mod?.trait.atk_scale ?? 1) : 1, primary);
+  }
   if (p.id === 'hsgma2') components.Arts += hits * packet(mod?.trait.atk_scale ?? 0, 'Arts');
   if (p.id === 'qiubai') {
     if (b.control !== 'none') {
@@ -437,7 +446,7 @@ export function calculate(build: Build, t: Target, priorBursts = 0) {
     effects: additionalEffects(p.id, b.skill, atk, skill, first, mod?.trait ?? {}, t),
     interval: cadence,
     attackInterval: interval,
-    source: healingOnly ? (healing.direct ? 'Direct healing' : 'Regeneration aura') : source?.name ?? (b.skill ? 'Skill attacks' : 'Normal attack'),
+    source: healingOnly ? (healing.direct ? 'Direct healing' : 'Regeneration aura') : source?.name ?? (b.skill ? 'Skill attacks' : defaultSource(b)),
     damageUnit: source?.unit ?? 'attack',
     note: source?.note ?? '',
     element: elements[p.id],

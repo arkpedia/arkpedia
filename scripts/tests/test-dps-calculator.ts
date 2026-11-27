@@ -14,7 +14,7 @@ import { firstBurst, fallout } from '../../lib/dps/breakpoints';
 import { elements } from '../../lib/dps/sources';
 import { chartControls, targetControls } from '../../lib/dps/controls';
 import { damageBasis, dpsLabel } from '../../lib/dps/damageLabels';
-import { damageAtTime, damageTimeline, fullFightDamageTimeline, simulateEnemyHp } from '../../lib/dps/damageTimeline';
+import { damageAtTime, damageCasts, damageTimeline, fullFightDamageTimeline, simulateEnemyHp } from '../../lib/dps/damageTimeline';
 import type { EnemyFightPhase } from '../../lib/dps/enemyFightPhases';
 import { hpAt, patriotAttack, patriotFight, simulateSurvival, type Defense } from '../../lib/dps/survival';
 import type { PatriotStances } from '../../lib/dps/survivalRoster';
@@ -23,6 +23,26 @@ const createBuild = (id: string, number: number) =>
   buildFromProfile(profiles.find((p) => p.id === id)!, number);
 const dummy = { ...initialTarget, def: 0, res: 0 };
 const near = (a: number, b: number) => assert.ok(Math.abs(a - b) < 0.00001, a + ' vs ' + b);
+
+test('Ulpianus recharges after his active window and applies each anchor throw to HP', () => {
+  const build = createBuild('ulpia', 1);
+  const timeline = damageTimeline(build, initialTarget)!;
+  const casts = damageCasts(timeline, 0, 120, true);
+  assert.deepEqual(casts, [{ start: 5, end: 30 }, { start: 55, end: 80 }, { start: 105, end: 130 }]);
+  assert.equal(damageCasts(timeline, 10, 120, true)[1].start, 60);
+  near(damageAtTime(timeline, 54.9, casts).dps, timeline.attackDps);
+  near(damageAtTime(timeline, 55, casts).openingDamage, 9098.24);
+  const fight = simulateEnemyHp({ build, target: initialTarget, maxHp: 1_000_000, activation: 0, duration: 120, repeat: true })!;
+  assert.deepEqual([...fight.openingHits.keys()], [5, 55, 105]);
+  const secondCast = fight.points.filter(point => point.time === 55);
+  near(secondCast[0].hp - secondCast[1].hp, 9098.24);
+});
+
+test('automatic casts use deployment SP and respect the activation limit', () => {
+  const timeline = damageTimeline(createBuild('ulpia', 1), initialTarget)!;
+  const automatic = { ...timeline, recovery: { ...timeline.recovery!, automatic: true, limit: 2 } };
+  assert.deepEqual(damageCasts(automatic, 40, 120, true).map(cast => cast.start), [5, 55]);
+});
 
 test('Ulpianus S3 plots a mitigated opening hit separately from skill and normal attack DPS', () => {
   const build = createBuild('ulpia', 1);
@@ -572,11 +592,12 @@ test('archived enemy targets use the combat rank and inherit per-level defenses'
   assert.match(levels('enemy_1528_manfri')[0].defenseNote ?? '', /Only base defenses/);
   for (const row of enemies.flatMap(enemy => enemy.levels)) {
     assert.ok([row.def, row.res, row.elementalRes, row.injuryRes].every(Number.isFinite));
-    assert.ok(row.hp && row.hp > 0);
+    assert.ok(row.hp === undefined || row.hp > 0);
     if (!row.forms) continue;
     assert.equal(new Set(row.forms.map(form => form.id)).size, row.forms.length);
     assert.ok(row.forms.every(form => Number.isFinite(form.def) && Number.isFinite(form.res)));
   }
+  assert.ok(enemies.some(enemy => enemy.id === 'enemy_10009_sggem' && enemy.levels[0].hp === 20));
 });
 
 test('a periodic source restarts on the first eligible contact after fallout', () => {

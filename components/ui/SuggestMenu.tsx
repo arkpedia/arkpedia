@@ -9,6 +9,7 @@ export interface SuggestMenuProps<T> {
   items: readonly T[];
   getKey: (item: T) => string;
   renderItem: (item: T, state: { active: boolean }) => ReactNode;
+  describeItem?: (item: T) => string | undefined;
   /** The highlighted row, or -1. The input keeps focus and points at it with
    *  aria-activedescendant, so this is the only place the highlight lives. */
   activeIndex: number;
@@ -38,7 +39,7 @@ export interface SuggestMenuProps<T> {
 const TAP_SLOP = 8;
 
 export default function SuggestMenu<T>({
-  id, label, items, getKey, renderItem, activeIndex, optionId, onPick, onHover, setItemRef, empty, upward = false,
+  id, label, items, getKey, renderItem, describeItem, activeIndex, optionId, onPick, onHover, setItemRef, empty, upward = false,
 }: SuggestMenuProps<T>) {
   /* A touch picks on lift. The press is held back (preventDefault) so the field keeps focus, and
      Safari then sends no click at all for that tap: the list closed with nothing picked (iPhone,
@@ -49,8 +50,11 @@ export default function SuggestMenu<T>({
     <div id={id} role="listbox" aria-label={label}
       className={`${styles.menu} ${styles.suggest}${upward ? ` ${styles.suggestUp}` : ''}`}>
       {items.length === 0 && empty ? <div className={styles.empty} role="presentation">{empty}</div> : null}
-      {items.map((item, index) => (
-        <div key={getKey(item)} id={optionId(index)} ref={setItemRef?.(index)} role="option"
+      {items.map((item, index) => {
+        const description = describeItem?.(item);
+        const descriptionId = description ? optionId(index) + '-description' : undefined;
+        return <div key={getKey(item)} id={optionId(index)} ref={setItemRef?.(index)} role="option"
+          aria-describedby={descriptionId}
           aria-selected={index === activeIndex} data-active={index === activeIndex || undefined}
           className={styles.option}
           onPointerMove={() => onHover(index)}
@@ -71,8 +75,9 @@ export default function SuggestMenu<T>({
           onPointerCancel={() => { press.current = null; }}
           onClick={(event) => { if (event.timeStamp - touchPick.current > 800) onPick(item); }}>
           <span className={styles.optionBody}>{renderItem(item, { active: index === activeIndex })}</span>
-        </div>
-      ))}
+          {description && <span id={descriptionId} hidden>{description}</span>}
+        </div>;
+      })}
     </div>
   );
 }

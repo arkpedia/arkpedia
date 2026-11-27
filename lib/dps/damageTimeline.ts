@@ -2,6 +2,7 @@ import { calculate, mitigate, normalize, type Build, type Target } from './calcu
 import type { EnemyFightPhase } from './enemyFightPhases';
 import type { EnemyDefenseForm } from './enemyDefenseForms';
 import type { HealthPoint } from './survival';
+import { frame, framesPerSecond, planCasts, type Cast, type Cycle } from './skillCasts';
 
 export interface DamageEnemy {
   name: string;
@@ -22,6 +23,7 @@ export interface DamageTimeline {
   attackDps: number;
   skill: { duration: number; dps: number; retreats: boolean } | null;
   opening: { label: string; damage: number } | null;
+  recovery?: Cycle & { automatic: boolean };
   phases?: { start: number; model: DamageTimeline; state: DamageTargetPhase['state'] }[];
 }
 
@@ -49,16 +51,22 @@ export function damageTimeline(build: Build, target: Target, active = calculate(
   }
 
   const rank = skill.ranks[b.rank - 1];
+  const retreats = b.operator === 'amiya' && b.skill === 3;
+  const timing = b.character.skillTiming?.[b.skill];
+  const recovery = !retreats && (timing || skill.manual) && !(rank.charges > 1)
+    && rank.sp > 0 && Number.isFinite(rank.initialSp)
+    ? { cost: rank.sp, initial: rank.initialSp, limit: rank.skill_max_trigger_time || undefined, automatic: timing === 'auto' }
+    : undefined;
   const attackDps = calculate({ ...b, skill: 0 }, target).dps ?? 0;
   if (active.dps === null && ['attack', 'volley', 'cast'].includes(active.damageUnit)) {
-    return { attackDps, skill: null, opening: { label: active.source, damage: active.damage } };
+    return { attackDps, skill: null, opening: { label: active.source, damage: active.damage }, recovery };
   }
   const duration = rank.duration > 0 ? rank.duration : rank.max_duration;
   if (!(duration > 0) || active.dps === null) return null;
 
   return {
     attackDps,
-    skill: { duration, dps: active.dps, retreats: b.operator === 'amiya' && b.skill === 3 },
+    skill: { duration, dps: active.dps, retreats }, recovery,
     // S3 applies the ATK buff before launching the anchor. The throw uses the
     // rank's atk_scale and is separate from the attacks during the stance.
     opening: b.operator === 'ulpia' && b.skill === 3
@@ -67,18 +75,27 @@ export function damageTimeline(build: Build, target: Target, active = calculate(
   };
 }
 
-export function damageAtTime(timeline: DamageTimeline, time: number, activation: number) {
+export function damageCasts(timeline: DamageTimeline, start: number, duration: number, repeat = false): Cast[] {
+  if (!timeline.opening && !timeline.skill) return [];
+  if (!repeat || !timeline.recovery) return [{ start, end: start + (timeline.skill?.duration ?? 0) }];
+  return planCasts(timeline.recovery.automatic ? 0 : start, timeline.skill?.duration ?? 0, frame(duration) - 1, timeline.recovery)
+    .map(cast => ({ start: cast.start / framesPerSecond, end: cast.end / framesPerSecond }));
+}
+
+export function damageAtTime(timeline: DamageTimeline, time: number, casts: readonly Cast[] | number) {
   const phase = timeline.phases?.filter(phase => phase.start <= time).at(-1);
   const invulnerable = phase?.state === 'invulnerable';
   const depleted = phase?.state === 'depleted';
   const model = phase?.model ?? timeline;
-  const elapsed = time - activation;
+  const cast = typeof casts === 'number'
+    ? time >= casts ? { start: casts, end: casts + (model.skill?.duration ?? 0) } : undefined
+    : casts.findLast(cast => cast.start <= time);
   const skill = model.skill;
-  const skillActive = !!skill && elapsed >= 0 && elapsed < skill.duration;
-  const retreated = !!skill?.retreats && elapsed >= skill.duration;
+  const skillActive = !!skill && !!cast && time < cast.end;
+  const retreated = !!skill?.retreats && !!cast && time >= cast.end;
   let openingDamage = 0;
-  if (!invulnerable && !depleted && elapsed >= 0 && elapsed < 1) {
-    const openingPhase = timeline.phases?.filter(phase => phase.start <= activation).at(-1);
+  if (!invulnerable && !depleted && cast && time < cast.start + 1) {
+    const openingPhase = timeline.phases?.findLast(phase => phase.start <= cast.start);
     const opening = openingPhase
       ? openingPhase.state === 'active' ? openingPhase.model.opening : null
       : timeline.opening;
@@ -89,7 +106,7 @@ export function damageAtTime(timeline: DamageTimeline, time: number, activation:
 }
 
 export function simulateEnemyHp({
-  build, target, maxHp, fight, activation, duration, manual,
+  build, target, maxHp, fight, activation, duration, manual, repeat = false,
 }: {
   build: Build;
   target: Target;
@@ -98,13 +115,18 @@ export function simulateEnemyHp({
   activation: number;
   duration: number;
   manual?: number;
+  repeat?: boolean;
 }) {
   const frames = fight ?? [{ name: '', def: target.def, res: target.res }];
+  const timingModel = damageTimeline(build, target);
+  if (!timingModel) return null;
+  const casts = damageCasts(timingModel, activation, duration, repeat);
+  const boundaries = [...new Set(casts.flatMap(cast => [cast.start, cast.end]))].sort((a, b) => a - b);
+  const openingHits = new Map<number, number>();
   const phases: DamageTargetPhase[] = [];
   const hpPoints: HealthPoint[] = [{ time: 0, hp: maxHp }];
   let time = 0;
   let hp = maxHp;
-  let openingDamage: number | undefined;
   let defeatedAt: number | undefined;
 
   for (const [index, form] of frames.entries()) {
@@ -125,14 +147,13 @@ export function simulateEnemyHp({
     const threshold = deadline === Infinity && form.ends && 'hpRatio' in form.ends
       ? maxHp * form.ends.hpRatio : 0;
     const limit = Math.min(deadline, duration);
-    const skillEnds = activation + (model.skill?.duration ?? 0);
-
-    // Integrate constant rates exactly between skill boundaries. Opening hits
-    // change HP immediately and can only happen once, even when they end a phase.
+    // Integrate constant rates between cast boundaries, applying each opening hit once.
     while (time < limit) {
-      if (time === activation && model.opening && openingDamage === undefined) {
-        openingDamage = state === 'active' && hp > 0 ? model.opening.damage : 0;
-        hp = Math.max(0, hp - openingDamage);
+      if (model.opening && casts.some(cast => cast.start === time) && !openingHits.has(time)
+        && (state !== 'active' || hp > threshold)) {
+        const damage = state === 'active' ? model.opening.damage : 0;
+        openingHits.set(time, damage);
+        hp = Math.max(0, hp - damage);
         hpPoints.push({ time, hp });
       }
       if (state === 'active' && hp <= threshold) {
@@ -143,9 +164,9 @@ export function simulateEnemyHp({
         hpPoints.push({ time, hp });
         break;
       }
-      const sample = damageAtTime(model, time, activation);
+      const sample = damageAtTime(model, time, casts);
       const rate = state === 'active' ? sample.dps - sample.openingDamage : 0;
-      const next = Math.min(limit, time < activation ? activation : time < skillEnds ? skillEnds : Infinity);
+      const next = Math.min(limit, boundaries.find(boundary => boundary > time) ?? Infinity);
       const reachesThreshold = rate > 0 && (hp - threshold) / rate <= next - time;
       if (reachesThreshold) {
         time += (hp - threshold) / rate;
@@ -169,5 +190,5 @@ export function simulateEnemyHp({
     }
   }
   if (time < duration) hpPoints.push({ time: duration, hp });
-  return { points: hpPoints, phases, openingDamage, defeatedAt, maxHp };
+  return { points: hpPoints, phases, openingHits, openingDamage: openingHits.get(casts[0]?.start ?? Infinity), defeatedAt, maxHp };
 }

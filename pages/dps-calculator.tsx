@@ -1,6 +1,6 @@
-import { fetchAsset } from '@/lib/assets/assetRetry';
 import { withContentPage } from '@/lib/content/server';
-import { Fragment, useMemo, useRef, useState, type RefObject } from 'react';
+import { useContentUrl } from '@/lib/content/context';
+import { Fragment, useEffect, useMemo, useRef, useState, type RefObject } from 'react';
 import PageHeader from '@/components/ui/PageHeader';
 import BetaLabel from '@/components/ui/BetaLabel';
 import PageMeta from '@/components/layout/PageMeta';
@@ -22,12 +22,13 @@ import {
   burstThreshold,
 } from '@/lib/dps/calculator';
 import { firstBurst, fallout } from '@/lib/dps/breakpoints';
-import BuildSearch from '@/components/dps/BuildSearch';
+import BuildSearch, { operatorChoice } from '@/components/dps/BuildSearch';
 import BuildEditor, { DamageSource } from '@/components/dps/BuildEditor';
 import SurvivalWorkspace from '@/components/dps/SurvivalWorkspace';
 import Tabs, { tabPanelProps } from '@/components/ui/Tabs';
 import { useSwitchHold } from '@/components/ui/useSwitchHold';
 import type { EnemyPreset, EnemyLevel } from '@/lib/dps/enemyTargets';
+import { loadDpsCatalogue, type CalculatorRoster } from '@/lib/dps/survivalRoster';
 import { deploymentSequence } from '@/lib/dps/deployment';
 import { targetControls } from '@/lib/dps/controls';
 import { damageBasis, dpsLabel } from '@/lib/dps/damageLabels';
@@ -225,35 +226,13 @@ function Deployment({
   const [overrides, setOverrides] = useState<Record<number, string>>({});
   const [firstAttack, setFirstAttack] = useState<number | null>(null);
   const allies = [...builds.filter((b) => b.operator !== 'svash2'), ...added];
-  const [fullRoster, setFullRoster] = useState<Profile[]>([]);
-  const [loadError, setLoadError] = useState(false);
-  const loading = useRef(false);
-  async function loadAllies() {
-    if (loading.current || fullRoster.length) return;
-    loading.current = true;
-    setLoadError(false);
-    try {
-      const response = await fetchAsset('/dps-deployment-allies.json');
-      if (!response.ok) throw new Error('Roster unavailable');
-      setFullRoster(await response.json());
-    } catch {
-      setLoadError(true);
-    } finally {
-      loading.current = false;
-    }
-  }
-  const allProfiles = useMemo(() => {
-    const byId = new Map(fullRoster.map((p) => [p.id, p]));
-    for (const p of roster) byId.set(p.id, p);
-    return [...byId.values()];
-  }, [fullRoster, roster]);
   const choices = useMemo(
     () =>
-      allProfiles
+      roster
         .filter((p) => p.id !== 'svash2')
-        .map((p) => ({ id: p.id, name: p.name }))
+        .map(operatorChoice)
         .sort((a, b) => a.name.localeCompare(b.name)),
-    [allProfiles],
+    [roster],
   );
   const [owner, setOwner] = useState(0),
     [ally, setAlly] = useState(0),
@@ -267,12 +246,7 @@ function Deployment({
   const opts = (bs: Build[]) =>
     bs.map((b) => ({ value: String(b.id), label: label(b) + ' ' + profile(b).name }));
   return (
-    <details
-      className={css.panel}
-      onToggle={(e) => {
-        if (e.currentTarget.open) void loadAllies();
-      }}
-    >
+    <details className={css.panel}>
       <summary>Deployment timeline · SilverAsh the Reignfrost S2</summary>
       <p>
         Each stored strike uses the marked ally’s ATK when it lands. This scenario assumes the ally was left
@@ -284,20 +258,12 @@ function Deployment({
           placeholder="Search all operators…"
           choices={choices}
           pick={(id) => {
-            const build = buildFromProfile(allProfiles.find((p) => p.id === id)!, nextAlly.current--);
+            const build = buildFromProfile(roster.find((p) => p.id === id)!, nextAlly.current--);
             setAdded((prev) => [...prev, build]);
             setAlly(build.id);
           }}
         />
       </div>
-      {loadError && (
-        <p role="status">
-          Couldn’t load the full ally roster.{' '}
-          <button className="btn btn-sm" onClick={loadAllies}>
-            Retry
-          </button>
-        </p>
-      )}
       {a && (
         <>
           <div className={css.controls}>
@@ -437,6 +403,28 @@ export default function DpsCalculator(props: CalculatorProps) {
   const [mode, setMode] = useState<(typeof modes)[number]['value']>('comparison');
   const [visitedSurvival, setVisitedSurvival] = useState(false);
   const hold = useSwitchHold(modeId);
+  const [roster, setRoster] = useState<CalculatorRoster>();
+  const [rosterError, setRosterError] = useState(false);
+  const [retryRoster, setRetryRoster] = useState(0);
+  const contentUrl = useContentUrl();
+  useEffect(() => {
+    const controller = new AbortController();
+    const path = '/dps-roster.json';
+    loadDpsCatalogue<CalculatorRoster>(contentUrl(path), path, controller.signal).then(value => {
+      if (!controller.signal.aborted) { setRoster(value); setRosterError(false); }
+    }).catch(() => { if (!controller.signal.aborted) setRosterError(true); });
+    return () => controller.abort();
+  }, [retryRoster, contentUrl]);
+  const profiles = useMemo(() => {
+    if (!roster) return props.profiles;
+    const combined = new Map(roster.operators.map(p => [p.id, p]));
+    for (const profile of props.profiles) {
+      const details = combined.get(profile.id);
+      combined.set(profile.id, details ? { ...profile, icon: details.icon, subclass: details.subclass,
+        aliases: details.aliases, skillTiming: details.skillTiming } : profile);
+    }
+    return [...combined.values()];
+  }, [roster, props.profiles]);
   return (
     <>
       <PageMeta title="DPS Calculator" path="/dps-calculator" noindex={!props.listed}
@@ -449,12 +437,18 @@ export default function DpsCalculator(props: CalculatorProps) {
           if (value === 'survival') setVisitedSurvival(true);
           setMode(value);
         }} />
+        {rosterError && <p role="status">The full roster couldn’t load.{' '}
+          <button type="button" className="ghost btn-sm" onClick={() => {
+            setRosterError(false);
+            setRetryRoster(count => count + 1);
+          }}>Retry</button>
+        </p>}
         <div ref={hold.ref} style={hold.style}>
           <div {...tabPanelProps(modeId, 'comparison')} hidden={mode !== 'comparison'} className={css.modePanel}>
-            <DamageComparison {...props} />
+            <DamageComparison {...props} profiles={profiles} enemyIcons={roster?.enemyIcons} />
           </div>
           <div {...tabPanelProps(modeId, 'survival')} hidden={mode !== 'survival'} className={css.modePanel}>
-            {visitedSurvival && <SurvivalWorkspace profiles={props.profiles} />}
+            {visitedSurvival && <SurvivalWorkspace profiles={profiles} enemyIcons={roster?.enemyIcons} />}
           </div>
         </div>
       </main>
@@ -462,18 +456,14 @@ export default function DpsCalculator(props: CalculatorProps) {
   );
 }
 
-function DamageComparison({ profiles, dataSource, enemies = [] }: CalculatorProps) {
+function DamageComparison({ profiles, dataSource, enemies = [], enemyIcons }: CalculatorProps & { enemyIcons?: Record<string, string> }) {
   const createBuild = (id: string, number: number) =>
     buildFromProfile(profiles.find((p) => p.id === id)!, number);
   const pickOps = useMemo(
     () =>
       [...profiles]
         .sort((a, b) => a.name.localeCompare(b.name, 'en'))
-        .map((p) => ({
-          id: p.id,
-          name: p.name,
-          detail: p.region === 'CN' ? 'CN' : undefined,
-        })),
+        .map(operatorChoice),
     [profiles],
   );
   const pickEnemies = useMemo(() => {
@@ -486,16 +476,21 @@ function DamageComparison({ profiles, dataSource, enemies = [] }: CalculatorProp
       id: e.id,
       name: e.name,
       code: e.code,
+      icon: enemyIcons?.[e.id],
       detail: [e.code, e.levels[0].tier, counts.get(e.name + '/' + e.code)! > 1 ? e.id : '']
         .filter(Boolean)
         .join(' · '),
     }));
-  }, [enemies]);
+  }, [enemies, enemyIcons]);
   const [enemy, setEnemy] = useState<EnemyPreset | null>(null);
   const [level, setLevel] = useState(0);
   const [formId, setFormId] = useState<string>();
-  const [builds, setBuilds] = useState<Build[]>([]),
+  const [buildDrafts, setBuilds] = useState<Build[]>([]),
     [edit, setEdit] = useState<number | null>(null);
+  const builds = useMemo(() => buildDrafts.map(build => {
+    const character = profiles.find(p => p.id === build.operator);
+    return character && character !== build.character ? { ...build, character } : build;
+  }), [buildDrafts, profiles]);
   const [baselineChoice, setBaseline] = useState<number>();
   const timelineRef = useRef<HTMLTableElement>(null);
   const next = useRef(1),
@@ -561,12 +556,13 @@ function DamageComparison({ profiles, dataSource, enemies = [] }: CalculatorProp
               {builds.map((b, index) => (
                 <article key={b.id} className={css.build} style={{ borderLeftColor: color(index) }}>
                   <div className={css.row}>
-                    <Image src={getOperatorIconPath(profile(b))} alt="" width={48} height={48} />
+                    <Image src={profile(b).icon ?? getOperatorIconPath(profile(b))} alt="" width={48} height={48} />
                     <div>
                       <strong>{profile(b).name}</strong>
                       <small>
                         #{index + 1} · {buildLabel(b)}
                       </small>
+                      {profile(b).basicAttack && <small>{profile(b).skills.length ? 'Basic stats and listed skills' : 'Basic stats only'} · Special traits unmodeled</small>}
                     </div>
                   </div>
                   <div className={css.quickSource}><DamageSource b={b} update={update} /></div>
@@ -623,6 +619,7 @@ function DamageComparison({ profiles, dataSource, enemies = [] }: CalculatorProp
               {enemy && enemyLevel && (
                 <>
                   <small>{enemyForm ? 'Form defenses' : 'Base combat stats'} · {enemyLevel.tier}</small>
+                  {!enemyLevel.hp && <small>Enemy HP is unavailable for this level.</small>}
                   <div className={css.preset}>
                     {enemy.levels.length > 1 && (
                       <Pick
@@ -892,6 +889,7 @@ function DamageComparison({ profiles, dataSource, enemies = [] }: CalculatorProp
             effective defenses before the selected source’s own debuffs. Skill downtime, additional targets
             and burst fallout are outside the direct attack rate.
           </p>
+          <p>Basic profiles use archived attack and healing stats and include simple shared skills where modeled. Unique skills, traits and modules require a reviewed profile.</p>
           <p className="hint">
             <a
               href={dataSource

@@ -59,6 +59,10 @@ Virtuosa’s S1 timing scenario starts with full stored charges. The first cast 
 
 ## Extending coverage
 
+The calculator searches the full operator catalogue and the pinned enemy database. Reviewed profiles retain their skill, talent and module rules. Other operators use archived basic stats and any supported shared skills. The pickers use the catalogue's portraits and branch names. The enemy HP trace requires a recorded maximum HP, and Survival requires known incoming attacks.
+
+The damage timeline can repeat modeled time-recovery skills at 1 SP/s outside their active windows. It uses each rank's initial SP and SP cost, honors modeled use limits, and applies each opening hit at its cast time. **Earliest cast** can delay a manual skill. Auto-activation skills cast when ready. Attack and defense recovery and special SP sources need separate models.
+
 The profile generator reads the ArknightsGamedata revision named in the hydrated data lock. Cloudflare builds check the reviewed coefficients when that pin changes and leave the checked-in file intact. If the coefficients change, review and commit the regenerated profile file. Pinned browser fixtures can still generate profiles for their own data revision. To regenerate after editing the supported profiles, run:
 
 ```sh

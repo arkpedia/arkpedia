@@ -33,6 +33,7 @@ interface SuggestProps<T> extends BaseProps {
   suggestions: readonly T[];
   getKey: (item: T) => string;
   renderSuggestion: (item: T, state: { active: boolean }) => ReactNode;
+  describeSuggestion?: (item: T) => string | undefined;
   onPick: (item: T) => void;
   /** The list's accessible name: "Matching operators". */
   suggestLabel: string;
@@ -127,6 +128,7 @@ export default function SearchInput<T>(props: SearchInputProps<T>) {
           items={suggest.suggestions}
           getKey={suggest.getKey}
           renderItem={suggest.renderSuggestion}
+          describeItem={suggest.describeSuggestion}
           activeIndex={nav.highlightedIndex}
           optionId={optionId}
           onPick={pick}

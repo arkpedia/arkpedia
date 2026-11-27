@@ -10,7 +10,7 @@ export interface HealingOutput {
 
 type Coefficients = Record<string, number>;
 
-export const isHealingProfile = (p: Profile) => !!p.healingTrait || ['physician', 'ringhealer'].includes(p.branch);
+export const isHealingProfile = (p: Profile) => !!p.healingTrait || p.basicAttack === 'Healing' || ['physician', 'ringhealer'].includes(p.branch);
 
 export function healingAtkBonus(
   build: Build,
@@ -63,7 +63,7 @@ export function healingOutput(
     if (secondTalent.heal_scale > 0) {
       conditional = { amount: atk * secondTalent.heal_scale, label: 'Healing when a bubble pops' };
     }
-  } else if (character.branch === 'physician' || character.branch === 'ringhealer') {
+  } else if (character.basicAttack === 'Healing' || character.branch === 'physician' || character.branch === 'ringhealer') {
     const talent = operator === 'susuro' && build.lowCostHealingTarget ? firstTalent.heal_scale ?? 1 : 1;
     const moduleMultiplier = operator === 'susuro' && build.healingTargetBelowHalf ? moduleTrait.heal_scale ?? 1 : 1;
     direct = {
