@@ -1,0 +1,8 @@
+.workspace { display: grid; gap: 12px; }
+.workspace form { display: grid; gap: 12px; padding: var(--card-inset); }
+.fields, .image { display: grid; gap: 10px; min-width: 0; }
+.fields { margin: 0; padding: 0; border: 0; }
+.fields label:not(:global(.check)) { display: grid; gap: 4px; min-width: 0; }
+.image { padding-block: 8px; border-block: 1px solid var(--line-soft); }
+.image .row { justify-content: space-between; }
+.row { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }

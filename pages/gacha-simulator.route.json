@@ -4,8 +4,8 @@
   "clock": "minute",
   "nav": [
     {
-      "group": "guides",
-      "order": 40,
+      "group": "own",
+      "order": 50,
       "label": "Gacha Simulator",
       "icon": "gacha"
     }

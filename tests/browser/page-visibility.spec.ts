@@ -12,19 +12,19 @@ test('unlisted DPS Calculator opens by direct link and stays out of public disco
   expect(sitemap.ok()).toBe(true);
   expect(await sitemap.text()).not.toContain(`${href}</loc>`);
 
-  const tools = page.getByRole('button', { name: 'Tools', exact: true });
-  const openTools = async () => {
+  const guides = page.getByRole('button', { name: 'Guides', exact: true });
+  const openGuides = async () => {
     if (info.project.name === 'mobile') await page.getByRole('button', { name: 'Open navigation menu' }).click();
-    await tools.click();
+    await guides.click();
   };
   await page.goto('/about');
-  await openTools();
+  await openGuides();
   await expect(page.getByRole('link', { name: 'Farming', exact: true })).toBeVisible();
   await expect(page.locator(`a[href="${href}"]`)).toHaveCount(0);
 
   await page.route('**/api/page-visibility', route => route.fulfill({ json: { listed: ['dps'], refreshAfterMs: 60_000 } }));
   await page.goto('/about');
-  await openTools();
+  await openGuides();
   await expect(page.getByRole('link', { name: title, exact: true })).toBeVisible();
   await page.goto('/search');
   await page.getByRole('main').getByRole('searchbox', { name: 'Search Arkpedia' }).fill(title);
