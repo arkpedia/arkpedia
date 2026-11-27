@@ -920,7 +920,11 @@ function DamageComparison({ profiles, dataSource, enemies = [] }: CalculatorProp
 }
 
 export const getStaticProps = withContentPage<CalculatorProps>('/dps-calculator', async () => {
-  const { default: archive } = await import('@/config/dps-profiles.json');
+  const { default: archive } = await import('@/data/dps-profiles.json').catch(error => {
+    // Direct source tests can run before generation. Worker builds bundle the generated archive.
+    if (error.code !== 'ERR_MODULE_NOT_FOUND' && error.code !== 'MODULE_NOT_FOUND') throw error;
+    return import('@/config/dps-profiles.json');
+  });
   const enemies = process.env.ARKPEDIA_EXPORT_CONTENT === '1'
     ? (await import('@/lib/dps/enemyTargets')).enemyTargets()
     : (await import('@/data/dps-enemy-presets.json')).default as EnemyPreset[];

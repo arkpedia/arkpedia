@@ -5,7 +5,7 @@ import { execFileSync, spawnSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
 import ts from 'typescript';
 import { DASHBOARD_VARS } from './pilot-release-provider.mjs';
-import { codeFingerprint } from '../content/code-fingerprint.mjs';
+import { codeFingerprint, uncommittedChanges } from '../content/code-fingerprint.mjs';
 
 const ACCOUNT = '1ff51c10571eaa9934bc451e1bfdb361';
 const AUTH_ORIGIN = 'https://www.arkpedia.net';
@@ -66,6 +66,8 @@ function main() {
   process.exitCode = result.status ?? 1;
   if (process.exitCode !== 0) return;
   readPilotBuild(commit, fingerprint);
+  const changed = uncommittedChanges();
+  if (changed.length) throw new Error(`Production build changed the checked source: ${changed.join(', ')}`);
   const audit = spawnSync(process.execPath, ['scripts/audits/check-worker-bundle.mjs'], { stdio: 'inherit' });
   if (audit.error) throw audit.error;
   process.exitCode = audit.status ?? 1;

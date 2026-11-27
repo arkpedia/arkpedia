@@ -1,12 +1,22 @@
 // node scripts/build/build-dps-profiles.mjs [path/to/en/gamedata/excel]
-// With no local archive, fetch the EN tables at the repository's pinned revision.
-import { readFile, writeFile } from 'node:fs/promises';
+// Explicit regeneration updates the reviewed fixture. Build/export writes only generated data.
+import { readFile, rename, writeFile } from 'node:fs/promises';
 
 const read = async (path) => JSON.parse(await readFile(path, 'utf8'));
 const repo = 'ArknightsAssets/ArknightsGamedata';
 const { commit } = (await read('data/upstream.lock.json')).repositories[repo];
 const source = 'https://raw.githubusercontent.com/' + repo + '/' + commit + '/en/gamedata/excel/';
-const localEN = process.argv[2] === '--if-stale' ? undefined : process.argv[2];
+const automatic = process.argv[2] === '--if-stale';
+const fixture = 'config/dps-profiles.json';
+const output = automatic ? 'data/dps-profiles.json' : fixture;
+const localEN = automatic ? undefined : process.argv[2];
+
+async function writeArchive(archive) {
+  const temporary = `${output}.${process.pid}.tmp`;
+  await writeFile(temporary, JSON.stringify(archive, null, 1) + '\n');
+  await rename(temporary, output);
+}
+
 async function readRegion(region, local) {
   return Promise.all(
     ['character', 'skill', 'battle_equip', 'uniequip'].map(async (name) => {
@@ -223,9 +233,20 @@ async function generateProfiles() {
       alternateModule: ['angel', 'skadi', 'phatom', 'skadi2'].includes(short) ? readModule('uniequip_003_' + short) : null,
     };
   });
-  await writeFile('config/dps-profiles.json', JSON.stringify({ source, operators }, null, 1) + '\n');
+  await writeArchive({ source, operators });
 }
 
-if (process.argv[2] !== '--if-stale' || (await read('config/dps-profiles.json')).source !== source) {
+if (!automatic) {
   await generateProfiles();
+} else {
+  const reviewed = await read(fixture);
+  if (reviewed.source === source) {
+    await writeArchive(reviewed);
+  } else {
+    const cached = await read(output).catch(error => {
+      if (error.code !== 'ENOENT') throw error;
+      return null;
+    });
+    if (cached?.source !== source) await generateProfiles();
+  }
 }
