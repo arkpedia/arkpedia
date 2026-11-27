@@ -9,12 +9,11 @@ import {
 } from '@/lib/site-updates/types';
 import styles from './SiteUpdates.module.css';
 
-const ENDPOINT = '/api/dashboard/site-updates';
 const EMPTY: UpdateContent = { title: '', body: '', major: false, images: [] };
 const DEVICES = [{ value: 'all', label: 'All screens' }, { value: 'desktop', label: 'Desktop' }, { value: 'mobile', label: 'Mobile' }] as const;
 
-async function request<T>(url: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(url, init);
+async function readUpdateResponse<T>(pending: Promise<Response>): Promise<T> {
+  const response = await pending;
   const result = await response.json().catch(() => null);
   if (!response.ok) throw new Error(result?.error ?? 'Update storage is unavailable.');
   return result as T;
@@ -51,7 +50,7 @@ export default function SiteUpdates() {
 
   useEffect(() => {
     const controller = new AbortController();
-    void request<UpdateListItem[]>(ENDPOINT, { cache: 'no-store', signal: controller.signal })
+    void readUpdateResponse<UpdateListItem[]>(fetch('/api/dashboard/site-updates', { cache: 'no-store', signal: controller.signal }))
       .then(setQueue).catch((cause: unknown) => {
         if (!controller.signal.aborted) setError(cause instanceof Error ? cause.message : 'The queue could not be loaded.');
       });
@@ -75,7 +74,7 @@ export default function SiteUpdates() {
     }
     setBusy(true);
     try {
-      const next = await request<UpdateDraft>(`${ENDPOINT}?id=${encodeURIComponent(id)}`);
+      const next = await readUpdateResponse<UpdateDraft>(fetch(`/api/dashboard/site-updates?id=${encodeURIComponent(id)}`));
       setSaved(next);
       setContent(contentOf(next));
     } catch (cause) {
@@ -91,11 +90,11 @@ export default function SiteUpdates() {
     setError('');
     setMessage('');
     try {
-      const next = await request<UpdateDraft>(ENDPOINT, {
+      const next = await readUpdateResponse<UpdateDraft>(fetch('/api/dashboard/site-updates', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action, id: saved?.id ?? null, revision: saved?.revision ?? 0, ...(action === 'save' && { content }) }),
-      });
+      }));
       setSaved(next);
       setContent(contentOf(next));
       setQueue(current => [{ id: next.id, title: next.title, publishedAt: next.publishedAt }, ...(current ?? []).filter(row => row.id !== next.id)]);
