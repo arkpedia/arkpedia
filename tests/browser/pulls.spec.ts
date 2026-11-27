@@ -264,11 +264,14 @@ for (const theme of ['dark', 'light']) {
   test(`a renamed wishlist entry keeps one OP reservation and fits the dialog in ${theme} mode`, async ({ page }, testInfo) => {
     const oldKey = 'Mon3tr / Sharpened Blades';
     const key = 'Mon3tr / Sharpened Claws';
-    await page.addInitScript(({ theme, oldKey, key }) => {
+    const clock = new Date('2099-11-27T12:00:00Z');
+    await page.clock.setFixedTime(clock);
+    await page.addInitScript(({ theme, oldKey, key, savedAt }) => {
       localStorage.setItem('theme', theme);
+      localStorage.setItem('arkpedia:privacy:v1', JSON.stringify({ version: 1, analytics: false, externalMedia: false, externalMediaChosen: true, savedAt }));
       const planKey = 'arkpediaSkinPlan';
       if (localStorage.getItem(planKey) === null) localStorage.setItem(planKey, JSON.stringify(theme === 'dark' ? [oldKey] : [oldKey, key]));
-    }, { theme, oldKey, key });
+    }, { theme, oldKey, key, savedAt: clock.getTime() });
     await page.goto('/pull-planner');
     const wishlist = page.getByRole('button', { name: /Skin wishlist/ });
     await expect(wishlist).toContainText(/1\s+21 OP reserved/);
@@ -276,9 +279,11 @@ for (const theme of ['dark', 'light']) {
     const dialog = page.getByRole('dialog', { name: 'Skin wishlist' });
     await dialog.getByRole('button', { name: 'Planned only' }).click();
     const cardName = 'Mon3tr — Sharpened Claws, 21 OP';
-    await expect(dialog.getByRole('button', { name: cardName })).toHaveAttribute('aria-pressed', 'true');
+    const undated = dialog.getByRole('region', { name: 'Planned outfits with an unknown shop date' });
+    await expect(undated.getByRole('button', { name: cardName })).toHaveAttribute('aria-pressed', 'true');
     await expect(dialog.getByText('Sharpened Blades', { exact: false })).toHaveCount(0);
     await expect(dialog.getByRole('status')).toContainText('To buy21 OP');
+    await expect(dialog.getByRole('status')).toContainText('With unknown shop date21 OP');
 
     const reserve = dialog.locator('summary', { hasText: 'Extra OP reserve' });
     await reserve.focus();
@@ -307,9 +312,11 @@ for (const theme of ['dark', 'light']) {
     await expect(page.getByText('1 wishlisted · 21 OP catalogue total', { exact: false })).toBeVisible();
     await page.goto('/skin-planner');
     await page.getByRole('button', { name: 'Planned only' }).click();
-    const planned = page.getByRole('button', { name: cardName });
+    const planned = page.getByRole('region', { name: 'Planned outfits with an unknown shop date' }).getByRole('button', { name: cardName });
     await expect(planned).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.getByRole('complementary', { name: 'Your skin plan' })).toContainText('With unknown shop date21 OP');
     await planned.click();
+    await expect(page.getByRole('region', { name: 'Planned outfits with an unknown shop date' })).toHaveCount(0);
     await page.goto('/pull-planner');
     await expect(wishlist).toContainText(/0\s+5 OP reserved/);
   });
