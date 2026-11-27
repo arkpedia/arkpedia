@@ -1,6 +1,7 @@
 import { getBaseStats } from '../operators/operatorStats';
 import { calculate, initialTarget, mitigate, normalize, type Build } from './calculator';
 import type { AttackType, Defender, DefenderSkillRank, EnemyAbility, PatriotStances } from './survivalRoster';
+import { frame, framesPerSecond, planCasts, type Cast, type Cycle } from './skillCasts';
 
 export interface Defense {
   hp: number;
@@ -74,12 +75,7 @@ export interface HealthPoint {
 interface Restore { amount: number; belowHalf: number }
 interface Hit { atk: number; type: EnemyAbility['type']; count?: number }
 interface Event { hits: Hit[]; heals: Restore[]; regenerationChange: number }
-interface Cast { start: number; end: number }
 interface SkillWindow extends Cast { rank: DefenderSkillRank }
-interface Cycle { cost: number; initial: number; limit?: number }
-
-const framesPerSecond = 30;
-const frame = (time: number) => Math.round(time * framesPerSecond);
 
 export function defenderStats(operator: Defender, elite: number, level: number, potential: number): Defense {
   const base = getBaseStats(operator.stats.phases[elite], level);
@@ -97,19 +93,6 @@ export function defenderStats(operator: Defender, elite: number, level: number, 
 
 function activeAt(windows: SkillWindow[], tick: number) {
   return windows.find(window => tick >= window.start && tick < window.end)?.rank;
-}
-
-// This baseline assumes 1 SP/s and no SP recovery while the skill is active.
-function planCasts(start: number, duration: number | null, end: number, cycle?: Cycle, permanentAfterFirst = false) {
-  const casts: Cast[] = [];
-  let ready = cycle ? frame(Math.max(0, cycle.cost - cycle.initial)) : frame(start);
-  while (ready <= end && casts.length < (cycle?.limit ?? Infinity)) {
-    const stop = duration === null || permanentAfterFirst && casts.length > 0 ? Infinity : ready + frame(duration);
-    casts.push({ start: ready, end: stop });
-    if (!cycle || stop === Infinity) break;
-    ready = stop + Math.max(1, frame(cycle.cost));
-  }
-  return casts;
 }
 
 export function healerSkillCycle(b: Build): Cycle | undefined {
@@ -187,7 +170,7 @@ export function simulateSurvival(enemy: Attack | EnemyPhase[], defender: Defense
   const basicHits = reference.basicHits ?? 1;
   const hitDamage = mitigate(reference.atk, reference.type, damageTarget(defender));
   const end = frame(seconds);
-  const windows = skill ? planCasts(skill.duration === null ? 0 : skill.start, skill.duration, end, skill.cycle ? skill.sp : undefined)
+  const windows = skill ? planCasts(skill.duration === null || skill.cycle && skill.sp ? 0 : skill.start, skill.duration, end, skill.cycle ? skill.sp : undefined)
     .map(cast => ({ ...cast, rank: skill })) : [];
   function eventAt(events: Map<number, Event>, tick: number) {
     let event = events.get(tick);
@@ -254,7 +237,7 @@ export function simulateSurvival(enemy: Attack | EnemyPhase[], defender: Defense
     const sp = cycle ? healerSkillCycle(b) : undefined;
     const harukaS2 = b.operator === 'haruka' && b.skill === 2;
     const permanent = duration < 0 || harukaS2 && !sp && !b.firstHealingCast;
-    const casts = b.skill ? planCasts(delay, permanent ? null : duration, sp && harukaS2 ? Math.max(end, frame(120)) : end, sp, !!sp && harukaS2) : [];
+    const casts = b.skill ? planCasts(sp ? 0 : delay, permanent ? null : duration, sp && harukaS2 ? Math.max(end, frame(120)) : end, sp, !!sp && harukaS2) : [];
     if (sp) healerCycles.push({ id: b.id, name: b.character.name,
       casts: casts.map(cast => ({ start: cast.start / framesPerSecond, end: cast.end === Infinity ? null : cast.end / framesPerSecond })) });
     const phases: [number, number, Build][] = [];

@@ -17,7 +17,7 @@ import {
 import { firstBurst } from '@/lib/dps/breakpoints';
 import { chartControls, type ChartMetric as Metric, type DefenseAxis } from '@/lib/dps/controls';
 import { damageBasis, dpsLabel, sharedDamageBasis } from '@/lib/dps/damageLabels';
-import { damageAtTime, damageTimeline, fullFightDamageTimeline, simulateEnemyHp, type DamageEnemy } from '@/lib/dps/damageTimeline';
+import { damageAtTime, damageCasts, damageTimeline, fullFightDamageTimeline, simulateEnemyHp, type DamageEnemy } from '@/lib/dps/damageTimeline';
 import type { EnemyFightPhase } from '@/lib/dps/enemyFightPhases';
 import { renderComparisonImage, type ImageView } from '@/lib/dps/comparisonImage';
 import { hpAt } from '@/lib/dps/survival';
@@ -254,6 +254,7 @@ export default function ComparisonPlot({
   const [preferredNextForm, setNextForm] = useState<string>();
   const [preferredHpBuild, setHpBuild] = useState<number>();
   const [activationTime, setActivationTime] = useState(5);
+  const [repeatSkills, setRepeatSkills] = useState(false);
   const [inspectedTime, setInspectedTime] = useState(5);
   const selectedForm = damageEnemy?.forms?.find(form => form.id === damageEnemy.selectedForm);
   const alternateForms = damageEnemy?.forms?.filter(form => form.id !== selectedForm?.id) ?? [];
@@ -277,14 +278,15 @@ export default function ComparisonPlot({
   const fixedModels = useMemo(() => showingDamageTime
     ? builds.map((b, i) => damageTimeline(b, target, results[i]))
     : [], [showingDamageTime, builds, target, results]);
+  const canRepeat = fixedModels.some(model => model?.recovery);
   const hpCandidates = builds.filter((_, i) => fixedModels[i]);
   const hpBuild = hpCandidates.find(b => b.id === preferredHpBuild)
     ?? hpCandidates.find(b => b.id === baselineId) ?? hpCandidates[0];
   const hpIndex = builds.indexOf(hpBuild);
   const maxHp = damageEnemy?.hp;
   const hpRun = useMemo(() => maxHp && hpBuild
-    ? simulateEnemyHp({ build: hpBuild, target, maxHp, fight: fullFight, activation, duration, manual })
-    : null, [maxHp, hpBuild, target, fullFight, activation, duration, manual]);
+    ? simulateEnemyHp({ build: hpBuild, target, maxHp, fight: fullFight, activation, duration, manual, repeat: repeatSkills })
+    : null, [maxHp, hpBuild, target, fullFight, activation, duration, manual, repeatSkills]);
   const phases = hpRun?.phases ?? [];
   const inspectedPhase = phases.filter(phase => phase.start <= time).at(-1);
   const namedPhases = phases.filter((phase, i) => phase.name && phase.name !== phases[i - 1]?.name && phase.name !== 'HP depleted');
@@ -307,7 +309,8 @@ export default function ComparisonPlot({
   const damageModels = useMemo(() => hpRun ? builds.map(b => fullFightDamageTimeline(b, hpRun.phases)) : fixedModels,
     [builds, fixedModels, hpRun]);
   const damageRows = damageModels.map((timeline, i) => {
-    const sample = timeline && damageAtTime(timeline, time, activation);
+    const casts = timeline ? damageCasts(timeline, activation, duration, repeatSkills) : [];
+    const sample = timeline && damageAtTime(timeline, time, casts);
     let value = 'Timeline unavailable';
     if (timeline && sample) {
       const phase = sample.invulnerable ? 'Target invulnerable' : sample.depleted ? 'Target HP depleted'
@@ -318,23 +321,36 @@ export default function ComparisonPlot({
       value = fmt(sample.dps) + ' DPS · ' + phase;
     }
     const details = [];
-    if (timeline?.skill) {
+    const repeats = repeatSkills && !!timeline?.recovery;
+    if (repeats) {
+      const { cost, initial, automatic } = timeline.recovery!;
+      const next = casts.find(cast => cast.start > time);
+      details.push(`${casts.length} ${casts.length === 1 ? 'activation' : 'activations'} · ${fmt(initial)} initial SP · ${fmt(cost)} SP per cast`);
+      if (next) details.push(`Next cast at ${fmt(next.start)} s`);
+      if (!casts.length) details.push(`First cast at ${fmt(Math.max(automatic ? 0 : activation, cost - initial))} s`);
+    } else if (canRepeat && repeatSkills && casts.length) {
+      details.push('One activation · Automatic SP timing unavailable');
+    }
+    const cast = casts.findLast(cast => cast.start <= time) ?? casts[0];
+    if (timeline?.skill && cast) {
       const { duration: length, dps } = timeline.skill;
       const label = fullFight ? 'Skill active' : 'Skill DPS ' + fmt(dps);
-      details.push(`${label} · ${fmt(activation)}–${fmt(activation + length)} s (${fmt(length)} s)`);
+      details.push(`${label} · ${fmt(cast.start)}–${fmt(cast.end)} s (${fmt(length)} s)`);
     }
-    if (timeline?.opening) {
-      const opening = damageAtTime(timeline, activation, activation);
-      const amount = i === hpIndex ? hpRun?.openingDamage ?? opening.openingDamage : opening.openingDamage;
+    if (timeline?.opening && cast) {
+      const opening = damageAtTime(timeline, cast.start, casts);
+      const amount = i === hpIndex ? hpRun?.openingHits.get(cast.start) ?? opening.openingDamage : opening.openingDamage;
       const blocked = amount === 0 && opening.invulnerable;
-      details.push(`${timeline.opening.label} at ${fmt(activation)} s · ${fmt(amount)} damage${blocked ? ' (invulnerable)' : ''}`);
+      details.push(`${timeline.opening.label} at ${fmt(cast.start)} s · ${fmt(amount)} damage${blocked ? ' (invulnerable)' : ''}`);
     }
     if (!fullFight && timeline?.attackDps && (timeline.skill || timeline.opening)) {
       details.push(`Attack DPS ${fmt(timeline.attackDps)}`);
     }
-    return { id: builds[i].id, color: color(i), timeline, value, details };
+    return { id: builds[i].id, color: color(i), timeline, casts, value, details };
   });
   const hasDamageTimeline = damageRows.some(row => row.timeline);
+  const showCastInput = damageRows.some(({ timeline }) => (timeline?.skill || timeline?.opening)
+    && (!repeatSkills || !timeline?.recovery?.automatic));
   const [saving, setSaving] = useState<ImageView | null>(null);
   const [preview, setPreview] = useState<{ view: ImageView; blob: Blob } | null>(null);
   const [previewUrl, setPreviewUrl] = useState('');
@@ -423,9 +439,12 @@ export default function ComparisonPlot({
                   <Pick label="Chart length" value={duration} options={lengthOptions.map(s => ({
                     value: String(s), label: s + ' s',
                   }))} change={value => (fullFight ? setFightDuration : setFixedDuration)(Number(value))} />
-                  {damageRows.some(row => row.timeline?.skill || row.timeline?.opening) && (
+                  {canRepeat && <Pick label="Skill timing" value={repeatSkills ? 'repeat' : 'once'} options={[
+                    { value: 'once', label: 'One activation' }, { value: 'repeat', label: 'Repeat when ready' },
+                  ]} change={value => setRepeatSkills(value === 'repeat')} />}
+                  {showCastInput && (
                     <label className={css.field}>
-                      Activate skill at (s)
+                      {canRepeat && repeatSkills ? 'Earliest cast (s)' : 'Activate skill at (s)'}
                       <input type="number" min={0} max={duration - 1} value={activation}
                         onChange={event => {
                           const value = event.currentTarget.valueAsNumber;
@@ -441,7 +460,7 @@ export default function ComparisonPlot({
                 {phaseSummary ?? `${fullFight[0].name} continues through ${fmt(duration)} s`}
                 {damageResumes !== undefined && ` · Damage resumes at ${fmt(damageResumes)} s`}
               </small>}
-              <DamageTimelinePlot rows={damageRows} activation={activation} duration={duration}
+              <DamageTimelinePlot rows={damageRows} duration={duration}
                 time={time} inspect={setInspectedTime} width={chartWidth} chart={chart} phases={phases} hp={hpRun} />
             </>
           )}
@@ -459,7 +478,9 @@ export default function ComparisonPlot({
           </div>
           {hasDamageTimeline && (
             <small>
-              Shows one activation using average DPS for each phase.
+              {canRepeat && repeatSkills
+                ? 'Automatic recovery uses initial SP and 1 SP/s outside each active window.'
+                : 'Shows one activation using average DPS for each phase.'}
               {damageRows.some(row => row.timeline?.opening) && ' Opening damage appears as a one-second spike at activation.'}
               {hpRun && ' The dashed HP line counts opening hits at activation.'}
               {hpRun && hpCandidates.length > 1 && ' All DPS traces use the selected HP source’s encounter timing.'}

@@ -1,6 +1,7 @@
 import type { CSSProperties, RefObject } from 'react';
 import { damageAtTime, type DamageTargetPhase, type DamageTimeline } from '@/lib/dps/damageTimeline';
 import { hpAt, type HealthPoint } from '@/lib/dps/survival';
+import type { Cast } from '@/lib/dps/skillCasts';
 import css from './Dps.module.css';
 
 const formatTick = new Intl.NumberFormat('en-US', { maximumFractionDigits: 1 });
@@ -8,7 +9,6 @@ const formatHpTick = new Intl.NumberFormat('en-US', { notation: 'compact', maxim
 
 export default function DamageTimelinePlot({
   rows,
-  activation,
   duration,
   time,
   inspect,
@@ -17,8 +17,7 @@ export default function DamageTimelinePlot({
   phases,
   hp,
 }: {
-  rows: { id: number; timeline: DamageTimeline | null; color: string }[];
-  activation: number;
+  rows: { id: number; timeline: DamageTimeline | null; casts: Cast[]; color: string }[];
   duration: number;
   time: number;
   inspect: (time: number) => void;
@@ -32,26 +31,28 @@ export default function DamageTimelinePlot({
   const top = 38;
   const bottom = 218;
   const x = (s: number) => left + (s / duration) * (right - left);
-  const plotted = rows.flatMap(({ id, timeline, color }, index) => {
+  const plotted = rows.flatMap(({ id, timeline, casts, color }, index) => {
     if (!timeline) return [];
     const times = new Set([0, duration]);
     for (const phase of phases) {
       if (phase.start <= duration) times.add(phase.start);
     }
-    if (activation <= duration && (timeline.skill || timeline.opening)) {
-      times.add(activation);
-      if (timeline.skill) times.add(Math.min(duration, activation + timeline.skill.duration));
-      if (timeline.opening) times.add(Math.min(duration, activation + 1));
+    for (const cast of casts) {
+      times.add(cast.start);
+      if (timeline.skill) times.add(Math.min(duration, cast.end));
+      if (timeline.opening) times.add(Math.min(duration, cast.start + 1));
     }
-    const points = [...times].sort((a, b) => a - b).map(s => [s, damageAtTime(timeline, s, activation).dps] as const);
-    return [{ id, color, index, points, cursor: damageAtTime(timeline, time, activation).dps }];
+    const points = [...times].sort((a, b) => a - b).map(s => [s, damageAtTime(timeline, s, casts).dps] as const);
+    return [{ id, color, index, points, cursor: damageAtTime(timeline, time, casts).dps }];
   });
   const peak = Math.max(1, ...plotted.flatMap(row => row.points.map(([, dps]) => dps)));
   const unit = 10 ** Math.floor(Math.log10(peak));
   const max = Math.ceil(peak / unit * 2) * unit / 2;
   const y = (dps: number) => bottom - (dps / max) * (bottom - top);
-  const skillDurations = new Set(rows.flatMap(row => row.timeline ? [row.timeline.skill?.duration ?? 0] : []));
-  const skillDuration = skillDurations.size === 1 ? [...skillDurations][0] : 0;
+  const schedules = rows.filter(row => row.timeline).map(row => row.casts);
+  const sharedCasts = schedules.every(casts => casts.length === schedules[0].length
+    && casts.every((cast, i) => cast.start === schedules[0][i].start && cast.end === schedules[0][i].end))
+    ? schedules[0] ?? [] : [];
   const namedPhases = phases.filter((phase, i) => phase.name && phase.name !== phases[i - 1]?.name && phase.name !== 'HP depleted');
   const inspectedPhase = phases.filter(phase => phase.start <= time).at(-1);
   const hpY = (value: number) => bottom - (value / (hp?.maxHp ?? 1)) * (bottom - top);
@@ -77,10 +78,10 @@ export default function DamageTimelinePlot({
           inspect(Math.max(0, Math.min(duration, Math.round(((position.x - left) / (right - left)) * duration * 10) / 10)));
         }}>
         <text x={namedPhases.length ? 12 : left} y="19">DPS</text>
-        {skillDuration > 0 && activation < duration && (
-          <rect x={x(activation)} y={top} width={x(Math.min(duration, activation + skillDuration)) - x(activation)}
+        {sharedCasts.map(cast => cast.end > cast.start && cast.start < duration && (
+          <rect key={cast.start} x={x(cast.start)} y={top} width={x(Math.min(duration, cast.end)) - x(cast.start)}
             height={bottom - top} fill="var(--teal)" fillOpacity=".1" />
-        )}
+        ))}
         {hp && <text x={width - 12} y="19" textAnchor="end">HP</text>}
         {phases.map((phase, index) => phase.state === 'invulnerable' && phase.start < duration && (
           <rect key={index} x={x(phase.start)} y={top}

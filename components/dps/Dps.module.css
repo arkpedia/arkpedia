@@ -327,3 +327,6 @@
 .rowPlot line {
   stroke: var(--line);
 }
+.searchIdentity { min-width: 0; display: grid; overflow-wrap: anywhere; }
+.searchIcon { flex: none; object-fit: contain; }
+.searchMeta { display: flex; align-items: center; gap: 4px; }

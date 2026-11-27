@@ -1,4 +1,39 @@
 import { expect, test } from '@playwright/test';
+
+test('searches the full roster and plots SP-ready recasts on the Damage Timeline', async ({ page }) => {
+  await page.goto('/dps-calculator');
+  const add = page.getByRole('combobox', { name: 'Add operator', exact: true });
+  await add.fill('Adnachiel');
+  const marksman = page.getByRole('option', { name: 'Adnachiel', exact: true });
+  await expect(marksman).toHaveAccessibleDescription('3-star, Marksman');
+  await expect(marksman.locator('img')).toHaveAttribute('src', /Adnachiel/);
+  await expect(marksman.locator('[role="img"][title="Marksman"]')).toBeVisible();
+  await add.press('Escape');
+
+  await add.fill('Ulpianus');
+  await page.getByRole('option', { name: 'Ulpianus', exact: true }).click();
+  const enemy = page.getByRole('combobox', { name: 'Find enemy', exact: true });
+  await enemy.fill('enemy_10009_sggem');
+  await page.getByRole('option', { name: /^Crystal/ }).click();
+  await enemy.fill('Patriot');
+  const patriot = page.getByRole('option', { name: /^Patriot PT/ });
+  await expect(patriot.locator('img')).toHaveAttribute('src', /Patriot\.webp/);
+  await patriot.click();
+
+  await page.getByRole('button', { name: 'Timeline', exact: true }).click();
+  await page.getByRole('combobox', { name: 'Patriot fight', exact: true }).click();
+  await page.getByRole('option', { name: 'Full fight', exact: true }).click();
+  await page.getByRole('combobox', { name: 'Skill timing', exact: true }).click();
+  await page.getByRole('option', { name: 'Repeat when ready', exact: true }).click();
+  await page.getByRole('spinbutton', { name: 'Earliest cast (s)', exact: true }).fill('0');
+  const results = page.getByRole('group', { name: 'Damage timeline results' });
+  const inspect = page.getByRole('slider', { name: 'Inspect time', exact: true });
+  await expect(results).toContainText('3 activations · 20 initial SP · 25 SP per cast');
+  await inspect.fill('55');
+  await expect(results).toContainText('Anchor throw at 55 s · 0 damage (invulnerable)');
+  await inspect.fill('105');
+  await expect(results).toContainText('Anchor throw at 105 s · 8,798.24 damage');
+});
 import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 

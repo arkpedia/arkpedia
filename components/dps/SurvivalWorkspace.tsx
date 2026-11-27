@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { fetchAsset } from '@/lib/assets/assetRetry';
+import { useContentUrl } from '@/lib/content/context';
 import { buildLabel, createBuild, profile, rankLabel, type Build, type Profile } from '@/lib/dps/calculator';
 import { isHealingProfile } from '@/lib/dps/healing';
 import { defenderStats, healerSkillCycle, patriotAttack, patriotFight, simulateSurvival, type ActiveDefense, type Defense, type PatriotPosition, type SurvivalHealer } from '@/lib/dps/survival';
-import type { AttackType, Attacker, Defender, SurvivalRoster } from '@/lib/dps/survivalRoster';
+import { loadDpsCatalogue, type AttackType, type Attacker, type Defender, type SurvivalRoster } from '@/lib/dps/survivalRoster';
 import BuildEditor, { DamageSource } from './BuildEditor';
-import BuildSearch from './BuildSearch';
+import BuildSearch, { operatorChoice } from './BuildSearch';
 import { fmt, Pick } from './ComparisonPlot';
 import SurvivalPlot, { survivalTimeWindows } from './SurvivalPlot';
 import css from './Dps.module.css';
@@ -117,21 +117,20 @@ function DefenderSettings({ build, update }: { build: DefenderBuild; update: (va
   );
 }
 
-export default function SurvivalWorkspace({ profiles }: { profiles: Profile[] }) {
+export default function SurvivalWorkspace({ profiles, enemyIcons }: { profiles: Profile[]; enemyIcons?: Record<string, string> }) {
   const [data, setData] = useState<SurvivalRoster | 'error' | null>(null);
   const [retry, setRetry] = useState(0);
+  const contentUrl = useContentUrl();
   useEffect(() => {
-    let current = true;
-    fetchAsset('/dps-survival.json').then(response => {
-      if (!response.ok) throw new Error('Survival roster unavailable');
-      return response.json() as Promise<SurvivalRoster>;
-    }).then(roster => {
-      if (current) setData(roster);
+    const controller = new AbortController();
+    const path = '/dps-survival.json';
+    loadDpsCatalogue<SurvivalRoster>(contentUrl(path), path, controller.signal).then(roster => {
+      if (!controller.signal.aborted) setData(roster);
     }).catch(() => {
-      if (current) setData('error');
+      if (!controller.signal.aborted) setData('error');
     });
-    return () => { current = false; };
-  }, [retry]);
+    return () => controller.abort();
+  }, [retry, contentUrl]);
 
   const [enemy, setEnemy] = useState<Attacker>();
   const [enemyLevel, setEnemyLevel] = useState(0);
@@ -149,16 +148,20 @@ export default function SurvivalWorkspace({ profiles }: { profiles: Profile[] })
     const counts = new Map<string, number>();
     for (const e of roster?.enemies ?? []) counts.set(e.name, (counts.get(e.name) ?? 0) + 1);
     return (roster?.enemies ?? []).map(e => ({
-      id: e.id, name: e.name, code: e.code,
+      id: e.id, name: e.name, code: e.code, icon: enemyIcons?.[e.id],
       detail: [e.code, counts.get(e.name)! > 1 ? e.id : null].filter(Boolean).join(' · '),
     }));
-  }, [roster]);
+  }, [roster, enemyIcons]);
+  const profileById = useMemo(() => new Map(profiles.map(p => [p.id, p])), [profiles]);
   const operatorChoices = useMemo(() => (roster?.operators ?? [])
     .filter(operator => !healers.some(({ build }) => operator.id.endsWith('_' + build.operator)))
-    .map(({ id, name }) => ({ id, name })), [roster, healers]);
+    .map(({ id, name }) => {
+      const profile = profileById.get(id.split('_').at(-1)!);
+      return { ...(profile && operatorChoice(profile)), id, name };
+    }), [roster, healers, profileById]);
   const healerChoices = useMemo(() => profiles.filter(p => isHealingProfile(p)
     && !defender?.operator.id.endsWith('_' + p.id) && !healers.some(({ build }) => build.operator === p.id))
-    .map(p => ({ id: p.id, name: p.name })).sort((a, b) => a.name.localeCompare(b.name)), [profiles, defender?.operator.id, healers]);
+    .map(operatorChoice).sort((a, b) => a.name.localeCompare(b.name)), [profiles, defender?.operator.id, healers]);
 
   const baseAttack = enemy?.levels.find(level => level.level === enemyLevel);
   const ability = baseAttack?.ability;
@@ -224,12 +227,16 @@ export default function SurvivalWorkspace({ profiles }: { profiles: Profile[] })
                 pick={id => {
                   const chosen = roster.enemies.find(e => e.id === id)!;
                   setEnemy(chosen);
-                  setEnemyLevel(chosen.levels[0].level);
+                  setEnemyLevel(chosen.levels[0]?.level ?? 0);
                   setAttackType(chosen.types.length === 1 ? chosen.types[0] : undefined);
                   setEnemySkillEnabled(true);
                   setStance('marching');
                   setPatriotTarget(undefined);
                 }} />
+              {enemy && !baseAttack && <div className={css.editor}>
+                <strong>{enemy.name}</strong>
+                <small>Incoming attacks are unavailable for this enemy.</small>
+              </div>}
               {enemy && baseAttack && <div className={css.editor}>
                 <strong>{enemy.name}{enemy.code ? ' · ' + enemy.code : ''}</strong>
                 <small>Lv {enemyLevel} · {fmt(startingAttack?.atk ?? baseAttack.atk)} ATK

@@ -6,10 +6,15 @@ import { getEnemyBundles } from '../../lib/enemies/enemies';
 import type { EnemyLevel } from '../../lib/enemies/enemyTypes';
 import { getAllOperators } from '../../lib/operators/operators';
 import { getSkillList } from '../../lib/operators/operatorTypes';
-import type { AttackType, DefenderSkillRank, EnemyAbility, PatriotStances, SurvivalRoster } from '../../lib/dps/survivalRoster';
+import type { AttackType, Attacker, CalculatorRoster, DefenderSkillRank, EnemyAbility, PatriotStances, SurvivalRoster } from '../../lib/dps/survivalRoster';
 
-writeFileSync('public/dps-deployment-allies.json', JSON.stringify(deploymentAllies()) + '\n');
-writeFileSync('data/dps-enemy-presets.json', JSON.stringify(enemyTargets()) + '\n');
+const catalogue = getEnemyBundles().flatMap(bundle => bundle.enemies);
+const targets = enemyTargets();
+writeFileSync('public/dps-roster.json', JSON.stringify({
+  operators: deploymentAllies(),
+  enemyIcons: Object.fromEntries(catalogue.flatMap(enemy => enemy.icon ? [[enemy.id, enemy.icon]] : [])),
+} satisfies CalculatorRoster) + '\n');
+writeFileSync('data/dps-enemy-presets.json', JSON.stringify(targets) + '\n');
 
 const enemySkills: Record<string, { key: string; name: string; type: AttackType; mode: EnemyAbility['mode'] }> = {
   enemy_1508_faust: { key: 'CriticalHit', name: 'Special bolt', type: 'Physical', mode: 'next-hit' },
@@ -44,7 +49,7 @@ function patriotStances(level: EnemyLevel, atk: number, period: number, speed: n
   };
 }
 
-const enemies = getEnemyBundles().flatMap(bundle => bundle.enemies.flatMap(enemy => {
+const attackers = new Map<string, Attacker>(catalogue.flatMap(enemy => {
   const types = enemy.damage_type.filter((type): type is AttackType => type === 'Physical' || type === 'Arts');
   const reviewed = enemySkills[enemy.id];
   const levels = enemy.levels.flatMap(row => {
@@ -64,9 +69,10 @@ const enemies = getEnemyBundles().flatMap(bundle => bundle.enemies.flatMap(enemy
     return [{ level, atk, interval: Math.max(1, Math.round(period * 3000 / speed)) / 30, ability, patriot }];
   });
   return types.length && levels.length && enemy.attack_position
-    ? [{ id: enemy.id, name: enemy.name, code: enemy.index, types, levels }]
+    ? [[enemy.id, { id: enemy.id, name: enemy.name, code: enemy.index, types, levels }] as const]
     : [];
-})).sort((a, b) => a.name.localeCompare(b.name, 'en') || a.id.localeCompare(b.id));
+}));
+const enemies = targets.map(({ id, name, code }) => attackers.get(id) ?? { id, name, code, types: [], levels: [] });
 
 // Use the reviewed parts of each effect on the defending operator. Outgoing
 // damage, changes in targeting, and the operator's talents are outside this model.

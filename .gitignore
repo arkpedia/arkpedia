@@ -121,6 +121,7 @@ __pycache__/
 /public/stages-index.json
 /public/operator-search.json
 /public/dps-deployment-allies.json
+/public/dps-roster.json
 /public/dps-survival.json
 # Tables the Worker reads from its static files (scripts/build/ship-tables.mjs).
 /public/_tables/
