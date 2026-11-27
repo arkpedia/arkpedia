@@ -2,8 +2,9 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useContentUrl } from '@/lib/content/context';
 import { buildLabel, createBuild, profile, rankLabel, type Build, type Profile } from '@/lib/dps/calculator';
 import { isHealingProfile } from '@/lib/dps/healing';
+import { frame, framesPerSecond } from '@/lib/dps/skillCasts';
 import { defenderStats, healerSkillCycle, patriotAttack, patriotFight, simulateSurvival, type ActiveDefense, type Defense, type PatriotPosition, type SurvivalHealer } from '@/lib/dps/survival';
-import { loadDpsCatalogue, type AttackType, type Attacker, type Defender, type SurvivalRoster } from '@/lib/dps/survivalRoster';
+import { loadDpsCatalogue, survivalRosterVersion, type AttackType, type Attacker, type Defender, type SurvivalRoster } from '@/lib/dps/survivalRoster';
 import BuildEditor, { DamageSource } from './BuildEditor';
 import BuildSearch, { operatorChoice } from './BuildSearch';
 import { fmt, Pick } from './ComparisonPlot';
@@ -34,14 +35,19 @@ function defenderSkill(build: DefenderBuild) {
   const selected = choices.find(skill => skill.slot === build.skill);
   const ranks = Math.min([4, 7, 10][build.elite], selected?.ranks.length ?? 0);
   const rank = Math.min(ranks, build.rank);
-  const effects = selected && { ...selected.ranks[rank - 1], name: selected.name, start: build.skillStart, cycle: build.cycle };
+  const stats = selected?.ranks[rank - 1];
+  const kind = stats?.sp?.kind;
+  const cycle = build.cycle ?? (kind === 'attack' || kind === 'hit');
+  const effects = selected && stats && { ...stats, name: selected.name, start: build.skillStart, cycle };
   return { choices, ranks, rank, selected, effects };
 }
 
-function SkillStart({ value, change, label }: { value: number; change: (value: number) => void; label: string }) {
+function SkillStart({ value, change, label, nextAttack }: {
+  value: number; change: (value: number) => void; label: string; nextAttack?: boolean;
+}) {
   return (
     <label className={css.field}>
-      Skill starts (s)
+      {nextAttack ? 'Skill ready at (s)' : 'Skill starts (s)'}
       <input type="number" min={0} max={120} step={0.1} value={value} aria-label={label}
         onChange={event => change(Math.min(120, Math.max(0, event.currentTarget.valueAsNumber || 0)))} />
     </label>
@@ -54,7 +60,9 @@ function SkillTiming({ cycle, change, label }: { cycle?: boolean; change: (cycle
   ]} change={value => change(value === 'cycle')} />;
 }
 
-function DefenderSkillControls({ build, update }: { build: DefenderBuild; update: (value: DefenderBuild) => void }) {
+function DefenderSkillControls({ build, update, attackInterval }: {
+  build: DefenderBuild; update: (value: DefenderBuild) => void; attackInterval?: number;
+}) {
   const { choices, ranks, rank, selected, effects } = defenderSkill(build);
   if (!choices.length) return <small>{build.operator.skills?.length
     ? 'Promote this defender to unlock a modeled skill.' : 'No defender skills modeled for this operator.'}</small>;
@@ -63,21 +71,27 @@ function DefenderSkillControls({ build, update }: { build: DefenderBuild; update
       <Pick label="Defender skill" value={selected?.slot ?? 0} options={[
         { value: '0', label: 'No skill' },
         ...choices.map(skill => ({ value: String(skill.slot), label: `S${skill.slot} · ${skill.name}` })),
-      ]} change={value => update({ ...build, skill: Number(value), rank: 10, skillStart: 0 })} />
+      ]} change={value => update({ ...build, skill: Number(value), rank: 10, skillStart: 0, cycle: undefined })} />
       {effects && <>
         <div className={css.fields}>
           <Pick label="Defender skill rank" value={rank} options={numbers(ranks).map(value => ({ value: String(value), label: rankLabel(value) }))}
             change={value => update({ ...build, rank: Number(value) })} />
-          {effects.sp && <SkillTiming label="Defender skill timing" cycle={build.cycle} change={cycle => update({ ...build, cycle })} />}
-          {effects.duration !== null && !(effects.sp && build.cycle) && <SkillStart value={build.skillStart} label="Defender skill start (seconds)"
+          {effects.sp && <SkillTiming label="Defender skill timing" cycle={effects.cycle} change={cycle => update({ ...build, cycle })} />}
+          {(effects.duration !== null || effects.sp) && !(effects.sp && effects.cycle) && <SkillStart value={build.skillStart}
+            nextAttack={!!effects.healOnAttack} label={effects.healOnAttack ? 'Defender skill ready at (seconds)' : 'Defender skill start (seconds)'}
             change={skillStart => update({ ...build, skillStart })} />}
         </div>
         <small>{[
           effects.hp && `Max HP +${fmt(effects.hp * 100)}%`, effects.def && `DEF +${fmt(effects.def * 100)}%`,
           effects.res && `RES +${fmt(effects.res * 100)}%`, effects.regeneration && `${fmt(effects.regeneration)} HP/s self-healing`,
           effects.regenerationRatio && `${fmt(effects.regenerationRatio * 100)}% max HP/s self-healing`,
-          effects.duration === null ? 'Always active' : `${effects.duration} s`,
+          effects.healOnAttack ? `Restores ${fmt(effects.healOnAttack * 100)}% max HP on the next attack`
+            : effects.duration === null ? effects.sp ? 'Unlimited duration' : 'Always active' : `${effects.duration} s`,
         ].filter(Boolean).join(' · ')}</small>
+        {effects.cycle && effects.sp?.kind === 'attack' && <small>
+          Offensive Recovery · 1 SP per attack{attackInterval ? ` · ${fmt(frame(attackInterval) / framesPerSecond)} s attack interval` : ''}
+        </small>}
+        {effects.cycle && effects.sp?.kind === 'hit' && <small>Defensive Recovery · 1 SP per hit taken</small>}
       </>}
     </div>
   );
@@ -124,7 +138,7 @@ export default function SurvivalWorkspace({ profiles, enemyIcons }: { profiles: 
   useEffect(() => {
     const controller = new AbortController();
     const path = '/dps-survival.json';
-    loadDpsCatalogue<SurvivalRoster>(contentUrl(path), path, controller.signal).then(roster => {
+    loadDpsCatalogue<SurvivalRoster>(contentUrl(path), path, controller.signal, roster => roster?.version === survivalRosterVersion).then(roster => {
       if (!controller.signal.aborted) setData(roster);
     }).catch(() => {
       if (!controller.signal.aborted) setData('error');
@@ -296,7 +310,7 @@ export default function SurvivalWorkspace({ profiles, enemyIcons }: { profiles: 
                 <strong>{defender.operator.name}</strong>
                 <small>{fmt(defense.hp)} HP · {fmt(defense.def)} DEF · {fmt(defense.res)} RES</small>
                 {defense.blocksDirectHealing && <small>This defender can receive regeneration. Direct heals have no effect.</small>}
-                <DefenderSkillControls build={defender} update={setDefender} />
+                <DefenderSkillControls build={defender} update={setDefender} attackInterval={defense.attackInterval} />
                 <DefenderSettings build={defender} update={setDefender} />
               </div>}
             </div>
@@ -339,8 +353,8 @@ export default function SurvivalWorkspace({ profiles, enemyIcons }: { profiles: 
           hasHealers={healers.length > 0} missing={enemy && !attackType ? 'Choose the enemy’s attack damage type.' : 'Choose an enemy and a defending operator to plot HP.'} />
         <details className={css.panel}>
           <summary>Simulation assumptions</summary>
-          <p>The defender starts at full HP and healers stay in range. From deployment uses initial SP, then charges 1 SP per second and activates the skill as soon as it is ready. SP does not recover during the active window. One activation assumes the skill is ready at its chosen time.</p>
-          <p>The model uses game-data cooldowns and simplified attack timing. In Patriot’s Full fight, the defender blocks during Marching, then uses the selected position through revival and Ruination. Stage modifiers, SP bonuses, shields, healer buffs and triggered heals are excluded. A lethal hit resolves before healing at the same time.</p>
+          <p>From deployment uses the skill’s initial SP and recovery type. Auto Recovery gains 1 SP/s. Offensive Recovery gains 1 SP per attack, with the enemy in range. Defensive Recovery gains 1 SP for each modeled hit taken, including enemy skill hits and aura pulses. A hit that fills the gauge lands before the skill activates. SP charges between activations.</p>
+          <p>The defender starts at full HP and healers stay in range. Attack timing is approximate. Against Patriot, the defender blocks in Marching, stops attacking in revival and uses the selected position afterward. The simulation excludes stage modifiers, bonus SP, shields, crowd control, and healer buffs. A lethal hit resolves before simultaneous healing.</p>
         </details>
       </div>
     </div>

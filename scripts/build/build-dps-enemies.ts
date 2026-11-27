@@ -6,6 +6,8 @@ import { getEnemyBundles } from '../../lib/enemies/enemies';
 import type { EnemyLevel } from '../../lib/enemies/enemyTypes';
 import { getAllOperators } from '../../lib/operators/operators';
 import { getSkillList } from '../../lib/operators/operatorTypes';
+import type { DamageRecovery } from '../../lib/dps/skillCasts';
+import { survivalRosterVersion } from '../../lib/dps/survivalRoster';
 import type { AttackType, Attacker, CalculatorRoster, DefenderSkillRank, EnemyAbility, PatriotStances, SurvivalRoster } from '../../lib/dps/survivalRoster';
 
 const catalogue = getEnemyBundles().flatMap(bundle => bundle.enemies);
@@ -79,11 +81,17 @@ const enemies = targets.map(({ id, name, code }) => attackers.get(id) ?? { id, n
 const reviewedSlots: Record<string, number[]> = {
   char_150_snakek: [2], char_136_hsguma: [1, 2, 3], char_199_yak: [1, 2],
   char_381_bubble: [2], char_325_bison: [2],
+  char_4123_ela: [2], char_4088_hodrer: [1], char_311_mudrok: [2],
+  char_1044_hsgma2: [1], char_2026_yu: [1], char_4207_branch: [1],
 };
+const healingStrikes = new Set(['char_4088_hodrer:1', 'char_311_mudrok:2']);
+const recoveryKinds = new Map<string, DamageRecovery['kind']>([
+  ['Auto Recovery', 'time'], ['Offensive Recovery', 'attack'], ['Defensive Recovery', 'hit'],
+]);
 
 const operators = getAllOperators().flatMap(op => {
   if (!op.internalName || !op.stats?.phases.length) return [];
-  const statKeys = { 'Max HP': 'hp', DEF: 'def', RES: 'res', 'DP cost': 'dp' } as const;
+  const statKeys = { 'Max HP': 'hp', DEF: 'def', RES: 'res', 'DP cost': 'dp', ASPD: 'aspd', 'Attack Speed': 'aspd' } as const;
   const potential = (op.potential?.levels ?? []).map(({ benefit }) => {
     for (const [label, key] of Object.entries(statKeys)) {
       const match = benefit.match(new RegExp('^' + label + '\\s*([+-]\\s*\\d+)', 'i'));
@@ -95,30 +103,35 @@ const operators = getAllOperators().flatMap(op => {
   const skills = getSkillList(op).flatMap((skill, i) => {
     const slot = i + 1;
     if (!skill.name || (!reviewedSlots[op.internalName!]?.includes(slot) && !/^DEF Up [αβγ]$/.test(skill.name))) return [];
+    const kind = recoveryKinds.get(skill.recoveryType ?? '');
+    const healsOnAttack = healingStrikes.has(`${op.internalName}:${slot}`);
     const ranks = skill.levels.map(level => {
       const desc = level.description ?? '';
       const percent = (stat: string) => {
-        const value = desc.match(new RegExp('\\b' + stat + '\\s*\\+([\\d.]+)%', 'i'))?.[1];
+        const value = desc.match(new RegExp('\\b' + stat + '\\s*(?:by\\s*)?\\+([\\d.]+)%', 'i'))?.[1];
         return value === undefined ? undefined : Number(value) / 100;
       };
       const regen = desc.match(/Restores HP by ([\d.]+)(% of Max HP)? per second/i);
+      const strikeHeal = healsOnAttack ? desc.match(/restores\s+(?:HP by\s+)?([\d.]+)%/i)?.[1] : undefined;
       const cost = Number(level.spCost), initial = Number(level.initialSp);
-      const sp = skill.recoveryType === 'Auto Recovery' && cost > 0 && Number.isFinite(cost) && Number.isFinite(initial)
-        ? { cost, initial } : undefined;
+      const sp = kind && level.initialSp !== null && cost > 0 && Number.isFinite(cost) && Number.isFinite(initial)
+        ? { cost, initial, kind } : undefined;
       return {
         def: percent('DEF'), res: percent('RES'), hp: percent('Max HP'),
         regeneration: regen && !regen[2] ? Number(regen[1]) : undefined,
         regenerationRatio: regen?.[2] ? Number(regen[1]) / 100 : undefined,
-        duration: level.duration === null ? null : Number(level.duration),
+        healOnAttack: strikeHeal === undefined ? undefined : Number(strikeHeal) / 100,
+        duration: healsOnAttack ? 0 : level.duration === null ? null : Number(level.duration),
         sp,
       } satisfies DefenderSkillRank;
     });
-    return ranks.length && ranks.every(rank => (rank.def || rank.res || rank.hp || rank.regeneration || rank.regenerationRatio)
-      && (rank.duration === null || Number.isFinite(rank.duration) && rank.duration > 0))
+    return ranks.length && ranks.every(rank => rank.healOnAttack && rank.sp
+      || (rank.def || rank.res || rank.hp || rank.regeneration || rank.regenerationRatio)
+        && (rank.duration === null || Number.isFinite(rank.duration) && rank.duration > 0))
       ? [{ slot, name: skill.name, ranks }] : [];
   });
   return [{ id: op.internalName, name: op.name, stats: op.stats, potential, blocksDirectHealing,
     ranged: op.position === 'Ranged' || undefined, ...(skills.length ? { skills } : {}) }];
 });
 
-writeFileSync('public/dps-survival.json', JSON.stringify({ enemies, operators } satisfies SurvivalRoster) + '\n');
+writeFileSync('public/dps-survival.json', JSON.stringify({ version: survivalRosterVersion, enemies, operators } satisfies SurvivalRoster) + '\n');

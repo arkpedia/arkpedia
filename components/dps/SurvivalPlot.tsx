@@ -60,8 +60,13 @@ export default function SurvivalPlot({ result, duration, setDuration, hasHealers
           } as CSSProperties}>
             <svg className={css.plot} viewBox={`0 0 ${width} 265`} role="img" aria-label="Operator HP over time">
               <text x="14" y="18">HP</text>
-              {windows.map(window => <rect key={window.start} x={x(window.start)} y={top}
-                width={x(Math.min(duration, window.end ?? duration)) - x(window.start)} height={bottom - top} fill="var(--teal-dim)" />)}
+              {windows.map(window => window.start === window.end
+                ? <line key={window.start} x1={x(window.start)} x2={x(window.start)} y1={top} y2={bottom}
+                  style={{ stroke: 'var(--teal)' }}>
+                  <title>{result.defenderSkill} at {fmt(window.start)} s</title>
+                </line>
+                : <rect key={window.start} x={x(window.start)} y={top}
+                  width={x(Math.min(duration, window.end ?? duration)) - x(window.start)} height={bottom - top} fill="var(--teal-dim)" />)}
               {[0, 0.25, 0.5, 0.75, 1].map(fraction => (
                 <g key={fraction}>
                   <line x1={left} x2={right} y1={y(fraction * maxHp)} y2={y(fraction * maxHp)} />
@@ -101,8 +106,10 @@ export default function SurvivalPlot({ result, duration, setDuration, hasHealers
               {result.alone.defeatedAt !== null && <small>Defeated at {fmt(result.alone.defeatedAt)} s</small>}
             </div>}
             {latestHit && <small><span style={{ borderColor: 'var(--amber)' }}>Last enemy skill hit</span> {latestHit.name} at {fmt(latestHit.time)} s · {fmt(latestHit.damage)} damage</small>}
-            {result.defenderSkill && <small><span style={{ borderColor: 'var(--teal)' }}>Defender skill</span> {result.defenderSkill} · {windows.map(window =>
-              window.end === null ? 'Always active' : `${fmt(window.start)}–${fmt(window.end)} s`).join(', ') || 'No activation in this window'}</small>}
+            {result.defenderSkill && <small><span style={{ borderColor: 'var(--teal)' }}>Defender skill</span> {result.defenderSkill} · {windows.map(({ start, end }) => {
+              if (end === null) return start === 0 ? 'Always active' : `From ${fmt(start)} s (permanent)`;
+              return end === start ? `${fmt(start)} s` : `${fmt(start)}–${fmt(end)} s`;
+            }).join(', ') || 'No activation in this window'}</small>}
           </div>
           {result.healerCycles.length > 0 && <div className={css.targetResults} role="group" aria-label="Planned healer activations">
             <small>Planned healer activations</small>

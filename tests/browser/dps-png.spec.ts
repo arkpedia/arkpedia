@@ -586,6 +586,41 @@ test('compares Faust’s special bolt with and without Cuora’s Shell Defense',
   await expect(page.getByText('Defeated at 20 s', { exact: true })).toBeVisible();
 });
 
+test('times Survival skills from the defender’s attacks and Patriot’s individual hits', async ({ page }) => {
+  await page.goto('/dps-calculator');
+  await page.getByRole('tab', { name: 'Survival' }).click();
+  const choose = async (label: string, option: RegExp, query?: string) => {
+    const control = page.getByRole('combobox', { name: label, exact: true });
+    if (query) await control.fill(query);
+    else await control.press('Enter');
+    await page.getByRole('option', { name: option }).click();
+  };
+  await choose('Choose enemy', /^Patriot PT$/, 'Patriot');
+  await choose('Choose defender', /^Vetochki$/, 'Vetochki');
+  await page.getByText('Defender settings', { exact: true }).click();
+  await page.getByRole('spinbutton', { name: 'Max HP', exact: true }).fill('200000');
+  await page.getByText('Defender settings', { exact: true }).click();
+  await choose('Defender skill', /Desperate Resistance/);
+  await choose('Time window', /^60 s$/);
+  const results = page.getByRole('group', { name: 'HP at inspected time' });
+  await expect(page.getByText('Defensive Recovery · 1 SP per hit taken')).toBeVisible();
+  await expect(results).toContainText('Desperate Resistance · 8–20 s, 32–44 s, 56–68 s');
+
+  await choose('Choose enemy', /^Faust FA$/, 'Faust');
+  await choose('Choose defender', /^Hoederer$/, 'Hoederer');
+  await choose('Defender skill', /Unquenchable Front/);
+  await choose('Time window', /^30 s$/);
+  await expect(page.getByText('Offensive Recovery · 1 SP per attack · 2.5 s attack interval')).toBeVisible();
+  await expect(results).toContainText('Unquenchable Front · 7.5 s, 15 s, 22.5 s, 30 s');
+  await expect(page.getByRole('img', { name: 'Operator HP over time' }).locator('title')
+    .filter({ hasText: 'Unquenchable Front at 7.5 s' })).toHaveCount(1);
+  await choose('Defender skill timing', /^One activation$/);
+  await page.getByRole('spinbutton', { name: 'Defender skill ready at (seconds)' }).fill('8');
+  await expect(results).toContainText('Unquenchable Front · 10 s');
+  await choose('Defender skill timing', /^From deployment$/);
+  await expect(results).toContainText('Unquenchable Front · 7.5 s, 15 s');
+});
+
 test('models Patriot’s stances and Haruka’s full activation sequence', async ({ page }) => {
   await page.goto('/dps-calculator');
   await page.getByRole('tab', { name: 'Survival' }).click();
