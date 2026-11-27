@@ -44,8 +44,10 @@ for (const theme of ['dark', 'light'] as const) {
     await page.goBack();
     await expect(page).toHaveURL(/\/intro$/);
     await expect(page.getByRole('heading', { name: 'Intro', exact: true })).toBeVisible();
+    await expect(page.locator('meta[name="robots"]')).toHaveAttribute('content', 'noindex');
     await openMenu(page, 'About');
-    await expect(page.getByRole('link', { name: 'Intro', exact: true })).toHaveAttribute('href', '/intro');
+    await expect(page.getByRole('link', { name: 'About Arkpedia', exact: true })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Intro', exact: true })).toHaveCount(0);
     expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(1);
   });
 
@@ -82,17 +84,16 @@ for (const theme of ['dark', 'light'] as const) {
 test.describe('first visit', () => {
   test.use({ storageState: { cookies: [], origins: [] } });
 
-  test('the welcome invitation is skippable and Intro is still in About', async ({ page }) => {
+  test('the first visit keeps the unfinished Intro hidden', async ({ page, request }) => {
     await page.goto('/');
     await page.getByRole('region', { name: 'Music playback choice' }).getByRole('button', { name: 'No thanks', exact: true }).click();
     await page.getByRole('region', { name: 'Usage statistics choice' }).getByRole('button', { name: 'No thanks', exact: true }).click();
-    const welcome = page.getByRole('dialog', { name: 'Welcome to Arkpedia' });
-    await expect(welcome.getByRole('link', { name: 'Start Intro' })).toHaveAttribute('href', '/intro');
-    await welcome.getByRole('button', { name: 'Skip for now' }).click();
-    await page.reload();
     await openMenu(page, 'About');
-    await expect(welcome).toHaveCount(0);
-    await page.getByRole('link', { name: 'Intro', exact: true }).click();
-    await expect(page.getByRole('heading', { name: 'Find operators and stages' })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'About Arkpedia', exact: true })).toBeVisible();
+    await expect(page.getByRole('dialog', { name: 'Welcome to Arkpedia' })).toHaveCount(0);
+    await expect(page.getByRole('link', { name: 'Intro', exact: true })).toHaveCount(0);
+    const sitemap = await request.get('/sitemap.xml');
+    expect(sitemap.ok()).toBe(true);
+    expect(await sitemap.text()).not.toContain('/intro</loc>');
   });
 });
