@@ -253,7 +253,7 @@
 @media (max-width: 720px) {
   .squadAnchor { scroll-margin-top: calc(var(--nav-h, 60px) + var(--control-h) + var(--control-h) + 24px); }
   .workspaceBar { display: grid; grid-template-columns: minmax(0, 1fr); gap: 4px; padding-inline: 6px; }
-  .workspaceActions { gap: 4px; }
+  .workspaceActions { gap: 4px; flex-wrap: wrap; }
   .riskReadout { margin-inline-start: auto; gap: 3px; }
   .riskReadout .kicker { display: none; }
   .enemySummary dl { gap: 4px; }

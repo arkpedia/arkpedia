@@ -8,18 +8,13 @@ import StyledSelect from '@/components/ui/StyledSelect';
 import XButton from '@/components/ui/XButton';
 import { useAccount, type AccountRecord } from '@/lib/account/accountStore';
 import { accountBuild, calculateOperatorBuild } from '@/lib/ccb/operatorBuild';
-import {
-  parseTeamPreset,
-  serializeTeamPreset,
-  TEAM_LIMIT,
-  TEAM_PRESET_KEY,
-  type TeamBuild,
-} from '@/lib/ccb/teamPreset';
+import type { TeamBuild, TeamPresetMember } from '@/lib/ccb/teamPreset';
 import type { Contract, OperatorBuildData } from '@/lib/ccb/types';
 import { getClassIconPath } from '@/lib/operators/classBranchIcons';
 import { getOperatorSearchResults } from '@/lib/operators/operatorSearch';
 import { clampInteger } from '@/lib/operators/operatorStats';
 import BattleplanDialog from './BattleplanDialog';
+import PresetsDialog, { type PresetBoard } from './PresetsDialog';
 import StatComparison, { StatGlyph, formatStatValue, statChange } from './StatComparison';
 import shared from './Battleplan.module.css';
 import styles from './OperatorComparison.module.css';
@@ -42,11 +37,12 @@ const TEAM_COLUMNS = [
   { key: 'interval', label: 'Interval (s)' },
 ] as const;
 
-function readPreset(operators: readonly string[]) {
-  return parseTeamPreset(window.localStorage.getItem(TEAM_PRESET_KEY), operators);
-}
-
-export default function OperatorComparison({ operators, icons, contracts }: { operators: string[]; icons: Record<string, string>; contracts: Contract[] }) {
+export default function OperatorComparison({ operators, icons, contracts, presetBoard }: {
+  operators: string[];
+  icons: Record<string, string>;
+  contracts: Contract[];
+  presetBoard: PresetBoard | null;
+}) {
   const account = useAccount();
   const [query, setQuery] = useState('');
   const [suggestUp, setSuggestUp] = useState(false);
@@ -54,10 +50,6 @@ export default function OperatorComparison({ operators, icons, contracts }: { op
   const [active, setActive] = useState('');
   const [editing, setEditing] = useState(false);
   const [records, setRecords] = useState(new Map<string, OperatorRecord>());
-  const [presetAvailable, setPresetAvailable] = useState(() => {
-    try { return readPreset(operators).length > 0; } catch { return false; }
-  });
-  const [presetMessage, setPresetMessage] = useState('');
   const requests = useRef(new Map<string, AbortController>());
   const search = useRef<HTMLInputElement>(null);
   const editButtons = useRef(new Map<string, HTMLButtonElement>());
@@ -70,16 +62,6 @@ export default function OperatorComparison({ operators, icons, contracts }: { op
       pending.clear();
     };
   }, []);
-
-  useEffect(() => {
-    function syncPreset(event: StorageEvent) {
-      if (event.key !== TEAM_PRESET_KEY && event.key !== null) return;
-      setPresetAvailable(parseTeamPreset(event.newValue, operators).length > 0);
-      setPresetMessage('');
-    }
-    window.addEventListener('storage', syncPreset);
-    return () => window.removeEventListener('storage', syncPreset);
-  }, [operators]);
 
   async function fetchOperator(name: string) {
     if (requests.current.has(name)) return;
@@ -109,11 +91,10 @@ export default function OperatorComparison({ operators, icons, contracts }: { op
   }
 
   function addOperator(name: string) {
-    if (team.length >= TEAM_LIMIT || team.some(row => row.name === name)) return;
+    if (team.some(row => row.name === name)) return;
     setTeam(current => [...current, { name }]);
     setActive(name);
     setQuery('');
-    setPresetMessage('');
     void fetchOperator(name);
   }
 
@@ -125,7 +106,6 @@ export default function OperatorComparison({ operators, icons, contracts }: { op
     }
     if (name === active) setActive(next?.name ?? '');
     setTeam(current => current.filter(row => row.name !== name));
-    setPresetMessage('');
     dropOperator(name);
   }
 
@@ -139,7 +119,6 @@ export default function OperatorComparison({ operators, icons, contracts }: { op
       name: row.name,
       custom: build ? { build, accountKey: row.custom && row.custom.accountKey === undefined ? undefined : accountKey } : undefined,
     } : row));
-    setPresetMessage('');
   }
 
   const accountKey = `${account?.server ?? ''}/${account?.importedAt ?? ''}`;
@@ -155,48 +134,27 @@ export default function OperatorComparison({ operators, icons, contracts }: { op
     return { ...row, record, operator, build, stats: operator && build ? calculateOperatorBuild(operator, build, contracts) : null };
   });
   const selected = members.find(row => row.name === active);
-  const full = team.length >= TEAM_LIMIT;
-  const matches = full || !query.trim() ? [] : getOperatorSearchResults(
-    operators.filter(name => !team.some(row => row.name === name)).map(name => ({ name })), query,
+  const teamNames = new Set(team.map(row => row.name));
+  const matches = !query.trim() ? [] : getOperatorSearchResults(
+    operators.filter(name => !teamNames.has(name)).map(name => ({ name })), query,
   ).map(row => row.name);
-  const canSave = !!members.length && members.every(row => row.build !== undefined);
+  const currentTeam = presetBoard && members.length && members.every(row => row.build !== undefined)
+    ? members.flatMap(row => row.build ? [{
+      name: row.name,
+      build: row.build,
+      moduleId: row.operator?.modules[row.build.moduleIndex]?.moduleId,
+    }] : [])
+    : null;
 
-  function savePreset() {
-    if (!canSave) return;
-    try {
-      const ready = members.flatMap(row => row.build ? [{
-        name: row.name,
-        build: row.build,
-        moduleId: row.operator?.modules[row.build.moduleIndex]?.moduleId,
-      }] : []);
-      window.localStorage.setItem(TEAM_PRESET_KEY, serializeTeamPreset(ready));
-      setPresetAvailable(true);
-      setPresetMessage('Team saved in this browser.');
-    } catch {
-      setPresetMessage('This browser could not save the preset.');
-    }
-  }
-
-  function loadPreset() {
-    try {
-      const preset = readPreset(operators);
-      if (!preset.length) {
-        setPresetAvailable(false);
-        setPresetMessage('No saved team is available.');
-        return;
-      }
-      const next = new Set(preset.map(row => row.name));
-      for (const member of team) if (!next.has(member.name)) dropOperator(member.name);
-      setTeam(preset.map(({ name, build, moduleId }) => ({ name, custom: { build, moduleId } })));
-      setActive(preset[0].name);
-      setQuery('');
-      for (const { name } of preset) {
-        const record = records.get(name);
-        if (!record || record === 'error') void fetchOperator(name);
-      }
-      setPresetMessage('Saved team loaded.');
-    } catch {
-      setPresetMessage('This browser could not load the preset.');
+  function loadTeam(preset: TeamPresetMember[]) {
+    const next = new Set(preset.map(row => row.name));
+    for (const member of team) if (!next.has(member.name)) dropOperator(member.name);
+    setTeam(preset.map(({ name, build, moduleId }) => ({ name, custom: { build, moduleId } })));
+    setActive(preset[0]?.name ?? '');
+    setQuery('');
+    for (const { name } of preset) {
+      const record = records.get(name);
+      if (!record || record === 'error') void fetchOperator(name);
     }
   }
 
@@ -214,36 +172,28 @@ export default function OperatorComparison({ operators, icons, contracts }: { op
   return <section className={`panel op-section ${styles.team}`} aria-labelledby={titleId}>
     <div className={styles.title}>
       <h2 id={titleId}>Operator team</h2>
-      <span className={styles.count} role="status">{team.length} / {TEAM_LIMIT}<span className="visually-hidden"> operators</span></span>
-      <InfoPopover label="About team stats and presets">
+      <span className={styles.count} role="status">{team.length}<span className="visually-hidden"> operators</span></span>
+      <InfoPopover label="About team stats">
         <p>Stats apply the selected contracts to each operator’s build, tile and deployment time. Skills, talents and module combat effects are excluded.</p>
-        <p>A preset saves one team and its builds in this browser. Load preset replaces the current team. The active battlefield and contracts come from the board above.</p>
       </InfoPopover>
     </div>
-    <div className={styles.toolbar}>
-      <SearchInput
-        inputRef={search}
-        label="Search operators"
-        placeholder="Add an operator…"
-        value={query}
-        onChange={searchOperators}
-        upward={suggestUp}
-        suggestions={matches}
-        getKey={name => name}
-        renderSuggestion={name => <span className={shared.suggestion}>
-          {icons[name] && <ContentImg src={icons[name]} alt="" width={28} height={28} />}
-          {name}
-        </span>}
-        onPick={addOperator}
-        suggestLabel="Matching operators"
-        emptyText={full ? undefined : 'No matching operators'}
-      />
-      <div className={styles.presetActions}>
-        <button className="ghost btn-sm" type="button" disabled={!canSave} onClick={savePreset}>Save preset</button>
-        <button className="ghost btn-sm" type="button" disabled={!presetAvailable} onClick={loadPreset}>Load preset</button>
-      </div>
-    </div>
-    <p className={styles.status} role="status">{presetMessage || (full ? 'Team is full. Remove an operator to add another.' : '')}</p>
+    <SearchInput
+      inputRef={search}
+      label="Search operators"
+      placeholder="Add an operator…"
+      value={query}
+      onChange={searchOperators}
+      upward={suggestUp}
+      suggestions={matches}
+      getKey={name => name}
+      renderSuggestion={name => <span className={shared.suggestion}>
+        {icons[name] && <ContentImg src={icons[name]} alt="" width={28} height={28} />}
+        {name}
+      </span>}
+      onPick={addOperator}
+      suggestLabel="Matching operators"
+      emptyText="No matching operators"
+    />
     {members.length ? <>
       <table className={styles.teamTable} aria-label="Team stat comparison" role="table">
         <thead className={styles.teamHeading} role="rowgroup"><tr role="row">
@@ -302,6 +252,7 @@ export default function OperatorComparison({ operators, icons, contracts }: { op
         /> : <p className={shared.note}>{selected.record === 'error' ? 'Stats unavailable' : 'Loading stats…'}</p>}
       </BattleplanDialog>}
     </> : <p className={shared.empty}>Add operators to compare their stats under the selected contracts.</p>}
+    {presetBoard && <PresetsDialog {...presetBoard} operators={operators} currentTeam={currentTeam} onLoadTeam={loadTeam} />}
   </section>;
 }
 

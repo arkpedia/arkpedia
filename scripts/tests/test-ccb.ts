@@ -3,6 +3,8 @@ import assert from 'node:assert/strict';
 import archive from '../../config/ccb-archive.json';
 import { activeModifierSummaries, contractSummary, groupComplete, maximumContractScore, maximumRisk, modifiedStats, replacementId, resolvedDescription, stageModifiers, toggleContract, toggleContractGroup, totalRisk } from '../../lib/ccb/modifiers';
 import type { BattleplanSeason, Contract } from '../../lib/ccb/types';
+import { decodeCcbPreset, encodeCcbPreset, readCcbPresets, validatePresetContents, writeCcbPresets } from '../../lib/ccb/presets';
+import { TEAM_PRESET_KEY } from '../../lib/ccb/teamPreset';
 
 const seasons = archive.seasons as unknown as BattleplanSeason[];
 const arclight = seasons[3].maps.find(map => map.main)!;
@@ -183,3 +185,29 @@ function fillContracts(rows: Contract[], selected: string[] = []): string[] {
   }
   return selected;
 }
+
+test('a legacy team remains available until the browser writes its preset library', () => {
+  const member = { name: 'Amiya', build: { elite: 1, level: 45, potential: 3, trust: 100, moduleIndex: -1, moduleStage: 0, tile: null, elapsed: 10 } };
+  const legacy = JSON.stringify({ version: 1, members: [member] });
+  const saved = new Map<string, string>([[TEAM_PRESET_KEY, legacy]]);
+  const storage = { getItem: (key: string) => saved.get(key) ?? null, setItem: (key: string, value: string) => { saved.set(key, value); } };
+  const presets = readCcbPresets(storage, ['Amiya']);
+  assert.equal(presets[0]?.name, 'Saved team');
+  assert.deepEqual(presets[0]?.operators?.[0].build, member.build);
+  writeCcbPresets(storage, presets);
+  assert.deepEqual(readCcbPresets(storage, ['Amiya'])[0].operators, presets[0].operators);
+  writeCcbPresets(storage, []);
+  assert.deepEqual(readCcbPresets(storage, ['Amiya']), []);
+  assert.equal(saved.get(TEAM_PRESET_KEY), legacy);
+});
+
+test('preset codes preserve an empty risk selection and reject unavailable maps and contracts', () => {
+  const rules = { name: '演習 café', risks: { seasonId: seasons[3].id, mapId: arclight.id, contracts: [] } };
+  const preset = decodeCcbPreset(encodeCcbPreset(rules));
+  assert.equal(preset.name, rules.name);
+  assert.deepEqual(preset.risks, rules.risks);
+  assert.equal(preset.operators, undefined);
+  validatePresetContents(preset, seasons, []);
+  assert.throws(() => validatePresetContents({ ...rules, risks: { ...rules.risks, mapId: 'missing' } }, seasons, []), /battlefield is unavailable/);
+  assert.throws(() => validatePresetContents({ ...rules, risks: { ...rules.risks, contracts: ['missing'] } }, seasons, []), /contract that is unavailable/);
+});

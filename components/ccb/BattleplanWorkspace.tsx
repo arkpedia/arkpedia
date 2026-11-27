@@ -14,6 +14,7 @@ import {
   replacementId, resolvedDescription, toggleContract, toggleContractGroup, totalRisk,
 } from '@/lib/ccb/modifiers';
 import type { BattleplanData, BattleplanEnemy } from '@/lib/ccb/types';
+import type { PresetRisks } from '@/lib/ccb/presets';
 import styles from './Battleplan.module.css';
 
 const ENEMY_STATS = ['hp', 'atk', 'def', 'res'] as const;
@@ -27,7 +28,7 @@ export default function BattleplanWorkspace({ seasons, operators, operatorIcons,
   const [mapId, setMap] = useState((firstSeason.maps.find(row => row.main) ?? firstSeason.maps[0]).id);
   const [selections, setSelections] = useState<Record<string, string[]>>({});
   const [enemyId, setEnemy] = useState<string | null>(null);
-  const [dialog, setDialog] = useState<'map' | 'risks' | 'modifiers' | 'enemy' | null>(null);
+  const [dialog, setDialog] = useState<'map' | 'risks' | 'modifiers' | 'enemy' | 'presets' | null>(null);
   const [activeRiskGroup, setActiveRiskGroup] = useState<string | null>(null);
   const [handbook, setHandbook] = useState<BattleplanEnemy | null>(null);
   const squad = useRef<HTMLDivElement>(null);
@@ -66,6 +67,12 @@ export default function BattleplanWorkspace({ seasons, operators, operatorIcons,
   };
   const updateSelection = (update: (current: string[]) => string[]) => {
     setSelections(current => ({ ...current, [identity]: update(current[identity] ?? []) }));
+  };
+  const loadRisks = (risks: PresetRisks) => {
+    setSeason(risks.seasonId);
+    setMap(risks.mapId);
+    setEnemy(null);
+    setSelections(current => ({ ...current, [`${risks.seasonId}/${risks.mapId}`]: risks.contracts }));
   };
 
   const renderRiskBoard = (inline: boolean) => <section id={inline ? undefined : RISK_CATEGORIES}
@@ -129,6 +136,7 @@ export default function BattleplanWorkspace({ seasons, operators, operatorIcons,
         <button type="button" className="ghost btn-sm" aria-haspopup="dialog" disabled={!details?.preview && !details?.fullPreview && !details?.layout}
           aria-label={T.mapOpen(map.name)} onClick={() => setDialog('map')}>Map</button>
         <button type="button" className={`ghost btn-sm ${styles.mobileRisks}`} aria-haspopup="dialog" onClick={() => openRisks(null)}>Risks</button>
+        <button type="button" className="ghost btn-sm" aria-haspopup="dialog" onClick={() => setDialog('presets')}>Presets</button>
         <div className={styles.riskReadout}>
           <span className={styles.kicker}>{T.totalRisk}</span>
           <output aria-label="Contract score" aria-live="polite">▲ {score}</output>
@@ -167,7 +175,11 @@ export default function BattleplanWorkspace({ seasons, operators, operatorIcons,
           </section>
         </div>
         <div id="ccb-squad" ref={squad} className={styles.squadAnchor} tabIndex={-1}>
-          <OperatorComparison operators={operators} icons={operatorIcons ?? {}} contracts={active} />
+          <OperatorComparison operators={operators} icons={operatorIcons ?? {}} contracts={active}
+            presetBoard={dialog === 'presets' ? {
+              seasons, currentRisks: { seasonId: season.id, mapId: map.id, contracts: selected },
+              onLoadRisks: loadRisks, onClose: close,
+            } : null} />
         </div>
       </div>
     </div>
