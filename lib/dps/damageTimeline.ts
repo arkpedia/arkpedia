@@ -1,55 +1,42 @@
 import { calculate, mitigate, normalize, type Build, type Target } from './calculator';
-import type { PatriotDefenseTiming } from './enemyDefenseForms';
+import type { EnemyFightPhase } from './enemyFightPhases';
+import type { EnemyDefenseForm } from './enemyDefenseForms';
+import type { HealthPoint } from './survival';
 
-export interface PatriotTimelinePreset {
+export interface DamageEnemy {
   name: string;
-  timing: PatriotDefenseTiming;
-  marching: Pick<Target, 'def' | 'res'>;
-  ruination: Pick<Target, 'def' | 'res'>;
+  hp: number;
+  fight?: EnemyFightPhase[];
+  forms?: EnemyDefenseForm[];
+  selectedForm?: string;
 }
 
 export interface DamageTargetPhase {
   start: number;
-  name: 'Marching' | 'Revival' | 'Ruination';
+  name: string;
   target: Target;
-  invulnerable: boolean;
+  state: 'active' | 'invulnerable' | 'depleted';
 }
 
 export interface DamageTimeline {
   attackDps: number;
   skill: { duration: number; dps: number; retreats: boolean } | null;
   opening: { label: string; damage: number } | null;
-  phases?: { start: number; model: DamageTimeline | null }[];
+  phases?: { start: number; model: DamageTimeline; state: DamageTargetPhase['state'] }[];
 }
 
-export function patriotDamagePhases(preset: PatriotTimelinePreset, target: Target, marchingEnds: number): DamageTargetPhase[] {
-  const { revivalDuration, ruinationInvulnerability } = preset.timing;
-  const ruinationStarts = Math.round((marchingEnds + revivalDuration) * 10) / 10;
-  const damageResumes = Math.round((marchingEnds + revivalDuration + ruinationInvulnerability) * 10) / 10;
-  const marching = { ...target, def: preset.marching.def, res: preset.marching.res };
-  const ruination = { ...target, def: preset.ruination.def, res: preset.ruination.res };
-  const phases: DamageTargetPhase[] = [
-    { start: 0, name: 'Marching', target: marching, invulnerable: false },
-    { start: marchingEnds, name: 'Revival', target: marching, invulnerable: true },
-  ];
-  if (damageResumes > ruinationStarts) {
-    phases.push({ start: ruinationStarts, name: 'Ruination', target: ruination, invulnerable: true });
+export function fullFightDamageTimeline(build: Build, phases: DamageTargetPhase[]): DamageTimeline | null {
+  if (!phases.length) return null;
+  const models = new Map<string, DamageTimeline>();
+  const timeline = [];
+  for (const { start, target, state } of phases) {
+    const key = target.def + '/' + target.res;
+    const model = models.get(key) ?? damageTimeline(build, target);
+    if (!model) return null;
+    models.set(key, model);
+    timeline.push({ start, model, state });
   }
-  phases.push({ start: damageResumes, name: 'Ruination', target: ruination, invulnerable: false });
-  return phases;
-}
-
-export function fullFightDamageTimeline(build: Build, phases: DamageTargetPhase[]) {
-  const marching = damageTimeline(build, phases[0].target);
-  const ruination = damageTimeline(build, phases[phases.length - 1].target);
-  if (!marching || !ruination) return null;
-  return {
-    ...marching,
-    phases: phases.map(({ start, name, invulnerable }) => ({
-      start,
-      model: invulnerable ? null : name === 'Marching' ? marching : ruination,
-    })),
-  };
+  return { ...timeline[0].model, phases: timeline };
 }
 
 export function damageTimeline(build: Build, target: Target, active = calculate(build, target)): DamageTimeline | null {
@@ -82,18 +69,105 @@ export function damageTimeline(build: Build, target: Target, active = calculate(
 
 export function damageAtTime(timeline: DamageTimeline, time: number, activation: number) {
   const phase = timeline.phases?.filter(phase => phase.start <= time).at(-1);
-  const invulnerable = phase?.model === null;
+  const invulnerable = phase?.state === 'invulnerable';
+  const depleted = phase?.state === 'depleted';
   const model = phase?.model ?? timeline;
   const elapsed = time - activation;
   const skill = model.skill;
   const skillActive = !!skill && elapsed >= 0 && elapsed < skill.duration;
   const retreated = !!skill?.retreats && elapsed >= skill.duration;
   let openingDamage = 0;
-  if (!invulnerable && elapsed >= 0 && elapsed < 1) {
+  if (!invulnerable && !depleted && elapsed >= 0 && elapsed < 1) {
     const openingPhase = timeline.phases?.filter(phase => phase.start <= activation).at(-1);
-    const opening = openingPhase ? openingPhase.model?.opening : timeline.opening;
+    const opening = openingPhase
+      ? openingPhase.state === 'active' ? openingPhase.model.opening : null
+      : timeline.opening;
     openingDamage = opening?.damage ?? 0;
   }
-  const dps = invulnerable || retreated ? 0 : skillActive ? skill.dps : model.attackDps;
-  return { dps: dps + openingDamage, skillActive, openingDamage, retreated, invulnerable };
+  const dps = invulnerable || depleted || retreated ? 0 : skillActive ? skill.dps : model.attackDps;
+  return { dps: dps + openingDamage, skillActive, openingDamage, retreated, invulnerable, depleted };
+}
+
+export function simulateEnemyHp({
+  build, target, maxHp, fight, activation, duration, manual,
+}: {
+  build: Build;
+  target: Target;
+  maxHp: number;
+  fight?: EnemyFightPhase[];
+  activation: number;
+  duration: number;
+  manual?: number;
+}) {
+  const frames = fight ?? [{ name: '', def: target.def, res: target.res }];
+  const phases: DamageTargetPhase[] = [];
+  const hpPoints: HealthPoint[] = [{ time: 0, hp: maxHp }];
+  let time = 0;
+  let hp = maxHp;
+  let openingDamage: number | undefined;
+  let defeatedAt: number | undefined;
+
+  for (const [index, form] of frames.entries()) {
+    const phaseTarget = { ...target, def: form.def, res: form.res };
+    const model = damageTimeline(build, phaseTarget);
+    if (!model) return null;
+    const state = form.invulnerable ? 'invulnerable' : 'active';
+    phases.push({ start: time, name: form.name, target: phaseTarget, state });
+    if (form.restore !== undefined) {
+      hp = maxHp * form.restore;
+      hpPoints.push({ time, hp });
+    }
+    const deadline = index === 0 && manual !== undefined && form.ends
+      ? manual : form.ends && 'duration' in form.ends
+        ? Math.round((time + form.ends.duration) * 1e9) / 1e9
+        : Infinity;
+    const hasNext = index < frames.length - 1;
+    const threshold = deadline === Infinity && form.ends && 'hpRatio' in form.ends
+      ? maxHp * form.ends.hpRatio : 0;
+    const limit = Math.min(deadline, duration);
+    const skillEnds = activation + (model.skill?.duration ?? 0);
+
+    // Integrate constant rates exactly between skill boundaries. Opening hits
+    // change HP immediately and can only happen once, even when they end a phase.
+    while (time < limit) {
+      if (time === activation && model.opening && openingDamage === undefined) {
+        openingDamage = state === 'active' && hp > 0 ? model.opening.damage : 0;
+        hp = Math.max(0, hp - openingDamage);
+        hpPoints.push({ time, hp });
+      }
+      if (state === 'active' && hp <= threshold) {
+        if (!hasNext) defeatedAt = time;
+        if (deadline === Infinity) break;
+        phases.push({ start: time, name: form.name, target: phaseTarget, state: 'depleted' });
+        time = limit;
+        hpPoints.push({ time, hp });
+        break;
+      }
+      const sample = damageAtTime(model, time, activation);
+      const rate = state === 'active' ? sample.dps - sample.openingDamage : 0;
+      const next = Math.min(limit, time < activation ? activation : time < skillEnds ? skillEnds : Infinity);
+      const reachesThreshold = rate > 0 && (hp - threshold) / rate <= next - time;
+      if (reachesThreshold) {
+        time += (hp - threshold) / rate;
+        hp = threshold;
+      } else {
+        hp = Math.max(0, hp - rate * (next - time));
+        time = next;
+      }
+      hpPoints.push({ time, hp });
+    }
+    if (!hasNext && hp === 0 && defeatedAt === undefined) defeatedAt = time;
+    if (defeatedAt !== undefined) {
+      phases.push({ start: defeatedAt, name: 'HP depleted', target: phaseTarget, state: 'depleted' });
+      break;
+    }
+    const phaseEnded = deadline === Infinity ? state === 'active' && hp <= threshold : time >= deadline;
+    if (!phaseEnded) break;
+    if (index === 0 && manual !== undefined && form.ends && 'hpRatio' in form.ends && form.ends.hpRatio === 0 && hp > 0) {
+      hp = 0;
+      hpPoints.push({ time, hp });
+    }
+  }
+  if (time < duration) hpPoints.push({ time: duration, hp });
+  return { points: hpPoints, phases, openingDamage, defeatedAt, maxHp };
 }

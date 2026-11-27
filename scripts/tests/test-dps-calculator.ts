@@ -14,7 +14,8 @@ import { firstBurst, fallout } from '../../lib/dps/breakpoints';
 import { elements } from '../../lib/dps/sources';
 import { chartControls, targetControls } from '../../lib/dps/controls';
 import { damageBasis, dpsLabel } from '../../lib/dps/damageLabels';
-import { damageAtTime, damageTimeline, fullFightDamageTimeline, patriotDamagePhases } from '../../lib/dps/damageTimeline';
+import { damageAtTime, damageTimeline, fullFightDamageTimeline, simulateEnemyHp } from '../../lib/dps/damageTimeline';
+import type { EnemyFightPhase } from '../../lib/dps/enemyFightPhases';
 import { hpAt, patriotAttack, patriotFight, simulateSurvival, type Defense } from '../../lib/dps/survival';
 import type { PatriotStances } from '../../lib/dps/survivalRoster';
 const profiles = archive.operators as unknown as Profile[];
@@ -53,15 +54,20 @@ test('damage timelines use RES for Arts, handle retreat and omit healing or unkn
 });
 
 test('Patriot’s damage timeline switches defenses and blocks damage without resetting the skill clock', () => {
-  const preset = {
-    name: 'Patriot', timing: { revivalDuration: 60, ruinationInvulnerability: 15 },
-    marching: { def: 2100, res: 90 }, ruination: { def: 700, res: 45 },
-  };
-  const phases = patriotDamagePhases(preset, initialTarget, 12.1);
-  assert.deepEqual(phases.map(phase => [phase.start, phase.name, phase.invulnerable]), [
-    [0, 'Marching', false], [12.1, 'Revival', true], [72.1, 'Ruination', true], [87.1, 'Ruination', false],
+  const fight: EnemyFightPhase[] = [
+    { name: 'Marching', def: 2100, res: 90, ends: { hpRatio: 0 } },
+    { name: 'Revival', def: 2100, res: 90, invulnerable: true, ends: { duration: 60 } },
+    { name: 'Ruination', def: 700, res: 45, invulnerable: true, restore: 1, ends: { duration: 15 } },
+    { name: 'Ruination', def: 700, res: 45 },
+  ];
+  const build = createBuild('ulpia', 1);
+  const setup = { build, fight, target: initialTarget, maxHp: 45000, activation: 5, duration: 120 };
+  const { phases, points } = simulateEnemyHp({ ...setup, manual: 12.1 })!;
+  assert.equal(hpAt(points, 13), 0);
+  assert.deepEqual(phases.map(phase => [phase.start, phase.name, phase.state]), [
+    [0, 'Marching', 'active'], [12.1, 'Revival', 'invulnerable'], [72.1, 'Ruination', 'invulnerable'], [87.1, 'Ruination', 'active'],
   ]);
-  const ulpianus = fullFightDamageTimeline(createBuild('ulpia', 1), phases)!;
+  const ulpianus = fullFightDamageTimeline(build, phases)!;
   near(damageAtTime(ulpianus, 5, 5).openingDamage, 7398.24);
   near(damageAtTime(ulpianus, 12, 5).dps, 1534.56);
   assert.equal(damageAtTime(ulpianus, 12.1, 5).dps, 0);
@@ -77,6 +83,36 @@ test('Patriot’s damage timeline switches defenses and blocks damage without re
   const arts = fullFightDamageTimeline(amiya, phases)!;
   near(damageAtTime(arts, 5, 5).dps, calculate(amiya, phases[0].target).dps!);
   near(damageAtTime(arts, 87.1, 87.1).dps, calculate(amiya, phases[3].target).dps!);
+
+  const automatic = simulateEnemyHp(setup)!;
+  const marchingEnds = 5 + (45000 - 5 * 32.98 - 7398.24) / 1534.56;
+  near(automatic.phases[1].start, marchingEnds);
+  near(hpAt(automatic.points, 5), 37436.86);
+  near(hpAt(automatic.points, marchingEnds + 1), 0);
+  near(hpAt(automatic.points, automatic.phases[2].start), 45000);
+  const short = simulateEnemyHp({ ...setup, duration: 60 })!;
+  assert.deepEqual(short.phases.map(phase => phase.name), ['Marching', 'Revival']);
+
+  const openingEndsMarching = simulateEnemyHp({ ...setup, maxHp: 5000 })!;
+  assert.equal(openingEndsMarching.phases[1].start, 5);
+  near(openingEndsMarching.openingDamage!, 7398.24);
+  assert.equal(hpAt(openingEndsMarching.points, 5), 0);
+});
+
+test('enemy HP uses one health bar by default and carries HP through a threshold form', () => {
+  const build = { ...createBuild('ulpia', 1), skill: 0 };
+  const fixed = { build, target: dummy, activation: 5, duration: 20, maxHp: 6596 };
+  const single = simulateEnemyHp(fixed)!;
+  near(hpAt(single.points, 5), 3298);
+  near(single.defeatedAt!, 10);
+  const fight: EnemyFightPhase[] = [
+    { name: 'First form', def: 0, res: 0, ends: { hpRatio: 0.5 } },
+    { name: 'Second form', def: 1000, res: 0 },
+  ];
+  const phased = simulateEnemyHp({ ...fixed, fight })!;
+  near(phased.phases[1].start, 5);
+  near(hpAt(phased.points, 5), 3298);
+  near(phased.defeatedAt!, 5 + 3298 / 259.6);
 });
 
 test('survival uses the damage type and resolves a lethal hit before a simultaneous heal', () => {
@@ -515,9 +551,12 @@ test('archived enemy targets use the combat rank and inherit per-level defenses'
     ?.map(form => [form.name, form.def, form.res]);
   for (const level of [0, 1]) {
     assert.deepEqual(defenses(level, 'enemy_1506_patrt'), [['Marching', 2100, 90], ['Ruination', 700, 45]]);
-    assert.deepEqual(levels('enemy_1506_patrt').find(row => row.level === level)?.patriotTiming,
-      { revivalDuration: 60, ruinationInvulnerability: 15 });
+    assert.deepEqual(levels('enemy_1506_patrt').find(row => row.level === level)?.fight?.slice(1, 3).map(phase => phase.ends),
+      [{ duration: 60 }, { duration: 15 }]);
   }
+  assert.deepEqual(levels('enemy_1506_patrt').map(row => row.hp), [45000, 60000]);
+  assert.deepEqual(levels('enemy_1503_talula')[0].fight?.[0].ends, { hpRatio: 0.5 });
+  assert.deepEqual(levels('enemy_1533_stmkgt')[0].fight?.[1].ends, { duration: 8 });
   assert.deepEqual(defenses(0, 'enemy_1533_stmkgt'), [['First form', 2000, 40], ['Second form', 500, 0]]);
   assert.deepEqual(defenses(1, 'enemy_1533_stmkgt'), [['First form', 2400, 40], ['Second form', 400, 0]]);
   assert.deepEqual(defenses(0, 'enemy_1165_duhond'), [['Refraction active', 0, 70], ['Silenced', 0, 0]]);
@@ -533,6 +572,7 @@ test('archived enemy targets use the combat rank and inherit per-level defenses'
   assert.match(levels('enemy_1528_manfri')[0].defenseNote ?? '', /Only base defenses/);
   for (const row of enemies.flatMap(enemy => enemy.levels)) {
     assert.ok([row.def, row.res, row.elementalRes, row.injuryRes].every(Number.isFinite));
+    assert.ok(row.hp && row.hp > 0);
     if (!row.forms) continue;
     assert.equal(new Set(row.forms.map(form => form.id)).size, row.forms.length);
     assert.ok(row.forms.every(form => Number.isFinite(form.def) && Number.isFinite(form.res)));

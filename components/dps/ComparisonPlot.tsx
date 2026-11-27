@@ -17,8 +17,10 @@ import {
 import { firstBurst } from '@/lib/dps/breakpoints';
 import { chartControls, type ChartMetric as Metric, type DefenseAxis } from '@/lib/dps/controls';
 import { damageBasis, dpsLabel, sharedDamageBasis } from '@/lib/dps/damageLabels';
-import { damageAtTime, damageTimeline, fullFightDamageTimeline, patriotDamagePhases, type PatriotTimelinePreset } from '@/lib/dps/damageTimeline';
+import { damageAtTime, damageTimeline, fullFightDamageTimeline, simulateEnemyHp, type DamageEnemy } from '@/lib/dps/damageTimeline';
+import type { EnemyFightPhase } from '@/lib/dps/enemyFightPhases';
 import { renderComparisonImage, type ImageView } from '@/lib/dps/comparisonImage';
+import { hpAt } from '@/lib/dps/survival';
 import DamageTimelinePlot from './DamageTimelinePlot';
 import css from './Dps.module.css';
 
@@ -120,7 +122,7 @@ export default function ComparisonPlot({
   target,
   targetName,
   targetNote,
-  patriotPreset,
+  damageEnemy,
   timelineRef,
   baselineId,
 }: {
@@ -128,7 +130,7 @@ export default function ComparisonPlot({
   target: Target;
   targetName: string;
   targetNote?: string;
-  patriotPreset?: PatriotTimelinePreset;
+  damageEnemy?: DamageEnemy;
   timelineRef: RefObject<HTMLTableElement | null>;
   baselineId?: number;
 }) {
@@ -247,42 +249,69 @@ export default function ComparisonPlot({
   const [fixedDuration, setFixedDuration] = useState(45);
   const [fightDuration, setFightDuration] = useState(120);
   const [fightMode, setFightMode] = useState('fixed');
-  const [marchingEnds, setMarchingEnds] = useState(20);
+  const [phaseTiming, setPhaseTiming] = useState('auto');
+  const [firstPhaseEnds, setFirstPhaseEnds] = useState(20);
+  const [preferredNextForm, setNextForm] = useState<string>();
+  const [preferredHpBuild, setHpBuild] = useState<number>();
   const [activationTime, setActivationTime] = useState(5);
   const [inspectedTime, setInspectedTime] = useState(5);
-  const fullFight = showingDamageTime && fightMode === 'full' ? patriotPreset : undefined;
-  const phases = useMemo(() => fullFight ? patriotDamagePhases(fullFight, target, marchingEnds) : [],
-    [fullFight, target, marchingEnds]);
-  const damageResumes = phases.at(-1)?.start ?? 0;
-  const ruinationStarts = phases[2]?.start ?? 0;
-  const lengthOptions = fullFight
-    ? [...timelineLengths, 180, 240, Math.max(300, Math.ceil((damageResumes + 15) / 60) * 60)]
-      .filter(length => length >= damageResumes + 15)
+  const selectedForm = damageEnemy?.forms?.find(form => form.id === damageEnemy.selectedForm);
+  const alternateForms = damageEnemy?.forms?.filter(form => form.id !== selectedForm?.id) ?? [];
+  const nextForm = alternateForms.find(form => form.id === preferredNextForm) ?? alternateForms[0];
+  const canChangeForm = !damageEnemy?.fight && !!selectedForm && !!nextForm;
+  const manualFormChange = showingDamageTime && fightMode === 'form-change' && canChangeForm;
+  const fullFight = useMemo<EnemyFightPhase[] | undefined>(() => {
+    if (!showingDamageTime) return undefined;
+    if (manualFormChange && selectedForm) return [{ ...selectedForm, ends: { duration: firstPhaseEnds } }, nextForm];
+    return fightMode === 'full' ? damageEnemy?.fight : undefined;
+  }, [showingDamageTime, manualFormChange, selectedForm, nextForm, firstPhaseEnds, fightMode, damageEnemy?.fight]);
+  const manual = fullFight && (manualFormChange || phaseTiming === 'manual') ? firstPhaseEnds : undefined;
+  const wait = fullFight?.reduce((sum, phase) => sum + (phase.ends && 'duration' in phase.ends ? phase.ends.duration : 0), 0) ?? 0;
+  const minimumLength = manual === undefined ? 0 : manual + wait + 15;
+  const lengthOptions = showingDamageTime && damageEnemy
+    ? [...timelineLengths, 180, 240, 300, 600, 1200].filter(length => length >= minimumLength)
     : timelineLengths;
   const duration = fullFight ? Math.max(lengthOptions[0], fightDuration) : fixedDuration;
   const activation = Math.min(duration - 1, activationTime);
   const time = Math.min(duration, inspectedTime);
+  const fixedModels = useMemo(() => showingDamageTime
+    ? builds.map((b, i) => damageTimeline(b, target, results[i]))
+    : [], [showingDamageTime, builds, target, results]);
+  const hpCandidates = builds.filter((_, i) => fixedModels[i]);
+  const hpBuild = hpCandidates.find(b => b.id === preferredHpBuild)
+    ?? hpCandidates.find(b => b.id === baselineId) ?? hpCandidates[0];
+  const hpIndex = builds.indexOf(hpBuild);
+  const maxHp = damageEnemy?.hp;
+  const hpRun = useMemo(() => maxHp && hpBuild
+    ? simulateEnemyHp({ build: hpBuild, target, maxHp, fight: fullFight, activation, duration, manual })
+    : null, [maxHp, hpBuild, target, fullFight, activation, duration, manual]);
+  const phases = hpRun?.phases ?? [];
   const inspectedPhase = phases.filter(phase => phase.start <= time).at(-1);
-  const phaseSummary = fullFight
-    ? `Marching 0–${fmt(marchingEnds)} s · Revival ${fmt(marchingEnds)}–${fmt(ruinationStarts)} s · Ruination from ${fmt(ruinationStarts)} s`
-    : undefined;
-  const phaseDescription = inspectedPhase && [
+  const namedPhases = phases.filter((phase, i) => phase.name && phase.name !== phases[i - 1]?.name && phase.name !== 'HP depleted');
+  const phaseSummary = fullFight && namedPhases.length > 1 ? namedPhases.map((phase, index) => {
+    const next = namedPhases[index + 1];
+    return next ? `${phase.name} ${fmt(phase.start)}–${fmt(next.start)} s` : `${phase.name} from ${fmt(phase.start)} s`;
+  }).join(' · ') : undefined;
+  const damageResumes = phases.find((phase, index) => phase.state === 'active' && phases[index - 1]?.state === 'invulnerable')?.start;
+  const phaseDescription = fullFight && inspectedPhase && [
     inspectedPhase.name,
-    ...(inspectedPhase.name === 'Revival' ? [] : [
+    ...(inspectedPhase.name === 'Revival' || inspectedPhase.state === 'depleted' ? [] : [
       fmt(inspectedPhase.target.def) + ' DEF',
       fmt(inspectedPhase.target.res) + ' RES',
     ]),
-    ...(inspectedPhase.invulnerable ? ['Invulnerable'] : []),
+    ...(inspectedPhase.state === 'invulnerable' ? ['Invulnerable'] : []),
   ].join(' · ');
-  const damageTargetName = fullFight ? fullFight.name + ' · Full fight' : targetName;
-  const damageModels = useMemo(() => showingDamageTime
-    ? builds.map((b, i) => phases.length ? fullFightDamageTimeline(b, phases) : damageTimeline(b, target, results[i]))
-    : [], [showingDamageTime, builds, target, results, phases]);
+  const damageTargetName = fullFight ? damageEnemy!.name + (manualFormChange ? ' · Form change' : ' · Full fight') : targetName;
+  const hpStatus = hpRun ? `Enemy HP ${fmt(hpAt(hpRun.points, time))} / ${fmt(hpRun.maxHp)}` : undefined;
+  const hpSource = hpIndex >= 0 ? `#${hpIndex + 1} ${names[hpIndex]}` : undefined;
+  const damageModels = useMemo(() => hpRun ? builds.map(b => fullFightDamageTimeline(b, hpRun.phases)) : fixedModels,
+    [builds, fixedModels, hpRun]);
   const damageRows = damageModels.map((timeline, i) => {
     const sample = timeline && damageAtTime(timeline, time, activation);
     let value = 'Timeline unavailable';
     if (timeline && sample) {
-      const phase = sample.invulnerable ? 'Target invulnerable' : (sample.openingDamage && timeline.opening?.label) || (
+      const phase = sample.invulnerable ? 'Target invulnerable' : sample.depleted ? 'Target HP depleted'
+        : (sample.openingDamage && timeline.opening?.label) || (
         sample.skillActive ? 'Skill active' : sample.retreated ? 'Retreated'
           : timeline.attackDps > 0 ? 'Normal attacks' : 'Skill inactive'
       );
@@ -296,7 +325,9 @@ export default function ComparisonPlot({
     }
     if (timeline?.opening) {
       const opening = damageAtTime(timeline, activation, activation);
-      details.push(`${timeline.opening.label} at ${fmt(activation)} s · ${fmt(opening.openingDamage)} damage${opening.invulnerable ? ' (invulnerable)' : ''}`);
+      const amount = i === hpIndex ? hpRun?.openingDamage ?? opening.openingDamage : opening.openingDamage;
+      const blocked = amount === 0 && opening.invulnerable;
+      details.push(`${timeline.opening.label} at ${fmt(activation)} s · ${fmt(amount)} damage${blocked ? ' (invulnerable)' : ''}`);
     }
     if (!fullFight && timeline?.attackDps && (timeline.skill || timeline.opening)) {
       details.push(`Attack DPS ${fmt(timeline.attackDps)}`);
@@ -324,8 +355,9 @@ export default function ComparisonPlot({
         svg: chart.current,
         target: inspectedPhase?.target ?? target,
         targetName: showingDamageTime ? damageTargetName : scenarioName,
-        targetNote: phaseSummary ? `${phaseSummary} · Damage resumes at ${fmt(damageResumes)} s. Probe phase · ${phaseDescription}`
-          : showingHealing ? undefined : targetNote,
+        targetNote: [phaseSummary, damageResumes === undefined ? undefined : `Damage resumes at ${fmt(damageResumes)} s`,
+          phaseDescription, hpStatus && `${hpStatus} · ${hpSource}`, !fullFight && !showingHealing && targetNote]
+          .filter(Boolean).join(' · '),
         healingView: showingHealing,
         metric: showingDamageTime ? 'Damage timeline' : view === 'timeline' ? 'Elemental burst' : metrics[metric],
         probe: showingDamageTime ? fmt(time) + ' s' : view === 'curve' ? labels[axis] + ' ' + fmt(probe) : 'Selected target',
@@ -361,19 +393,33 @@ export default function ComparisonPlot({
             <>
               <div className={css.heading}>
                 <div className={css.controls}>
-                  {patriotPreset && <Pick label="Patriot fight" value={fightMode}
-                    options={[{ value: 'fixed', label: 'Selected form' }, { value: 'full', label: 'Full fight' }]}
+                  {(damageEnemy?.fight || canChangeForm) && <Pick label={damageEnemy?.fight?.[0].name === 'Marching' ? 'Patriot fight' : 'Enemy fight'}
+                    value={fullFight ? fightMode : 'fixed'}
+                    options={[{ value: 'fixed', label: 'Selected form' }, damageEnemy?.fight
+                      ? { value: 'full', label: 'Full fight' } : { value: 'form-change', label: 'Manual form change' }]}
                     change={setFightMode} />}
-                  {fullFight && (
+                  {fullFight && !manualFormChange && <Pick label="Phase timing" value={phaseTiming}
+                    options={[{ value: 'auto', label: 'Automatic' }, { value: 'manual', label: 'Manual' }]}
+                    change={setPhaseTiming} />}
+                  {manualFormChange && <Pick label="Next form" value={nextForm.id}
+                    options={alternateForms.map(form => ({ value: form.id, label: form.name }))}
+                    change={setNextForm} />}
+                  {manual !== undefined && (
                     <label className={css.field}>
-                      Marching ends (s)
-                      <input type="number" min={0} max={120} step={0.1} value={marchingEnds}
+                      {fullFight?.[0].name === 'Marching' ? 'Marching ends (s)'
+                        : manualFormChange ? 'Form changes at (s)' : 'First phase ends (s)'}
+                      <input type="number" min={0} max={120} step={0.1} value={firstPhaseEnds}
                         onChange={event => {
                           const value = event.currentTarget.valueAsNumber;
-                          setMarchingEnds(Number.isFinite(value) ? Math.min(120, Math.max(0, Math.round(value * 10) / 10)) : 0);
+                          setFirstPhaseEnds(Number.isFinite(value) ? Math.min(120, Math.max(0, Math.round(value * 10) / 10)) : 0);
                         }} />
                     </label>
                   )}
+                  {hpRun && hpCandidates.length > 1 && <Pick label="HP source" value={hpBuild.id}
+                    options={hpCandidates.map(b => {
+                      const index = builds.indexOf(b);
+                      return { value: String(b.id), label: `#${index + 1} ${names[index]}` };
+                    })} change={value => setHpBuild(Number(value))} />}
                   <Pick label="Chart length" value={duration} options={lengthOptions.map(s => ({
                     value: String(s), label: s + ' s',
                   }))} change={value => (fullFight ? setFightDuration : setFixedDuration)(Number(value))} />
@@ -391,16 +437,18 @@ export default function ComparisonPlot({
                   )}
                 </div>
               </div>
-              {phaseSummary && <small aria-label="Patriot phase times">
-                {phaseSummary} · Damage resumes at {fmt(damageResumes)} s
+              {fullFight && <small aria-label="Enemy phase times">
+                {phaseSummary ?? `${fullFight[0].name} continues through ${fmt(duration)} s`}
+                {damageResumes !== undefined && ` · Damage resumes at ${fmt(damageResumes)} s`}
               </small>}
               <DamageTimelinePlot rows={damageRows} activation={activation} duration={duration}
-                time={time} inspect={setInspectedTime} width={chartWidth} chart={chart} phases={phases} />
+                time={time} inspect={setInspectedTime} width={chartWidth} chart={chart} phases={phases} hp={hpRun} />
             </>
           )}
           <div className={css.targetResults} role="group" aria-label="Damage timeline results">
             <small>{damageTargetName}{hasDamageTimeline && ' · ' + fmt(time) + ' s'}</small>
             {phaseDescription && <small>{phaseDescription}</small>}
+            {hpStatus && <small>{hpStatus} · {hpSource}</small>}
             {damageRows.map((row, i) => (
               <div key={row.id}>
                 <span style={{ borderColor: row.color }}>#{i + 1} {names[i]}</span>
@@ -413,6 +461,8 @@ export default function ComparisonPlot({
             <small>
               Shows one activation using average DPS for each phase.
               {damageRows.some(row => row.timeline?.opening) && ' Opening damage appears as a one-second spike at activation.'}
+              {hpRun && ' The dashed HP line counts opening hits at activation.'}
+              {hpRun && hpCandidates.length > 1 && ' All DPS traces use the selected HP source’s encounter timing.'}
             </small>
           )}
           {damageRows.some(row => !row.timeline) && (

@@ -1,8 +1,10 @@
 import type { CSSProperties, RefObject } from 'react';
 import { damageAtTime, type DamageTargetPhase, type DamageTimeline } from '@/lib/dps/damageTimeline';
+import { hpAt, type HealthPoint } from '@/lib/dps/survival';
 import css from './Dps.module.css';
 
 const formatTick = new Intl.NumberFormat('en-US', { maximumFractionDigits: 1 });
+const formatHpTick = new Intl.NumberFormat('en-US', { notation: 'compact', maximumFractionDigits: 1 });
 
 export default function DamageTimelinePlot({
   rows,
@@ -13,6 +15,7 @@ export default function DamageTimelinePlot({
   width,
   chart,
   phases,
+  hp,
 }: {
   rows: { id: number; timeline: DamageTimeline | null; color: string }[];
   activation: number;
@@ -22,9 +25,10 @@ export default function DamageTimelinePlot({
   width: number;
   chart: RefObject<SVGSVGElement | null>;
   phases: DamageTargetPhase[];
+  hp: { maxHp: number; points: HealthPoint[] } | null;
 }) {
   const left = 62;
-  const right = width - 30;
+  const right = width - (hp ? 49 : 30);
   const top = 38;
   const bottom = 218;
   const x = (s: number) => left + (s / duration) * (right - left);
@@ -48,8 +52,9 @@ export default function DamageTimelinePlot({
   const y = (dps: number) => bottom - (dps / max) * (bottom - top);
   const skillDurations = new Set(rows.flatMap(row => row.timeline ? [row.timeline.skill?.duration ?? 0] : []));
   const skillDuration = skillDurations.size === 1 ? [...skillDurations][0] : 0;
-  const namedPhases = phases.filter((phase, i) => phase.name !== phases[i - 1]?.name);
-  const inspectedPhase = namedPhases.filter(phase => phase.start <= time).at(-1);
+  const namedPhases = phases.filter((phase, i) => phase.name && phase.name !== phases[i - 1]?.name && phase.name !== 'HP depleted');
+  const inspectedPhase = phases.filter(phase => phase.start <= time).at(-1);
+  const hpY = (value: number) => bottom - (value / (hp?.maxHp ?? 1)) * (bottom - top);
 
   return (
     <div className={css.curveFrame}
@@ -59,7 +64,8 @@ export default function DamageTimelinePlot({
         '--axis-right': ((width - right) / width) * 100 + '%',
       } as CSSProperties}>
       <svg ref={chart} className={css.plot} viewBox={`0 0 ${width} 261`} role="img"
-        aria-label="Damage per second over time. Use the time slider for exact values."
+        aria-label={hp ? 'Damage per second and enemy HP over time. The dashed HP line uses the right axis.'
+          : 'Damage per second over time. Use the time slider for exact values.'}
         onPointerDown={event => {
           const svg = event.currentTarget;
           const matrix = svg.getScreenCTM();
@@ -75,8 +81,9 @@ export default function DamageTimelinePlot({
           <rect x={x(activation)} y={top} width={x(Math.min(duration, activation + skillDuration)) - x(activation)}
             height={bottom - top} fill="var(--teal)" fillOpacity=".1" />
         )}
-        {phases.map((phase, index) => phase.invulnerable && phase.start < duration && (
-          <rect key={phase.name} x={x(phase.start)} y={top}
+        {hp && <text x={width - 12} y="19" textAnchor="end">HP</text>}
+        {phases.map((phase, index) => phase.state === 'invulnerable' && phase.start < duration && (
+          <rect key={index} x={x(phase.start)} y={top}
             width={x(Math.min(duration, phases[index + 1]?.start ?? duration)) - x(phase.start)}
             height={bottom - top} fill="var(--text-faint)" fillOpacity=".15" />
         ))}
@@ -84,6 +91,7 @@ export default function DamageTimelinePlot({
           <g key={i}>
             <line x1={left} x2={right} y1={y(max * i / 4)} y2={y(max * i / 4)} />
             <text x={left - 9} y={y(max * i / 4) + 4} textAnchor="end">{formatTick.format(max * i / 4)}</text>
+            {hp && <text x={right + 6} y={hpY(hp.maxHp * i / 4) + 4}>{formatHpTick.format(hp.maxHp * i / 4)}</text>}
           </g>
         ))}
         {[0, duration / 3, duration * 2 / 3, duration].map(s => (
@@ -108,10 +116,18 @@ export default function DamageTimelinePlot({
             <circle cx={x(time)} cy={y(cursor)} r="4" fill={color} />
           </g>
         ))}
+        {hp && (
+          <g>
+            <path d={hp.points.map(({ time, hp }, i) => `${i ? 'L' : 'M'} ${x(time)} ${hpY(hp)}`).join(' ')}
+              fill="none" stroke="var(--text-dim)" strokeWidth="2" strokeDasharray="3 3" />
+            <circle cx={x(time)} cy={hpY(hpAt(hp.points, time))} r="4" fill="var(--text-dim)" />
+          </g>
+        )}
       </svg>
       <label className={css.probe}>
         <input type="range" aria-label="Inspect time" aria-valuetext={formatTick.format(time) + ' seconds'
-            + (inspectedPhase ? ', ' + inspectedPhase.name : '')}
+            + (inspectedPhase?.name ? ', ' + inspectedPhase.name : '')
+            + (hp ? ', ' + formatTick.format(hpAt(hp.points, time)) + ' enemy HP' : '')}
           min={0} max={duration} step={0.1} value={time} onChange={event => inspect(event.currentTarget.valueAsNumber)} />
         <output>{formatTick.format(time)} s</output>
       </label>

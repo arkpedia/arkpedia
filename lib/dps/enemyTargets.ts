@@ -1,11 +1,12 @@
 import type { Target } from './calculator';
-import { enemyDefenseForms, type EnemyDefenseForm, type PatriotDefenseTiming } from './enemyDefenseForms';
+import { enemyDefenseForms, type EnemyDefenseForm } from './enemyDefenseForms';
+import { enemyFightPhases, type EnemyFightPhase } from './enemyFightPhases';
 import { readDataTable } from '../content/dataTable';
 import { getEnemyBundles } from '../enemies/enemies';
 
 type Defined<T> = { m_defined: boolean; m_value: T };
 type Rank = 'NORMAL' | 'ELITE' | 'BOSS';
-type Attribute = 'def' | 'magicResistance' | 'epDamageResistance' | 'epResistance';
+type Attribute = 'maxHp' | 'def' | 'magicResistance' | 'epDamageResistance' | 'epResistance';
 interface EnemyRecord {
   level: number;
   enemyData: {
@@ -23,8 +24,9 @@ export interface EnemyPreset {
 }
 export type EnemyLevel = Pick<Target, 'tier' | 'def' | 'res' | 'elementalRes' | 'injuryRes'> & {
   level: number;
+  hp?: number;
   forms?: EnemyDefenseForm[];
-  patriotTiming?: PatriotDefenseTiming;
+  fight?: EnemyFightPhase[];
   defenseNote?: string;
 };
 const ranks = { NORMAL: 'Grunt', ELITE: 'Elite', BOSS: 'Boss' } as const;
@@ -55,6 +57,8 @@ export function enemyTargets(): EnemyPreset[] {
               if (typeof key === 'string' && Number.isFinite(value)) talents.set(key, value);
             }
             const reviewed = enemyDefenseForms(enemy.id, { def, res }, talents);
+            const hp = attr('maxHp');
+            const fight = enemyFightPhases(enemy.id, { def, res }, reviewed?.forms, talents);
             // Blackboard keys can also describe buffs or debuffs applied to
             // other units. Use them to flag a record for review, not to infer a form.
             const defenseParameter = /(?:^|[.@])(def|magic_resistance|ep_damage_resistance|ep_resistance|damage_resistance|invincible)$/i;
@@ -72,8 +76,9 @@ export function enemyTargets(): EnemyPreset[] {
               res,
               elementalRes: attr('epDamageResistance'),
               injuryRes: attr('epResistance'),
+              ...(hp > 0 && { hp }),
+              ...(fight && { fight }),
               ...(reviewed && { forms: reviewed.forms }),
-              ...(reviewed?.patriotTiming && { patriotTiming: reviewed.patriotTiming }),
               ...(defenseNote && { defenseNote }),
             };
           })

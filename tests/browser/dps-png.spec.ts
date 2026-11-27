@@ -70,6 +70,12 @@ test('applies selectable RES states for other enemies and identifies base-only r
   await page.getByRole('option', { name: 'Silenced', exact: true }).click();
   await expect(res).toHaveValue('0');
   await expect(result.locator('strong')).not.toHaveText(active);
+  await expect(result).toContainText('Enemy HP');
+  await page.getByRole('combobox', { name: 'Enemy fight', exact: true }).click();
+  await page.getByRole('option', { name: 'Manual form change', exact: true }).click();
+  await page.getByRole('spinbutton', { name: 'Form changes at (s)' }).fill('1');
+  await expect(page.getByLabel('Enemy phase times')).toContainText('Silenced 0–1 s · Refraction active from 1 s');
+  await expect(result).toContainText('Refraction active · 0 DEF · 70 RES');
   await enemy.fill('Manfred');
   await page.getByRole('option', { name: /^Manfred/ }).first().click();
   await expect(form).toHaveCount(0);
@@ -86,13 +92,24 @@ test('shows Patriot’s full fight on the damage timeline with invulnerability a
   const fight = page.getByRole('combobox', { name: 'Patriot fight', exact: true });
   await fight.click();
   await page.getByRole('option', { name: 'Full fight', exact: true }).click();
+  const timing = page.getByRole('combobox', { name: 'Phase timing', exact: true });
+  await expect(timing).toContainText('Automatic');
+  const results = page.getByRole('group', { name: 'Damage timeline results' });
+  await expect(results).toContainText('Enemy HP 37,436.86 / 45,000');
+  await expect(page.getByLabel('Enemy phase times')).toContainText('Marching 0–29.4 s');
+  await page.getByRole('slider', { name: 'Inspect time', exact: true }).fill('31');
+  await expect(results).toContainText('Enemy HP 0 / 45,000');
+  await page.getByRole('slider', { name: 'Inspect time', exact: true }).fill('90');
+  await expect(results).toContainText('Enemy HP 45,000 / 45,000');
+  await timing.click();
+  await page.getByRole('option', { name: 'Manual', exact: true }).click();
   const marching = page.getByRole('spinbutton', { name: 'Marching ends (s)', exact: true });
   await marching.fill('12');
   await expect(page.getByText('Marching 0–12 s · Revival 12–72 s · Ruination from 72 s · Damage resumes at 87 s')).toBeVisible();
-  const results = page.getByRole('group', { name: 'Damage timeline results' });
+  const time = page.getByRole('slider', { name: 'Inspect time', exact: true });
+  await time.fill('5');
   await expect(results).toContainText('Marching · 2,100 DEF · 90 RES');
   await expect(results).toContainText('7,398.24 damage');
-  const time = page.getByRole('slider', { name: 'Inspect time', exact: true });
   await time.fill('12');
   await expect(results).toContainText('Revival · Invulnerable');
   await expect(results).toContainText('0 DPS · Target invulnerable');
@@ -114,6 +131,30 @@ test('shows Patriot’s full fight on the damage timeline with invulnerability a
   await page.getByRole('option', { name: 'Selected form', exact: true }).click();
   await expect(marching).toHaveCount(0);
   await expect(time).toHaveAttribute('max', '45');
+});
+
+test('uses the selected HP source for another enemy’s automatic threshold transition', async ({ page }) => {
+  await page.goto('/dps-calculator');
+  const add = page.getByRole('combobox', { name: 'Add operator', exact: true });
+  for (const name of ['Ulpianus', 'Amiya']) {
+    await add.fill(name);
+    await page.getByRole('option', { name, exact: true }).click();
+  }
+  await page.getByRole('combobox', { name: 'Find enemy', exact: true }).fill('Talulah');
+  await page.getByRole('option', { name: /^Talulah TA\b/ }).first().click();
+  await page.getByRole('button', { name: 'Timeline', exact: true }).click();
+  await page.getByRole('combobox', { name: 'Enemy fight', exact: true }).click();
+  await page.getByRole('option', { name: 'Full fight', exact: true }).click();
+  const chart = page.getByRole('group', { name: 'Damage timeline results' });
+  const source = page.getByRole('combobox', { name: 'HP source', exact: true });
+  await expect(chart).toContainText('Enemy HP 39,303.76 / 50,000 · #1 Ulpianus');
+  const before = await page.getByLabel('Enemy phase times').innerText();
+  await source.click();
+  await page.getByRole('option', { name: /^#2 Amiya/ }).click();
+  await expect(chart).not.toContainText('39,303.76');
+  await expect(page.getByLabel('Enemy phase times')).not.toHaveText(before);
+  await page.getByRole('slider', { name: 'Inspect time', exact: true }).fill('30');
+  await expect(chart).toContainText('Below half HP · 1,400 DEF · 90 RES');
 });
 
 test('downloads the zoomed comparison as condensed and detailed PNGs', async ({ page }, info) => {
