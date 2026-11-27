@@ -1,6 +1,5 @@
 import { boundedInt } from '@/lib/planner/untrusted';
 
-export const TEAM_LIMIT = 13;
 export const TEAM_PRESET_KEY = 'arkpediaCcbTeamPreset';
 
 export interface TeamBuild {
@@ -44,12 +43,11 @@ export function parseTeamPreset(raw: string | null, operators: readonly string[]
     const members: TeamPresetMember[] = [];
     for (const row of preset.members) {
       if (typeof row?.name !== 'string' || !available.has(row.name)) continue;
-      const build = parseBuild(row.build);
-      if (!build) continue;
-      available.delete(row.name);
       const moduleId = typeof row.moduleId === 'string' && row.moduleId.length <= 128 ? row.moduleId : undefined;
-      members.push({ name: row.name, build, moduleId });
-      if (members.length === TEAM_LIMIT) break;
+      const member = parseTeamMember({ name: row.name, build: row.build, moduleId });
+      if (!member) continue;
+      available.delete(row.name);
+      members.push(member);
     }
     return members;
   } catch {
@@ -57,6 +55,11 @@ export function parseTeamPreset(raw: string | null, operators: readonly string[]
   }
 }
 
-export function serializeTeamPreset(members: TeamPresetMember[]): string {
-  return JSON.stringify({ version: 1, members });
+export function parseTeamMember(value: unknown): TeamPresetMember | null {
+  if (!value || typeof value !== 'object') return null;
+  const { name, build, moduleId } = value as Partial<Record<keyof TeamPresetMember, unknown>>;
+  if (typeof name !== 'string' || !name.trim() || name.length > 128) return null;
+  if (moduleId !== undefined && (typeof moduleId !== 'string' || moduleId.length > 128)) return null;
+  const parsed = parseBuild(build);
+  return parsed ? { name, build: parsed, moduleId } : null;
 }

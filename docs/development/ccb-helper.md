@@ -70,10 +70,15 @@ Imported builds use the equipped module when the account contains it. Trust is
 filled when the account records it or the import data includes the trust thresholds.
 Readers can enter missing values in the editor.
 
-The squad compares up to 13 distinct operators under the active contracts. Each
-operator retains its own edited build, deployment tile and timing. Save preset
-stores one squad and its build settings in this browser. Loading replaces the
-current squad and evaluates it against the contracts currently selected on the board.
+The comparison accepts any number of distinct operators from the catalogue. The
+Stage panel shows the current in-game squad limit. Each operator retains its own
+edited build, deployment tile and timing.
+
+Presets stores named setups in the browser. A risk preset restores its battlefield
+and contracts, an operator preset restores its team and builds, and a combined
+preset restores both. The old single-team save appears as “Saved team.” Share codes
+carry the preset and the creator’s Arkpedia username if they choose to include it.
+Import saves a copy for the reader to load later.
 
 Additive percentage tiers sum; multiplicative runes multiply. Flat stat modifiers
 apply before the percentage and multiplicative layers. ASPD changes affect attack

@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { inflateRawSync } from 'node:zlib';
 import { setTheme } from './overlay-checks';
 
 const searchOperators = (page: Page) => page.getByRole('combobox', { name: 'Search operators', exact: true });
@@ -18,6 +19,30 @@ async function selectArclight(page: Page) {
   const battlefields = page.getByRole('region', { name: 'Battlefields', exact: true });
   await battlefields.getByRole('group', { name: 'Seasons' }).getByRole('button', { name: /Arclight/ }).click();
   await battlefields.getByRole('button', { name: /Suspended Focus/ }).click();
+}
+
+const presetsDialog = (page: Page) => page.getByRole('dialog', { name: 'Presets', exact: true });
+const presetsTrigger = (page: Page) => page.getByRole('button', { name: 'Presets', exact: true });
+
+async function savePreset(page: Page, name: string, scope: string) {
+  const dialog = presetsDialog(page);
+  if (!await dialog.isVisible()) await presetsTrigger(page).click();
+  await dialog.getByRole('tab', { name: 'Save current' }).click();
+  await dialog.getByRole('textbox', { name: 'Preset name' }).fill(name);
+  await dialog.getByRole('button', { name: scope, exact: true }).click();
+  await dialog.getByRole('button', { name: 'Save preset', exact: true }).click();
+  await expect(dialog.getByRole('button', { name: `Load ${name}`, exact: true })).toBeFocused();
+}
+
+async function loadPreset(page: Page, name: string) {
+  if (!await presetsDialog(page).isVisible()) await presetsTrigger(page).click();
+  await presetsDialog(page).getByRole('button', { name: `Load ${name}`, exact: true }).click();
+  await expect(presetsTrigger(page)).toBeFocused();
+}
+
+async function checkPresetsFit(page: Page) {
+  expect(await presetsDialog(page).evaluate(dialog => dialog.scrollWidth - dialog.clientWidth)).toBeLessThanOrEqual(1);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(1);
 }
 
 const riskDialog = (page: Page) => page.getByRole('dialog', { name: 'Risks', exact: true });
@@ -197,10 +222,8 @@ test('a team shares contracts while build and tile choices reload independently 
   await expect(teamRow(page, 'Exusiai').getByRole('cell').nth(4)).toContainText(/\+\d/);
   await expect(teamRow(page, 'Weedy').getByRole('cell').first()).not.toContainText(/-\d/);
 
-  const save = page.getByRole('button', { name: 'Save preset', exact: true });
-  const load = page.getByRole('button', { name: 'Load preset', exact: true });
-  await save.click();
-  await expect(load).toBeEnabled();
+  await savePreset(page, 'Build checks', 'Operators only');
+  await page.keyboard.press('Escape');
   await editBuild(page, 'Thorns');
   await page.getByRole('button', { name: 'Reset to E0 Lv 1', exact: true }).click();
   await expect(thornsHp.first()).toHaveText(defaultHp);
@@ -210,8 +233,8 @@ test('a team shares contracts while build and tile choices reload independently 
   await expect(elapsed).toHaveValue('12');
 
   await page.reload();
-  await expect(load).toBeEnabled();
-  await load.click();
+  await loadPreset(page, 'Build checks');
+  await expect(page.getByLabel('Contract score', { exact: true })).toHaveText('▲ 0');
   await editBuild(page, 'Thorns');
   await expect(thornsHp.first()).toHaveText(builtHp);
   await expect(page.getByRole('spinbutton', { name: 'Operator level', exact: true })).toHaveValue('90');
@@ -310,34 +333,99 @@ test('Blood-Soaked Earth labels pollution separately from contract blocks', asyn
   await expect(map).toBeHidden();
 });
 
-test('all 13 squad members remain available together and removal frees a slot', async ({ page }, info) => {
-  test.setTimeout(60000);
+test('a team above 13 can be shared, imported, and loaded with its battlefield and contracts', async ({ page, context }, info) => {
+  test.setTimeout(70000);
+  await context.grantPermissions(['clipboard-read', 'clipboard-write']);
   await page.goto('/game-modes/ccb');
   await setTheme(page, info.project.name === 'mobile' ? 'dark' : 'light');
-  const names = ['Thorns', 'Weedy', 'Exusiai', 'Amiya', 'Specter', 'Saria', 'Siege', 'Hoshiguma', 'SilverAsh', 'Ifrit', 'Eyjafjalla', 'Shining', 'Nightingale'];
+  if (info.project.name === 'mobile') await page.setViewportSize({ width: 390, height: 715 });
+  const dialog = presetsDialog(page);
+  const score = page.getByLabel('Contract score', { exact: true });
+  await selectArclight(page);
+  await openRisks(page);
+  const risks = await riskDialog(page).isVisible() ? riskDialog(page) : page.getByRole('region', { name: 'Contract board' });
+  await risks.getByRole('checkbox', { name: 'Select Hostile Forces contracts' }).click();
+  await closeRisks(page);
+  await expect(score).not.toHaveText('▲ 0');
+  const savedScore = await score.innerText();
+  const names = ['Thorns', 'Weedy', 'Exusiai', 'Amiya', 'Specter', 'Saria', 'Siege', 'Hoshiguma', 'SilverAsh', 'Ifrit', 'Eyjafjalla', 'Shining', 'Nightingale', 'Texas'];
   await addOperator(page, names[0]);
   await searchOperators(page).fill(names[0]);
   await expect(page.getByRole('option', { name: names[0], exact: true })).toHaveCount(0);
   for (const name of names.slice(1)) await addOperator(page, name);
   const team = teamTable(page);
-  await expect(team.getByRole('button', { name: /^Edit .+ build$/ })).toHaveCount(13);
-  await expect(team.getByRole('cell')).toHaveCount(13 * 8);
-  await expect(page.getByRole('status').filter({ hasText: 'Team is full.' })).toBeVisible();
-  await searchOperators(page).fill('Texas');
-  await expect(page.getByRole('option', { name: 'Texas', exact: true })).toHaveCount(0);
-  await team.getByRole('button', { name: 'Remove Weedy', exact: true }).click();
-  await expect(team.getByRole('button', { name: 'Edit Weedy build', exact: true })).toHaveCount(0);
-  await addOperator(page, 'Texas');
-  await expect(team.getByRole('button', { name: /^Edit .+ build$/ })).toHaveCount(13);
-  await expect(page.getByRole('dialog')).toHaveCount(0);
-  await page.getByRole('button', { name: 'Save preset', exact: true }).click();
+  await expect(team.getByRole('button', { name: /^Edit .+ build$/ })).toHaveCount(14);
+  await expect(team.getByRole('cell')).toHaveCount(14 * 8);
+  await savePreset(page, 'Équipe 墨', 'Risks + operators');
+  await dialog.getByRole('button', { name: 'Share Équipe 墨', exact: true }).click();
+  await expect(dialog.getByText('This preset will be shared as Anonymous.')).toBeVisible();
+  await dialog.getByRole('button', { name: 'Copy code', exact: true }).click();
+  const code = await dialog.getByRole('textbox', { name: 'Share code', exact: true }).inputValue();
+  await expect(dialog.getByRole('status')).toHaveText('Preset code copied.');
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(code);
+  expect(code.length).toBeLessThan(2000);
+  await checkPresetsFit(page);
+  await savePreset(page, 'Hostile Forces', 'Risks only');
+  await dialog.getByRole('button', { name: 'Remove preset Équipe 墨', exact: true }).click();
   await page.reload();
-  await page.getByRole('button', { name: 'Load preset', exact: true }).click();
-  await expect(team.getByRole('button', { name: /^Edit .+ build$/ })).toHaveCount(13);
-  await expect(team.getByRole('cell')).toHaveCount(13 * 8);
+  await presetsTrigger(page).click();
+  await dialog.getByRole('tab', { name: 'Import code' }).click();
+  const input = dialog.getByRole('textbox', { name: 'Preset code', exact: true });
+  await input.fill('ccb1.invalid');
+  await dialog.getByRole('button', { name: 'Import preset', exact: true }).click();
+  await expect(dialog.getByRole('alert')).toContainText('invalid');
+  await input.fill(code);
+  await dialog.getByRole('button', { name: 'Import preset', exact: true }).click();
+  await expect(dialog.getByText('Imported from Anonymous', { exact: true })).toBeVisible();
+  await expect(dialog.getByRole('button', { name: 'Load Équipe 墨', exact: true })).toBeFocused();
+  await page.keyboard.press('Escape');
+  await expect(team).toHaveCount(0);
+  await expect(score).toHaveText('▲ 0');
+
+  await addOperator(page, 'Amiya');
+  await loadPreset(page, 'Hostile Forces');
+  await expect(score).toHaveText(savedScore);
+  await expect(team.getByRole('button', { name: /^Edit .+ build$/ })).toHaveCount(1);
+  await page.getByRole('group', { name: 'Rotating sites' }).getByRole('button').first().click();
+  await expect(score).toHaveText('▲ 0');
+  await loadPreset(page, 'Équipe 墨');
+  await expect(score).toHaveText(savedScore);
+  await expect(team.getByRole('button', { name: /^Edit .+ build$/ })).toHaveCount(14);
+  await expect(team.getByRole('cell')).toHaveCount(14 * 8);
   await editBuild(page, 'Texas');
   await expect(operatorTable(page, 'Texas')).toBeVisible();
-  expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(1);
+});
+
+test('an Arkpedia username travels with a code only when the creator opts in', async ({ page }, info) => {
+  const profile = { username: 'TestCreator#1234', friendTag: null, friendServer: null };
+  await page.route('**/api/cloud-account', route => route.fulfill({ json: {
+    user: { id: 'test-creator', name: 'Private Provider Name' }, profile, linkedProviders: ['google'],
+    linkedAccounts: [], syncReviewed: true, revision: 0, gameSync: false, personalSync: false,
+    historySync: false, paused: false, data: {}, providers: ['google'],
+  } }));
+  await page.goto('/game-modes/ccb');
+  await setTheme(page, info.project.name === 'mobile' ? 'light' : 'dark');
+  const dialog = presetsDialog(page);
+  await savePreset(page, 'Attribution test', 'Risks only');
+  await dialog.getByRole('button', { name: 'Share Attribution test' }).click();
+  const consent = dialog.getByRole('checkbox', { name: `Include my Arkpedia name (${profile.username})` });
+  await expect(consent).not.toBeChecked();
+  await dialog.getByRole('button', { name: 'Copy code', exact: true }).click();
+  const output = dialog.getByRole('textbox', { name: 'Share code', exact: true });
+  const anonymous = await output.inputValue();
+  expect(JSON.parse(inflateRawSync(Buffer.from(anonymous.split('.')[1], 'base64url')).toString())).not.toHaveProperty('creator');
+  await consent.check();
+  await dialog.getByRole('button', { name: 'Copy code', exact: true }).click();
+  const named = await output.inputValue();
+  const payload = inflateRawSync(Buffer.from(named.split('.')[1], 'base64url')).toString();
+  expect(JSON.parse(payload)).toHaveProperty('creator', profile.username);
+  expect(payload).not.toContain('Private Provider Name');
+  expect(payload).not.toContain('test-creator');
+  await dialog.getByRole('tab', { name: 'Import code' }).click();
+  await dialog.getByRole('textbox', { name: 'Preset code', exact: true }).fill(named);
+  await dialog.getByRole('button', { name: 'Import preset', exact: true }).click();
+  await expect(dialog.getByText(`Imported from ${profile.username}`, { exact: true })).toBeVisible();
+  await checkPresetsFit(page);
 });
 
 test('the old bookmark redirects and a failed catalogue download can be retried', async ({ page }) => {
