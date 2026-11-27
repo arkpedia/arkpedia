@@ -4,7 +4,10 @@ import { getAllOperators } from '@/lib/operators/operators';
 import { operatorRelease, releaseMarker } from '@/lib/operators/operatorAvailability';
 import { Operator } from '@/lib/operators/operatorTypes';
 import { toGameOperator, type PaletteArtwork, type PaletteOperator } from './logic';
-import palettes from '@/data/color-palettes.json';
+
+export interface PaletteManifest {
+  artworks: Record<string, { colors: string[] }>;
+}
 
 const WORDS = ['', 'one', 'two', 'three', 'four', 'five', 'six'];
 
@@ -16,8 +19,7 @@ function datedOperators(): Operator[] {
 /** Every dated operator with palette artwork, each carrying its release marker. This is
  * what the page exports; the export used to keep only the operators released at that
  * moment, so one released afterwards stayed out of the game until the next release. */
-export function getPaletteCatalogue(): PaletteOperator[] {
-  const artworks = palettes.artworks as Record<string, { colors: string[] }>;
+export function getPaletteCatalogue({ artworks }: PaletteManifest): PaletteOperator[] {
   return datedOperators().map((operator) => {
     function art(label: 'Base' | 'Elite 2'): PaletteArtwork | null {
       if (!operator.rarity || (label === 'Elite 2' && operator.rarity < 4)) return null;

@@ -11,7 +11,8 @@ import SegmentedControl from '@/components/ui/SegmentedControl';
 import Rarity, { rarityLevel } from '@/components/ui/Rarity';
 import OperatorAnswer from '@/components/minigames/OperatorAnswer';
 import RoundFeedback from '@/components/minigames/RoundFeedback';
-import { applyCommunityPaletteOverrides, CommunityPaletteOverrides, getPaletteCatalogue } from '@/lib/minigames/data';
+import { applyCommunityPaletteOverrides, CommunityPaletteOverrides, getPaletteCatalogue, type PaletteManifest } from '@/lib/minigames/data';
+import { readShippedTable } from '@/lib/content/shippedTable';
 import { newProgress, PaletteMode, PaletteOperator, pickNext, playablePalettes, submitAnswer } from '@/lib/minigames/logic';
 import styles from '@/styles/games/minigames.module.css';
 import { operatorHref } from '@/lib/operators/operatorHref';
@@ -127,5 +128,6 @@ export const getStaticProps: GetStaticProps<Props> = withContentPage<Props>("/ga
     // The generated catalog remains a complete offline fallback if GitHub is
     // temporarily unavailable while Arkpedia is building.
   }
-  return { props: { operators: applyCommunityPaletteOverrides(getPaletteCatalogue(), overrides) } };
+  const manifest = await readShippedTable<PaletteManifest>('color-palettes.json');
+  return { props: { operators: applyCommunityPaletteOverrides(getPaletteCatalogue(manifest), overrides) } };
 });
