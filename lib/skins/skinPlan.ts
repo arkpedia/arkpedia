@@ -16,6 +16,31 @@ export const SKIN_PLAN_KEY = 'arkpediaSkinPlan';
 export const SKIN_PLAN_EVENT = 'arkpediaSkinPlanChanged';
 const LEGACY_WISHLIST_KEY = 'skinWishlist_v1';
 
+/** A Global rename leaves former `Operator / Outfit` keys in the catalogue's search aliases. */
+export function skinPlanKeys(catalogue: readonly { id: string; name: string; searchAliases?: readonly string[] }[]): ReadonlyMap<string, string> {
+  const canonical = new Set(catalogue.map(skin => skin.id));
+  const candidates = new Map<string, string | null>();
+  const add = (key: string, id: string) => {
+    if (canonical.has(key)) return;
+    const previous = candidates.get(key);
+    candidates.set(key, previous === undefined || previous === id ? id : null);
+  };
+  for (const skin of catalogue) {
+    add(skin.name, skin.id);
+    for (const alias of skin.searchAliases ?? []) {
+      const separator = alias.indexOf(' / ');
+      if (separator <= 0) continue;
+      add(alias, skin.id);
+      add(alias.slice(separator + 3), skin.id);
+    }
+  }
+  return new Map([...candidates].flatMap(([key, id]) => id === null ? [] : [[key, id]]));
+}
+
+export function resolveSkinPlan(ids: readonly string[], keys: ReadonlyMap<string, string>): string[] {
+  return [...new Set(ids.map(id => keys.get(id) ?? id))];
+}
+
 const strings = (value: unknown): string[] | null => (Array.isArray(value) && value.every((item) => typeof item === 'string' && item.length <= 300) ? [...new Set(value as string[])] : null);
 
 export function parseSkinPlan(raw: string | null): string[] | null {
@@ -84,28 +109,29 @@ function subscribe(onChange: () => void) {
 
 /**
  * The plan and its setter. Empty on the server and in the first paint, so the markup
- * matches; the stored plan arrives right after. `keyOfName` turns the old wishlist's names
- * into keys on the first read (legacySkinPlan).
+ * matches; the stored plan arrives right after. Resolve former catalogue keys on reads
+ * and writes, including plans restored from backups or imported into the Pull Planner.
  */
-export function useSkinPlan(keyOfName: (name: string) => string | undefined, ownedKeys?: ReadonlySet<string>): [string[], (ids: string[]) => void] {
+export function useSkinPlan(keys: ReadonlyMap<string, string>, ownedKeys?: ReadonlySet<string>): [string[], (ids: string[]) => void] {
   const ids = useSyncExternalStore(subscribe, () => {
     try {
       if (window.localStorage && window.localStorage.getItem(SKIN_PLAN_KEY) == null) {
-        const legacy = legacySkinPlan(window.localStorage, keyOfName);
+        const legacy = legacySkinPlan(window.localStorage, name => keys.get(name));
         window.localStorage.setItem(SKIN_PLAN_KEY, JSON.stringify(legacy));
       }
     } catch { /* private mode */ }
     return snapshot();
   }, () => EMPTY);
+  const resolve = useCallback((next: string[]) => resolveSkinPlan(next, keys).filter(id => !ownedKeys?.has(id)), [keys, ownedKeys]);
   useEffect(() => {
-    if (!ownedKeys?.size) return;
     try {
-      const latest = parseSkinPlan(window.localStorage.getItem(SKIN_PLAN_KEY)) ?? ids;
-      const unowned = latest.filter(id => !ownedKeys.has(id));
-      if (unowned.length !== latest.length) writeSkinPlan(unowned);
+      // Re-read before persisting so hydration cannot replace a more recent saved plan.
+      const latest = parseSkinPlan(window.localStorage.getItem(SKIN_PLAN_KEY));
+      if (!latest) return;
+      const resolved = resolve(latest);
+      if (resolved.length !== latest.length || resolved.some((id, index) => id !== latest[index])) writeSkinPlan(resolved);
     } catch { /* Storage is unavailable. */ }
-  }, [ids, ownedKeys]);
-  const set = useCallback((next: string[]) => writeSkinPlan(next.filter(id => !ownedKeys?.has(id))), [ownedKeys]);
-  const unowned = useMemo(() => ownedKeys?.size ? ids.filter(id => !ownedKeys.has(id)) : ids, [ids, ownedKeys]);
-  return [unowned, set];
+  }, [ids, resolve]);
+  const set = useCallback((next: string[]) => writeSkinPlan(resolve(next)), [resolve]);
+  return [useMemo(() => resolve(ids), [ids, resolve]), set];
 }

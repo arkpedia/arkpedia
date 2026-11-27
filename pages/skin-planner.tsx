@@ -12,7 +12,7 @@ import SkinPlanner from '@/components/skins/SkinPlanner';
 import { withContentPage } from '@/lib/content/server';
 import { useReaderClock } from '@/lib/time/readerClock';
 import { useAccount } from '@/lib/account/accountStore';
-import { useSkinPlan } from '@/lib/skins/skinPlan';
+import { skinPlanKeys, useSkinPlan } from '@/lib/skins/skinPlan';
 import type { PlannedSkin } from '@/lib/pulls/skins';
 import type { SkinCollection } from '@/lib/pulls/skinCollections';
 
@@ -34,11 +34,11 @@ export default function SkinPlannerPage({ catalogue, collections: globalCollecti
   const collections = useMemo(() => regionalSkinCollections(globalCollections, schedule, server), [globalCollections, schedule, server]);
   const clock = useReaderClock(now, { tickMs: 1000, onFocus: true });
   const today = serverCalendarTime(new Date(clock), server).toISOString().slice(0, 10);
-  const byName = useMemo(() => new Map(catalogue.map((skin) => [skin.name, skin.id])), [catalogue]);
+  const savedKeys = useMemo(() => skinPlanKeys(catalogue), [catalogue]);
   const account = useAccount();
   const owned = useMemo(() => (account ? new Set(account.skins) : null), [account]);
   const ownedKeys = useMemo(() => new Set(catalogue.filter(skin => skin.skinId && owned?.has(skin.skinId)).flatMap(skin => [skin.id, skin.name])), [catalogue, owned]);
-  const [ids, setIds] = useSkinPlan((name) => byName.get(name), ownedKeys);
+  const [ids, setIds] = useSkinPlan(savedKeys, ownedKeys);
   return (
     <>
       <PageMeta title="Skin Planner" description="Plan the Arknights outfits you want, with their prices, shop windows and the Originite Prime they add up to." path="/skin-planner" />
