@@ -1,12 +1,14 @@
 // node scripts/build/build-dps-profiles.mjs [path/to/en/gamedata/excel]
 // Explicit regeneration updates the reviewed fixture. Build/export writes only generated data.
-import { readFile, rename, writeFile } from 'node:fs/promises';
+import { constants } from 'node:fs';
+import { copyFile, readFile, rename, writeFile } from 'node:fs/promises';
 
 const read = async (path) => JSON.parse(await readFile(path, 'utf8'));
 const repo = 'ArknightsAssets/ArknightsGamedata';
 const { commit } = (await read('data/upstream.lock.json')).repositories[repo];
 const source = 'https://raw.githubusercontent.com/' + repo + '/' + commit + '/en/gamedata/excel/';
-const automatic = process.argv[2] === '--if-stale';
+const mode = process.argv[2];
+const automatic = mode === '--if-stale' || mode === '--test-fixture';
 const fixture = 'config/dps-profiles.json';
 const output = automatic ? 'data/dps-profiles.json' : fixture;
 const localEN = automatic ? undefined : process.argv[2];
@@ -238,6 +240,10 @@ async function generateProfiles() {
 
 if (!automatic) {
   await generateProfiles();
+} else if (mode === '--test-fixture') {
+  await copyFile(fixture, output, constants.COPYFILE_EXCL).catch(error => {
+    if (error.code !== 'EEXIST') throw error;
+  });
 } else {
   const reviewed = await read(fixture);
   if (reviewed.source === source) {
