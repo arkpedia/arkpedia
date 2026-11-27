@@ -264,21 +264,31 @@ for (const theme of ['dark', 'light']) {
   test(`a renamed wishlist entry keeps one OP reservation and fits the dialog in ${theme} mode`, async ({ page }, testInfo) => {
     const oldKey = 'Mon3tr / Sharpened Blades';
     const key = 'Mon3tr / Sharpened Claws';
-    await page.addInitScript(({ theme, oldKey, key }) => {
+    const clock = new Date('2099-11-27T12:00:00Z');
+    await page.clock.setFixedTime(clock);
+    await page.addInitScript(({ theme, oldKey, key, savedAt }) => {
       localStorage.setItem('theme', theme);
+      localStorage.setItem('arkpedia:privacy:v1', JSON.stringify({ version: 1, analytics: false, externalMedia: false, externalMediaChosen: true, savedAt }));
       const planKey = 'arkpediaSkinPlan';
       if (localStorage.getItem(planKey) === null) localStorage.setItem(planKey, JSON.stringify(theme === 'dark' ? [oldKey] : [oldKey, key]));
-    }, { theme, oldKey, key });
+    }, { theme, oldKey, key, savedAt: clock.getTime() });
     await page.goto('/pull-planner');
     const wishlist = page.getByRole('button', { name: /Skin wishlist/ });
     await expect(wishlist).toContainText(/1\s+21 OP reserved/);
     await wishlist.click();
     const dialog = page.getByRole('dialog', { name: 'Skin wishlist' });
+    await dialog.getByRole('button', { name: 'Shop date unknown' }).click();
+    const undated = dialog.getByRole('region', { name: 'Outfits with an unknown shop date' });
+    await expect(undated.getByRole('button', { name: /, \d+ OP$/, pressed: false }).first()).toBeVisible();
+    await expect(dialog.getByRole('group', { name: 'Order shops by' })).toHaveCount(0);
     await dialog.getByRole('button', { name: 'Planned only' }).click();
+    await dialog.getByRole('searchbox', { name: 'Search outfits' }).fill('mon3tr');
     const cardName = 'Mon3tr — Sharpened Claws, 21 OP';
-    await expect(dialog.getByRole('button', { name: cardName })).toHaveAttribute('aria-pressed', 'true');
+    await expect(undated.getByRole('button', { name: cardName })).toHaveAttribute('aria-pressed', 'true');
+    await expect(undated.getByRole('button', { name: /, \d+ OP$/, pressed: false })).toHaveCount(0);
     await expect(dialog.getByText('Sharpened Blades', { exact: false })).toHaveCount(0);
     await expect(dialog.getByRole('status')).toContainText('To buy21 OP');
+    await expect(dialog.getByRole('status')).toContainText('With unknown shop date21 OP');
 
     const reserve = dialog.locator('summary', { hasText: 'Extra OP reserve' });
     await reserve.focus();
@@ -307,9 +317,21 @@ for (const theme of ['dark', 'light']) {
     await expect(page.getByText('1 wishlisted · 21 OP catalogue total', { exact: false })).toBeVisible();
     await page.goto('/skin-planner');
     await page.getByRole('button', { name: 'Planned only' }).click();
-    const planned = page.getByRole('button', { name: cardName });
+    const undatedOnPlanner = page.getByRole('region', { name: 'Outfits with an unknown shop date' });
+    const planned = undatedOnPlanner.getByRole('button', { name: cardName });
     await expect(planned).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.getByRole('complementary', { name: 'Your skin plan' })).toContainText('With unknown shop date21 OP');
     await planned.click();
+    await expect(undatedOnPlanner).toHaveCount(0);
+    await page.getByRole('button', { name: 'Planned only' }).click();
+    const search = page.getByRole('searchbox', { name: 'Search outfits' });
+    await search.fill('mon3tr');
+    await expect(undatedOnPlanner.getByRole('button', { name: cardName, pressed: false })).toBeVisible();
+    await page.getByRole('button', { name: 'Shop date unknown' }).click();
+    await search.fill('mlynar');
+    await expect(undatedOnPlanner.getByRole('button', { name: 'Młynar — Roar Against The Wilds, 18 OP' })).toBeVisible();
+    await search.fill('Sharpened Blades');
+    await expect(undatedOnPlanner.getByRole('button', { name: cardName, pressed: false })).toBeVisible();
     await page.goto('/pull-planner');
     await expect(wishlist).toContainText(/0\s+5 OP reserved/);
   });

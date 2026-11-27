@@ -59,7 +59,7 @@ Virtuosa’s S1 timing scenario starts with full stored charges. The first cast 
 
 ## Extending coverage
 
-The profile generator reads the ArknightsGamedata revision named in the hydrated data lock. The build and content exporter reuse the generated coefficients while that pin matches. To regenerate after editing the supported profiles, run:
+The profile generator reads the ArknightsGamedata revision named in the hydrated data lock. Cloudflare builds check the reviewed coefficients when that pin changes and leave the checked-in file intact. If the coefficients change, review and commit the regenerated profile file. Pinned browser fixtures can still generate profiles for their own data revision. To regenerate after editing the supported profiles, run:
 
 ```sh
 node scripts/build/build-dps-profiles.mjs

@@ -10,6 +10,7 @@ import { skinPurchasePlan, type PlannedSkin } from '@/lib/pulls/skins';
 import type { SkinCollection } from '@/lib/pulls/skinCollections';
 import { sourcedTiming, timingQualifier } from '@/lib/time/releaseTiming';
 import { openSkinCollections } from '@/lib/pulls/currentPlan';
+import { matchesSearch } from '@/lib/search/searchNormalize';
 
 function collectionTimingLabel(collection: SkinCollection): string {
   const label = timingQualifier(collection.estimated ? collection.sourceRegion === 'cn' ? 'cn-estimate' : 'estimated'
@@ -34,6 +35,7 @@ export interface SkinBudget {
 }
 
 type ShopOrder = 'closing' | 'opening';
+type ShopView = 'shops' | 'fashion' | 'undated';
 const ORDER_OPTIONS = [{ value: 'closing' as const, label: 'Closing soonest' }, { value: 'opening' as const, label: 'Opening soonest' }];
 const shopName = (name: string) => name.replace(/^\[[^\]]*\]\s*/, '');
 
@@ -70,7 +72,7 @@ export default function SkinPlanner({ catalogue, collections, today, now, ids, o
   const [viewing, setViewing] = useState<PlannedSkin | null>(null);
   const [query, setQuery] = useState('');
   const [order, setOrder] = useState<ShopOrder>('closing');
-  const [fashionOnly, setFashionOnly] = useState(false);
+  const [shopView, setShopView] = useState<ShopView>('shops');
   const [plannedOnly, setPlannedOnly] = useState(false);
   /* With an imported account the planner opens on the outfits you do not own yet (the owner,
      2026-10-29): what you can still buy. The reader's own pick wins from then on. */
@@ -83,6 +85,7 @@ export default function SkinPlanner({ catalogue, collections, today, now, ids, o
   const [shopLimit, setShopLimit] = useState(SHOPS_PER_STEP);
   const [cardLimits, setCardLimits] = useState<Record<string, number>>({});
   const CARDS_PER_STEP = 12;
+  const [undatedLimit, setUndatedLimit] = useState(CARDS_PER_STEP);
 
   const byId = useMemo(() => new Map(catalogue.map((skin) => [skin.id, skin])), [catalogue]);
   const isOwned = (skin: PlannedSkin) => !!owned && !!skin.skinId && owned.has(skin.skinId);
@@ -91,6 +94,10 @@ export default function SkinPlanner({ catalogue, collections, today, now, ids, o
     const open = today ? openSkinCollections(collections, today, now) : collections;
     return [...open].sort((a, b) => (order === 'closing' ? a.end.localeCompare(b.end) || a.start.localeCompare(b.start) : a.start.localeCompare(b.start) || a.end.localeCompare(b.end)));
   }, [collections, today, now, order]);
+  const undatedSkins = useMemo(() => {
+    const listed = new Set(shops.flatMap(shop => shop.skinIds));
+    return catalogue.filter(skin => !listed.has(skin.id));
+  }, [catalogue, shops]);
 
   // What the plan costs: outfits the account already owns are left out.
   const plannedSkins = ids.flatMap((id) => (byId.has(id) ? [byId.get(id)!] : []));
@@ -100,18 +107,33 @@ export default function SkinPlanner({ catalogue, collections, today, now, ids, o
   const cost = toBuy.reduce((sum, skin) => sum + skin.op, 0);
   const extra = budget?.extraOP ?? 0;
   const purchases = useMemo(() => skinPurchasePlan(toBuy, shops, extra), [toBuy, shops, extra]);
+  const undatedCost = purchases.unscheduled.reduce((sum, skin) => sum + skin.op, 0);
   const short = budget ? Math.max(0, cost + extra - budget.heldOP) : 0;
 
-  const words = query.normalize('NFKC').toLocaleLowerCase().trim().split(/\s+/).filter(Boolean);
+  const matchingSearch = useMemo(() => {
+    const words = query.normalize('NFKC').trim().split(/\s+/).filter(Boolean);
+    if (!words.length) return null;
+    return new Set(catalogue.filter(skin => {
+      const text = `${skin.operator} ${skin.name} ${skin.series ?? ''} ${(skin.searchAliases ?? []).join(' ')}`.normalize('NFKC');
+      return words.every(word => matchesSearch(text, word));
+    }).map(skin => skin.id));
+  }, [catalogue, query]);
+  const searching = matchingSearch !== null;
   const matches = (skin: PlannedSkin) => (!plannedOnly || planned.has(skin.id))
-    && words.every((word) => `${skin.operator} ${skin.name}`.normalize('NFKC').toLocaleLowerCase().includes(word));
+    && (!matchingSearch || matchingSearch.has(skin.id));
   const shows = (skin: PlannedSkin) => matches(skin) && (!owned || ownedFilter === 'all' || (ownedFilter === 'owned') === isOwned(skin));
+  const viewShops = shopView === 'undated' ? [] : shops.filter(shop => shopView === 'fashion' ? !!shop.fashionReview : searching || !shop.fashionReview);
+  const viewUndated = shopView === 'fashion' ? []
+    : shopView === 'undated' || searching ? undatedSkins : purchases.unscheduled;
   /* What each Owned option would show under the other filters, each outfit once though a
      returning one is in more than one shop. */
-  const ownedCounts = countOwned([...new Map(shops.flatMap((shop) => shop.skinIds.flatMap((id) => (byId.has(id) ? [byId.get(id)!] : [])))
+  const ownedCounts = countOwned([...new Map([
+    ...viewShops.flatMap((shop) => shop.skinIds.flatMap((id) => (byId.has(id) ? [byId.get(id)!] : []))),
+    ...viewUndated,
+  ]
     .filter(matches).map((skin) => [skin.id, skin])).values()], isOwned);
   // The shops with something to show under the search and the chips.
-  const visibleShops = shops.filter(shop => !!shop.fashionReview === fashionOnly).map((shop) => ({ shop, skins: shop.skinIds.flatMap((id) => (byId.has(id) ? [byId.get(id)!] : [])).filter(shows) }))
+  const visibleShops = viewShops.map((shop) => ({ shop, skins: shop.skinIds.flatMap((id) => (byId.has(id) ? [byId.get(id)!] : [])).filter(shows) }))
     .filter(({ skins }) => skins.length > 0);
   // One event can have several returning batches and a separate Fashion Review shop.
   const groups = new Map<string, { id: string; name: string; shops: typeof visibleShops }>();
@@ -124,6 +146,11 @@ export default function SkinPlanner({ catalogue, collections, today, now, ids, o
   }
   const eventGroups = [...groups.values()];
   const toggle = (id: string) => onChange(planned.has(id) ? ids.filter((value) => value !== id) : [...ids, id]);
+  const toggleShopView = (view: 'fashion' | 'undated') => {
+    setShopView(current => current === view ? 'shops' : view);
+    setShopLimit(SHOPS_PER_STEP);
+    setUndatedLimit(CARDS_PER_STEP);
+  };
 
   const card = (skin: PlannedSkin) => {
     const isPlanned = planned.has(skin.id), has = isOwned(skin);
@@ -147,7 +174,15 @@ export default function SkinPlanner({ catalogue, collections, today, now, ids, o
     );
   };
 
-  const unscheduledPlanned = purchases.unscheduled.filter(shows);
+  const visibleUndated = viewUndated.filter(shows);
+  const undatedFirst = plannedOnly || shopView === 'undated';
+  const undatedSection = visibleUndated.length > 0 && (
+    <section className="skin-plan-shop" aria-label="Outfits with an unknown shop date">
+      <div className="skin-plan-shop-head"><h3 className="section-title">Shop date unknown</h3></div>
+      <div className="skin-plan-grid">{visibleUndated.slice(0, undatedLimit).map(card)}</div>
+      <LoadOnScroll shown={Math.min(undatedLimit, visibleUndated.length)} total={visibleUndated.length} onMore={() => setUndatedLimit(limit => limit + CARDS_PER_STEP)} />
+    </section>
+  );
   return (
     <div className="skin-plan">
       {viewing?.image && <SkinZoomOverlay voiceOperator={viewing.operator} image={viewing.image} name={`${viewing.operator} — ${viewing.name}`} dynamic={viewing.dynamic ?? null} alternate={viewing.alternate ?? null} details={<div><h2>{viewing.name}</h2><p>{viewing.operator} · {viewing.series} · {viewing.op} OP</p>{viewing.illustrator && <p>Illustrator: {viewing.illustrator}</p>}{viewing.description && <p>{viewing.description}</p>}{viewing.howToObtain && <p>{viewing.howToObtain}</p>}</div>} onClose={() => setViewing(null)} />}
@@ -159,13 +194,15 @@ export default function SkinPlanner({ catalogue, collections, today, now, ids, o
           <SearchInput className="skin-plan-search" label="Search outfits" value={query} onChange={setQuery} placeholder="Operator or outfit" />
           <div className="skin-plan-filter-row">
             <button type="button" className="filter-chip" aria-pressed={plannedOnly} onClick={() => setPlannedOnly(!plannedOnly)}>Planned only</button>
-            <button type="button" className="filter-chip" aria-pressed={fashionOnly} onClick={() => { setFashionOnly(!fashionOnly); setShopLimit(SHOPS_PER_STEP); }}>Fashion Review</button>
+            <button type="button" className="filter-chip" aria-pressed={shopView === 'fashion'} onClick={() => toggleShopView('fashion')}>Fashion Review</button>
+            <button type="button" className="filter-chip" aria-pressed={shopView === 'undated'} onClick={() => toggleShopView('undated')}>Shop date unknown</button>
             <OwnedFilter label="Outfits you own" value={ownedFilter} onChange={setOwnedFilter} account={account} counts={ownedCounts} />
             <span className="toolbar-spacer" aria-hidden="true" />
-            <SegmentedControl label="Order shops by" value={order} options={ORDER_OPTIONS} onChange={setOrder} />
+            {shopView !== 'undated' && <SegmentedControl label="Order shops by" value={order} options={ORDER_OPTIONS} onChange={setOrder} />}
           </div>
         </div>
-        {shops.length === 0 && <p className="hint">No shop that sells outfits for Originite Prime is open or listed ahead.</p>}
+        {undatedFirst && undatedSection}
+        {shopView === 'shops' && shops.length === 0 && !undatedSection && <p className="hint">No shop that sells outfits for Originite Prime is open or listed ahead.</p>}
         {eventGroups.slice(0, shopLimit).map((group) => {
           const ownedSkins = [...new Map(group.shops.flatMap(row => row.skins).filter(isOwned).map(skin => [skin.id, skin])).values()];
           const ownedLimit = cardLimits[`${group.id}:owned`] ?? CARDS_PER_STEP;
@@ -191,22 +228,15 @@ export default function SkinPlanner({ catalogue, collections, today, now, ids, o
           </section>;
         })}
         <LoadOnScroll shown={Math.min(shopLimit, eventGroups.length)} total={eventGroups.length} onMore={() => setShopLimit(value => value + SHOPS_PER_STEP)} />
-        {shops.length > 0 && eventGroups.length === 0 && unscheduledPlanned.length === 0 && <p className="hint">No outfits match these filters.</p>}
-        {unscheduledPlanned.length > 0 && (
-          <section className="skin-plan-shop" aria-label="Planned, in no listed shop">
-            <div className="skin-plan-shop-head">
-              <h3 className="section-title">In no listed shop</h3>
-              <span className="hint">Planned outfits no open or coming shop lists yet: counted in the plan from now.</span>
-            </div>
-            <div className="skin-plan-grid">{unscheduledPlanned.map(card)}</div>
-          </section>
-        )}
+        {(shopView !== 'shops' || shops.length > 0) && eventGroups.length === 0 && !undatedSection && <p className="hint">No outfits match these filters.</p>}
+        {!undatedFirst && undatedSection}
       </div>
 
       <aside className="panel skin-plan-summary" aria-label="Your skin plan">
         <h3 className="section-title">Your plan <span className="hint">{plannedSkins.length}</span></h3>
         <div className="skin-plan-totals" role="status" aria-live="polite">
           <div><span>To buy</span><strong>{cost} OP</strong></div>
+          {undatedCost > 0 && <div><span>With unknown shop date</span><strong>{undatedCost} OP</strong></div>}
           {budget && <div><span>Current OP</span><strong>{budget.heldOP} OP</strong></div>}
           {budget && extra > 0 && <div><span>Extra reserve</span><strong>{extra} OP</strong></div>}
           {budget && (ids.length > 0 || extra > 0) && (

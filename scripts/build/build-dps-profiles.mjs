@@ -223,9 +223,17 @@ async function generateProfiles() {
       alternateModule: ['angel', 'skadi', 'phatom', 'skadi2'].includes(short) ? readModule('uniequip_003_' + short) : null,
     };
   });
-  await writeFile('config/dps-profiles.json', JSON.stringify({ source, operators }, null, 1) + '\n');
+  return { source, operators };
 }
 
-if (process.argv[2] !== '--if-stale' || (await read('config/dps-profiles.json')).source !== source) {
-  await generateProfiles();
+const profilesPath = 'config/dps-profiles.json';
+const checked = process.argv[2] === '--if-stale' ? await read(profilesPath) : null;
+if (checked?.source !== source) {
+  const profiles = await generateProfiles();
+  if (!checked || JSON.stringify(checked.operators) !== JSON.stringify(profiles.operators)) {
+    if (checked && process.env.ARKPEDIA_WORKER === '1') {
+      throw Error('Game data changed the checked-in DPS profiles. Run node scripts/build/build-dps-profiles.mjs and commit the reviewed profile changes.');
+    }
+    await writeFile(profilesPath, JSON.stringify(profiles, null, 1) + '\n');
+  }
 }
