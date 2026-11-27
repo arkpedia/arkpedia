@@ -33,7 +33,7 @@ export function releaseGateway(token?: string, request: typeof fetch = fetch) {
         'x-github-api-version': '2022-11-28', ...(token && { authorization: 'Bearer ' + token }),
         ...(init?.body && { 'content-type': 'application/json' }),
       },
-      redirect: 'error', signal: AbortSignal.timeout(12_000),
+      redirect: 'manual', signal: AbortSignal.timeout(12_000),
     });
     if (!response.ok) throw new GitHubError(response.status);
     return response.json() as Promise<T>;
@@ -41,7 +41,7 @@ export function releaseGateway(token?: string, request: typeof fetch = fetch) {
 
   async function identity(role: 'production' | 'staging') {
     const response = await request((role === 'production' ? LIVE_ORIGIN : PREVIEW_ORIGIN) + '/build-info.json', {
-      cache: 'no-store', redirect: 'error', signal: AbortSignal.timeout(8000),
+      headers: { 'cache-control': 'no-cache' }, redirect: 'manual', signal: AbortSignal.timeout(8000),
     });
     if (!response.ok) throw Error('The build identity could not be read.');
     const info = await response.json() as { version: number; dirty: boolean; deploymentRole: string; commit: string; codeFingerprint: string };
