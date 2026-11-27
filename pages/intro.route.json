@@ -1,5 +1,5 @@
 {
-  "sitemap": "static",
+  "sitemap": "exclude",
   "outsideRelease": "Uses the site's existing shared tables and code-owned walkthrough imagery.",
   "nav": [
     {

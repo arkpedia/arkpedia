@@ -1,6 +1,7 @@
 import { pageCatalogue } from '@/lib/routes/catalogue.cjs';
 import { isGamePath } from '@/lib/minigames/catalogue';
 import { managedPageForHref, type ManagedPage } from '@/lib/page-visibility/settings';
+import { introPreviewEnabled } from '@/lib/site-updates/introVisibility';
 
 /*
  * Every destination the site nav offers, and how the bar and the mobile drawer arrange them.
@@ -35,7 +36,7 @@ const MENUS = [
   { id: 'about', label: 'About' },
 ];
 
-const destinations = pageCatalogue.flatMap(page => (page.nav ?? []).map(entry => ({
+const destinations = pageCatalogue.filter(page => page.route !== '/intro' || introPreviewEnabled).flatMap(page => (page.nav ?? []).map(entry => ({
   group: entry.group,
   order: entry.order,
   dividerAfter: entry.dividerAfter,

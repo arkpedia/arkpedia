@@ -102,6 +102,7 @@ import { watchScrollRestoration } from '@/lib/nav/scrollRestoration';
 import { watchPrivacyWithdrawal } from '@/lib/privacy/preferences';
 import MajorUpdateNotice from '@/components/site-updates/MajorUpdateNotice';
 import IntroInvitation from '@/components/site-updates/IntroInvitation';
+import { introPreviewEnabled } from '@/lib/site-updates/introVisibility';
 import ExternalMediaPrompt from '@/components/privacy/ExternalMediaPrompt';
 import StatisticsPrompt from '@/components/privacy/StatisticsPrompt';
 import SiteAnalytics from '@/components/layout/SiteAnalytics';
@@ -212,7 +213,7 @@ export default function App({ Component, pageProps }: AppProps) {
       </div>
       {!hideSiteChrome && <MusicPlayer />}
       {!hideSiteChrome && <MajorUpdateNotice pathname={router.pathname} />}
-      {!hideSiteChrome && <IntroInvitation pathname={router.pathname} />}
+      {!hideSiteChrome && introPreviewEnabled && <IntroInvitation pathname={router.pathname} />}
       <ExternalMediaPrompt />
       <StatisticsPrompt />
       {process.env.ARKPEDIA_WEB_ANALYTICS === '1' && <SiteAnalytics />}

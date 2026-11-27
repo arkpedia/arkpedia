@@ -40,7 +40,7 @@ export default function IntroPage() {
   }, [index]);
 
   return <div className={styles.frame}>
-    <PageMeta title="Intro" description="A quick guide to finding your way around Arkpedia." path="/intro" />
+    <PageMeta title="Intro" description="A quick guide to finding your way around Arkpedia." noindex />
     <PageHeader title="Intro" eyebrow="Arkpedia" slim />
     <main>
       <section className={`panel ${styles.step}`} aria-labelledby="intro-step-title">
