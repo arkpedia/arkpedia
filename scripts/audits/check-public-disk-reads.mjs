@@ -15,6 +15,7 @@ const root = process.cwd();
 /* Each a file whose public/ path is computed and is not art, with why. A file listed here is
    still flagged for a path that names an asset folder or an image. */
 const COMPUTED_PATHS_ALLOWED = {
+  'lib/content/shippedTable.ts': 'reads the generated CCB catalogue manifest, with an ASSETS fallback on Workers',
   'lib/music/albumsDataServer.ts': 'writes the generated lyrics JSON files (public/lyrics/, lyricsPath)',
 };
 

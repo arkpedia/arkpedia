@@ -7,6 +7,7 @@ import fs from 'node:fs/promises';
 test.use({ timezoneId: 'Asia/Seoul' });
 
 for (const theme of ['dark', 'light']) test(`What’s new groups local dates and categories and marks later same-day releases seen (${theme})`, async ({ page }, info) => {
+  await page.route('**/api/page-visibility', route => route.fulfill({ json: { listed: ['ccb'], refreshAfterMs: 60_000 } }));
   await page.addInitScript(theme => localStorage.setItem('theme', theme), theme);
   await page.addInitScript(() => localStorage.setItem('arkpedia.changelog.seen', '2026-10-09T09:56:52Z'));
   await page.goto("/whats-new");

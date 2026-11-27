@@ -1,6 +1,7 @@
 import { pageCatalogue } from '@/lib/routes/catalogue.cjs';
 import { canonicalPublicHref } from '@/lib/nav/publicRoutes';
 import { SITE_ORIGIN } from './site';
+import { managedPageForHref, type ManagedPage } from '@/lib/page-visibility/settings';
 
 export const STATIC_ROUTES = pageCatalogue.flatMap(page => page.sitemap === 'static' ? [page.route] : []);
 export const UNLISTED_ROUTES = new Set(pageCatalogue.flatMap(page => page.sitemap === 'exclude' ? [page.route] : []));
@@ -19,7 +20,7 @@ export function normalizeRoute(route: string): string {
 /** Every address the sitemap lists, sorted: the live release's pages under their public names,
  *  less the unlisted ones, plus the static pages. Without a release (the content export, a
  *  disabled content channel) the static pages alone. */
-export function sitemapRoutes(releasePages: Iterable<string> | null): string[] {
+export function sitemapRoutes(releasePages: Iterable<string> | null, listed: readonly ManagedPage[] = []): string[] {
   const routes = new Set<string>(STATIC_ROUTES);
   for (const key of releasePages ?? []) {
     const normalized = normalizeRoute(key);
@@ -27,7 +28,10 @@ export function sitemapRoutes(releasePages: Iterable<string> | null): string[] {
     const route = canonicalPublicHref(normalized);
     if (!UNLISTED_ROUTES.has(route)) routes.add(route);
   }
-  return [...routes].sort();
+  return [...routes].filter(route => {
+    const page = managedPageForHref(route);
+    return page === undefined || listed.includes(page);
+  }).sort();
 }
 
 const escapeXml = (text: string) => text.replace(/[<>&'"]/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', "'": '&apos;', '"': '&quot;' })[c]!);

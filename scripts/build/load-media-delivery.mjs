@@ -15,6 +15,7 @@ if (process.env.ARKPEDIA_CONTENT_DISABLED !== '1') {
   }
   const project = JSON.parse(await fs.readFile('config/community-project-art.json', 'utf8'));
   refs.push({ repository: project.repository, revision: project.revision });
+  refs.push(JSON.parse(await fs.readFile('config/ccb-art.json', 'utf8')));
   const entrances = JSON.parse(await fs.readFile('config/event-entrances.json', 'utf8'));
   const fullReferences = new Set(refs.map(ref => `${ref.repository}/${ref.revision}`));
   // Any additional absolute addresses in the catalogue keep their full map too.

@@ -201,6 +201,8 @@ export interface StageDetailData {
   dropIcons: Record<string, string>;
   /** The file in public/stages-images/, or null when the game has no render. */
   previewFile: string | null;
+  /** The larger client preview, present once the matching asset revision publishes it. */
+  fullPreviewFile?: string;
   /** The Emergency Ops form of an IS node: its own render and condition. */
   emergency: { render: string; condition: string } | null;
   /** Towers, pillars, crates and supplied operators already on the field. */
@@ -223,7 +225,7 @@ const PAD = 16;
  *  for all the lines and none per route. */
 const ROUTE_LINE_LIMIT = 20;
 
-export default function StageDetailPanel({ stage, geometry, borrowedGeometryFrom, enemyDetails, dropIcons, previewFile, emergency, devices, playbackPaths, family, now }: StageDetailData & { now: number }) {
+export default function StageDetailPanel({ stage, geometry, borrowedGeometryFrom, enemyDetails, dropIcons, previewFile, fullPreviewFile, emergency, devices, playbackPaths, family, now }: StageDetailData & { now: number }) {
   /* The spawn schedule, built here rather than shipped.
    *
    * Every field of it -- the times, the enemy, the route, the speed -- is a function
@@ -439,7 +441,9 @@ export default function StageDetailPanel({ stage, geometry, borrowedGeometryFrom
   // switches in place rather than being a route of its own the way Challenge Mode
   // and Adverse Combat are.
   const [emergencyOn, setEmergencyOn] = useState(false);
-  const shownPreview = emergencyOn && emergency ? emergency.render : previewFile;
+  const [failedFullPreview, setFailedFullPreview] = useState<string | null>(null);
+  const fullPreview = fullPreviewFile && fullPreviewFile !== failedFullPreview ? fullPreviewFile : null;
+  const shownPreview = emergencyOn && emergency ? emergency.render : fullPreview ?? previewFile;
   // A crowded map should not paint 66 polylines and then have them turned off:
   // `playback` comes out of a memo over props, so server and client agree on this and
   // there is no hydration flash.
@@ -1269,6 +1273,7 @@ export default function StageDetailPanel({ stage, geometry, borrowedGeometryFrom
                     <ContentImg
                       src={`/stages-images/${encodeURIComponent(shownPreview)}`}
                       alt={`In-game view of ${stage.code || stage.slug}${emergencyOn ? ', Emergency Ops' : ''}`}
+                      onError={shownPreview === fullPreview ? () => setFailedFullPreview(fullPreview) : undefined}
                     />
                   </figure>
                 )}

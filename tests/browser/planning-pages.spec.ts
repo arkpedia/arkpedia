@@ -168,9 +168,11 @@ test.describe("/polls/power-scale", () => {
 
   test('Compact fits five operators per row on a phone', async ({ page }) => {
     await page.goto("/polls/power-scale");
+    const tiers = page.locator('.tier-drop');
+    await expect(tiers.first()).toBeVisible();
     // The most chips any one line holds, across every average's row (the first row
     // may simply have fewer than five operators in it).
-    const perRow = await page.locator('.tier-drop').evaluateAll((rows) => Math.max(...rows.map((row) => {
+    const perRow = await tiers.evaluateAll((rows) => Math.max(...rows.map((row) => {
       const tops = new Map<number, number>();
       for (const chip of Array.from(row.children)) {
         const top = Math.round(chip.getBoundingClientRect().top);

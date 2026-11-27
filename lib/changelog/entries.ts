@@ -48,6 +48,10 @@ export const CHANGELOG: ChangelogEntry[] = [
     }],
   },
   {
+    at: '2026-11-26T10:00:00Z',
+    added: [{ title: 'Contingency Contract Battleplan', detail: 'Explore five seasons, compare up to 13 operators under selected contracts, and save a squad preset on your device.', href: '/game-modes/ccb' }],
+  },
+  {
     at: '2026-11-26T09:58:50Z',
     title: 'Event pages',
     added: [{ title: 'Interactive home previews', detail: 'Explore selected event themes and animated backgrounds with their in-game music.', href: '/schedule' }],

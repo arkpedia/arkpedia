@@ -651,8 +651,8 @@ a.ghost.panel:focus-visible { border-color: var(--teal); }
 /* Editorial text is read in the same face on the public page and in its editor. */
 .prose-input { font-family: var(--font-body); font-size: 1rem; line-height: 1.5; }
 
-/* Opt-in numeric field, shared with NumberInput without repainting legacy consumers. */
-.number-input {
+/* Opt-in number and calendar fields on the row-control scale. */
+.number-input, .datetime-input {
   min-height: var(--control-h);
   box-sizing: border-box;
   padding: 6px 10px;
@@ -663,7 +663,7 @@ a.ghost.panel:focus-visible { border-color: var(--teal); }
   font-family: var(--font-mono);
   font-size: 13px;
 }
-.number-input:hover, .number-input:focus { border-color: var(--teal); }
+.number-input:hover, .number-input:focus, .datetime-input:hover, .datetime-input:focus { border-color: var(--teal); }
 
 /* components/ui/SearchInput: the one search field. The magnifier and the clear
    button sit inside the field's padding, so the box is exactly the input's box. */

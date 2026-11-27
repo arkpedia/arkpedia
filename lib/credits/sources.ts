@@ -52,6 +52,7 @@ export const CREDIT_GROUPS: CreditGroup[] = [
       { name: 'Reclamation Algorithm map', links: ['https://github.com/QingXia-Ela/reclamation-algorithm-map'] },
       { name: 'arkgraph', links: ['https://github.com/Houdou/arkgraph'] },
       { name: 'ArkPRTS', links: ['https://github.com/thesadru/ArkPRTS'] },
+      { name: 'OpenBachelorS · historical Battleplan contracts', links: ['https://github.com/pfyy/OpenBachelorS'] },
       { name: 'OpenArknightsFBS', links: ['https://github.com/MooncellWiki/OpenArknightsFBS'] },
       { name: 'ArknightsFlatbuffers', links: ['https://github.com/ArknightsAssets/ArknightsFlatbuffers'] },
       { name: 'FlatBuffers', links: ['https://github.com/google/flatbuffers'] },
