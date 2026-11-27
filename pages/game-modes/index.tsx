@@ -4,6 +4,8 @@ import { GetStaticProps } from 'next';
 import Link from 'next/link';
 import ModeMark from '@/components/stages/ModeMark';
 import PageHeader from '@/components/ui/PageHeader';
+import { managedPages } from '@/lib/page-visibility/settings';
+import { usePageVisibility } from '@/lib/page-visibility/usePageVisibility';
 
 interface Mode {
   /** null while the mode has no page of its own -- the row is still listed. */
@@ -18,8 +20,8 @@ interface Mode {
 }
 
 const BATTLEPLAN: Mode = {
-  href: '/game-modes/ccb',
-  name: 'Contingency Contract Battleplan',
+  href: managedPages.ccb.href,
+  name: managedPages.ccb.title,
   mark: 'contingency-contract.svg',
   blurb: 'Compare squads under archived contracts.',
   holds: 'Archive',
@@ -35,6 +37,7 @@ const BATTLEPLAN: Mode = {
  * the rules of the mode, which is a different thing and is not written yet.
  */
 export default function GamemodesPage({ modes }: { modes: Mode[] }) {
+  const listed = usePageVisibility();
   return (
     <>
       <PageMeta title="Game modes" description="Arknights game modes, and what each one is made of." path="/gamemodes" />
@@ -47,7 +50,7 @@ export default function GamemodesPage({ modes }: { modes: Mode[] }) {
       <main className="terminal-scene">
         <section className="panel terminal-panel wide" data-tab="Modes">
           <ul className="terminal-list">
-            {[...modes, BATTLEPLAN].map((m) => {
+            {(listed.includes('ccb') ? [...modes, BATTLEPLAN] : modes).map((m) => {
               const inside = (
                 <>
                   <ModeMark name={m.mark} className="gm-modemark" />

@@ -8,6 +8,7 @@ import OperatorGuides from '@/components/dashboard/OperatorGuides';
 import RecentCampaignChanges from '@/components/dashboard/RecentCampaignChanges';
 import PollControls from '@/components/dashboard/PollControls';
 import PageMaintenance from '@/components/dashboard/PageMaintenance';
+import PageVisibility from '@/components/dashboard/PageVisibility';
 import styles from '@/components/dashboard/CampaignEditor.module.css';
 import PageMeta from '@/components/layout/PageMeta';
 import type { GetServerSideProps } from 'next';
@@ -35,6 +36,7 @@ const sections = [
   { value: 'rotation', label: 'Ad rotation', icon: ICONS.transfer },
   { value: 'guides', label: 'Operator guides', icon: ICONS.profile },
   { value: 'polls', label: 'Polls', icon: ICONS.polls },
+  { value: 'visibility', label: 'Page visibility', icon: ICONS.grid },
   { value: 'recent', label: 'Recent changes', icon: ICONS.history },
   { value: 'maintenance', label: 'Maintenance', icon: ICONS.base },
 ] as const;
@@ -62,6 +64,9 @@ export default function CampaignDashboard({ catalog, historyId }: DashboardProps
     </div>
     <div {...tabPanelProps('dashboard', 'polls')} hidden={tab !== 'polls'}>
       {tab === 'polls' && <PollControls />}
+    </div>
+    <div {...tabPanelProps('dashboard', 'visibility')} hidden={tab !== 'visibility'}>
+      {tab === 'visibility' && <PageVisibility />}
     </div>
     <div {...tabPanelProps('dashboard', 'recent')} hidden={tab !== 'recent'}>
       {tab === 'recent' && <RecentCampaignChanges base={catalog?.base} />}

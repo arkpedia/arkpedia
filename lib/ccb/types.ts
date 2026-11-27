@@ -1,4 +1,4 @@
-import type { StageGeometry } from '@/lib/stages/stageTypes';
+import type { StageGeometry, TileLegend } from '@/lib/stages/stageTypes';
 import type { OperatorStats } from '@/lib/operators/operatorStats';
 import type { OperatorModule, Potential } from '@/lib/operators/operatorTypes';
 
@@ -39,7 +39,9 @@ export interface BattleplanSeason { id: string; name: string; number: number; ma
 export interface OperatorBuildData { name: string; rarity: number | null; className: string | null; position: string | null; stats: OperatorStats | null; potential: Potential; modules: OperatorModule[]; /** Trait or module lets it deploy on both tile types. */ bothTiles?: boolean }
 export type CombatStats = Record<string, number | null>;
 export interface BattleplanEnemy { id: string; slug: string; name: string; icon: string | null; stats: CombatStats; conditional: boolean; hiddenGroups: string[] }
-export type BattleplanLayout = Pick<StageGeometry, 'rows' | 'cols' | 'tileGrid' | 'tileLegend'>;
+export type BattleplanLayout = Pick<StageGeometry, 'rows' | 'cols' | 'tileGrid' | 'tileLegend'> & {
+  tileDescriptions?: TileLegend;
+};
 export interface CcbStageStats {
   life: number | null;
   deployment: number | null;

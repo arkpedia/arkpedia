@@ -1,12 +1,15 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import ccbArt from '@/config/ccb-art.json';
+import stageTileLegend from '@/data/stage-tile-legend.json';
 import { getStageBySlug, getStageEnemyDetails, getStageGeometryFor, getStagePreviewFile, getStagePreviewStem } from '@/lib/stages/stages';
+import type { TileLegend } from '@/lib/stages/stageTypes';
 import { getEnemyBundles } from '@/lib/enemies/enemies';
 import type { BattleplanSeason, MapDetails } from './types';
 
 export const archive = JSON.parse(fs.readFileSync(path.join(process.cwd(), 'config/ccb-archive.json'), 'utf8')) as { source: string; seasons: BattleplanSeason[] };
 const fullPreviews = new Set(ccbArt.fullStagePreviews);
+const tileDescriptions: TileLegend = stageTileLegend;
 
 export function mapDetails(stageId: string): MapDetails | null {
   const stage = getStageBySlug(stageId);
@@ -21,7 +24,11 @@ export function mapDetails(stageId: string): MapDetails | null {
   const stem = getStagePreviewStem(stage);
   const fullPreview = stem ? `stages-images/${stem}-full.webp` : null;
   return {
-    layout: geometry ? { rows: geometry.rows, cols: geometry.cols, tileGrid: geometry.tileGrid, tileLegend: geometry.tileLegend } : undefined,
+    layout: geometry ? {
+      rows: geometry.rows, cols: geometry.cols, tileGrid: geometry.tileGrid, tileLegend: geometry.tileLegend,
+      tileDescriptions: Object.fromEntries(geometry.tileLegend.flatMap(({ key }) =>
+        tileDescriptions[key] ? [[key, tileDescriptions[key]]] : [])),
+    } : undefined,
     preview: preview ? `/stages-images/${preview}` : null,
     fullPreview: fullPreview && fullPreviews.has(fullPreview) ? fullPreview : undefined,
     variants: (geometry?.enemyConfigurations ?? []).flatMap(config => {

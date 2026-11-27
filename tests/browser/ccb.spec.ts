@@ -293,6 +293,23 @@ test('mixed blocked tiles keep the overview steady beside larger enemy portraits
   }
 });
 
+test('Blood-Soaked Earth labels pollution separately from contract blocks', async ({ page }) => {
+  await page.goto('/game-modes/ccb');
+  const battlefields = page.getByRole('region', { name: 'Battlefields', exact: true });
+  await battlefields.getByRole('group', { name: 'Seasons' }).getByRole('button', { name: /Extinguished Sins/ }).click();
+  await page.getByRole('button', { name: 'Enlarge the map of Blood-Soaked Earth', exact: true }).click();
+  const map = page.getByRole('dialog', { name: 'Blood-Soaked Earth: Map', exact: true });
+  const legend = map.getByRole('list', { name: 'Map legend', exact: true });
+  await expect(legend.getByText('Originium Pollution', { exact: false })).toContainText('reduces their SP recovery');
+  await expect(legend.getByText('Blocked by a contract', { exact: false })).toBeVisible();
+  const schematic = map.getByRole('img', { name: 'Tile map of Blood-Soaked Earth', exact: true });
+  await expect(schematic.locator('[data-blocked="true"]')).toHaveCount(0);
+  await expect(schematic.locator('title').filter({ hasText: 'Originium Pollution · Melee deployment' })).not.toHaveCount(0);
+  await expect(schematic.locator('title').filter({ hasText: 'Originium Pollution · Ranged deployment' })).not.toHaveCount(0);
+  await page.keyboard.press('Escape');
+  await expect(map).toBeHidden();
+});
+
 test('all 13 squad members remain available together and removal frees a slot', async ({ page }, info) => {
   test.setTimeout(60000);
   await page.goto('/game-modes/ccb');
