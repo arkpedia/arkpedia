@@ -106,7 +106,7 @@ test('Violet bridges a delayed Kirin opening on both page and mobile and ends th
   assert.equal(sponsorCampaignFor(confirmed, 'mobile-menu', at(opening))?.image, kirin.mobileArtwork?.image);
   assert.equal(sponsorCampaignFor(confirmed, 'home', at(opening) - 1)?.id, violet.id);
   assert.equal(sponsorCampaignFor(confirmed, 'home', at(opening)), null);
-  assert.equal(sponsorCampaignFor(confirmed, 'support', at(opening))?.image, kirin.mobileArtwork?.image);
+  assert.equal(sponsorCampaignFor(confirmed, 'support', at(opening))?.image, kirin.image);
   const updated = { ...confirmed, campaigns: confirmed.campaigns.map(c => c.id === kirin.id ? { ...c, mainArtwork: home } : c) };
   assert.equal(sponsorCampaignFor(updated, 'home', at(opening))?.id, kirin.id);
   assert.equal(sponsorCampaignFor(updated, 'home', at(opening))?.image, home.image);
