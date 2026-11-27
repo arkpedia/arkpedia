@@ -52,11 +52,18 @@ test('Global release uses the immutable ID to replace a provisional name and ski
   const initialSkins=reconcileSkins({skins:[],operators:previous,cn,en:empty}).skins;
   // A Global outfit ships official text with its title; a title over CN text is not Global yet.
   const id='char_4217_makoto@p3r#1';Object.assign(en.skins.charSkins[id].displaySkin,{skinName:'Official outfit title',dialog:'Official collab line/Official outfit title. Official description.',content:null});
-  const updated=reconcileSkins({skins:initialSkins,operators:next.operators,cn,en}).skins;
-  const outfit=updated.find((s:any)=>s.skinId===id);
-  assert.equal(updated.length,initialSkins.length);assert.equal(outfit.name,'Official outfit title');assert.equal(outfit.model,'Official Global name');
+  const former = initialSkins.find((s:any)=>s.skinId===id);
+  former.howToObtain = 'Outfit Store ( 21 Originite Prime )';
+  const updated=reconcileSkins({skins:initialSkins,operators:next.operators,cn,en});
+  const outfit=updated.skins.find((s:any)=>s.skinId===id);
+  assert.equal(updated.skins.length,initialSkins.length);assert.equal(outfit.name,'Official outfit title');assert.equal(outfit.model,'Official Global name');
   assert.equal(outfit.code,'Official collab line/Official outfit title');assert.equal(outfit.description,'Official description.');
-  assert.equal(outfit.sourceRegion,'Global');assert(outfit.searchAliases.length>0);
+  assert.equal(outfit.sourceRegion,'Global');
+  assert.equal(outfit.howToObtain, former.howToObtain);
+  assert.deepEqual(outfit.searchAliases, [`${former.model} / ${former.name}`]);
+  assert.deepEqual(updated.renames, [[outfit.searchAliases[0], `${outfit.model} / ${outfit.name}`]]);
+  const reconciledAgain = reconcileSkins({skins:updated.skins,operators:next.operators,cn,en});
+  assert.deepEqual(reconciledAgain.skins, updated.skins);
 });
 
 test('operator imports keep the source of the actual Global debut and prefer a matching announcement', () => {

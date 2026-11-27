@@ -25,17 +25,19 @@
 .skin-plan-card-foot strong { font: 600 11px var(--font-mono); color: var(--text-dim); }
 .skin-plan-card-foot[aria-pressed="true"] strong { color: var(--teal); }
 .skin-plan-owned { opacity: 0.55; }
-.skin-plan-summary { position: sticky; top: calc(var(--nav-h, 60px) + 12px); display: grid; gap: 12px; padding: 14px 16px; }
+.skin-plan-summary { position: sticky; top: calc(var(--nav-h, 60px) + 12px); display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; padding: 14px 16px; overflow-wrap: anywhere; }
 .skin-plan-summary .section-title { margin: 0; }
 .skin-plan-totals { display: grid; gap: 6px; }
 .skin-plan-totals > div { display: flex; justify-content: space-between; gap: 8px; font-size: 13px; color: var(--text-dim); }
+.skin-plan-totals > p { margin: 0; }
 .skin-plan-totals strong { color: var(--text); font-family: var(--font-mono); }
+.skin-plan-summary .skin-plan-extra { margin-top: 0; }
 .skin-plan-deadlines { display: grid; gap: 8px; }
 .skin-plan-deadlines h4 { margin: 0; font: 600 11px var(--font-mono); color: var(--text-faint); text-transform: uppercase; }
 .skin-plan-deadlines > div { display: grid; gap: 1px; font-size: 12px; color: var(--text-dim); }
 .skin-plan-deadlines b { color: var(--text); font-weight: 600; }
 @media (max-width: 900px) {
-  .skin-plan { grid-template-columns: 1fr; }
+  .skin-plan { grid-template-columns: minmax(0, 1fr); }
   /* On one column the summary leads, rather than waiting under every shop. */
   .skin-plan-summary { position: static; order: -1; }
 }

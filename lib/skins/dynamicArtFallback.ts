@@ -1,4 +1,5 @@
 import type { Appearance } from '@/lib/operators/operatorAppearances';
+import type { PlannedSkin } from '@/lib/pulls/skins';
 import { assertDynamicArtIndex, operatorDynamicArt, skinDynamicArt, type DynamicArtIndex } from './dynamicArt';
 import type { Skin } from './skinTypes';
 
@@ -43,17 +44,25 @@ export async function withOperatorDynamicArt<P extends {
   return { ...props, dynamicArt: operatorDynamicArt(await loadDynamicArtIndex(), props.operator, props.appearances, skins) };
 }
 
-/** A planner payload from before artwork pointers were added still opens animated art. */
-export async function withPlannerDynamicArt<P extends { catalogue: { skinId?: string; dynamic?: string | null; alternate?: string | null }[] }>(props: P): Promise<P> {
+type PlannerSkinMetadata = Pick<PlannedSkin, 'skinId' | 'dynamic' | 'alternate' | 'searchAliases'> & Partial<Pick<PlannedSkin, 'id'>>;
+
+/** Older planner payloads can omit artwork pointers and former outfit keys. */
+export async function withPlannerDynamicArt<P extends { catalogue: PlannerSkinMetadata[] }>(props: P): Promise<P> {
   const pointers = skinDynamicArt(await loadDynamicArtIndex(), props.catalogue);
   const skins = (await import('@/data/skins.json')).default as Skin[];
   const metadata = new Map(skins.map(skin => [skin.skinId, skin]));
-  return { ...props, catalogue: props.catalogue.map(skin => ({ series: metadata.get(skin.skinId)?.series ?? '', illustrator: metadata.get(skin.skinId)?.illustrator ?? null, description: metadata.get(skin.skinId)?.description ?? null, howToObtain: metadata.get(skin.skinId)?.howToObtain ?? null, ...skin,
-    dynamic: skin.dynamic === undefined ? (skin.skinId ? pointers[skin.skinId] ?? null : null) : skin.dynamic,
-    alternate: skin.alternate === undefined ? (skin.skinId ? pointers[`${skin.skinId}^sp_dyn`] ?? null : null) : skin.alternate,
-  })) };
+  return { ...props, catalogue: props.catalogue.map(skin => {
+    const record = skin.skinId ? metadata.get(skin.skinId) : undefined;
+    const aliases = skin.searchAliases ?? (record && `${record.model} / ${record.name}` === skin.id ? record.searchAliases : undefined);
+    return {
+      series: record?.series ?? '', illustrator: record?.illustrator ?? null, description: record?.description ?? null,
+      howToObtain: record?.howToObtain ?? null, ...skin, ...(aliases ? { searchAliases: aliases } : {}),
+      dynamic: skin.dynamic === undefined ? (skin.skinId ? pointers[skin.skinId] ?? null : null) : skin.dynamic,
+      alternate: skin.alternate === undefined ? (skin.skinId ? pointers[`${skin.skinId}^sp_dyn`] ?? null : null) : skin.alternate,
+    };
+  }) };
 }
-export async function withPullPlannerDynamicArt<P extends { skinCatalogue: { skinId?: string; dynamic?: string | null; alternate?: string | null }[] }>(props: P): Promise<P> {
+export async function withPullPlannerDynamicArt<P extends { skinCatalogue: PlannerSkinMetadata[] }>(props: P): Promise<P> {
   const enriched = await withPlannerDynamicArt({ catalogue: props.skinCatalogue });
   return { ...props, skinCatalogue: enriched.catalogue };
 }

@@ -191,7 +191,7 @@ export default function SkinPlanner({ catalogue, collections, today, now, ids, o
           </section>;
         })}
         <LoadOnScroll shown={Math.min(shopLimit, eventGroups.length)} total={eventGroups.length} onMore={() => setShopLimit(value => value + SHOPS_PER_STEP)} />
-        {shops.length > 0 && eventGroups.length === 0 && <p className="hint">No outfits match these filters.</p>}
+        {shops.length > 0 && eventGroups.length === 0 && unscheduledPlanned.length === 0 && <p className="hint">No outfits match these filters.</p>}
         {unscheduledPlanned.length > 0 && (
           <section className="skin-plan-shop" aria-label="Planned, in no listed shop">
             <div className="skin-plan-shop-head">

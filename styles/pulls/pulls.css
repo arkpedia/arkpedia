@@ -98,6 +98,8 @@
 .pulls-banner-dialog { --dialog-w: 960px; }
 .pulls-income-body, .pulls-skins-body { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; min-width: 0; }
 .pulls-income-body > * { min-width: 0; }
+.pulls-skins-body .pulls-panel-head { align-items: center; flex-wrap: nowrap; margin: 0; }
+.pulls-skins-body .pulls-panel-head > p { margin: 0; }
 .pulls-breakdown-context { display: grid; gap: 6px; margin: 0; overflow-wrap: anywhere; }
 .pulls-breakdown-detail { display: grid; gap: 6px; }
 .pulls-breakdown-resources { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; }

@@ -351,6 +351,7 @@ jobs:
         if: github.ref_name == 'main' && (github.event_name != 'schedule' || steps.prepared.outputs.cache-hit != 'true')
         env:
           CONTENT_DATA_DEPLOY_KEY: ${{ secrets.CONTENT_DATA_DEPLOY_KEY }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           # The deploy key and GitHub's host keys, for every push below (scripts/content/data-remote.sh).
@@ -642,6 +643,7 @@ jobs:
         timeout-minutes: 3
         env:
           CONTENT_DATA_DEPLOY_KEY: ${{ secrets.CONTENT_DATA_DEPLOY_KEY }}
+          GH_TOKEN: ${{ github.token }}
           PUSHED: ${{ steps.publish.outputs.pushed }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |

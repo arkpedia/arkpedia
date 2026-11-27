@@ -21,7 +21,7 @@ import SearchInput from '@/components/ui/SearchInput';
 import SegmentedControl from '@/components/ui/SegmentedControl';
 import OwnedFilter, { countOwned } from '@/components/account/OwnedFilter';
 import { ownedFilter, useAccount } from '@/lib/account/accountStore';
-import { useSkinPlan } from '@/lib/skins/skinPlan';
+import { skinPlanKeys, useSkinPlan } from '@/lib/skins/skinPlan';
 import StyledSelect from '@/components/ui/StyledSelect';
 import FilterSheet, { type ActiveFilter } from '@/components/ui/FilterSheet';
 import { useSwitchHold } from '@/components/ui/useSwitchHold';
@@ -122,9 +122,9 @@ export default function SkinsGallery({ skins, now, availabilityWindows, dynamicA
   /* The wishlist is the skin plan the Skin Planner and the Pull Planner share
      (lib/skins/skinPlan), by "Operator / Outfit". An entry the first read could not place
      is still the outfit's bare name, so both forms count. */
-  const keyByName = useMemo(() => new Map(skins.filter((skin) => skin.model).map((skin) => [skin.name, skinKey(skin)])), [skins]);
+  const savedKeys = useMemo(() => skinPlanKeys(skins.filter(skin => skin.model).map(skin => ({ ...skin, id: skinKey(skin) }))), [skins]);
   const ownedPlanKeys = useMemo(() => new Set(skins.filter(skin => ownedSkins.has(skin.skinId ?? '')).flatMap(skin => [skinKey(skin), skin.name])), [skins, ownedSkins]);
-  const [planIds, setPlanIds] = useSkinPlan((name) => keyByName.get(name), ownedPlanKeys);
+  const [planIds, setPlanIds] = useSkinPlan(savedKeys, ownedPlanKeys);
   const planned = useMemo(() => new Set(planIds), [planIds]);
   const isWished = useCallback((skin: Skin) => planned.has(skinKey(skin)) || planned.has(skin.name), [planned]);
   const wishCount = useMemo(() => skins.filter(isWished).length, [skins, isWished]);

@@ -40,7 +40,7 @@ import { DetailOptionContent, type DetailOption } from '@/components/pulls/Detai
 import { IncludePastCheckbox, IncludeSkinsCheckbox } from '@/components/pulls/IncludePastCheckbox';
 import SkinPlanner from '@/components/skins/SkinPlanner';
 import { SkinsHelp } from '@/components/pulls/PlannerHelp';
-import { useSkinPlan } from '@/lib/skins/skinPlan';
+import { skinPlanKeys, useSkinPlan } from '@/lib/skins/skinPlan';
 import { useAccount } from '@/lib/account/accountStore';
 import { siteServerNow } from '@/lib/time/siteServer';
 import { usePastRewards } from '@/lib/pulls/usePastRewards';
@@ -135,7 +135,7 @@ export default function PullsPage({ scheduledEvents: globalEvents, scheduledBann
   const [reservedOP, setReservedOP] = useState('');
   /* The skin plan the Skin Planner and the Skins page's ☆ share (lib/skins/skinPlan). The OP it
      reserves counts the outfits sold for OP that the imported account does not own yet. */
-  const skinByName = useMemo(() => new Map(skinCatalogue.map((skin) => [skin.name, skin.id])), [skinCatalogue]);
+  const savedSkinKeys = useMemo(() => skinPlanKeys(skinCatalogue), [skinCatalogue]);
   const account = useAccount();
   const { server, schedule } = useRegionalTime();
   const scheduledBanners = useMemo(() => regionalPullBanners(globalBanners, schedule, server), [globalBanners, schedule, server]);
@@ -147,7 +147,7 @@ export default function PullsPage({ scheduledEvents: globalEvents, scheduledBann
   const past = usePastRewards(backlogSources, NO_STAGE_EXCLUSIONS, null);
   const ownedSkins = useMemo(() => (account ? new Set(account.skins) : null), [account]);
   const ownedPlanKeys = useMemo(() => new Set(skinCatalogue.filter(skin => skin.skinId && ownedSkins?.has(skin.skinId)).flatMap(skin => [skin.id, skin.name])), [skinCatalogue, ownedSkins]);
-  const [skinIds, setSkinIds] = useSkinPlan((name) => skinByName.get(name), ownedPlanKeys);
+  const [skinIds, setSkinIds] = useSkinPlan(savedSkinKeys, ownedPlanKeys);
   const skinsToBuy = useMemo(() => {
     const byId = new Map(skinCatalogue.map((skin) => [skin.id, skin]));
     return skinIds.filter((id) => byId.has(id) && !(ownedSkins && byId.get(id)!.skinId && ownedSkins.has(byId.get(id)!.skinId!)));

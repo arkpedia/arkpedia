@@ -260,6 +260,61 @@ test('an outfit planned in the Pull Planner is planned on the Skin Planner', asy
   await expect(page.locator(`#panel-skins .skin-plan-card-foot[aria-label=${JSON.stringify(label)}]`).first()).toHaveAttribute('aria-pressed', 'false');
 });
 
+for (const theme of ['dark', 'light']) {
+  test(`a renamed wishlist entry keeps one OP reservation and fits the dialog in ${theme} mode`, async ({ page }, testInfo) => {
+    const oldKey = 'Mon3tr / Sharpened Blades';
+    const key = 'Mon3tr / Sharpened Claws';
+    await page.addInitScript(({ theme, oldKey, key }) => {
+      localStorage.setItem('theme', theme);
+      const planKey = 'arkpediaSkinPlan';
+      if (localStorage.getItem(planKey) === null) localStorage.setItem(planKey, JSON.stringify(theme === 'dark' ? [oldKey] : [oldKey, key]));
+    }, { theme, oldKey, key });
+    await page.goto('/pull-planner');
+    const wishlist = page.getByRole('button', { name: /Skin wishlist/ });
+    await expect(wishlist).toContainText(/1\s+21 OP reserved/);
+    await wishlist.click();
+    const dialog = page.getByRole('dialog', { name: 'Skin wishlist' });
+    await dialog.getByRole('button', { name: 'Planned only' }).click();
+    const cardName = 'Mon3tr — Sharpened Claws, 21 OP';
+    await expect(dialog.getByRole('button', { name: cardName })).toHaveAttribute('aria-pressed', 'true');
+    await expect(dialog.getByText('Sharpened Blades', { exact: false })).toHaveCount(0);
+    await expect(dialog.getByRole('status')).toContainText('To buy21 OP');
+
+    const reserve = dialog.locator('summary', { hasText: 'Extra OP reserve' });
+    await reserve.focus();
+    await page.keyboard.press('Enter');
+    const input = dialog.getByRole('textbox', { name: /Extra OP reserve/ });
+    await input.fill('5');
+    await expect(dialog.getByRole('status')).toContainText('Extra reserve5 OP');
+    const bounds = await dialog.locator('.account-dialog-body').evaluate(body => {
+      const panel = body.querySelector('.skin-plan-summary')!;
+      const right = panel.getBoundingClientRect().right;
+      return {
+        bodyOverflow: body.scrollWidth - body.clientWidth,
+        panelOverflow: Math.max(...[...panel.children].map(child => child.getBoundingClientRect().right - right)),
+      };
+    });
+    expect(bounds.bodyOverflow).toBeLessThanOrEqual(1);
+    expect(bounds.panelOverflow).toBeLessThanOrEqual(0);
+    await page.keyboard.press('Escape');
+    await expect(wishlist).toBeFocused();
+    await expect(wishlist).toContainText(/1\s+26 OP reserved/);
+    await expect.poll(() => page.evaluate(() => localStorage.getItem('arkpediaSkinPlan'))).toBe(JSON.stringify([key]));
+
+    await page.goto('/skins?wishlist=1&q=Sharpened%20Claws');
+    await expect(page.getByText('Sharpened Claws', { exact: true })).toBeVisible();
+    if (testInfo.project.name === 'mobile') await page.getByRole('button', { name: /^Filters/ }).click();
+    await expect(page.getByText('1 wishlisted · 21 OP catalogue total', { exact: false })).toBeVisible();
+    await page.goto('/skin-planner');
+    await page.getByRole('button', { name: 'Planned only' }).click();
+    const planned = page.getByRole('button', { name: cardName });
+    await expect(planned).toHaveAttribute('aria-pressed', 'true');
+    await planned.click();
+    await page.goto('/pull-planner');
+    await expect(wishlist).toContainText(/0\s+5 OP reserved/);
+  });
+}
+
 test('Skin Planner artwork opens without changing the plan and returns focus', async ({ page }) => {
   await page.goto('/skin-planner');
   const card = page.locator('.skin-plan-card').first();
