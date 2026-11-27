@@ -39,11 +39,13 @@ export default function SiteUpdates() {
   const [queue, setQueue] = useState<UpdateListItem[] | null>(null);
   const [saved, setSaved] = useState<UpdateDraft | null>(null);
   const [content, setContent] = useState<UpdateContent>(EMPTY);
+  const [editing, setEditing] = useState(false);
   const [busy, setBusy] = useState(false);
   const [dialog, setDialog] = useState<'preview' | 'publish' | null>(null);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [attempt, setAttempt] = useState(0);
+  const queueTitle = useRef<HTMLHeadingElement>(null);
   const editorTitle = useRef<HTMLHeadingElement>(null);
   const locked = saved?.publishedAt != null;
   const dirty = JSON.stringify(content) !== JSON.stringify(saved ? contentOf(saved) : EMPTY);
@@ -62,19 +64,25 @@ export default function SiteUpdates() {
     if (locked && message) editorTitle.current?.focus();
   }, [locked, message]);
 
+  useEffect(() => {
+    if (editing) editorTitle.current?.focus();
+  }, [editing]);
+
   function change(patch: Partial<UpdateContent>) {
     setContent(current => ({ ...current, ...patch }));
     setError('');
     setMessage('');
   }
 
-  async function select(id: string) {
+  async function select(id: string, openEditor = true) {
     if (dirty && !window.confirm('Discard the unsaved changes to this draft?')) return;
     setError('');
     setMessage('');
     if (!id) {
       setSaved(null);
       setContent(EMPTY);
+      setEditing(openEditor);
+      if (!openEditor) queueTitle.current?.focus();
       return;
     }
     setBusy(true);
@@ -82,6 +90,7 @@ export default function SiteUpdates() {
       const next = await readUpdateResponse<UpdateDraft>(fetch(`/api/dashboard/site-updates?id=${encodeURIComponent(id)}`));
       setSaved(next);
       setContent(contentOf(next));
+      setEditing(true);
       setQueue(current => current?.map(row => row.id === next.id
         ? { id: next.id, title: next.title, publishedAt: next.publishedAt } : row) ?? null);
     } catch (cause) {
@@ -146,12 +155,12 @@ export default function SiteUpdates() {
 
   return <section className={styles.workspace} aria-label="Site updates">
     {error && <p role="alert" className="notice notice-danger">{error}</p>}
-    {queue ? <div className={styles.editorLayout}>
+    {queue ? <div className={editing ? styles.editorLayout : undefined}>
       <div className={styles.queue}>
         <section className={styles.drafts} aria-labelledby="site-update-queue-title">
           <div className={styles.row}>
-            <h2 className="section-title" id="site-update-queue-title">Draft queue</h2>
-            <button className="ghost btn-sm" type="button" disabled={busy || (!saved && !dirty)} onClick={() => void select('')}>New draft</button>
+            <h2 ref={queueTitle} tabIndex={-1} className="section-title" id="site-update-queue-title">Draft queue</h2>
+            <button className="ghost btn-sm" type="button" disabled={busy || (editing && !saved && !dirty)} onClick={() => void select('')}>New draft</button>
           </div>
           <p className="hint">Drafts are private until you publish them.</p>
           {drafts.length ? updateList(drafts) : <p className="hint">No drafts queued.</p>}
@@ -161,11 +170,14 @@ export default function SiteUpdates() {
           {updateList(published)}
         </details>}
       </div>
-      <form className="panel" onSubmit={event => { event.preventDefault(); if (dirty && complete && !locked) void save('save'); }}>
-        <h2 ref={editorTitle} tabIndex={-1} className="section-title">{locked ? 'Published update' : saved ? 'Edit draft' : 'New draft'}</h2>
+      {editing && <form className="panel" onSubmit={event => { event.preventDefault(); if (dirty && complete && !locked) void save('save'); }}>
+        <div className={styles.editorHeading}>
+          <h2 ref={editorTitle} tabIndex={-1} className="section-title">{locked ? 'Published update' : saved ? 'Edit draft' : 'New draft'}</h2>
+          <XButton label="Close editor" disabled={busy} onClick={() => void select('', false)} />
+        </div>
         <fieldset className={styles.fields} disabled={busy || locked}>
           <label>Title<input type="text" value={content.title} onChange={event => change({ title: event.target.value })} maxLength={UPDATE_TITLE_LENGTH} required /></label>
-          <label>Update notes<textarea rows={5} value={content.body} onChange={event => change({ body: event.target.value })} maxLength={UPDATE_BODY_LENGTH} required /></label>
+          <label>Update notes<textarea rows={4} value={content.body} onChange={event => change({ body: event.target.value })} maxLength={UPDATE_BODY_LENGTH} required /></label>
           <label className="check"><input type="checkbox" checked={content.major} onChange={event => change({ major: event.target.checked })} />Show as a major-update pop-up</label>
           {content.images.map((image, index) => <div key={index} className={styles.image}>
             <div className={styles.row}><strong>Image {index + 1}</strong>
@@ -193,7 +205,7 @@ export default function SiteUpdates() {
           </>}
         </div>
         {message && <p className="hint" role="status">{message}</p>}
-      </form>
+      </form>}
     </div> : error ? <button className="ghost btn-sm" type="button" onClick={() => { setError(''); setAttempt(value => value + 1); }}>Retry</button>
       : <p role="status">Loading the update queue…</p>}
     {dialog === 'preview' && <ImportDialog title={content.title} onClose={() => setDialog(null)}>

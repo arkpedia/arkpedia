@@ -130,6 +130,8 @@ test('the draft queue publishes only the update confirmed by the editor', async 
   const queue = page.getByRole('region', { name: 'Draft queue' });
   const title = 'A routine update for the planner';
   await expect(queue.getByRole('button', { name: original.title })).toBeVisible();
+  await expect(page.getByRole('textbox', { name: 'Update notes' })).toHaveCount(0);
+  await queue.getByRole('button', { name: 'New draft', exact: true }).click();
   await page.getByRole('textbox', { name: 'Title' }).fill(title);
   await page.getByRole('textbox', { name: 'Update notes' }).fill('A small planner improvement.');
   await page.getByRole('button', { name: 'Save draft', exact: true }).click();
@@ -153,7 +155,13 @@ test('the draft queue publishes only the update confirmed by the editor', async 
   await expect(saved).toHaveCount(0);
   await expect(queue.getByRole('button', { name: original.title })).toBeVisible();
   await page.getByText('Published updates', { exact: true }).click();
-  await expect(page.getByRole('button', { name: title })).toHaveAttribute('aria-pressed', 'true');
+  const archived = page.getByRole('button', { name: title });
+  await expect(archived).toHaveAttribute('aria-pressed', 'true');
+  await page.getByRole('button', { name: 'Close editor' }).click();
+  await expect(page.getByRole('textbox', { name: 'Update notes' })).toHaveCount(0);
+  await expect(queue.getByRole('heading', { name: 'Draft queue' })).toBeFocused();
+  await archived.click();
+  await expect(page.getByRole('textbox', { name: 'Update notes' })).toBeDisabled();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 
   await whatsNew();
