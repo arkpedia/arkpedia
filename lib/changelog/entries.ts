@@ -34,6 +34,31 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    at: '2026-11-26T15:45:15Z',
+    title: 'More event home previews',
+    added: [{ title: 'Dahuang and more home themes', detail: 'Explore more in-game themes, room effects, and music from event pack previews.', href: '/schedule' }],
+    fixed: [{ title: 'Dahuang recruitment lettering', detail: 'Recruitment, Recruit, and Headhunt use their original Global client lettering.', href: '/schedule' }],
+  },
+  {
+    at: '2026-11-26T12:00:00Z',
+    fixed: [{
+      title: 'Hunt home screen preview',
+      detail: 'Strike Camp now shows Orchid, Breaking News, currency, and the themed Sanity counter.',
+      href: '/schedule',
+    }],
+  },
+  {
+    at: '2026-11-26T10:00:00Z',
+    added: [{ title: 'Contingency Contract Battleplan', detail: 'Explore five seasons, compare up to 13 operators under selected contracts, and save a squad preset on your device.', href: '/game-modes/ccb' }],
+  },
+  {
+    at: '2026-11-26T09:58:50Z',
+    title: 'Event pages',
+    added: [{ title: 'Interactive home previews', detail: 'Explore selected event themes and animated backgrounds with their in-game music.', href: '/schedule' }],
+    changed: [{ title: 'Packs and Furniture have their own tabs', detail: 'Open supported home previews directly from pack artwork.', href: '/schedule' }],
+    fixed: [{ title: 'Removed Wulfenite’s duplicate outfit', detail: 'Bouncing Rhythms appears once with its artist credit.', href: '/operators' }],
+  },
+  {
     at: '2026-11-24T11:45:46Z',
     added: [{ title: 'Poll deadlines and recent results', detail: 'See when voting closes in your time zone and find recently closed polls at the top of the polls page.', href: '/polls' }],
   },

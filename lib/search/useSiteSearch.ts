@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useContentUrl } from '@/lib/content/context';
+import { managedPageForHref, managedPages } from '@/lib/page-visibility/settings';
+import { usePageVisibility } from '@/lib/page-visibility/usePageVisibility';
 import { loadSiteSearch, loadSiteSearchFeeds, SITE_SEARCH_PATH, type SiteSearchEntry } from './siteSearch';
 
 /* One fetch per release URL for the whole visit: the nav's box and /search share it, and
@@ -60,6 +62,13 @@ export function useSiteSearch(enabled: boolean, open: boolean): { entries: SiteS
   }, [enabled, open]);
 
   const current = state?.url === url ? state : null;
-  const entries = useMemo(() => (current && !current.failed ? [...current.entries, ...feeds] : []), [current, feeds]);
+  const listed = usePageVisibility(enabled && open);
+  const entries = useMemo(() => {
+    if (!current || current.failed) return [];
+    const active: SiteSearchEntry[] = listed.map(id => ({
+      kind: 'page', title: managedPages[id].title, href: managedPages[id].href, terms: [...managedPages[id].terms],
+    }));
+    return [...current.entries.filter(entry => managedPageForHref(entry.href) === undefined), ...active, ...feeds];
+  }, [current, feeds, listed]);
   return { entries, loading: enabled && !current, failed: !!current?.failed };
 }

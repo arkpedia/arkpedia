@@ -32,6 +32,23 @@
 
   /* A click-triggered original game entrance. Only the modal media frame moves;
      the event page and its banner keep their normal document layout. */
+  .event-scene-dialog[open] { animation: event-scene-reveal var(--dur-2) var(--ease); }
+  .event-persona-camera {
+    transform: var(--persona-camera-transform, none);
+    transition: transform var(--persona-camera-ease) ease-out;
+  }
+  .event-persona-camera[data-camera="front"] {
+    transform: var(--persona-front-transform, none);
+    transition: transform var(--persona-front-ease) ease-out;
+  }
+  @media (any-hover: hover) {
+    .event-scene-dialog[data-native-home] .event-scene-image > :is(.event-scene-background, .event-scene-native) {
+      /* Keep the elevator art full-frame at the camera's furthest travel. */
+      transform: var(--persona-front-transform, translate(0%, 0%)) scale(1.03);
+      transition: transform var(--persona-front-ease) ease-out;
+    }
+  }
+  @keyframes event-scene-reveal { from { opacity: 0; } to { opacity: 1; } }
   .event-entrance[open]::backdrop { animation: event-entrance-black 160ms linear; transition: background-color 180ms linear; }
   .event-entrance-stage { transition: transform 560ms var(--ease), opacity 180ms linear; }
   .event-entrance[data-phase="playing"] .event-entrance-stage { transition: none; }

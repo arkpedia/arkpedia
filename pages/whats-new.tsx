@@ -1,13 +1,15 @@
 import { siteTablesStaticProps } from '@/lib/content/server';
 import Link from 'next/link';
 import PageMeta from '@/components/layout/PageMeta';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import PageHeader from '@/components/ui/PageHeader';
 import { CHANGELOG, type ChangeItem } from '@/lib/changelog/entries';
 import { markChangelogSeen } from '@/lib/changelog/seen';
 import { formatInstant } from '@/components/ui/LocalTime';
 import { groupChangelogDays } from '@/lib/changelog/group';
 import { canonicalPublicHref } from '@/lib/nav/publicRoutes';
+import { managedPageForHref } from '@/lib/page-visibility/settings';
+import { usePageVisibility } from '@/lib/page-visibility/usePageVisibility';
 
 /* What's new on the site, newest first (lib/changelog/entries.ts): each day's Added /
    Changed / Fixed as short bold titles to skim, each with one quieter line, the title linking to
@@ -29,11 +31,24 @@ function Item({ item }: { item: ChangeItem }) {
 export default function ChangelogPage() {
   // UTC on the server and first client render, then group and label in the same local zone.
   const [timeZone, setTimeZone] = useState('UTC');
+  const listed = usePageVisibility();
   useEffect(() => {
     setTimeZone(Intl.DateTimeFormat().resolvedOptions().timeZone);
     markChangelogSeen();
   }, []);
-  const days = groupChangelogDays(CHANGELOG, timeZone);
+  const days = useMemo(() => {
+    function isListed(item: ChangeItem) {
+      const page = item.href ? managedPageForHref(item.href) : undefined;
+      return page === undefined || listed.includes(page);
+    }
+    const entries = CHANGELOG.map(entry => ({
+      ...entry,
+      added: entry.added?.filter(isListed),
+      changed: entry.changed?.filter(isListed),
+      fixed: entry.fixed?.filter(isListed),
+    })).filter(entry => entry.added?.length || entry.changed?.length || entry.fixed?.length);
+    return groupChangelogDays(entries, timeZone);
+  }, [listed, timeZone]);
   return (
     <>
       <PageMeta title="What's new" description="What changed on Arkpedia, release by release." path="/changelog" />

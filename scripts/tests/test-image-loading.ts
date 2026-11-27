@@ -16,8 +16,8 @@ import ResponsiveSkinArtwork from '../../components/skins/ResponsiveSkinArtwork'
  * a native <img> that stayed eager unless its caller said "lazy", and seven callers had
  * not: /operators/Amiya fetched eight icons from one to five screens down at load. Now:
  *   - ContentImg and ContentImage (next/image) are lazy, and ContentImg decodes off the
- *     main thread, with no `loading` prop to turn that off; `priority` is the one way to
- *     fetch at once, and it asks for the image first (fetchpriority="high");
+ *     main thread, with no `loading` prop to override the default; `priority` fetches
+ *     page heroes first, and `eager` supports artwork mounted by an explicit action;
  *   - every `priority` in the source is a page's hero, named in PRIORITY with its reason,
  *     so a new one is a decision someone wrote down, and a gone one leaves a stale entry;
  *   - a native <img> anywhere but components/content says how it loads.
@@ -41,7 +41,7 @@ test('ContentImg is lazy and decodes off the main thread, and nothing a caller s
   assert.equal(attr(forced, 'decoding'), 'async');
 });
 
-test('priority is the one way to fetch at once, and it asks for the image first', () => {
+test('priority fetches the hero at once and asks for the image first', () => {
   const hero = render(ContentImg, { src: '/five-star-skins/Amiya - Base.webp', alt: 'Amiya', priority: true });
   assert.equal(attr(hero, 'loading'), 'eager');
   assert.equal(attr(hero, 'fetchpriority'), 'high');
@@ -50,6 +50,13 @@ test('priority is the one way to fetch at once, and it asks for the image first'
   assert.equal(attr(render(ResponsiveSkinArtwork, art), 'loading'), 'lazy', 'the skin artwork is lazy');
   assert.equal(attr(render(ResponsiveSkinArtwork, { ...art, priority: true }), 'loading'), 'eager', 'and passes priority through');
   assert.equal(attr(render(ResponsiveSkinArtwork, { ...art, priority: true }), 'fetchpriority'), 'high');
+});
+
+test('artwork mounted on demand can load eagerly with normal priority', () => {
+  const opened = render(ContentImg, { src: '/event-poster/Scene.webp', alt: 'Scene', eager: true });
+  assert.equal(attr(opened, 'loading'), 'eager');
+  assert.equal(attr(opened, 'decoding'), 'async');
+  assert.equal(attr(opened, 'fetchpriority'), undefined);
 });
 
 test('ContentImage (next/image) is lazy unless priority', () => {
@@ -85,6 +92,7 @@ test('application artwork keeps its immutable code pin when page artwork uses an
 
 /** Every `priority` on an image in the source, by file: each a page's hero, and why. */
 const PRIORITY: Record<string, { count: number; why: string }> = {
+  'components/ccb/art.tsx': { count: 1, why: 'the permanent site area artwork is the Battleplan hub hero' },
   'pages/operators/[name].tsx': { count: 1, why: 'the outfit on screen: the operator page\'s LCP' },
   'components/skins/ResponsiveSkinArtwork.tsx': { count: 2, why: 'forwards its own `priority` prop to the <img>, in both of its branches' },
   'components/schedule/EventsPanel.tsx': { count: 1, why: 'the first event slide: the home page\'s LCP at 1440 (only while it is the slide shown)' },

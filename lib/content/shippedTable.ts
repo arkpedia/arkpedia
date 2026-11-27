@@ -25,8 +25,21 @@ export async function readShippedTable<T>(file: ShippedTable, { root = process.c
   } catch {
     // Not on disk: the Worker answering a request.
   }
+  return readAssetJson<T>(`_tables/${file}`, assets);
+}
+
+/** CCB reads its catalogue manifest on both the build host and cold Workers. */
+export async function readCcbManifest<T>({ root = process.cwd(), assets }: { root?: string; assets?: AssetsBinding } = {}): Promise<T> {
+  const file = '_ccb/manifest.json';
+  try {
+    return JSON.parse(fs.readFileSync(path.join(root, 'public', file), 'utf8')) as T;
+  } catch { /* Cold Workers fetch the same snapshot from their static assets. */ }
+  return readAssetJson<T>(file, assets);
+}
+
+async function readAssetJson<T>(file: string, assets?: AssetsBinding): Promise<T> {
   const binding = assets ?? ((await (await import('@opennextjs/cloudflare')).getCloudflareContext({ async: true })).env as unknown as { ASSETS: AssetsBinding }).ASSETS;
-  const response = await binding.fetch(new Request(`https://assets.local/_tables/${file}`));
+  const response = await binding.fetch(new Request(`https://assets.local/${file}`));
   if (!response.ok) throw new Error(`${file}: the Worker's static files answered HTTP ${response.status}`);
   return await response.json() as T;
 }

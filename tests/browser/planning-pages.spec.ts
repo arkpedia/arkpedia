@@ -168,9 +168,11 @@ test.describe("/polls/power-scale", () => {
 
   test('Compact fits five operators per row on a phone', async ({ page }) => {
     await page.goto("/polls/power-scale");
+    const tiers = page.locator('.tier-drop');
+    await expect(tiers.first()).toBeVisible();
     // The most chips any one line holds, across every average's row (the first row
     // may simply have fewer than five operators in it).
-    const perRow = await page.locator('.tier-drop').evaluateAll((rows) => Math.max(...rows.map((row) => {
+    const perRow = await tiers.evaluateAll((rows) => Math.max(...rows.map((row) => {
       const tops = new Map<number, number>();
       for (const chip of Array.from(row.children)) {
         const top = Math.round(chip.getBoundingClientRect().top);
@@ -208,10 +210,11 @@ test.describe('/events/[slug]', () => {
     expect(texts.filter((text) => /×0$/.test(text.trim())), 'a listing without a limit is not a zero').toEqual([]);
   });
 
-  test('placeholder tabs are hidden', async ({ page }) => {
+  test('real packs have a top-level tab and placeholders are hidden', async ({ page }) => {
     await page.goto(PEOPLE);
     const tabs = page.getByRole('tablist', { name: 'Event sections' });
-    await expect(tabs.getByRole('tab', { name: 'Packs' })).toHaveCount(0);
+    await tabs.getByRole('tab', { name: 'Packs', exact: true }).click();
+    await expect(page.locator('#event-section-panel-packs .event-pack-card').first()).toBeVisible();
     await expect(tabs.getByRole('tab', { name: 'Miscellaneous' })).toHaveCount(0);
     await expect(page.getByText('Coming soon')).toHaveCount(0);
   });

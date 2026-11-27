@@ -1,0 +1,3 @@
+/* Reserve the season hub's space while Next and the catalogue load. */
+.workspace { display: grid; min-height: 460px; }
+.loading { margin: 0; padding: var(--card-inset); background: var(--panel); border-radius: var(--radius); color: var(--text-dim); font-size: 13px; }
