@@ -180,8 +180,8 @@ test('regional reward labels use the server calendar and manual claims survive c
   await expect(page.locator('html')).toHaveAttribute('data-site-server', 'jp');
   const mobileMenu = page.getByRole('button', { name: 'Open navigation menu', exact: true });
   if (await mobileMenu.isVisible()) await mobileMenu.click();
-  const planner = page.getByRole('button', { name: 'Planner', exact: true });
-  if (await planner.getAttribute('aria-expanded') !== 'true') await planner.click();
+  const tools = page.getByRole('button', { name: 'Tools', exact: true });
+  if (await tools.getAttribute('aria-expanded') !== 'true') await tools.click();
   await page.evaluate(() => {
     Reflect.set(window, 'regionalNavigationComplete', false);
     const events = Reflect.get(window, 'next').router.events;

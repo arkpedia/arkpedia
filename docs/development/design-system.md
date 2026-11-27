@@ -383,7 +383,15 @@ verification limits. Update these references when a new pattern is accepted.
 ## Navigation and account surfaces
 
 The desktop header and mobile drawer use `lib/nav/navLinks.ts`. Keep Database,
-Guides, Planner, Community, Extras, Schedule and About in the same order on both.
+Guides, Tools, Community, Extras, Schedule and About in the same order on both.
+Tools contains the planners, Reward Tracker, Gacha Simulator and Game Modes.
+About includes the Intro, which visitors can start or skip after their first homepage
+privacy choices. The guided steps cover Database, Tools, Guides and Schedule.
+
+Site updates are written and previewed as drafts in Admin. Published updates appear
+on What's new. Select the major-update option for changes readers should see in a
+dismissible dialog. Upload described screenshots for all screens or choose a
+desktop or mobile placement.
 Community groups Polls, Community Stats and Find support units before a divider, then
 Community projects and World. Extras holds Music and Games. Schedule holds Events and Calendar. Database dividers separate operators/reference, world/story, and creators.
 My account and Friends shortcuts belong to the profile dropdown; Friends opens the account’s Friends tab. Community projects belongs to Community. About owns site

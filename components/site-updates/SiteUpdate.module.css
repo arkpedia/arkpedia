@@ -1,0 +1,11 @@
+.content, .history { display: grid; gap: 14px; min-width: 0; }
+.content > p { margin: 0; white-space: pre-line; overflow-wrap: anywhere; }
+.image { margin: 0; min-width: 0; }
+.image > a { display: block; }
+.image img { display: block; width: auto; height: auto; max-width: 100%; max-height: 44dvh; object-fit: contain; }
+.actions { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+.history { margin-bottom: 20px; }
+.history article { padding: var(--card-inset); display: grid; gap: 8px; }
+.history h2 { margin: 0; }
+@media (max-width: 900px) { .image[data-device="desktop"] { display: none; } }
+@media (min-width: 901px) { .image[data-device="mobile"] { display: none; } }

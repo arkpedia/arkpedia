@@ -1,0 +1,10 @@
+.frame { max-width: 680px; margin-inline: auto; }
+.step { display: grid; gap: 16px; padding: var(--card-inset); }
+.step p, .step h2 { margin: 0; }
+.heading, .controls { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.heading > span { white-space: nowrap; }
+.controls { border-top: 1px solid var(--line-soft); padding-top: 12px; }
+
+@media (max-width: 900px) {
+  .controls { justify-content: flex-start; flex-wrap: wrap; padding-inline-end: var(--control-h); }
+}

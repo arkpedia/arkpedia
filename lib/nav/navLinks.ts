@@ -27,8 +27,8 @@ export interface NavGroup {
 
 const MENUS = [
   { id: 'database', label: 'Database' },
-  { id: 'guides', label: 'Tools' },
-  { id: 'own', label: 'Planner' },
+  { id: 'guides', label: 'Guides' },
+  { id: 'own', label: 'Tools' },
   { id: 'community', label: 'Community' },
   { id: 'extras', label: 'Extras' },
   { id: 'schedule', label: 'Schedule', icon: 'timeline' },

@@ -1,5 +1,6 @@
 import { siteTablesStaticProps } from '@/lib/content/server';
 import Link from 'next/link';
+import PublishedUpdates from '@/components/site-updates/PublishedUpdates';
 import PageMeta from '@/components/layout/PageMeta';
 import { useEffect, useMemo, useState } from 'react';
 import PageHeader from '@/components/ui/PageHeader';
@@ -55,6 +56,7 @@ export default function ChangelogPage() {
       <PageHeader eyebrow="Rhodes Island // What's new" title="What's new"
         sub="What was added, changed and fixed on Arkpedia, newest first." />
       <main>
+        <PublishedUpdates />
         {days.map((entry) => (
           <section key={entry.day} className="op-section changelog-entry" aria-labelledby={`changes-${entry.day}`}>
             {/* When it reached the site, in the reader's own time zone. */}
