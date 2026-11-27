@@ -34,34 +34,52 @@ export const getServerSideProps: GetServerSideProps<DashboardProps> = async ({ r
 
 const sections = [
   { value: 'campaigns', label: 'Ad Campaigns', icon: ICONS.grid },
-  { value: 'rotation', label: 'Ad rotation', icon: ICONS.transfer },
   { value: 'guides', label: 'Operator guides', icon: ICONS.profile },
   { value: 'polls', label: 'Polls', icon: ICONS.polls },
   { value: 'visibility', label: 'Page visibility', icon: ICONS.grid },
   { value: 'updates', label: 'Site updates', icon: ICONS.changelog },
-  { value: 'recent', label: 'Recent changes', icon: ICONS.history },
   { value: 'maintenance', label: 'Maintenance', icon: ICONS.base },
+] as const;
+
+const campaignViews = [
+  { value: 'campaigns', label: 'Campaigns' },
+  { value: 'rotation', label: 'Rotation' },
+  { value: 'recent', label: 'Recent changes' },
 ] as const;
 
 export default function CampaignDashboard({ catalog, historyId }: DashboardProps) {
   const router = useRouter();
-  const tab = sections.find(section => section.value === router.query.tab)?.value ?? 'campaigns';
+  const view = router.query.tab;
+  const tab = sections.find(section => section.value === view)?.value ?? 'campaigns';
+  const campaignView = campaignViews.find(option => option.value === view)?.value ?? 'campaigns';
   const [openedGuides, setOpenedGuides] = useState(tab === 'guides');
   const [openedUpdates, setOpenedUpdates] = useState(tab === 'updates');
   const [openedMaintenance, setOpenedMaintenance] = useState(tab === 'maintenance');
+
+  function selectView(value: string) {
+    void router.replace({ pathname: router.pathname, query: { tab: value } }, undefined, { shallow: true, scroll: false });
+  }
+
   return <><PageMeta title="Arkpedia admin" description="Edit campaigns, operator guides and published pages." path="/dashboard/campaigns" />
     <PageHeader eyebrow="Arkpedia // Editorial workspace" title="Arkpedia admin" slim compact />
     <Tabs id="dashboard" label="Admin sections" className={styles.tabStrip} options={sections} value={tab} onChange={value => {
       if (value === 'guides') setOpenedGuides(true);
       if (value === 'updates') setOpenedUpdates(true);
       if (value === 'maintenance') setOpenedMaintenance(true);
-      void router.replace({ pathname: router.pathname, query: { tab: value } }, undefined, { shallow: true, scroll: false });
+      selectView(value);
     }} />
     <div {...tabPanelProps('dashboard', 'campaigns')} hidden={tab !== 'campaigns'}>
-      {catalog ? <CampaignEditor key={historyId} initial={catalog} historyId={historyId} /> : <p role="alert">Campaign storage is unavailable.</p>}
-    </div>
-    <div {...tabPanelProps('dashboard', 'rotation')} hidden={tab !== 'rotation'}>
-      <CampaignRotations active={tab === 'rotation'} />
+      <Tabs id="dashboard-campaigns" label="Ad campaign views" className={`${styles.tabStrip} ${styles.campaignTabs}`}
+        options={campaignViews} value={campaignView} onChange={selectView} />
+      <div {...tabPanelProps('dashboard-campaigns', 'campaigns')} hidden={campaignView !== 'campaigns'}>
+        {catalog ? <CampaignEditor key={historyId} initial={catalog} historyId={historyId} /> : <p role="alert">Campaign storage is unavailable.</p>}
+      </div>
+      <div {...tabPanelProps('dashboard-campaigns', 'rotation')} hidden={campaignView !== 'rotation'}>
+        <CampaignRotations active={tab === 'campaigns' && campaignView === 'rotation'} />
+      </div>
+      <div {...tabPanelProps('dashboard-campaigns', 'recent')} hidden={campaignView !== 'recent'}>
+        {tab === 'campaigns' && campaignView === 'recent' && <RecentCampaignChanges base={catalog?.base} />}
+      </div>
     </div>
     <div {...tabPanelProps('dashboard', 'guides')} hidden={tab !== 'guides'}>
       {(tab === 'guides' || openedGuides) && <ContentContext.Provider value={catalog?.release ?? null}><OperatorGuides /></ContentContext.Provider>}
@@ -74,9 +92,6 @@ export default function CampaignDashboard({ catalog, historyId }: DashboardProps
     </div>
     <div {...tabPanelProps('dashboard', 'updates')} hidden={tab !== 'updates'}>
       {(tab === 'updates' || openedUpdates) && <SiteUpdates />}
-    </div>
-    <div {...tabPanelProps('dashboard', 'recent')} hidden={tab !== 'recent'}>
-      {tab === 'recent' && <RecentCampaignChanges base={catalog?.base} />}
     </div>
     <div {...tabPanelProps('dashboard', 'maintenance')} hidden={tab !== 'maintenance'}>
       {(tab === 'maintenance' || openedMaintenance) && <PageMaintenance />}
