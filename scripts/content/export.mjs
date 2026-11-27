@@ -64,6 +64,7 @@ fs.rmSync('public/planner-data', { recursive: true, force: true });
 for (const script of [
   ['scripts/build/serve-profile-avatars.mjs'],
   ['scripts/build/build-enemy-details.mjs'],
+  ['scripts/build/build-dps-profiles.mjs', '--if-stale'],
   ['scripts/build/build-stage-details.ts', '--force'],
   ['scripts/build/build-stage-guesser.ts'],
   ['scripts/build/build-operator-search.ts'],

@@ -23,6 +23,7 @@ export const NOT_RECORDS = new Set([
   'data/optimizer-results.json',
   'data/whole-base-optimizer-results.json',
   'data/selector-catalogue.json',
+  'data/dps-enemy-presets.json',
   'data/community-operator-catalogue.json',
   'data/community-poll-catalogue.json',
   'data/account-catalogue.json',

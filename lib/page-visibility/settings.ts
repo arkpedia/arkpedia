@@ -6,6 +6,11 @@ export const managedPages = {
     title: 'Contingency Contract Battleplan',
     terms: ['CCB', 'Contingency Contract'],
   },
+  dps: {
+    href: '/dps-calculator',
+    title: 'DPS Calculator',
+    terms: ['DPS', 'Damage', 'HPS', 'Survival'],
+  },
 } as const;
 
 export type ManagedPage = keyof typeof managedPages;

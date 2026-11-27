@@ -1,0 +1,445 @@
+import { mitigate, type DamageType, type Target } from './calculator';
+type Values = Record<string, number>;
+export type DamageUnit = 'attack' | 'volley' | 'tick' | 'pulse' | 'wave' | 'cast'
+  | 'activation' | 'detonation' | 'retaliation' | 'stack' | 'trigger' | 'deployment';
+export interface SourceInputs {
+  id: string;
+  slot: number;
+  atk: number;
+  interval: number;
+  target: Target;
+  skill: Values;
+  talent: Values;
+  second: Values;
+  trait: Values;
+  proc: boolean;
+  inRange: boolean;
+  traitActive: boolean;
+  penetrationStacks: number;
+}
+export const elements: Record<string, string> = Object.fromEntries(
+  Object.entries({
+    Rampage: 'caledo',
+    Necrosis: 'phonor threye cello kaitou nymph logos ebnhlz philae',
+    Burn: 'warmy blaze2 yu ifrit bobb vvana oxi',
+    'Nervous Impairment': 'phatm2 graceb christ mantra thorns cairn',
+    Corrosion: 'mlyss thumpy clemnt tanya botany',
+  }).flatMap(([kind, names]) => names.split(' ').map((name) => [name, kind])),
+);
+
+// A named damage source has its own cadence. A null cadence means one discrete
+// activation, not a repeating attack at the operator's normal attack interval.
+export function sourceAction({
+  id,
+  slot,
+  atk,
+  interval,
+  target: t,
+  skill: s,
+  talent: a,
+  second: b,
+  trait: m,
+  proc,
+  inRange,
+  traitActive,
+  penetrationStacks,
+}: SourceInputs): {
+  parts: Record<DamageType, number>;
+  injury: number;
+  cadence: number | null;
+  unit: DamageUnit;
+  name: string;
+  note: string;
+} | null {
+  const bursting = t.burst === elements[id];
+  const locked = t.burst !== 'None';
+  const parts: Record<DamageType, number> = { Physical: 0, Arts: 0, True: 0, Elemental: 0 };
+  let rawInjury = 0,
+    cadence: number | null = interval,
+    name = 'Normal attack';
+  let note = '',
+    focus = false;
+  let unit: DamageUnit = 'attack';
+  let injuryAmp = 1;
+  const amount = (type: DamageType, scale: number) => mitigate(atk * scale, type, t);
+  const hit = (type: DamageType, scale = 1, count = 1) => {
+    parts[type] += amount(type, scale) * count;
+  };
+  const art = () => hit('Arts');
+  const trigger = (label: string, damageUnit: DamageUnit) => {
+    name = label;
+    unit = damageUnit;
+    cadence = null;
+  };
+  const field = (label: string, period: number, damageUnit: 'tick' | 'pulse' | 'wave' = 'tick') => {
+    name = label;
+    unit = damageUnit;
+    cadence = period;
+  };
+  if (['threye', 'bobb', 'botany', 'cello'].includes(id) && t.tier !== 'Grunt')
+    injuryAmp *= m.ep_damage_scale ?? 1;
+  if (
+    !slot &&
+    ![
+      'chen',
+      'angel',
+      'phonor',
+      'thumpy',
+      'oxi',
+      'cello',
+      'cairn',
+      'yu',
+      'ifrit',
+      'logos',
+      'thorns',
+      'vvana',
+      'mlyss',
+    ].includes(id)
+  )
+    return null;
+  switch (id) {
+    case 'chen': {
+      const scale = s.atk_scale ?? 1;
+      hit('Physical', scale, slot === 0 ? 2 : (s.times ?? 1));
+      if (slot === 2) hit('Arts', scale);
+      if (slot) {
+        trigger(['', 'Sheathed Strike', 'Chi Xiao · Unsheath', 'Chi Xiao · Shadowless'][slot], 'cast');
+        parts.Physical *= m.damage_scale ?? 1;
+        parts.Arts *= m.damage_scale ?? 1;
+      }
+      note = slot === 3 ? 'All slashes land on the same target.' : 'One target.';
+      break;
+    }
+    case 'angel': {
+      const shots = s['attack@times'] ?? s.times ?? 1;
+      const scale = (s['attack@atk_scale'] ?? s.atk_scale ?? 1) * (traitActive ? (m.atk_scale ?? 1) : 1);
+      const ignore = (a.def_penetrate_fixed ?? 0) * Math.min(penetrationStacks, a.max_stack_cnt ?? 0);
+      parts.Physical = shots * mitigate(atk * scale, 'Physical', { ...t, def: Math.max(0, t.def - ignore) });
+      if (slot) {
+        name = shots + '-shot volley';
+        unit = 'volley';
+      }
+      if (slot === 1) trigger('Charged three-shot volley', 'volley');
+      note = 'Each shot is mitigated separately.' + (slot === 1 ? ' One charged attack.' : '');
+      break;
+    }
+    case 'phonor':
+      art();
+      rawInjury = a['attack@dark_damage_value'] ?? 0;
+      parts.Arts *= a.damage_scale ?? 1;
+      note =
+        'During the deployment talent window. Outside it the robot loses the fixed injury and fragility.';
+      break;
+    case 'caledo':
+      if (slot === 1) trigger('Charged strike', 'attack');
+      hit('Physical', s.atk_scale ?? 1);
+      rawInjury = atk * (s.ep_damage_ratio && slot === 1 ? s.ep_damage_ratio : s['attack@ep_damage_ratio']);
+      injuryAmp *= m.ep_damage_scale ?? 1;
+      note = 'One blocked target. Outgoing Rampage only.';
+      break;
+    case 'graceb':
+      if (slot === 2) {
+        trigger('Charged triple strike', 'attack');
+        hit(bursting ? 'Elemental' : 'Physical', s.atk_scale, 3);
+        break;
+      }
+      hit('Physical', s['attack@atk_scale'], 2);
+      rawInjury = parts.Physical * s.ep_damage_ratio;
+      name = 'Two strikes';
+      note = 'Before the first kill of a target in Paralysis fallout.';
+      break;
+    case 'kaitou':
+    case 'nymph':
+    case 'warmy':
+    case 'christ':
+      if (id === 'nymph' && slot === 3) {
+        hit(bursting ? 'Elemental' : 'Arts');
+      } else if (id === 'nymph' && slot === 2) {
+        trigger('Primary and splash hits', 'cast');
+        hit('Arts', s.atk_scale, 2);
+        rawInjury = parts.Arts * s.ep_damage_ratio;
+      } else if (id === 'christ' && slot === 2) {
+        field('Sensory Spirit tick', s.interval);
+        hit('Arts', s.atk_scale);
+        if (bursting) hit('Elemental', s.atk_scale_ep);
+      } else {
+        art();
+        rawInjury = parts.Arts * (s['attack@ep_damage_ratio'] ?? 0);
+        if (bursting) hit('Elemental', s['attack@extra_ep_damage_scale'] ?? s['attack@ep_damage_scale'] ?? 0);
+      }
+      if (bursting) {
+        parts.Arts *= m.damage_scale ?? 1;
+        parts.Elemental *= m.damage_scale ?? 1;
+      }
+      note = 'Direct attack or spirit only. Burst-entry talents and ongoing fallout are separate events.';
+      break;
+    case 'philae':
+      trigger('Retaliation', 'retaliation');
+      hit('Arts', s.atk_scale);
+      rawInjury = atk * s.ep_damage_ratio;
+      note =
+        'One retaliation against a blocked attacker, before receiving injury. Limited by the skill cooldown of ' +
+        s.aoe_cd +
+        ' s.';
+      injuryAmp *= m.ep_damage_scale ?? 1;
+      break;
+    case 'tanya':
+      trigger('Cracking Dam stack', 'stack');
+      rawInjury = atk * s.ep_damage_ratio;
+      injuryAmp *= m.ep_damage_scale ?? 1;
+      note = 'Consumes one stored stack when struck while blocking.';
+      break;
+    case 'threye':
+    case 'bobb':
+    case 'botany':
+      if (slot === 1) {
+        trigger('Empowered attack', 'attack');
+        hit('Arts', s.atk_scale);
+        rawInjury = atk * s.ep_damage_ratio;
+        if (id === 'botany' && !bursting) {
+          hit('Arts', s['botany_s1_extra.atk_scale']);
+          rawInjury += atk * s['botany_s1_extra.ep_damage_ratio'];
+        }
+        break;
+      }
+      if (id === 'threye') {
+        art();
+        rawInjury = atk * s['attack@ep_damage_ratio'];
+        note = 'One target outside Integrated Strategies.';
+        break;
+      }
+      if (id === 'bobb') {
+        field('Burning field tick', 1);
+        hit('Arts', s['attack@atk_scale']);
+        rawInjury = atk * s['attack@ep_damage_ratio'];
+        note = 'Field only, on a grounded target.';
+        break;
+      }
+      art();
+      hit('Physical', s['attack@extra_atk_scale']);
+      rawInjury = atk * s['attack@ep_damage_ratio'];
+      break;
+    case 'mlyss':
+      hit('Physical');
+      rawInjury = parts.Physical * (m.ep_damage_ratio ?? 0);
+      note = 'Muelsyse herself. The copied operator determines Flowing Shape’s damage.';
+      break;
+    case 'skadi2':
+      if (slot !== 3) return null;
+      field('True damage aura', 1);
+      hit('True', s.atk_scale);
+      note = 'One aura on one enemy. The Seaborn can add a second overlapping damage aura.';
+      break;
+    case 'ifrit': {
+      const arts = mitigate(atk, 'Arts', { ...t, res: Math.max(0, t.res * (1 + (a.magic_resistance ?? 0))) });
+      parts.Arts = arts;
+      rawInjury = arts * (m.ep_damage_ratio ?? 0);
+      if (bursting) hit('Elemental', m.element_atk_scale ?? 0);
+      break;
+    }
+    case 'logos': {
+      const debuffed = { ...t, res: Math.max(0, t.res + (b.magic_resistance ?? 0)) };
+      parts.Arts = mitigate(atk + (b.atk_addition ?? 0), 'Arts', debuffed);
+      rawInjury = parts.Arts * (m.ep_damage_ratio ?? 0);
+      note = 'Primary hit on an already debuffed enemy. Random Lexical Evolution hits are separate.';
+      break;
+    }
+    case 'ebnhlz':
+      trigger('Old Day Remnant', 'detonation');
+      hit('Arts', s.atk_scale);
+      rawInjury = parts.Arts * (m.ep_damage_ratio ?? 0);
+      note = 'One remnant detonation. Placement and stored charges determine how many connect.';
+      break;
+    case 'blaze2':
+      if (slot === 3) {
+        art();
+        if (bursting) hit('Elemental', s['attack@atk_scale']);
+        name = 'Ammunition hit';
+        break;
+      }
+      if (slot === 2) {
+        field('Burning field tick', 1);
+        hit('Arts', s.atk_scale);
+        rawInjury = parts.Arts * s.element_damage_scale;
+        note = 'One field on one target, excluding direct attacks.';
+        break;
+      }
+      field('Ally-centred pulse', s.interval, 'pulse');
+      hit('Arts', s.atk_scale);
+      rawInjury = parts.Arts * s.element_multiplier;
+      note = 'One target beside the chosen ally. Excludes the separate talent hit on burst entry.';
+      break;
+    case 'mantra':
+      if (slot === 3) {
+        trigger('Paralysis overflow', 'trigger');
+        hit('Elemental', s.atk_scale);
+        note = 'One excess stack on the target. Requires gaining Paralysis above the skill limit.';
+        break;
+      }
+      if (slot === 2) {
+        hit('Arts', s['attack@atk_scale']);
+        rawInjury = parts.Arts * s['attack@ep_damage_ratio'];
+        if (bursting) {
+          hit('Elemental', s['attack@element_atk_scale']);
+          parts.Elemental *= m.damage_scale ?? 1;
+          parts.Arts *= m.damage_scale ?? 1;
+        }
+        name = 'Primary chain hit';
+        note = 'One target, before jumps.';
+        break;
+      }
+      trigger('Resonance Collapse', 'cast');
+      hit('Arts', s.atk_scale);
+      rawInjury = parts.Arts * s.ep_damage_ratio;
+      if (bursting) {
+        hit('Elemental', s.element_atk_scale);
+        parts.Arts *= m.damage_scale ?? 1;
+        parts.Elemental *= m.damage_scale ?? 1;
+      }
+      break;
+    case 'cello':
+      injuryAmp *= 1 + ((b.ep_damage_scale ?? 1) - 1) * (s.scale_delta_to_one ?? 1);
+      if (slot === 1) {
+        trigger('Golden Ecstasy', 'cast');
+        if (locked) {
+          note = 'The charge is held while the target is in fallout.';
+          break;
+        }
+        hit('Arts', s.atk_scale);
+        rawInjury = atk * s.ep_damage_ratio;
+      } else if (slot === 2) {
+        name = 'Requiem Mass attack';
+        art();
+        rawInjury = atk * s.ep_damage_ratio;
+      } else {
+        field(slot === 3 ? 'Liberal Tango aura' : 'Talent aura', 1);
+        rawInjury = atk * (a.ep_damage_ratio ?? 0);
+      }
+      note =
+        slot === 1
+          ? 'Burst timing estimates start with full charges and an aura tick at first contact. Casts use the attack interval, with 1 SP/s and no animation lockout. Charges replenish during fallout.'
+          : slot === 2
+            ? 'One target. Timing includes her attacks and aura. Allied hits are excluded.'
+            : 'One aura tick per second while the target stays in range.';
+
+      break;
+    case 'yu':
+      injuryAmp *= m.ep_damage_scale ?? 1;
+      if (slot) {
+        trigger('Retaliation', 'retaliation');
+        rawInjury = atk * s.ep_damage_ratio;
+      } else {
+        field('Blocked enemy aura', a['yu_t_1[enemy].interval'] ?? 1);
+        hit('Arts', a['yu_t_1[enemy].atk_scale'] ?? 0);
+        rawInjury = atk * (a['yu_t_1[enemy].ep_damage_ratio'] ?? 0);
+      }
+      note = 'Target is blocked by Yu.';
+      break;
+    case 'thumpy':
+      if (slot) {
+        field(slot === 2 ? 'Glue tick' : 'Conveyor tick', s.interval);
+        hit('Physical', s.atk_scale);
+      } else hit('Physical');
+      rawInjury = atk * (a['ep_damage_ratio[trigger]'] ?? 0);
+      note = 'Unblocked target, zero talent stacks. Secondary hits from other allies are excluded.';
+      break;
+    case 'thorns': {
+      hit('Physical');
+      rawInjury = parts.Physical * (m.ep_damage_ratio ?? 0);
+      note = 'Melee primary strike. Venom ticks and conversion are separate sources.';
+      break;
+    }
+    case 'vvana': {
+      const factor = t.tier === 'Grunt' ? 1 : (a.super_scale ?? 1);
+      hit('Arts', 1, slot ? 2 : 1);
+      parts.Arts *= 1 + (a.damage_scale_m ?? 0) * factor;
+      rawInjury = parts.Arts * (a.ep_damage_ratio_m ?? 0) * factor;
+      if (bursting) hit('Elemental', m.ep_damage_ratio ?? 0, slot ? 2 : 1);
+      if (slot) note = 'One attack during the first skill activation.';
+      break;
+    }
+    case 'oxi':
+      if (slot) {
+        field('Fire wave', s.normal_interval, 'wave');
+        hit(bursting ? 'Elemental' : 'Arts', s.heatwave_atk_scale);
+      } else art();
+      rawInjury = parts.Arts * (a.ep_damage_ratio ?? 0);
+      note = 'Single lane, zero idle stacks, before overload.';
+      break;
+    case 'clemnt':
+      if (slot === 2) {
+        field('Whirlpool tick', 1);
+        hit('Physical', s['attack@physical_atk_scale']);
+        rawInjury = s['attack@water_element'];
+      } else {
+        hit('Physical', s['attack@atk_scale']);
+        rawInjury = parts.Physical * s['attack@ep_damage_ratio'];
+      }
+      note = 'Unenhanced hit. Burst-triggered ammunition is a separate event.';
+      break;
+    case 'cairn':
+      field(slot ? 'S2 pulse' : 'Blocked enemy aura', 1, slot ? 'pulse' : 'tick');
+      injuryAmp *= m.ep_damage_scale ?? 1;
+      if (slot) hit('Arts', s.atk_scale);
+      rawInjury = atk * (slot ? s.ep_damage_ratio : (a.ep_damage_ratio ?? 0));
+      note = 'Target is blocked. S2 pulse and talent aura shown individually.';
+      break;
+    case 'ela':
+      trigger('Grzmot Mine', 'trigger');
+      note = 'Applies crowd control or Fragile. The mine itself deals zero HP damage.';
+      break;
+    case 'rfrost':
+    case 'wulfen':
+    case 'doroth':
+    case 'robin':
+      trigger('Trap detonation', 'trigger');
+      {
+        const target =
+          (id === 'doroth' && slot === 1) || (id === 'wulfen' && slot === 2)
+            ? { ...t, def: t.def * (1 + s.def) }
+            : t;
+        parts[id === 'doroth' && slot === 3 ? 'Arts' : 'Physical'] =
+          (id === 'wulfen' && slot === 2 ? 2 : 1) *
+          mitigate(
+            atk * (s.trap_atk_scale ?? s.atk_scale) * (proc ? (m.atk_scale ?? 1) : 1),
+            id === 'doroth' && slot === 3 ? 'Arts' : 'Physical',
+            target,
+          );
+      }
+      note =
+        'One ground target, one trap, owner ATK at placement. No chained explosions or previous trap stacks.';
+      if (id === 'rfrost' && slot === 2 && inRange) {
+        hit('Physical', s.atk_scale, s.times);
+        name = 'Welcome Mat and follow-up shots';
+        note =
+          'The enemy triggers one trap inside Frost’s attack range. Each follow-up shot applies DEF independently.';
+      }
+      break;
+    case 'svash2':
+      trigger('Countergambit cast', 'cast');
+      hit('Physical', s.atk_scale);
+      break;
+    case 'phatom':
+      if (slot === 2) {
+        trigger('Bloody Opus opening attack', 'attack');
+        hit('Physical');
+        note = 'Full charges on deployment. Each of Phantom’s own attacks spends one charge.';
+      } else {
+        trigger('Night Raid on deploy', 'deployment');
+        hit('Physical', s.atk_scale);
+      }
+      break;
+    default:
+      focus = true;
+  }
+  return focus
+    ? null
+    : {
+        parts,
+        injury: locked ? 0 : rawInjury * injuryAmp * Math.max(0.05, 1 - t.injuryRes / 100),
+        cadence,
+        unit,
+        name,
+        note,
+      };
+}

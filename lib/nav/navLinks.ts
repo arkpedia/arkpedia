@@ -1,5 +1,6 @@
 import { pageCatalogue } from '@/lib/routes/catalogue.cjs';
 import { isGamePath } from '@/lib/minigames/catalogue';
+import { managedPageForHref, type ManagedPage } from '@/lib/page-visibility/settings';
 
 /*
  * Every destination the site nav offers, and how the bar and the mobile drawer arrange them.
@@ -26,7 +27,7 @@ export interface NavGroup {
 
 const MENUS = [
   { id: 'database', label: 'Database' },
-  { id: 'guides', label: 'Guides' },
+  { id: 'guides', label: 'Tools' },
   { id: 'own', label: 'Planner' },
   { id: 'community', label: 'Community' },
   { id: 'extras', label: 'Extras' },
@@ -73,7 +74,13 @@ export const GROUPS: NavGroup[] = MENUS.map(menu => {
 });
 export const LOOSE = entriesIn('loose').map(entry => entry.link);
 export const PROFILE_LINKS = entriesIn('profile').map(entry => entry.link);
-export const NAV_ORDER = [...GROUPS.flatMap(group => group.items), ...LOOSE, ...PROFILE_LINKS];
+export function isNavLinkListed(link: NavLink, listed: readonly ManagedPage[]): boolean {
+  const managed = managedPageForHref(link.href);
+  return managed === undefined || listed.includes(managed);
+}
+
+export const NAV_ORDER = [...GROUPS.flatMap(group => group.items), ...LOOSE, ...PROFILE_LINKS]
+  .filter(link => isNavLinkListed(link, []));
 
 const MAKER_PATHS = ['/polls/tier-list', '/polls/chart-maker'];
 

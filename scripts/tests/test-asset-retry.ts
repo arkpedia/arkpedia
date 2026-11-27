@@ -383,6 +383,7 @@ const NOT_PUBLISHED_FILES: Record<string, string> = {
 };
 /** Pictures and sounds made outside the page: how many each file makes, and why they need no retry. */
 const DETACHED_MEDIA: Record<string, { count: number; why: string }> = {
+  'lib/dps/comparisonImage.ts: new Image': { count: 1, why: 'decodes the local serialized chart SVG for the PNG canvas, without a network request' },
   'components/operators/useChibiVoice.ts: new Audio': { count: 1, why: 'tap voices resolve through assetAudioUrl and retryAssetAudioOnNextPress, preserving explicit-gesture playback' },
   "components/music/PageAudio.tsx: createElement('audio')": { count: 1, why: "page background playback uses Monster Siren's own audio CDN, not published repository assets" },
   'components/operators/RoamingChibiProvider.tsx: new Image': { count: 1, why: 'furniture from the ArknightsAssets mirror, not an arkpedia repository' },

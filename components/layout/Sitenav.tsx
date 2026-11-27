@@ -10,8 +10,9 @@ import SiteSearchDialog, { useSiteSearchControl } from './SiteSearch';
 import MobileNavDrawer from './MobileNavDrawer';
 import type { MobileNavOverride } from '@/lib/nav/mobileNavOverride';
 import { getEssentialIconPath } from '@/lib/operators/operatorIconPaths';
-import { GROUPS, LOOSE, isActiveLink, type NavLink } from '@/lib/nav/navLinks';
+import { GROUPS, LOOSE, isActiveLink, isNavLinkListed, type NavLink } from '@/lib/nav/navLinks';
 import { useChangelogUnseen } from '@/lib/changelog/seen';
+import { usePageVisibility } from '@/lib/page-visibility/usePageVisibility';
 
 /* The registry of destinations -- LINKS, the menus, the loose links, NAV_ORDER and which
    entry is lit -- is plain data in lib/nav/navLinks.ts, so a test can check every href
@@ -24,6 +25,7 @@ export default function SiteNav({ mobileNav }: { mobileNav?: MobileNavOverride }
   /* Which menu is open, by label, or null. One at a time: opening a second closes the
      first, the way a menu bar has always worked. */
   const [openMenu, setOpenMenu] = useState<string | null>(null);
+  const listed = usePageVisibility(openMenu === 'guides');
 
   /**
    * The nav's height, published for sticky page furniture to sit below.
@@ -145,7 +147,7 @@ export default function SiteNav({ mobileNav }: { mobileNav?: MobileNavOverride }
                       down would be the layout shift this rework exists to remove. */}
                   {open && (
                     <div id={`site-nav-${group.id}`} className="site-nav-pop" aria-label={label}>
-                      {group.items.map((l) => renderLink(l, `site-nav-popitem${group.dividersAfter?.includes(l.href) ? ' nav-group-end' : ''}`))}
+                      {group.items.filter(link => isNavLinkListed(link, listed)).map((l) => renderLink(l, `site-nav-popitem${group.dividersAfter?.includes(l.href) ? ' nav-group-end' : ''}`))}
                     </div>
                   )}
                 </div>

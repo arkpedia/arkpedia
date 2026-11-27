@@ -324,6 +324,7 @@ jobs:
           npx tsx scripts/build/build-operator-search.ts
           # Hydration removes this derived fallback; selector pages/tests import it before export.
           npx tsx scripts/build/build-selector-catalogue.ts
+          npx tsx scripts/build/build-dps-enemies.ts
           # Community ranking tests import this derived catalogue after hydration too.
           npx tsx scripts/build/build-community-stage-catalogue.ts
           # check:published-assets, except that a legacy voice clip an operator page offers

@@ -1,0 +1,12 @@
+{
+  "release": true,
+  "sitemap": "static",
+  "nav": [
+    {
+      "group": "guides",
+      "order": 70,
+      "label": "DPS Calculator",
+      "icon": "calculator"
+    }
+  ]
+}

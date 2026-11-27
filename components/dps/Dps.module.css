@@ -1,0 +1,329 @@
+.page {
+  display: grid;
+  gap: 16px;
+  padding-block: 24px 44px;
+  min-width: 0;
+}
+.modePanel:not([hidden]) {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+}
+.workspace {
+  display: grid;
+  grid-template-columns: minmax(285px, 0.85fr) minmax(0, 1.8fr);
+  align-items: start;
+  gap: 16px;
+}
+.left,
+.right {
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+}
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-frame);
+  padding: 16px;
+  min-width: 0;
+}
+.panel h2 {
+  margin: 0 0 12px;
+}
+.heading,
+.row,
+.actions,
+.add,
+.controls,
+.legend,
+.probe,
+.check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.heading {
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+.heading h2 {
+  margin: 0;
+}
+.row {
+  gap: 12px;
+}
+.row img {
+  border-radius: var(--radius);
+  background: var(--well);
+  object-fit: cover;
+}
+.page small,
+.field,
+.legend,
+.probe,
+.panel p {
+  color: var(--text-dim);
+}
+.page small {
+  display: block;
+  font-size: 0.78rem;
+  line-height: 1.55;
+}
+.page strong,
+.panel summary {
+  color: var(--text-bright);
+}
+.build {
+  padding: 12px;
+  background: var(--well);
+  border-left: 3px solid;
+  margin-block: 8px;
+}
+.actions {
+  margin-top: 8px;
+  flex-wrap: wrap;
+}
+.controls,
+.legend {
+  flex-wrap: wrap;
+}
+.field {
+  display: grid;
+  gap: 4px;
+  font: 500 0.76rem var(--font-body);
+  min-width: 0;
+}
+.field input {
+  background: var(--well);
+  color: var(--text);
+  border: 1px solid var(--control-border);
+  border-radius: var(--radius-control);
+  height: var(--control-h);
+  padding-inline: 8px;
+  width: 85px;
+  font: inherit;
+}
+.add {
+  align-items: end;
+  margin-block: 0 12px;
+}
+.add > div {
+  flex: 1;
+}
+.preset {
+  display: flex;
+  align-items: end;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-block: 8px;
+}
+.panel > div:global(.search-input-wrap) {
+  margin-block-end: 12px;
+}
+.fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+.editor {
+  margin-top: 14px;
+}
+.quickSource {
+  margin-top: 8px;
+}
+.quickSource:empty {
+  display: none;
+}
+.chartSettings {
+  margin-block: 10px;
+}
+.chartSettings .controls {
+  align-items: end;
+  margin-block-start: 8px;
+}
+.chartJump:global(.ghost) {
+  display: none;
+}
+.check {
+  margin-top: 8px;
+}
+.plot {
+  display: block;
+  width: 100%;
+  max-height: 295px;
+  background: var(--well);
+  border-radius: var(--radius);
+}
+.plot text {
+  fill: var(--text-dim);
+  font: 12px var(--font-mono);
+}
+.plot line {
+  stroke: var(--line);
+}
+.plot .cursor {
+  stroke: var(--text-faint);
+  stroke-dasharray: 3 5;
+}
+.curveFrame {
+  width: 100%;
+  margin-inline: auto;
+}
+.probe {
+  position: relative;
+  display: block;
+  margin: 8px 0;
+  padding-block-end: 16px;
+  font: 12px var(--font-mono);
+}
+.probe input {
+  display: block;
+  /* Native range thumbs stop half a thumb width inside the input. */
+  margin: 0 0 0 calc(var(--axis-left) - 8px);
+  width: calc(100% - var(--axis-left) - var(--axis-right) + 16px);
+  height: var(--control-h);
+  accent-color: var(--teal);
+}
+.probe output {
+  position: absolute;
+  right: var(--axis-right);
+  bottom: 0;
+}
+.previewDialog {
+  --dialog-w: 1080px;
+  margin: auto;
+}
+.previewImage {
+  display: block;
+  max-width: 100%;
+  max-height: 76dvh;
+  object-fit: contain;
+  min-height: 0;
+}
+.targetResults {
+  display: grid;
+  gap: 6px;
+  margin-block: 12px;
+  font-variant-numeric: tabular-nums;
+}
+.targetResults > div {
+  display: flex;
+  align-items: baseline;
+  gap: 4px 12px;
+  flex-wrap: wrap;
+}
+.targetResults span {
+  border-inline-start: 3px solid;
+  padding-inline-start: 8px;
+}
+.legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font: 12px var(--font-mono);
+}
+.legend i {
+  width: 14px;
+  height: 3px;
+}
+.scroll {
+  overflow-x: auto;
+}
+.panel table {
+  width: 100%;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+  margin-block: 10px;
+}
+.panel td,
+.panel th {
+  padding: 9px 10px;
+  text-align: right;
+  border-bottom: 1px solid var(--line);
+  font-size: 0.86rem;
+  vertical-align: top;
+}
+.panel th:first-child,
+.panel td:first-child {
+  text-align: left;
+}
+.panel thead th {
+  color: var(--text-dim);
+  font-weight: 500;
+}
+.panel .healingWithNotes > :is(th, td) {
+  border-bottom: 0;
+}
+.panel .healingWithNotes + tr > td {
+  padding-top: 0;
+}
+.panel summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+.breakdown {
+  font-weight: 400;
+}
+.breakdown dl {
+  margin: 8px 0;
+}
+.breakdown dl div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+.breakdown dd {
+  margin: 0;
+}
+@media (max-width: 780px) {
+  .chartJump:global(.ghost) {
+    display: inline-flex;
+  }
+  .workspace {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .panel {
+    padding: 12px;
+  }
+  .heading {
+    align-items: start;
+  }
+  .panel th,
+  .panel td {
+    padding: 7px;
+  }
+  .page {
+    gap: 12px;
+  }
+}
+
+.composition {
+  margin-top: 14px;
+}
+.bar {
+  display: flex;
+  height: 9px;
+  margin: 6px 0;
+  background: var(--well);
+}
+
+.panel tr > :first-child {
+  padding-inline-start: 0;
+}
+
+.rowPlot {
+  display: block;
+  width: 100%;
+  background: var(--well);
+  margin-block: 10px;
+}
+.rowPlot text {
+  fill: var(--text);
+  font: 10px var(--font-mono);
+}
+.rowPlot line {
+  stroke: var(--line);
+}

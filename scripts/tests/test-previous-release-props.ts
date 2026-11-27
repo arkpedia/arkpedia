@@ -395,6 +395,10 @@ async function withStubbedFeeds<T>(run: () => Promise<T>): Promise<{ result: T; 
  * running cannot pass.
  */
 const REGENERATED: Record<string, (props: Record<string, unknown>, clock: { from: number; to: number }) => void> = {
+  '/dps-calculator': props => {
+    assert.ok((props.enemies as {id:string}[]).some(e => e.id === 'enemy_1502_crowns'));
+    assert.ok((props.profiles as {id:string}[]).some(p => p.id === 'phatm2'));
+  },
   '/community/statistics': (props) => {
     const ops=props.operators as {className:string;charIds:string[]}[];
     assert.ok(ops.length>400);

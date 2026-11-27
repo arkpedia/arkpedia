@@ -19,6 +19,8 @@ const root = `${process.cwd()}${path.sep}`;
 const clock = guardExportClock(frame => frame.includes(root) && !frame.includes(`${path.sep}node_modules${path.sep}`) && !frame.includes('export-build.mjs'),
   { refuse: !Object.hasOwn(KNOWN_BUILD_CLOCK_READS, script) });
 try {
+  // Expose the child script at argv[1], just as a direct node invocation does.
+  process.argv.splice(1, 2, path.resolve(script));
   await import(pathToFileURL(path.resolve(script)).href);
 } finally {
   clock.restore();

@@ -3,6 +3,34 @@ import { managedPages, publicPageVisibility, type PageVisibilitySetting } from '
 
 const { href, title } = managedPages.ccb;
 
+test('unlisted DPS Calculator opens by direct link and stays out of public discovery', async ({ page }, info) => {
+  const { href, title } = managedPages.dps;
+  await page.goto(href);
+  await expect(page.getByRole('heading', { name: `${title} Beta`, level: 1 })).toBeVisible();
+  await expect(page.locator('meta[name="robots"]')).toHaveAttribute('content', 'noindex');
+  const sitemap = await page.request.get('/sitemap.xml');
+  expect(sitemap.ok()).toBe(true);
+  expect(await sitemap.text()).not.toContain(`${href}</loc>`);
+
+  const tools = page.getByRole('button', { name: 'Tools', exact: true });
+  const openTools = async () => {
+    if (info.project.name === 'mobile') await page.getByRole('button', { name: 'Open navigation menu' }).click();
+    await tools.click();
+  };
+  await page.goto('/about');
+  await openTools();
+  await expect(page.getByRole('link', { name: 'Farming', exact: true })).toBeVisible();
+  await expect(page.locator(`a[href="${href}"]`)).toHaveCount(0);
+
+  await page.route('**/api/page-visibility', route => route.fulfill({ json: { listed: ['dps'], refreshAfterMs: 60_000 } }));
+  await page.goto('/about');
+  await openTools();
+  await expect(page.getByRole('link', { name: title, exact: true })).toBeVisible();
+  await page.goto('/search');
+  await page.getByRole('main').getByRole('searchbox', { name: 'Search Arkpedia' }).fill(title);
+  await expect(page.getByRole('link', { name: new RegExp(title) })).toBeVisible();
+});
+
 test('unlisted CCB opens by direct link and stays out of the sitemap', async ({ page }) => {
   await page.goto(href);
   await expect(page.getByRole('heading', { level: 1, name: 'Contingency Contract', exact: true })).toBeVisible();
@@ -25,7 +53,7 @@ test('admin can schedule a page to appear and disappear from public discovery', 
   await page.route('**/api/page-visibility', route => route.fulfill({ json: publicPageVisibility([setting], serverTime) }));
   await page.route('**/_next/data/**/dashboard/campaigns.json*', route => route.fulfill({ json: { pageProps: { catalog: null }, __N_SSP: true } }));
   await page.route('**/api/dashboard/page-visibility', route => {
-    if (route.request().method() === 'GET') return route.fulfill({ json: [setting] });
+    if (route.request().method() === 'GET') return route.fulfill({ json: [setting, { ...setting, id: 'dps' }] });
     const draft: PageVisibilitySetting = route.request().postDataJSON();
     expect(draft.revision).toBe(setting.revision);
     setting = { ...draft, revision: draft.revision + 1 };
@@ -35,6 +63,7 @@ test('admin can schedule a page to appear and disappear from public discovery', 
   await expect(page.getByRole('link', { name: new RegExp(title) })).toHaveCount(0);
   await page.evaluate(() => (window as unknown as { next: { router: { push: (url: string) => Promise<void> } } })
     .next.router.push('/dashboard/campaigns?tab=visibility'));
+  await expect(page.getByRole('form', { name: managedPages.dps.title }).getByText('Unlisted now', { exact: true })).toBeVisible();
   const editor = page.getByRole('form', { name: title });
   const save = editor.getByRole('button', { name: 'Save visibility' });
   const chooseListing = async (name: string) => {
