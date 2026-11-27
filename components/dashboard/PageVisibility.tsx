@@ -3,7 +3,6 @@ import StyledSelect from '@/components/ui/StyledSelect';
 import { managedPages, pageIsListed, validPageVisibility, type PageVisibilitySetting, type VisibilityMode } from '@/lib/page-visibility/settings';
 import styles from './CampaignEditor.module.css';
 
-const endpoint = '/api/dashboard/page-visibility';
 const modes: { value: VisibilityMode; label: string }[] = [
   { value: 'unlisted', label: 'Unlisted' },
   { value: 'listed', label: 'Listed' },
@@ -41,7 +40,7 @@ function PageVisibilityRow({ initial, reload }: { initial: PageVisibilitySetting
     setBusy(true);
     setNotice('');
     try {
-      const response = await fetch(endpoint, {
+      const response = await fetch('/api/dashboard/page-visibility', {
         method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(draft),
       });
       const result = await response.json();
@@ -101,7 +100,7 @@ export default function PageVisibility() {
     const controller = new AbortController();
     async function load() {
       try {
-        const response = await fetch(endpoint, { cache: 'no-store', signal: controller.signal });
+        const response = await fetch('/api/dashboard/page-visibility', { cache: 'no-store', signal: controller.signal });
         if (!response.ok) throw new Error();
         const rows = await response.json();
         if (!controller.signal.aborted) setSettings(rows);
