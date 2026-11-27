@@ -18,12 +18,24 @@ import { damageAtTime, damageCasts, damageTimeline, fullFightDamageTimeline, sim
 import type { EnemyFightPhase } from '../../lib/dps/enemyFightPhases';
 import { frame } from '../../lib/dps/skillCasts';
 import { hpAt, patriotAttack, patriotFight, simulateSurvival, type Defense } from '../../lib/dps/survival';
-import type { PatriotStances } from '../../lib/dps/survivalRoster';
+import { loadDpsCatalogue, survivalRosterVersion, type PatriotStances, type SurvivalRoster } from '../../lib/dps/survivalRoster';
 const profiles = archive.operators as unknown as Profile[];
 const createBuild = (id: string, number: number) =>
   buildFromProfile(profiles.find((p) => p.id === id)!, number);
 const dummy = { ...initialTarget, def: 0, res: 0 };
 const near = (a: number, b: number) => assert.ok(Math.abs(a - b) < 0.00001, a + ' vs ' + b);
+
+test('Survival uses the bundled roster until published content understands event recovery', async t => {
+  const path = '/dps-survival.json';
+  const published = 'https://catalogue.example' + path;
+  const bundled = { version: survivalRosterVersion, enemies: [], operators: [] } satisfies SurvivalRoster;
+  const fetch = t.mock.method(globalThis, 'fetch', async (url: string) =>
+    Response.json(url === published ? { enemies: [], operators: [] } : bundled));
+  const result = await loadDpsCatalogue<SurvivalRoster>(published, path, new AbortController().signal,
+    roster => roster.version === survivalRosterVersion);
+  assert.deepEqual(result, bundled);
+  assert.deepEqual(fetch.mock.calls.map(call => call.arguments[0]), [published, path]);
+});
 
 test('Ulpianus recharges after his active window and applies each anchor throw to HP', () => {
   const build = createBuild('ulpia', 1);
@@ -267,12 +279,72 @@ test('defender skills change mitigation, HP cap and self-healing within their ac
   near(hpAt(shell.alone.points, 8), 900);
 });
 
+test('Survival Offensive Recovery charges on attacks and ignores attacks during the skill', () => {
+  const defender: Defense = { hp: 10000, def: 100, res: 0, dp: 18, blocksDirectHealing: false, attackInterval: 1 };
+  const enemy = { atk: 200, interval: 2, type: 'Physical' } as const;
+  const skill = { name: 'Attack-charged defense', def: 0.5, duration: 3, start: 0, cycle: true,
+    sp: { kind: 'attack', cost: 3, initial: 1 } } as const;
+  const run = simulateSurvival(enemy, defender, [], 10, skill);
+  assert.deepEqual(run.defenderWindows, [{ start: 2, end: 5 }, { start: 7, end: 10 }]);
+  assert.equal(hpAt(run.alone.points, 2), 9900);
+  assert.equal(hpAt(run.alone.points, 4), 9850);
+  assert.deepEqual(simulateSurvival(enemy, { ...defender, attackInterval: 2 }, [], 10, skill).defenderWindows,
+    [{ start: 4, end: 7 }]);
+});
+
+test('Survival Defensive Recovery uses each enemy packet, including separate and replacement skills', () => {
+  const defender: Defense = { hp: 10000, def: 100, res: 0, dp: 18, blocksDirectHealing: false };
+  const enemy = { atk: 200, interval: 4, type: 'Physical', basicHits: 4 } as const;
+  const skill = { name: 'Hit-charged defense', def: 0.5, duration: 6, start: 0, cycle: true,
+    sp: { kind: 'hit', cost: 5, initial: 0 } } as const;
+  const withSkill = simulateSurvival({ ...enemy, abilities: [{
+    name: 'Extra hit', type: 'Physical', scale: 1, firstReady: 1, cooldown: 60, delay: 0, mode: 'separate',
+  }] }, defender, [], 18, skill);
+  assert.deepEqual(withSkill.defenderWindows, [{ start: 4, end: 10 }, { start: 16, end: 22 }]);
+  assert.equal(hpAt(withSkill.alone.points, 4), 9500);
+  assert.equal(hpAt(withSkill.alone.points, 8), 9300);
+  assert.deepEqual(simulateSurvival(enemy, defender, [], 9, skill).defenderWindows, [{ start: 8, end: 14 }]);
+
+  const replacement = simulateSurvival({ ...enemy, interval: 2, basicHits: 1, abilities: [{
+    name: 'Replacement', type: 'Physical', scale: 2, firstReady: 2, cooldown: 4, delay: 0, mode: 'next-hit',
+  }] }, defender, [], 6, { ...skill, sp: { ...skill.sp, cost: 3 } });
+  assert.deepEqual(replacement.defenderWindows, [{ start: 6, end: 12 }]);
+  assert.equal(replacement.abilityHits.at(-1)?.damage, 300);
+});
+
+test('Survival resolves healing strikes on the next attack and ends recovery on defeat', () => {
+  const defender: Defense = { hp: 5000, def: 0, res: 0, dp: 18, blocksDirectHealing: true, attackInterval: 2.5 };
+  const skill = { name: 'Healing strike', healOnAttack: 0.25, duration: 0, start: 0, cycle: true,
+    sp: { kind: 'attack', cost: 2, initial: 0 } } as const;
+  const run = simulateSurvival({ atk: 100, interval: 1, type: 'Physical' }, defender, [], 15, skill);
+  assert.deepEqual(run.defenderWindows, [{ start: 7.5, end: 7.5 }, { start: 15, end: 15 }]);
+  assert.equal(hpAt(run.alone.points, 7.49), 4300);
+  assert.equal(hpAt(run.alone.points, 7.5), 5000);
+  const stopped = simulateSurvival({ atk: 5000, interval: 7.5, type: 'Physical' }, defender, [], 15, skill);
+  assert.equal(stopped.alone.defeatedAt, 7.5);
+  assert.deepEqual(stopped.defenderWindows, []);
+  const hitRecovery = simulateSurvival({ atk: 100, interval: 1, type: 'Physical' }, { ...defender, attackInterval: 2 }, [], 8, {
+    ...skill, sp: { ...skill.sp, kind: 'hit' },
+  });
+  assert.deepEqual(hitRecovery.defenderWindows, [{ start: 4, end: 4 }, { start: 8, end: 8 }]);
+});
+
 const patriot: PatriotStances = {
   marchingAtk: 2720, ruinationAtk: 1920, ruinationInterval: 3.6,
   revival: { atk: 1920, duration: 60, interval: 0.8 },
   aura: { name: 'True damage aura', type: 'True', mode: 'aura', scale: 0.0521, firstReady: 0.8, cooldown: 0.8, delay: 0 },
   spear: { name: 'Spear throw', type: 'Physical', mode: 'separate', scale: 1.35, firstReady: 15, cooldown: 20, delay: 3 },
 };
+
+test('Survival pauses outgoing attacks during Patriot’s revival but keeps counting incoming damage', () => {
+  const defense: Defense = { hp: 100000, def: 500, res: 60, dp: 20, blocksDirectHealing: false, attackInterval: 1 };
+  const fight = patriotFight(patriot, 4, 'melee', 8);
+  const skill = { name: 'Permanent defense', def: 0.5, duration: null, start: 0, cycle: true,
+    sp: { kind: 'attack', cost: 8, initial: 0 } } as const;
+  assert.deepEqual(simulateSurvival(fight, defense, [], 80, skill).defenderWindows, [{ start: 69, end: null }]);
+  assert.deepEqual(simulateSurvival(fight, defense, [], 80, { ...skill, sp: { kind: 'hit', cost: 5, initial: 0 } }).defenderWindows,
+    [{ start: 8.8, end: null }]);
+});
 
 test('Patriot mitigates each Marching hit and uses the Ruination attack pattern selected by position', () => {
   const defense: Defense = { hp: 12000, def: 500, res: 60, dp: 20, blocksDirectHealing: false };

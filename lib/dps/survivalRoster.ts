@@ -1,12 +1,15 @@
 import type { OperatorStats } from '../operators/operatorStats';
 import type { Profile } from './calculator';
+import type { Cycle, DamageRecovery } from './skillCasts';
 import { fetchAsset } from '../assets/githubRetry.mjs';
 
-export async function loadDpsCatalogue<T>(url: string, path: string, signal: AbortSignal): Promise<T> {
+export async function loadDpsCatalogue<T>(url: string, path: string, signal: AbortSignal, compatible?: (data: T) => boolean): Promise<T> {
   async function read(address: string): Promise<T> {
     const response = await fetchAsset(address, { signal });
     if (!response.ok) throw new Error('Calculator catalogue unavailable');
-    return response.json() as Promise<T>;
+    const data = await response.json() as T;
+    if (compatible && !compatible(data)) throw new Error('Calculator catalogue version is incompatible');
+    return data;
   }
   try {
     return await read(url);
@@ -49,8 +52,9 @@ export interface DefenderSkillRank {
   hp?: number;
   regeneration?: number;
   regenerationRatio?: number;
+  healOnAttack?: number;
   duration: number | null;
-  sp?: { cost: number; initial: number };
+  sp?: Cycle & { kind?: DamageRecovery['kind'] };
 }
 
 export interface DefenderSkill {
@@ -71,13 +75,16 @@ export interface Defender {
   id: string;
   name: string;
   stats: OperatorStats;
-  potential: Partial<DefenseStats>[];
+  potential: (Partial<DefenseStats> & { aspd?: number })[];
   blocksDirectHealing: boolean;
   ranged?: boolean;
   skills?: DefenderSkill[];
 }
 
+export const survivalRosterVersion = 2;
+
 export interface SurvivalRoster {
+  version: typeof survivalRosterVersion;
   enemies: Attacker[];
   operators: Defender[];
 }
