@@ -27,6 +27,7 @@ export interface Profile {
   talents: Candidate[][];
   skills: {
     manual: boolean;
+    eventRecovery?: { kind: 'attack' | 'hit'; automatic: boolean; nextAttack?: boolean };
     token: null | { id: string; name: string; phases: Profile['phases'] };
     slot: number;
     name: string;

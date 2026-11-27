@@ -204,15 +204,26 @@ async function generateProfiles() {
       skills: slots.map((slot) => {
         const entry = c.skills[slot - 1];
         const levels = skills[entry.skillId].levels;
+        const { skillType, spData } = levels[0];
+        const recoveryKind = {
+          INCREASE_WHEN_ATTACK: 'attack', INCREASE_WHEN_TAKEN_DAMAGE: 'hit',
+        }[spData.spType];
+        const eventRecovery = recoveryKind && ['AUTO', 'MANUAL'].includes(skillType) && {
+          kind: recoveryKind,
+          automatic: skillType === 'AUTO',
+          ...(['chen', 'angel', 'caledo', 'mantra', 'phatm2'].includes(short) && slot === 1 && { nextAttack: true }),
+        };
         return {
           slot,
-          manual: levels[0].skillType === 'MANUAL' && levels[0].spData.spType === 'INCREASE_WITH_TIME',
+          manual: skillType === 'MANUAL' && spData.spType === 'INCREASE_WITH_TIME',
+          ...(eventRecovery && { eventRecovery }),
           token: tokenFor(slot),
           name: levels[0].name,
           elite: elite(entry.unlockCond.phase),
           ranks: levels.map((r) => ({
             ...board(r.blackboard),
-            ...(short === 'cello' && slot === 1 ? { charges: r.spData.maxChargeTime } : {}),
+            ...(short === 'cello' && slot === 1 || eventRecovery && r.spData.maxChargeTime > 1
+              ? { charges: r.spData.maxChargeTime } : {}),
             sp: r.spData.spCost,
             initialSp: r.spData.initSp,
             duration: r.duration,
