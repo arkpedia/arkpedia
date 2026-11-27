@@ -39,10 +39,10 @@ export default function IntroPage() {
     title.current?.focus({ preventScroll: true });
   }, [index]);
 
-  return <>
+  return <div className={styles.frame}>
     <PageMeta title="Intro" description="A quick guide to finding your way around Arkpedia." path="/intro" />
     <PageHeader title="Intro" eyebrow="Arkpedia" slim />
-    <main className={styles.main}>
+    <main>
       <section className={`panel ${styles.step}`} aria-labelledby="intro-step-title">
         <div className={styles.heading}>
           <h2 ref={title} tabIndex={-1} className="entity-title" id="intro-step-title">{step.title}</h2>
@@ -62,7 +62,7 @@ export default function IntroPage() {
         </div>
       </section>
     </main>
-  </>;
+  </div>;
 }
 
 export const getStaticProps = siteTablesStaticProps;

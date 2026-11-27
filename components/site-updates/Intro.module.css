@@ -1,4 +1,4 @@
-.main { max-width: 680px; margin-inline: auto; }
+.frame { max-width: 680px; margin-inline: auto; }
 .step { display: grid; gap: 16px; padding: var(--card-inset); }
 .step p, .step h2 { margin: 0; }
 .heading, .controls { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
