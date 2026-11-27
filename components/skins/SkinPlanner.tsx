@@ -10,6 +10,7 @@ import { skinPurchasePlan, type PlannedSkin } from '@/lib/pulls/skins';
 import type { SkinCollection } from '@/lib/pulls/skinCollections';
 import { sourcedTiming, timingQualifier } from '@/lib/time/releaseTiming';
 import { openSkinCollections } from '@/lib/pulls/currentPlan';
+import { matchesSearch } from '@/lib/search/searchNormalize';
 
 function collectionTimingLabel(collection: SkinCollection): string {
   const label = timingQualifier(collection.estimated ? collection.sourceRegion === 'cn' ? 'cn-estimate' : 'estimated'
@@ -109,13 +110,21 @@ export default function SkinPlanner({ catalogue, collections, today, now, ids, o
   const undatedCost = purchases.unscheduled.reduce((sum, skin) => sum + skin.op, 0);
   const short = budget ? Math.max(0, cost + extra - budget.heldOP) : 0;
 
-  const words = query.normalize('NFKC').toLocaleLowerCase().trim().split(/\s+/).filter(Boolean);
+  const matchingSearch = useMemo(() => {
+    const words = query.normalize('NFKC').trim().split(/\s+/).filter(Boolean);
+    if (!words.length) return null;
+    return new Set(catalogue.filter(skin => {
+      const text = `${skin.operator} ${skin.name} ${skin.series ?? ''} ${(skin.searchAliases ?? []).join(' ')}`.normalize('NFKC');
+      return words.every(word => matchesSearch(text, word));
+    }).map(skin => skin.id));
+  }, [catalogue, query]);
+  const searching = matchingSearch !== null;
   const matches = (skin: PlannedSkin) => (!plannedOnly || planned.has(skin.id))
-    && words.every((word) => `${skin.operator} ${skin.name}`.normalize('NFKC').toLocaleLowerCase().includes(word));
+    && (!matchingSearch || matchingSearch.has(skin.id));
   const shows = (skin: PlannedSkin) => matches(skin) && (!owned || ownedFilter === 'all' || (ownedFilter === 'owned') === isOwned(skin));
-  const viewShops = shopView === 'undated' ? [] : shops.filter(shop => !!shop.fashionReview === (shopView === 'fashion'));
+  const viewShops = shopView === 'undated' ? [] : shops.filter(shop => shopView === 'fashion' ? !!shop.fashionReview : searching || !shop.fashionReview);
   const viewUndated = shopView === 'fashion' ? []
-    : shopView === 'undated' || words.length > 0 ? undatedSkins : purchases.unscheduled;
+    : shopView === 'undated' || searching ? undatedSkins : purchases.unscheduled;
   /* What each Owned option would show under the other filters, each outfit once though a
      returning one is in more than one shop. */
   const ownedCounts = countOwned([...new Map([

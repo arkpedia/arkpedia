@@ -282,6 +282,7 @@ for (const theme of ['dark', 'light']) {
     await expect(undated.getByRole('button', { name: /, \d+ OP$/, pressed: false }).first()).toBeVisible();
     await expect(dialog.getByRole('group', { name: 'Order shops by' })).toHaveCount(0);
     await dialog.getByRole('button', { name: 'Planned only' }).click();
+    await dialog.getByRole('searchbox', { name: 'Search outfits' }).fill('mon3tr');
     const cardName = 'Mon3tr — Sharpened Claws, 21 OP';
     await expect(undated.getByRole('button', { name: cardName })).toHaveAttribute('aria-pressed', 'true');
     await expect(undated.getByRole('button', { name: /, \d+ OP$/, pressed: false })).toHaveCount(0);
@@ -323,8 +324,13 @@ for (const theme of ['dark', 'light']) {
     await planned.click();
     await expect(undatedOnPlanner).toHaveCount(0);
     await page.getByRole('button', { name: 'Planned only' }).click();
+    const search = page.getByRole('searchbox', { name: 'Search outfits' });
+    await search.fill('mon3tr');
+    await expect(undatedOnPlanner.getByRole('button', { name: cardName, pressed: false })).toBeVisible();
     await page.getByRole('button', { name: 'Shop date unknown' }).click();
-    await page.getByRole('searchbox', { name: 'Search outfits' }).fill('Sharpened Claws');
+    await search.fill('mlynar');
+    await expect(undatedOnPlanner.getByRole('button', { name: 'Młynar — Roar Against The Wilds, 18 OP' })).toBeVisible();
+    await search.fill('Sharpened Blades');
     await expect(undatedOnPlanner.getByRole('button', { name: cardName, pressed: false })).toBeVisible();
     await page.goto('/pull-planner');
     await expect(wishlist).toContainText(/0\s+5 OP reserved/);
