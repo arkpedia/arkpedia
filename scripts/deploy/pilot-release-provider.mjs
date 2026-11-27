@@ -93,11 +93,13 @@ export function assertPilotBindings(version, { requireDashboard = false } = {}) 
   const accounts = bindings.some(b => b.name === 'ARKPEDIA_ACCOUNTS_ENABLED');
   const patreon = bindings.some(b => PATREON_SECRETS.includes(b.name));
   const dashboard = requireDashboard || bindings.some(b => Object.hasOwn(DASHBOARD_VARS, b.name));
+  const releaseQueue = dashboard && bindings.some(b => b.name === 'ARKPEDIA_RELEASE_QUEUE_GITHUB_TOKEN');
   const names = ['ARKPEDIA_ACCOUNTS_DB', 'ARKPEDIA_AUTH_URL', 'ASSETS', 'BETTER_AUTH_SECRET',
     'GOOGLE_CLIENT_ID', 'GOOGLE_CLIENT_SECRET', 'DISCORD_CLIENT_ID', 'DISCORD_CLIENT_SECRET',
     'NEXT_CACHE_DO_QUEUE', 'NEXT_INC_CACHE_R2_BUCKET', 'WORKER_SELF_REFERENCE',
     ...(legacy || version.id === MEDIA_SECRET_UPDATE.baseline ? [] : MEDIA_SECRETS),
     ...(dashboard ? Object.keys(DASHBOARD_VARS) : []),
+    ...(releaseQueue ? ['ARKPEDIA_RELEASE_QUEUE_GITHUB_TOKEN'] : []),
     ...(patreon && !legacy ? PATREON_SECRETS : []),
     ...(legacy ? [] : ['ARKPEDIA_CONTENT_CHANNEL', 'ARKPEDIA_DEPLOYMENT_ROLE']),
     ...(accounts ? ['ARKPEDIA_ACCOUNTS_ENABLED', 'ACCOUNT_TRAFFIC_LIMIT', 'ACCOUNT_IP_LIMIT'] : [])];
@@ -130,6 +132,7 @@ export function assertPilotBindings(version, { requireDashboard = false } = {}) 
     for (const name of MEDIA_SECRETS) binding(name, 'secret_text');
   }
   if (patreon) for (const name of PATREON_SECRETS) binding(name, 'secret_text');
+  if (releaseQueue) binding('ARKPEDIA_RELEASE_QUEUE_GITHUB_TOKEN', 'secret_text');
   binding('ASSETS', 'assets');
   const queue = binding('NEXT_CACHE_DO_QUEUE', 'durable_object_namespace');
   requireValue(queue.namespace_id === PILOT.queue && queue.class_name === 'DOQueueHandler', 'queue changed');

@@ -12,6 +12,7 @@ interface DashboardEnv {
   ARKPEDIA_DASHBOARD_ORIGIN?: string;
   ARKPEDIA_DASHBOARD_ACCESS_ISSUER?: string;
   ARKPEDIA_DASHBOARD_ACCESS_AUD?: string;
+  ARKPEDIA_RELEASE_QUEUE_GITHUB_TOKEN?: string;
 }
 
 export function dashboardEnv(): DashboardEnv {

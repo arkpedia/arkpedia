@@ -10,6 +10,7 @@ import PollControls from '@/components/dashboard/PollControls';
 import PageMaintenance from '@/components/dashboard/PageMaintenance';
 import PageVisibility from '@/components/dashboard/PageVisibility';
 import SiteUpdates from '@/components/dashboard/SiteUpdates';
+import ReleaseQueue from '@/components/dashboard/ReleaseQueue';
 import styles from '@/components/dashboard/CampaignEditor.module.css';
 import PageMeta from '@/components/layout/PageMeta';
 import type { GetServerSideProps } from 'next';
@@ -39,6 +40,7 @@ const sections = [
   { value: 'polls', label: 'Polls', icon: ICONS.polls },
   { value: 'visibility', label: 'Page visibility', icon: ICONS.grid },
   { value: 'updates', label: 'Site updates', icon: ICONS.changelog },
+  { value: 'releases', label: 'Releases', icon: ICONS.history },
   { value: 'recent', label: 'Recent changes', icon: ICONS.history },
   { value: 'maintenance', label: 'Maintenance', icon: ICONS.base },
 ] as const;
@@ -74,6 +76,9 @@ export default function CampaignDashboard({ catalog, historyId }: DashboardProps
     </div>
     <div {...tabPanelProps('dashboard', 'updates')} hidden={tab !== 'updates'}>
       {(tab === 'updates' || openedUpdates) && <SiteUpdates />}
+    </div>
+    <div {...tabPanelProps('dashboard', 'releases')} hidden={tab !== 'releases'}>
+      {tab === 'releases' && <ReleaseQueue />}
     </div>
     <div {...tabPanelProps('dashboard', 'recent')} hidden={tab !== 'recent'}>
       {tab === 'recent' && <RecentCampaignChanges base={catalog?.base} />}
