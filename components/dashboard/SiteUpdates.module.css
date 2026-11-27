@@ -1,6 +1,8 @@
 .workspace { box-sizing: border-box; display: grid; max-width: var(--frame-max); margin-inline: auto; padding: var(--page-gutter); gap: 12px; }
 .workspace form { display: grid; gap: 12px; min-width: 0; padding: var(--card-inset); }
-.editorLayout { display: grid; grid-template-columns: minmax(0, 18rem) minmax(0, 1fr); align-items: start; gap: var(--heading-gap); }
+.editorLayout { display: grid; grid-template-columns: minmax(0, 18rem) minmax(0, 40rem); align-items: start; gap: var(--heading-gap); }
+.editorHeading { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.queue { max-width: 30rem; }
 .queue, .drafts { display: grid; gap: 8px; min-width: 0; }
 .queue h2, .workspace form h2 { margin: 0; }
 .updateList { display: grid; gap: 4px; margin: 0; padding: 0; list-style: none; }
