@@ -9,6 +9,7 @@ import { readPageVisibility, savePageVisibility } from '../../lib/page-visibilit
 
 const day = Date.UTC(2026, 11, 1);
 const unlisted: PageVisibilitySetting = { id: 'ccb', mode: 'unlisted', showAt: null, hideAt: null, revision: 0 };
+const unlistedDps: PageVisibilitySetting = { ...unlisted, id: 'dps' };
 
 test('managed page lookups include older direct links, queries and fragments', () => {
   assert.equal(managedPageForHref('/ccb#ccb-squad'), 'ccb');
@@ -38,7 +39,7 @@ test('visibility writes require a valid page and an ordered, non-empty schedule'
   assert.ok(!validPageVisibility({ ...unlisted, revision: -1 }));
 });
 
-test('migration seeds CCB unlisted and saves reject stale revisions', async () => {
+test('managed pages start unlisted and saves reject stale revisions', async () => {
   const sqlite = new DatabaseSync(':memory:');
   try {
     sqlite.exec(readFileSync('migrations/accounts/0032_page_visibility.sql', 'utf8'));
@@ -46,12 +47,17 @@ test('migration seeds CCB unlisted and saves reject stale revisions', async () =
       all: async () => ({ results: sqlite.prepare(sql).all() }),
       bind: (...values: (string | number | null)[]) => ({ first: async () => sqlite.prepare(sql).get(...values) ?? null }),
     }) } as unknown as D1Database;
-    assert.deepEqual((await readPageVisibility(db)).map(row => ({ ...row })), [unlisted]);
+    assert.deepEqual((await readPageVisibility(db)).map(row => ({ ...row })), [unlisted, unlistedDps]);
     const schedule = { ...unlisted, mode: 'scheduled', showAt: day, hideAt: day + 1_000 } as const;
     const saved = await savePageVisibility(db, schedule, 'test@example.org');
     assert.deepEqual({ ...saved }, { ...schedule, revision: 1 });
     assert.equal(await savePageVisibility(db, { ...unlisted, mode: 'listed' }, 'other@example.org'), null);
     assert.deepEqual(publicPageVisibility(await readPageVisibility(db), day).listed, ['ccb']);
+    assert.equal(await savePageVisibility(db, { ...unlistedDps, revision: 1 }, 'test@example.org'), null);
+    const listedDps = { ...unlistedDps, mode: 'listed' } as const;
+    assert.deepEqual({ ...await savePageVisibility(db, listedDps, 'test@example.org') }, { ...listedDps, revision: 1 });
+    assert.equal(await savePageVisibility(db, unlistedDps, 'other@example.org'), null);
+    assert.deepEqual(publicPageVisibility(await readPageVisibility(db), day).listed, ['ccb', 'dps']);
   } finally {
     sqlite.close();
   }

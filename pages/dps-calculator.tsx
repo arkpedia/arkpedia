@@ -2,6 +2,7 @@ import { fetchAsset } from '@/lib/assets/assetRetry';
 import { withContentPage } from '@/lib/content/server';
 import { Fragment, useMemo, useRef, useState, type RefObject } from 'react';
 import PageHeader from '@/components/ui/PageHeader';
+import BetaLabel from '@/components/ui/BetaLabel';
 import PageMeta from '@/components/layout/PageMeta';
 import Image from '@/components/content/ContentImage';
 import { getOperatorIconPath } from '@/lib/operators/operatorIcon';
@@ -420,6 +421,7 @@ function Deployment({
   );
 }
 interface CalculatorProps {
+  listed?: boolean;
   profiles: Profile[];
   dataSource: string;
   enemies?: EnemyPreset[];
@@ -437,9 +439,9 @@ export default function DpsCalculator(props: CalculatorProps) {
   const hold = useSwitchHold(modeId);
   return (
     <>
-      <PageMeta title="DPS Calculator" path="/dps-calculator"
+      <PageMeta title="DPS Calculator" path="/dps-calculator" noindex={!props.listed}
         description="Compare operator damage, healing and elemental burst timing, or test survival against an enemy." />
-      <PageHeader title="DPS Calculator" eyebrow="Tools // Combat analysis" slim />
+      <PageHeader title={<>DPS Calculator <BetaLabel /></>} eyebrow="Tools // Combat analysis" slim />
       <main className={css.page}>
         <Tabs id={modeId} label="Calculator mode" options={modes} value={mode} onChange={value => {
           if (value === mode) return;
@@ -917,7 +919,7 @@ function DamageComparison({ profiles, dataSource, enemies = [] }: CalculatorProp
   );
 }
 
-export const getStaticProps = withContentPage('/dps-calculator', async () => {
+export const getStaticProps = withContentPage<CalculatorProps>('/dps-calculator', async () => {
   const { default: archive } = await import('@/config/dps-profiles.json');
   const enemies = process.env.ARKPEDIA_EXPORT_CONTENT === '1'
     ? (await import('@/lib/dps/enemyTargets')).enemyTargets()
@@ -929,4 +931,11 @@ export const getStaticProps = withContentPage('/dps-calculator', async () => {
       dataSource: archive.source,
     },
   };
-}, { bundledWhenUnpublished: true });
+}, {
+  bundledWhenUnpublished: true,
+  finalize: async props => {
+    const { readPublicPageVisibility } = await import('@/lib/page-visibility/store');
+    const visibility = await readPublicPageVisibility();
+    return { ...props, listed: visibility.listed.includes('dps') };
+  },
+});

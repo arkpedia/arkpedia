@@ -10,6 +10,8 @@ import ServerClock from './ServerClock';
 import { getEssentialIconPath } from '@/lib/operators/operatorIconPaths';
 import type { MobileNavOverride } from '@/lib/nav/mobileNavOverride';
 import { useChangelogUnseen } from '@/lib/changelog/seen';
+import { isNavLinkListed } from '@/lib/nav/navLinks';
+import { usePageVisibility } from '@/lib/page-visibility/usePageVisibility';
 import SponsoredSlot from '@/components/ui/SponsoredSlot';
 
 // The drawer renders on the server with every page: there a layout effect only warns.
@@ -44,6 +46,7 @@ export default function MobileNavDrawer({ mobileNav, search }: { mobileNav?: Mob
      holding the current page is the one open, so the reader sees where they are and the rest of the
      menu is five headings, not twenty-odd links; opening another folds the open one away. */
   const [unfolded, setUnfolded] = useState<string | null>(null);
+  const listed = usePageVisibility(open && unfolded === 'guides');
   useEffect(() => {
     if (!open) return;
     const here = GROUPS.find((group) => group.items.some((link) => isActiveLink(link, router.pathname)));
@@ -302,7 +305,7 @@ export default function MobileNavDrawer({ mobileNav, search }: { mobileNav?: Mob
                 {/* Folded, not removed: the links stay in the page (hidden), for crawlers and
                     for the nav's release-pinned art, which the content runtime test reads. */}
                 <div id={`mobile-nav-group-${group.id}`} className="mobile-nav-group-links" hidden={!isOpen}>
-                  {group.items.map((link) => <DrawerLink key={link.href} link={link} active={isActiveLink(link, router.pathname, router.asPath)} divider={group.dividersAfter?.includes(link.href)} isNew={link.href === "/whats-new" && changelogUnseen} onPick={() => setOpen(false)} />)}
+                  {group.items.filter(link => isNavLinkListed(link, listed)).map((link) => <DrawerLink key={link.href} link={link} active={isActiveLink(link, router.pathname, router.asPath)} divider={group.dividersAfter?.includes(link.href)} isNew={link.href === "/whats-new" && changelogUnseen} onPick={() => setOpen(false)} />)}
                 </div>
               </div>
             );
