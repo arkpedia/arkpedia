@@ -37,6 +37,46 @@ test('searches the full roster and plots SP-ready recasts on the Damage Timeline
 import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 
+test('repeats attack and hit recovery with the selected enemy’s cadence or a custom interval', async ({ page }) => {
+  await page.goto('/dps-calculator');
+  const add = page.getByRole('combobox', { name: 'Add operator', exact: true });
+  const source = page.getByRole('combobox', { name: 'Damage source', exact: true });
+  const chart = page.locator('#damage-comparison');
+  const timing = chart.getByRole('combobox', { name: 'Skill timing', exact: true });
+  const interval = chart.getByRole('spinbutton', { name: 'Hit interval (s)', exact: true });
+  const results = chart.getByRole('group', { name: 'Damage timeline results' });
+  await add.fill('Exusiai');
+  await page.getByRole('option', { name: 'Exusiai', exact: true }).click();
+  await source.click();
+  await page.getByRole('option', { name: /^S1.*Charging Mode/ }).click();
+  await chart.getByRole('button', { name: 'Timeline', exact: true }).click();
+  await timing.press('Enter');
+  await page.getByRole('option', { name: 'Repeat when ready', exact: true }).click();
+  await expect(results).toContainText('Offensive Recovery · 1 SP per attack');
+  await expect(interval).toHaveCount(0);
+
+  await add.fill('Hoshiguma the Breacher');
+  await page.getByRole('option', { name: 'Hoshiguma the Breacher', exact: true }).click();
+  await source.last().click();
+  await page.getByRole('option', { name: /^S1.*Bitter Karma/ }).click();
+  await expect(results).toContainText('0 activations · 0 initial SP · 15 SP per cast');
+  await interval.fill('1');
+  await expect(results).toContainText('Next cast at 15 s');
+  await interval.fill('2');
+  await expect(results).toContainText('Next cast at 30 s');
+
+  const enemy = page.getByRole('combobox', { name: 'Find enemy', exact: true });
+  await enemy.fill('Patriot');
+  await page.getByRole('option', { name: /^Patriot PT/ }).click();
+  await interval.fill('');
+  await expect(interval).toHaveAttribute('placeholder', '4');
+  await expect(interval).toHaveAccessibleDescription(/4 s using the enemy’s basic attack cadence/);
+  await expect(results).toContainText('0 activations · 0 initial SP · 15 SP per cast');
+  await timing.click();
+  await page.getByRole('option', { name: 'One activation', exact: true }).click();
+  await expect(interval).toHaveCount(0);
+});
+
 test('inspects the opening hit and skill window against custom stats and an enemy preset', async ({ page }) => {
   await page.goto('/dps-calculator');
   await page.getByRole('combobox', { name: 'Add operator' }).fill('Ulpianus');

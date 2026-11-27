@@ -16,6 +16,7 @@ import { chartControls, targetControls } from '../../lib/dps/controls';
 import { damageBasis, dpsLabel } from '../../lib/dps/damageLabels';
 import { damageAtTime, damageCasts, damageTimeline, fullFightDamageTimeline, simulateEnemyHp } from '../../lib/dps/damageTimeline';
 import type { EnemyFightPhase } from '../../lib/dps/enemyFightPhases';
+import { frame } from '../../lib/dps/skillCasts';
 import { hpAt, patriotAttack, patriotFight, simulateSurvival, type Defense } from '../../lib/dps/survival';
 import type { PatriotStances } from '../../lib/dps/survivalRoster';
 const profiles = archive.operators as unknown as Profile[];
@@ -42,6 +43,61 @@ test('automatic casts use deployment SP and respect the activation limit', () =>
   const timeline = damageTimeline(createBuild('ulpia', 1), initialTarget)!;
   const automatic = { ...timeline, recovery: { ...timeline.recovery!, automatic: true, limit: 2 } };
   assert.deepEqual(damageCasts(automatic, 40, 120, true).map(cast => cast.start), [5, 55]);
+});
+
+test('Offensive Recovery uses the build attack interval and spends a separate attack on an empowered volley', () => {
+  const build = { ...createBuild('angel', 1), skill: 1 };
+  const timeline = damageTimeline(build, dummy)!;
+  const interval = frame(timeline.attackInterval);
+  assert.equal(timeline.recovery?.kind, 'attack');
+  const casts = damageCasts(timeline, 20, 15, true);
+  assert.deepEqual(casts.slice(0, 2).map(cast => frame(cast.start)), [5 * interval, 10 * interval]);
+  const first = casts[0].start;
+  near(damageAtTime(timeline, first, casts).openingDamage, calculate(build, dummy).damage);
+  const fight = simulateEnemyHp({ build, target: dummy, maxHp: 100_000, duration: 15, activation: 0, repeat: true })!;
+  const skillHit = timeline.opening!.damage;
+  const normalHit = calculate({ ...build, skill: 0 }, dummy).damage;
+  near(hpAt(fight.points, 15), 100_000 - 15 * timeline.attackDps - casts.length * (skillHit - normalHit));
+});
+
+test('manually activated Offensive Recovery uses initial SP and respects earliest cast', () => {
+  const timeline = damageTimeline({ ...createBuild('chen', 1), skill: 2 }, dummy)!;
+  const interval = frame(timeline.attackInterval);
+  const casts = damageCasts(timeline, 2, 60, true);
+  assert.deepEqual(casts.slice(0, 2).map(cast => frame(cast.start)), [60, Math.floor(60 / interval) * interval + 20 * interval]);
+});
+
+test('Defensive Recovery uses incoming hits for next-attack and permanent skills', () => {
+  const caleido = damageTimeline({ ...createBuild('caledo', 1), skill: 1 }, dummy)!;
+  assert.equal(caleido.recovery?.kind, 'hit');
+  const firstCast = (seconds: number) => damageCasts(caleido, 0, 60, true, seconds)[0].start;
+  assert.deepEqual(damageCasts(caleido, 0, 60, true, 0), []);
+  assert.ok(firstCast(1) > 3);
+  assert.ok(firstCast(2) > 6);
+  assert.ok(firstCast(2) > firstCast(1));
+  assert.ok(damageCasts(caleido, 0, 60, true, 1).length > damageCasts(caleido, 0, 60, true, 2).length);
+  const hoshiguma = damageTimeline({ ...createBuild('hsgma2', 2), skill: 1 }, dummy)!;
+  assert.deepEqual(damageCasts(hoshiguma, 0, 90, true, 2), [{ start: 30, end: Infinity }]);
+});
+
+test('the enemy HP simulation shares recovery timing through active and invulnerable phases', () => {
+  const original = createBuild('ulpia', 1);
+  const build = { ...original, character: { ...original.character, skills: original.character.skills.map(skill => ({
+    ...skill, eventRecovery: { kind: 'hit' as const, automatic: false },
+    ranks: skill.ranks.map(rank => ({ ...rank, initialSp: 0, sp: 2, duration: 5 })),
+  })) } };
+  const fight: EnemyFightPhase[] = [
+    { name: 'First form', ...dummy, ends: { duration: 2 } },
+    { name: 'Revival', ...dummy, invulnerable: true, ends: { duration: 4 } },
+    { name: 'Second form', ...dummy },
+  ];
+  const run = simulateEnemyHp({ build, target: dummy, fight, maxHp: 100_000, duration: 15,
+    activation: 0, repeat: true, hitInterval: 1 })!;
+  assert.deepEqual(run.casts, [{ start: 6, end: 11 }, { start: 12, end: 17 }]);
+  assert.deepEqual([...run.openingHits.keys()], [6, 12]);
+  const timeline = fullFightDamageTimeline(build, run.phases)!;
+  assert.deepEqual(damageCasts(timeline, 0, 15, true, 1), run.casts);
+  near(hpAt(run.points, 2), hpAt(run.points, 4));
 });
 
 test('Ulpianus S3 plots a mitigated opening hit separately from skill and normal attack DPS', () => {

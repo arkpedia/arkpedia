@@ -1,5 +1,5 @@
 import type { CSSProperties, RefObject } from 'react';
-import { damageAtTime, type DamageTargetPhase, type DamageTimeline } from '@/lib/dps/damageTimeline';
+import { damageAtTime, openingWindow, type DamageTargetPhase, type DamageTimeline } from '@/lib/dps/damageTimeline';
 import { hpAt, type HealthPoint } from '@/lib/dps/survival';
 import type { Cast } from '@/lib/dps/skillCasts';
 import css from './Dps.module.css';
@@ -40,7 +40,7 @@ export default function DamageTimelinePlot({
     for (const cast of casts) {
       times.add(cast.start);
       if (timeline.skill) times.add(Math.min(duration, cast.end));
-      if (timeline.opening) times.add(Math.min(duration, cast.start + 1));
+      if (timeline.opening) times.add(Math.min(duration, cast.start + openingWindow(timeline)));
     }
     const points = [...times].sort((a, b) => a - b).map(s => [s, damageAtTime(timeline, s, casts).dps] as const);
     return [{ id, color, index, points, cursor: damageAtTime(timeline, time, casts).dps }];

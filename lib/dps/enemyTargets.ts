@@ -6,7 +6,7 @@ import { getEnemyBundles } from '../enemies/enemies';
 
 type Defined<T> = { m_defined: boolean; m_value: T };
 type Rank = 'NORMAL' | 'ELITE' | 'BOSS';
-type Attribute = 'maxHp' | 'def' | 'magicResistance' | 'epDamageResistance' | 'epResistance';
+type Attribute = 'maxHp' | 'atk' | 'baseAttackTime' | 'attackSpeed' | 'def' | 'magicResistance' | 'epDamageResistance' | 'epResistance';
 interface EnemyRecord {
   level: number;
   enemyData: {
@@ -27,6 +27,7 @@ export interface EnemyPreset {
 export type EnemyLevel = Pick<Target, 'tier' | 'def' | 'res' | 'elementalRes' | 'injuryRes'> & {
   level: number;
   hp?: number;
+  attackInterval?: number;
   forms?: EnemyDefenseForm[];
   fight?: EnemyFightPhase[];
   defenseNote?: string;
@@ -63,6 +64,9 @@ export function enemyTargets(): EnemyPreset[] {
         }
         const reviewed = enemyDefenseForms(id, { def, res }, talents);
         const hp = attr('maxHp');
+        const attackTime = attr('baseAttackTime'), speed = attr('attackSpeed');
+        const attackInterval = enemy?.attack_position && attr('atk') > 0 && attackTime > 0 && speed > 0
+          ? Math.max(1, Math.round(attackTime * 3000 / speed)) / 30 : undefined;
         const fight = enemyFightPhases(id, { def, res }, reviewed?.forms, talents);
         // Blackboard keys can also describe buffs or debuffs applied to
         // other units. Use them to flag a record for review, not to infer a form.
@@ -82,6 +86,7 @@ export function enemyTargets(): EnemyPreset[] {
           elementalRes: attr('epDamageResistance'),
           injuryRes: attr('epResistance'),
           ...(hp > 0 && { hp }),
+          ...(attackInterval && { attackInterval }),
           ...(fight && { fight }),
           ...(reviewed && { forms: reviewed.forms }),
           ...(defenseNote && { defenseNote }),

@@ -719,6 +719,7 @@ function DamageComparison({ profiles, dataSource, enemies = [], enemyIcons }: Ca
                   targetName={targetName}
                   targetNote={enemyLevel?.defenseNote}
                   damageEnemy={damageEnemy}
+                  enemyAttackInterval={enemyLevel?.attackInterval}
                   builds={builds}
                   target={target}
                   baselineId={baselineId}
