@@ -2,7 +2,7 @@
   "release": "/gamemodes",
   "nav": [
     {
-      "group": "guides",
+      "group": "own",
       "order": 60,
       "label": "Game Modes",
       "icon": "grid"

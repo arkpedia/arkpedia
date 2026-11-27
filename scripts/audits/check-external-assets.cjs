@@ -5,9 +5,9 @@ const path = require('path');
 const root = path.resolve(__dirname, '../..');
 const index = JSON.parse(fs.readFileSync(path.join(root, 'data/assets/external-asset-index.json'), 'utf8'));
 const known = new Set(index.files || []);
-// These preview textures are shipped with the checked scene data they depend on.
-// Ignore only version-controlled preview files. Refresh output needs an asset index entry.
-const previewMedia = new Set(execFileSync('git', ['ls-files', '-z', 'public/event-preview/'], {
+// Checked scene textures and screenshots of the site's own UI are served with the app.
+// Generated game media still needs an asset index entry.
+const applicationMedia = new Set(execFileSync('git', ['ls-files', '-z', 'public/event-preview/', 'public/site-updates/'], {
   cwd: root, encoding: 'utf8',
 }).split('\0').filter(Boolean).map(file => file.slice('public/'.length)));
 const missing = [];
@@ -18,7 +18,7 @@ function walk(directory, relative = '') {
     const file = relative ? `${relative}/${entry.name}` : entry.name;
     const at = path.join(directory, entry.name);
     if (entry.isDirectory()) walk(at, file);
-    else if (/\.(webp|png|jpe?g|gif|svg|avif|ico)$/i.test(entry.name) && !known.has(file) && !previewMedia.has(file)) missing.push(file);
+    else if (/\.(webp|png|jpe?g|gif|svg|avif|ico)$/i.test(entry.name) && !known.has(file) && !applicationMedia.has(file)) missing.push(file);
   }
 }
 
@@ -30,4 +30,4 @@ if (missing.length) {
   console.error('Publish these files to the matching asset repository and update data/assets/external-asset-index.json before merging refreshed data.');
   process.exit(1);
 }
-console.log('Every local media file is indexed or belongs to the checked event preview.');
+console.log('Every local media file is indexed or belongs to checked application media.');

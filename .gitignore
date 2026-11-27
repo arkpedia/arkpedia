@@ -76,6 +76,8 @@ public/build-info.json
 # application repository to grow another media history.
 public/**/*.webp
 public/**/*.png
+!public/site-updates/tools-menu-desktop.png
+!public/site-updates/tools-menu-mobile.png
 public/**/*.jpg
 public/**/*.jpeg
 public/**/*.gif

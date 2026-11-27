@@ -9,6 +9,7 @@ import RecentCampaignChanges from '@/components/dashboard/RecentCampaignChanges'
 import PollControls from '@/components/dashboard/PollControls';
 import PageMaintenance from '@/components/dashboard/PageMaintenance';
 import PageVisibility from '@/components/dashboard/PageVisibility';
+import SiteUpdates from '@/components/dashboard/SiteUpdates';
 import styles from '@/components/dashboard/CampaignEditor.module.css';
 import PageMeta from '@/components/layout/PageMeta';
 import type { GetServerSideProps } from 'next';
@@ -37,6 +38,7 @@ const sections = [
   { value: 'guides', label: 'Operator guides', icon: ICONS.profile },
   { value: 'polls', label: 'Polls', icon: ICONS.polls },
   { value: 'visibility', label: 'Page visibility', icon: ICONS.grid },
+  { value: 'updates', label: 'Site updates', icon: ICONS.changelog },
   { value: 'recent', label: 'Recent changes', icon: ICONS.history },
   { value: 'maintenance', label: 'Maintenance', icon: ICONS.base },
 ] as const;
@@ -45,11 +47,13 @@ export default function CampaignDashboard({ catalog, historyId }: DashboardProps
   const router = useRouter();
   const tab = sections.find(section => section.value === router.query.tab)?.value ?? 'campaigns';
   const [openedGuides, setOpenedGuides] = useState(tab === 'guides');
+  const [openedUpdates, setOpenedUpdates] = useState(tab === 'updates');
   const [openedMaintenance, setOpenedMaintenance] = useState(tab === 'maintenance');
   return <><PageMeta title="Arkpedia admin" description="Edit campaigns, operator guides and published pages." path="/dashboard/campaigns" />
     <PageHeader eyebrow="Arkpedia // Editorial workspace" title="Arkpedia admin" slim compact />
     <Tabs id="dashboard" label="Admin sections" className={styles.tabStrip} options={sections} value={tab} onChange={value => {
       if (value === 'guides') setOpenedGuides(true);
+      if (value === 'updates') setOpenedUpdates(true);
       if (value === 'maintenance') setOpenedMaintenance(true);
       void router.replace({ pathname: router.pathname, query: { tab: value } }, undefined, { shallow: true, scroll: false });
     }} />
@@ -67,6 +71,9 @@ export default function CampaignDashboard({ catalog, historyId }: DashboardProps
     </div>
     <div {...tabPanelProps('dashboard', 'visibility')} hidden={tab !== 'visibility'}>
       {tab === 'visibility' && <PageVisibility />}
+    </div>
+    <div {...tabPanelProps('dashboard', 'updates')} hidden={tab !== 'updates'}>
+      {(tab === 'updates' || openedUpdates) && <SiteUpdates />}
     </div>
     <div {...tabPanelProps('dashboard', 'recent')} hidden={tab !== 'recent'}>
       {tab === 'recent' && <RecentCampaignChanges base={catalog?.base} />}

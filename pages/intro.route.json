@@ -1,0 +1,12 @@
+{
+  "sitemap": "static",
+  "outsideRelease": "Uses the site's existing shared tables and code-owned walkthrough imagery.",
+  "nav": [
+    {
+      "group": "about",
+      "order": 15,
+      "label": "Intro",
+      "icon": "about"
+    }
+  ]
+}
