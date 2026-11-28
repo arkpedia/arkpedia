@@ -78,6 +78,7 @@ export function releaseQueue(store: ReleaseStore, gateway: ReleaseGateway) {
     }
     const entry = await store.read(command.source);
     if (!entry || command.revision !== entry.revision) throw new ReleaseConflict('This release changed. Refresh before continuing.');
+    if (entry.state === 'superseded') throw new ReleaseConflict('A newer build of this pull request was published.');
     if (command.action === 'save-note') {
       if (!await store.saveNote(entry, command.note, actor)) throw new ReleaseConflict('The release note can only be edited while queued.');
     } else if (command.action === 'publish') await publish(entry, actor);
