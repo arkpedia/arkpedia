@@ -4,6 +4,7 @@ import NumberInput from '@/components/ui/NumberInput';
 import { sponsorCampaignsFor, type SponsorCampaign, type SponsorCampaignTable } from '@/lib/sponsors/campaigns';
 import { maxTurnSeconds, rotationLabels, rotationSlots, rotationTurns, type RotationPlan, type RotationPlans, type RotationSlot, type RotationTurn } from '@/lib/sponsors/rotation';
 import { campaignLabel } from './CampaignEditor';
+import { useDashboardRequest } from './DashboardRequest';
 import styles from './CampaignEditor.module.css';
 
 interface RotationCatalog { table: SponsorCampaignTable; plans: RotationPlans }
@@ -12,6 +13,7 @@ const emptyPlan: RotationPlan = { revision: 0, turns: [] };
 function PlacementRotation({ slot, eligible, plan, refresh, saved }: {
   slot: RotationSlot; eligible: SponsorCampaign[]; plan: RotationPlan; refresh: () => void; saved: (plan: RotationPlan) => void;
 }) {
+  const fetch = useDashboardRequest();
   const [draft, setDraft] = useState<RotationPlan | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -93,6 +95,7 @@ function PlacementRotation({ slot, eligible, plan, refresh, saved }: {
 }
 
 export default function CampaignRotations({ active }: { active: boolean }) {
+  const fetch = useDashboardRequest();
   const [catalog, setCatalog] = useState<RotationCatalog | null>(null);
   const [request, setRequest] = useState(0);
   const [error, setError] = useState(false);
@@ -113,7 +116,7 @@ export default function CampaignRotations({ active }: { active: boolean }) {
     const timer = window.setTimeout(refresh, 60000);
     window.addEventListener('focus', refresh);
     return () => { controller.abort(); window.clearTimeout(timer); window.removeEventListener('focus', refresh); };
-  }, [active, request]);
+  }, [active, request, fetch]);
   useEffect(() => {
     if (!active || !catalog) return;
     const next = Math.min(...catalog.table.campaigns.flatMap(c => [c.startAt, c.endAt])

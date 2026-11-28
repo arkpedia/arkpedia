@@ -58,7 +58,8 @@ test('major updates remain private until an editor publishes the saved revision'
     assert.ok(minor);
     assert.ok(await publishDraft(db, minor.id, 1, 'editor@example.com'));
     assert.equal((await readPublishedUpdates(db, true))[0].id, id);
-    assert.equal((await readPublishedUpdates(db, false)).length, 2);
+    assert.deepEqual(new Set((await readPublishedUpdates(db, false)).map(row => row.id)), new Set([id, minor.id]));
+    assert.deepEqual((await listDrafts(db)).filter(row => row.publishedAt === null), [starter]);
   } finally { sqlite.close(); }
 });
 

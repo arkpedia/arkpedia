@@ -374,6 +374,7 @@ export const BOUNDS_EXCLUDED: Record<string, string> = {
   'dev/ui': 'development only: the primitives gallery (docs/development/ui-primitives.md)',
   'optimizer': 'development only (404 in production)',
   'release-queue-preview': 'Preview-only release queue demo (404 in production)',
+  'admin-preview': 'Preview-only Admin review (404 in production)',
   'bases/whole-base-optimizer': 'development only (404 in production)',
   '500': 'only rendered when a page throws; the same PageHeader markup as 404',
   'sitemap.xml': 'an XML document for crawlers, not a page (pages/sitemap.xml.tsx)',

@@ -25,6 +25,7 @@ const EXCLUDED: Record<string, string> = {
   'recruitment/popout': 'the same RecruitmentTool as /recruitment, without the site chrome',
   'sitemap.xml': 'an XML document for crawlers, not a page (pages/sitemap.xml.tsx)',
   'release-queue-preview': 'Preview-only release queue demo',
+  'admin-preview': 'Preview-only Admin review',
 };
 /** Addresses beyond one per page file: a stage open in the browser, a second event. */
 const EXTRA = ['/stages/browse?s=ta-1', '/events/%5BSide%20Story%5D%20People%2C%20A%20People'];

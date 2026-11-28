@@ -16,8 +16,14 @@ The editor can add, preview, and save an optional update note. Marking it as a m
 update also makes it eligible for the public pop-up after publication. The note stays
 in the private release queue until the expected production commit and fingerprint are
 verified and Cloudflare Workers Builds reports success. The queue polls while open.
-Check status resumes verification after a reload. The published note is added to the existing Site updates history and public
-feed in the same database transaction as the release completion.
+Check status resumes verification after a reload. The published note is added to
+the Announcements history and public feed in the same database transaction as
+the release completion.
+
+Releases opens on Queue. Use Releases → Announcements for standalone drafts,
+image attachments, and published history. Saving a draft keeps it private until
+you choose Publish update. To publish a note with a code release, attach it to
+that release in Queue.
 
 ## Review and activation
 
