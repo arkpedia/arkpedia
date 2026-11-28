@@ -1,6 +1,7 @@
 import type { GetStaticProps } from 'next';
 import { useRouter } from 'next/router';
 import { useState } from 'react';
+import PageMeta from '@/components/layout/PageMeta';
 import CampaignDashboard from '@/components/dashboard/CampaignDashboard';
 import { DashboardRequest } from '@/components/dashboard/DashboardRequest';
 import type { Catalog } from '@/components/dashboard/CampaignEditor';
@@ -55,6 +56,7 @@ export default function AdminPreview() {
   const { query } = useRouter();
   const [request] = useState(createSampleRequest);
   return <DashboardRequest.Provider value={request}>
+    <PageMeta title="Admin Preview" description="Review the sample campaign tools and site update editor." path="/admin-preview" noindex />
     <CampaignDashboard catalog={catalog} historyId={query.history === campaign.id ? campaign.id : undefined} sample />
   </DashboardRequest.Provider>;
 }

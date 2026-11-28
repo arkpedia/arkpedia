@@ -12,7 +12,6 @@ import PageVisibility from '@/components/dashboard/PageVisibility';
 import SiteUpdates from '@/components/dashboard/SiteUpdates';
 import ReleaseQueue from '@/components/dashboard/ReleaseQueue';
 import styles from '@/components/dashboard/CampaignEditor.module.css';
-import PageMeta from '@/components/layout/PageMeta';
 import CampaignEditor, { type Catalog } from '@/components/dashboard/CampaignEditor';
 import PageHeader from '@/components/ui/PageHeader';
 
@@ -52,7 +51,7 @@ export default function CampaignDashboard({ catalog, historyId, sample = false }
   }
 
   const title = sample ? 'Admin Preview' : 'Arkpedia admin';
-  return <><PageMeta title={title} description="Edit campaigns, operator guides and published pages." path={router.pathname} noindex={sample} />
+  return <>
     <PageHeader eyebrow="Arkpedia // Editorial workspace" title={title} slim compact />
     {sample && <div className={styles.workspace}><p className="notice">This Preview uses sample campaign data. Draft edits stay in this tab.</p></div>}
     <Tabs id="dashboard" label="Admin sections" className={styles.tabStrip} options={options} value={tab} onChange={value => {
