@@ -10,6 +10,7 @@ test('review existing pages, save an optional major note, and approve a release'
     note: null, state: 'queued', target: null, revision: 1,
   };
   let confirmed = 0;
+  let ready = false;
   await page.route('**/_next/data/**/dashboard/campaigns.json*', route => route.fulfill({ json: { pageProps: { catalog: null }, __N_SSP: true } }));
   await page.route('**/api/dashboard/releases', route => {
     if (route.request().method() === 'POST') {
@@ -22,7 +23,7 @@ test('review existing pages, save an optional major note, and approve a release'
       }
       if (command.action === 'refresh') entry = { ...entry, state: 'published', revision: entry.revision + 1 };
     }
-    return route.fulfill({ json: { entries: [entry], previewSource: source, publicationEnabled: true } });
+    return route.fulfill({ json: { entries: [entry], previewSource: source, readySource: ready ? source : null, publicationEnabled: true } });
   });
   await page.goto('/game-modes');
   await setTheme(page, info.project.name === 'mobile' ? 'light' : 'dark');
@@ -34,6 +35,11 @@ test('review existing pages, save an optional major note, and approve a release'
   const details = page.getByRole('region', { name: 'Release details' });
   await expect(details.getByRole('link', { name: 'Preview /pulls' })).toHaveAttribute('href', 'https://preview.arkpedia.net/pulls');
   await expect(details.getByRole('link', { name: 'Live /schedule?view=calendar' })).toHaveAttribute('href', 'https://www.arkpedia.net/schedule?view=calendar');
+  await expect(details.getByRole('button', { name: 'Publish release' })).toHaveCount(0);
+  await expect(details.getByText(/reusable full Check/)).toBeVisible();
+  ready = true;
+  await page.getByRole('button', { name: 'Refresh queue' }).click();
+  await expect(details.getByRole('button', { name: 'Publish release' })).toBeEnabled();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await details.getByRole('checkbox', { name: 'Include an update note' }).check();
   await details.getByRole('textbox', { name: 'Note title' }).fill('The new planner');

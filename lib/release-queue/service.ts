@@ -1,15 +1,28 @@
 import type { ReleaseGateway } from './github';
 import type { ReleaseStore } from './store';
-import type { ReleaseCommand, ReleaseEntry, ReleaseQueueData } from './types';
+import type { ReleaseCandidate, ReleaseCommand, ReleaseEntry, ReleaseQueueData } from './types';
 
 export class ReleaseConflict extends Error {}
+
+function matchesReview(entry: ReleaseEntry, candidate: ReleaseCandidate) {
+  return candidate.source === entry.source && candidate.base === entry.base && candidate.fingerprint === entry.fingerprint;
+}
 
 export function releaseQueue(store: ReleaseStore, gateway: ReleaseGateway) {
   async function snapshot(): Promise<ReleaseQueueData> {
     const [entries, previewSource] = await Promise.all([
       store.list(), gateway.identity('staging').then(info => info.source).catch(() => null),
     ]);
-    return { entries, previewSource, publicationEnabled: gateway.enabled };
+    const active = entries.find(entry => entry.state === 'publishing');
+    const current = gateway.enabled && (active ?? entries.find(entry => entry.source === previewSource && entry.state === 'queued'));
+    let readySource: string | null = null;
+    if (current && current.source === previewSource) {
+      const review = await gateway.review(current.pullRequest, current.paths).catch(() => null);
+      if (review?.reusableCheck && matchesReview(current, review.candidate) && (!current.target || current.target === review.target)) {
+        readySource = current.source;
+      }
+    }
+    return { entries, previewSource, readySource, publicationEnabled: gateway.enabled };
   }
 
   async function refresh(entry: ReleaseEntry) {
@@ -35,9 +48,10 @@ export function releaseQueue(store: ReleaseStore, gateway: ReleaseGateway) {
       await refresh(entry);
       return;
     }
-    const { candidate, target } = await gateway.review(entry.pullRequest, entry.paths);
-    if (candidate.source !== entry.source || candidate.base !== entry.base || candidate.fingerprint !== entry.fingerprint ||
+    const { candidate, target, reusableCheck } = await gateway.review(entry.pullRequest, entry.paths);
+    if (!matchesReview(entry, candidate) ||
         (entry.target && entry.target !== target)) throw new ReleaseConflict('The reviewed Preview or its base changed. Queue the current build again.');
+    if (!reusableCheck) throw new ReleaseConflict('The current build needs a reusable Check before it can publish.');
     // Commit intent before mutating GitHub. Retrying a lost response uses the
     // same immutable target without a forced update, so it cannot replace main.
     if (entry.state === 'queued' && !await store.start(entry, target, actor)) {

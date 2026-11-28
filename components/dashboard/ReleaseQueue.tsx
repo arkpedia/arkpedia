@@ -46,6 +46,7 @@ export default function ReleaseQueue({ client = admin, demo = false }: { client?
   const dirty = JSON.stringify(note) !== JSON.stringify(entry?.note ?? null);
   const active = data?.entries.find(row => row.state === 'publishing');
   const current = !!entry && entry.source === data?.previewSource;
+  const ready = !!entry && entry.source === data?.readySource;
 
   async function load() {
     setBusy(true);
@@ -173,14 +174,17 @@ export default function ReleaseQueue({ client = admin, demo = false }: { client?
           </div>}
         </fieldset> : entry.note && <button type="button" className="ghost btn-sm" onClick={() => { setNote(entry.note); setDialog('note'); }}>View update note</button>}
         <div className={styles.row}>
-          {entry.state === 'queued' && <button className="primary btn-sm" type="button"
-            disabled={busy || dirty || !current || !data.publicationEnabled || !!active} onClick={() => setDialog('publish')}>Publish release</button>}
+          {entry.state === 'queued' && ready && <button className="primary btn-sm" type="button"
+            disabled={busy || dirty} onClick={() => setDialog('publish')}>Publish release</button>}
           {entry.state === 'publishing' && <>
             <button className="ghost btn-sm" type="button" disabled={busy} onClick={() => void send({ action: 'refresh', source: entry.source, revision: entry.revision })}>Check status</button>
-            {current && data.publicationEnabled && <button type="button" className="ghost btn-sm" disabled={busy} onClick={() => setDialog('publish')}>Retry publication</button>}
+            {ready && <button type="button" className="ghost btn-sm" disabled={busy} onClick={() => setDialog('publish')}>Retry publication</button>}
           </>}
         </div>
         {entry.state === 'queued' && !data.publicationEnabled && <p className="sub">Production publication has not been configured.</p>}
+        {entry.state === 'queued' && current && data.publicationEnabled && !ready && <p className="sub" role="status">
+          {active ? 'Another release is publishing.' : 'Publish appears after the current Preview has a reusable full Check against main.'}
+        </p>}
         {dirty && <p className="sub">Save the update note before publishing the release.</p>}
       </section>}
     </div> : error ? <button type="button" className="ghost btn-sm" onClick={() => void load()}>Retry</button> : <p role="status">Loading the release queue…</p>}
@@ -195,7 +199,7 @@ export default function ReleaseQueue({ client = admin, demo = false }: { client?
     {dialog === 'note' && note && <ImportDialog title={note.title} onClose={() => setDialog(null)}>
       <SiteUpdateContent content={note} preview />
     </ImportDialog>}
-    {dialog === 'publish' && entry && <ImportDialog title="Publish this release?" onClose={() => setDialog(null)} dismissible={!busy}>
+    {dialog === 'publish' && entry && ready && <ImportDialog title="Publish this release?" onClose={() => setDialog(null)} dismissible={!busy}>
       <p><strong>{entry.title}</strong> {demo ? 'will be marked published in the demo.' : 'will be sent to production.'}
         {entry.note && (demo ? ' Its update note will appear in the simulated release history.' : ' Its update note will go live after the new build is verified.')}</p>
       <div className={styles.row}>
