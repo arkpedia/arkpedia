@@ -25,6 +25,10 @@ image attachments, and published history. Saving a draft keeps it private until
 you choose Publish update. To publish a note with a code release, attach it to
 that release in Queue.
 
+After a build is verified as published, earlier queued or needs-review builds of
+the same pull request move to **Superseded builds**. Their saved notes remain
+available to read there.
+
 ## Review and activation
 
 The Preview-only `/release-queue-preview` demo runs the same UI with per-browser

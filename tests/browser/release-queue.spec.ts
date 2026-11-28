@@ -11,6 +11,7 @@ test('review existing pages, save an optional major note, and approve a release'
   };
   let confirmed = 0;
   let ready = false;
+  const earlier = { ...entry, source: 'd'.repeat(40), title: 'Earlier planner build' };
   await page.route('**/_next/data/**/dashboard/campaigns.json*', route => route.fulfill({ json: { pageProps: { catalog: null }, __N_SSP: true } }));
   await page.route('**/api/dashboard/releases', route => {
     if (route.request().method() === 'POST') {
@@ -23,7 +24,8 @@ test('review existing pages, save an optional major note, and approve a release'
       }
       if (command.action === 'refresh') entry = { ...entry, state: 'published', revision: entry.revision + 1 };
     }
-    return route.fulfill({ json: { entries: [entry], previewSource: source, readySource: ready ? source : null, publicationEnabled: true } });
+    const olderBuild = entry.state === 'published' ? { ...earlier, state: 'superseded' } : earlier;
+    return route.fulfill({ json: { entries: [entry, olderBuild], previewSource: source, readySource: ready ? source : null, publicationEnabled: true } });
   });
   await page.goto('/game-modes');
   await setTheme(page, info.project.name === 'mobile' ? 'light' : 'dark');
@@ -59,8 +61,19 @@ test('review existing pages, save an optional major note, and approve a release'
   await details.getByRole('button', { name: 'Publish release' }).click();
   await confirmation.getByRole('button', { name: 'Publish', exact: true }).click();
   await expect(details.getByRole('status')).toHaveText('Publishing');
+  const earlierRow = page.getByRole('button', { name: /Earlier planner build/ });
+  await expect(earlierRow).toHaveText(/Queued/);
   expect(confirmed).toBe(1);
   await details.getByRole('button', { name: 'Check status' }).click();
   await expect(details.getByRole('status')).toHaveText('Published');
   expect(entry.note?.major).toBe(true);
+  await expect(earlierRow).toBeHidden();
+  const history = page.getByText('Superseded builds', { exact: true });
+  await history.focus();
+  await history.press('Enter');
+  await expect(earlierRow).toHaveText(/Superseded/);
+  await earlierRow.click();
+  await expect(details.getByRole('status')).toHaveText('Superseded');
+  await expect(details.getByRole('button', { name: 'Publish release' })).toHaveCount(0);
+  await expect(details.getByRole('checkbox', { name: 'Include an update note' })).toHaveCount(0);
 });

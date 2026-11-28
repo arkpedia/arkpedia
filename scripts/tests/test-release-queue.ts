@@ -64,6 +64,9 @@ test('a note is private until the confirmed release fingerprint is live', async 
       rejected: () => false,
     };
     const queue = releaseQueue(store, gateway);
+    await store.queue({ ...candidate, source: T }, actor);
+    const earlier = (await store.read(T))!;
+    await store.saveNote(earlier, { ...note, title: 'Earlier draft' }, actor);
     const pending = await queue.run({ action: 'queue', pullRequest: 172, paths: ['/pulls'] }, actor);
     assert.equal(pending.readySource, null);
     assert.equal(writes, 0);
@@ -82,6 +85,7 @@ test('a note is private until the confirmed release fingerprint is live', async 
     assert.equal((await store.read(A))?.state, 'publishing');
     await queue.run({ action: 'refresh', source: A, revision: 3 }, actor);
     assert.deepEqual(await readPublishedUpdates(db, false), []);
+    assert.equal((await store.read(T))?.state, 'queued', 'a pending deployment does not supersede earlier builds');
     live = { source: C, fingerprint };
     await queue.run({ action: 'refresh', source: A, revision: 3 }, actor);
     assert.deepEqual(await readPublishedUpdates(db, false), []);
@@ -89,6 +93,14 @@ test('a note is private until the confirmed release fingerprint is live', async 
     await Promise.all([queue.run({ action: 'refresh', source: A, revision: 3 }, actor),
       queue.run({ action: 'refresh', source: A, revision: 3 }, actor)]);
     assert.equal((await store.read(A))?.state, 'published');
+    const superseded = (await store.read(T))!;
+    assert.equal(superseded.state, 'superseded');
+    assert.equal(superseded.note?.title, 'Earlier draft');
+    await assert.rejects(queue.run({ action: 'publish', source: T, revision: superseded.revision }, actor), /newer build/);
+    await assert.rejects(queue.run({ action: 'save-note', source: T, revision: superseded.revision, note }, actor), /newer build/);
+    const staleRead = { ...superseded, state: 'queued' as const };
+    assert.equal(await store.start(staleRead, C, actor), null);
+    assert.equal(await store.saveNote(staleRead, note, actor), null);
     assert.deepEqual((await readPublishedUpdates(db, true)).map(update => update.title), [note.title]);
   } finally { close(); }
 });
@@ -102,6 +114,22 @@ test('one release in flight blocks another without dropping either draft', async
     assert.ok(await store.start((await store.read(A))!, C, actor));
     assert.equal(await store.start((await store.read(T))!, C, actor), null);
     assert.equal((await store.read(T))?.state, 'queued');
+  } finally { close(); }
+});
+
+test('history also classifies rows saved before the UI change and leaves other pull requests queued', async () => {
+  const { db, close } = database();
+  try {
+    await db.prepare(`INSERT INTO release_queue (source, base, fingerprint, pull_request, title, paths, state, updated_at, actor)
+      VALUES (?, ?, ?, 172, 'Earlier build', '["/pulls"]', 'needs_review', 3, ?),
+             (?, ?, ?, 172, 'Published build', '["/pulls"]', 'published', 2, ?),
+             (?, ?, ?, 173, 'Unrelated build', '["/pulls"]', 'queued', 1, ?)`)
+      .bind(A, B, fingerprint, actor, C, B, fingerprint, actor, T, B, fingerprint, actor).first();
+    const store = releaseStore(db);
+    assert.deepEqual((await store.list()).map(entry => [entry.source, entry.state]), [
+      [C, 'published'], [T, 'queued'], [A, 'superseded'],
+    ]);
+    assert.equal((await store.read(A))?.state, 'superseded');
   } finally { close(); }
 });
 

@@ -8,6 +8,10 @@ const sample: ReleaseQueueData = {
     source, base: 'b'.repeat(40), fingerprint: 'c'.repeat(64), pullRequest: 172,
     title: 'Sample planner and schedule update', paths: ['/pull-planner', '/schedule'],
     note: null, state: 'queued', target: null, revision: 1,
+  }, {
+    source: 'd'.repeat(40), base: 'b'.repeat(40), fingerprint: 'e'.repeat(64), pullRequest: 172,
+    title: 'Earlier sample planner build', paths: ['/pull-planner'],
+    note: null, state: 'queued', target: null, revision: 1,
   }],
   previewSource: source,
   readySource: source,
@@ -40,12 +44,16 @@ export const releaseQueueDemo: ReleaseQueueClient = {
     }
     const row = data.entries.find(entry => entry.source === command.source && entry.revision === command.revision);
     if (!row) throw Error('Refresh the demo queue.');
+    const published = command.action === 'refresh' && row.state === 'publishing';
     const next: ReleaseQueueData = { ...data, entries: data.entries.map(entry => {
+      if (published && entry.pullRequest === row.pullRequest && (entry.state === 'queued' || entry.state === 'needs_review')) {
+        return { ...entry, state: 'superseded' };
+      }
       if (entry.source !== row.source) return entry;
       const revision = entry.revision + 1;
       if (command.action === 'save-note' && entry.state === 'queued') return { ...entry, revision, note: command.note };
       if (command.action === 'publish' && entry.state === 'queued') return { ...entry, revision, state: 'publishing' };
-      if (command.action === 'refresh' && entry.state === 'publishing') return { ...entry, revision, state: 'published' };
+      if (published) return { ...entry, revision, state: 'published' };
       return entry;
     }) };
     sessionStorage.setItem(releaseQueueDemoKey, JSON.stringify(next));

@@ -14,7 +14,7 @@ export interface ReleaseCandidate {
 
 export interface ReleaseEntry extends ReleaseCandidate {
   note: UpdateContent | null;
-  state: 'queued' | 'publishing' | 'published' | 'needs_review';
+  state: 'queued' | 'publishing' | 'published' | 'needs_review' | 'superseded';
   target: string | null;
   revision: number;
 }

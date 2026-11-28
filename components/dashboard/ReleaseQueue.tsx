@@ -28,6 +28,7 @@ const labels = {
   publishing: 'Publishing',
   published: 'Published',
   needs_review: 'Needs review',
+  superseded: 'Superseded',
 };
 const emptyNote: UpdateContent = { title: '', body: '', major: false, images: [] };
 const messageOf = (error: unknown) => error instanceof Error ? error.message : 'The release action failed.';
@@ -43,9 +44,9 @@ export default function ReleaseQueue({ client = admin, demo = false }: { client?
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const entry = data?.entries.find(row => row.source === selected);
-  const dirty = JSON.stringify(note) !== JSON.stringify(entry?.note ?? null);
+  const dirty = entry?.state === 'queued' && JSON.stringify(note) !== JSON.stringify(entry.note);
   const active = data?.entries.find(row => row.state === 'publishing');
-  const current = !!entry && entry.source === data?.previewSource;
+  const current = !!entry && entry.state !== 'superseded' && entry.source === data?.previewSource;
   const ready = !!entry && entry.source === data?.readySource;
 
   async function load() {
@@ -117,6 +118,16 @@ export default function ReleaseQueue({ client = admin, demo = false }: { client?
     } catch (error) { setError(messageOf(error)); }
   }
 
+  function releaseList(rows: ReleaseEntry[]) {
+    return <ul>{rows.map(row => <li key={row.source}>
+      <button className="btn-bare pick-card" type="button" disabled={busy} aria-pressed={selected === row.source} onClick={() => choose(row)}>
+        {row.title}<span className="sub">{labels[row.state]}</span>
+      </button>
+    </li>)}</ul>;
+  }
+
+  const visible = data?.entries.filter(row => row.state !== 'superseded') ?? [];
+  const superseded = data?.entries.filter(row => row.state === 'superseded') ?? [];
   const message = error && <p role="alert" className="notice notice-danger">{error}</p>;
   return <Workspace className={styles.workspace} aria-label="Release queue">
     {dialog !== 'queue' && message}
@@ -130,11 +141,11 @@ export default function ReleaseQueue({ client = admin, demo = false }: { client?
             if (!dirty || window.confirm('Discard the unsaved release note?')) void load();
           }}>Refresh queue</button>
         </div>
-        {data.entries.length ? <ul>{data.entries.map(row => <li key={row.source}>
-          <button className="btn-bare pick-card" type="button" disabled={busy} aria-pressed={selected === row.source} onClick={() => choose(row)}>
-            {row.title}<span className="sub">{labels[row.state]}</span>
-          </button>
-        </li>)}</ul> : <p className="sub">No releases queued. Queue a checked pull request that is currently on Preview.</p>}
+        {visible.length ? releaseList(visible) : <p className="sub">No releases queued. Queue a checked pull request that is currently on Preview.</p>}
+        {superseded.length > 0 && <details className={styles.history}>
+          <summary>Superseded builds</summary>
+          {releaseList(superseded)}
+        </details>}
       </section>
       {entry && <section className={'panel ' + styles.detail} aria-label="Release details">
         <div className={styles.row}>
@@ -159,6 +170,7 @@ export default function ReleaseQueue({ client = admin, demo = false }: { client?
         </section>
         {entry.state === 'queued' && !current && <p className="notice">Preview is serving a different build. Restore this build on Preview before publishing it.</p>}
         {entry.state === 'needs_review' && <p className="notice">Production or main changed. Review the newer build before queuing it.</p>}
+        {entry.state === 'superseded' && <p className="notice">A newer build of this pull request was published.</p>}
         {entry.state === 'queued' ? <fieldset className={styles.note} disabled={busy}>
           <legend>Update note</legend>
           <label className="check"><input type="checkbox" checked={note !== null} onChange={event => setNote(event.target.checked ? entry.note ?? emptyNote : null)} />Include an update note</label>

@@ -2,7 +2,12 @@ import type { D1Database } from '@cloudflare/workers-types';
 import type { ReleaseCandidate, ReleaseEntry } from './types';
 import type { UpdateContent } from '@/lib/site-updates/types';
 
-const fields = 'source, base, fingerprint, pull_request AS pullRequest, title, paths, note, state, target, revision';
+// A verified publication completes its PR. Derive this from the saved rows so
+// older builds already in the database move to history without rewriting them.
+const publishedPullRequests = "SELECT pull_request FROM release_queue WHERE state = 'published'";
+const superseded = `state IN ('queued', 'needs_review') AND pull_request IN (${publishedPullRequests})`;
+const fields = `source, base, fingerprint, pull_request AS pullRequest, title, paths, note,
+  CASE WHEN ${superseded} THEN 'superseded' ELSE state END AS state, target, revision`;
 type Row = Omit<ReleaseEntry, 'paths' | 'note'> & { paths: string; note: string | null };
 
 function decode(row: Row): ReleaseEntry {
@@ -13,7 +18,8 @@ export function releaseStore(db: D1Database) {
   return {
     async list() {
       const { results } = await db.prepare(`SELECT ${fields} FROM release_queue
-        ORDER BY state = 'publishing' DESC, updated_at DESC, source LIMIT 50`).all<Row>();
+        ORDER BY CASE WHEN state = 'publishing' THEN 0 WHEN ${superseded} THEN 2 ELSE 1 END,
+          updated_at DESC, source LIMIT 50`).all<Row>();
       return results.map(decode);
     },
     async read(source: string) {
@@ -28,13 +34,15 @@ export function releaseStore(db: D1Database) {
     },
     async saveNote(entry: ReleaseEntry, note: UpdateContent | null, actor: string) {
       return db.prepare(`UPDATE release_queue SET note = ?, updated_at = ?, actor = ?, revision = revision + 1
-        WHERE source = ? AND state = 'queued' AND revision = ? RETURNING source`)
+        WHERE source = ? AND state = 'queued' AND revision = ?
+          AND pull_request NOT IN (${publishedPullRequests}) RETURNING source`)
         .bind(note && JSON.stringify(note), Date.now(), actor, entry.source, entry.revision).first();
     },
     async start(entry: ReleaseEntry, target: string, actor: string) {
       try {
         return await db.prepare(`UPDATE release_queue SET state = 'publishing', target = ?, updated_at = ?, actor = ?, revision = revision + 1
-          WHERE source = ? AND state = 'queued' AND revision = ? RETURNING source`)
+          WHERE source = ? AND state = 'queued' AND revision = ?
+            AND pull_request NOT IN (${publishedPullRequests}) RETURNING source`)
           .bind(target, Date.now(), actor, entry.source, entry.revision).first();
       } catch (error) {
         if (error instanceof Error && /UNIQUE constraint failed: release_queue.state/.test(error.message)) return null;
