@@ -3,12 +3,14 @@ import StyledSelect from '@/components/ui/StyledSelect';
 import type { CampaignHistoryPage, CampaignRevision } from '@/lib/dashboard/campaignStore';
 import type { SponsorCampaign } from '@/lib/sponsors/campaigns';
 import ArtworkPreview from './ArtworkPreview';
+import { useDashboardRequest } from './DashboardRequest';
 import styles from './CampaignEditor.module.css';
 
 export default function CampaignHistory({ campaignId, source, currentRevision, disabled, restore }: {
   campaignId: string; source?: SponsorCampaign; currentRevision: number; disabled?: boolean;
   restore?: (campaign: SponsorCampaign, label: string) => void;
 }) {
+  const fetch = useDashboardRequest();
   const [versions, setVersions] = useState<CampaignRevision[]>([]);
   const [selected, select] = useState('');
   const [nextBefore, setNextBefore] = useState<number | null>(null);
@@ -36,7 +38,7 @@ export default function CampaignHistory({ campaignId, source, currentRevision, d
     }
     void load();
     return () => controller.abort();
-  }, [campaignId, request]);
+  }, [campaignId, request, fetch]);
 
   function loadPage(before?: number) {
     setBusy(true); setError(''); setRequest({ before });

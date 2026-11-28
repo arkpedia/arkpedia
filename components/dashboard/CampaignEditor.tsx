@@ -5,6 +5,7 @@ import type { CampaignEdit } from '@/lib/dashboard/campaignStore';
 import { samePlacements, type CampaignEvent } from '@/lib/sponsors/campaignSchedule';
 import { SPONSOR_PLACEMENTS, type SponsorArtwork, type SponsorCampaign } from '@/lib/sponsors/campaigns';
 import CampaignHistory from './CampaignHistory';
+import { useDashboardRequest } from './DashboardRequest';
 import ArtworkPreview from './ArtworkPreview';
 import StyledSelect from '@/components/ui/StyledSelect';
 import { loadAssetImage } from '@/lib/assets/assetRetry';
@@ -106,6 +107,7 @@ function CampaignForm({ source, edit, selected, draft, events, records, historyO
   historyOpen: boolean; closeHistory: () => void;
   onSave: (next: Catalog, id: string) => void;
 }) {
+  const fetch = useDashboardRequest();
   const [c, set] = useState<SponsorCampaign>(edit?.campaign ?? source ?? draft);
   const [timing, setTiming] = useState((edit?.campaign ? edit.followsRelease : !!source) ? 'published'
     : c.eventActivityId || !selected ? 'event' : 'fixed');

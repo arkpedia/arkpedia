@@ -3,6 +3,7 @@ import ImportDialog from '@/components/account/ImportDialog';
 import SiteUpdateContent from '@/components/site-updates/SiteUpdateContent';
 import StyledSelect from '@/components/ui/StyledSelect';
 import XButton from '@/components/ui/XButton';
+import { useDashboardRequest } from './DashboardRequest';
 import {
   UPDATE_BODY_LENGTH, UPDATE_IMAGE_COUNT, UPDATE_IMAGE_LIMIT, UPDATE_TITLE_LENGTH,
   type UpdateContent, type UpdateDraft, type UpdateImage, type UpdateListItem,
@@ -36,6 +37,7 @@ function contentOf(update: UpdateDraft): UpdateContent {
 }
 
 export default function SiteUpdates() {
+  const fetch = useDashboardRequest();
   const [queue, setQueue] = useState<UpdateListItem[] | null>(null);
   const [saved, setSaved] = useState<UpdateDraft | null>(null);
   const [content, setContent] = useState<UpdateContent>(EMPTY);
@@ -58,7 +60,7 @@ export default function SiteUpdates() {
         if (!controller.signal.aborted) setError(cause instanceof Error ? cause.message : 'The queue could not be loaded.');
       });
     return () => controller.abort();
-  }, [attempt]);
+  }, [attempt, fetch]);
 
   useEffect(() => {
     if (locked && message) editorTitle.current?.focus();
