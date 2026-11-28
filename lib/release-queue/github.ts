@@ -24,13 +24,13 @@ interface PullRequest {
 interface GitCommit { sha: string; tree: { sha: string }; parents: { sha: string }[] }
 
 export function releaseGateway(token?: string, request: typeof fetch = fetch) {
-  async function github<T>(path: string, init?: RequestInit): Promise<T> {
+  async function github<T>(path: string, init?: RequestInit, credential = token): Promise<T> {
     if (!path.startsWith(prefix + '/')) throw Error('Unexpected release repository.');
     const response = await request('https://api.github.com/' + path, {
       ...init,
       headers: {
         accept: 'application/vnd.github+json', 'user-agent': 'arkpedia-release-queue',
-        'x-github-api-version': '2022-11-28', ...(token && { authorization: 'Bearer ' + token }),
+        'x-github-api-version': '2022-11-28', ...(credential && { authorization: 'Bearer ' + credential }),
         ...(init?.body && { 'content-type': 'application/json' }),
       },
       redirect: 'manual', signal: AbortSignal.timeout(12_000),
@@ -65,7 +65,7 @@ export function releaseGateway(token?: string, request: typeof fetch = fetch) {
         pr.base.sha !== base || pr.head.sha !== preview.source || pr.state !== 'open' || pr.draft) {
       throw Error('Preview must match the open, ready pull request against current main.');
     }
-    await approvePreviewSource(preview.source, path => github(path));
+    const { checkRun } = await approvePreviewSource(preview.source, path => github(path));
     const candidate: ReleaseCandidate = { ...preview, base, pullRequest, title: pr.title, paths };
     // GitHub computes the test merge while the PR is open. Its parentage and tree
     // must match the reviewed candidate before it is eligible for a ref update.
@@ -78,7 +78,15 @@ export function releaseGateway(token?: string, request: typeof fetch = fetch) {
         target.parents.length !== 2 || target.parents[0].sha !== base || target.parents[1].sha !== candidate.source) {
       throw Error('The merge tree differs from the reviewed Preview. Update the pull request and deploy it to Preview again.');
     }
-    return { candidate, target: target.sha };
+    // Main's CI accepts this proof of a full Check on the identical tree.
+    const artifactName = 'checked-tree-' + target.tree.sha;
+    const { artifacts } = await github<{ artifacts: {
+      name: string; expired: boolean; workflow_run?: { id: number };
+    }[] }>(prefix + '/actions/artifacts?name=' + encodeURIComponent(artifactName) + '&per_page=20')
+      .catch(() => ({ artifacts: [] }));
+    const reusableCheck = artifacts.some(artifact => artifact.name === artifactName && artifact.expired === false &&
+      artifact.workflow_run?.id === checkRun);
+    return { candidate, target: target.sha, reusableCheck };
   }
 
   async function advance(target: string) {
@@ -93,7 +101,7 @@ export function releaseGateway(token?: string, request: typeof fetch = fetch) {
     const name = 'Workers Builds: arkpedia';
     const { check_runs } = await github<{ check_runs: {
       id: number; name: string; head_sha: string; app: { id: number } | null; status: string; conclusion: string | null;
-    }[] }>(prefix + '/commits/' + source + '/check-runs?filter=latest&check_name=' + encodeURIComponent(name));
+    }[] }>(prefix + '/commits/' + source + '/check-runs?filter=latest&check_name=' + encodeURIComponent(name), undefined, '');
     const latest = check_runs.filter(check => check.name === name && check.head_sha === source && check.app?.id === 85455)
       .sort((left, right) => right.id - left.id)[0];
     if (latest?.status !== 'completed') return 'pending';

@@ -53,21 +53,27 @@ test('a note is private until the confirmed release fingerprint is live', async 
     let reviewed = candidate;
     let writes = 0;
     let healthy = false;
+    let reusableCheck = false;
     const gateway: ReleaseGateway = {
       enabled: true,
       identity: async role => role === 'staging' ? reviewed : live,
       deployment: async () => healthy ? 'success' : 'pending',
-      review: async () => ({ candidate: reviewed, target: C }),
+      review: async () => ({ candidate: reviewed, target: C, reusableCheck }),
       main: async () => main,
       advance: async target => { assert.equal(target, C); writes++; main = target; },
       rejected: () => false,
     };
     const queue = releaseQueue(store, gateway);
-    await queue.run({ action: 'queue', pullRequest: 172, paths: ['/pulls'] }, actor);
+    const pending = await queue.run({ action: 'queue', pullRequest: 172, paths: ['/pulls'] }, actor);
+    assert.equal(pending.readySource, null);
     assert.equal(writes, 0);
     await queue.run({ action: 'save-note', source: A, revision: 1, note }, actor);
+    await assert.rejects(queue.run({ action: 'publish', source: A, revision: 2 }, actor), /reusable Check/);
+    reusableCheck = true;
+    assert.equal((await queue.snapshot()).readySource, A);
     await assert.rejects(queue.run({ action: 'publish', source: A, revision: 1 }, actor), /changed/);
     reviewed = { ...candidate, base: T };
+    assert.equal((await queue.snapshot()).readySource, null);
     await assert.rejects(queue.run({ action: 'publish', source: A, revision: 2 }, actor), /base changed/);
     assert.equal(writes, 0);
     reviewed = candidate;
@@ -113,6 +119,7 @@ test('GitHub uses the exact reviewed test merge and a non-forced update', async 
     merge_commit_sha: C, base: { ref: 'main', sha: B, repo }, head: { sha: A, repo } };
   let writes = 0;
   let targetTree = T;
+  let expired = false;
   const fetcher: typeof fetch = async (input, init) => {
     const url = new URL(String(input));
     const resource = url.pathname.replace('/repos/arkpedia/arkpedia/', '');
@@ -130,14 +137,31 @@ test('GitHub uses the exact reviewed test merge and a non-forced update', async 
     ].map(job => ({ ...job, run_id: 102, status: 'completed', conclusion: 'success' })) });
     if (resource === 'git/commits/' + A) return Response.json({ sha: A, tree: { sha: T }, parents: [] });
     if (resource === 'git/commits/' + C) return Response.json({ sha: C, tree: { sha: targetTree }, parents: [{ sha: B }, { sha: A }] });
+    if (resource === 'actions/artifacts') {
+      assert.equal(url.searchParams.get('name'), 'checked-tree-' + T);
+      return Response.json({ artifacts: [
+        { name: 'checked-tree-' + T, expired: false, workflow_run: { id: 103 } },
+        { name: 'checked-tree-' + T, expired, workflow_run: { id: 102 } },
+      ] });
+    }
+    if (resource === 'commits/' + C + '/check-runs') {
+      assert.equal(new Headers(init?.headers).has('authorization'), false);
+      return Response.json({ check_runs: [{
+        id: 20, name: 'Workers Builds: arkpedia', head_sha: C, app: { id: 85455 }, status: 'completed', conclusion: 'success',
+      }] });
+    }
     assert.equal(resource, 'git/refs/heads/main');
     assert.equal(init?.method, 'PATCH');
+    assert.equal(new Headers(init?.headers).get('authorization'), 'Bearer test-token');
     assert.deepEqual(JSON.parse(String(init?.body)), { sha: C, force: false });
     writes++;
     return Response.json({ object: { sha: C } });
   };
   const gateway = releaseGateway('test-token', fetcher);
-  assert.deepEqual(await gateway.review(172, ['/pulls']), { candidate, target: C });
+  assert.deepEqual(await gateway.review(172, ['/pulls']), { candidate, target: C, reusableCheck: true });
+  expired = true;
+  assert.equal((await gateway.review(172, ['/pulls'])).reusableCheck, false);
+  assert.equal(await gateway.deployment(C), 'success');
   targetTree = B;
   await assert.rejects(gateway.review(172, ['/pulls']), /merge tree differs/);
   assert.equal(writes, 0);

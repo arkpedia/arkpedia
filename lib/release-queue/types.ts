@@ -22,6 +22,7 @@ export interface ReleaseEntry extends ReleaseCandidate {
 export interface ReleaseQueueData {
   entries: ReleaseEntry[];
   previewSource: string | null;
+  readySource: string | null;
   publicationEnabled: boolean;
 }
 

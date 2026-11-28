@@ -8,6 +8,10 @@ example, `/pull-planner` and `/schedule?view=calendar`). Each candidate has Live
 links. Preview can hold one checked source at a time. The queue shows when the source
 to review has been replaced.
 
+Publish appears once the current Preview has an unexpired full Check artifact for
+the exact merge tree against current main. Main can then reuse that Check, and its
+normal production build and health checks still run.
+
 The editor can add, preview, and save an optional update note. Marking it as a major
 update also makes it eligible for the public pop-up after publication. The note stays
 in the private release queue until the expected production commit and fingerprint are
@@ -27,8 +31,9 @@ Production activation is a separate maintainer-approved rollout:
 1. Apply `0034_release_queue.sql` to the correct environment database after its usual
    recovery check. Never copy the production account database or credentials to Preview.
 2. Configure the optional server-only `ARKPEDIA_RELEASE_QUEUE_GITHUB_TOKEN` using the
-   approved production secret handoff. It needs pull-request, Actions and Checks read access
-   and permission to advance the canonical repository's main ref. Keep repository
+   approved production secret handoff. A fine-grained token for `arkpedia/arkpedia`
+   needs Pull requests and Actions read access and Contents read and write. Cloudflare's
+   public GitHub build check is read without a token. Keep repository
    protection rules in force. Without this credential, production Publish is disabled.
 3. Make Admin publication the normal merge path for queued candidates. Keep the
    current checked-main Workers Builds owner and its deployment validation in place.

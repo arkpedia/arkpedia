@@ -14,11 +14,15 @@ const sample: ReleaseQueueData = {
     note: null, state: 'queued', target: null, revision: 1,
   }],
   previewSource: source,
+  readySource: source,
   publicationEnabled: true,
 };
 
 function readDemo(): ReleaseQueueData {
-  try { return JSON.parse(sessionStorage.getItem(key) ?? 'null') ?? sample; }
+  try {
+    const data: ReleaseQueueData = JSON.parse(sessionStorage.getItem(key) ?? 'null') ?? sample;
+    return { ...data, readySource: data.previewSource };
+  }
   catch { return sample; }
 }
 
@@ -31,7 +35,7 @@ const client: ReleaseQueueClient = {
         throw Error('That sample PR is already queued. Choose a different number.');
       }
       const previewSource = command.pullRequest.toString(16).padStart(40, '0');
-      const next: ReleaseQueueData = { ...data, previewSource, entries: [{
+      const next: ReleaseQueueData = { ...data, previewSource, readySource: previewSource, entries: [{
         ...sample.entries[0], source: previewSource, pullRequest: command.pullRequest,
         title: `Sample release #${command.pullRequest}`, paths: command.paths,
       }, ...data.entries] };
