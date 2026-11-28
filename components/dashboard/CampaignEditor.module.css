@@ -22,7 +22,7 @@
 .details summary { cursor: pointer; }
 .detailsGrid { grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr)); margin-block: 12px; align-items: start; }
 .tabStrip { box-sizing: border-box; max-width: var(--frame-max); margin-inline: auto; padding-inline: var(--page-gutter); }
-.campaignTabs { margin-block-start: var(--heading-gap); }
+.subTabs { margin-block-start: var(--heading-gap); }
 .maintenanceBar { display: flex; align-items: center; gap: var(--heading-gap); flex-wrap: wrap; }
 .maintenanceBar h2 { margin: 0; }
 .pageList { padding: 0; margin-block: var(--heading-gap); list-style: none; }

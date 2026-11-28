@@ -4,6 +4,7 @@ import { useState } from 'react';
 import PageMeta from '@/components/layout/PageMeta';
 import CampaignDashboard from '@/components/dashboard/CampaignDashboard';
 import { DashboardRequest } from '@/components/dashboard/DashboardRequest';
+import { releaseQueueDemo } from '@/components/dashboard/releaseQueueDemo';
 import type { Catalog } from '@/components/dashboard/CampaignEditor';
 import type { SponsorCampaign } from '@/lib/sponsors/campaigns';
 import type { UpdateContent, UpdateDraft } from '@/lib/site-updates/types';
@@ -56,8 +57,8 @@ export default function AdminPreview() {
   const { query } = useRouter();
   const [request] = useState(createSampleRequest);
   return <DashboardRequest.Provider value={request}>
-    <PageMeta title="Admin Preview" description="Review the sample campaign tools and site update editor." path="/admin-preview" noindex />
-    <CampaignDashboard catalog={catalog} historyId={query.history === campaign.id ? campaign.id : undefined} sample />
+    <PageMeta title="Admin Preview" description="Review the sample campaign tools, release queue, and announcements." path="/admin-preview" noindex />
+    <CampaignDashboard catalog={catalog} historyId={query.history === campaign.id ? campaign.id : undefined} sample sampleReleases={releaseQueueDemo} />
   </DashboardRequest.Provider>;
 }
 

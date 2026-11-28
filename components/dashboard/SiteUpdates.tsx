@@ -36,7 +36,7 @@ function contentOf(update: UpdateDraft): UpdateContent {
   return { title: update.title, body: update.body, major: update.major, images: update.images };
 }
 
-export default function SiteUpdates() {
+export default function SiteUpdates({ active }: { active: boolean }) {
   const fetch = useDashboardRequest();
   const [queue, setQueue] = useState<UpdateListItem[] | null>(null);
   const [saved, setSaved] = useState<UpdateDraft | null>(null);
@@ -54,13 +54,14 @@ export default function SiteUpdates() {
   const complete = !!content.title.trim() && !!content.body.trim() && content.images.every(image => !!image.alt.trim());
 
   useEffect(() => {
+    if (!active) return;
     const controller = new AbortController();
     void readUpdateResponse<UpdateListItem[]>(fetch('/api/dashboard/site-updates', { cache: 'no-store', signal: controller.signal }))
       .then(setQueue).catch((cause: unknown) => {
         if (!controller.signal.aborted) setError(cause instanceof Error ? cause.message : 'The queue could not be loaded.');
       });
     return () => controller.abort();
-  }, [attempt, fetch]);
+  }, [active, attempt, fetch]);
 
   useEffect(() => {
     if (locked && message) editorTitle.current?.focus();
@@ -155,7 +156,7 @@ export default function SiteUpdates() {
     </li>)}</ul>;
   }
 
-  return <section className={styles.workspace} aria-label="Site updates">
+  return <section className={styles.workspace} aria-label="Announcements">
     {error && <p role="alert" className="notice notice-danger">{error}</p>}
     {queue ? <div className={editing ? styles.editorLayout : undefined}>
       <div className={styles.queue}>

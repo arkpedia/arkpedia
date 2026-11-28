@@ -99,12 +99,16 @@ test.describe('first visit', () => {
 });
 
 test('the draft queue publishes only the update confirmed by the editor', async ({ page }, info) => {
+  if (info.project.name === 'mobile') await page.setViewportSize({ width: 360, height: 780 });
   const original: UpdateDraft = {
     id: 'announcement-waiting', title: 'Announcement waiting for review', body: 'This update stays queued.',
     major: true, images: [], revision: 1, publishedAt: null,
   };
   const rows = new Map([[original.id, original]]);
   await page.route('**/_next/data/**/dashboard/campaigns.json*', route => route.fulfill({ json: { pageProps: { catalog: null }, __N_SSP: true } }));
+  await page.route('**/api/dashboard/releases', route => route.fulfill({
+    json: { entries: [], previewSource: null, readySource: null, publicationEnabled: false },
+  }));
   await page.route('**/api/dashboard/site-updates*', route => {
     const id = new URL(route.request().url()).searchParams.get('id');
     if (route.request().method() === 'GET') return route.fulfill({ json: id ? rows.get(id) : [...rows.values()] });
@@ -120,13 +124,25 @@ test('the draft queue publishes only the update confirmed by the editor', async 
     return route.fulfill({ json: [...rows.values()].filter(row => row.publishedAt !== null && (!latest || row.major)) });
   });
 
-  const openEditor = () => page.evaluate(() => (window as unknown as {
+  const openDashboard = (query: string) => page.evaluate(query => (window as unknown as {
     next: { router: { push: (path: string) => Promise<void> } };
-  }).next.router.push('/dashboard/campaigns?tab=updates'));
+  }).next.router.push('/dashboard/campaigns?' + query), query);
   const whatsNew = () => Promise.all([page.waitForResponse('**/api/site-updates'), page.goto('/whats-new')]);
   await page.goto('/game-modes');
   await setTheme(page, info.project.name === 'mobile' ? 'light' : 'dark');
-  await openEditor();
+  await openDashboard('tab=releases');
+  const sections = page.getByRole('tablist', { name: 'Admin sections' });
+  const releaseViews = page.getByRole('tablist', { name: 'Release views' });
+  const releaseQueueTab = releaseViews.getByRole('tab', { name: 'Queue', exact: true });
+  const announcements = releaseViews.getByRole('tab', { name: 'Announcements', exact: true });
+  await expect(sections.getByRole('tab', { name: 'Releases', exact: true })).toHaveAttribute('aria-selected', 'true');
+  await expect(sections.getByRole('tab', { name: 'Site updates', exact: true })).toHaveCount(0);
+  await expect(releaseQueueTab).toHaveAttribute('aria-selected', 'true');
+  await releaseQueueTab.focus();
+  await releaseQueueTab.press('ArrowRight');
+  await expect(announcements).toBeFocused();
+  await expect(announcements).toHaveAttribute('aria-selected', 'true');
+  await expect(page).toHaveURL(/tab=releases&view=announcements$/);
   const queue = page.getByRole('region', { name: 'Draft queue' });
   const title = 'A routine update for the planner';
   await expect(queue.getByRole('button', { name: original.title })).toBeVisible();
@@ -134,13 +150,19 @@ test('the draft queue publishes only the update confirmed by the editor', async 
   await queue.getByRole('button', { name: 'New draft', exact: true }).click();
   await page.getByRole('textbox', { name: 'Title' }).fill(title);
   await page.getByRole('textbox', { name: 'Update notes' }).fill('A small planner improvement.');
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await releaseQueueTab.click();
+  await expect(page.getByRole('heading', { name: 'Release queue', exact: true })).toBeVisible();
+  await announcements.click();
+  await expect(page.getByRole('textbox', { name: 'Title' })).toHaveValue(title);
   await page.getByRole('button', { name: 'Save draft', exact: true }).click();
   await expect(queue.getByRole('button', { name: title })).toHaveAttribute('aria-pressed', 'true');
 
   await whatsNew();
   await expect(page.getByRole('heading', { name: title })).toHaveCount(0);
   await expect(page.getByRole('dialog', { name: original.title })).toHaveCount(0);
-  await openEditor();
+  await openDashboard('tab=updates');
+  await expect(announcements).toHaveAttribute('aria-selected', 'true');
   const saved = queue.getByRole('button', { name: title });
   await saved.focus();
   await saved.press('Enter');
