@@ -497,8 +497,10 @@ Masses’ Travels rerun notice 5045 closes stages on November 15, 2026, but sell
 Caelum Aeternum until November 19. Both begin November 5 at 08:00 server time.
 
 Pages read the same immutable release, not separate live upstream feeds. The
-home carousel and `/skins` both use `computeSkinCountdowns` / `availableSkins`;
-`/skin-planner` reconciles collections against the same regional shop inventory.
+home carousel and `/skins` both use `computeSkinCountdowns` / `availableSkins`.
+The Skin Planner and Pull Planner wishlist use that same regional shop inventory
+to pick up announced Global sales, including sales without a CN rotation or a
+curated shop entry. Only outfits with an Originite Prime price join the plan.
 `lib/time/servers.mjs` owns server offsets/resets, and `contentPageClock` with
 `useReaderClock` decides live/upcoming state at request/view time. Export guards
 reject frozen countdown fields. Preview consumes the same `live` content pointer

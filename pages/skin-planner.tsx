@@ -1,6 +1,6 @@
 import { useRegionalTime } from '@/lib/time/useRegionalTime';
 import PageMeta from '@/components/layout/PageMeta';
-import { regionalSkinCollections } from '@/lib/time/regional';
+import { regionalSkinCollections, withAnnouncedSkinShops } from '@/lib/time/regional';
 import { serverCalendarTime } from '@/lib/time/servers.mjs';
 import { withPlannerDynamicArt, loadDynamicArtIndex } from '@/lib/skins/dynamicArtFallback';
 import { skinDynamicArt } from '@/lib/skins/dynamicArt';
@@ -30,8 +30,11 @@ interface Props {
 }
 
 export default function SkinPlannerPage({ catalogue, collections: globalCollections, now }: Props) {
-  const { server, schedule } = useRegionalTime();
-  const collections = useMemo(() => regionalSkinCollections(globalCollections, schedule, server), [globalCollections, schedule, server]);
+  const { server, schedule, globalSchedule } = useRegionalTime();
+  const collections = useMemo(() => {
+    const shops = withAnnouncedSkinShops(globalCollections, catalogue, globalSchedule);
+    return server === 'en' ? shops : regionalSkinCollections(shops, schedule, server);
+  }, [globalCollections, catalogue, globalSchedule, schedule, server]);
   const clock = useReaderClock(now, { tickMs: 1000, onFocus: true });
   const today = serverCalendarTime(new Date(clock), server).toISOString().slice(0, 10);
   const savedKeys = useMemo(() => skinPlanKeys(catalogue), [catalogue]);

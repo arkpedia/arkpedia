@@ -1,6 +1,6 @@
 import { useRegionalTime } from '@/lib/time/useRegionalTime';
 import PageMeta from '@/components/layout/PageMeta';
-import { regionalPullBanners, regionalPullEvents, regionalSkinCollections, withLightRegionalTable } from '@/lib/time/regional';
+import { regionalPullBanners, regionalPullEvents, regionalSkinCollections, withAnnouncedSkinShops, withLightRegionalTable } from '@/lib/time/regional';
 import { planningWindowEnd, planningDayEnd, planningDeadline } from '@/lib/pulls/planningWindows';
 import { useReaderValue } from '@/lib/time/readerClock';
 import { serverCalendarTime, serverOffsetLabel } from '@/lib/time/servers.mjs';
@@ -137,10 +137,13 @@ export default function PullsPage({ scheduledEvents: globalEvents, scheduledBann
      reserves counts the outfits sold for OP that the imported account does not own yet. */
   const savedSkinKeys = useMemo(() => skinPlanKeys(skinCatalogue), [skinCatalogue]);
   const account = useAccount();
-  const { server, schedule } = useRegionalTime();
+  const { server, schedule, globalSchedule } = useRegionalTime();
   const scheduledBanners = useMemo(() => regionalPullBanners(globalBanners, schedule, server), [globalBanners, schedule, server]);
   const scheduledEvents = useMemo(() => regionalPullEvents(globalEvents, schedule, server), [globalEvents, schedule, server]);
-  const skinCollections = useMemo(() => regionalSkinCollections(globalCollections, schedule, server), [globalCollections, schedule, server]);
+  const skinCollections = useMemo(() => {
+    const shops = withAnnouncedSkinShops(globalCollections, skinCatalogue, globalSchedule);
+    return server === 'en' ? shops : regionalSkinCollections(shops, schedule, server);
+  }, [globalCollections, skinCatalogue, globalSchedule, schedule, server]);
   /* The Past events ticks, shared with the OP Tracker (lib/pulls/usePastRewards.ts): ticked
      once per import from its cleared stages, the reader's to change after that. */
   // The Reward Tracker's stage toggles are its own; the forecast counts every stage.
