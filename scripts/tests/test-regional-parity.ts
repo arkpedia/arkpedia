@@ -24,8 +24,9 @@ import { allFreeRewards } from '../../lib/pulls/freeRewards';
 import { getEventCalendar, loadGameEvents } from '../../lib/home/frontPageContent';
 import { getAllSkins } from '../../lib/skins/skins';
 import { getSkinWindows } from '../../lib/skins/skinAvailability';
-import { pullSkinCatalogue } from '../../lib/pulls/skins';
+import { pullSkinCatalogue, skinPurchasePlan } from '../../lib/pulls/skins';
 import { pullSkinCollections, skinReleaseDates } from '../../lib/pulls/skinCollections';
+import { openSkinCollections } from '../../lib/pulls/currentPlan';
 
 const table = regionalTable as unknown as RegionalSchedules;
 const SERVERS = ['jp', 'kr'] as const;
@@ -106,6 +107,29 @@ test("Global's own announced sale confirms the planner's CN-projected collection
   assert.deepEqual([confirmed.start, confirmed.end, confirmed.startAt, confirmed.endAt, confirmed.estimated, confirmed.sourceRegion, confirmed.source],
     ['2026-10-14', '2026-11-11', en.skinWindows[0].startAt, en.skinWindows[0].endAt, false, 'global', en.skinWindows[0].source]);
   assert.deepEqual(untouched, other, 'no Global post for it: the projection stands, still an estimate');
+});
+
+test('an official outfit shop reaches the planners without a CN rotation or a curated shop entry', () => {
+  const id = 'Vetochki / Scent of the Mist';
+  const outfit = { id, name: 'Scent of the Mist', operator: 'Vetochki', image: null, op: 18 };
+  const sale = {
+    event: 'Episode release', kind: 'shop' as const, label: 'New outfits', newRelease: true,
+    startAt: '2026-11-23T15:00:00.000Z', endAt: '2026-12-07T11:00:00.000Z',
+    skinIds: [id, id, 'Unknown price'], source: 'https://www.arknights.global/news/5162',
+  };
+  const oldShop = { id: 'old', name: 'Earlier shop', skinIds: [id], featuredIds: [],
+    start: '2026-06-01', end: '2026-06-14', estimated: false };
+  const en = { sources: {}, skinWindows: [sale, { ...sale, kind: 'draw' as const, skinIds: ['Draw-only outfit'] }] };
+  const catalogue = [outfit, { ...outfit, id: 'Draw-only outfit' }];
+  const shops = regional.withAnnouncedSkinShops([oldShop], catalogue, en);
+  assert.equal(shops.length, 2);
+  assert.deepEqual(shops[1].skinIds, [id]);
+  assert.deepEqual([shops[1].startAt, shops[1].endAt, shops[1].estimated, shops[1].source], [sale.startAt, sale.endAt, false, sale.source]);
+  assert.deepEqual(regional.withAnnouncedSkinShops(shops, catalogue, en), shops, 'an already represented notice does not add another shop');
+  const before = openSkinCollections(shops, '2026-12-07', Date.parse(sale.endAt) - 1);
+  assert.equal(skinPurchasePlan([outfit], before, 0).windows[0].cost, 18);
+  const after = openSkinCollections(shops, '2026-12-07', Date.parse(sale.endAt));
+  assert.deepEqual(skinPurchasePlan([outfit], after, 0).unscheduled, [outfit]);
 });
 
 test('no page drops a Global item its JP/KR schedule has no window for', () => {

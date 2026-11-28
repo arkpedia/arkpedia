@@ -7,6 +7,7 @@ import type { UpcomingBanner, PullEventReward } from '@/lib/pulls/pulls';
 import type { StageModeCard } from '@/lib/stages/stageTypes';
 import type { SkinWindow } from '@/lib/skins/skinAvailability';
 import type { SkinCollection } from '@/lib/pulls/skinCollections';
+import type { PlannedSkin } from '@/lib/pulls/skins';
 import { SERVER_TIME, serverWeekday } from './servers.mjs';
 import { eventReleaseTiming, isReleaseEstimate, preferRegionalWindow, sourcedTiming, type TimingEvidence } from './releaseTiming';
 
@@ -206,6 +207,53 @@ export function regionalSkinCollections(collections: readonly SkinCollection[], 
   });
 }
 
+/** Global announcements can introduce a sale with no curated window or CN projection.
+ * Share those OP shop entries across the planners before applying each server's dates. */
+export function withAnnouncedSkinShops(collections: readonly SkinCollection[], catalogue: readonly PlannedSkin[], schedule: RegionalSchedule | undefined): SkinCollection[] {
+  const confirmed = schedule?.skinWindows?.filter(sale => sale.kind === 'shop' && !sale.estimated
+    && Date.parse(sale.startAt) < Date.parse(sale.endAt)) ?? [];
+  const shops = regionalSkinCollections(collections, schedule, 'en');
+  if (!confirmed.length) return shops;
+  const paid = new Set(catalogue.filter(skin => skin.op > 0).map(skin => skin.id));
+
+  for (const sale of confirmed) {
+    const saleId = `announced / ${sale.event} / ${sale.startAt} / ${sale.endAt} / ${sale.label}`;
+    const start = regionalDate(sale.startAt, 'en');
+    const end = regionalDate(new Date(Date.parse(sale.endAt) - 1).toISOString(), 'en');
+    const skinIds = [...new Set(sale.skinIds)].filter(id => paid.has(id));
+    const sameWindow = shops.filter(shop => shop.startAt === sale.startAt && shop.endAt === sale.endAt);
+    const missing = skinIds.filter(id => !sameWindow.some(shop => shop.skinIds.includes(id)));
+    if (!missing.length) continue;
+
+    const matching = sameWindow.filter(shop => shop.id === saleId || shop.skinIds.some(id => skinIds.includes(id)));
+    if (matching.length === 1) {
+      const shop = matching[0];
+      shops[shops.indexOf(shop)] = {
+        ...shop, skinIds: [...shop.skinIds, ...missing],
+        featuredIds: sale.newRelease ? [...shop.featuredIds, ...missing] : shop.featuredIds,
+      };
+    } else {
+      shops.push({
+        id: saleId,
+        name: `${sale.event} · ${sale.label}`,
+        start, end, startAt: sale.startAt, endAt: sale.endAt, estimated: false,
+        skinIds: missing, featuredIds: sale.newRelease ? missing : [], source: sale.source, sourceRegion: 'global',
+        fashionReview: /fashion review/i.test(sale.label),
+      });
+    }
+    // A projection that overlaps the official sale must not offer the same outfit
+    // until a later estimated deadline. A separate future rotation stays eligible.
+    for (const [index, shop] of shops.entries()) {
+      if (!shop.estimated || shop.start > end || shop.end < start) continue;
+      shops[index] = {
+        ...shop, skinIds: shop.skinIds.filter(id => !missing.includes(id)),
+        featuredIds: shop.featuredIds.filter(id => !missing.includes(id)),
+      };
+    }
+  }
+  return shops.filter(shop => shop.skinIds.length);
+}
+
 const SALE_MATCH_DAYS = 28;
 /** The server's own sale of a Global window's outfits: the same kind, opening within four weeks
  *  of it, sharing at least half of the two inventories' outfits (by Jaccard), the best such. JP
@@ -213,13 +261,16 @@ const SALE_MATCH_DAYS = 28;
  *  name; the overlap rule keeps a 196-outfit Fashion Review off a 23-outfit returning shop. */
 function regionalSale(window: Pick<SkinWindow, 'kind' | 'startAt' | 'endAt' | 'skinIds'>, schedule: RegionalSchedule | undefined): SkinWindow | undefined {
   const start = Date.parse(window.startAt), ids = new Set(window.skinIds);
-  let best: SkinWindow | undefined, bestScore = 0.5;
+  let best: SkinWindow | undefined, bestScore = 0.5, bestDistance = Infinity;
   for (const sale of schedule?.skinWindows ?? []) {
-    if (sale.kind !== window.kind || !(Math.abs(Date.parse(sale.startAt) - start) <= SALE_MATCH_DAYS * 86_400_000)) continue;
+    const distance = Math.abs(Date.parse(sale.startAt) - start);
+    if (sale.kind !== window.kind || !(distance <= SALE_MATCH_DAYS * 86_400_000)) continue;
     const saleIds = new Set(sale.skinIds);
     const shared = [...saleIds].filter(id => ids.has(id)).length;
     const score = shared / (ids.size + saleIds.size - shared);
-    if (score > bestScore || score === bestScore && !best) { best = sale; bestScore = score; }
+    if (score > bestScore || score === bestScore && distance < bestDistance) {
+      best = sale; bestScore = score; bestDistance = distance;
+    }
   }
   return best;
 }
