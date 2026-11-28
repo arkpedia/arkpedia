@@ -148,7 +148,7 @@ export function sponsorCampaignsFor(table: SponsorCampaignTable, slot: SponsorSl
     ordered = rotationTurns([...byId.keys()], turns).filter(turn => turn.enabled).map(turn => byId.get(turn.id)!);
   }
   return ordered.map(campaign => {
-    const art = slot === 'home' ? campaign.mainArtwork : (mobile || slot === 'support') ? campaign.mobileArtwork : undefined;
+    const art = slot === 'home' ? campaign.mainArtwork : mobile ? campaign.mobileArtwork : undefined;
     if (!art) return campaign;
     const { image, width, height, alt } = art;
     return { ...campaign, image, width, height, alt };
